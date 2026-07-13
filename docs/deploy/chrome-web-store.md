@@ -20,6 +20,14 @@
 
 Abra **Actions → Build Chrome Web Store package → Run workflow**. Ao concluir, baixe o artifact `chrome-web-store-package`. O artifact expira em 14 dias e não é commitado.
 
+No painel da Chrome Web Store, informe como URL da política de privacidade:
+
+```text
+https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/privacy-policy/
+```
+
+As declarações da aba **Privacy practices** devem permanecer idênticas ao comportamento da extensão e ao texto publicado. Revise especialmente e-mail de conta, autenticação, conteúdo/URLs processados localmente, pagamentos via Stripe e permissões de host sob demanda.
+
 O workflow da landing page também gera e verifica o ZIP, mas o envia ao bucket privado por `publish-release`. Configure `SUPABASE_RELEASE_UPLOAD_URL` como variável do repositório e `SUPABASE_RELEASE_UPLOAD_SECRET` como secret. O GitHub Pages recebe somente o checksum; usuários recebem um link temporário após `download-release` confirmar trial ou assinatura no servidor.
 
 ## Regras de versão e rollback

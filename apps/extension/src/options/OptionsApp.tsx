@@ -95,7 +95,7 @@ export function OptionsApp() {
         </form>
 
         <section id="privacy" className="qtsCaptureCard">
-          <div><span className={`qtsCaptureDot ${captureEnabled ? "isLive" : ""}`}><FiActivity /></span><div><h2>Network Observatory</h2><p>Live interception is intentionally disabled in this foundation cut.</p></div></div>
+          <div><span className={`qtsCaptureDot ${captureEnabled ? "isLive" : ""}`}><FiActivity /></span><div><h2>Network Observatory</h2><p>Live interception is intentionally disabled in this foundation cut. <a href="https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/privacy-policy/" target="_blank" rel="noreferrer">Política de Privacidade</a></p></div></div>
           <button type="button" aria-pressed={captureEnabled} onClick={() => setCaptureEnabled((value) => !value)}><span />{captureEnabled ? "Preview active" : "Preview capture"}</button>
         </section>
 
