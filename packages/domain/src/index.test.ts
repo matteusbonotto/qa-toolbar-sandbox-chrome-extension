@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchEnvironment, redactValue, workspaceImportSchema, type Environment } from ".";
+import { matchEnvironment, monthlyPlanCatalog, redactValue, workspaceImportSchema, type Environment } from ".";
 
 const qaEnvironment: Environment = {
   id: "d5c9b84c-0564-4fc8-87ad-12409180403b",
@@ -8,6 +8,15 @@ const qaEnvironment: Environment = {
   riskLevel: "medium",
   urlPatterns: ["qa.example.test"],
 };
+
+describe("monthlyPlanCatalog", () => {
+  it("keeps the public paid catalog monthly", () => {
+    expect(monthlyPlanCatalog).toEqual({
+      pro: { displayPrice: "R$ 29,90", priceKey: "pro_monthly" },
+      scale: { displayPrice: "R$ 59,90", priceKey: "scale_monthly" },
+    });
+  });
+});
 
 describe("redactValue", () => {
   it("masks nested secrets without changing ordinary fields", () => {

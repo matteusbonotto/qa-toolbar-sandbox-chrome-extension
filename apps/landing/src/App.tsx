@@ -1,4 +1,5 @@
 import { useEffect, useState, type CSSProperties } from "react";
+import { monthlyPlanCatalog } from "@qts/domain";
 import {
   FiActivity, FiArrowRight, FiCheck, FiChevronDown, FiCode, FiCpu,
   FiDownload, FiEye, FiGitBranch, FiHardDrive, FiLayers, FiLock,
@@ -200,6 +201,15 @@ export function App() {
     if (!commerce) return;
     void commerce.accessToken().then((token) => setAuthenticated(Boolean(token))).catch(() => undefined);
     const query = new URLSearchParams(window.location.search);
+    if (query.get("auth") === "confirmed") {
+      setAuthMode("login");
+      setAccessOpen(true);
+      setAccessMessage("E-mail confirmado com sucesso. Entre com sua senha para continuar.");
+      query.delete("auth");
+      const cleanQuery = query.toString();
+      window.history.replaceState(null, "", `${window.location.pathname}${cleanQuery ? `?${cleanQuery}` : ""}`);
+      return;
+    }
     if (query.get("checkout") === "cancel") {
       setAccessOpen(true);
       setAccessMessage("Checkout cancelado. Nenhuma cobrança foi confirmada.");
@@ -251,7 +261,7 @@ export function App() {
       <main>
         <section className="hero container" id="inicio">
           <div className="hero-copy" data-reveal>
-            <div className="eyebrow"><span className="pulse-dot" /> Early Access · v0.1.0 · Feito de QA para Todos!</div>
+            <div className="eyebrow"><span className="pulse-dot" /> Early Access · v0.1.2 · Feito de QA para Todos!</div>
             <h1>Seu laboratório de QA, <span>direto no navegador.</span></h1>
             <p className="hero-lead">Investigue interfaces com mais contexto e menos troca de ferramenta. Uma toolbar rápida, organizada e construída para evoluir com o seu fluxo. Feito de QA para QA — ou melhor, de QA para Todos!</p>
             <div className="hero-actions">
@@ -303,8 +313,8 @@ export function App() {
           <div className="section-heading" data-reveal><span className="kicker">Acesso antecipado</span><h2>Comece livre. Evolua quando fizer sentido.</h2></div>
           <div className="pricing-grid pricing-three" data-reveal>
             <article className="price-card"><span>Starter</span><h3>Grátis</h3><p>30 dias de Full Access; depois, o essencial continua disponível.</p><ul><li><FiCheck /> 1 domínio e 1 cliente</li><li><FiCheck /> Screenshot e Pass/Fail</li><li><FiCheck /> Sem cartão no trial</li></ul><button className="button button-ghost" onClick={() => { setAuthMode("signup"); requestDownload(); }}>Começar 30 dias</button></article>
-            <article className="price-card featured"><span className="soon">Recomendado</span><span>Pro</span><h3>R$ 29,90 <small>/ mês</small></h3><p>Para profissionais e pequenos times que precisam manter ritmo.</p><ul><li><FiCheck /> 10 domínios e 25 clientes</li><li><FiCheck /> Gravação, anotações e inspectors</li><li><FiCheck /> Anual com 2 meses grátis</li></ul><button className="button button-primary" disabled={accessBusy} onClick={() => choosePlan("pro_monthly")}>{accessBusy ? "Abrindo..." : "Contratar Pro"}</button></article>
-            <article className="price-card"><span>Scale · Full Access</span><h3>R$ 59,90 <small>/ mês</small></h3><p>Para consultorias, operações e times em crescimento.</p><ul><li><FiCheck /> Escala sem limite prático</li><li><FiCheck /> HTTP Controls e histórico ampliado</li><li><FiCheck /> Prioridade em novidades</li></ul><button className="button button-ghost" disabled={accessBusy} onClick={() => choosePlan("scale_monthly")}>{accessBusy ? "Abrindo..." : "Contratar Scale"}</button></article>
+            <article className="price-card featured"><span className="soon">Recomendado</span><span>Pro</span><h3>{monthlyPlanCatalog.pro.displayPrice} <small>/ mês</small></h3><p>Para profissionais e pequenos times que precisam manter ritmo.</p><ul><li><FiCheck /> 10 domínios e 25 clientes</li><li><FiCheck /> Gravação, anotações e inspectors</li><li><FiCheck /> Cobrança mensal, sem compromisso anual</li></ul><button className="button button-primary" disabled={accessBusy} onClick={() => choosePlan(monthlyPlanCatalog.pro.priceKey)}>{accessBusy ? "Abrindo..." : "Contratar Pro mensal"}</button></article>
+            <article className="price-card"><span>Scale · Full Access</span><h3>{monthlyPlanCatalog.scale.displayPrice} <small>/ mês</small></h3><p>Para consultorias, operações e times em crescimento.</p><ul><li><FiCheck /> Escala sem limite prático</li><li><FiCheck /> HTTP Controls e histórico ampliado</li><li><FiCheck /> Cobrança mensal, cancele quando quiser</li></ul><button className="button button-ghost" disabled={accessBusy} onClick={() => choosePlan(monthlyPlanCatalog.scale.priceKey)}>{accessBusy ? "Abrindo..." : "Contratar Scale mensal"}</button></article>
           </div>
           <div className="growth-offer" data-reveal><FiZap /><div><b>Oferta de lançamento: COMECE30</b><p>30% nos três primeiros meses. Indicações dão 20% ao novo cliente e crédito ao indicador após a primeira cobrança.</p></div></div>
         </section>

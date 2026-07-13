@@ -2,7 +2,7 @@ import { z } from "zod";
 
 const sessionSchema = z.object({
   accessToken: z.string().min(20).max(8192),
-  refreshToken: z.string().min(20).max(4096),
+  refreshToken: z.string().min(1).max(4096),
   expiresAt: z.number().int().positive(),
   user: z.object({ id: z.string().uuid(), email: z.string().email().optional() }),
 }).strict();
