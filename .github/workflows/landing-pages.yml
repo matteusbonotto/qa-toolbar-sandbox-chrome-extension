@@ -22,6 +22,12 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      WXT_PUBLIC_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
+      WXT_PUBLIC_SUPABASE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      WXT_PUBLIC_STRIPE_KEY: ${{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-node@v6
@@ -29,17 +35,31 @@ jobs:
           node-version: 20
           cache: npm
       - run: npm ci
+      - name: Require browser-safe commerce configuration
+        run: |
+          test -n "$VITE_SUPABASE_URL"
+          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
       - run: npm run typecheck
       - run: npm run test
       - run: npm run zip
-      - name: Place the current package in the landing download
+      - run: npm run security:bundle
+      - name: Publish the current package to protected storage
+        env:
+          RELEASE_UPLOAD_URL: ${{ vars.SUPABASE_RELEASE_UPLOAD_URL }}
+          RELEASE_UPLOAD_SECRET: ${{ secrets.SUPABASE_RELEASE_UPLOAD_SECRET }}
         run: |
-          mkdir -p apps/landing/public/downloads
           ZIP_PATH="$(find apps/extension/.output -maxdepth 1 -name '*-chrome.zip' -print -quit)"
           test -n "$ZIP_PATH"
-          cp "$ZIP_PATH" apps/landing/public/downloads/qa-toolbar-sandbox-chrome.zip
-          sha256sum apps/landing/public/downloads/qa-toolbar-sandbox-chrome.zip > apps/landing/public/downloads/qa-toolbar-sandbox-chrome.zip.sha256
-      - run: npm run security:bundle
+          test -n "$RELEASE_UPLOAD_URL"
+          test -n "$RELEASE_UPLOAD_SECRET"
+          mkdir -p apps/landing/public/downloads
+          sha256sum "$ZIP_PATH" | sed 's|  .*|  qa-toolbar-sandbox-chrome.zip|' > apps/landing/public/downloads/qa-toolbar-sandbox-chrome.zip.sha256
+          curl --fail --silent --show-error \
+            --request POST \
+            --header "x-release-upload-secret: $RELEASE_UPLOAD_SECRET" \
+            --header "content-type: application/zip" \
+            --data-binary "@$ZIP_PATH" \
+            "$RELEASE_UPLOAD_URL"
       - uses: actions/configure-pages@v5
       - name: Build landing with the repository base path
         run: npm run build -w @qts/landing -- --base "/${{ github.event.repository.name }}/"

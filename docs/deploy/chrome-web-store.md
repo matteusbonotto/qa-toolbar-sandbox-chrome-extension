@@ -20,6 +20,8 @@
 
 Abra **Actions → Build Chrome Web Store package → Run workflow**. Ao concluir, baixe o artifact `chrome-web-store-package`. O artifact expira em 14 dias e não é commitado.
 
+O workflow da landing page também gera e verifica o ZIP, mas o envia ao bucket privado por `publish-release`. Configure `SUPABASE_RELEASE_UPLOAD_URL` como variável do repositório e `SUPABASE_RELEASE_UPLOAD_SECRET` como secret. O GitHub Pages recebe somente o checksum; usuários recebem um link temporário após `download-release` confirmar trial ou assinatura no servidor.
+
 ## Regras de versão e rollback
 
 - A Chrome Web Store só aceita uma versão maior do que a já publicada.

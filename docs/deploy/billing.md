@@ -56,6 +56,8 @@ Subscribe only to `checkout.session.completed`, `customer.subscription.created`,
 | `create-checkout` | Bearer JWT | `{ priceKey, requestId, referralCode? }` |
 | `create-customer-portal` | Bearer JWT | `{ requestId }` |
 | `billing-status` | Bearer JWT | `{ installationId }` |
+| `download-release` | Bearer JWT | `{}`; returns a 60-second signed URL only for an active grant/subscription |
+| `publish-release` | Dedicated upload secret | ZIP body; writes only the fixed private release object |
 | `stripe-webhook` | Stripe signature | Raw signed body |
 | `keep-alive` | Dedicated header secret | `{}` |
 
@@ -66,3 +68,5 @@ No system can honestly guarantee zero invasions. This implementation uses defens
 `auth-sign-up` records versioned terms acceptance, starts one non-renewable 30-day Scale grant and creates a referral code. When the grant expires, `billing-status` resolves an active paid subscription or falls back to Starter. A valid referral gives the buyer 20% off for three months. Only `invoice.paid` may qualify the referral and reward its owner, preventing rewards for abandoned checkout sessions.
 
 When a user chooses Pro or Scale with more than 48 hours left in the evaluation, Checkout collects the payment method and schedules the first charge for `trial_ends_at`. Near or after expiry, the subscription starts immediately. This avoids charging a customer while the promised evaluation is still running.
+
+The landing page never treats a checkout return as proof of payment. It polls `billing-status`, then requests `download-release`. The ZIP lives in the private `extension-releases` bucket and is exposed only through a one-minute signed URL. GitHub Pages publishes the checksum and demo workspace, not the ZIP itself.
