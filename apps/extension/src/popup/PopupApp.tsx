@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { monthlyPlanCatalog, type MonthlyPriceKey } from "@qts/domain";
 import { FiCheck, FiCreditCard, FiExternalLink, FiGift, FiGlobe, FiLock, FiLogOut, FiSettings, FiStar, FiUser, FiZap } from "react-icons/fi";
-import logo192 from "../../../landing/src/assets/images/logo-preto.png";
 import { createAuthApi, createBillingApi } from "../services/runtimeConfig";
 import { refreshEntitlements, type EntitlementCache } from "../services/entitlements";
+import { hostPermission, hostnameMatches, normalizeHostnames } from "../services/workspace";
 
 type Tab = "setup" | "plans" | "account";
 type PlanCard = {
@@ -35,7 +35,9 @@ export function PopupApp() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [signedInEmail, setSignedInEmail] = useState("");
   const [entitlements, setEntitlements] = useState<EntitlementCache | null>(null);
+  const logoUrl = browser.runtime.getURL("/qa-sandbox-logo.svg");
 
   useEffect(() => {
     void browser.storage.local.get("qtsSetup").then(({ qtsSetup }) => {
@@ -46,21 +48,23 @@ export function PopupApp() {
       if (setup?.environmentName) setEnvironmentName(setup.environmentName);
     });
     try {
-      void createAuthApi().accessToken().then(async (token) => {
-        setSignedIn(Boolean(token));
-        if (token) setEntitlements(await refreshEntitlements(token));
+      void createAuthApi().session().then(async (session) => {
+        setSignedIn(Boolean(session));
+        setSignedInEmail(session?.user.email ?? "");
+        if (session) setEntitlements(await refreshEntitlements(session.accessToken));
       }).catch(() => undefined);
     } catch { /* shown when used */ }
   }, []);
 
   const saveSetup = async () => {
-    const domains = [...new Set(domain.split(/[\s,;]+/).map((value) => value.trim().toLowerCase()).filter(Boolean))];
+    setMessage("");
+    const domains = normalizeHostnames(domain);
     const maximum = Number(entitlements?.features["domains.maximum"] ?? 1);
-    if (projectName.trim().length < 2 || !domains.length || domains.some((value) => !/^(localhost|(?:[a-z0-9-]+\.)*[a-z0-9-]+)$/i.test(value))) {
-      setMessage("Revise o nome e informe os domínios sem https:// ou caminhos."); return;
+    if (projectName.trim().length < 2 || !domains.length) {
+      setMessage("Revise o nome e informe ao menos uma URL ou domínio válido."); return;
     }
     if (domains.length > maximum) { setMessage(`Seu plano permite ${maximum} domínio${maximum === 1 ? "" : "s"}. Remova itens ou faça upgrade.`); return; }
-    const origins = domains.filter((value) => value !== "localhost" && value !== "127.0.0.1").map((value) => `*://${value}/*`);
+    const origins = domains.filter((value) => value !== "localhost" && value !== "127.0.0.1").map(hostPermission);
     if (origins.length && !await browser.permissions.request({ origins })) { setMessage("Permissão de domínio não concedida. Nada foi alterado."); return; }
     const registered = await browser.scripting.getRegisteredContentScripts();
     const oldIds = registered.filter((item) => item.id.startsWith("qts-domain-")).map((item) => item.id);
@@ -73,7 +77,16 @@ export function PopupApp() {
       runAt: "document_idle",
     })));
     await browser.storage.local.set({ qtsSetup: { projectName: projectName.trim(), domain: domains[0], domains, environmentName: environmentName.trim() || "Local" } });
-    setMessage("Configuração salva. Recarregue as abas autorizadas para exibir a toolbar.");
+    setDomain(domains.join(", "));
+    const tabs = await browser.tabs.query({});
+    const matchingTabs = tabs.filter((tab) => {
+      if (!tab.id || !tab.url) return false;
+      try { return hostnameMatches(new URL(tab.url).hostname, domains); } catch { return false; }
+    });
+    await Promise.all(matchingTabs.map((tab) => browser.tabs.reload(tab.id!)));
+    setMessage(matchingTabs.length
+      ? `Configuração salva. ${matchingTabs.length} aba${matchingTabs.length === 1 ? " foi recarregada" : "s foram recarregadas"}; a toolbar já deve aparecer.`
+      : "Configuração salva. Abra ou recarregue um dos sites autorizados para ver a toolbar.");
   };
 
   const authenticate = async () => {
@@ -85,10 +98,12 @@ export function PopupApp() {
         const result = await auth.signUp(email, password, true, referralCode.trim().toUpperCase() || undefined);
         if ("confirmationRequired" in result) { setMessage("Conta criada. Confirme o e-mail e depois faça login."); setMode("login"); return; }
       } else await auth.signIn(email, password);
-      setSignedIn(true);
-      const token = await auth.accessToken();
-      if (token) setEntitlements(await refreshEntitlements(token));
-      setMessage("Conta conectada. Seu acesso e limites foram sincronizados."); setTab("plans");
+      const session = await auth.session();
+      setSignedIn(Boolean(session));
+      setSignedInEmail(session?.user.email ?? email.trim());
+      if (session) setEntitlements(await refreshEntitlements(session.accessToken));
+      setPassword("");
+      setMessage("Conta conectada e sessão salva neste navegador."); setTab("setup");
     } catch (error) { setMessage(error instanceof Error ? error.message : "Não foi possível autenticar."); }
     finally { setBusy(false); }
   };
@@ -118,7 +133,7 @@ export function PopupApp() {
 
   return <main className="qtsControlCenter">
     <aside className="qtsControlNav">
-      <img src={logo192} width="192" height="192" alt="QA Sandbox Toolbar" />
+      <img src={logoUrl} width="192" height="192" alt="QA Sandbox Toolbar" />
       <nav><button className={tab === "setup" ? "isActive" : ""} onClick={() => setTab("setup")}><FiSettings /> Configuração</button><button className={tab === "plans" ? "isActive" : ""} onClick={() => setTab("plans")}><FiStar /> Planos</button><button className={tab === "account" ? "isActive" : ""} onClick={() => setTab("account")}><FiUser /> Minha conta</button></nav>
       <div className="qtsTrialBadge"><FiGift /><span><b>30 dias Full Access</b><small>Sem cartão · downgrade seguro</small></span></div>
     </aside>
@@ -130,7 +145,7 @@ export function PopupApp() {
 
       {tab === "plans" && <><div className="qtsCycle"><span>Planos mensais · cancele quando quiser</span></div><div className="qtsPlanGrid">{plans.map((plan) => <article className={plan.recommended ? "isRecommended" : ""} key={plan.key}>{plan.recommended && <em><FiStar /> Recomendado</em>}<h2>{plan.name}</h2><p>{plan.note}</p><strong>{plan.price} {plan.priceKey && <small>/mês</small>}</strong><ul>{plan.features.map((feature) => <li key={feature}><FiCheck /> {feature}</li>)}</ul>{plan.key === "free" ? <button onClick={() => setTab("account")}>Começar trial grátis</button> : <button className="qtsPrimary" disabled={busy} onClick={() => void checkout(plan.key)}>{busy ? "Abrindo..." : `Escolher ${plan.name} mensal`} <FiExternalLink /></button>}</article>)}</div><div className="qtsPromo"><FiGift /><span><b>Lançamento: COMECE30</b><small>30% de desconto nos três primeiros meses. O checkout também aceita códigos de indicação.</small></span></div></>}
 
-      {tab === "account" && <div className="qtsAccountLayout"><section><div className="qtsAuthSwitch"><button className={mode === "signup" ? "isActive" : ""} onClick={() => setMode("signup")}>Criar conta</button><button className={mode === "login" ? "isActive" : ""} onClick={() => setMode("login")}>Entrar</button></div><label>E-mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === "signup" ? "Mínimo de 10 caracteres" : "Sua senha"} /></label>{mode === "signup" && <><label>Código de indicação <small>opcional</small><input value={referralCode} onChange={(event) => setReferralCode(event.target.value.toUpperCase())} placeholder="QTS-XXXXXXXX" /></label><label className="qtsTerms"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>Li e aceito os termos e a <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">Política de Privacidade</a>.</span></label></>}<button className="qtsPrimary" disabled={busy} onClick={() => void authenticate()}>{busy ? "Aguarde..." : mode === "signup" ? "Criar conta e ativar 30 dias" : "Entrar na minha conta"}</button></section><aside><FiZap /><h2>Indique e ganhe</h2><p>Seu indicado recebe 20% por três meses. Após a primeira cobrança confirmada, você recebe crédito equivalente a um mês Pro.</p><div><FiCreditCard /> Crédito aplicado na próxima fatura</div>{signedIn && <><button onClick={() => void portal()}>Gerenciar assinatura <FiExternalLink /></button><button className="qtsSignOut" onClick={() => void createAuthApi().signOut().then(() => setSignedIn(false))}><FiLogOut /> Sair</button></>}</aside></div>}
+      {tab === "account" && <div className="qtsAccountLayout"><section>{signedIn ? <div className="qtsSignedIn"><FiCheck /><span><small>SESSÃO ATIVA</small><strong>{signedInEmail || "Conta conectada"}</strong><p>Você continuará conectado ao fechar e reabrir o navegador.</p></span></div> : <><div className="qtsAuthSwitch"><button className={mode === "signup" ? "isActive" : ""} onClick={() => setMode("signup")}>Criar conta</button><button className={mode === "login" ? "isActive" : ""} onClick={() => setMode("login")}>Entrar</button></div><label>E-mail<input type="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Senha<input type="password" value={password} onChange={(event) => setPassword(event.target.value)} placeholder={mode === "signup" ? "Mínimo de 10 caracteres" : "Sua senha"} /></label>{mode === "signup" && <><label>Código de indicação <small>opcional</small><input value={referralCode} onChange={(event) => setReferralCode(event.target.value.toUpperCase())} placeholder="QTS-XXXXXXXX" /></label><label className="qtsTerms"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>Li e aceito os termos e a <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">Política de Privacidade</a>.</span></label></>}<button className="qtsPrimary" disabled={busy} onClick={() => void authenticate()}>{busy ? "Aguarde..." : mode === "signup" ? "Criar conta e ativar 30 dias" : "Entrar na minha conta"}</button></>}</section><aside><FiZap /><h2>Indique e ganhe</h2><p>Seu indicado recebe 20% por três meses. Após a primeira cobrança confirmada, você recebe crédito equivalente a um mês Pro.</p><div><FiCreditCard /> Crédito aplicado na próxima fatura</div>{signedIn && <><button onClick={() => void portal()}>Gerenciar assinatura <FiExternalLink /></button><button className="qtsSignOut" onClick={() => void createAuthApi().signOut().then(() => { setSignedIn(false); setSignedInEmail(""); setEntitlements(null); })}><FiLogOut /> Sair</button></>}</aside></div>}
     </section>
   </main>;
 }

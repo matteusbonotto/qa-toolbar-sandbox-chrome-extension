@@ -151,6 +151,13 @@ Deno.serve(async (request) => {
     const eventObject = event.data.object as unknown as Record<string, unknown>;
     const customerId = typeof eventObject.customer === "string" ? eventObject.customer : null;
     const userId = await resolveUserId(customerId);
+    const invoicePaidAmount = event.type === "invoice.paid" && typeof eventObject.amount_paid === "number"
+      ? eventObject.amount_paid
+      : null;
+    const checkoutPaidAmount = event.type === "checkout.session.completed" && eventObject.payment_status === "paid" && typeof eventObject.amount_total === "number"
+      ? eventObject.amount_total
+      : null;
+    const paidAmount = invoicePaidAmount ?? checkoutPaidAmount;
     if (event.type === "invoice.paid" && userId && typeof eventObject.amount_paid === "number" && eventObject.amount_paid > 0) {
       await rewardReferral(userId);
     }
@@ -160,7 +167,7 @@ Deno.serve(async (request) => {
       provider_customer_id: customerId,
       provider_subscription_id: subscription?.id ?? null,
       event_type: event.type,
-      amount_minor: typeof eventObject.amount_paid === "number" ? eventObject.amount_paid : null,
+      amount_minor: paidAmount,
       currency: typeof eventObject.currency === "string" ? eventObject.currency : null,
     });
     await admin.from("webhook_events").update({ status: subscription || event.type.startsWith("invoice.") ? "processed" : "ignored", processed_at: new Date().toISOString() })

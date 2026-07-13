@@ -15,6 +15,7 @@ const confirmationSchema = z.object({
 
 const billingStatusSchema = z.object({
   plan: z.object({ key: z.string(), name: z.string() }),
+  paymentConfirmed: z.boolean(),
   subscription: z.object({
     status: z.string(),
     currentPeriodEnd: z.string().nullable(),
@@ -165,5 +166,5 @@ export function createLandingCommerce(): LandingCommerce | null {
 }
 
 export function hasReleaseAccess(status: BillingStatus): boolean {
-  return status.trial.active || status.subscription?.status === "active" || status.subscription?.status === "trialing";
+  return status.paymentConfirmed && status.subscription?.status === "active";
 }

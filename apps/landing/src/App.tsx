@@ -34,7 +34,7 @@ const faqs = [
   ["O ZIP vai em “Carregar sem compactação”?", "Não. Primeiro extraia o ZIP; depois selecione a pasta extraída que contém o arquivo manifest.json."],
   ["A extensão se atualiza sozinha?", "Não nesta forma de distribuição. Novas versões precisam ser baixadas e substituir a pasta anterior."],
   ["Quais sites funcionam agora?", "Este Early Access está habilitado para localhost e 127.0.0.1. Outros domínios serão liberados com consentimento explícito por site."],
-  ["Como o download é liberado?", "Você entra na sua conta e a LP consulta o backend. O ZIP só é iniciado quando o trial ou uma assinatura confirmada estiver ativo."],
+  ["Como o download é liberado?", "Você entra na sua conta, escolhe um plano mensal e conclui o Stripe Checkout. O ZIP só é iniciado depois que o webhook confirma uma cobrança paga e a assinatura ativa."],
 ];
 
 export function App() {
@@ -97,7 +97,7 @@ export function App() {
       setReleaseReady(allowed);
       setAccessOpen(true);
       if (!allowed) {
-        setAccessMessage("Pagamento ainda não confirmado. Escolha um plano para liberar o download.");
+        setAccessMessage("Pagamento ainda não confirmado pelo Stripe. Escolha um plano e conclua o checkout para liberar o download.");
         return false;
       }
       setAccessMessage(status.trial.active
@@ -149,6 +149,7 @@ export function App() {
 
   const choosePlan = (priceKey: PriceKey) => {
     setPendingPlan(priceKey);
+    setReleaseReady(false);
     void checkout(priceKey);
   };
 
@@ -306,7 +307,7 @@ export function App() {
         <section className="section container install-section" id="instalar">
           <div className="section-heading" data-reveal><span className="kicker">Instalação direta</span><h2>Do download ao primeiro teste em minutos.</h2><p>Sem loja e sem instalador opaco: você pode inspecionar a pasta e removê-la quando quiser.</p></div>
           <div className="steps">{installSteps.map(([number, title, text]) => <article className="step" data-reveal key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
-          <div className="install-callout" data-reveal><FiPackage /><div><b>Importante</b><p>O download é iniciado apenas após a LP confirmar seu trial ou assinatura. Depois, extraia o ZIP e escolha a pasta em que o <code>manifest.json</code> aparece na raiz. <a className="hash-link" href={checksumUrl} download>Ver SHA-256</a> · <a className="hash-link" href={mockWorkspaceUrl} download>Baixar dados mock</a></p></div><button className="button button-primary" onClick={requestDownload}><FiLock /> Verificar + baixar</button></div>
+          <div className="install-callout" data-reveal><FiPackage /><div><b>Importante</b><p>O download é iniciado somente após o webhook confirmar uma cobrança paga no Stripe e uma assinatura ativa. Depois, extraia o ZIP e escolha a pasta em que o <code>manifest.json</code> aparece na raiz. <a className="hash-link" href={checksumUrl} download>Ver SHA-256</a> · <a className="hash-link" href={mockWorkspaceUrl} download>Baixar dados mock</a></p></div><a className="button button-primary" href="#planos"><FiLock /> Escolher plano</a></div>
         </section>
 
         <section className="section container pricing-section" id="planos">
@@ -336,11 +337,11 @@ export function App() {
             <div className="auth-fields"><label>E-mail<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Senha<input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>{authMode === "signup" && <><p className="privacy-disclosure">Para criar a conta, enviamos e-mail, aceite, identificador da instalação e dados do plano ao Supabase. Pagamentos são processados pelo Stripe. Projetos, ambientes e domínios ficam no navegador por padrão.</p><label className="terms-check"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>Li e aceito a <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">Política de Privacidade</a>.</span></label></>}</div>
             <button className="button button-primary access-primary" disabled={accessBusy} onClick={() => void authenticate()}>{accessBusy ? "Aguarde..." : pendingPlan === "free" ? (authMode === "signup" ? "Criar conta e liberar trial" : "Entrar e verificar acesso") : "Continuar para o checkout"}</button>
           </> : <div className="modal-actions">
-            {releaseReady ? <button className="button button-primary" disabled={accessBusy} onClick={() => void downloadRelease()}><FiDownload /> {accessBusy ? "Preparando..." : "Baixar extensão"}</button> : pendingPlan !== "free" ? <button className="button button-primary" disabled={accessBusy} onClick={() => void checkout(pendingPlan)}>{accessBusy ? "Abrindo..." : "Ir para o checkout"} <FiArrowRight /></button> : <a className="button button-primary" href="#planos" onClick={() => setAccessOpen(false)}>Escolher um plano</a>}
+            {pendingPlan !== "free" ? <button className="button button-primary" disabled={accessBusy} onClick={() => void checkout(pendingPlan)}>{accessBusy ? "Abrindo..." : "Ir para o checkout"} <FiArrowRight /></button> : releaseReady ? <button className="button button-primary" disabled={accessBusy} onClick={() => void downloadRelease()}><FiDownload /> {accessBusy ? "Preparando..." : "Baixar extensão"}</button> : <a className="button button-primary" href="#planos" onClick={() => setAccessOpen(false)}>Escolher um plano pago</a>}
             <button className="button button-ghost" disabled={accessBusy} onClick={() => void verifyAccess(false)}>{accessBusy ? "Verificando..." : "Atualizar pagamento"}</button>
             <button className="button button-ghost" onClick={() => { commerce?.signOut(); setAuthenticated(false); setReleaseReady(false); }}>Sair</button>
           </div>}
-          <small>A liberação é decidida pelo backend. O retorno do checkout, sozinho, não desbloqueia o download.</small>
+          <small>A liberação é decidida pelo backend após o webhook confirmar uma cobrança Stripe paga. O retorno do checkout, sozinho, não desbloqueia o download.</small>
         </section>
       </div>}
 

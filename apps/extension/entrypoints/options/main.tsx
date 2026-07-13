@@ -1,6 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
-import { OptionsApp } from "../../src/options/OptionsApp";
-import "../../src/styles/options.css";
+import { PopupApp } from "../../src/popup/PopupApp";
+import "../../src/styles/base.css";
 
-createRoot(document.getElementById("root")!).render(<React.StrictMode><OptionsApp /></React.StrictMode>);
+createRoot(document.getElementById("root")!).render(<React.StrictMode><PopupApp /></React.StrictMode>);

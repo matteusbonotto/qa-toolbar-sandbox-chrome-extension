@@ -33,6 +33,19 @@ function Invoke-JsonCurl([string]$Method, [string]$Url, [string[]]$Headers, $Bod
   }
 }
 
+function Invoke-CurlStatus([string]$Method, [string]$Url, [string[]]$Headers, $Body = $null) {
+  $inputPath = [System.IO.Path]::GetTempFileName()
+  try {
+    [System.IO.File]::WriteAllText($inputPath, ($Body | ConvertTo-Json -Compress), [System.Text.UTF8Encoding]::new($false))
+    $arguments = @("-sS", "-o", "NUL", "-w", "%{http_code}", "-X", $Method, $Url, "-H", "User-Agent: qts-server-smoke-test/1.0")
+    foreach ($header in $Headers) { $arguments += @("-H", $header) }
+    $arguments += @("-H", "Content-Type: application/json", "--data-binary", "@$inputPath")
+    return [int](& curl.exe @arguments)
+  } finally {
+    Remove-Item -LiteralPath $inputPath -Force -ErrorAction SilentlyContinue
+  }
+}
+
 $values = Read-EnvFile (Join-Path $root ".env")
 $projectRef = $values["PROJECT_ID"]
 $publicKey = $values["SUPABASE_PUBLIC"]
@@ -64,6 +77,10 @@ try {
   } | Out-Null
   $billing = Invoke-JsonCurl "POST" "$base/functions/v1/billing-status" $authHeaders @{ installationId = $installationId }
   if ($billing.plan.key -ne "scale" -or -not $billing.trial.active) { throw "The 30-day Scale trial was not activated." }
+  if ($billing.paymentConfirmed) { throw "A new unpaid account was incorrectly marked as paid." }
+
+  $downloadStatus = Invoke-CurlStatus "POST" "$base/functions/v1/download-release" $authHeaders @{}
+  if ($downloadStatus -ne 403) { throw "Unpaid download returned HTTP $downloadStatus; expected 403." }
 
   $checkout = Invoke-JsonCurl "POST" "$base/functions/v1/create-checkout" $authHeaders @{
     priceKey = "pro_monthly"; requestId = [guid]::NewGuid().ToString()
@@ -79,6 +96,7 @@ try {
     TrialDays = $billing.trial.daysRemaining
     CheckoutHost = ([uri]$checkout.checkoutUrl).Host
     Checkout = "PASS"
+    UnpaidDownload = "BLOCKED"
   }
 } finally {
   if ($customerId) {

@@ -39,11 +39,13 @@ export function ToolbarApp() {
       if (stored.qtsEntitlementCache) setEntitlements(stored.qtsEntitlementCache as EntitlementCache);
       if (!stored[ONBOARDING_KEY]) setOnboardingOpen(true);
     });
-    const updateEntitlements = (changes: Record<string, Browser.storage.StorageChange>) => {
-      if (changes.qtsEntitlementCache?.newValue) setEntitlements(changes.qtsEntitlementCache.newValue as EntitlementCache);
+    const updateEntitlements = (changes: Record<string, Browser.storage.StorageChange>, areaName: string) => {
+      if (areaName === "local" && changes.qtsEntitlementCache?.newValue) {
+        setEntitlements(changes.qtsEntitlementCache.newValue as EntitlementCache);
+      }
     };
-    browser.storage.local.onChanged.addListener(updateEntitlements);
-    return () => browser.storage.local.onChanged.removeListener(updateEntitlements);
+    browser.storage.onChanged.addListener(updateEntitlements);
+    return () => browser.storage.onChanged.removeListener(updateEntitlements);
   }, []);
 
   useEffect(() => {
