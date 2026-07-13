@@ -4,7 +4,7 @@ import { enforceRateLimit, publicClient } from "../_shared/auth.ts";
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
 
-const schema = z.object({ refreshToken: z.string().min(20).max(4096) }).strict();
+const schema = z.object({ refreshToken: z.string().min(1).max(4096) }).strict();
 
 serve(async (request) => {
   requirePost(request);

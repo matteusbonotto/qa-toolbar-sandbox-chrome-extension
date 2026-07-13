@@ -1,5 +1,18 @@
 import { z } from "zod";
 
+export const monthlyPlanCatalog = {
+  pro: {
+    displayPrice: "R$ 29,90",
+    priceKey: "pro_monthly",
+  },
+  scale: {
+    displayPrice: "R$ 59,90",
+    priceKey: "scale_monthly",
+  },
+} as const;
+
+export type MonthlyPriceKey = (typeof monthlyPlanCatalog)[keyof typeof monthlyPlanCatalog]["priceKey"];
+
 export const environmentSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(48),

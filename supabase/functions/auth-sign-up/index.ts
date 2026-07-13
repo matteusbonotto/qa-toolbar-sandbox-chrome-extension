@@ -3,6 +3,8 @@ import { adminClient, enforceRateLimit, publicClient } from "../_shared/auth.ts"
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
 
+const emailConfirmationRedirect = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/?auth=confirmed";
+
 const schema = z.object({
   email: z.string().trim().email().max(254),
   password: z.string().min(10).max(200),
@@ -19,7 +21,10 @@ serve(async (request) => {
   const { data, error } = await publicClient().auth.signUp({
     email,
     password: parsed.data.password,
-    options: { data: { terms_version: "2026-07-13", terms_accepted_at: new Date().toISOString() } },
+    options: {
+      emailRedirectTo: emailConfirmationRedirect,
+      data: { terms_version: "2026-07-13", terms_accepted_at: new Date().toISOString() },
+    },
   });
   if (error || !data.user) throw new ApiError(400, "signup_failed");
   const admin = adminClient();

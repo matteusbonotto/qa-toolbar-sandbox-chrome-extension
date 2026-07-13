@@ -8,9 +8,21 @@ const session = {
   user: { id: "d5c9b84c-0564-4fc8-87ad-12409180403b", email: "qa@example.test" },
 };
 
-afterEach(() => vi.restoreAllMocks());
+afterEach(() => {
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("AuthApi", () => {
+  it("accepts opaque refresh tokens regardless of their provider-defined length", async () => {
+    const shortRefreshSession = { ...session, refreshToken: "opaque-token" };
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify(shortRefreshSession), { status: 200 })));
+    const storage = { get: vi.fn(), set: vi.fn(), remove: vi.fn() };
+    const api = new AuthApi("https://example.supabase.co", "public-key", storage);
+
+    await expect(api.signIn("qa@example.test", "safe-password")).resolves.toMatchObject(shortRefreshSession);
+  });
+
   it("sends credentials only in a POST body and stores the session ephemerally", async () => {
     const storage = { get: vi.fn(), set: vi.fn(), remove: vi.fn() };
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(session), { status: 200 }));
