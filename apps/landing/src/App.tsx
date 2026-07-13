@@ -4,10 +4,12 @@ import {
   FiDownload, FiEye, FiGitBranch, FiHardDrive, FiLayers, FiLock,
   FiMenu, FiMousePointer, FiPackage, FiShield, FiSliders, FiX, FiZap,
 } from "react-icons/fi";
+import logoWhite from "./assets/images/logo-branco.png";
+import { createLandingCommerce, hasReleaseAccess, type PriceKey } from "./services/commerce";
 
-const downloadUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-sandbox-chrome.zip`;
 const checksumUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-sandbox-chrome.zip.sha256`;
 const mockWorkspaceUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-demo-workspace.json`;
+const commerce = createLandingCommerce();
 
 const features = [
   { icon: FiEye, title: "Inspecione no contexto", text: "Enxergue estados, medidas e sinais da interface sem abandonar a página em teste." },
@@ -30,7 +32,7 @@ const faqs = [
   ["O ZIP vai em “Carregar sem compactação”?", "Não. Primeiro extraia o ZIP; depois selecione a pasta extraída que contém o arquivo manifest.json."],
   ["A extensão se atualiza sozinha?", "Não nesta forma de distribuição. Novas versões precisam ser baixadas e substituir a pasta anterior."],
   ["Quais sites funcionam agora?", "Este Early Access está habilitado para localhost e 127.0.0.1. Outros domínios serão liberados com consentimento explícito por site."],
-  ["O pagamento já está valendo?", "O catálogo Stripe está em modo de teste. Compras reais só serão abertas após ativação comercial, validação do webhook e revisão final."],
+  ["Como o download é liberado?", "Você entra na sua conta e a LP consulta o backend. O ZIP só é iniciado quando o trial ou uma assinatura confirmada estiver ativo."],
 ];
 
 export function App() {
@@ -38,15 +40,143 @@ export function App() {
   const [openFaq, setOpenFaq] = useState(0);
   const [installOpen, setInstallOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [accessOpen, setAccessOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [pendingPlan, setPendingPlan] = useState<"free" | PriceKey>("free");
+  const [authenticated, setAuthenticated] = useState(false);
+  const [releaseReady, setReleaseReady] = useState(false);
+  const [accessBusy, setAccessBusy] = useState(false);
+  const [accessMessage, setAccessMessage] = useState("");
 
-  const startInstall = () => {
-    const download = document.createElement("a");
-    download.href = downloadUrl;
-    download.download = "qa-toolbar-sandbox-chrome.zip";
-    document.body.append(download);
-    download.click();
-    download.remove();
-    setInstallOpen(true);
+  const downloadRelease = async () => {
+    if (!commerce) return;
+    setAccessBusy(true);
+    try {
+      const token = await commerce.accessToken();
+      if (!token) throw new Error("Entre na sua conta para baixar.");
+      const downloadUrl = await commerce.releaseUrl(token);
+      const download = document.createElement("a");
+      download.href = downloadUrl;
+      download.rel = "noreferrer";
+      document.body.append(download);
+      download.click();
+      download.remove();
+      setAccessOpen(false);
+      setInstallOpen(true);
+    } catch (error) {
+      setAccessMessage(error instanceof Error ? error.message : "Download indisponível.");
+      setAccessOpen(true);
+    } finally {
+      setAccessBusy(false);
+    }
+  };
+
+  const verifyAccess = async (startDownload = false) => {
+    if (!commerce) {
+      setAccessMessage("A cobrança ainda não está configurada nesta publicação.");
+      setAccessOpen(true);
+      return false;
+    }
+    setAccessBusy(true);
+    try {
+      const token = await commerce.accessToken();
+      if (!token) {
+        setAuthenticated(false);
+        setAccessMessage("Entre ou crie sua conta para verificar o acesso.");
+        setAccessOpen(true);
+        return false;
+      }
+      setAuthenticated(true);
+      const status = await commerce.billingStatus(token);
+      const allowed = hasReleaseAccess(status);
+      setReleaseReady(allowed);
+      setAccessOpen(true);
+      if (!allowed) {
+        setAccessMessage("Pagamento ainda não confirmado. Escolha um plano para liberar o download.");
+        return false;
+      }
+      setAccessMessage(status.trial.active
+        ? `Trial ativo por mais ${status.trial.daysRemaining} dia${status.trial.daysRemaining === 1 ? "" : "s"}. Download liberado.`
+        : `Plano ${status.plan.name} confirmado. Download liberado.`);
+      if (startDownload) await downloadRelease();
+      return true;
+    } catch (error) {
+      setAccessMessage(error instanceof Error ? error.message : "Não foi possível verificar o acesso.");
+      setAccessOpen(true);
+      return false;
+    } finally {
+      setAccessBusy(false);
+    }
+  };
+
+  const requestDownload = () => {
+    setPendingPlan("free");
+    void verifyAccess(true);
+  };
+
+  const checkout = async (priceKey: PriceKey) => {
+    if (!commerce) {
+      setAccessMessage("A cobrança ainda não está configurada nesta publicação.");
+      setAccessOpen(true);
+      return;
+    }
+    setAccessBusy(true);
+    setAccessMessage("");
+    try {
+      const token = await commerce.accessToken();
+      if (!token) {
+        setAuthenticated(false);
+        setPendingPlan(priceKey);
+        setAccessMessage("Entre ou crie sua conta para continuar ao checkout seguro.");
+        setAccessOpen(true);
+        return;
+      }
+      setAuthenticated(true);
+      const url = await commerce.createCheckout(token, priceKey);
+      window.location.assign(url);
+    } catch (error) {
+      setAccessMessage(error instanceof Error ? error.message : "Checkout indisponível.");
+      setAccessOpen(true);
+    } finally {
+      setAccessBusy(false);
+    }
+  };
+
+  const choosePlan = (priceKey: PriceKey) => {
+    setPendingPlan(priceKey);
+    void checkout(priceKey);
+  };
+
+  const authenticate = async () => {
+    if (!commerce) return;
+    if (!email.trim() || password.length < 10 || (authMode === "signup" && !acceptedTerms)) {
+      setAccessMessage("Informe um e-mail, uma senha com ao menos 10 caracteres e aceite os termos.");
+      return;
+    }
+    setAccessBusy(true);
+    setAccessMessage("");
+    try {
+      if (authMode === "signup") {
+        const result = await commerce.signUp(email.trim(), password, true);
+        if ("confirmationRequired" in result) {
+          setAccessMessage("Conta criada. Confirme o e-mail e depois entre para continuar.");
+          setAuthMode("login");
+          return;
+        }
+      } else {
+        await commerce.signIn(email.trim(), password);
+      }
+      setAuthenticated(true);
+      if (pendingPlan === "free") await verifyAccess(true);
+      else await checkout(pendingPlan);
+    } catch (error) {
+      setAccessMessage(error instanceof Error ? error.message : "Não foi possível autenticar.");
+    } finally {
+      setAccessBusy(false);
+    }
   };
 
   const copyExtensionsUrl = async () => {
@@ -63,6 +193,27 @@ export function App() {
     );
     elements.forEach((element) => observer.observe(element));
     return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!commerce) return;
+    void commerce.accessToken().then((token) => setAuthenticated(Boolean(token))).catch(() => undefined);
+    const query = new URLSearchParams(window.location.search);
+    if (query.get("checkout") === "cancel") {
+      setAccessOpen(true);
+      setAccessMessage("Checkout cancelado. Nenhuma cobrança foi confirmada.");
+      return;
+    }
+    if (query.get("checkout") !== "success") return;
+    setAccessOpen(true);
+    setAccessMessage("Pagamento recebido. Aguardando a confirmação segura do Stripe...");
+    let attempts = 0;
+    const timer = window.setInterval(() => {
+      attempts += 1;
+      void verifyAccess(false).then((allowed) => allowed && window.clearInterval(timer));
+      if (attempts >= 15) window.clearInterval(timer);
+    }, 2000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -83,7 +234,7 @@ export function App() {
       <header className="nav-wrap">
         <nav className="nav container" aria-label="Navegação principal">
           <a className="brand" href="#inicio" aria-label="QA Toolbar Sandbox — início">
-            <img className="brand-logo" src={`${import.meta.env.BASE_URL}qa-sandbox-logo.svg`} alt="" /><span>QA Toolbar <b>Sandbox</b></span>
+            <img className="brand-logo" src={logoWhite} alt="QA Sandbox Toolbar" />
           </a>
           <button className="menu-button" onClick={() => setMenuOpen((value) => !value)} aria-expanded={menuOpen} aria-label="Abrir menu">{menuOpen ? <FiX /> : <FiMenu />}</button>
           <div className={`nav-links ${menuOpen ? "is-open" : ""}`}>
@@ -91,7 +242,7 @@ export function App() {
             <a href="#planos" onClick={() => setMenuOpen(false)}>Planos</a>
             <a href="#seguranca" onClick={() => setMenuOpen(false)}>Segurança</a>
             <a href="#instalar" onClick={() => setMenuOpen(false)}>Como instalar</a>
-            <button className="button button-small" onClick={startInstall}><FiDownload /> Baixar e instalar</button>
+            <button className="button button-small" onClick={requestDownload}><FiLock /> Verificar acesso</button>
           </div>
         </nav>
       </header>
@@ -101,12 +252,12 @@ export function App() {
           <div className="hero-copy" data-reveal>
             <div className="eyebrow"><span className="pulse-dot" /> Early Access · v0.1.0 · Feito de QA para Todos!</div>
             <h1>Seu laboratório de QA, <span>direto no navegador.</span></h1>
-            <p className="hero-lead">Investigue interfaces com mais contexto e menos troca de ferramenta. Uma toolbar rápida, organizada e construída para evoluir com o seu fluxo.</p>
+            <p className="hero-lead">Investigue interfaces com mais contexto e menos troca de ferramenta. Uma toolbar rápida, organizada e construída para evoluir com o seu fluxo. Feito de QA para QA — ou melhor, de QA para Todos!</p>
             <div className="hero-actions">
-              <button className="button button-primary" onClick={startInstall}><FiDownload /> Baixar ZIP + instalar <FiArrowRight /></button>
+              <button className="button button-primary" onClick={requestDownload}><FiLock /> Verificar acesso + baixar <FiArrowRight /></button>
               <a className="button button-ghost" href="#instalar"><FiMousePointer /> Ver instalação</a>
             </div>
-            <div className="micro-trust"><span><FiCheck /> Download gratuito</span><span><FiLock /> Sem secrets no pacote</span><span><FiPackage /> 4 passos</span></div>
+            <div className="micro-trust"><span><FiCheck /> Acesso verificado</span><span><FiLock /> Sem secrets no pacote</span><span><FiPackage /> 4 passos</span></div>
           </div>
 
           <div className="product-stage" data-reveal>
@@ -144,23 +295,43 @@ export function App() {
         <section className="section container install-section" id="instalar">
           <div className="section-heading" data-reveal><span className="kicker">Instalação direta</span><h2>Do download ao primeiro teste em minutos.</h2><p>Sem loja e sem instalador opaco: você pode inspecionar a pasta e removê-la quando quiser.</p></div>
           <div className="steps">{installSteps.map(([number, title, text]) => <article className="step" data-reveal key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
-          <div className="install-callout" data-reveal><FiPackage /><div><b>Importante</b><p>Não selecione o ZIP no Chrome. Extraia-o e escolha a pasta em que o <code>manifest.json</code> aparece na raiz. <a className="hash-link" href={checksumUrl} download>Ver SHA-256</a> · <a className="hash-link" href={mockWorkspaceUrl} download>Baixar dados mock</a></p></div><button className="button button-primary" onClick={startInstall}><FiDownload /> Baixar + abrir guia</button></div>
+          <div className="install-callout" data-reveal><FiPackage /><div><b>Importante</b><p>O download é iniciado apenas após a LP confirmar seu trial ou assinatura. Depois, extraia o ZIP e escolha a pasta em que o <code>manifest.json</code> aparece na raiz. <a className="hash-link" href={checksumUrl} download>Ver SHA-256</a> · <a className="hash-link" href={mockWorkspaceUrl} download>Baixar dados mock</a></p></div><button className="button button-primary" onClick={requestDownload}><FiLock /> Verificar + baixar</button></div>
         </section>
 
         <section className="section container pricing-section" id="planos">
           <div className="section-heading" data-reveal><span className="kicker">Acesso antecipado</span><h2>Comece livre. Evolua quando fizer sentido.</h2></div>
           <div className="pricing-grid pricing-three" data-reveal>
-            <article className="price-card"><span>Starter</span><h3>Grátis</h3><p>30 dias de Full Access; depois, o essencial continua disponível.</p><ul><li><FiCheck /> 1 domínio e 1 cliente</li><li><FiCheck /> Screenshot e Pass/Fail</li><li><FiCheck /> Sem cartão no trial</li></ul><button className="button button-ghost" onClick={startInstall}>Começar 30 dias</button></article>
-            <article className="price-card featured"><span className="soon">Recomendado</span><span>Pro</span><h3>R$ 29,90 <small>/ mês</small></h3><p>Para profissionais e pequenos times que precisam manter ritmo.</p><ul><li><FiCheck /> 10 domínios e 25 clientes</li><li><FiCheck /> Gravação, anotações e inspectors</li><li><FiCheck /> Anual com 2 meses grátis</li></ul><button className="button button-primary" onClick={startInstall}>Instalar e contratar</button></article>
-            <article className="price-card"><span>Scale · Full Access</span><h3>R$ 59,90 <small>/ mês</small></h3><p>Para consultorias, operações e times em crescimento.</p><ul><li><FiCheck /> Escala sem limite prático</li><li><FiCheck /> HTTP Controls e histórico ampliado</li><li><FiCheck /> Prioridade em novidades</li></ul><button className="button button-ghost" onClick={startInstall}>Conhecer Scale</button></article>
+            <article className="price-card"><span>Starter</span><h3>Grátis</h3><p>30 dias de Full Access; depois, o essencial continua disponível.</p><ul><li><FiCheck /> 1 domínio e 1 cliente</li><li><FiCheck /> Screenshot e Pass/Fail</li><li><FiCheck /> Sem cartão no trial</li></ul><button className="button button-ghost" onClick={() => { setAuthMode("signup"); requestDownload(); }}>Começar 30 dias</button></article>
+            <article className="price-card featured"><span className="soon">Recomendado</span><span>Pro</span><h3>R$ 29,90 <small>/ mês</small></h3><p>Para profissionais e pequenos times que precisam manter ritmo.</p><ul><li><FiCheck /> 10 domínios e 25 clientes</li><li><FiCheck /> Gravação, anotações e inspectors</li><li><FiCheck /> Anual com 2 meses grátis</li></ul><button className="button button-primary" disabled={accessBusy} onClick={() => choosePlan("pro_monthly")}>{accessBusy ? "Abrindo..." : "Contratar Pro"}</button></article>
+            <article className="price-card"><span>Scale · Full Access</span><h3>R$ 59,90 <small>/ mês</small></h3><p>Para consultorias, operações e times em crescimento.</p><ul><li><FiCheck /> Escala sem limite prático</li><li><FiCheck /> HTTP Controls e histórico ampliado</li><li><FiCheck /> Prioridade em novidades</li></ul><button className="button button-ghost" disabled={accessBusy} onClick={() => choosePlan("scale_monthly")}>{accessBusy ? "Abrindo..." : "Contratar Scale"}</button></article>
           </div>
           <div className="growth-offer" data-reveal><FiZap /><div><b>Oferta de lançamento: COMECE30</b><p>30% nos três primeiros meses. Indicações dão 20% ao novo cliente e crédito ao indicador após a primeira cobrança.</p></div></div>
         </section>
 
         <section className="section container faq-section"><div className="section-heading" data-reveal><span className="kicker">Perguntas frequentes</span><h2>Antes de instalar.</h2></div><div className="faq-list" data-reveal>{faqs.map(([question, answer], index) => <div className={`faq-item ${openFaq === index ? "is-open" : ""}`} key={question}><button onClick={() => setOpenFaq(openFaq === index ? -1 : index)} aria-expanded={openFaq === index}><span>{question}</span><FiChevronDown /></button><div className="faq-answer"><p>{answer}</p></div></div>)}</div></section>
 
-        <section className="final-cta"><div className="container" data-reveal><span className="kicker">Pronto para explorar?</span><h2>Menos troca de contexto.<br />Mais clareza para testar.</h2><p>Instale a versão Early Access e acompanhe a evolução do QA Toolbar Sandbox.</p><button className="button button-primary" onClick={startInstall}><FiDownload /> Baixar + instalar manualmente <FiArrowRight /></button></div></section>
+        <section className="final-cta"><div className="container" data-reveal><span className="kicker">Pronto para explorar?</span><h2>Menos troca de contexto.<br />Mais clareza para testar.</h2><p>Entre, confirme seu acesso e instale a versão Early Access.</p><button className="button button-primary" onClick={requestDownload}><FiLock /> Confirmar acesso + baixar <FiArrowRight /></button></div></section>
       </main>
+
+      {accessOpen && <div className="install-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setAccessOpen(false)}>
+        <section className="install-modal access-modal" role="dialog" aria-modal="true" aria-labelledby="access-title">
+          <button className="modal-close" onClick={() => setAccessOpen(false)} aria-label="Fechar"><FiX /></button>
+          <div className="modal-icon"><FiLock /></div>
+          <span className="kicker">Acesso protegido</span>
+          <h2 id="access-title">{authenticated ? "Seu acesso à extensão" : "Entre para continuar"}</h2>
+          {accessMessage && <p className={`access-message ${releaseReady ? "is-success" : ""}`}>{accessMessage}</p>}
+          {!authenticated ? <>
+            <div className="auth-switch"><button className={authMode === "login" ? "is-active" : ""} onClick={() => setAuthMode("login")}>Entrar</button><button className={authMode === "signup" ? "is-active" : ""} onClick={() => setAuthMode("signup")}>Criar conta</button></div>
+            <div className="auth-fields"><label>E-mail<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Senha<input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>{authMode === "signup" && <label className="terms-check"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>Li e aceito os termos e a política de privacidade.</span></label>}</div>
+            <button className="button button-primary access-primary" disabled={accessBusy} onClick={() => void authenticate()}>{accessBusy ? "Aguarde..." : pendingPlan === "free" ? (authMode === "signup" ? "Criar conta e liberar trial" : "Entrar e verificar acesso") : "Continuar para o checkout"}</button>
+          </> : <div className="modal-actions">
+            {releaseReady ? <button className="button button-primary" disabled={accessBusy} onClick={() => void downloadRelease()}><FiDownload /> {accessBusy ? "Preparando..." : "Baixar extensão"}</button> : pendingPlan !== "free" ? <button className="button button-primary" disabled={accessBusy} onClick={() => void checkout(pendingPlan)}>{accessBusy ? "Abrindo..." : "Ir para o checkout"} <FiArrowRight /></button> : <a className="button button-primary" href="#planos" onClick={() => setAccessOpen(false)}>Escolher um plano</a>}
+            <button className="button button-ghost" disabled={accessBusy} onClick={() => void verifyAccess(false)}>{accessBusy ? "Verificando..." : "Atualizar pagamento"}</button>
+            <button className="button button-ghost" onClick={() => { commerce?.signOut(); setAuthenticated(false); setReleaseReady(false); }}>Sair</button>
+          </div>}
+          <small>A liberação é decidida pelo backend. O retorno do checkout, sozinho, não desbloqueia o download.</small>
+        </section>
+      </div>}
 
       {installOpen && <div className="install-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setInstallOpen(false)}>
         <section className="install-modal" role="dialog" aria-modal="true" aria-labelledby="install-title">
@@ -177,14 +348,14 @@ export function App() {
           </ol>
           <div className="modal-actions">
             <button className="button button-primary" onClick={() => void copyExtensionsUrl()}><FiLayers /> {copied ? "Endereço copiado!" : "Copiar chrome://extensions"}</button>
-            <a className="button button-ghost" href={downloadUrl} download><FiDownload /> Baixar novamente</a>
+            <button className="button button-ghost" onClick={requestDownload}><FiDownload /> Baixar novamente</button>
           </div>
           <small>Não existe um botão web legítimo que ignore essa confirmação no Chrome para Windows.</small>
         </section>
       </div>}
 
       <a className="creator-corner" href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer" aria-label="Site de Matheus Bonotto"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="" /><span>Matheus Bonotto</span></a>
-      <footer><div className="container footer-inner"><a className="brand" href="#inicio"><img className="brand-logo" src={`${import.meta.env.BASE_URL}qa-sandbox-logo.svg`} alt="" /><span>QA Toolbar <b>Sandbox</b></span></a><p className="footer-credit">Feito de QA para Todos! · Desenvolvido por <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="Ícone de Matheus Bonotto" /> Matheus Bonotto</a></p><div><a href="#seguranca">Segurança</a><a href="#instalar">Instalação</a></div></div></footer>
+      <footer><div className="container footer-inner"><a className="brand" href="#inicio"><img className="brand-logo" src={logoWhite} alt="QA Sandbox Toolbar" /></a><p className="footer-credit">Feito de QA para Todos! · Desenvolvido por <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="Ícone de Matheus Bonotto" /> Matheus Bonotto</a></p><div><a href="#seguranca">Segurança</a><a href="#instalar">Instalação</a></div></div></footer>
     </div>
   );
 }
