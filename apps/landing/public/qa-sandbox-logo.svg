@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 207 124" role="img" aria-labelledby="title desc">
+  <title id="title">QA Sandbox Toolbar</title><desc id="desc">Lupa preta, montanhas douradas e faixa vermelha QA Sandbox Toolbar</desc>
+  <rect width="207" height="124" fill="#fff"/>
+  <path d="M70 81 118 12l39 55 26-36 24 50Z" fill="#ba8b00"/><path d="m118 12 19 27-19 28-18-25Z" fill="#a77900"/><path d="m157 67 26-36 24 50h-61Z" fill="#d6ba58"/>
+  <path d="m96 64 3-9 5 4 8-1 7 5-5 1-2 5-3-7-7-2-2 7Z" fill="none" stroke="#111" stroke-width="2"/>
+  <rect y="77" width="207" height="34" rx="2" fill="#930b0b"/><path d="M0 77h207v5H0z" fill="#4d0909"/>
+  <text x="8" y="101" fill="#fff" font-family="Arial,sans-serif" font-size="15" font-weight="900">&lt;/QA&gt;</text><text x="83" y="101" fill="#fff" font-family="Arial,sans-serif" font-size="14" font-weight="800">Sandbox Toolbar</text>
+  <circle cx="42" cy="46" r="35" fill="none" stroke="#050505" stroke-width="11"/><path d="M65 72 81 115" stroke="#050505" stroke-width="13" stroke-linecap="round"/><path d="M41 20c17 0 25 9 25 25" fill="none" stroke="#050505" stroke-width="7" stroke-linecap="round"/>
+</svg>

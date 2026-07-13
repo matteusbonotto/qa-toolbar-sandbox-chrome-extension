@@ -1,0 +1,62 @@
+name: Publish landing page
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "apps/landing/**"
+      - "apps/extension/**"
+      - "packages/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/landing-pages.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run test
+      - run: npm run zip
+      - name: Place the current package in the landing download
+        run: |
+          mkdir -p apps/landing/public/downloads
+          ZIP_PATH="$(find apps/extension/.output -maxdepth 1 -name '*-chrome.zip' -print -quit)"
+          test -n "$ZIP_PATH"
+          cp "$ZIP_PATH" apps/landing/public/downloads/qa-toolbar-sandbox-chrome.zip
+          sha256sum apps/landing/public/downloads/qa-toolbar-sandbox-chrome.zip > apps/landing/public/downloads/qa-toolbar-sandbox-chrome.zip.sha256
+      - run: npm run security:bundle
+      - uses: actions/configure-pages@v5
+      - name: Build landing with the repository base path
+        run: npm run build -w @qts/landing -- --base "/${{ github.event.repository.name }}/"
+      - uses: actions/upload-pages-artifact@v4
+        with:
+          path: apps/landing/dist
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    steps:
+      - name: Deploy GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

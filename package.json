@@ -1,0 +1,28 @@
+{
+  "name": "qa-toolbar-sandbox",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local-first QA browser toolbox",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev -w @qts/extension",
+    "dev:landing": "npm run dev -w @qts/landing",
+    "preview:landing": "npm run preview -w @qts/landing",
+    "build": "npm run build -w @qts/domain && npm run build -w @qts/extension && npm run build -w @qts/landing",
+    "zip": "npm run zip -w @qts/extension",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "security:repo": "node scripts/check-repository.mjs",
+    "security:bundle": "node scripts/check-extension-bundle.mjs",
+    "check": "npm run security:repo && npm run typecheck && npm run test && npm run build && npm run security:bundle",
+    "release:chrome": "npm run check && npm run zip && node scripts/prepare-chrome-store-package.mjs",
+    "prepare": "node scripts/install-git-hooks.mjs",
+    "prepare:extension": "npm run prepare -w @qts/extension"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  }
+}
