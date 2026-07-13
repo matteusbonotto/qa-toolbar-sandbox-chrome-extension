@@ -23,8 +23,13 @@ describe("AuthApi", () => {
     await expect(api.signIn("qa@example.test", "safe-password")).resolves.toMatchObject(shortRefreshSession);
   });
 
-  it("sends credentials only in a POST body and stores the session ephemerally", async () => {
-    const storage = { get: vi.fn(), set: vi.fn(), remove: vi.fn() };
+  it("sends credentials only in a POST body and persists the session between instances", async () => {
+    const values: Record<string, unknown> = {};
+    const storage = {
+      get: vi.fn(async (key: string) => ({ [key]: values[key] })),
+      set: vi.fn(async (items: Record<string, unknown>) => { Object.assign(values, items); }),
+      remove: vi.fn(async (key: string) => { delete values[key]; }),
+    };
     const fetchMock = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify(session), { status: 200 }));
     const api = new AuthApi("https://abcdefghijklmnopqrst.supabase.co", "sb_publishable_example", storage);
     await api.signIn("qa@example.test", "safe-password");
@@ -33,6 +38,9 @@ describe("AuthApi", () => {
     expect(options?.method).toBe("POST");
     expect(String(options?.body)).toContain("qa@example.test");
     expect(storage.set).toHaveBeenCalledWith({ qtsAuthSession: session });
+    const restoredApi = new AuthApi("https://abcdefghijklmnopqrst.supabase.co", "sb_publishable_example", storage);
+    await expect(restoredApi.session()).resolves.toEqual(session);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it("creates the trial account with explicit terms and an optional referral", async () => {

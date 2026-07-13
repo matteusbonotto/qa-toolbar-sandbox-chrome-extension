@@ -15,14 +15,17 @@ serve(async (request) => {
   if (!parsed.success) throw new ApiError(400, "invalid_request");
 
   const admin = adminClient();
-  const now = new Date().toISOString();
-  const [{ data: subscription }, { data: grant }] = await Promise.all([
-    admin.from("subscriptions").select("id").eq("user_id", user.id)
-      .in("status", ["active", "trialing"]).limit(1).maybeSingle(),
-    admin.from("entitlement_grants").select("id").eq("user_id", user.id)
-      .is("revoked_at", null).or(`expires_at.is.null,expires_at.gt.${now}`).limit(1).maybeSingle(),
-  ]);
-  if (!subscription && !grant) throw new ApiError(403, "release_access_required");
+  const { data: subscription } = await admin.from("subscriptions").select("provider_subscription_id")
+    .eq("user_id", user.id).eq("status", "active").limit(1).maybeSingle();
+  if (!subscription) throw new ApiError(403, "paid_subscription_required");
+  const { data: confirmedPayment } = await admin.from("payment_events").select("id")
+    .eq("user_id", user.id)
+    .eq("provider_subscription_id", subscription.provider_subscription_id)
+    .in("event_type", ["checkout.session.completed", "invoice.paid"])
+    .gt("amount_minor", 0)
+    .limit(1)
+    .maybeSingle();
+  if (!confirmedPayment) throw new ApiError(403, "confirmed_payment_required");
 
   const { data, error } = await admin.storage.from(bucket).createSignedUrl(objectPath, 60, {
     download: "qa-toolbar-sandbox-chrome.zip",

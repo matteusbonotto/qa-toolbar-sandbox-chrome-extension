@@ -43,9 +43,6 @@ serve(async (request) => {
   }
 
   const config = serverConfig();
-  const { data: profile } = await admin.from("profiles").select("trial_ends_at").eq("id", user.id).maybeSingle();
-  const trialEnd = profile?.trial_ends_at ? Math.floor(new Date(profile.trial_ends_at).getTime() / 1000) : null;
-  const preservesTrial = Boolean(trialEnd && trialEnd > Math.floor(Date.now() / 1000) + 172_800);
   let referralApplied = false;
   if (parsed.data.referralCode) {
     const { data } = await admin.rpc("register_referral", { target_user_id: user.id, referral_code: parsed.data.referralCode });
@@ -63,7 +60,6 @@ serve(async (request) => {
     metadata: { supabase_user_id: user.id, price_key: parsed.data.priceKey, referral_applied: String(referralApplied) },
     subscription_data: {
       metadata: { supabase_user_id: user.id, price_key: parsed.data.priceKey },
-      ...(preservesTrial ? { trial_end: trialEnd! } : {}),
     },
   }, { idempotencyKey: `checkout:${user.id}:${parsed.data.requestId}` });
 

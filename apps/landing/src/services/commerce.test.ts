@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LandingCommerce, hasReleaseAccess, type BillingStatus } from "./commerce";
 
-const status = (trial: boolean, subscription: string | null): BillingStatus => ({
+const status = (trial: boolean, subscription: string | null, paymentConfirmed = false): BillingStatus => ({
   plan: { key: subscription ? "pro" : "free", name: subscription ? "Pro" : "Starter" },
+  paymentConfirmed,
   subscription: subscription ? { status: subscription, currentPeriodEnd: null, cancelAtPeriodEnd: false } : null,
   trial: { active: trial, endsAt: trial ? "2026-08-01T00:00:00.000Z" : null, daysRemaining: trial ? 10 : 0 },
 });
@@ -10,12 +11,13 @@ const status = (trial: boolean, subscription: string | null): BillingStatus => (
 describe("landing commerce access", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("releases only an active trial or confirmed Stripe subscription", () => {
-    expect(hasReleaseAccess(status(true, null))).toBe(true);
-    expect(hasReleaseAccess(status(false, "active"))).toBe(true);
-    expect(hasReleaseAccess(status(false, "trialing"))).toBe(true);
-    expect(hasReleaseAccess(status(false, "past_due"))).toBe(false);
-    expect(hasReleaseAccess(status(false, null))).toBe(false);
+  it("releases only an active Stripe subscription with a confirmed payment", () => {
+    expect(hasReleaseAccess(status(true, null))).toBe(false);
+    expect(hasReleaseAccess(status(false, "active"))).toBe(false);
+    expect(hasReleaseAccess(status(false, "active", true))).toBe(true);
+    expect(hasReleaseAccess(status(false, "trialing", true))).toBe(false);
+    expect(hasReleaseAccess(status(false, "past_due", true))).toBe(false);
+    expect(hasReleaseAccess(status(false, null, true))).toBe(false);
   });
 
   it("rejects non-Supabase and insecure backend URLs", () => {

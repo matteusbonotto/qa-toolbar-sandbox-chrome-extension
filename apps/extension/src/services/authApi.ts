@@ -22,7 +22,7 @@ export class AuthApi {
   constructor(
     private readonly supabaseUrl: string,
     private readonly supabasePublicKey: string,
-    storage: SessionStorage = browser.storage.session,
+    storage: SessionStorage = browser.storage.local,
   ) {
     const url = new URL(supabaseUrl);
     if (url.protocol !== "https:" || !url.hostname.endsWith(".supabase.co")) throw new Error("Invalid Supabase URL");
@@ -45,13 +45,20 @@ export class AuthApi {
   }
 
   async accessToken(): Promise<string | null> {
+    return (await this.session())?.accessToken ?? null;
+  }
+
+  async session(): Promise<AuthSession | null> {
     const stored = await this.storage.get("qtsAuthSession");
     const parsed = sessionSchema.safeParse(stored.qtsAuthSession);
-    if (!parsed.success) return null;
-    if (parsed.data.expiresAt > Math.floor(Date.now() / 1000) + 60) return parsed.data.accessToken;
+    if (!parsed.success) {
+      await this.storage.remove("qtsAuthSession");
+      return null;
+    }
+    if (parsed.data.expiresAt > Math.floor(Date.now() / 1000) + 60) return parsed.data;
     const refreshed = sessionSchema.parse(await this.post("auth-refresh", { refreshToken: parsed.data.refreshToken }));
     await this.storage.set({ qtsAuthSession: refreshed });
-    return refreshed.accessToken;
+    return refreshed;
   }
 
   async signOut(): Promise<void> {

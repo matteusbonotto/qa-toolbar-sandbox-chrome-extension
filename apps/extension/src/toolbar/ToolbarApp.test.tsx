@@ -6,16 +6,18 @@ import { ToolbarApp } from "./ToolbarApp";
 describe("ToolbarApp", () => {
   beforeEach(async () => {
     let data: Record<string, unknown> = {};
-    const listeners = new Set<(changes: Record<string, { newValue?: unknown }>) => void>();
+    const listeners = new Set<(changes: Record<string, { newValue?: unknown }>, areaName: string) => void>();
     vi.stubGlobal("browser", { storage: { local: {
       get: vi.fn(async () => ({ ...data })),
       set: vi.fn(async (items: Record<string, unknown>) => {
         data = { ...data, ...items };
         const changes = Object.fromEntries(Object.entries(items).map(([key, newValue]) => [key, { newValue }]));
-        listeners.forEach((listener) => listener(changes));
+        listeners.forEach((listener) => listener(changes, "local"));
       }),
       clear: vi.fn(async () => { data = {}; }),
-      onChanged: { addListener: (listener: (changes: Record<string, { newValue?: unknown }>) => void) => listeners.add(listener), removeListener: (listener: (changes: Record<string, { newValue?: unknown }>) => void) => listeners.delete(listener) },
+    }, onChanged: {
+      addListener: (listener: (changes: Record<string, { newValue?: unknown }>, areaName: string) => void) => listeners.add(listener),
+      removeListener: (listener: (changes: Record<string, { newValue?: unknown }>, areaName: string) => void) => listeners.delete(listener),
     } } });
     useToolbarStore.setState({ isExpanded: true, activePanel: null, captureEnabled: false });
   });

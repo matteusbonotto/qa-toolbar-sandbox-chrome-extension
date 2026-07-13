@@ -19,7 +19,7 @@ serve(async (request) => {
 
   const now = new Date().toISOString();
   const [{ data: subscription }, { data: grants }, { data: overrides }, { data: referral }] = await Promise.all([
-    admin.from("subscriptions").select("status,current_period_end,cancel_at_period_end,plans(key,name)")
+    admin.from("subscriptions").select("status,current_period_end,cancel_at_period_end,provider_subscription_id,plans(key,name)")
       .eq("user_id", user.id).in("status", ["active", "trialing", "past_due"]).order("updated_at", { ascending: false }).limit(1).maybeSingle(),
     admin.from("entitlement_grants").select("source,expires_at,plans(key,name)")
       .eq("user_id", user.id).is("revoked_at", null).or(`expires_at.is.null,expires_at.gt.${now}`).order("expires_at", { ascending: false }),
@@ -29,7 +29,7 @@ serve(async (request) => {
   ]);
 
   const trialGrant = grants?.find((entry) => entry.source === "trial");
-  const planRelation = trialGrant?.plans ?? subscription?.plans;
+  const planRelation = subscription?.plans ?? trialGrant?.plans;
   const relatedPlan = Array.isArray(planRelation) ? planRelation[0] : planRelation;
   const plan = relatedPlan ? { key: relatedPlan.key, name: relatedPlan.name } : { key: "free", name: "Starter" };
   const planKey = plan.key;
@@ -41,8 +41,18 @@ serve(async (request) => {
   }));
   const trialEnd = trialGrant?.expires_at ?? null;
   const daysRemaining = trialEnd ? Math.max(0, Math.ceil((new Date(trialEnd).getTime() - Date.now()) / 86_400_000)) : 0;
+  const { data: confirmedPayment } = subscription?.provider_subscription_id
+    ? await admin.from("payment_events").select("id")
+      .eq("user_id", user.id)
+      .eq("provider_subscription_id", subscription.provider_subscription_id)
+      .in("event_type", ["checkout.session.completed", "invoice.paid"])
+      .gt("amount_minor", 0)
+      .limit(1)
+      .maybeSingle()
+    : { data: null };
   return jsonResponse(request, {
     plan,
+    paymentConfirmed: Boolean(confirmedPayment),
     subscription: subscription ? {
       status: subscription.status,
       currentPeriodEnd: subscription.current_period_end,
