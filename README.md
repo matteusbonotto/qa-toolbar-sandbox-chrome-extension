@@ -1,5 +1,7 @@
 # QA Toolbar Sandbox
 
+Política de Privacidade pública: <https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/privacy-policy/>
+
 Extensão Chromium MV3 para QA exploratório e análise local de aplicações web. A interface roda em Shadow DOM, solicita acesso a hosts de forma opcional e mantém dados operacionais no navegador.
 
 ## Desenvolvimento

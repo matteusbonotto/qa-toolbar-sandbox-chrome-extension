@@ -9,6 +9,7 @@ import { createLandingCommerce, hasReleaseAccess, type PriceKey } from "./servic
 
 const checksumUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-sandbox-chrome.zip.sha256`;
 const mockWorkspaceUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-demo-workspace.json`;
+const privacyPolicyUrl = `${import.meta.env.BASE_URL}privacy-policy/`;
 const commerce = createLandingCommerce();
 
 const features = [
@@ -322,7 +323,7 @@ export function App() {
           {accessMessage && <p className={`access-message ${releaseReady ? "is-success" : ""}`}>{accessMessage}</p>}
           {!authenticated ? <>
             <div className="auth-switch"><button className={authMode === "login" ? "is-active" : ""} onClick={() => setAuthMode("login")}>Entrar</button><button className={authMode === "signup" ? "is-active" : ""} onClick={() => setAuthMode("signup")}>Criar conta</button></div>
-            <div className="auth-fields"><label>E-mail<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Senha<input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>{authMode === "signup" && <label className="terms-check"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>Li e aceito os termos e a política de privacidade.</span></label>}</div>
+            <div className="auth-fields"><label>E-mail<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Senha<input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>{authMode === "signup" && <><p className="privacy-disclosure">Para criar a conta, enviamos e-mail, aceite, identificador da instalação e dados do plano ao Supabase. Pagamentos são processados pelo Stripe. Projetos, ambientes e domínios ficam no navegador por padrão.</p><label className="terms-check"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>Li e aceito a <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">Política de Privacidade</a>.</span></label></>}</div>
             <button className="button button-primary access-primary" disabled={accessBusy} onClick={() => void authenticate()}>{accessBusy ? "Aguarde..." : pendingPlan === "free" ? (authMode === "signup" ? "Criar conta e liberar trial" : "Entrar e verificar acesso") : "Continuar para o checkout"}</button>
           </> : <div className="modal-actions">
             {releaseReady ? <button className="button button-primary" disabled={accessBusy} onClick={() => void downloadRelease()}><FiDownload /> {accessBusy ? "Preparando..." : "Baixar extensão"}</button> : pendingPlan !== "free" ? <button className="button button-primary" disabled={accessBusy} onClick={() => void checkout(pendingPlan)}>{accessBusy ? "Abrindo..." : "Ir para o checkout"} <FiArrowRight /></button> : <a className="button button-primary" href="#planos" onClick={() => setAccessOpen(false)}>Escolher um plano</a>}
@@ -355,7 +356,7 @@ export function App() {
       </div>}
 
       <a className="creator-corner" href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer" aria-label="Site de Matheus Bonotto"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="" /><span>Matheus Bonotto</span></a>
-      <footer><div className="container footer-inner"><a className="brand" href="#inicio"><img className="brand-logo" src={logoWhite} alt="QA Sandbox Toolbar" /></a><p className="footer-credit">Feito de QA para Todos! · Desenvolvido por <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="Ícone de Matheus Bonotto" /> Matheus Bonotto</a></p><div><a href="#seguranca">Segurança</a><a href="#instalar">Instalação</a></div></div></footer>
+      <footer><div className="container footer-inner"><a className="brand" href="#inicio"><img className="brand-logo" src={logoWhite} alt="QA Sandbox Toolbar" /></a><p className="footer-credit">Feito de QA para Todos! · Desenvolvido por <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="Ícone de Matheus Bonotto" /> Matheus Bonotto</a></p><div><a href="#seguranca">Segurança</a><a href={privacyPolicyUrl}>Privacidade</a><a href="#instalar">Instalação</a></div></div></footer>
     </div>
   );
 }

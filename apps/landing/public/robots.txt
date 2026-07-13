@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sitemap.xml
