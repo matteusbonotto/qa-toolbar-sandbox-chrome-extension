@@ -1,0 +1,24 @@
+{
+  "kind": "qts-workspace",
+  "version": 1,
+  "activeProjectId": "b6a99e41-dd22-48e5-a332-c14d57eb7759",
+  "setup": {
+    "projectName": "The Internet Demo",
+    "domain": "the-internet.herokuapp.com",
+    "domains": ["the-internet.herokuapp.com"],
+    "environmentName": "ALFA"
+  },
+  "projects": [
+    {
+      "id": "b6a99e41-dd22-48e5-a332-c14d57eb7759",
+      "name": "The Internet Demo",
+      "accentColor": "#7c5cff",
+      "environments": [
+        { "id": "1cd72f86-8f20-42cf-a0ed-d21257235f5c", "name": "ALFA", "color": "#22c55e", "riskLevel": "low", "urlPatterns": ["regex:^https://the-internet\\.herokuapp\\.com/$"] },
+        { "id": "c44e3a25-5214-41df-98cc-965da9ce7d31", "name": "BETA", "color": "#3b82f6", "riskLevel": "medium", "urlPatterns": ["regex:^https://the-internet\\.herokuapp\\.com/login"] },
+        { "id": "7f853e99-c606-4760-9052-fde947f21abb", "name": "STAGE", "color": "#f59e0b", "riskLevel": "high", "urlPatterns": ["regex:^https://the-internet\\.herokuapp\\.com/dynamic_content"] },
+        { "id": "62476b58-2ff4-4e58-b21f-ac90b38a89b4", "name": "PRODUÇÃO", "color": "#ef4444", "riskLevel": "critical", "urlPatterns": ["regex:^https://the-internet\\.herokuapp\\.com/status_codes"] }
+      ]
+    }
+  ]
+}

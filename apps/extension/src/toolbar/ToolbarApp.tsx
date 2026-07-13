@@ -8,6 +8,7 @@ import {
 } from "react-icons/fi";
 import { useToolbarStore, type PanelId } from "../store/useToolbarStore";
 import { featureEnabled, type EntitlementCache } from "../services/entitlements";
+import { matchEnvironment, type Project } from "@qts/domain";
 
 type Workspace = { projectName: string; domain: string; environmentName: string };
 const ONBOARDING_KEY = "qtsOnboardingV2Complete";
@@ -28,8 +29,13 @@ export function ToolbarApp() {
 
   useEffect(() => {
     if (typeof browser === "undefined") return;
-    void browser.storage.local.get(["qtsSetup", ONBOARDING_KEY, "qtsEntitlementCache"]).then((stored) => {
-      if (stored.qtsSetup) setWorkspace(stored.qtsSetup as Workspace);
+    void browser.storage.local.get(["qtsSetup", "qtsProjects", "qtsActiveProjectId", ONBOARDING_KEY, "qtsEntitlementCache"]).then((stored) => {
+      const projects = (stored.qtsProjects ?? []) as Project[];
+      const project = projects.find((item) => item.id === stored.qtsActiveProjectId) ?? projects[0];
+      const matched = project ? matchEnvironment(window.location.href, project.environments) : null;
+      if (project && matched?.environment) {
+        setWorkspace({ projectName: project.name, domain: window.location.hostname, environmentName: matched.environment.name });
+      } else if (stored.qtsSetup) setWorkspace(stored.qtsSetup as Workspace);
       if (stored.qtsEntitlementCache) setEntitlements(stored.qtsEntitlementCache as EntitlementCache);
       if (!stored[ONBOARDING_KEY]) setOnboardingOpen(true);
     });

@@ -37,3 +37,7 @@ O ZIP pronto para upload e seu SHA-256 são gravados em `artifacts/`, pasta semp
 - O antigo `tampermonkey.js` contém referências operacionais e é preservado somente no checkout local, fora do Git.
 
 Consulte [a política de segurança](SECURITY.md), [o modelo de ameaças](docs/security/threat-model.md) e [a arquitetura](docs/architecture/overview.md).
+
+## Workspace mock para screenshots
+
+Em **Opções → Importar dados para demonstração**, use `apps/extension/public/examples/qa-toolbar-demo-workspace.json`. O arquivo configura o projeto público `The Internet Demo` com ambientes ALFA, BETA, STAGE e PRODUÇÃO, sem contas, tokens ou dados pessoais. A importação valida o schema e solicita acesso somente a `the-internet.herokuapp.com`.

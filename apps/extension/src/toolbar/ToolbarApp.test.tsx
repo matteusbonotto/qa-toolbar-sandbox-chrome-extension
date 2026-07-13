@@ -52,6 +52,22 @@ describe("ToolbarApp", () => {
     expect(screen.getByRole("button", { name: /^pass$/i })).toBeInTheDocument();
   });
 
+  it("selects the imported environment from the current URL", async () => {
+    const projectId = "b6a99e41-dd22-48e5-a332-c14d57eb7759";
+    await browser.storage.local.set({
+      qtsActiveProjectId: projectId,
+      qtsProjects: [{
+        id: projectId,
+        name: "Demo Workspace",
+        accentColor: "#7c5cff",
+        environments: [{ id: "c44e3a25-5214-41df-98cc-965da9ce7d31", name: "BETA", color: "#3b82f6", riskLevel: "medium", urlPatterns: ["localhost"] }],
+      }],
+    });
+    render(<ToolbarApp />);
+    await waitFor(() => expect(screen.getByText("BETA")).toBeInTheDocument());
+    expect(screen.getByTitle("Demo Workspace")).toBeInTheDocument();
+  });
+
   it("minimizes the top windowsill and exposes a restore control", () => {
     render(<ToolbarApp />);
     fireEvent.click(screen.getByTitle("Ocultar toolbar"));

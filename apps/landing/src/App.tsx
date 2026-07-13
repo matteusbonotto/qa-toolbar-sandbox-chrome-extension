@@ -7,6 +7,7 @@ import {
 
 const downloadUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-sandbox-chrome.zip`;
 const checksumUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-sandbox-chrome.zip.sha256`;
+const mockWorkspaceUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-demo-workspace.json`;
 
 const features = [
   { icon: FiEye, title: "Inspecione no contexto", text: "Enxergue estados, medidas e sinais da interface sem abandonar a página em teste." },
@@ -98,7 +99,7 @@ export function App() {
       <main>
         <section className="hero container" id="inicio">
           <div className="hero-copy" data-reveal>
-            <div className="eyebrow"><span className="pulse-dot" /> Early Access local · v0.1.0</div>
+            <div className="eyebrow"><span className="pulse-dot" /> Early Access · v0.1.0 · Feito de QA para Todos!</div>
             <h1>Seu laboratório de QA, <span>direto no navegador.</span></h1>
             <p className="hero-lead">Investigue interfaces com mais contexto e menos troca de ferramenta. Uma toolbar rápida, organizada e construída para evoluir com o seu fluxo.</p>
             <div className="hero-actions">
@@ -143,7 +144,7 @@ export function App() {
         <section className="section container install-section" id="instalar">
           <div className="section-heading" data-reveal><span className="kicker">Instalação direta</span><h2>Do download ao primeiro teste em minutos.</h2><p>Sem loja e sem instalador opaco: você pode inspecionar a pasta e removê-la quando quiser.</p></div>
           <div className="steps">{installSteps.map(([number, title, text]) => <article className="step" data-reveal key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
-          <div className="install-callout" data-reveal><FiPackage /><div><b>Importante</b><p>Não selecione o ZIP no Chrome. Extraia-o e escolha a pasta em que o <code>manifest.json</code> aparece na raiz. <a className="hash-link" href={checksumUrl} download>Ver SHA-256</a></p></div><button className="button button-primary" onClick={startInstall}><FiDownload /> Baixar + abrir guia</button></div>
+          <div className="install-callout" data-reveal><FiPackage /><div><b>Importante</b><p>Não selecione o ZIP no Chrome. Extraia-o e escolha a pasta em que o <code>manifest.json</code> aparece na raiz. <a className="hash-link" href={checksumUrl} download>Ver SHA-256</a> · <a className="hash-link" href={mockWorkspaceUrl} download>Baixar dados mock</a></p></div><button className="button button-primary" onClick={startInstall}><FiDownload /> Baixar + abrir guia</button></div>
         </section>
 
         <section className="section container pricing-section" id="planos">
@@ -182,7 +183,8 @@ export function App() {
         </section>
       </div>}
 
-      <footer><div className="container footer-inner"><a className="brand" href="#inicio"><img className="brand-logo" src={`${import.meta.env.BASE_URL}qa-sandbox-logo.svg`} alt="" /><span>QA Toolbar <b>Sandbox</b></span></a><p>Early Access · Distribuição independente · 2026</p><div><a href="#seguranca">Segurança</a><a href="#instalar">Instalação</a></div></div></footer>
+      <a className="creator-corner" href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer" aria-label="Site de Matheus Bonotto"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="" /><span>Matheus Bonotto</span></a>
+      <footer><div className="container footer-inner"><a className="brand" href="#inicio"><img className="brand-logo" src={`${import.meta.env.BASE_URL}qa-sandbox-logo.svg`} alt="" /><span>QA Toolbar <b>Sandbox</b></span></a><p className="footer-credit">Feito de QA para Todos! · Desenvolvido por <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="Ícone de Matheus Bonotto" /> Matheus Bonotto</a></p><div><a href="#seguranca">Segurança</a><a href="#instalar">Instalação</a></div></div></footer>
     </div>
   );
 }
