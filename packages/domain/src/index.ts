@@ -18,6 +18,27 @@ export const projectSchema = z.object({
 export type Environment = z.infer<typeof environmentSchema>;
 export type Project = z.infer<typeof projectSchema>;
 
+export const workspaceSetupSchema = z.object({
+  projectName: z.string().trim().min(2).max(80),
+  domain: z.string().trim().regex(/^(localhost|(?:[a-z0-9-]+\.)*[a-z0-9-]+)$/i),
+  domains: z.array(z.string().trim().regex(/^(localhost|(?:[a-z0-9-]+\.)*[a-z0-9-]+)$/i)).min(1).max(20),
+  environmentName: z.string().trim().min(1).max(48),
+});
+
+export const workspaceImportSchema = z.object({
+  kind: z.literal("qts-workspace"),
+  version: z.literal(1),
+  activeProjectId: z.string().uuid(),
+  setup: workspaceSetupSchema,
+  projects: z.array(projectSchema).min(1).max(20),
+}).strict().superRefine((value, context) => {
+  if (!value.projects.some((project) => project.id === value.activeProjectId)) {
+    context.addIssue({ code: "custom", path: ["activeProjectId"], message: "Active project was not found" });
+  }
+});
+
+export type WorkspaceImport = z.infer<typeof workspaceImportSchema>;
+
 const secretKeyPattern = /password|passwd|token|authorization|cookie|secret|api[-_]?key|access[-_]?token|refresh[-_]?token|card[-_]?number|cvv|cvc|credential/i;
 
 export function redactValue(value: unknown, key = "", seen = new WeakSet<object>()): unknown {
