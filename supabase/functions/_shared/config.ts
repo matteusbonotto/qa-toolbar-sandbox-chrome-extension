@@ -5,6 +5,11 @@ export function requiredEnv(name: string): string {
 }
 
 export function serverConfig() {
+  const chromeWebStoreUrl = Deno.env.get("CHROME_WEB_STORE_URL")?.trim() ?? "https://chromewebstore.google.com/";
+  const storeUrl = new URL(chromeWebStoreUrl);
+  if (storeUrl.protocol !== "https:" || storeUrl.hostname !== "chromewebstore.google.com") {
+    throw new Error("Invalid CHROME_WEB_STORE_URL");
+  }
   return {
     supabaseUrl: requiredEnv("SUPABASE_URL"),
     supabasePublicKey: Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? requiredEnv("APP_SUPABASE_PUBLIC_KEY"),
@@ -16,7 +21,9 @@ export function serverConfig() {
     scaleMonthlyPriceId: requiredEnv("STRIPE_SCALE_MONTHLY_PRICE_ID"),
     scaleYearlyPriceId: requiredEnv("STRIPE_SCALE_YEARLY_PRICE_ID"),
     referralPromotionCodeId: requiredEnv("STRIPE_REFERRAL_PROMOTION_CODE_ID"),
+    launchPromotionCodeId: requiredEnv("STRIPE_30OFF_PROMOTION_CODE_ID"),
     checkoutSuccessUrl: requiredEnv("CHECKOUT_SUCCESS_URL"),
     checkoutCancelUrl: requiredEnv("CHECKOUT_CANCEL_URL"),
+    chromeWebStoreUrl: storeUrl.href,
   };
 }

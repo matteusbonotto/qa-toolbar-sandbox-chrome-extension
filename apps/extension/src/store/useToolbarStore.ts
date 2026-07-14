@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type PanelId = "observatory" | "payments" | "accounts" | "test-status" | "errors" | "rut" | "settings" | "inspectors" | null;
+export type PanelId = "observatory" | "payments" | "accounts" | "test-status" | "errors" | "rut" | "settings" | "inspectors" | "json-studio" | null;
 
 interface ToolbarState {
   isExpanded: boolean;

@@ -1,24 +1,25 @@
 # Publicação segura na Chrome Web Store
 
-## Fluxo local
+## Fluxo local do mantenedor
 
 1. Trabalhe em um checkout limpo e revise `git diff`.
-2. Atualize a versão em `apps/extension/package.json`.
-3. Execute:
+2. Execute:
 
    ```bash
    npm ci
-   npm run release:chrome
+   npm run release:chrome:update
    ```
 
-4. Teste o ZIP de `artifacts/` em um perfil descartável.
-5. Faça upload desse ZIP no painel da Chrome Web Store.
+3. Teste o ZIP de `artifacts/` em um perfil descartável.
+4. No item existente, abra **Package → Upload new package** e envie o ZIP mais recente.
 
-`release:chrome` executa scan do repositório, typecheck, testes, build, scan do bundle, geração do ZIP e checksum. Ele falha se detectar source maps, `.env`, chaves, código-fonte, permissões perigosas ou marcadores de secrets no bundle.
+`release:chrome:update` incrementa automaticamente a versão patch e chama `release:chrome`, que executa scan do repositório, typecheck, testes, build, scan do bundle, geração do ZIP e checksum. O processo falha se detectar source maps, `.env`, chaves, código-fonte, permissões perigosas, marcadores de secrets ou o campo `manifest.key`. A Chrome Web Store preserva a chave e o ID do item existente.
+
+O ZIP é um artefato privado do mantenedor. A landing page nunca publica ou entrega o pacote diretamente ao cliente. Depois que o backend confirma trial, voucher ou pagamento, a pessoa é direcionada à página oficial configurada em `CHROME_WEB_STORE_URL`.
 
 ## Fluxo pelo GitHub Actions
 
-Abra **Actions → Build Chrome Web Store package → Run workflow**. Ao concluir, baixe o artifact `chrome-web-store-package`. O artifact expira em 14 dias e não é commitado.
+Abra **Actions → Build Chrome Web Store package → Run workflow**. Ao concluir, baixe o artifact `chrome-web-store-package`. O artifact expira em 14 dias e não é commitado. O workflow da landing page publica somente os arquivos estáticos da página.
 
 No painel da Chrome Web Store, informe como URL da política de privacidade:
 
@@ -27,8 +28,6 @@ https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/privacy-pol
 ```
 
 As declarações da aba **Privacy practices** devem permanecer idênticas ao comportamento da extensão e ao texto publicado. Revise especialmente e-mail de conta, autenticação, conteúdo/URLs processados localmente, pagamentos via Stripe e permissões de host sob demanda.
-
-O workflow da landing page também gera e verifica o ZIP, mas o envia ao bucket privado por `publish-release`. Configure `SUPABASE_RELEASE_UPLOAD_URL` como variável do repositório e `SUPABASE_RELEASE_UPLOAD_SECRET` como secret. O GitHub Pages recebe somente o checksum; usuários recebem um link temporário após `download-release` confirmar trial ou assinatura no servidor.
 
 ## Regras de versão e rollback
 

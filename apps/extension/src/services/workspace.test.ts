@@ -1,16 +1,24 @@
 import { describe, expect, it } from "vitest";
-import { hostPermission, hostnameMatches, normalizeHostnames } from "./workspace";
+import { normalizeUrlPattern, normalizeUrlPatterns, permissionOrigins, urlMatchesAny, urlMatchesPattern } from "./workspace";
 
-describe("workspace domain normalization", () => {
-  it("accepts complete URLs and stores only unique hostnames", () => {
-    expect(normalizeHostnames("https://Google.com.br/search, staging.example.test/path;invalid url")).toEqual([
-      "google.com.br",
-      "staging.example.test",
-    ]);
+describe("workspace URL patterns", () => {
+  it("accepts full URLs, bare hosts, paths and the all-sites shortcut", () => {
+    expect(normalizeUrlPattern("https://Google.com/search/*")?.value).toBe("https://google.com/search/*");
+    expect(normalizeUrlPattern("google.com")?.value).toBe("*://*.google.com/*");
+    expect(normalizeUrlPattern("*")).toEqual({ value: "*", broad: true });
   });
 
-  it("matches subdomains and generates a wildcard host permission", () => {
-    expect(hostnameMatches("www.google.com.br", ["google.com.br"])).toBe(true);
-    expect(hostPermission("google.com.br")).toBe("*://*.google.com.br/*");
+  it("matches Tampermonkey-style wildcards", () => {
+    expect(urlMatchesPattern("https://www.google.com.br/search?q=qa", "*://*.com.br/*")).toBe(true);
+    expect(urlMatchesPattern("https://google.com.br/", "google.*")).toBe(true);
+    expect(urlMatchesPattern("https://google.com/", "google.*")).toBe(true);
+    expect(urlMatchesPattern("https://www.google.com/", "google.com")).toBe(true);
+    expect(urlMatchesPattern("https://www.google.com/search?q=qa", "https://google.com/*")).toBe(true);
+    expect(urlMatchesAny("https://example.net/path", ["google.*", "*"])).toBe(true);
+  });
+
+  it("requests a narrow permission when possible and all URLs for broad wildcards", () => {
+    expect(permissionOrigins(normalizeUrlPatterns(["https://google.com/*"]))).toEqual(["https://*.google.com/*"]);
+    expect(permissionOrigins(normalizeUrlPatterns(["google.*"]))).toEqual(["http://*/*", "https://*/*"]);
   });
 });

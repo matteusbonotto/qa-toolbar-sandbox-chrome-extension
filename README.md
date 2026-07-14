@@ -29,6 +29,8 @@ Esse comando procura segredos e arquivos privados, executa typecheck/testes, com
 npm run release:chrome
 ```
 
+Para uma atualização comum, use apenas `npm run release:chrome:update`. O comando incrementa a versão patch, valida testes e segurança, garante que o manifesto da loja não contém `key` e grava o ZIP final em `artifacts/`.
+
 O ZIP pronto para upload e seu SHA-256 são gravados em `artifacts/`, pasta sempre ignorada pelo Git. O mesmo processo pode ser executado em **Actions → Build Chrome Web Store package → Run workflow**. Veja [o guia de publicação](docs/deploy/chrome-web-store.md).
 
 ## Limite público/privado
@@ -39,6 +41,8 @@ O ZIP pronto para upload e seu SHA-256 são gravados em `artifacts/`, pasta semp
 - O antigo `tampermonkey.js` contém referências operacionais e é preservado somente no checkout local, fora do Git.
 
 Consulte [a política de segurança](SECURITY.md), [o modelo de ameaças](docs/security/threat-model.md) e [a arquitetura](docs/architecture/overview.md).
+
+O aceite completo do prompt mestre e suas evidências estão no [checklist do backlog](docs/product/master-backlog-checklist.md). Guias específicos cobrem [recursos da extensão](docs/product/extension-features.md), [portabilidade de dados](docs/product/data-portability.md), [i18n e temas](docs/product/i18n-and-themes.md), [permissões e privacidade](docs/security/permissions-and-privacy.md), [testes](docs/qa/test-plan.md), [billing](docs/deploy/billing.md) e [operação/rollback](docs/deploy/operations-and-rollback.md).
 
 ## Workspace mock para screenshots
 

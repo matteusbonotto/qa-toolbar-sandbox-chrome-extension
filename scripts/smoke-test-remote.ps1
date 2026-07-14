@@ -79,8 +79,9 @@ try {
   if ($billing.plan.key -ne "scale" -or -not $billing.trial.active) { throw "The 30-day Scale trial was not activated." }
   if ($billing.paymentConfirmed) { throw "A new unpaid account was incorrectly marked as paid." }
 
-  $downloadStatus = Invoke-CurlStatus "POST" "$base/functions/v1/download-release" $authHeaders @{}
-  if ($downloadStatus -ne 403) { throw "Unpaid download returned HTTP $downloadStatus; expected 403." }
+  if (-not $billing.access.installUrl -or ([uri]$billing.access.installUrl).Host -ne "chromewebstore.google.com") {
+    throw "Billing status did not return the official Chrome Web Store installation URL."
+  }
 
   $checkout = Invoke-JsonCurl "POST" "$base/functions/v1/create-checkout" $authHeaders @{
     priceKey = "pro_monthly"; requestId = [guid]::NewGuid().ToString()
@@ -96,7 +97,7 @@ try {
     TrialDays = $billing.trial.daysRemaining
     CheckoutHost = ([uri]$checkout.checkoutUrl).Host
     Checkout = "PASS"
-    UnpaidDownload = "BLOCKED"
+    InstallHost = ([uri]$billing.access.installUrl).Host
   }
 } finally {
   if ($customerId) {

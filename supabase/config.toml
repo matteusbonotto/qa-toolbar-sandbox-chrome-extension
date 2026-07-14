@@ -61,5 +61,8 @@ verify_jwt = false
 [functions.checkout-cancel]
 verify_jwt = false
 
-[functions.publish-release]
+[functions.redeem-voucher]
+verify_jwt = false
+
+[functions.promotion-status]
 verify_jwt = false

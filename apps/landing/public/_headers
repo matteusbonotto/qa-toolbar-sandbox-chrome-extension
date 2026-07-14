@@ -6,7 +6,3 @@
   Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()
   Cross-Origin-Opener-Policy: same-origin
   Cross-Origin-Resource-Policy: same-origin
-
-/downloads/*
-  Content-Disposition: attachment
-  X-Content-Type-Options: nosniff

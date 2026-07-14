@@ -10,7 +10,10 @@ describe("privacy policy", () => {
     expect(html).toContain("Dados de pagamento");
     expect(html).toContain("Limited Use");
     expect(html).toContain("Seus direitos");
-    expect(html).toContain("Não vendemos dados pessoais");
-    expect(html).toContain("2026-07-13");
+    expect(html).toContain("Não vendemos dados");
+    expect(html).toContain("2026-07-14");
+    expect(html).toContain("Português (Brasil)");
+    expect(html).toContain("English");
+    expect(html).toContain("Español");
   });
 });

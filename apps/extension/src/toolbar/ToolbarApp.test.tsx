@@ -5,6 +5,19 @@ import { ToolbarApp } from "./ToolbarApp";
 
 describe("ToolbarApp", () => {
   beforeEach(async () => {
+    class FakeMediaRecorder {
+      static isTypeSupported = () => true;
+      state: RecordingState = "inactive";
+      ondataavailable: ((event: BlobEvent) => void) | null = null;
+      constructor(_stream: MediaStream, _options?: MediaRecorderOptions) {}
+      start() { this.state = "recording"; }
+      pause() { this.state = "paused"; }
+      resume() { this.state = "recording"; }
+      stop() { this.state = "inactive"; }
+      addEventListener() {}
+    }
+    vi.stubGlobal("MediaRecorder", FakeMediaRecorder);
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getDisplayMedia: vi.fn(async () => ({ getTracks: () => [{ addEventListener: vi.fn(), stop: vi.fn() }] })) } });
     let data: Record<string, unknown> = {};
     const listeners = new Set<(changes: Record<string, { newValue?: unknown }>, areaName: string) => void>();
     vi.stubGlobal("browser", { storage: { local: {
@@ -39,14 +52,14 @@ describe("ToolbarApp", () => {
       checkedAt: new Date().toISOString(),
     } });
     render(<ToolbarApp />);
-    await waitFor(() => expect(screen.getByText("PRO · READY TO TEST")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("PRO · PRONTO PARA TESTAR")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Start local capture" }));
-    expect(screen.getByRole("button", { name: "Pause local capture" })).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Pause local capture" })).toBeInTheDocument());
   });
 
   it("opens the legacy Tools menu and Test Status drawer", () => {
     render(<ToolbarApp />);
-    const tools = screen.getByRole("button", { name: /tools/i });
+    const tools = screen.getByRole("button", { name: /ferramentas/i });
     fireEvent.click(tools);
     expect(tools).toHaveAttribute("aria-expanded", "true");
     fireEvent.click(screen.getByRole("button", { name: "Test Status" }));
