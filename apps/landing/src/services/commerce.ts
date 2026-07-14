@@ -46,6 +46,7 @@ export type { PriceKey };
 
 const sessionKey = "qtsLandingAuthSession";
 const installationKey = "qtsLandingInstallationId";
+const publishedExtensionId = "jaalcifngdkpenjdolhlkgcaepdpkgoe";
 
 export class LandingCommerce {
   constructor(
@@ -118,6 +119,20 @@ export class LandingCommerce {
 
   signOut(): void {
     window.sessionStorage.removeItem(sessionKey);
+  }
+
+  async handoffSessionToExtension(): Promise<boolean> {
+    const stored = window.sessionStorage.getItem(sessionKey);
+    if (!stored) return false;
+    const parsed = sessionSchema.safeParse(JSON.parse(stored));
+    if (!parsed.success || parsed.data.expiresAt <= Math.floor(Date.now() / 1000) + 30) return false;
+    const chromeRuntime = (globalThis as typeof globalThis & { chrome?: { runtime?: { lastError?: unknown; sendMessage?: (extensionId: string, message: unknown, callback: (response?: { accepted?: boolean }) => void) => void } } }).chrome?.runtime;
+    if (!chromeRuntime?.sendMessage) return false;
+    return new Promise((resolve) => {
+      chromeRuntime.sendMessage!(publishedExtensionId, { type: "qts:landing-session-handoff", session: parsed.data }, (response) => {
+        resolve(!chromeRuntime.lastError && response?.accepted === true);
+      });
+    });
   }
 
   private installationId(): string {
