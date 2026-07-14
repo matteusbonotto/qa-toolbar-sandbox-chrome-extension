@@ -37,10 +37,22 @@ export const monthlyPlanCatalog = {
 } as const;
 export type MonthlyPriceKey = (typeof monthlyPlanCatalog)[keyof typeof monthlyPlanCatalog]["priceKey"];
 
+function isHexColor(value: string): boolean {
+  if (value.length !== 7 || value.charCodeAt(0) !== 35) return false;
+  for (let index = 1; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    const digit = code >= 48 && code <= 57;
+    const lower = code >= 97 && code <= 102;
+    const upper = code >= 65 && code <= 70;
+    if (!digit && !lower && !upper) return false;
+  }
+  return true;
+}
+
 export const environmentSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(48),
-  color: z.string().regex(/^#[0-9a-f]{6}$/i),
+  color: z.string().refine(isHexColor, "Invalid hex color"),
   riskLevel: z.enum(["low", "medium", "high", "critical"]),
   urlPatterns: z.array(z.string().trim().min(1).max(500)).max(30),
 });
@@ -48,7 +60,7 @@ export const environmentSchema = z.object({
 export const projectSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(80),
-  accentColor: z.string().regex(/^#[0-9a-f]{6}$/i),
+  accentColor: z.string().refine(isHexColor, "Invalid hex color"),
   environments: z.array(environmentSchema).max(20),
 });
 
@@ -62,7 +74,7 @@ const entityBaseSchema = z.object({
   description: z.string().trim().max(1000).default(""),
   image: z.string().max(700_000).default(""),
   images: z.array(z.object({ id: z.string().uuid(), name: z.string().max(100), description: z.string().max(500).default(""), mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]), source: z.enum(["local", "url"]), value: z.string().max(700_000), preview: z.string().max(700_000).default(""), order: z.number().int().nonnegative(), primary: z.boolean() })).max(20).default([]),
-  color: z.string().regex(/^#[0-9a-f]{6}$/i).default("#64748b"),
+  color: z.string().refine(isHexColor, "Invalid hex color").default("#64748b"),
   tags: z.array(z.string().trim().min(1).max(40)).max(30).default([]),
   active: z.boolean().default(true),
   order: z.number().int().nonnegative().default(0),

@@ -40,7 +40,7 @@ export async function refreshEntitlements(accessToken: string): Promise<Entitlem
     featureFlags: status.featureFlags ?? {},
     checkedAt: status.checkedAt,
   };
-  await browser.storage.local.set({ qtsEntitlementCache: cache, qtsOfflineEntitlementToken: status.offlineToken });
+  await browser.storage.local.set({ qtsEntitlementCache: cache, ...(status.offlineToken ? { qtsOfflineEntitlementToken: status.offlineToken } : {}) });
   return cache;
 }
 

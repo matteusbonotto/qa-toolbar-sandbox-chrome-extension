@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { isLocale, isThemeKey, localizeDom, planCatalog, themeCatalog, translate, type BillingCycle, type ColorMode, type Locale, type ThemeKey } from "@qts/domain";
 import {
-  FiActivity, FiArrowRight, FiCheck, FiChevronDown, FiCode, FiCpu,
-  FiDownload, FiEye, FiHardDrive, FiLock,
+  FiActivity, FiArrowRight, FiCamera, FiCheck, FiChevronDown, FiCode, FiCreditCard,
+  FiDatabase, FiDownload, FiEye, FiHardDrive, FiLock,
   FiMenu, FiMoon, FiMousePointer, FiPackage, FiShield, FiSliders, FiSun, FiX, FiZap,
+  FiUsers,
 } from "react-icons/fi";
 import brandLogo from "./assets/images/logo.svg";
 import { createLandingCommerce, hasReleaseAccess, type PriceKey, type PromotionStatus } from "./services/commerce";
@@ -15,11 +16,17 @@ const commerce = createLandingCommerce();
 
 const features = [
   { icon: FiCheck, title: "Status do teste", text: "Marque Pass, Fail, Blocked ou Limitation e mantenha o resultado visível enquanto investiga." },
-  { icon: FiDownload, title: "Evidências prontas", text: "Capture screenshots ou grave em MP4; para GIF, a conversão usa sua própria conta Convertio com consentimento." },
+  { icon: FiUsers, title: "Contas de teste", text: "Cadastre usuários por cliente, produto, ambiente e tipo de perfil; copie os dados sem procurar em planilhas ou chats." },
+  { icon: FiCreditCard, title: "Métodos de pagamento", text: "Organize cartões e meios sandbox por bandeira, país e cenário, com dados sensíveis protegidos e acesso rápido." },
+  { icon: FiCamera, title: "Screenshots e anotações", text: "Capture a tela, destaque pontos importantes e gere evidências mais claras para bugs, histórias e homologações." },
+  { icon: FiDownload, title: "Gravação MP4 e GIF", text: "Grave, pause, retome e baixe em MP4; para GIF, a conversão usa sua conta Convertio com consentimento." },
   { icon: FiEye, title: "Breakpoint Viewer", text: "Compare celular e desktop lado a lado, com molduras, presets, rotação e fallback para sites que bloqueiam iframe." },
   { icon: FiActivity, title: "Freeze, Click Spy e Inspectors", text: "Congele a interface, inspecione cliques, JSON, rede, storage e acessibilidade no contexto do teste." },
-  { icon: FiSliders, title: "Do seu jeito", text: "Fixe e desafixe ferramentas, altere tema e idioma e deixe a toolbar com os atalhos que você realmente usa." },
-  { icon: FiHardDrive, title: "Workspace portátil", text: "Importe, exporte, limpe cache ou resete configurações locais com escopo e confirmação antes de apagar." },
+  { icon: FiDatabase, title: "Projetos e ambientes", text: "Relacione clientes, produtos, projetos, URLs e ambientes para a toolbar abrir sempre no contexto correto." },
+  { icon: FiCode, title: "APIs e JSON Studio", text: "Salve endpoints, headers sandbox e payloads, compare respostas JSON e investigue chamadas sem perder o fluxo." },
+  { icon: FiZap, title: "HTTP Controls", text: "Force respostas e cenários de erro controlados para validar estados difíceis de reproduzir no dia a dia." },
+  { icon: FiSliders, title: "Toolbar do seu jeito", text: "Fixe e desafixe ferramentas, altere tema e idioma e deixe visíveis apenas os atalhos que você realmente usa." },
+  { icon: FiHardDrive, title: "Barra de ferramentas portátil", text: "Importe, exporte, limpe cache ou resete configurações locais com escopo e confirmação antes de apagar." },
 ];
 
 const installSteps = [
@@ -298,14 +305,14 @@ export function App() {
             <div className="browser-chrome">
               <div className="browser-top"><i /><i /><i /><div className="address"><FiLock /> localhost:3000/dashboard</div></div>
               <div className="browser-body">
-                <div className="mock-sidebar"><span className="mock-logo" /><span /><span /><span /><span /></div>
-                <div className="mock-page"><div className="mock-context"><small>PROJETO</small><b>Loja Demo</b><span>Stage · checkout</span></div><div className="mock-grid"><i>Contas</i><i>Pagamentos</i><i>Inspectors</i></div><div className="mock-chart"><b /><b /><b /><b /><b /><b /></div></div>
-                <div className="floating-toolbar">
-                  <div className="toolbar-head"><span><FiZap /> QA Toolbar</span><small>Sandbox</small></div>
-                  <div className="toolbar-metrics"><span><b>12</b> checks</span><span><b>0</b> issues</span><span><b>42ms</b> UI</span></div>
-                  <div className="toolbar-actions"><button><FiActivity /> Observe</button><button><FiCpu /> Analyze</button><button><FiCode /> Inspect</button></div>
-                  <div className="scan-line" />
+                <div className="toolbar-preview">
+                  <div className="toolbar-preview-brand"><span className="toolbar-preview-logo"><FiZap /></span><div><b>QA Toolbar Sandbox</b><small>PRONTO PARA TESTAR</small></div></div>
+                  <div className="toolbar-preview-context"><small>PROJETO / AMBIENTE</small><b>Loja Demo <span>Stage</span></b></div>
+                  <div className="toolbar-preview-status"><small>TEST STATUS</small><div><button className="is-pass">Pass</button><button>Fail</button><button>Blocked</button><button>Limitation</button></div></div>
+                  <div className="toolbar-preview-tools"><button><FiUsers /><span>Contas</span></button><button><FiCreditCard /><span>Pagamentos</span></button><button><FiCamera /><span>Screenshot</span></button><button><FiActivity /><span>Gravar</span></button><button><FiEye /><span>Breakpoint</span></button><button><FiCode /><span>Tools</span></button></div>
+                  <button className="toolbar-preview-menu"><FiMenu /> Menu</button>
                 </div>
+                <div className="mock-page is-blurred"><div className="mock-context"><small>PÁGINA EM TESTE</small><b>Checkout</b><span>Conteúdo desfocado para destacar a toolbar instalada</span></div><div className="mock-grid"><i /><i /><i /></div><div className="mock-chart"><b /><b /><b /><b /><b /><b /></div></div>
               </div>
             </div>
             <div className="stage-chip chip-a"><FiCheck /> Interface isolada</div><div className="stage-chip chip-b"><FiLock /> Local-first</div>
@@ -365,8 +372,8 @@ export function App() {
             <div className="auth-switch"><button className={authMode === "login" ? "is-active" : ""} onClick={() => setAuthMode("login")}>Entrar</button><button className={authMode === "signup" ? "is-active" : ""} onClick={() => setAuthMode("signup")}>Criar conta</button></div>
             <div className="auth-fields"><label>E-mail<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Senha<input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>{authMode === "signup" && <><p className="privacy-disclosure">Para criar a conta, enviamos e-mail, aceite, identificador da instalação e dados do plano ao Supabase. Pagamentos são processados pelo Stripe. Projetos, ambientes e URLs ficam no navegador por padrão.</p><label className="terms-check"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>Li e aceito a <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">Política de Privacidade</a>.</span></label></>}</div>
             <button className="button button-primary access-primary" disabled={accessBusy} onClick={() => void authenticate()}>{accessBusy ? "Aguarde..." : pendingPlan === "free" ? (authMode === "signup" ? "Criar conta e liberar trial" : "Entrar e verificar acesso") : "Continuar para o checkout"}</button>
-          </> : <><div className="voucher-entry"><label htmlFor="voucher">Tem um voucher?</label><div><input id="voucher" value={voucherCode} onChange={(event) => setVoucherCode(event.target.value.toUpperCase())} placeholder="Digite seu código" /><button className="button button-ghost" disabled={accessBusy || voucherCode.trim().length < 8} onClick={() => void redeemVoucher()}>Resgatar</button></div></div><div className="modal-actions">
-            {pendingPlan !== "free" ? <button className="button button-primary" disabled={accessBusy} onClick={() => void checkout(pendingPlan)}>{accessBusy ? "Abrindo..." : "Escolher este plano"} <FiArrowRight /></button> : releaseReady ? <button className="button button-primary" disabled={accessBusy} onClick={() => openChromeStore()}><FiDownload /> Ir para Chrome Store</button> : <button className="button button-primary" disabled={accessBusy || voucherCode.trim().length < 8} onClick={() => void redeemVoucher()}>{accessBusy ? "Liberando..." : "Ativar meus 30 dias"}</button>}
+          </> : <><div className="voucher-entry"><label htmlFor="voucher">Tem um voucher?</label><div><input id="voucher" value={voucherCode} onChange={(event) => setVoucherCode(event.target.value.toUpperCase())} placeholder="Digite seu código" /><button className="button button-ghost" disabled={accessBusy || voucherCode.trim().length < 6} onClick={() => void redeemVoucher()}>Resgatar</button></div></div><div className="modal-actions">
+            {pendingPlan !== "free" ? <button className="button button-primary" disabled={accessBusy} onClick={() => void checkout(pendingPlan)}>{accessBusy ? "Abrindo..." : "Escolher este plano"} <FiArrowRight /></button> : releaseReady ? <button className="button button-primary" disabled={accessBusy} onClick={() => openChromeStore()}><FiDownload /> Ir para Chrome Store</button> : <button className="button button-primary" disabled={accessBusy || voucherCode.trim().length < 6} onClick={() => void redeemVoucher()}>{accessBusy ? "Liberando..." : "Ativar meus 30 dias"}</button>}
             <a className="button button-ghost" href="#planos" onClick={() => setAccessOpen(false)}>Escolher outro plano</a>
             <button className="button button-ghost" disabled={accessBusy} onClick={() => void verifyAccess(false)}>{accessBusy ? "Verificando..." : "Verificar meu acesso"}</button>
             <button className="button button-ghost" onClick={() => { commerce?.signOut(); setAuthenticated(false); setReleaseReady(false); }}>Sair</button>
