@@ -46,7 +46,7 @@ export type { PriceKey };
 
 const sessionKey = "qtsLandingAuthSession";
 const installationKey = "qtsLandingInstallationId";
-const publishedExtensionId = "jaalcifngdkpenjdolhlkgcaepdpkgoe";
+const publishedExtensionId = "ddaapjklnfjhjigeglgmjmadjnmdodfe";
 
 export class LandingCommerce {
   constructor(
