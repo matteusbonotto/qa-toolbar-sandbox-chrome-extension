@@ -28,7 +28,7 @@ $env:SUPABASE_ACCESS_TOKEN = 'personal-access-token'
 $env:STRIPE_WEBHOOK_SECRET = 'whsec_...'
 $env:KEEP_ALIVE_SECRET = 'random-32-byte-or-longer-secret'
 $env:FOUNDER_BOOTSTRAP_SECRET = 'independent-random-secret'
-$env:ALLOWED_ORIGINS = 'https://your-account-site.example'
+$env:ALLOWED_ORIGINS = 'https://matteusbonotto.github.io,http://127.0.0.1:4173,http://localhost:4173'
 $env:ALLOWED_EXTENSION_IDS = 'published-chrome-extension-id,local-unpacked-extension-id'
 ./scripts/deploy-supabase.ps1 -ProjectRef 'your-project-ref'
 ```

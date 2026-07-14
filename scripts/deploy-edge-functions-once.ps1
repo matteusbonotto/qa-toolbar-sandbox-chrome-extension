@@ -1,6 +1,6 @@
 param(
   [string]$ProjectRef,
-  [string]$AllowedOrigins = "http://127.0.0.1:4173,http://localhost:4173",
+  [string]$AllowedOrigins = "https://matteusbonotto.github.io,http://127.0.0.1:4173,http://localhost:4173",
   [string]$AllowedExtensionIds = "jaalcifngdkpenjdolhlkgcaepdpkgoe,pkmfnaknekoffbaihajgglhehhpogkoj",
   [string]$ChromeWebStoreUrl = "https://chromewebstore.google.com/detail/qa-toolbar-sandbox/jaalcifngdkpenjdolhlkgcaepdpkgoe"
 )
