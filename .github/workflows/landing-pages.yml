@@ -37,7 +37,7 @@ jobs:
           test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
       - run: npm run typecheck
       - run: npm run test
-      - uses: actions/configure-pages@v5
+      - uses: actions/configure-pages@v6
       - name: Build landing with the repository base path
         run: npm run build -w @qts/landing -- --base "/${{ github.event.repository.name }}/"
       - uses: actions/upload-pages-artifact@v4
