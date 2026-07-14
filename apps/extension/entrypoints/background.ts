@@ -62,7 +62,11 @@ function setForcedFetch(pattern: string | null, status: number | null): void {
   if (!pattern || !status) { globalThis.fetch = originalFetch; return; }
   globalThis.fetch = async (...args: Parameters<typeof fetch>) => {
     const input = args[0]; const url = input instanceof Request ? input.url : String(input);
-    if (url.includes(pattern)) return new Response(JSON.stringify({ forcedBy: "QA Toolbar Sandbox", status }), { status, headers: { "content-type": "application/json", "x-qts-forced": "true" } });
+    if (url.includes(pattern)) {
+      globalThis.fetch = originalFetch;
+      window.postMessage({ source: "qts-force-http-consumed" }, window.location.origin);
+      return new Response(JSON.stringify({ forcedBy: "QA Toolbar Sandbox", status }), { status, headers: { "content-type": "application/json", "x-qts-forced": "true" } });
+    }
     return originalFetch(...args);
   };
 }

@@ -54,6 +54,7 @@ describe("ToolbarApp", () => {
     render(<ToolbarApp />);
     await waitFor(() => expect(screen.getByText("PRO · PRONTO PARA TESTAR")).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Start local capture" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: /MP4\/WebM/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Pause local capture" })).toBeInTheDocument());
   });
 
@@ -89,5 +90,28 @@ describe("ToolbarApp", () => {
     fireEvent.click(screen.getByTitle("Ocultar toolbar"));
     expect(screen.getByTitle("Mostrar QA Toolbar")).toBeInTheDocument();
     expect(document.getElementById("qts-windowsill-page-spacer")).not.toBeInTheDocument();
+  });
+
+  it("places a legacy-compatible Pass marker at the selected page position", async () => {
+    render(<ToolbarApp />);
+    fireEvent.click(screen.getByRole("button", { name: "Place Pass marker" }));
+    fireEvent.click(document.body, { clientX: 320, clientY: 240, button: 0 });
+    await waitFor(() => expect(screen.getByText("✓")).toBeInTheDocument());
+    expect(screen.getAllByRole("status").some((item) => item.textContent === "PASS")).toBe(true);
+  });
+
+  it("filters configured sandbox payment methods", async () => {
+    await browser.storage.local.set({ qtsWizardData: { payments: [
+      { id: "visa", brand: "Visa", number: "4111111111111111", scenario: "Approved" },
+      { id: "amex", brand: "Amex", number: "378282246310005", scenario: "Rejected" },
+    ] } });
+    render(<ToolbarApp />);
+    fireEvent.click(screen.getByRole("button", { name: /ferramentas/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Payment Methods" }));
+    await screen.findByText((_, element) => element?.textContent === "Amex · final 0005");
+    const search = screen.getByPlaceholderText("Buscar método de pagamento");
+    fireEvent.change(search, { target: { value: "amex" } });
+    expect(screen.getByText((_, element) => element?.textContent === "Amex · final 0005")).toBeInTheDocument();
+    expect(screen.queryByText((_, element) => element?.textContent === "Visa · final 1111")).not.toBeInTheDocument();
   });
 });
