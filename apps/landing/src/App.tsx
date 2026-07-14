@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { isLocale, isThemeKey, localizeDom, planCatalog, themeCatalog, translate, type BillingCycle, type ColorMode, type Locale, type ThemeKey } from "@qts/domain";
 import {
   FiActivity, FiArrowRight, FiCheck, FiChevronDown, FiCode, FiCpu,
-  FiDownload, FiEye, FiGitBranch, FiHardDrive, FiLock,
+  FiDownload, FiEye, FiHardDrive, FiLock,
   FiMenu, FiMoon, FiMousePointer, FiPackage, FiShield, FiSliders, FiSun, FiX, FiZap,
 } from "react-icons/fi";
 import brandLogo from "./assets/images/logo.svg";
@@ -14,19 +14,19 @@ const chromeStoreFallback = "https://chromewebstore.google.com/";
 const commerce = createLandingCommerce();
 
 const features = [
-  { icon: FiSliders, title: "Onboarding guiado", text: "Crie projeto, ambientes e URLs em um wizard claro; contas, pagamentos e inspectors podem ser configurados depois." },
-  { icon: FiGitBranch, title: "URLs por ambiente", text: "Associe Stage, Beta ou Produção a padrões como google.*, *.com.br/* ou URLs completas." },
-  { icon: FiEye, title: "Toolbar no contexto", text: "Projeto, ambiente e ferramentas ficam no topo da página autorizada, sem abrir outra aplicação." },
-  { icon: FiHardDrive, title: "Dados locais por padrão", text: "Workspace, imagens e dados sandbox permanecem no perfil do navegador; segredos de servidor nunca entram no bundle." },
-  { icon: FiCode, title: "Kit de QA organizado", text: "Contas de teste, pagamentos sandbox, status, observabilidade e inspectors reunidos no menu Tools." },
-  { icon: FiShield, title: "Permissão sob demanda", text: "Manifest V3 e acesso solicitado somente para as URLs escolhidas, com cobrança e vouchers validados no backend." },
+  { icon: FiCheck, title: "Status do teste", text: "Marque Pass, Fail, Blocked ou Limitation e mantenha o resultado visível enquanto investiga." },
+  { icon: FiDownload, title: "Evidências prontas", text: "Capture screenshots ou grave em MP4; para GIF, a conversão usa sua própria conta Convertio com consentimento." },
+  { icon: FiEye, title: "Breakpoint Viewer", text: "Compare celular e desktop lado a lado, com molduras, presets, rotação e fallback para sites que bloqueiam iframe." },
+  { icon: FiActivity, title: "Freeze, Click Spy e Inspectors", text: "Congele a interface, inspecione cliques, JSON, rede, storage e acessibilidade no contexto do teste." },
+  { icon: FiSliders, title: "Do seu jeito", text: "Fixe e desafixe ferramentas, altere tema e idioma e deixe a toolbar com os atalhos que você realmente usa." },
+  { icon: FiHardDrive, title: "Workspace portátil", text: "Importe, exporte, limpe cache ou resete configurações locais com escopo e confirmação antes de apagar." },
 ];
 
 const installSteps = [
-  ["01", "Crie seu acesso", "Entre, use o trial ou resgate um voucher autorizado."],
-  ["02", "Escolha o plano", "No plano pago, finalize o Stripe Checkout mensal com segurança."],
-  ["03", "Aguarde a confirmação", "O backend valida webhook, assinatura e permissões; a URL não libera nada sozinha."],
-  ["04", "Instale pela Chrome Store", "Você é redirecionado à listagem oficial para instalar e receber atualizações."],
+  ["01", "Crie sua conta", "Cadastre seu e-mail e confirme o acesso."],
+  ["02", "Escolha seu plano", "Comece com 30 dias grátis ou escolha cobrança mensal ou anual."],
+  ["03", "Conclua o acesso", "Use seu voucher ou finalize o pagamento seguro no Stripe."],
+  ["04", "Instale e teste", "Abra a Chrome Web Store, instale e configure seu primeiro projeto."],
 ];
 
 const faqs = [
@@ -35,6 +35,9 @@ const faqs = [
   ["A extensão se atualiza sozinha?", "Sim. Instalada pela Chrome Web Store, ela acompanha as versões publicadas na loja."],
   ["Quais sites funcionam?", "As URLs são definidas por projeto e ambiente. Você pode usar domínios, caminhos e curingas; o Chrome solicita permissão somente quando necessário."],
   ["Como o acesso é liberado?", "O Stripe processa cobranças pagas e o backend confirma o webhook. Vouchers são resgatados uma única vez e geram acesso diretamente no Supabase."],
+  ["Consigo gravar MP4 e GIF?", "Sim. MP4 é usado nativamente quando o navegador suporta; caso contrário, a captura é convertida. GIF usa a API Convertio com uma chave fornecida por você."],
+  ["O Breakpoint Viewer substitui um dispositivo real?", "Não. Ele simula dimensões em celular e desktop, inclusive lado a lado. Sites que bloqueiam iframe podem ser abertos externamente."],
+  ["Meus projetos ficam na nuvem?", "Projetos, URLs, contas sandbox, preferências e evidências permanecem localmente por padrão. Supabase guarda somente conta e acesso; Stripe processa pagamentos."],
 ];
 
 export function App() {
@@ -128,7 +131,7 @@ export function App() {
   const requestDownload = () => {
     setPendingPlan("free");
     setVoucherCode("30DIAS");
-    void verifyAccess(true);
+    void verifyAccess(false);
   };
 
   useEffect(() => {
@@ -199,7 +202,7 @@ export function App() {
         await commerce.signIn(email.trim(), password);
       }
       setAuthenticated(true);
-      if (pendingPlan === "free") await verifyAccess(true);
+      if (pendingPlan === "free") await verifyAccess(false);
       else await checkout(pendingPlan);
     } catch (error) {
       setAccessMessage(error instanceof Error ? error.message : "Não foi possível autenticar.");
@@ -312,21 +315,21 @@ export function App() {
         <section className="trust-strip" aria-label="Características técnicas"><div className="container trust-inner"><span>Manifest V3</span><i /><span>React + TypeScript</span><i /><span>Shadow DOM</span><i /><span>Permissões sob demanda</span></div></section>
 
         <section className="section container" id="recursos">
-          <div className="section-heading" data-reveal><span className="kicker">Uma camada de foco</span><h2>As ferramentas certas, onde o problema acontece.</h2><p>A primeira versão estabelece uma base segura e modular para concentrar a investigação no próprio produto.</p></div>
+          <div className="section-heading" data-reveal><span className="kicker">Como funciona</span><h2>Do primeiro clique à evidência final, sem sair do site.</h2><p>A toolbar reúne o fluxo do teste manual: contexto, status, inspeção, responsividade, captura e organização — sempre na página que você está validando.</p></div>
           <div className="feature-grid">{features.map(({ icon: Icon, title, text }, index) => <article className="feature-card" data-reveal style={{ "--delay": `${index * 55}ms` } as CSSProperties} key={title}><span className="feature-icon"><Icon /></span><h3>{title}</h3><p>{text}</p><span className="card-line" /></article>)}</div>
         </section>
 
         <section className="section security-section" id="seguranca">
           <div className="container security-grid">
             <div className="security-visual" data-reveal><div className="shield-orbit"><span className="orbit orbit-a" /><span className="orbit orbit-b" /><div className="shield-core"><FiShield /></div><i className="node n1" /><i className="node n2" /><i className="node n3" /></div></div>
-            <div className="security-copy" data-reveal><span className="kicker">Segurança desde a base</span><h2>Seu navegador não deveria confiar às cegas.</h2><p>O projeto reduz privilégios no cliente e mantém decisões de cobrança, papéis e licenças no servidor.</p><ul><li><FiCheck /> Nenhuma chave Stripe ou service-role no bundle</li><li><FiCheck /> RLS e acesso negado por padrão nas tabelas sensíveis</li><li><FiCheck /> Webhooks assinados, idempotência e rate limiting</li><li><FiCheck /> Novas URLs somente com sua permissão</li></ul><small>Segurança é um processo contínuo; nenhuma aplicação pode prometer risco zero.</small></div>
+            <div className="security-copy" data-reveal><span className="kicker">Privacidade sem letrinhas miúdas</span><h2>Você escolhe onde a extensão funciona e o que compartilhar.</h2><p>Seus projetos e evidências ficam no navegador por padrão. A extensão só atua nas URLs autorizadas por você, e uma conversão GIF externa acontece apenas após seu consentimento.</p><ul><li><FiCheck /> Permissão somente para os sites que você adicionar</li><li><FiCheck /> Projetos, contas sandbox e configurações locais por padrão</li><li><FiCheck /> Pagamentos processados diretamente pelo Stripe</li><li><FiCheck /> Chave Convertio fornecida e controlada por você</li></ul><a className="button button-ghost" href={privacyPolicyUrl}>Conhecer nossa Política de Privacidade <FiArrowRight /></a></div>
           </div>
         </section>
 
         <section className="section container install-section" id="instalar">
-          <div className="section-heading" data-reveal><span className="kicker">Instalação oficial</span><h2>Do checkout à Chrome Store, sem atalhos inseguros.</h2><p>A confirmação acontece no backend e a instalação segue pela listagem oficial da extensão.</p></div>
+          <div className="section-heading" data-reveal><span className="kicker">Comece em quatro passos</span><h2>Da conta ao primeiro teste.</h2><p>Escolha o acesso que combina com seu momento e instale pela Chrome Web Store.</p></div>
           <div className="steps">{installSteps.map(([number, title, text]) => <article className="step" data-reveal key={number}><span>{number}</span><div><h3>{title}</h3><p>{text}</p></div></article>)}</div>
-          <div className="manual-meme" data-reveal><div className="meme-animation" aria-hidden="true"><span>🖱️</span><b>⚡</b><i>🤖</i></div><div><span className="kicker">Manual com sabor de automação</span><h3>Você decide o teste. A toolbar organiza o resto.</h3><p>Nada de robô tomando decisões escondidas: contexto manual, atalhos inteligentes e automação onde ela realmente ajuda.</p></div></div>
+          <div className="manual-meme" data-reveal><img className="manual-gif" src="https://media.tenor.com/PPQdQblwtyAAAAAM/sabor-energ%C3%A9tico-sabor.gif" alt="Animação da campanha Testes manuais com sabooour automático" loading="lazy" referrerPolicy="no-referrer" /><div><span className="kicker">Testes manuais com sabooour automático</span><h3>Você mantém o olhar crítico. A toolbar tira o trabalho repetitivo do caminho.</h3><p>Menos tempo montando contexto, procurando conta sandbox e organizando evidência. Mais qualidade de vida, velocidade e foco para testar o que realmente importa.</p></div></div>
           <div className="install-callout" data-reveal><FiPackage /><div><b>Pronto para experimentar</b><p>Escolha um plano ou voucher, aguarde a validação e siga para a Chrome Web Store. <a className="hash-link" href={mockWorkspaceUrl} download>Baixar dados mock</a></p></div><a className="button button-primary" href="#planos"><FiLock /> Escolher acesso</a></div>
         </section>
 
@@ -337,9 +340,9 @@ export function App() {
             <button type="button" className={billingCycle === "yearly" ? "is-active" : ""} onClick={() => setBillingCycle("yearly")}>{t("landing.yearly")} <strong>até 25% OFF</strong></button>
           </div>
           <div className="pricing-grid pricing-three" data-reveal>
-            <article className="price-card"><span>Starter</span><h3>Grátis</h3><p>30 dias de Full Access; depois, o essencial continua disponível.</p><ul><li><FiCheck /> 1 URL e 1 cliente após o trial</li><li><FiCheck /> Screenshot e Pass/Fail</li><li><FiCheck /> Sem cartão no trial</li></ul><button className="button button-ghost" onClick={() => { setAuthMode("signup"); requestDownload(); }}>Começar 30 dias</button></article>
-            <article className="price-card featured"><span className="soon">Recomendado</span><span>Pro</span><h3>{planCatalog.pro[billingCycle].displayPrice} <small>/ mês</small></h3>{billingCycle === "yearly" && <p className="annual-detail">Cobrado {planCatalog.pro.yearly.billedPrice}/ano · economize {planCatalog.pro.yearly.discountPercent}%</p>}<p>Para profissionais e pequenos times que precisam manter ritmo.</p><ul><li><FiCheck /> 10 URLs e 25 clientes</li><li><FiCheck /> Gravação, anotações e inspectors</li><li><FiCheck /> {billingCycle === "yearly" ? "Maior desconto no compromisso anual" : "Cancele quando quiser"}</li></ul><button className="button button-primary" disabled={accessBusy} onClick={() => choosePlan(planCatalog.pro[billingCycle].priceKey)}>{accessBusy ? "Abrindo..." : `Contratar Pro ${billingCycle === "yearly" ? "anual" : "mensal"}`}</button></article>
-            <article className="price-card"><span>Scale · Full Access</span><h3>{planCatalog.scale[billingCycle].displayPrice} <small>/ mês</small></h3>{billingCycle === "yearly" && <p className="annual-detail">Cobrado {planCatalog.scale.yearly.billedPrice}/ano · economize {planCatalog.scale.yearly.discountPercent}%</p>}<p>Para consultorias, operações e times em crescimento.</p><ul><li><FiCheck /> Escala sem limite prático</li><li><FiCheck /> HTTP Controls e histórico ampliado</li><li><FiCheck /> {billingCycle === "yearly" ? "Maior desconto no compromisso anual" : "Cancele quando quiser"}</li></ul><button className="button button-ghost" disabled={accessBusy} onClick={() => choosePlan(planCatalog.scale[billingCycle].priceKey)}>{accessBusy ? "Abrindo..." : `Contratar Scale ${billingCycle === "yearly" ? "anual" : "mensal"}`}</button></article>
+            <article className="price-card"><span>Starter</span><h3>Grátis</h3><p>30 dias de Full Access; depois, o essencial continua disponível.</p><ul><li><FiCheck /> 1 URL e 1 cliente após o trial</li><li><FiCheck /> Screenshot e status de teste</li><li><FiCheck /> Sem cartão no trial</li></ul><button className="button button-ghost" onClick={() => { setAuthMode("signup"); requestDownload(); }}>Escolher este plano</button></article>
+            <article className="price-card featured"><span className="soon">Recomendado</span><span>Pro</span><h3>{planCatalog.pro[billingCycle].displayPrice} <small>/ mês</small></h3>{billingCycle === "yearly" && <p className="annual-detail">Cobrado {planCatalog.pro.yearly.billedPrice}/ano · economize {planCatalog.pro.yearly.discountPercent}%</p>}<p>Para profissionais e pequenos times que precisam manter ritmo.</p><ul><li><FiCheck /> 10 URLs e 25 clientes</li><li><FiCheck /> Gravação, anotações e inspectors</li><li><FiCheck /> {billingCycle === "yearly" ? "Maior desconto no compromisso anual" : "Cancele quando quiser"}</li></ul><button className="button button-primary" disabled={accessBusy} onClick={() => choosePlan(planCatalog.pro[billingCycle].priceKey)}>{accessBusy ? "Abrindo..." : "Escolher este plano"}</button></article>
+            <article className="price-card"><span>Scale · Full Access</span><h3>{planCatalog.scale[billingCycle].displayPrice} <small>/ mês</small></h3>{billingCycle === "yearly" && <p className="annual-detail">Cobrado {planCatalog.scale.yearly.billedPrice}/ano · economize {planCatalog.scale.yearly.discountPercent}%</p>}<p>Para consultorias, operações e times em crescimento.</p><ul><li><FiCheck /> Escala sem limite prático</li><li><FiCheck /> HTTP Controls e histórico ampliado</li><li><FiCheck /> {billingCycle === "yearly" ? "Maior desconto no compromisso anual" : "Cancele quando quiser"}</li></ul><button className="button button-ghost" disabled={accessBusy} onClick={() => choosePlan(planCatalog.scale[billingCycle].priceKey)}>{accessBusy ? "Abrindo..." : "Escolher este plano"}</button></article>
           </div>
           {launchPromotion?.active && <div className="growth-offer" data-reveal><FiZap /><div><b>Oferta de lançamento: {launchPromotion.code}</b><p>{launchPromotion.percentOff}% de desconto para as primeiras {launchPromotion.maximumRedemptions} pessoas. Restam <strong>{launchPromotion.remainingRedemptions}</strong> vouchers — use o código no Stripe Checkout.</p></div></div>}
         </section>
@@ -348,7 +351,7 @@ export function App() {
 
         <section className="section container about-section" id="sobre"><div className="section-heading" data-reveal><span className="kicker">Sobre o produto</span><h2>Feita por QA, para quem testa de verdade.</h2><p>A QA Toolbar Sandbox é uma bancada local-first para reduzir tarefas repetitivas, organizar contextos e produzir evidências sem abandonar a aplicação validada.</p></div><div className="about-grid" data-reveal><article><h3>Propósito</h3><p>Dar clareza e velocidade ao trabalho manual sem substituir o julgamento da pessoa de QA.</p></article><article><h3>Privacidade</h3><p>Conta e acesso são processados pelo Supabase; pagamentos pelo Stripe. Dados operacionais permanecem locais por padrão.</p></article><article><h3>Desenvolvimento</h3><p>Produto criado por Matheus Bonotto, com suporte e evolução pública pelo repositório oficial.</p></article></div></section>
 
-        <section className="final-cta"><div className="container" data-reveal><span className="kicker">Pronto para explorar?</span><h2>Menos troca de contexto.<br />Mais clareza para testar.</h2><p>Entre, confirme seu acesso e instale pela Chrome Web Store.</p><button className="button button-primary" onClick={requestDownload}><FiLock /> Confirmar acesso e instalar <FiArrowRight /></button></div></section>
+        <section className="final-cta"><div className="container" data-reveal><span className="kicker">Feito de QA para todos</span><h2>Seu teste manual pode ser muito mais fluido.</h2><p>Experimente 30 dias de Full Access, sem cartão, e descubra quanto tempo a toolbar devolve para o seu dia.</p><button className="button button-primary" onClick={requestDownload}><FiArrowRight /> Começar meus 30 dias</button></div></section>
       </main>
 
       {accessOpen && <div className="install-modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && setAccessOpen(false)}>
@@ -363,8 +366,9 @@ export function App() {
             <div className="auth-fields"><label>E-mail<input type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Senha<input type="password" autoComplete={authMode === "login" ? "current-password" : "new-password"} value={password} onChange={(event) => setPassword(event.target.value)} /></label>{authMode === "signup" && <><p className="privacy-disclosure">Para criar a conta, enviamos e-mail, aceite, identificador da instalação e dados do plano ao Supabase. Pagamentos são processados pelo Stripe. Projetos, ambientes e URLs ficam no navegador por padrão.</p><label className="terms-check"><input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} /><span>Li e aceito a <a href={privacyPolicyUrl} target="_blank" rel="noreferrer">Política de Privacidade</a>.</span></label></>}</div>
             <button className="button button-primary access-primary" disabled={accessBusy} onClick={() => void authenticate()}>{accessBusy ? "Aguarde..." : pendingPlan === "free" ? (authMode === "signup" ? "Criar conta e liberar trial" : "Entrar e verificar acesso") : "Continuar para o checkout"}</button>
           </> : <><div className="voucher-entry"><label htmlFor="voucher">Tem um voucher?</label><div><input id="voucher" value={voucherCode} onChange={(event) => setVoucherCode(event.target.value.toUpperCase())} placeholder="Digite seu código" /><button className="button button-ghost" disabled={accessBusy || voucherCode.trim().length < 8} onClick={() => void redeemVoucher()}>Resgatar</button></div></div><div className="modal-actions">
-            {pendingPlan !== "free" ? <button className="button button-primary" disabled={accessBusy} onClick={() => void checkout(pendingPlan)}>{accessBusy ? "Abrindo..." : "Ir para o checkout"} <FiArrowRight /></button> : releaseReady ? <button className="button button-primary" disabled={accessBusy} onClick={() => openChromeStore()}><FiDownload /> Ir para Chrome Store</button> : <a className="button button-primary" href="#planos" onClick={() => setAccessOpen(false)}>Escolher um plano</a>}
-            <button className="button button-ghost" disabled={accessBusy} onClick={() => void verifyAccess(false)}>{accessBusy ? "Verificando..." : "Atualizar pagamento"}</button>
+            {pendingPlan !== "free" ? <button className="button button-primary" disabled={accessBusy} onClick={() => void checkout(pendingPlan)}>{accessBusy ? "Abrindo..." : "Escolher este plano"} <FiArrowRight /></button> : releaseReady ? <button className="button button-primary" disabled={accessBusy} onClick={() => openChromeStore()}><FiDownload /> Ir para Chrome Store</button> : <button className="button button-primary" disabled={accessBusy || voucherCode.trim().length < 8} onClick={() => void redeemVoucher()}>{accessBusy ? "Liberando..." : "Ativar meus 30 dias"}</button>}
+            <a className="button button-ghost" href="#planos" onClick={() => setAccessOpen(false)}>Escolher outro plano</a>
+            <button className="button button-ghost" disabled={accessBusy} onClick={() => void verifyAccess(false)}>{accessBusy ? "Verificando..." : "Verificar meu acesso"}</button>
             <button className="button button-ghost" onClick={() => { commerce?.signOut(); setAuthenticated(false); setReleaseReady(false); }}>Sair</button>
           </div></>}
           <small>A liberação é decidida pelo backend após confirmar pagamento, trial ou voucher válido. O retorno do checkout, sozinho, não desbloqueia a instalação.</small>
