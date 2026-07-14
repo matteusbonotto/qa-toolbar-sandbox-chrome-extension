@@ -1,8 +1,8 @@
 param(
   [string]$ProjectRef,
   [string]$AllowedOrigins = "https://matteusbonotto.github.io,http://127.0.0.1:4173,http://localhost:4173",
-  [string]$AllowedExtensionIds = "jaalcifngdkpenjdolhlkgcaepdpkgoe,pkmfnaknekoffbaihajgglhehhpogkoj",
-  [string]$ChromeWebStoreUrl = "https://chromewebstore.google.com/detail/qa-toolbar-sandbox/jaalcifngdkpenjdolhlkgcaepdpkgoe"
+  [string]$AllowedExtensionIds = "ddaapjklnfjhjigeglgmjmadjnmdodfe,jaalcifngdkpenjdolhlkgcaepdpkgoe,pkmfnaknekoffbaihajgglhehhpogkoj",
+  [string]$ChromeWebStoreUrl = "https://chromewebstore.google.com/detail/qa-toolbar-sandbox/ddaapjklnfjhjigeglgmjmadjnmdodfe?authuser=0&hl=pt-BR"
 )
 
 $ErrorActionPreference = "Stop"
