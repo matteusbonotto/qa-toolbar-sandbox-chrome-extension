@@ -43,7 +43,7 @@ describe("matchEnvironment", () => {
   });
 
   it("rejects invalid regular expressions", () => {
-    expect(matchEnvironment("https://example.test", [{ ...qaEnvironment, urlPatterns: ["regex:(a+)+$"] }]).environment).toBeNull();
+    expect(matchEnvironment("https://example.test", [{ ...qaEnvironment, urlPatterns: ["regex:["] }]).environment).toBeNull();
   });
 });
 
