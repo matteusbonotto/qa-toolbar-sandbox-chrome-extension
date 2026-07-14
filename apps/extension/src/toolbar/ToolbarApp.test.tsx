@@ -85,7 +85,9 @@ describe("ToolbarApp", () => {
 
   it("minimizes the top windowsill and exposes a restore control", () => {
     render(<ToolbarApp />);
+    expect(document.getElementById("qts-windowsill-page-spacer")).not.toBeInTheDocument();
     fireEvent.click(screen.getByTitle("Ocultar toolbar"));
     expect(screen.getByTitle("Mostrar QA Toolbar")).toBeInTheDocument();
+    expect(document.getElementById("qts-windowsill-page-spacer")).not.toBeInTheDocument();
   });
 });
