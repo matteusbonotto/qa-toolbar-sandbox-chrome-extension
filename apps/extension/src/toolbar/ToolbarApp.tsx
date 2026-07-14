@@ -22,7 +22,6 @@ type Workspace = { projectName: string; domain: string; environmentName: string 
 type WizardConfiguration = { accounts?: { id: string; email: string; inboxUrl?: string; environmentIds?: string[] }[]; payments?: { id: string; brand: string; number?: string; scenario?: string; expiration?: string }[]; inspectorEndpoints?: string[] };
 type Annotation = { id: string; kind: "note" | "shape"; text?: string; x: number; y: number };
 const ONBOARDING_KEY = "qtsOnboardingV2Complete";
-const SPACER_ID = "qts-windowsill-page-spacer";
 const PINNABLE_TOOLS = ["observatory", "payments", "accounts", "test-status", "json-studio", "errors", "inspectors", "rut", "settings"] as const;
 type PinnableTool = typeof PINNABLE_TOOLS[number];
 
@@ -110,26 +109,6 @@ export function ToolbarApp() {
       window.removeEventListener("keydown", closeOnEscape);
     };
   }, [state.closePanel]);
-
-  useEffect(() => {
-    let spacer = document.getElementById(SPACER_ID);
-    if (!spacer) {
-      spacer = document.createElement("div");
-      spacer.id = SPACER_ID;
-      spacer.setAttribute("aria-hidden", "true");
-      document.body.prepend(spacer);
-    }
-    const isCompact = typeof window.matchMedia === "function" && window.matchMedia("(max-width: 720px)").matches;
-    const visibleHeight = state.isExpanded ? (isCompact ? 78 : 42) : 0;
-    spacer.style.cssText = `display:block;width:100%;height:${visibleHeight}px;min-height:${visibleHeight}px;flex:0 0 ${visibleHeight}px;transition:height 180ms ease,min-height 180ms ease;`;
-    document.documentElement.style.setProperty("--qts-windowsill-height", `${visibleHeight}px`);
-    document.documentElement.style.scrollPaddingTop = `${visibleHeight}px`;
-    return () => {
-      spacer?.remove();
-      document.documentElement.style.removeProperty("--qts-windowsill-height");
-      document.documentElement.style.removeProperty("scroll-padding-top");
-    };
-  }, [state.isExpanded]);
 
   useEffect(() => startNetworkObservatory(setNetworkRecords, Number(entitlements?.features["networkHistory.maximum"] ?? 500)), [entitlements?.features]);
   useEffect(() => () => payloadBridgeStopRef.current?.(), []);

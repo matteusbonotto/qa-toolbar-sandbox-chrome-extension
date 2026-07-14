@@ -15,7 +15,9 @@ export default defineContentScript({
     if (!urlMatchesAny(window.location.href, patterns)) return;
     const ui = await createShadowRootUi(context, {
       name: "qts-toolbar",
-      position: "inline",
+      position: "overlay",
+      alignment: "top-left",
+      zIndex: 2147483000,
       anchor: "body",
       onMount(container) {
         const root = createRoot(container);
