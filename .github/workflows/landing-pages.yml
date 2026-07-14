@@ -40,7 +40,7 @@ jobs:
       - uses: actions/configure-pages@v5
       - name: Build landing with the repository base path
         run: npm run build -w @qts/landing -- --base "/${{ github.event.repository.name }}/"
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/landing/dist
 
