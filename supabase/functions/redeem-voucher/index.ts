@@ -4,7 +4,7 @@ import { authenticatedUser, adminClient, enforceRateLimit } from "../_shared/aut
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
 
-const requestSchema = z.object({ code: z.string().trim().min(8).max(64).regex(/^[A-Z0-9-]+$/i) }).strict();
+const requestSchema = z.object({ code: z.string().trim().min(6).max(64).regex(/^[A-Z0-9-]+$/i) }).strict();
 
 serve(async (request) => {
   requirePost(request);

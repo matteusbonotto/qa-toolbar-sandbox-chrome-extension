@@ -71,6 +71,7 @@ if ([string]::IsNullOrWhiteSpace($webhookSecret)) {
 
 $keepAliveSecret = if ($runtime["KEEP_ALIVE_SECRET"]) { [string]$runtime["KEEP_ALIVE_SECRET"] } else { New-StrongSecret }
 $founderSecret = if ($runtime["FOUNDER_BOOTSTRAP_SECRET"]) { [string]$runtime["FOUNDER_BOOTSTRAP_SECRET"] } else { New-StrongSecret }
+$offlineLicensePrivateJwk = Require-Value $runtime "OFFLINE_LICENSE_PRIVATE_JWK"
 $successUrl = "https://$ProjectRef.supabase.co/functions/v1/checkout-success"
 $cancelUrl = "https://$ProjectRef.supabase.co/functions/v1/checkout-cancel"
 
@@ -83,6 +84,7 @@ $secretLines = @(
   "STRIPE_SCALE_MONTHLY_PRICE_ID=$(Require-Value $billing 'STRIPE_SCALE_MONTHLY_PRICE_ID')",
   "STRIPE_SCALE_YEARLY_PRICE_ID=$(Require-Value $billing 'STRIPE_SCALE_YEARLY_PRICE_ID')",
   "STRIPE_REFERRAL_PROMOTION_CODE_ID=$(Require-Value $billing 'STRIPE_REFERRAL_PROMOTION_CODE_ID')",
+  "STRIPE_30OFF_PROMOTION_CODE_ID=$(Require-Value $billing 'STRIPE_30OFF_PROMOTION_CODE_ID')",
   "APP_SUPABASE_PUBLIC_KEY=$supabasePublic",
   "APP_SUPABASE_SECRET_KEY=$supabaseSecret",
   "CHECKOUT_SUCCESS_URL=$successUrl",
@@ -90,6 +92,7 @@ $secretLines = @(
   "CHROME_WEB_STORE_URL=$ChromeWebStoreUrl",
   "KEEP_ALIVE_SECRET=$keepAliveSecret",
   "FOUNDER_BOOTSTRAP_SECRET=$founderSecret",
+  "OFFLINE_LICENSE_PRIVATE_JWK=$offlineLicensePrivateJwk",
   "ALLOWED_ORIGINS=$AllowedOrigins",
   "ALLOWED_EXTENSION_IDS=$AllowedExtensionIds"
 )

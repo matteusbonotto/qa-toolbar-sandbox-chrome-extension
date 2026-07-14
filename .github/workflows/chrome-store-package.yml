@@ -9,6 +9,8 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-latest
+    env:
+      WXT_PUBLIC_OFFLINE_LICENSE_PUBLIC_JWK: ${{ vars.WXT_PUBLIC_OFFLINE_LICENSE_PUBLIC_JWK }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
