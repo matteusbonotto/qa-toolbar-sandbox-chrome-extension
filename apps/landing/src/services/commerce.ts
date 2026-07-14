@@ -157,10 +157,14 @@ export class LandingCommerce {
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
       const code = data && typeof data === "object" && "error" in data ? String((data as { error?: unknown }).error) : "";
-      if (response.status === 401) throw new Error("E-mail ou senha inválidos.");
+      if (response.status === 401 && (functionName === "auth-sign-in" || functionName === "auth-sign-up")) throw new Error("E-mail ou senha inválidos.");
+      if (response.status === 401) throw new Error("Sua sessão expirou. Entre novamente para continuar.");
+      if (response.status === 403 && code === "installation_not_active") throw new Error("Esta instalação não está ativa. Saia, entre novamente e tente outra vez.");
+      if (response.status === 429) throw new Error("Muitas tentativas em pouco tempo. Aguarde um instante e tente novamente.");
       if (response.status === 409 && code === "voucher_unavailable") throw new Error("Voucher inválido, expirado ou já utilizado.");
       if (response.status === 409) throw new Error("Já existe uma assinatura ativa para esta conta.");
-      throw new Error("Não foi possível concluir a operação agora.");
+      if (response.status >= 500) throw new Error("O serviço de acesso está temporariamente indisponível. Tente novamente em instantes.");
+      throw new Error(`Não foi possível concluir esta etapa${code ? ` (${code})` : ""}.`);
     }
     return data;
   }
