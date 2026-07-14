@@ -11,7 +11,7 @@ const status = (trial: boolean, subscription: string | null, paymentConfirmed = 
 describe("landing commerce access", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("releases only an active Stripe subscription with a confirmed payment", () => {
+  it("unlocks installation only for confirmed server-side access", () => {
     expect(hasReleaseAccess(status(true, null))).toBe(false);
     expect(hasReleaseAccess(status(false, "active"))).toBe(false);
     expect(hasReleaseAccess(status(false, "active", true))).toBe(true);
@@ -25,18 +25,13 @@ describe("landing commerce access", () => {
     expect(() => new LandingCommerce("https://evil.example", "public-key")).toThrow();
   });
 
-  it("accepts only short-lived release links from the configured Supabase project", async () => {
+  it("redeems vouchers only through the authenticated backend", async () => {
     const api = new LandingCommerce("https://project.supabase.co", "public-key");
     vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({
-      downloadUrl: "https://project.supabase.co/storage/v1/object/sign/extension-releases/release.zip?token=signed",
-      expiresIn: 60,
+      redeemed: true,
+      label: "Acesso QA",
+      expiresAt: "2027-07-13T00:00:00.000Z",
     }), { status: 200, headers: { "content-type": "application/json" } }));
-    await expect(api.releaseUrl("valid-access-token")).resolves.toContain("extension-releases");
-
-    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({
-      downloadUrl: "https://evil.example/release.zip",
-      expiresIn: 60,
-    }), { status: 200, headers: { "content-type": "application/json" } }));
-    await expect(api.releaseUrl("valid-access-token")).rejects.toThrow("rejeitado");
+    await expect(api.redeemVoucher("valid-access-token", "TEST-CODE")).resolves.toMatchObject({ redeemed: true });
   });
 });

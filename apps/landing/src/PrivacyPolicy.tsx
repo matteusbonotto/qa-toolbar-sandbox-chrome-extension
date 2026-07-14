@@ -1,5 +1,5 @@
 import { FiArrowLeft, FiExternalLink, FiLock, FiShield } from "react-icons/fi";
-import logoWhite from "./assets/images/logo-branco.png";
+import brandLogo from "./assets/images/logo.svg";
 
 const homeUrl = import.meta.env.BASE_URL;
 const policyVersion = "2026-07-13";
@@ -10,7 +10,7 @@ export function PrivacyPolicy() {
       <header className="privacy-nav">
         <div className="container privacy-nav-inner">
           <a className="brand" href={homeUrl} aria-label="Voltar para QA Sandbox Toolbar">
-            <img className="brand-logo" src={logoWhite} alt="QA Sandbox Toolbar" />
+            <img className="brand-logo" src={brandLogo} alt="QA Sandbox Toolbar" />
           </a>
           <a className="button button-ghost privacy-back" href={homeUrl}><FiArrowLeft /> Voltar para a página inicial</a>
         </div>

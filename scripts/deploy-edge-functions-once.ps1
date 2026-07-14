@@ -1,7 +1,8 @@
 param(
   [string]$ProjectRef,
   [string]$AllowedOrigins = "http://127.0.0.1:4173,http://localhost:4173",
-  [string]$AllowedExtensionIds = "jaalcifngdkpenjdolhlkgcaepdpkgoe"
+  [string]$AllowedExtensionIds = "jaalcifngdkpenjdolhlkgcaepdpkgoe,pkmfnaknekoffbaihajgglhehhpogkoj",
+  [string]$ChromeWebStoreUrl = "https://chromewebstore.google.com/detail/qa-toolbar-sandbox/jaalcifngdkpenjdolhlkgcaepdpkgoe"
 )
 
 $ErrorActionPreference = "Stop"
@@ -86,6 +87,7 @@ $secretLines = @(
   "APP_SUPABASE_SECRET_KEY=$supabaseSecret",
   "CHECKOUT_SUCCESS_URL=$successUrl",
   "CHECKOUT_CANCEL_URL=$cancelUrl",
+  "CHROME_WEB_STORE_URL=$ChromeWebStoreUrl",
   "KEEP_ALIVE_SECRET=$keepAliveSecret",
   "FOUNDER_BOOTSTRAP_SECRET=$founderSecret",
   "ALLOWED_ORIGINS=$AllowedOrigins",

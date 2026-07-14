@@ -29,7 +29,7 @@ $env:STRIPE_WEBHOOK_SECRET = 'whsec_...'
 $env:KEEP_ALIVE_SECRET = 'random-32-byte-or-longer-secret'
 $env:FOUNDER_BOOTSTRAP_SECRET = 'independent-random-secret'
 $env:ALLOWED_ORIGINS = 'https://your-account-site.example'
-$env:ALLOWED_EXTENSION_IDS = 'published-chrome-extension-id'
+$env:ALLOWED_EXTENSION_IDS = 'published-chrome-extension-id,local-unpacked-extension-id'
 ./scripts/deploy-supabase.ps1 -ProjectRef 'your-project-ref'
 ```
 
@@ -56,8 +56,7 @@ Subscribe only to `checkout.session.completed`, `customer.subscription.created`,
 | `create-checkout` | Bearer JWT | `{ priceKey, requestId, referralCode? }` |
 | `create-customer-portal` | Bearer JWT | `{ requestId }` |
 | `billing-status` | Bearer JWT | `{ installationId }` |
-| `download-release` | Bearer JWT | `{}`; returns a 60-second signed URL only for an active grant/subscription |
-| `publish-release` | Dedicated upload secret | ZIP body; writes only the fixed private release object |
+| `redeem-voucher` | Bearer JWT | `{ code }`; atomically grants access for an available voucher |
 | `stripe-webhook` | Stripe signature | Raw signed body |
 | `keep-alive` | Dedicated header secret | `{}` |
 
@@ -69,4 +68,12 @@ No system can honestly guarantee zero invasions. This implementation uses defens
 
 When a user chooses Pro or Scale with more than 48 hours left in the evaluation, Checkout collects the payment method and schedules the first charge for `trial_ends_at`. Near or after expiry, the subscription starts immediately. This avoids charging a customer while the promised evaluation is still running.
 
-The landing page never treats a checkout return as proof of payment. It polls `billing-status`, then requests `download-release`. The ZIP lives in the private `extension-releases` bucket and is exposed only through a one-minute signed URL. GitHub Pages publishes the checksum and demo workspace, not the ZIP itself.
+The landing page never treats a checkout return as proof of payment. It polls `billing-status` and only unlocks the official Chrome Web Store destination when `access.active` is true. `CHROME_WEB_STORE_URL` is validated server-side against `chromewebstore.google.com`; the customer never receives a ZIP from GitHub Pages.
+
+## Vouchers and feature flags
+
+Raw voucher codes must never be committed. Put the three codes in the ignored `.env.private` variables documented by `.env.example`, deploy the migration, then run `./scripts/provision-vouchers.ps1`. Codes are normalized and hashed locally; Supabase stores only SHA-256 hashes. Redemption is single-use and atomic. An administrator may deliberately make a voucher available again through the service-role-only `reset_voucher` RPC.
+
+The `feature_flags` table provides server-controlled switches and JSON configuration. `billing-status` sends the effective flags to the extension, where a disabled flag overrides plan entitlement. Add new flags through reviewed migrations or the Supabase dashboard with the service role; clients only receive enabled state/config and cannot mutate flags.
+
+Time-limited grants expose `daysRemaining` and `expiryWarning` when 30 days or fewer remain. A voucher with `grant_days = null` is lifetime access.

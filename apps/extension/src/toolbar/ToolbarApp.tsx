@@ -8,9 +8,11 @@ import {
 } from "react-icons/fi";
 import { useToolbarStore, type PanelId } from "../store/useToolbarStore";
 import { featureEnabled, type EntitlementCache } from "../services/entitlements";
-import { matchEnvironment, type Project } from "@qts/domain";
+import { isThemeKey, matchEnvironment, type ColorMode, type Project, type ThemeKey } from "@qts/domain";
+import { urlMatchesAny } from "../services/workspace";
 
 type Workspace = { projectName: string; domain: string; environmentName: string };
+type WizardConfiguration = { accounts?: { id: string; email: string; inboxUrl?: string; environmentIds?: string[] }[]; payments?: { id: string; brand: string; number?: string; scenario?: string; expiration?: string }[]; inspectorEndpoints?: string[] };
 const ONBOARDING_KEY = "qtsOnboardingV2Complete";
 const SPACER_ID = "qts-windowsill-page-spacer";
 
@@ -26,17 +28,26 @@ export function ToolbarApp() {
   const [workspace, setWorkspace] = useState<Workspace>({ projectName: "QA Sandbox", domain: window.location.hostname, environmentName: "LOCAL" });
   const [toast, setToast] = useState("");
   const [entitlements, setEntitlements] = useState<EntitlementCache | null>(null);
+  const [configuration, setConfiguration] = useState<WizardConfiguration>({});
+  const [theme, setTheme] = useState<ThemeKey>("red");
+  const [colorMode, setColorMode] = useState<ColorMode>("dark");
 
   useEffect(() => {
     if (typeof browser === "undefined") return;
-    void browser.storage.local.get(["qtsSetup", "qtsProjects", "qtsActiveProjectId", ONBOARDING_KEY, "qtsEntitlementCache"]).then((stored) => {
+    void browser.storage.local.get(["qtsSetup", "qtsProjects", "qtsActiveProjectId", "qtsWizardData", "qtsAppearance", ONBOARDING_KEY, "qtsEntitlementCache"]).then((stored) => {
       const projects = (stored.qtsProjects ?? []) as Project[];
       const project = projects.find((item) => item.id === stored.qtsActiveProjectId) ?? projects[0];
       const matched = project ? matchEnvironment(window.location.href, project.environments) : null;
-      if (project && matched?.environment) {
-        setWorkspace({ projectName: project.name, domain: window.location.hostname, environmentName: matched.environment.name });
+      const wildcardEnvironment = project?.environments.find((environment) => urlMatchesAny(window.location.href, environment.urlPatterns));
+      const environment = wildcardEnvironment ?? matched?.environment;
+      if (project && environment) {
+        setWorkspace({ projectName: project.name, domain: window.location.hostname, environmentName: environment.name });
       } else if (stored.qtsSetup) setWorkspace(stored.qtsSetup as Workspace);
       if (stored.qtsEntitlementCache) setEntitlements(stored.qtsEntitlementCache as EntitlementCache);
+      if (stored.qtsWizardData) setConfiguration(stored.qtsWizardData as WizardConfiguration);
+      const appearance = stored.qtsAppearance as { theme?: unknown; mode?: unknown } | undefined;
+      if (isThemeKey(appearance?.theme)) setTheme(appearance.theme);
+      if (appearance?.mode === "light" || appearance?.mode === "dark") setColorMode(appearance.mode);
       if (!stored[ONBOARDING_KEY]) setOnboardingOpen(true);
     });
     const updateEntitlements = (changes: Record<string, Browser.storage.StorageChange>, areaName: string) => {
@@ -111,11 +122,11 @@ export function ToolbarApp() {
   };
 
   if (!state.isExpanded) {
-    return <button id="qtsEnvironmentRestoreButton" className="isVisible" onClick={state.toggleExpanded} title="Mostrar QA Toolbar"><FiChevronDown /></button>;
+    return <button id="qtsEnvironmentRestoreButton" className="isVisible" data-theme={theme} data-mode={colorMode} onClick={state.toggleExpanded} title="Mostrar QA Toolbar"><FiChevronDown /></button>;
   }
 
   return (
-    <div className="qtsHost qtsWindowsillHost" onMouseDown={(event) => event.stopPropagation()}>
+    <div className="qtsHost qtsWindowsillHost" data-theme={theme} data-mode={colorMode} onMouseDown={(event) => event.stopPropagation()}>
       <div id="qtsEnvironmentWindowsill" role="toolbar" aria-label="QA Toolbar Sandbox">
         <div className="qtsEnvironmentLeftContent">
           <span className="qtsEnvironmentFlag" aria-hidden="true">🧪</span>
@@ -165,7 +176,7 @@ export function ToolbarApp() {
         </div>
       </div>
 
-      {state.activePanel && <ToolDrawer panel={state.activePanel} close={state.closePanel} panelRef={panelRef} workspace={workspace} />}
+      {state.activePanel && <ToolDrawer panel={state.activePanel} close={state.closePanel} panelRef={panelRef} workspace={workspace} configuration={configuration} />}
       {onboardingOpen && <Onboarding step={onboardingStep} setStep={setOnboardingStep} finish={finishOnboarding} />}
       {toast && <div className="qtsToast qtsToast" role="status">{toast}</div>}
     </div>
@@ -180,7 +191,7 @@ function MenuButton({ icon, label, onClick, badge }: { icon: React.ReactNode; la
   return <button className="qtsEnvironmentToolsMenuItem" type="button" title={label === "Network Observatory" ? "Observatory" : undefined} onClick={onClick}><span className="qtsLegacyToolMenuContent"><span className="qtsLegacyToolMenuLabel">{icon}<span>{label}</span></span>{badge && <span className="qtsLegacyErrorsCount">{badge}</span>}</span></button>;
 }
 
-function ToolDrawer({ panel, close, panelRef, workspace }: { panel: Exclude<PanelId, null>; close: () => void; panelRef: React.RefObject<HTMLElement | null>; workspace: Workspace }) {
+function ToolDrawer({ panel, close, panelRef, workspace, configuration }: { panel: Exclude<PanelId, null>; close: () => void; panelRef: React.RefObject<HTMLElement | null>; workspace: Workspace; configuration: WizardConfiguration }) {
   const content: Record<Exclude<PanelId, null>, { eyebrow: string; title: string; description: string }> = {
     observatory: { eyebrow: "QA NETWORK OBSERVATORY", title: "Requests da página", description: "Histórico local, erros HTTP e payloads capturados com consentimento." },
     payments: { eyebrow: "QA SANDBOX", title: "Payment Methods", description: "Dados de pagamento de teste do contexto atual." },
@@ -194,18 +205,18 @@ function ToolDrawer({ panel, close, panelRef, workspace }: { panel: Exclude<Pane
   const current = content[panel];
   return <aside id="qtsLegacyProductDrawer" className="qtsPanel isOpen" ref={panelRef} tabIndex={-1} aria-label={`${panel} panel`}>
     <header className="qtsPaymentDrawerHeader"><div className="qtsPaymentDrawerHeaderLeft"><div className="qtsPaymentDrawerEyebrow">{current.eyebrow}</div><h2 className="qtsPaymentDrawerTitle">{current.title}</h2><p className="qtsPaymentDrawerSubtitle">{current.description}</p></div><button className="qtsPaymentDrawerCloseButton" onClick={close} aria-label="Close panel"><FiX /></button></header>
-    <div className="qtsLegacyDrawerBody"><DrawerContent panel={panel} workspace={workspace} /></div>
+    <div className="qtsLegacyDrawerBody"><DrawerContent panel={panel} workspace={workspace} configuration={configuration} /></div>
   </aside>;
 }
 
-function DrawerContent({ panel, workspace }: { panel: Exclude<PanelId, null>; workspace: Workspace }) {
+function DrawerContent({ panel, workspace, configuration }: { panel: Exclude<PanelId, null>; workspace: Workspace; configuration: WizardConfiguration }) {
   if (panel === "test-status") return <div className="qtsStatusChooser"><button className="pass"><FiCheck /> PASS</button><button className="fail"><FiX /> FAIL</button><p>O marcador aparece sobre a página e pode ser incluído na evidência.</p></div>;
   if (panel === "settings") return <><section className="qtsLegacySection"><h3>Contexto atual</h3><p><b>{workspace.projectName}</b><br />{workspace.environmentName} · {workspace.domain}</p></section><section className="qtsLegacySection"><h3>Interface e toolbar</h3><label><input type="checkbox" defaultChecked /> Empurrar o conteúdo do site</label><label><input type="checkbox" defaultChecked /> Fixar evidências e anotações</label></section><button className="qtsDrawerAction" onClick={() => typeof browser !== "undefined" && void browser.runtime.openOptionsPage()}><FiSettings /> Abrir configuração completa</button></>;
-  if (panel === "payments") return <><div className="qtsDrawerSearch"><FiSearch /><input placeholder="Buscar método de pagamento" /></div><EmptyCard title="Nenhum método cadastrado" text="Cadastre somente dados de sandbox na configuração local." /></>;
-  if (panel === "accounts") return <><div className="qtsDrawerSearch"><FiSearch /><input placeholder="Buscar conta de teste" /></div><EmptyCard title="Nenhuma conta cadastrada" text="Organize contas por país, ambiente e loyalty." /></>;
+  if (panel === "payments") return <><div className="qtsDrawerSearch"><FiSearch /><input placeholder="Buscar método de pagamento" /></div>{configuration.payments?.length ? configuration.payments.map((payment) => <div className="qtsErrorCard" key={payment.id}><FiCreditCard /><div><b>{payment.brand} · final {payment.number?.slice(-4) || "----"}</b><p>{payment.scenario || "Sem cenário"} {payment.expiration ? `· expira ${payment.expiration}` : ""}</p></div></div>) : <EmptyCard title="Nenhum método cadastrado" text="Cadastre somente dados de sandbox na configuração local." />}</>;
+  if (panel === "accounts") return <><div className="qtsDrawerSearch"><FiSearch /><input placeholder="Buscar conta de teste" /></div>{configuration.accounts?.length ? configuration.accounts.map((account) => <div className="qtsErrorCard" key={account.id}><FiUser /><div><b>{account.email}</b><p>{account.inboxUrl || `${account.environmentIds?.length ?? 0} ambiente(s)`}</p></div></div>) : <EmptyCard title="Nenhuma conta cadastrada" text="Organize contas por ambiente e imagem opcional." />}</>;
   if (panel === "errors") return <><div className="qtsErrorCard"><span>500</span><div><b>POST /api/checkout</b><p>Responsável sugerido: Checkout API</p></div></div><div className="qtsErrorCard"><span>503</span><div><b>GET /api/member</b><p>Responsável sugerido: Member API</p></div></div></>;
   if (panel === "observatory") return <><div className="qtsDrawerToolbar"><button className="isActive">All</button><button>Fetch</button><button>XHR</button><button><FiRefreshCw /></button></div>{[["GET", "/api/catalog", "200"], ["POST", "/api/session", "201"], ["GET", "/api/member", "403"]].map(([method, path, status]) => <div className="qtsRequest" key={path}><span className="qtsMethod">{method}</span><strong>{path}</strong><em data-error={Number(status) >= 400}>{status}</em></div>)}</>;
-  if (panel === "inspectors") return <EmptyCard title="Waiting for payload" text="Navegue pelo fluxo da aplicação. O inspector ficará disponível quando observar uma resposta compatível." />;
+  if (panel === "inspectors") return <><EmptyCard title="Waiting for payload" text="Navegue pelo fluxo da aplicação. O inspector ficará disponível quando observar uma resposta compatível." />{configuration.inspectorEndpoints?.map((endpoint) => <div className="qtsRequest" key={endpoint}><span className="qtsMethod">API</span><strong>/api/{endpoint}</strong><em>waiting</em></div>)}</>;
   return <EmptyCard title="RUT Generator" text="A versão segura usará geração sintética local, sem enviar documentos para serviços externos." />;
 }
 

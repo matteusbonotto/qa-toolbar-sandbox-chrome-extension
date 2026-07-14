@@ -19,6 +19,7 @@
     "security:bundle": "node scripts/check-extension-bundle.mjs",
     "check": "npm run security:repo && npm run typecheck && npm run test && npm run build && npm run security:bundle",
     "release:chrome": "npm run check && npm run zip && node scripts/prepare-chrome-store-package.mjs",
+    "release:chrome:update": "npm version patch -w @qts/extension --no-git-tag-version && npm run release:chrome",
     "prepare": "node scripts/install-git-hooks.mjs",
     "prepare:extension": "npm run prepare -w @qts/extension"
   },

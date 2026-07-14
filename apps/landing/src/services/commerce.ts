@@ -26,10 +26,14 @@ const billingStatusSchema = z.object({
     endsAt: z.string().nullable(),
     daysRemaining: z.number().int().nonnegative(),
   }),
+  access: z.object({
+    active: z.boolean(), source: z.string().nullable(), expiresAt: z.string().nullable(),
+    daysRemaining: z.number().int().nonnegative().nullable(), expiryWarning: z.boolean(), installUrl: z.string().url(),
+  }).optional(),
 }).passthrough();
 
 const checkoutSchema = z.object({ checkoutUrl: z.string().url() }).strict();
-const releaseSchema = z.object({ downloadUrl: z.string().url(), expiresIn: z.number().int().positive() }).strict();
+const voucherSchema = z.object({ redeemed: z.literal(true), label: z.string(), expiresAt: z.string().nullable() }).strict();
 
 export type LandingSession = z.infer<typeof sessionSchema>;
 export type BillingStatus = z.infer<typeof billingStatusSchema>;
@@ -99,15 +103,8 @@ export class LandingCommerce {
     return billingStatusSchema.parse(await this.authenticatedPost("billing-status", accessToken, { installationId }));
   }
 
-  async releaseUrl(accessToken: string): Promise<string> {
-    const data = releaseSchema.parse(await this.authenticatedPost("download-release", accessToken, {}));
-    const url = new URL(data.downloadUrl);
-    const expectedHost = new URL(this.supabaseUrl).hostname;
-    if (url.protocol !== "https:" || url.hostname !== expectedHost ||
-      !url.pathname.startsWith("/storage/v1/object/sign/extension-releases/") || url.username || url.password) {
-      throw new Error("O endereço temporário do download foi rejeitado.");
-    }
-    return url.href;
+  async redeemVoucher(accessToken: string, code: string) {
+    return voucherSchema.parse(await this.authenticatedPost("redeem-voucher", accessToken, { code }));
   }
 
   signOut(): void {
@@ -150,7 +147,9 @@ export class LandingCommerce {
     });
     const data: unknown = await response.json().catch(() => ({}));
     if (!response.ok) {
+      const code = data && typeof data === "object" && "error" in data ? String((data as { error?: unknown }).error) : "";
       if (response.status === 401) throw new Error("E-mail ou senha inválidos.");
+      if (response.status === 409 && code === "voucher_unavailable") throw new Error("Voucher inválido, expirado ou já utilizado.");
       if (response.status === 409) throw new Error("Já existe uma assinatura ativa para esta conta.");
       throw new Error("Não foi possível concluir a operação agora.");
     }
@@ -166,5 +165,5 @@ export function createLandingCommerce(): LandingCommerce | null {
 }
 
 export function hasReleaseAccess(status: BillingStatus): boolean {
-  return status.paymentConfirmed && status.subscription?.status === "active";
+  return status.access?.active ?? (status.paymentConfirmed && status.subscription?.status === "active");
 }

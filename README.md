@@ -29,6 +29,8 @@ Esse comando procura segredos e arquivos privados, executa typecheck/testes, com
 npm run release:chrome
 ```
 
+Para uma atualização comum, use apenas `npm run release:chrome:update`. O comando incrementa a versão patch, valida testes e segurança, garante que o manifesto da loja não contém `key` e grava o ZIP final em `artifacts/`.
+
 O ZIP pronto para upload e seu SHA-256 são gravados em `artifacts/`, pasta sempre ignorada pelo Git. O mesmo processo pode ser executado em **Actions → Build Chrome Web Store package → Run workflow**. Veja [o guia de publicação](docs/deploy/chrome-web-store.md).
 
 ## Limite público/privado

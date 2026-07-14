@@ -5,6 +5,8 @@ export type EntitlementCache = {
   features: Record<string, unknown>;
   trial: { active: boolean; endsAt: string | null; daysRemaining: number };
   referral: { code: string | null; qualified: number };
+  access: { active: boolean; source: string | null; expiresAt: string | null; daysRemaining: number | null; expiryWarning: boolean; installUrl: string };
+  featureFlags: Record<string, { enabled: boolean; config: unknown }>;
   checkedAt: string;
 };
 
@@ -33,6 +35,8 @@ export async function refreshEntitlements(accessToken: string): Promise<Entitlem
     features: status.features,
     trial: status.trial,
     referral: status.referral,
+    access: status.access ?? { active: false, source: null, expiresAt: null, daysRemaining: null, expiryWarning: false, installUrl: "https://chromewebstore.google.com/" },
+    featureFlags: status.featureFlags ?? {},
     checkedAt: status.checkedAt,
   };
   await browser.storage.local.set({ qtsEntitlementCache: cache });
@@ -40,5 +44,6 @@ export async function refreshEntitlements(accessToken: string): Promise<Entitlem
 }
 
 export function featureEnabled(cache: EntitlementCache | null, key: string): boolean {
+  if (cache?.featureFlags?.[key]?.enabled === false) return false;
   return cache?.features[key] === true;
 }

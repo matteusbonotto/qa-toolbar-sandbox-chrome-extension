@@ -1,5 +1,22 @@
 import { z } from "zod";
 
+export const themeCatalog = [
+  { key: "red", name: "Vermelho", accent: "#ef3340", meaning: "energia e ação" },
+  { key: "green", name: "Verde", accent: "#16a46f", meaning: "confiança e progresso" },
+  { key: "blue", name: "Azul", accent: "#2878ff", meaning: "clareza e precisão" },
+  { key: "white", name: "Branco", accent: "#d8dee9", meaning: "foco e simplicidade" },
+  { key: "black", name: "Preto", accent: "#8b93a7", meaning: "controle e sofisticação" },
+  { key: "pink", name: "Rosa", accent: "#ec4899", meaning: "criatividade e acolhimento" },
+  { key: "orange", name: "Laranja", accent: "#f97316", meaning: "ritmo e descoberta" },
+] as const;
+
+export type ThemeKey = (typeof themeCatalog)[number]["key"];
+export type ColorMode = "light" | "dark";
+
+export function isThemeKey(value: unknown): value is ThemeKey {
+  return themeCatalog.some((theme) => theme.key === value);
+}
+
 export const monthlyPlanCatalog = {
   pro: {
     displayPrice: "R$ 29,90",

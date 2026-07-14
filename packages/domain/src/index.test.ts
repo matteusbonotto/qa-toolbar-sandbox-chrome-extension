@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { matchEnvironment, monthlyPlanCatalog, redactValue, workspaceImportSchema, type Environment } from ".";
+import { isThemeKey, matchEnvironment, monthlyPlanCatalog, redactValue, themeCatalog, workspaceImportSchema, type Environment } from ".";
 
 const qaEnvironment: Environment = {
   id: "d5c9b84c-0564-4fc8-87ad-12409180403b",
@@ -15,6 +15,16 @@ describe("monthlyPlanCatalog", () => {
       pro: { displayPrice: "R$ 29,90", priceKey: "pro_monthly" },
       scale: { displayPrice: "R$ 59,90", priceKey: "scale_monthly" },
     });
+  });
+});
+
+describe("themeCatalog", () => {
+  it("offers seven distinct themes shared by the landing page and extension", () => {
+    expect(themeCatalog).toHaveLength(7);
+    expect(new Set(themeCatalog.map((theme) => theme.key)).size).toBe(7);
+    expect(themeCatalog.map((theme) => theme.key)).toEqual(["red", "green", "blue", "white", "black", "pink", "orange"]);
+    expect(isThemeKey("pink")).toBe(true);
+    expect(isThemeKey("purple")).toBe(false);
   });
 });
 

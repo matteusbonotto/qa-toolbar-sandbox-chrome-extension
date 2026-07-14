@@ -3,7 +3,6 @@ import { defineConfig } from "wxt";
 export default defineConfig({
   modules: ["@wxt-dev/module-react"],
   manifest: {
-    key: "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmBgr5KuBJuacjro+/oF105AQkzWyVfT9OljkLjb+QKoFmAi7iZDrfLMNo2DevsvJZsyBrW6wpPWGQpHENPgVfFVi+oKyKJsNXM0bf3C0mFhMZezxv9m77rpMPGi01mxuHCbhxMvmcQS9jzhVjEqenSGjitlC0n1TUeHUhi0m4hBHFX5Ns839ot2Ewz9Q6ZMBu5YvE6O9C+pqQnJ8MZQ51lUhg0XzbklRWcpXwZv4x6mU5hKAVXfhmXoxgCGhYqXAQiuhvUhFO3LnoDm0niZyRSPz616knROlYm2bqJi/JWDQ4Wp7pcGej7oQLyjgPTfVjOVd1DAEkswZOFIjjklECwIDAQAB",
     name: "QA Toolbar Sandbox",
     description: "Local-first QA observability and productivity tools.",
     permissions: ["storage", "scripting"],

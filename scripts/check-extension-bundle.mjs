@@ -33,6 +33,7 @@ for (const path of await files(outputDirectory)) {
 }
 
 const manifest = JSON.parse(await readFile(join(outputDirectory, "manifest.json"), "utf8"));
+if ("key" in manifest) throw new Error("Chrome Web Store packages must not contain manifest.key; the store owns the item key");
 if (manifest.host_permissions?.includes("<all_urls>")) throw new Error("Broad host permission is forbidden");
 const forbiddenPermissions = ["debugger", "management", "nativeMessaging", "proxy", "downloads"];
 for (const permission of forbiddenPermissions) {

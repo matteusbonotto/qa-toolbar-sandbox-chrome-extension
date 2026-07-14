@@ -29,6 +29,7 @@ foreach ($name in $requiredRuntimeSecrets) {
 }
 
 $baseUrl = "https://$ProjectRef.supabase.co/functions/v1"
+$chromeStoreUrl = if ($env:CHROME_WEB_STORE_URL) { $env:CHROME_WEB_STORE_URL } else { 'https://chromewebstore.google.com/detail/qa-toolbar-sandbox/jaalcifngdkpenjdolhlkgcaepdpkgoe' }
 npx supabase link --project-ref $ProjectRef
 npx supabase db push --include-seed
 npx supabase secrets set --project-ref $ProjectRef `
@@ -44,6 +45,7 @@ npx supabase secrets set --project-ref $ProjectRef `
   "APP_SUPABASE_SECRET_KEY=$($privateValues['SUPABASE_SECRET'])" `
   "CHECKOUT_SUCCESS_URL=$baseUrl/checkout-success" `
   "CHECKOUT_CANCEL_URL=$baseUrl/checkout-cancel" `
+  "CHROME_WEB_STORE_URL=$chromeStoreUrl" `
   "KEEP_ALIVE_SECRET=$env:KEEP_ALIVE_SECRET" `
   "FOUNDER_BOOTSTRAP_SECRET=$env:FOUNDER_BOOTSTRAP_SECRET" `
   "ALLOWED_ORIGINS=$env:ALLOWED_ORIGINS" `

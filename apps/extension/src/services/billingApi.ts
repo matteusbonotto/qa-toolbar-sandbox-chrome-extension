@@ -15,6 +15,11 @@ const statusSchema = z.object({
   overrides: z.array(z.unknown()),
   features: z.record(z.string(), z.unknown()),
   trial: z.object({ active: z.boolean(), endsAt: z.string().nullable(), daysRemaining: z.number().int().nonnegative() }),
+  access: z.object({
+    active: z.boolean(), source: z.string().nullable(), expiresAt: z.string().nullable(),
+    daysRemaining: z.number().int().nonnegative().nullable(), expiryWarning: z.boolean(), installUrl: z.string().url(),
+  }).optional(),
+  featureFlags: z.record(z.string(), z.object({ enabled: z.boolean(), config: z.unknown() })).optional(),
   referral: z.object({ code: z.string().nullable(), qualified: z.number().int().nonnegative() }),
   checkedAt: z.string(),
 });
@@ -54,6 +59,10 @@ export class BillingApi {
 
   async status(accessToken: string, installationId: string) {
     return statusSchema.parse(await this.post("billing-status", accessToken, { installationId }));
+  }
+
+  async redeemVoucher(accessToken: string, code: string): Promise<void> {
+    await this.post("redeem-voucher", accessToken, { code });
   }
 
   private async post(functionName: string, accessToken: string, body: Record<string, unknown>): Promise<unknown> {
