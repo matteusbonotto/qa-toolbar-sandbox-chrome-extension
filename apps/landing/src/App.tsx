@@ -151,6 +151,26 @@ export function App() {
   useEffect(() => { window.localStorage.setItem("qtsLocale", locale); document.documentElement.lang = locale; }, [locale]);
 
   useEffect(() => {
+    if (!authenticated || !commerce) return;
+    let stopped = false;
+    let attempts = 0;
+    const sync = () => {
+      if (stopped || attempts >= 40) return;
+      attempts += 1;
+      void commerce.handoffSessionToExtension().then((accepted) => {
+        if (accepted) {
+          stopped = true;
+          setAccessMessage((current) => current || "Sessão conectada à extensão instalada.");
+        }
+      }).catch(() => undefined);
+    };
+    sync();
+    const timer = window.setInterval(sync, 3000);
+    window.addEventListener("focus", sync);
+    return () => { stopped = true; window.clearInterval(timer); window.removeEventListener("focus", sync); };
+  }, [authenticated]);
+
+  useEffect(() => {
     if (!commerce) return;
     void commerce.promotionStatus().then(setLaunchPromotion).catch(() => setLaunchPromotion(null));
   }, []);
@@ -378,7 +398,7 @@ export function App() {
             <button className="button button-ghost" disabled={accessBusy} onClick={() => void verifyAccess(false)}>{accessBusy ? "Verificando..." : "Verificar meu acesso"}</button>
             <button className="button button-ghost" onClick={() => { commerce?.signOut(); setAuthenticated(false); setReleaseReady(false); }}>Sair</button>
           </div></>}
-          <small>A liberação é decidida pelo backend após confirmar pagamento, trial ou voucher válido. O retorno do checkout, sozinho, não desbloqueia a instalação.</small>
+          <small>A liberação é decidida pelo backend após confirmar pagamento, trial ou voucher válido. Ao instalar pela Chrome Store com esta página aberta, sua sessão é conectada diretamente à extensão oficial para evitar um segundo login.</small>
         </section>
       </div>}
 

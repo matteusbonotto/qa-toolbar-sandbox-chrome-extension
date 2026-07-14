@@ -1,4 +1,11 @@
+import { acceptLandingSession } from "../src/services/sessionHandoff";
+
 export default defineBackground(() => {
+  browser.runtime.onMessageExternal.addListener((message, sender) => {
+    const session = acceptLandingSession(message, sender.url);
+    if (!session) return Promise.resolve({ accepted: false });
+    return browser.storage.local.set({ qtsAuthSession: session }).then(() => ({ accepted: true }));
+  });
   browser.runtime.onMessage.addListener((message) => {
     if (!message || typeof message !== "object" || (message as { type?: unknown }).type !== "qts:capture-visible-tab") return undefined;
     return browser.tabs.captureVisibleTab({ format: "png" }).then((dataUrl) => ({ dataUrl }));

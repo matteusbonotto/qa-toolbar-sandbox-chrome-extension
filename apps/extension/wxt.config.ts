@@ -8,6 +8,9 @@ export default defineConfig({
     permissions: ["storage", "scripting", "activeTab"],
     optional_permissions: ["notifications"],
     optional_host_permissions: ["http://*/*", "https://*/*", "https://api.convertio.co/*"],
+    externally_connectable: {
+      matches: ["https://matteusbonotto.github.io/*"],
+    },
     content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'; frame-src http: https:" },
     web_accessible_resources: [{
       resources: ["content-scripts/content.css"],
