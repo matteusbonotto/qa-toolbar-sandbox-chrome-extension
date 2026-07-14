@@ -1,172 +1,83 @@
+import { useState } from "react";
+import { isLocale, type Locale } from "@qts/domain";
 import { FiArrowLeft, FiExternalLink, FiLock, FiShield } from "react-icons/fi";
 import brandLogo from "./assets/images/logo.svg";
 
 const homeUrl = import.meta.env.BASE_URL;
-const policyVersion = "2026-07-13";
+const policyVersion = "2026-07-14";
+
+type Copy = { language: string; back: string; title: string; intro: string; effective: string; summary: string; bullets: string[]; sections: Array<{ title: string; paragraphs: string[]; bullets?: string[] }> };
+const copy: Record<Locale, Copy> = {
+  "pt-BR": {
+    language: "Idioma", back: "Voltar para a página inicial", title: "Política de Privacidade", effective: "Vigência: 14 de julho de 2026",
+    intro: "Esta política explica como o QA Toolbar Sandbox, sua extensão para Chrome e sua página pública tratam dados pessoais.", summary: "Resumo rápido",
+    bullets: ["Configurações de QA ficam no navegador por padrão.", "Domínios são acessados somente após sua autorização.", "Dados de cartão vão diretamente para o Stripe.", "Não vendemos dados nem fazemos publicidade comportamental.", "Você pode solicitar acesso, correção ou exclusão."],
+    sections: [
+      { title: "1. Controlador e contato", paragraphs: ["O controlador é Matheus Bonotto, desenvolvedor do QA Toolbar Sandbox. Solicitações de privacidade podem ser enviadas pelo canal de contato indicado ao fim desta página."] },
+      { title: "2. Escopo e finalidade", paragraphs: ["O produto oferece ferramentas de observabilidade e produtividade para Quality Assurance. Dados são tratados apenas para fornecer, proteger, licenciar, cobrar e melhorar o serviço."] },
+      { title: "3. Dados tratados — Dados mantidos localmente e Dados de pagamento", paragraphs: ["Projetos, ambientes, domínios, preferências, evidências e workspaces permanecem em browser.storage.local por padrão. O identificador aleatório da instalação é enviado ao autenticar ou licenciar para aplicar limites e impedir abuso.", "Supabase processa e-mail, autenticação, aceite, plano, licença e eventos mínimos de segurança. Senhas são transmitidas por HTTPS ao serviço de autenticação e não ficam legíveis para o desenvolvedor.", "Stripe recebe diretamente cartão, faturamento e transação. O produto recebe somente identificadores, status e datas necessários ao acesso.", "O Network Observatory guarda metadados locais limitados. Payloads Fetch/XHR exigem ativação explícita, têm limites e redação de segredos e não são enviados ao desenvolvedor."], bullets: ["Não coletamos automaticamente histórico completo, cookies, senhas ou comunicações pessoais.", "Capturas, gravações, anotações e exports dependem de ação explícita.", "Ao pedir GIF, o vídeo vai à Convertio com a chave do usuário, após consentimento; pode consumir créditos, ser cancelado e ter temporários removidos."] },
+      { title: "4. Bases legais e usos", paragraphs: ["Os usos incluem autenticação, entrega da toolbar, cobrança, suporte, segurança, prevenção a fraude e obrigações legais. As bases podem incluir contrato, consentimento, obrigação legal e legítimo interesse, com necessidade e proporcionalidade."] },
+      { title: "5. Operadores e compartilhamento", paragraphs: ["Compartilhamos somente o necessário com Supabase, Stripe, GitHub Pages, Chrome Web Store/Google e autoridades quando exigido. Não vendemos dados nem os usamos para publicidade personalizada ou avaliação de crédito."] },
+      { title: "6. Limited Use", paragraphs: ["O uso de informações recebidas das APIs do Chrome segue a política de dados da Chrome Web Store e seus requisitos de Limited Use. O acesso é limitado à finalidade única declarada da extensão."] },
+      { title: "7. Transferências internacionais", paragraphs: ["Fornecedores podem processar dados fora do Brasil, com controles de acesso, minimização, criptografia em trânsito, contratos e salvaguardas compatíveis com a LGPD."] },
+      { title: "8. Retenção e exclusão", paragraphs: ["Dados locais permanecem até exclusão pelo usuário, navegador ou desinstalação. Dados de conta e assinatura permanecem enquanto necessários ao serviço e às obrigações legais, fiscais, de chargeback e segurança; depois são eliminados ou anonimizados."] },
+      { title: "9. Segurança", paragraphs: ["Aplicamos HTTPS, Manifest V3, permissões mínimas e sob demanda, validação, RLS, segregação de chaves, webhooks assinados, rate limit e downloads temporários. Nenhum sistema é invulnerável; incidentes confirmados serão tratados conforme a lei."] },
+      { title: "10. Seus direitos", paragraphs: ["Nos termos da LGPD, você pode pedir confirmação, acesso, correção, portabilidade quando aplicável, informação sobre compartilhamento, anonimização, bloqueio, exclusão, oposição e revisão. Podemos confirmar sua identidade para proteger a conta."] },
+      { title: "11. Crianças e adolescentes", paragraphs: ["O serviço é dirigido a profissionais e equipes de tecnologia e não é destinado a crianças. Não coletamos conscientemente dados de crianças sem base legal e cuidados adequados."] },
+      { title: "12. Alterações", paragraphs: ["Mudanças relevantes serão destacadas antes de vigorar e, quando necessário, exigirão novo consentimento. A data e versão desta página identificam o texto vigente."] },
+      { title: "13. Referências e contato", paragraphs: ["Consulte a ANPD, a política de dados da Chrome Web Store e o canal do controlador nos links abaixo."] },
+    ],
+  },
+  en: {
+    language: "Language", back: "Back to home", title: "Privacy Policy", effective: "Effective: July 14, 2026",
+    intro: "This policy explains how QA Toolbar Sandbox, its Chrome extension and public website process personal data.", summary: "Quick summary",
+    bullets: ["QA settings stay in the browser by default.", "Domains are accessed only after your permission.", "Card data goes directly to Stripe.", "We do not sell data or run behavioral advertising.", "You may request access, correction or deletion."],
+    sections: [
+      { title: "1. Controller and contact", paragraphs: ["The controller is Matheus Bonotto, developer of QA Toolbar Sandbox. Privacy requests may be sent through the contact channel linked at the end of this page."] },
+      { title: "2. Scope and purpose", paragraphs: ["The product provides observability and productivity tools for Quality Assurance. Data is processed only to provide, protect, license, charge for and improve the service."] },
+      { title: "3. Data we process — Locally stored data and Payment data", paragraphs: ["Projects, environments, domains, preferences, evidence and workspaces remain in browser.storage.local by default. A random installation identifier is sent during authentication or licensing to enforce limits and prevent abuse.", "Supabase processes email, authentication, acceptance records, plan, license and minimum security events. Passwords travel over HTTPS to the authentication service and are not readable by the developer.", "Stripe receives card, billing and transaction data directly. The product receives only identifiers, status and dates needed to grant access.", "Network Observatory keeps bounded metadata locally. Fetch/XHR payloads require explicit opt-in, are bounded and secret-redacted, and are not sent to the developer."], bullets: ["We do not automatically collect full browsing history, cookies, passwords or personal communications.", "Screenshots, recordings, notes and exports require an explicit action.", "When GIF is requested, video is sent to Convertio with the user's key after consent; it may consume credits, can be cancelled and remote temporary data is cleaned up."] },
+      { title: "4. Legal grounds and uses", paragraphs: ["Uses include authentication, toolbar delivery, billing, support, security, fraud prevention and legal obligations. Grounds may include contract, consent, legal obligation and legitimate interest, subject to necessity and proportionality."] },
+      { title: "5. Processors and sharing", paragraphs: ["We share only what is necessary with Supabase, Stripe, GitHub Pages, Chrome Web Store/Google and legally required authorities. We do not sell data or use it for personalized advertising or credit scoring."] },
+      { title: "6. Limited Use", paragraphs: ["Information received from Chrome APIs follows the Chrome Web Store User Data Policy and Limited Use requirements. Access is restricted to the extension's stated single purpose."] },
+      { title: "7. International transfers", paragraphs: ["Providers may process data outside Brazil using access controls, minimization, encryption in transit, contracts and safeguards compatible with Brazilian data-protection law."] },
+      { title: "8. Retention and deletion", paragraphs: ["Local data remains until deleted by the user, browser or uninstall. Account and subscription data remains while needed for service and legal, tax, chargeback and security duties, then is deleted or anonymized."] },
+      { title: "9. Security", paragraphs: ["We use HTTPS, Manifest V3, minimum on-demand permissions, validation, RLS, key segregation, signed webhooks, rate limiting and temporary downloads. No system is invulnerable; confirmed incidents are handled under applicable law."] },
+      { title: "10. Your rights", paragraphs: ["Under applicable law you may request confirmation, access, correction, applicable portability, sharing information, anonymization, restriction, deletion, objection and review. We may verify identity to protect the account."] },
+      { title: "11. Children", paragraphs: ["The service targets technology professionals and teams and is not intended for children. We do not knowingly collect children's data without an appropriate legal basis and safeguards."] },
+      { title: "12. Changes", paragraphs: ["Material changes will be highlighted before taking effect and, when required, ask for renewed consent. The date and version on this page identify the current text."] },
+      { title: "13. References and contact", paragraphs: ["See the Brazilian DPA, Chrome Web Store data policy and controller contact channel in the links below."] },
+    ],
+  },
+  es: {
+    language: "Idioma", back: "Volver al inicio", title: "Política de Privacidad", effective: "Vigencia: 14 de julio de 2026",
+    intro: "Esta política explica cómo QA Toolbar Sandbox, su extensión de Chrome y su sitio público tratan datos personales.", summary: "Resumen rápido",
+    bullets: ["La configuración de QA queda en el navegador por defecto.", "Los dominios se acceden solo con tu permiso.", "Los datos de tarjeta van directamente a Stripe.", "No vendemos datos ni hacemos publicidad conductual.", "Puedes solicitar acceso, corrección o eliminación."],
+    sections: [
+      { title: "1. Responsable y contacto", paragraphs: ["El responsable es Matheus Bonotto, desarrollador de QA Toolbar Sandbox. Las solicitudes de privacidad pueden enviarse por el canal enlazado al final de esta página."] },
+      { title: "2. Alcance y finalidad", paragraphs: ["El producto ofrece herramientas de observabilidad y productividad para Quality Assurance. Los datos se tratan solo para prestar, proteger, licenciar, cobrar y mejorar el servicio."] },
+      { title: "3. Datos tratados — Datos locales y Datos de pago", paragraphs: ["Proyectos, entornos, dominios, preferencias, evidencias y espacios de trabajo quedan en browser.storage.local por defecto. Un identificador aleatorio de instalación se envía al autenticar o licenciar para aplicar límites y evitar abusos.", "Supabase trata correo, autenticación, consentimientos, plan, licencia y eventos mínimos de seguridad. Las contraseñas viajan por HTTPS al servicio de autenticación y el desarrollador no puede leerlas.", "Stripe recibe directamente los datos de tarjeta, facturación y transacción. El producto recibe solo identificadores, estado y fechas necesarios para el acceso.", "Network Observatory guarda metadatos locales limitados. Los payloads Fetch/XHR exigen activación explícita, tienen límites y redacción de secretos, y no se envían al desarrollador."], bullets: ["No recopilamos automáticamente historial completo, cookies, contraseñas ni comunicaciones personales.", "Capturas, grabaciones, notas y exportaciones requieren una acción explícita.", "Al pedir un GIF, el vídeo se envía a Convertio con la clave del usuario tras el consentimiento; puede consumir créditos, cancelarse y limpiar temporales remotos."] },
+      { title: "4. Bases legales y usos", paragraphs: ["Los usos incluyen autenticación, entrega de la toolbar, cobro, soporte, seguridad, prevención de fraude y obligaciones legales. Las bases pueden incluir contrato, consentimiento, obligación legal e interés legítimo, con necesidad y proporcionalidad."] },
+      { title: "5. Encargados y transferencias", paragraphs: ["Compartimos solo lo necesario con Supabase, Stripe, GitHub Pages, Chrome Web Store/Google y autoridades cuando la ley lo exige. No vendemos datos ni los usamos para publicidad personalizada o scoring crediticio."] },
+      { title: "6. Limited Use", paragraphs: ["La información recibida de las APIs de Chrome sigue la política de datos de Chrome Web Store y sus requisitos de Limited Use. El acceso se restringe a la finalidad única declarada."] },
+      { title: "7. Transferencias internacionales", paragraphs: ["Los proveedores pueden tratar datos fuera de Brasil con controles de acceso, minimización, cifrado en tránsito, contratos y salvaguardas compatibles con la LGPD."] },
+      { title: "8. Conservación y eliminación", paragraphs: ["Los datos locales permanecen hasta que el usuario, el navegador o la desinstalación los eliminen. Los datos de cuenta y suscripción permanecen mientras sean necesarios y luego se eliminan o anonimizan, salvo obligaciones legales, fiscales, de contracargo y seguridad."] },
+      { title: "9. Seguridad", paragraphs: ["Aplicamos HTTPS, Manifest V3, permisos mínimos bajo demanda, validación, RLS, separación de claves, webhooks firmados, rate limiting y descargas temporales. Ningún sistema es invulnerable; los incidentes confirmados se tratan según la ley."] },
+      { title: "10. Tus derechos", paragraphs: ["Puedes solicitar confirmación, acceso, corrección, portabilidad aplicable, información sobre transferencias, anonimización, bloqueo, eliminación, oposición y revisión. Podemos verificar tu identidad para proteger la cuenta."] },
+      { title: "11. Menores", paragraphs: ["El servicio se dirige a profesionales y equipos de tecnología y no está destinado a niños. No recopilamos conscientemente datos de niños sin base legal y protecciones adecuadas."] },
+      { title: "12. Cambios", paragraphs: ["Los cambios relevantes se destacarán antes de entrar en vigor y, cuando sea necesario, pedirán nuevo consentimiento. La fecha y versión identifican el texto vigente."] },
+      { title: "13. Referencias y contacto", paragraphs: ["Consulta la ANPD, la política de datos de Chrome Web Store y el canal del responsable en los enlaces siguientes."] },
+    ],
+  },
+};
 
 export function PrivacyPolicy() {
-  return (
-    <div className="privacy-shell">
-      <header className="privacy-nav">
-        <div className="container privacy-nav-inner">
-          <a className="brand" href={homeUrl} aria-label="Voltar para QA Sandbox Toolbar">
-            <img className="brand-logo" src={brandLogo} alt="QA Sandbox Toolbar" />
-          </a>
-          <a className="button button-ghost privacy-back" href={homeUrl}><FiArrowLeft /> Voltar para a página inicial</a>
-        </div>
-      </header>
-
-      <main className="privacy-main container">
-        <section className="privacy-hero">
-          <span className="kicker"><FiShield /> Privacidade e transparência</span>
-          <h1>Política de Privacidade</h1>
-          <p>Esta política explica, de forma objetiva, como o <strong>QA Toolbar Sandbox</strong>, sua extensão para Chrome e sua página pública tratam dados pessoais.</p>
-          <div className="privacy-meta"><span>Vigência: 13 de julho de 2026</span><span>Versão: {policyVersion}</span></div>
-        </section>
-
-        <div className="privacy-layout">
-          <aside className="privacy-summary" aria-label="Resumo da política">
-            <FiLock />
-            <h2>Resumo rápido</h2>
-            <ul>
-              <li>Configurações de QA ficam no navegador por padrão.</li>
-              <li>Domínios são acessados somente após sua autorização.</li>
-              <li>Dados de cartão vão diretamente para o Stripe.</li>
-              <li>Não vendemos dados nem fazemos publicidade comportamental.</li>
-              <li>Você pode solicitar acesso, correção ou exclusão.</li>
-            </ul>
-          </aside>
-
-          <article className="privacy-document">
-            <section id="controlador">
-              <h2>1. Quem é responsável pelo tratamento</h2>
-              <p>O controlador dos dados descritos nesta política é <strong>Matheus Bonotto</strong>, desenvolvedor do QA Toolbar Sandbox. Solicitações de privacidade podem ser enviadas pelos canais disponíveis em <a href="https://matheusbonotto.com.br/#contato" target="_blank" rel="noreferrer">matheusbonotto.com.br/contato <FiExternalLink /></a>.</p>
-            </section>
-
-            <section id="escopo">
-              <h2>2. Escopo e finalidade única</h2>
-              <p>O QA Toolbar Sandbox tem como finalidade única oferecer ferramentas de observabilidade e produtividade para atividades de Quality Assurance diretamente no navegador. Os dados são tratados somente para fornecer, proteger, licenciar, cobrar e melhorar essas funcionalidades.</p>
-            </section>
-
-            <section id="dados">
-              <h2>3. Dados tratados</h2>
-              <h3>3.1 Dados mantidos localmente</h3>
-              <ul>
-                <li>nome do projeto, ambiente, domínios e configurações informadas pelo usuário;</li>
-                <li>workspaces importados, preferências da toolbar e identificador aleatório da instalação;</li>
-                <li>URL da página atual, processada localmente para identificar o ambiente configurado;</li>
-                <li>cache temporário de plano e permissões da conta.</li>
-              </ul>
-              <p>Esses dados permanecem em <code>browser.storage.local</code> e não são enviados ao servidor, salvo quando uma funcionalidade indicar expressamente o contrário ou quando o usuário realizar uma exportação. O identificador aleatório de instalação é enviado ao autenticar/licenciar o produto para aplicar limites e impedir uso indevido.</p>
-
-              <h3>3.2 Dados de conta e serviço</h3>
-              <ul>
-                <li>e-mail, identificador interno do usuário e registros de aceite desta política/termos;</li>
-                <li>identificador e rótulo da instalação, plano, trial, limites, licenças e benefícios;</li>
-                <li>código e estado de indicação, quando o programa de indicação for utilizado;</li>
-                <li>eventos técnicos mínimos de segurança, auditoria, prevenção de abuso e limitação de requisições.</li>
-              </ul>
-              <p>Endereço IP, data/hora, agente do navegador e metadados técnicos da requisição podem ser processados automaticamente pela infraestrutura de hospedagem para entrega, diagnóstico e segurança. Eles não são usados para criar perfil publicitário.</p>
-              <p>A senha é encaminhada por conexão HTTPS ao serviço de autenticação do Supabase. O desenvolvedor não recebe nem armazena a senha em texto legível. Tokens de sessão ficam em armazenamento de sessão do navegador e são removidos ao sair ou encerrar a sessão aplicável.</p>
-
-              <h3>3.3 Dados de pagamento</h3>
-              <p>O Stripe recebe diretamente dados de cartão, faturamento e transação. O QA Toolbar Sandbox recebe apenas identificadores do cliente/assinatura, plano, situação da cobrança, datas e eventos necessários para liberar ou revogar o acesso. Números completos de cartão e códigos de segurança não são recebidos nem armazenados pelo QA Toolbar Sandbox.</p>
-
-              <h3>3.4 Conteúdo de sites e navegação</h3>
-              <p>A extensão solicita acesso somente aos domínios escolhidos pelo usuário para inserir a toolbar e executar as ferramentas solicitadas. A versão atual não coleta automaticamente histórico completo de navegação, cookies, senhas, campos de formulário, comunicações pessoais ou conteúdo de páginas para envio ao desenvolvedor. O observatório de rede permanece desativado nesta versão.</p>
-              <p>Capturas de tela, gravações, anotações ou exportações, quando disponibilizadas e acionadas pelo usuário, serão processadas para entregar a funcionalidade escolhida. A interface deverá informar antes de qualquer transmissão futura que altere esta prática.</p>
-            </section>
-
-            <section id="finalidades">
-              <h2>4. Como e por que usamos os dados</h2>
-              <ul>
-                <li>criar e autenticar a conta;</li>
-                <li>salvar configurações, reconhecer a instalação e fornecer a toolbar;</li>
-                <li>administrar trial, plano, assinatura, indicação e download protegido;</li>
-                <li>processar pagamentos e disponibilizar o portal do cliente;</li>
-                <li>prevenir fraude, abuso, invasões e uso não autorizado;</li>
-                <li>cumprir obrigações legais e atender direitos dos titulares;</li>
-                <li>diagnosticar falhas e melhorar o produto com dados agregados ou minimizados.</li>
-              </ul>
-              <p>As bases legais aplicáveis podem incluir execução de contrato e procedimentos preliminares, consentimento quando solicitado, cumprimento de obrigação legal e legítimo interesse em segurança e melhoria do serviço, sempre com avaliação de necessidade e proporcionalidade.</p>
-            </section>
-
-            <section id="compartilhamento">
-              <h2>5. Operadores e compartilhamento</h2>
-              <p>Dados são compartilhados somente na medida necessária com:</p>
-              <ul>
-                <li><strong>Supabase:</strong> autenticação, banco de dados, funções de backend e armazenamento privado do pacote;</li>
-                <li><strong>Stripe:</strong> checkout, assinatura, pagamentos, faturas e prevenção a fraude;</li>
-                <li><strong>GitHub Pages e Chrome Web Store/Google:</strong> hospedagem da página pública e distribuição da extensão, sujeitos às políticas próprias dessas plataformas;</li>
-                <li>autoridades ou terceiros quando exigido por lei, necessário para segurança ou para proteção de direitos.</li>
-              </ul>
-              <p>Não vendemos dados pessoais. Não usamos nem transferimos dados para publicidade personalizada, retargeting, avaliação de crédito ou finalidades incompatíveis com a função declarada da extensão.</p>
-            </section>
-
-            <section id="limited-use">
-              <h2>6. Declaração de Limited Use da Chrome Web Store</h2>
-              <p>O uso e a transferência de informações recebidas das APIs do Google Chrome seguem a <a href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq/" target="_blank" rel="noreferrer">Política de Dados do Usuário da Chrome Web Store <FiExternalLink /></a>, incluindo os requisitos de Limited Use.</p>
-              <p>O acesso a dados do navegador é limitado à entrega ou melhoria da finalidade única da extensão. Pessoas não leem esses dados, exceto com consentimento específico para suporte, quando necessário para segurança, para cumprimento legal, ou quando os dados estiverem agregados e anonimizados para operações internas.</p>
-            </section>
-
-            <section id="transferencias">
-              <h2>7. Transferências internacionais</h2>
-              <p>Alguns fornecedores podem processar dados fora do Brasil. Quando isso ocorrer, serão adotadas medidas compatíveis com a LGPD, como contratos, controles de acesso, minimização, criptografia em trânsito e salvaguardas oferecidas pelos operadores.</p>
-            </section>
-
-            <section id="retencao">
-              <h2>8. Retenção e exclusão</h2>
-              <ul>
-                <li>dados locais permanecem até serem apagados pelo usuário, pelos controles do navegador ou pela desinstalação;</li>
-                <li>tokens de sessão permanecem somente durante a sessão aplicável ou até o logout;</li>
-                <li>dados de conta, licença e assinatura permanecem enquanto a conta estiver ativa;</li>
-                <li>após exclusão da conta, dados podem ser mantidos apenas pelo prazo necessário para obrigações legais, fiscais, chargebacks, prevenção a fraude, segurança e exercício de direitos.</li>
-              </ul>
-              <p>Quando o prazo ou a finalidade terminar, os dados serão eliminados ou anonimizados, ressalvadas as hipóteses legais de conservação.</p>
-            </section>
-
-            <section id="seguranca">
-              <h2>9. Segurança</h2>
-              <p>São adotadas medidas como HTTPS, Manifest V3, permissões mínimas e sob demanda, validação de entradas, autenticação, Row Level Security, segregação de chaves, webhooks assinados, limitação de requisições, storage privado e links temporários de download. Nenhum sistema é invulnerável; incidentes confirmados serão tratados conforme a legislação aplicável.</p>
-            </section>
-
-            <section id="direitos">
-              <h2>10. Seus direitos</h2>
-              <p>Nos termos da LGPD, o titular pode solicitar, conforme aplicável:</p>
-              <ul>
-                <li>confirmação e acesso aos dados;</li>
-                <li>correção de dados incompletos, inexatos ou desatualizados;</li>
-                <li>anonimização, bloqueio ou eliminação de dados desnecessários ou irregulares;</li>
-                <li>informações sobre compartilhamento e portabilidade, quando cabível;</li>
-                <li>eliminação de dados tratados com consentimento e revogação do consentimento;</li>
-                <li>oposição a tratamento irregular e revisão de decisões automatizadas, quando aplicável.</li>
-              </ul>
-              <p>Solicitações podem ser feitas pelo <a href="https://matheusbonotto.com.br/#contato" target="_blank" rel="noreferrer">canal de contato do controlador <FiExternalLink /></a>. Poderá ser solicitada confirmação de identidade para proteger a conta e os dados do titular.</p>
-            </section>
-
-            <section id="menores">
-              <h2>11. Crianças e adolescentes</h2>
-              <p>O serviço é direcionado a profissionais e equipes de tecnologia e não é destinado a crianças. Não coletamos conscientemente dados de crianças sem a base legal e os cuidados exigidos pela legislação.</p>
-            </section>
-
-            <section id="alteracoes">
-              <h2>12. Alterações desta política</h2>
-              <p>Esta política poderá ser atualizada para refletir mudanças no produto, na legislação ou nos fornecedores. Alterações relevantes de tratamento serão informadas de forma destacada antes de entrarem em vigor e, quando necessário, exigirão novo consentimento. A data e a versão no início da página identificam o texto vigente.</p>
-            </section>
-
-            <section id="referencias">
-              <h2>13. Referências</h2>
-              <ul>
-                <li><a href="https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados-1/direito-dos-titulares" target="_blank" rel="noreferrer">ANPD — Direitos dos Titulares <FiExternalLink /></a></li>
-                <li><a href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq/" target="_blank" rel="noreferrer">Chrome Web Store — User Data FAQ <FiExternalLink /></a></li>
-                <li><a href="https://developer.chrome.com/docs/webstore/program-policies/disclosure-requirements" target="_blank" rel="noreferrer">Chrome Web Store — Disclosure Requirements <FiExternalLink /></a></li>
-              </ul>
-            </section>
-          </article>
-        </div>
-      </main>
-
-      <footer className="privacy-footer"><div className="container"><span>© 2026 QA Toolbar Sandbox</span><a href={homeUrl}>Página inicial</a><a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer">Desenvolvido por Matheus Bonotto</a></div></footer>
-    </div>
-  );
+  const [locale, setLocale] = useState<Locale>(() => { const stored = typeof window === "undefined" ? null : window.localStorage.getItem("qtsLocale"); return isLocale(stored) ? stored : "pt-BR"; });
+  const content = copy[locale];
+  const saveLocale = (value: Locale) => { setLocale(value); if (typeof window !== "undefined") { window.localStorage.setItem("qtsLocale", value); document.documentElement.lang = value; } };
+  return <div className="privacy-shell">
+    <header className="privacy-nav"><div className="container privacy-nav-inner"><a className="brand" href={homeUrl} aria-label={content.back}><img className="brand-logo" src={brandLogo} alt="QA Toolbar Sandbox" /></a><label className="privacy-language">{content.language}<select value={locale} onChange={(event) => saveLocale(event.target.value as Locale)}><option value="pt-BR">Português (Brasil)</option><option value="en">English</option><option value="es">Español</option></select></label><a className="button button-ghost privacy-back" href={homeUrl}><FiArrowLeft /> {content.back}</a></div></header>
+    <main className="privacy-main container"><section className="privacy-hero"><span className="kicker"><FiShield /> {content.title}</span><h1>{content.title}</h1><p>{content.intro}</p><div className="privacy-meta"><span>{content.effective}</span><span>{content.language === "Language" ? "Version" : content.language === "Idioma" && locale === "es" ? "Versión" : "Versão"}: {policyVersion}</span></div></section>
+      <div className="privacy-layout"><aside className="privacy-summary" aria-label={content.summary}><FiLock /><h2>{content.summary}</h2><ul>{content.bullets.map((item) => <li key={item}>{item}</li>)}</ul></aside><article className="privacy-document">{content.sections.map((section) => <section key={section.title}><h2>{section.title}</h2>{section.paragraphs.map((paragraph) => <p key={paragraph}>{paragraph}</p>)}{section.bullets && <ul>{section.bullets.map((item) => <li key={item}>{item}</li>)}</ul>}</section>)}<section><a href="https://www.gov.br/anpd/pt-br/assuntos/titular-de-dados-1/direito-dos-titulares" target="_blank" rel="noreferrer">ANPD <FiExternalLink /></a> · <a href="https://developer.chrome.com/docs/webstore/program-policies/user-data-faq/" target="_blank" rel="noreferrer">Chrome Web Store <FiExternalLink /></a> · <a href="https://matheusbonotto.com.br/#contato" target="_blank" rel="noreferrer">Contact <FiExternalLink /></a></section></article></div>
+    </main><footer className="privacy-footer"><div className="container"><span>© 2026 QA Toolbar Sandbox</span><a href={homeUrl}>{content.back}</a><a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer">Matheus Bonotto</a></div></footer>
+  </div>;
 }

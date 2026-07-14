@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { MonthlyPriceKey } from "@qts/domain";
+import type { PriceKey } from "@qts/domain";
 
 const sessionSchema = z.object({
   accessToken: z.string().min(20).max(8192),
@@ -34,10 +34,15 @@ const billingStatusSchema = z.object({
 
 const checkoutSchema = z.object({ checkoutUrl: z.string().url() }).strict();
 const voucherSchema = z.object({ redeemed: z.literal(true), label: z.string(), expiresAt: z.string().nullable() }).strict();
+const promotionStatusSchema = z.object({
+  code: z.string(), active: z.boolean(), maximumRedemptions: z.number().int().positive(),
+  remainingRedemptions: z.number().int().nonnegative(), percentOff: z.number().positive(),
+}).strict();
 
 export type LandingSession = z.infer<typeof sessionSchema>;
 export type BillingStatus = z.infer<typeof billingStatusSchema>;
-export type PriceKey = MonthlyPriceKey;
+export type PromotionStatus = z.infer<typeof promotionStatusSchema>;
+export type { PriceKey };
 
 const sessionKey = "qtsLandingAuthSession";
 const installationKey = "qtsLandingInstallationId";
@@ -105,6 +110,10 @@ export class LandingCommerce {
 
   async redeemVoucher(accessToken: string, code: string) {
     return voucherSchema.parse(await this.authenticatedPost("redeem-voucher", accessToken, { code }));
+  }
+
+  async promotionStatus(): Promise<PromotionStatus> {
+    return promotionStatusSchema.parse(await this.publicPost("promotion-status", {}));
   }
 
   signOut(): void {

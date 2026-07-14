@@ -12,8 +12,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@qts/domain": "*",
     "@hookform/resolvers": "^5.2.2",
+    "@qts/domain": "*",
     "react": "^19.2.7",
     "react-dom": "^19.2.7",
     "react-hook-form": "^7.71.2",
@@ -22,11 +22,12 @@
     "zustand": "^5.0.14"
   },
   "devDependencies": {
-    "@wxt-dev/module-react": "^1.1.5",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
+    "@wxt-dev/module-react": "^1.1.5",
+    "axe-core": "^4.12.1",
     "fake-indexeddb": "^6.2.5",
     "jsdom": "^29.0.0",
     "typescript": "^5.9.3",

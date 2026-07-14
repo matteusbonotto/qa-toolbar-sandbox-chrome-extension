@@ -63,3 +63,6 @@ verify_jwt = false
 
 [functions.redeem-voucher]
 verify_jwt = false
+
+[functions.promotion-status]
+verify_jwt = false

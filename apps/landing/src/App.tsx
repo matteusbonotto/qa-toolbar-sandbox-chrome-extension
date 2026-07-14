@@ -1,12 +1,12 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import { isThemeKey, monthlyPlanCatalog, themeCatalog, type ColorMode, type ThemeKey } from "@qts/domain";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { isLocale, isThemeKey, localizeDom, planCatalog, themeCatalog, translate, type BillingCycle, type ColorMode, type Locale, type ThemeKey } from "@qts/domain";
 import {
   FiActivity, FiArrowRight, FiCheck, FiChevronDown, FiCode, FiCpu,
   FiDownload, FiEye, FiGitBranch, FiHardDrive, FiLock,
   FiMenu, FiMoon, FiMousePointer, FiPackage, FiShield, FiSliders, FiSun, FiX, FiZap,
 } from "react-icons/fi";
 import brandLogo from "./assets/images/logo.svg";
-import { createLandingCommerce, hasReleaseAccess, type PriceKey } from "./services/commerce";
+import { createLandingCommerce, hasReleaseAccess, type PriceKey, type PromotionStatus } from "./services/commerce";
 
 const mockWorkspaceUrl = `${import.meta.env.BASE_URL}downloads/qa-toolbar-demo-workspace.json`;
 const privacyPolicyUrl = `${import.meta.env.BASE_URL}privacy-policy/`;
@@ -38,6 +38,7 @@ const faqs = [
 ];
 
 export function App() {
+  const localizedRootRef = useRef<HTMLDivElement>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [openFaq, setOpenFaq] = useState(0);
   const [accessOpen, setAccessOpen] = useState(false);
@@ -51,6 +52,11 @@ export function App() {
   const [accessBusy, setAccessBusy] = useState(false);
   const [accessMessage, setAccessMessage] = useState("");
   const [voucherCode, setVoucherCode] = useState("");
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("yearly");
+  const [launchPromotion, setLaunchPromotion] = useState<PromotionStatus | null>(null);
+  const [locale, setLocale] = useState<Locale>(() => { const saved = window.localStorage.getItem("qtsLocale"); return isLocale(saved) ? saved : "pt-BR"; });
+  const t = (key: string, values?: Record<string, string | number>) => translate(locale, key, values);
+  useEffect(() => localizedRootRef.current ? localizeDom(localizedRootRef.current, locale) : undefined, [locale]);
   const [theme, setTheme] = useState<ThemeKey>(() => {
     const saved = window.localStorage.getItem("qtsTheme");
     return isThemeKey(saved) ? saved : "red";
@@ -121,6 +127,7 @@ export function App() {
 
   const requestDownload = () => {
     setPendingPlan("free");
+    setVoucherCode("30DIAS");
     void verifyAccess(true);
   };
 
@@ -130,6 +137,13 @@ export function App() {
     window.localStorage.setItem("qtsTheme", theme);
     window.localStorage.setItem("qtsColorMode", colorMode);
   }, [theme, colorMode]);
+
+  useEffect(() => { window.localStorage.setItem("qtsLocale", locale); document.documentElement.lang = locale; }, [locale]);
+
+  useEffect(() => {
+    if (!commerce) return;
+    void commerce.promotionStatus().then(setLaunchPromotion).catch(() => setLaunchPromotion(null));
+  }, []);
 
   const checkout = async (priceKey: PriceKey) => {
     if (!commerce) {
@@ -235,7 +249,7 @@ export function App() {
   }, []);
 
   return (
-    <div className="site-shell">
+    <div className="site-shell" ref={localizedRootRef}>
       <div className="aurora aurora-one" aria-hidden="true" />
       <div className="aurora aurora-two" aria-hidden="true" />
       <header className="nav-wrap">
@@ -246,15 +260,16 @@ export function App() {
           </a>
           <button className="menu-button" onClick={() => setMenuOpen((value) => !value)} aria-expanded={menuOpen} aria-label="Abrir menu">{menuOpen ? <FiX /> : <FiMenu />}</button>
           <div className={`nav-links ${menuOpen ? "is-open" : ""}`}>
-            <a href="#recursos" onClick={() => setMenuOpen(false)}>Recursos</a>
-            <a href="#planos" onClick={() => setMenuOpen(false)}>Planos</a>
-            <a href="#seguranca" onClick={() => setMenuOpen(false)}>Segurança</a>
-            <a href="#instalar" onClick={() => setMenuOpen(false)}>Como instalar</a>
+            <a href="#recursos" onClick={() => setMenuOpen(false)}>{t("navigation.features")}</a>
+            <a href="#planos" onClick={() => setMenuOpen(false)}>{t("common.plans")}</a>
+            <a href="#seguranca" onClick={() => setMenuOpen(false)}>{t("navigation.security")}</a>
+            <a href="#instalar" onClick={() => setMenuOpen(false)}>{t("navigation.install")}</a>
             <button className="button button-small" onClick={requestDownload}><FiLock /> Verificar acesso</button>
             <div className="theme-switcher" aria-label="Aparência">
               <select value={theme} onChange={(event) => setTheme(event.target.value as ThemeKey)} aria-label="Tema de cor">
                 {themeCatalog.map((item) => <option value={item.key} key={item.key}>{item.name} · {item.meaning}</option>)}
               </select>
+              <select value={locale} onChange={(event) => setLocale(event.target.value as Locale)} aria-label={t("common.language")}><option value="pt-BR">Português (Brasil)</option><option value="en">English</option><option value="es">Español</option></select>
               <button type="button" onClick={() => setColorMode((mode) => mode === "dark" ? "light" : "dark")} aria-label={`Ativar modo ${colorMode === "dark" ? "claro" : "escuro"}`} title={`Modo ${colorMode === "dark" ? "claro" : "escuro"}`}>
                 {colorMode === "dark" ? <FiSun /> : <FiMoon />}
               </button>
@@ -267,10 +282,10 @@ export function App() {
         <section className="hero container" id="inicio">
           <div className="hero-copy is-visible" data-reveal>
             <div className="eyebrow"><span className="pulse-dot" /> Chrome Extension · local-first · Feito de QA para Todos!</div>
-            <h1>Teste páginas reais com seu <span>workspace de QA no navegador.</span></h1>
+            <h1>{t("landing.heroTitle")}</h1>
             <p className="hero-lead">A QA Toolbar Sandbox aparece somente nas URLs que você autoriza e reúne projetos, ambientes, contas de teste, pagamentos sandbox, evidências e inspectors sem tirar você da página testada.</p>
             <div className="hero-actions">
-              <button className="button button-primary" onClick={requestDownload}><FiLock /> Verificar acesso e instalar <FiArrowRight /></button>
+              <button className="button button-primary" onClick={requestDownload}><FiLock /> {t("landing.heroAction")} <FiArrowRight /></button>
               <a className="button button-ghost" href="#recursos"><FiMousePointer /> Ver como funciona</a>
             </div>
             <div className="micro-trust"><span><FiCheck /> Acesso verificado</span><span><FiLock /> Sem secrets no pacote</span><span><FiPackage /> 4 passos</span></div>
@@ -281,7 +296,7 @@ export function App() {
               <div className="browser-top"><i /><i /><i /><div className="address"><FiLock /> localhost:3000/dashboard</div></div>
               <div className="browser-body">
                 <div className="mock-sidebar"><span className="mock-logo" /><span /><span /><span /><span /></div>
-                <div className="mock-page"><div className="mock-context"><small>PROJETO</small><b>Cinemark</b><span>Stage · checkout</span></div><div className="mock-grid"><i>Contas</i><i>Pagamentos</i><i>Inspectors</i></div><div className="mock-chart"><b /><b /><b /><b /><b /><b /></div></div>
+                <div className="mock-page"><div className="mock-context"><small>PROJETO</small><b>Loja Demo</b><span>Stage · checkout</span></div><div className="mock-grid"><i>Contas</i><i>Pagamentos</i><i>Inspectors</i></div><div className="mock-chart"><b /><b /><b /><b /><b /><b /></div></div>
                 <div className="floating-toolbar">
                   <div className="toolbar-head"><span><FiZap /> QA Toolbar</span><small>Sandbox</small></div>
                   <div className="toolbar-metrics"><span><b>12</b> checks</span><span><b>0</b> issues</span><span><b>42ms</b> UI</span></div>
@@ -316,16 +331,22 @@ export function App() {
         </section>
 
         <section className="section container pricing-section" id="planos">
-          <div className="section-heading" data-reveal><span className="kicker">Acesso antecipado</span><h2>Comece livre. Evolua quando fizer sentido.</h2></div>
+          <div className="section-heading" data-reveal><span className="kicker">Acesso antecipado</span><h2>{t("landing.plansTitle")}</h2></div>
+          <div className="billing-toggle" role="group" aria-label="Periodicidade da cobrança">
+            <button type="button" className={billingCycle === "monthly" ? "is-active" : ""} onClick={() => setBillingCycle("monthly")}>{t("landing.monthly")}</button>
+            <button type="button" className={billingCycle === "yearly" ? "is-active" : ""} onClick={() => setBillingCycle("yearly")}>{t("landing.yearly")} <strong>até 25% OFF</strong></button>
+          </div>
           <div className="pricing-grid pricing-three" data-reveal>
             <article className="price-card"><span>Starter</span><h3>Grátis</h3><p>30 dias de Full Access; depois, o essencial continua disponível.</p><ul><li><FiCheck /> 1 URL e 1 cliente após o trial</li><li><FiCheck /> Screenshot e Pass/Fail</li><li><FiCheck /> Sem cartão no trial</li></ul><button className="button button-ghost" onClick={() => { setAuthMode("signup"); requestDownload(); }}>Começar 30 dias</button></article>
-            <article className="price-card featured"><span className="soon">Recomendado</span><span>Pro</span><h3>{monthlyPlanCatalog.pro.displayPrice} <small>/ mês</small></h3><p>Para profissionais e pequenos times que precisam manter ritmo.</p><ul><li><FiCheck /> 10 URLs e 25 clientes</li><li><FiCheck /> Gravação, anotações e inspectors</li><li><FiCheck /> Cobrança mensal, sem compromisso anual</li></ul><button className="button button-primary" disabled={accessBusy} onClick={() => choosePlan(monthlyPlanCatalog.pro.priceKey)}>{accessBusy ? "Abrindo..." : "Contratar Pro mensal"}</button></article>
-            <article className="price-card"><span>Scale · Full Access</span><h3>{monthlyPlanCatalog.scale.displayPrice} <small>/ mês</small></h3><p>Para consultorias, operações e times em crescimento.</p><ul><li><FiCheck /> Escala sem limite prático</li><li><FiCheck /> HTTP Controls e histórico ampliado</li><li><FiCheck /> Cobrança mensal, cancele quando quiser</li></ul><button className="button button-ghost" disabled={accessBusy} onClick={() => choosePlan(monthlyPlanCatalog.scale.priceKey)}>{accessBusy ? "Abrindo..." : "Contratar Scale mensal"}</button></article>
+            <article className="price-card featured"><span className="soon">Recomendado</span><span>Pro</span><h3>{planCatalog.pro[billingCycle].displayPrice} <small>/ mês</small></h3>{billingCycle === "yearly" && <p className="annual-detail">Cobrado {planCatalog.pro.yearly.billedPrice}/ano · economize {planCatalog.pro.yearly.discountPercent}%</p>}<p>Para profissionais e pequenos times que precisam manter ritmo.</p><ul><li><FiCheck /> 10 URLs e 25 clientes</li><li><FiCheck /> Gravação, anotações e inspectors</li><li><FiCheck /> {billingCycle === "yearly" ? "Maior desconto no compromisso anual" : "Cancele quando quiser"}</li></ul><button className="button button-primary" disabled={accessBusy} onClick={() => choosePlan(planCatalog.pro[billingCycle].priceKey)}>{accessBusy ? "Abrindo..." : `Contratar Pro ${billingCycle === "yearly" ? "anual" : "mensal"}`}</button></article>
+            <article className="price-card"><span>Scale · Full Access</span><h3>{planCatalog.scale[billingCycle].displayPrice} <small>/ mês</small></h3>{billingCycle === "yearly" && <p className="annual-detail">Cobrado {planCatalog.scale.yearly.billedPrice}/ano · economize {planCatalog.scale.yearly.discountPercent}%</p>}<p>Para consultorias, operações e times em crescimento.</p><ul><li><FiCheck /> Escala sem limite prático</li><li><FiCheck /> HTTP Controls e histórico ampliado</li><li><FiCheck /> {billingCycle === "yearly" ? "Maior desconto no compromisso anual" : "Cancele quando quiser"}</li></ul><button className="button button-ghost" disabled={accessBusy} onClick={() => choosePlan(planCatalog.scale[billingCycle].priceKey)}>{accessBusy ? "Abrindo..." : `Contratar Scale ${billingCycle === "yearly" ? "anual" : "mensal"}`}</button></article>
           </div>
-          <div className="growth-offer" data-reveal><FiZap /><div><b>Oferta de lançamento: COMECE30</b><p>30% nos três primeiros meses. Indicações dão 20% ao novo cliente e crédito ao indicador após a primeira cobrança.</p></div></div>
+          {launchPromotion?.active && <div className="growth-offer" data-reveal><FiZap /><div><b>Oferta de lançamento: {launchPromotion.code}</b><p>{launchPromotion.percentOff}% de desconto para as primeiras {launchPromotion.maximumRedemptions} pessoas. Restam <strong>{launchPromotion.remainingRedemptions}</strong> vouchers — use o código no Stripe Checkout.</p></div></div>}
         </section>
 
-        <section className="section container faq-section"><div className="section-heading" data-reveal><span className="kicker">Perguntas frequentes</span><h2>Antes de instalar.</h2></div><div className="faq-list" data-reveal>{faqs.map(([question, answer], index) => <div className={`faq-item ${openFaq === index ? "is-open" : ""}`} key={question}><button onClick={() => setOpenFaq(openFaq === index ? -1 : index)} aria-expanded={openFaq === index}><span>{question}</span><FiChevronDown /></button><div className="faq-answer"><p>{answer}</p></div></div>)}</div></section>
+        <section className="section container faq-section" id="faq"><div className="section-heading" data-reveal><span className="kicker">Perguntas frequentes</span><h2>Antes de instalar.</h2></div><div className="faq-list" data-reveal>{faqs.map(([question, answer], index) => <div className={`faq-item ${openFaq === index ? "is-open" : ""}`} key={question}><button onClick={() => setOpenFaq(openFaq === index ? -1 : index)} aria-expanded={openFaq === index}><span>{question}</span><FiChevronDown /></button><div className="faq-answer"><p>{answer}</p></div></div>)}</div></section>
+
+        <section className="section container about-section" id="sobre"><div className="section-heading" data-reveal><span className="kicker">Sobre o produto</span><h2>Feita por QA, para quem testa de verdade.</h2><p>A QA Toolbar Sandbox é uma bancada local-first para reduzir tarefas repetitivas, organizar contextos e produzir evidências sem abandonar a aplicação validada.</p></div><div className="about-grid" data-reveal><article><h3>Propósito</h3><p>Dar clareza e velocidade ao trabalho manual sem substituir o julgamento da pessoa de QA.</p></article><article><h3>Privacidade</h3><p>Conta e acesso são processados pelo Supabase; pagamentos pelo Stripe. Dados operacionais permanecem locais por padrão.</p></article><article><h3>Desenvolvimento</h3><p>Produto criado por Matheus Bonotto, com suporte e evolução pública pelo repositório oficial.</p></article></div></section>
 
         <section className="final-cta"><div className="container" data-reveal><span className="kicker">Pronto para explorar?</span><h2>Menos troca de contexto.<br />Mais clareza para testar.</h2><p>Entre, confirme seu acesso e instale pela Chrome Web Store.</p><button className="button button-primary" onClick={requestDownload}><FiLock /> Confirmar acesso e instalar <FiArrowRight /></button></div></section>
       </main>
@@ -351,7 +372,7 @@ export function App() {
       </div>}
 
       <a className="creator-corner" href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer" aria-label="Site de Matheus Bonotto"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="" /><span>Matheus Bonotto</span></a>
-      <footer><div className="container footer-inner"><a className="brand" href="#inicio"><img className="brand-logo" src={brandLogo} alt="" /><span>QA Toolbar Sandbox</span></a><p className="footer-credit">Feito de QA para Todos! · Desenvolvido por <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="Ícone de Matheus Bonotto" /> Matheus Bonotto</a></p><div><a href="#seguranca">Segurança</a><a href={privacyPolicyUrl}>Privacidade</a><a href="#instalar">Instalação</a></div></div></footer>
+      <footer><div className="container footer-inner"><a className="brand" href="#inicio"><img className="brand-logo" src={brandLogo} alt="" /><span>QA Toolbar Sandbox</span></a><p className="footer-credit">Feito de QA para Todos! · Desenvolvido por <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer"><img src={`${import.meta.env.BASE_URL}matheus-bonotto-icon.png`} alt="Ícone de Matheus Bonotto" /> Matheus Bonotto</a></p><div><a href="#sobre">Sobre</a><a href="#faq">FAQ</a><a href="#seguranca">Segurança</a><a href={privacyPolicyUrl}>Privacidade</a><a href="#instalar">Instalação</a></div></div></footer>
     </div>
   );
 }

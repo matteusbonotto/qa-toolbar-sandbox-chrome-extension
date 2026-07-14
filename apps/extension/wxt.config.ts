@@ -5,9 +5,10 @@ export default defineConfig({
   manifest: {
     name: "QA Toolbar Sandbox",
     description: "Local-first QA observability and productivity tools.",
-    permissions: ["storage", "scripting"],
+    permissions: ["storage", "scripting", "activeTab"],
     optional_permissions: ["notifications"],
-    optional_host_permissions: ["http://*/*", "https://*/*"],
+    optional_host_permissions: ["http://*/*", "https://*/*", "https://api.convertio.co/*"],
+    content_security_policy: { extension_pages: "script-src 'self'; object-src 'self'; frame-src http: https:" },
     web_accessible_resources: [{
       resources: ["content-scripts/content.css"],
       matches: ["http://*/*", "https://*/*"],

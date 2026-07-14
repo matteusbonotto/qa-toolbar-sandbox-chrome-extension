@@ -10,11 +10,11 @@ The external API accepts POST JSON. User IDs, prices, amounts, redirects and ent
 
 - Product: `prod_UsVNq6x0pLlHHL`
 - Monthly test price: `price_1TskMlH0sB1B9zJHLBWAvhKm` — BRL 29.90
-- Yearly test price: `price_1TskMlH0sB1B9zJHWNp00Gpk` — BRL 299.00
+- Yearly test price: `price_1Tt7QqH0sB1B9zJH1gsVZPi7` — BRL 287.04 (20% below twelve monthly payments)
 - Default test Customer Portal: `bpc_1TskiqH0sB1B9zJH26zgRjoq` — customer details, invoices, payment method and end-of-period cancellation enabled
 - Scale monthly test price: `price_1TsmzwH0sB1B9zJHTpPJUxsO` — BRL 59.90
-- Scale yearly test price: `price_1TsmzwH0sB1B9zJH0coRsPWR` — BRL 599.00
-- Launch code: `COMECE30` — 30% off for three months, first transaction only
+- Scale yearly test price: `price_1Tt7QrH0sB1B9zJHU3jtldHv` — BRL 539.04 (25% below twelve monthly payments)
+- Launch code: `30OFF` — 30% off for three months, limited to 15 total redemptions
 - Referral discount: 20% off for three months when a valid `QTS-XXXXXXXX` referral is attached
 
 These are test-mode objects. Do not reuse them as live prices without a deliberate commercial review.
@@ -77,3 +77,16 @@ Raw voucher codes must never be committed. Put the three codes in the ignored `.
 The `feature_flags` table provides server-controlled switches and JSON configuration. `billing-status` sends the effective flags to the extension, where a disabled flag overrides plan entitlement. Add new flags through reviewed migrations or the Supabase dashboard with the service role; clients only receive enabled state/config and cannot mutate flags.
 
 Time-limited grants expose `daysRemaining` and `expiryWarning` when 30 days or fewer remain. A voucher with `grant_days = null` is lifetime access.
+# Planos e promoções
+
+Os planos Pro e Scale têm Price IDs separados para cobrança mensal e anual. A landing envia apenas a chave lógica (`pro_monthly`, `pro_yearly`, `scale_monthly` ou `scale_yearly`); a Edge Function resolve o Price ID secreto e autorizado.
+
+O promotion code público `30OFF` é mantido no Stripe com 30% de desconto por três meses e `max_redemptions=15`. A função `promotion-status` consulta o Stripe no servidor e devolve somente código, percentual e saldo. A landing remove o card automaticamente quando `remainingRedemptions` chega a zero.
+
+O código `30DIAS` é uma campanha interna do Supabase: concede 30 dias de Full Access, pode ser resgatado apenas uma vez por conta e é pré-preenchido no fluxo Free. Resgate, contador e entitlement acontecem na mesma transação com auditoria; o frontend nunca ativa acesso diretamente.
+
+Variáveis obrigatórias adicionais:
+
+```text
+STRIPE_30OFF_PROMOTION_CODE_ID=promo_...
+```

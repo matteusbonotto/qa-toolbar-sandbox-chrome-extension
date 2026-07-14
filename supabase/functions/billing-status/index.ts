@@ -3,6 +3,7 @@ import { authenticatedUser, adminClient, enforceRateLimit } from "../_shared/aut
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
 import { serverConfig } from "../_shared/config.ts";
+import { signOfflineEntitlement } from "../_shared/offline-token.ts";
 
 const requestSchema = z.object({ installationId: z.string().uuid() }).strict();
 
@@ -61,6 +62,9 @@ serve(async (request) => {
   const accessEnd = paidSubscription ? subscription?.current_period_end ?? null : grantEnd;
   const accessActive = paidSubscription || Boolean(accessGrant);
   const accessDaysRemaining = accessEnd ? Math.max(0, Math.ceil((new Date(accessEnd).getTime() - Date.now()) / 86_400_000)) : null;
+  const checkedAt = Math.floor(Date.now() / 1000);
+  const offlinePayload = { version: 1, subject: user.id, installationId: parsed.data.installationId, plan, features, featureFlags: Object.fromEntries((flags ?? []).map((flag) => [flag.key, { enabled: flag.enabled, config: flag.config }])), access: { active: accessActive, source: paidSubscription ? "stripe" : accessGrant?.source ?? null, expiresAt: accessEnd }, issuedAt: checkedAt, expiresAt: checkedAt + 86_400, graceUntil: checkedAt + 259_200 };
+  const offlineToken = await signOfflineEntitlement(offlinePayload);
   return jsonResponse(request, {
     plan,
     paymentConfirmed: Boolean(confirmedPayment),
@@ -87,5 +91,6 @@ serve(async (request) => {
     trial: { active: Boolean(trialGrant), endsAt: trialEnd, daysRemaining },
     referral: { code: referral?.code ?? null, qualified: referral?.qualified_referrals ?? 0 },
     checkedAt: now,
+    offlineToken,
   });
 });

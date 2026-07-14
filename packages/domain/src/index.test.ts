@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isThemeKey, matchEnvironment, monthlyPlanCatalog, redactValue, themeCatalog, workspaceImportSchema, type Environment } from ".";
+import { isThemeKey, matchEnvironment, planCatalog, redactValue, themeCatalog, workspaceImportSchema, type Environment } from ".";
 
 const qaEnvironment: Environment = {
   id: "d5c9b84c-0564-4fc8-87ad-12409180403b",
@@ -9,12 +9,11 @@ const qaEnvironment: Environment = {
   urlPatterns: ["qa.example.test"],
 };
 
-describe("monthlyPlanCatalog", () => {
-  it("keeps the public paid catalog monthly", () => {
-    expect(monthlyPlanCatalog).toEqual({
-      pro: { displayPrice: "R$ 29,90", priceKey: "pro_monthly" },
-      scale: { displayPrice: "R$ 59,90", priceKey: "scale_monthly" },
-    });
+describe("planCatalog", () => {
+  it("offers monthly and discounted yearly prices", () => {
+    expect(planCatalog.pro.monthly.priceKey).toBe("pro_monthly");
+    expect(planCatalog.pro.yearly).toMatchObject({ priceKey: "pro_yearly", discountPercent: 20 });
+    expect(planCatalog.scale.yearly).toMatchObject({ priceKey: "scale_yearly", discountPercent: 25 });
   });
 });
 

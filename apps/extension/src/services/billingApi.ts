@@ -22,6 +22,7 @@ const statusSchema = z.object({
   featureFlags: z.record(z.string(), z.object({ enabled: z.boolean(), config: z.unknown() })).optional(),
   referral: z.object({ code: z.string().nullable(), qualified: z.number().int().nonnegative() }),
   checkedAt: z.string(),
+  offlineToken: z.string().min(100).max(16384),
 });
 
 export interface BillingConfiguration {

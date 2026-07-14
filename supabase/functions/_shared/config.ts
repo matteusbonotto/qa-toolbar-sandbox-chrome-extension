@@ -21,6 +21,7 @@ export function serverConfig() {
     scaleMonthlyPriceId: requiredEnv("STRIPE_SCALE_MONTHLY_PRICE_ID"),
     scaleYearlyPriceId: requiredEnv("STRIPE_SCALE_YEARLY_PRICE_ID"),
     referralPromotionCodeId: requiredEnv("STRIPE_REFERRAL_PROMOTION_CODE_ID"),
+    launchPromotionCodeId: requiredEnv("STRIPE_30OFF_PROMOTION_CODE_ID"),
     checkoutSuccessUrl: requiredEnv("CHECKOUT_SUCCESS_URL"),
     checkoutCancelUrl: requiredEnv("CHECKOUT_CANCEL_URL"),
     chromeWebStoreUrl: storeUrl.href,

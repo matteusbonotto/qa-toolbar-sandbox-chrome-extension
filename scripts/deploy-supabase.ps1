@@ -41,6 +41,7 @@ npx supabase secrets set --project-ref $ProjectRef `
   "STRIPE_SCALE_MONTHLY_PRICE_ID=$($billingValues['STRIPE_SCALE_MONTHLY_PRICE_ID'])" `
   "STRIPE_SCALE_YEARLY_PRICE_ID=$($billingValues['STRIPE_SCALE_YEARLY_PRICE_ID'])" `
   "STRIPE_REFERRAL_PROMOTION_CODE_ID=$($billingValues['STRIPE_REFERRAL_PROMOTION_CODE_ID'])" `
+  "STRIPE_30OFF_PROMOTION_CODE_ID=$($billingValues['STRIPE_30OFF_PROMOTION_CODE_ID'])" `
   "APP_SUPABASE_PUBLIC_KEY=$($privateValues['SUPABASE_PUBLIC'])" `
   "APP_SUPABASE_SECRET_KEY=$($privateValues['SUPABASE_SECRET'])" `
   "CHECKOUT_SUCCESS_URL=$baseUrl/checkout-success" `

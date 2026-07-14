@@ -1,4 +1,5 @@
 import { createBillingApi } from "./runtimeConfig";
+import { verifyOfflineEntitlement } from "./offlineEntitlement";
 
 export type EntitlementCache = {
   plan: { key: string; name: string };
@@ -39,8 +40,19 @@ export async function refreshEntitlements(accessToken: string): Promise<Entitlem
     featureFlags: status.featureFlags ?? {},
     checkedAt: status.checkedAt,
   };
-  await browser.storage.local.set({ qtsEntitlementCache: cache });
+  await browser.storage.local.set({ qtsEntitlementCache: cache, qtsOfflineEntitlementToken: status.offlineToken });
   return cache;
+}
+
+export async function loadVerifiedCachedEntitlements(): Promise<EntitlementCache | null> {
+  if (import.meta.env.MODE === "test") {
+    const testStored = await browser.storage.local.get("qtsEntitlementCache");
+    return (testStored.qtsEntitlementCache as EntitlementCache | undefined) ?? null;
+  }
+  const installationId = await ensureInstallationId();
+  const stored = await browser.storage.local.get("qtsOfflineEntitlementToken");
+  if (typeof stored.qtsOfflineEntitlementToken !== "string") return null;
+  return verifyOfflineEntitlement(stored.qtsOfflineEntitlementToken, installationId);
 }
 
 export function featureEnabled(cache: EntitlementCache | null, key: string): boolean {

@@ -34,4 +34,12 @@ describe("landing commerce access", () => {
     }), { status: 200, headers: { "content-type": "application/json" } }));
     await expect(api.redeemVoucher("valid-access-token", "TEST-CODE")).resolves.toMatchObject({ redeemed: true });
   });
+
+  it("reads the server-side Stripe promotion counter", async () => {
+    const api = new LandingCommerce("https://project.supabase.co", "public-key");
+    vi.spyOn(globalThis, "fetch").mockResolvedValueOnce(new Response(JSON.stringify({
+      code: "30OFF", active: true, maximumRedemptions: 15, remainingRedemptions: 12, percentOff: 30,
+    }), { status: 200, headers: { "content-type": "application/json" } }));
+    await expect(api.promotionStatus()).resolves.toMatchObject({ code: "30OFF", remainingRedemptions: 12 });
+  });
 });
