@@ -10,7 +10,13 @@ const state = {
   minimized: false,
   shadowRoot: null,
   placementMode: null, // null | "pass" | "fail" | "shape"
+  clickSpyActive: false,
+  clockFrozen: false,
+  forceHttpActive: false,
+  networkHistory: [],
 };
+
+const FORCE_HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503];
 
 const TEST_STATUS_OPTIONS = [
   { key: "pass", label: "Pass", icon: "✓", color: "#179153" },
@@ -144,6 +150,21 @@ function buildShadowHost() {
       }
       #restoreButton.isVisible { display: inline-flex; }
       .brand { opacity: .85; font-weight: 900; letter-spacing: .04em; }
+
+      #toolsWrapper { position: relative; }
+      #toolsMenu {
+        position: absolute; top: 30px; right: 0; width: 220px; padding: 6px; display: grid; gap: 4px;
+        border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18);
+        box-shadow: 0 16px 40px rgba(0,0,0,.45); opacity: 0; visibility: hidden; transform: translateY(-6px);
+        transition: opacity 140ms ease, transform 140ms ease, visibility 140ms; color: #fff; z-index: 10;
+      }
+      #toolsMenu.isOpen { opacity: 1; visibility: visible; transform: translateY(0); }
+      #toolsMenu button {
+        width: 100%; justify-content: flex-start; background: #171717; border-color: #2c2c2c; font-size: 11px;
+      }
+      #toolsMenu button:hover { background: #232323; border-color: #ffd700; }
+      #toolsMenu button.isActive { background: #ffd700 !important; color: #111 !important; }
+      .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; }
     </style>
     <div id="bar" role="toolbar" aria-label="QA Toolbar Sandbox">
       <div id="left">
@@ -158,6 +179,17 @@ function buildShadowHost() {
         <button id="shapeButton" class="iconOnly" type="button" title="Desenhar forma">▭</button>
         <button id="clearAllButton" class="isHidden" type="button" title="Remover todas as anotações">Limpar</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="Capturar screenshot">📷</button>
+        <div id="toolsWrapper">
+          <button id="toolsButton" type="button" title="Ferramentas">Tools ▾</button>
+          <div id="toolsMenu" role="menu">
+            <button type="button" id="clickSpyMenuItem" role="menuitem">🖱 Click Spy</button>
+            <button type="button" id="freezeClockMenuItem" role="menuitem">⏸ Freeze Clock</button>
+            <button type="button" id="forceHttpMenuItem" role="menuitem">⚠ Force HTTP</button>
+            <button type="button" id="inspectorsMenuItem" role="menuitem">{ } Inspectors<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
+            <button type="button" id="jsonStudioMenuItem" role="menuitem">🧪 JSON Studio</button>
+            <button type="button" id="breakpointMenuItem" role="menuitem">📐 Breakpoint Viewer</button>
+          </div>
+        </div>
         <button id="settingsButton" class="iconOnly" type="button" title="Configurações">⚙</button>
         <button id="minimizeButton" class="iconOnly" type="button" title="Minimizar">▲</button>
       </div>
@@ -178,7 +210,25 @@ function buildShadowHost() {
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
 
+  shadow.getElementById("toolsButton").addEventListener("click", (event) => {
+    event.stopPropagation();
+    shadow.getElementById("toolsMenu").classList.toggle("isOpen");
+  });
+  shadow.addEventListener("click", () => shadow.getElementById("toolsMenu").classList.remove("isOpen"));
+  shadow.getElementById("toolsMenu").addEventListener("click", (event) => event.stopPropagation());
+
+  shadow.getElementById("clickSpyMenuItem").addEventListener("click", () => { toggleClickSpy(); closeToolsMenu(); });
+  shadow.getElementById("freezeClockMenuItem").addEventListener("click", () => { toggleFreezeClock(); closeToolsMenu(); });
+  shadow.getElementById("forceHttpMenuItem").addEventListener("click", () => { openForceHttpDialog(); closeToolsMenu(); });
+  shadow.getElementById("inspectorsMenuItem").addEventListener("click", () => { openInspectorsDrawer(); closeToolsMenu(); });
+  shadow.getElementById("jsonStudioMenuItem").addEventListener("click", () => { openJsonStudio(); closeToolsMenu(); });
+  shadow.getElementById("breakpointMenuItem").addEventListener("click", () => { openBreakpointViewer(); closeToolsMenu(); });
+
   return { host, shadow };
+}
+
+function closeToolsMenu() {
+  state.shadowRoot?.getElementById("toolsMenu")?.classList.remove("isOpen");
 }
 
 function setMinimized(value) {
@@ -499,6 +549,305 @@ function captureScreenshot() {
     anchor.click();
   });
 }
+
+// ---------------------------------------------------------------------------
+// Generic drawer/modal helpers (rendered inside the Shadow Root — unlike
+// markers/notes/shapes, tool panels don't need to sit at page click
+// coordinates, so they don't need the light-DOM !important escape hatch).
+// ---------------------------------------------------------------------------
+
+function ensureDrawerHost() {
+  let drawerHost = state.shadowRoot.getElementById("drawerHost");
+  if (!drawerHost) {
+    drawerHost = document.createElement("div");
+    drawerHost.id = "drawerHost";
+    state.shadowRoot.appendChild(drawerHost);
+  }
+  return drawerHost;
+}
+
+function drawerStyles() {
+  return `
+    .qts-drawer-backdrop {
+      position: fixed; inset: 0; z-index: 2147483647; display: flex; justify-content: flex-end;
+      background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .qts-drawer {
+      width: min(440px, 92vw); height: 100%; background: #0b0b0b; color: #fff; border-left: 2px solid #b20808;
+      display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
+    }
+    .qts-drawer.isWide { width: min(900px, 96vw); }
+    .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #262626; }
+    .qts-drawer-head h2 { margin: 0; font-size: 15px; }
+    .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
+    .qts-drawer-body { flex: 1; overflow: auto; padding: 14px 16px; }
+    .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
+      width: 100%; padding: 8px 10px; border: 1px solid #2c2c2c; border-radius: 8px; background: #141414; color: #fff; font: inherit;
+    }
+    .qts-drawer button.action { height: 32px; padding: 0 12px; border: 1px solid #333; border-radius: 8px; background: #1c1c1c; color: #fff; cursor: pointer; font-weight: 700; }
+    .qts-drawer button.action.primary { background: #b20808; border-color: #b20808; }
+    .qts-empty { padding: 24px; text-align: center; color: #888; border: 1px dashed #333; border-radius: 10px; }
+    .qts-net-item { padding: 8px 10px; margin-bottom: 6px; border: 1px solid #262626; border-radius: 8px; background: #131313; cursor: pointer; }
+    .qts-net-item b { color: #ffd700; }
+    .qts-net-item small { display: block; color: #888; word-break: break-all; }
+    .qts-json-tree { font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+  `;
+}
+
+function openDrawer({ title, wide = false, bodyHtml, onReady }) {
+  const drawerHost = ensureDrawerHost();
+  drawerHost.innerHTML = `<style>${drawerStyles()}</style>
+    <div class="qts-drawer-backdrop" id="drawerBackdrop">
+      <div class="qts-drawer ${wide ? "isWide" : ""}">
+        <div class="qts-drawer-head"><h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">×</button></div>
+        <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
+      </div>
+    </div>`;
+  drawerHost.querySelector("#drawerClose").addEventListener("click", closeDrawer);
+  drawerHost.querySelector("#drawerBackdrop").addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop") closeDrawer(); });
+  onReady?.(drawerHost.querySelector("#drawerBody"));
+}
+
+function closeDrawer() {
+  const drawerHost = state.shadowRoot?.getElementById("drawerHost");
+  if (drawerHost) drawerHost.innerHTML = "";
+}
+
+function renderJsonTree(value, depth = 0) {
+  if (value === null) return `<span style="color:#888">null</span>`;
+  if (Array.isArray(value)) {
+    if (!value.length) return "[]";
+    return `[<br>${value.map((item) => `${"&nbsp;".repeat((depth + 1) * 2)}${renderJsonTree(item, depth + 1)}`).join(",<br>")}<br>${"&nbsp;".repeat(depth * 2)}]`;
+  }
+  if (typeof value === "object") {
+    const keys = Object.keys(value);
+    if (!keys.length) return "{}";
+    return `{<br>${keys.map((key) => `${"&nbsp;".repeat((depth + 1) * 2)}<span style="color:#ffd700">${escapeHtml(key)}</span>: ${renderJsonTree(value[key], depth + 1)}`).join(",<br>")}<br>${"&nbsp;".repeat(depth * 2)}}`;
+  }
+  if (typeof value === "string") return `<span style="color:#8ad1ff">${escapeHtml(JSON.stringify(value))}</span>`;
+  return `<span style="color:#9bffb0">${escapeHtml(String(value))}</span>`;
+}
+
+// ---------------------------------------------------------------------------
+// Click Spy: highlight the next clickable element and report what it is,
+// instead of actually navigating/submitting — a safe way to inspect intent.
+// ---------------------------------------------------------------------------
+
+let clickSpyCleanup = null;
+
+function toggleClickSpy() {
+  if (state.clickSpyActive) { deactivateClickSpy(); return; }
+  state.clickSpyActive = true;
+  state.shadowRoot.getElementById("clickSpyMenuItem").classList.add("isActive");
+  let hovered = null;
+  const overHandler = (event) => {
+    const target = event.target.closest("a,button,[role=button],input,select,textarea");
+    if (target === hovered || isInsideToolbarUi(event.target)) return;
+    hovered?.classList.remove("qts-spy-hover");
+    hovered = target;
+    hovered?.classList.add("qts-spy-hover");
+  };
+  const clickHandler = (event) => {
+    if (isInsideToolbarUi(event.target)) return;
+    const target = event.target.closest("a,button,[role=button],input,select,textarea") || event.target;
+    event.preventDefault();
+    event.stopPropagation();
+    reportClickSpyTarget(target);
+    deactivateClickSpy();
+  };
+  const escHandler = (event) => { if (event.key === "Escape") deactivateClickSpy(); };
+  document.addEventListener("mouseover", overHandler, true);
+  document.addEventListener("click", clickHandler, true);
+  document.addEventListener("keydown", escHandler, true);
+  clickSpyCleanup = () => {
+    hovered?.classList.remove("qts-spy-hover");
+    document.removeEventListener("mouseover", overHandler, true);
+    document.removeEventListener("click", clickHandler, true);
+    document.removeEventListener("keydown", escHandler, true);
+  };
+}
+
+function deactivateClickSpy() {
+  state.clickSpyActive = false;
+  state.shadowRoot?.getElementById("clickSpyMenuItem")?.classList.remove("isActive");
+  clickSpyCleanup?.();
+  clickSpyCleanup = null;
+}
+
+function reportClickSpyTarget(target) {
+  const anchor = target.closest?.("a[href]");
+  const description = [
+    ["Elemento", target.tagName.toLowerCase()],
+    ["Texto", target.textContent?.trim().slice(0, 80) || "—"],
+    ["Destino", anchor ? new URL(anchor.getAttribute("href"), window.location.href).href : "—"],
+    ["Tipo", anchor ? "Navegação" : target.tagName === "BUTTON" || target.getAttribute("type") === "submit" ? "Ação/submit" : "Controle de formulário"],
+  ];
+  openDrawer({
+    title: "Click Spy — resultado",
+    bodyHtml: `<div style="display:grid;gap:10px">${description.map(([label, value]) => `
+      <div><div style="color:#ffd700;font-size:10px;text-transform:uppercase;font-weight:800">${escapeHtml(label)}</div><div style="word-break:break-all">${escapeHtml(value)}</div></div>
+    `).join("")}</div>`,
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Freeze Clock and Force HTTP: both act on the page's real Date/fetch, which
+// only pagebridge.js (MAIN world) can see — the isolated-world toolbar only
+// dispatches/listens for CustomEvents on document.
+// ---------------------------------------------------------------------------
+
+function toggleFreezeClock() {
+  document.dispatchEvent(new CustomEvent("qts:freeze-clock-command", { detail: { freeze: !state.clockFrozen } }));
+}
+
+function openForceHttpDialog() {
+  openDrawer({
+    title: "Force HTTP — forçar próxima resposta",
+    bodyHtml: `
+      <p style="color:#999;margin-top:0">Escolha um status para a próxima requisição JSON (fetch). A regra é usada uma única vez.</p>
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
+        ${FORCE_HTTP_STATUSES.map((status) => `<button type="button" class="action" data-status="${status}">HTTP ${status}</button>`).join("")}
+      </div>
+      <div style="margin-top:14px"><button type="button" class="action" id="forceHttpClear">Cancelar regra ativa</button></div>
+    `,
+    onReady: (body) => {
+      body.querySelectorAll("[data-status]").forEach((button) => button.addEventListener("click", () => {
+        document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: Number(button.dataset.status) } }));
+        closeDrawer();
+      }));
+      body.querySelector("#forceHttpClear").addEventListener("click", () => {
+        document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: null } }));
+        closeDrawer();
+      });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Inspectors: a live list of JSON API responses captured by pagebridge.js.
+// Fully generic/declarative — no product-specific endpoint names hardcoded.
+// ---------------------------------------------------------------------------
+
+function handleNetworkCaptured(entry) {
+  state.networkHistory.unshift(entry);
+  if (state.networkHistory.length > 150) state.networkHistory.length = 150;
+  const badge = state.shadowRoot?.getElementById("inspectorsBadge");
+  if (badge) {
+    badge.textContent = String(state.networkHistory.length);
+    badge.style.display = state.networkHistory.length ? "inline-flex" : "none";
+  }
+  if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
+}
+
+function renderInspectorsList() {
+  const body = state.shadowRoot.getElementById("drawerBody");
+  if (!body) return;
+  if (!state.networkHistory.length) {
+    body.innerHTML = `<div class="qts-empty">Nenhuma resposta JSON capturada ainda nesta página.</div>`;
+    return;
+  }
+  body.innerHTML = state.networkHistory.map((entry, index) => `
+    <div class="qts-net-item" data-index="${index}">
+      <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+    </div>
+  `).join("");
+  body.querySelectorAll("[data-index]").forEach((row) => row.addEventListener("click", () => {
+    const entry = state.networkHistory[Number(row.dataset.index)];
+    openDrawer({
+      title: `${entry.method} ${entry.status}`,
+      wide: true,
+      bodyHtml: `<div class="qts-json-tree">${renderJsonTree(entry.payload)}</div>`,
+    });
+  }));
+}
+
+function openInspectorsDrawer() {
+  openDrawer({ title: "Inspectors", wide: true, bodyHtml: "" });
+  state.shadowRoot.getElementById("drawerHost").dataset.view = "inspectors";
+  renderInspectorsList();
+}
+
+// ---------------------------------------------------------------------------
+// JSON Studio: format/compact/copy any pasted JSON.
+// ---------------------------------------------------------------------------
+
+function openJsonStudio() {
+  openDrawer({
+    title: "JSON Studio",
+    wide: true,
+    bodyHtml: `
+      <textarea id="jsonInput" rows="16" placeholder="Cole um JSON aqui..." style="font:12px ui-monospace,Consolas,monospace"></textarea>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button type="button" class="action primary" id="jsonFormat">Formatar</button>
+        <button type="button" class="action" id="jsonCompact">Compactar</button>
+        <button type="button" class="action" id="jsonCopy">Copiar</button>
+      </div>
+      <p id="jsonError" style="color:#ff6b6b"></p>
+    `,
+    onReady: (body) => {
+      const input = body.querySelector("#jsonInput");
+      const errorEl = body.querySelector("#jsonError");
+      const run = (transform) => {
+        try {
+          const parsed = JSON.parse(input.value);
+          input.value = transform(parsed);
+          errorEl.textContent = "";
+        } catch (error) {
+          errorEl.textContent = `JSON inválido: ${error.message}`;
+        }
+      };
+      body.querySelector("#jsonFormat").addEventListener("click", () => run((parsed) => JSON.stringify(parsed, null, 2)));
+      body.querySelector("#jsonCompact").addEventListener("click", () => run((parsed) => JSON.stringify(parsed)));
+      body.querySelector("#jsonCopy").addEventListener("click", () => navigator.clipboard.writeText(input.value).catch(() => {}));
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Breakpoint Viewer: mobile/desktop side-by-side preview via iframes.
+// ---------------------------------------------------------------------------
+
+function openBreakpointViewer() {
+  const initialUrl = window.location.href;
+  openDrawer({
+    title: "Breakpoint Viewer",
+    wide: true,
+    bodyHtml: `
+      <input id="bpUrl" type="url" value="${escapeHtml(initialUrl)}" style="margin-bottom:10px" />
+      <div style="display:grid;grid-template-columns:375px 1fr;gap:12px">
+        <div>
+          <small style="color:#888">Mobile · 375×667</small>
+          <iframe id="bpMobile" style="width:375px;height:667px;border:1px solid #333;border-radius:8px;background:#fff"></iframe>
+        </div>
+        <div>
+          <small style="color:#888">Desktop · 100%</small>
+          <iframe id="bpDesktop" style="width:100%;height:667px;border:1px solid #333;border-radius:8px;background:#fff"></iframe>
+        </div>
+      </div>
+    `,
+    onReady: (body) => {
+      const urlInput = body.querySelector("#bpUrl");
+      const load = () => {
+        const url = urlInput.value.trim();
+        if (!/^https?:\/\//i.test(url)) return;
+        body.querySelector("#bpMobile").src = url;
+        body.querySelector("#bpDesktop").src = url;
+      };
+      urlInput.addEventListener("change", load);
+      load();
+    },
+  });
+}
+
+document.addEventListener("qts:network-captured", (event) => handleNetworkCaptured(event.detail));
+document.addEventListener("qts:freeze-clock-state", (event) => {
+  state.clockFrozen = Boolean(event.detail?.frozen);
+  state.shadowRoot?.getElementById("freezeClockMenuItem")?.classList.toggle("isActive", state.clockFrozen);
+});
+document.addEventListener("qts:force-http-state", (event) => {
+  state.forceHttpActive = Boolean(event.detail?.active);
+  state.shadowRoot?.getElementById("forceHttpMenuItem")?.classList.toggle("isActive", state.forceHttpActive);
+});
 
 async function boot() {
   if (!document.body) {

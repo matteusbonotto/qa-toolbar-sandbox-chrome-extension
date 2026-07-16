@@ -20,6 +20,12 @@ body.qts-placement-mode, body.qts-placement-mode * {
   cursor: crosshair !important;
 }
 
+.qts-spy-hover {
+  outline: 3px solid #ffd700 !important;
+  outline-offset: 2px !important;
+  cursor: crosshair !important;
+}
+
 /* `all: initial` here is deliberately NOT `!important`: it resets everything
    the host page's stylesheet might have leaked in *before* JS sets each
    element's inline `left`/`top`/`width`/`height` — but `!important` on the
