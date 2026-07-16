@@ -52,7 +52,7 @@ serve(async (request) => {
     mode: "subscription",
     customer: customerId,
     client_reference_id: user.id,
-    line_items: [{ price: allowedPrice(parsed.data.priceKey), quantity: 1 }],
+    line_items: [{ price: await allowedPrice(parsed.data.priceKey), quantity: 1 }],
     allow_promotion_codes: !referralApplied,
     ...(referralApplied ? { discounts: [{ promotion_code: config.referralPromotionCodeId }] } : {}),
     success_url: config.checkoutSuccessUrl,
