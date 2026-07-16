@@ -49,6 +49,18 @@ function isHexColor(value: string): boolean {
   return true;
 }
 
+function isHttpUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password;
+  } catch {
+    return false;
+  }
+}
+
+const optionalHttpUrlSchema = z.string().refine((value) => value === "" || isHttpUrl(value), "Only HTTP(S) URLs are allowed");
+const httpUrlSchema = z.string().refine(isHttpUrl, "Only HTTP(S) URLs are allowed");
+
 export const environmentSchema = z.object({
   id: z.string().uuid(),
   name: z.string().trim().min(1).max(48),
@@ -91,17 +103,40 @@ export const qaEnvironmentSchema = entityBaseSchema.extend({
 });
 export const testAccountSchema = entityBaseSchema.extend({
   typeId: z.string().uuid().nullable().default(null), email: z.string().email().or(z.literal("")), username: z.string().max(200).default(""),
-  password: z.string().max(1000).default(""), inboxUrl: z.string().url().or(z.literal("")), environmentIds: z.array(z.string().uuid()).max(100),
+  password: z.string().max(1000).default(""), inboxUrl: optionalHttpUrlSchema, environmentIds: z.array(z.string().uuid()).max(100),
   attributes: z.record(z.string().max(80), z.string().max(2000)).default({}), sensitive: z.boolean().default(true),
 });
 export const sandboxPaymentMethodSchema = entityBaseSchema.extend({
   provider: z.string().max(80), brand: z.string().max(80), number: z.string().max(40), holder: z.string().max(120),
   cvv: z.string().max(12), expiration: z.string().max(20), scenario: z.string().max(120), environmentIds: z.array(z.string().uuid()).max(100),
 });
-export const apiDefinitionSchema = entityBaseSchema.extend({ baseUrl: z.string().url(), environmentIds: z.array(z.string().uuid()).max(100), headers: z.record(z.string(), z.string()).default({}) });
-export const inspectorDefinitionSchema = entityBaseSchema.extend({ apiId: z.string().uuid().nullable(), pathPattern: z.string().min(1).max(500), enabled: z.boolean().default(true) });
+export const apiDefinitionSchema = entityBaseSchema.extend({
+  baseUrl: httpUrlSchema,
+  environmentIds: z.array(z.string().uuid()).max(100),
+  endpoint: z.string().max(500).default("/"),
+  method: z.enum(["GET", "POST", "PUT", "PATCH", "DELETE"]).default("GET"),
+  headers: z.record(z.string().max(100), z.string().max(2000)).default({}),
+  contentType: z.string().max(120).default("application/json"),
+  timeoutMs: z.number().int().min(1000).max(120_000).default(15_000),
+  schema: z.record(z.string(), z.unknown()).default({}),
+  redactionKeys: z.array(z.string().min(1).max(100)).max(100).default([]),
+});
+export const inspectorDefinitionSchema = entityBaseSchema.extend({
+  apiId: z.string().uuid().nullable(),
+  pathPattern: z.string().min(1).max(500),
+  method: z.enum(["ANY", "GET", "POST", "PUT", "PATCH", "DELETE"]).default("ANY"),
+  visualization: z.enum(["friendly", "tree", "raw", "cards", "table"]).default("friendly"),
+  primaryFields: z.array(z.string().min(1).max(200)).max(50).default([]),
+  listPath: z.string().max(300).default(""),
+  filters: z.array(z.object({ field: z.string().min(1).max(200), operator: z.enum(["equals", "contains", "exists"]), value: z.string().max(500).default("") })).max(50).default([]),
+  mappings: z.record(z.string().max(200), z.string().max(200)).default({}),
+  version: z.string().max(40).default("1"),
+  status: z.enum(["draft", "active", "disabled"]).default("active"),
+  minimumFeature: z.string().max(120).default("inspectors.enabled"),
+  enabled: z.boolean().default(true),
+});
 export const accountTypeSchema = entityBaseSchema.extend({ attributeNames: z.array(z.string().max(80)).max(50).default([]) });
-export const resourceDefinitionSchema = entityBaseSchema.extend({ projectId: z.string().uuid(), kind: z.string().max(80), url: z.string().url().or(z.literal("")), content: z.string().max(100_000).default("") });
+export const resourceDefinitionSchema = entityBaseSchema.extend({ projectId: z.string().uuid(), kind: z.string().max(80), url: optionalHttpUrlSchema, content: z.string().max(100_000).default("") });
 
 export const localWorkspaceSchema = z.object({
   schemaVersion: z.literal(2), applicationVersion: z.string().min(1), locale: z.enum(["pt-BR", "en", "es"]),

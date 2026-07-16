@@ -1,7 +1,7 @@
 param(
   [string]$ProjectRef,
   [string]$AllowedOrigins = "https://matteusbonotto.github.io,http://127.0.0.1:4173,http://localhost:4173",
-  [string]$AllowedExtensionIds = "ddaapjklnfjhjigeglgmjmadjnmdodfe,jaalcifngdkpenjdolhlkgcaepdpkgoe,pkmfnaknekoffbaihajgglhehhpogkoj",
+  [string]$AllowedExtensionIds = "ddaapjklnfjhjigeglgmjmadjnmdodfe,jaalcifngdkpenjdolhlkgcaepdpkgoe,pkmfnaknekoffbaihajgglhehhpogkoj,ninmkchkkdckompjggialfboljlabdkf,gcjepbjbgcldicfnknplggjghhpmmime,kpmdhklfhodlelggbbinggpcfdflahjd,llakhonfpcohfjmafkjpjdacehdbppcg",
   [string]$ChromeWebStoreUrl = "https://chromewebstore.google.com/detail/qa-toolbar-sandbox/ddaapjklnfjhjigeglgmjmadjnmdodfe?authuser=0&hl=pt-BR"
 )
 
