@@ -25,8 +25,15 @@ async function synchronizeSubscription(subscription: Stripe.Subscription, eventC
 
   const admin = adminClient();
   const config = serverConfig();
+  // Admins can repoint a plan's Stripe price from the panel (plan_prices),
+  // so the allowlist here must include both the environment defaults and
+  // any admin-configured override — otherwise a subscription created after
+  // an admin edits a price would be rejected as "unauthorized".
+  const { data: overridePrice } = await admin.from("plan_prices").select("plan_id, plans(key)").eq("stripe_price_id", priceId).maybeSingle();
+  const overridePlanKey = (overridePrice?.plans as unknown as { key?: string } | null)?.key;
   let planKey: "pro" | "scale";
-  if ([config.scaleMonthlyPriceId, config.scaleYearlyPriceId].includes(priceId)) planKey = "scale";
+  if (overridePlanKey === "scale" || overridePlanKey === "pro") planKey = overridePlanKey;
+  else if ([config.scaleMonthlyPriceId, config.scaleYearlyPriceId].includes(priceId)) planKey = "scale";
   else if ([config.proMonthlyPriceId, config.proYearlyPriceId].includes(priceId)) planKey = "pro";
   else throw new Error("Subscription uses an unauthorized price");
   const { data: plan } = await admin.from("plans").select("id").eq("key", planKey).single();
