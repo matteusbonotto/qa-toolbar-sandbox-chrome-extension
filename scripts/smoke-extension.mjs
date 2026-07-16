@@ -176,22 +176,38 @@ try {
     const overlay = host.querySelector(".qts-bp-overlay");
     const paneA = host.querySelector('[data-pane="a"] iframe');
     const paneB = host.querySelector('[data-pane="b"] iframe');
+    const wrapA = host.querySelector('[data-pane="a"] [data-viewport-wrap]');
+    const wrapB = host.querySelector('[data-pane="b"] [data-viewport-wrap]');
     return {
       isFullScreen: overlay ? getComputedStyle(overlay).position === "fixed" && overlay.getBoundingClientRect().width === window.innerWidth : false,
       srcA: paneA?.src, srcB: paneB?.src,
       transformA: paneA?.style.transform, transformB: paneB?.style.transform,
       hasLaptopChrome: Boolean(host.querySelector(".qts-bp-laptop-bar")),
       hasPhoneChrome: Boolean(host.querySelector(".qts-bp-phone-status")),
+      renderedWidthA: wrapA?.getBoundingClientRect().width, renderedWidthB: wrapB?.getBoundingClientRect().width,
+      renderedHeightA: wrapA?.getBoundingClientRect().height, renderedHeightB: wrapB?.getBoundingClientRect().height,
     };
   });
   if (!bpState.isFullScreen) throw new Error("Breakpoint Viewer should cover the full screen, not a sidebar");
   if (!bpState.srcA?.startsWith("http://127.0.0.1:43117") || !bpState.srcB?.startsWith("http://127.0.0.1:43117")) {
     throw new Error(`Breakpoint Viewer panes did not load the expected URL: ${JSON.stringify(bpState)}`);
   }
+  // Pane A is the MacBook Air preset (1280x832), pane B is the iPhone 12 Pro Max preset (379x820) by
+  // default — the monitor must always render bigger than the phone, on both axes, never the reverse.
+  if (bpState.renderedWidthA <= bpState.renderedWidthB || bpState.renderedHeightA <= bpState.renderedHeightB) {
+    throw new Error(`Desktop pane should render larger than the phone pane on both axes: ${JSON.stringify(bpState)}`);
+  }
   if (!bpState.transformA?.includes("scale") || !bpState.transformB?.includes("scale")) {
     throw new Error("Breakpoint Viewer panes should emulate real device scale via CSS transform");
   }
   if (!bpState.hasLaptopChrome || !bpState.hasPhoneChrome) throw new Error("Breakpoint Viewer should render device/browser chrome for each pane kind");
+
+  // Each pane must show its own scale label — a prior bug had both panes writing into the same
+  // (unscoped) label element, so the desktop one silently never appeared.
+  const scaleLabels = await page.locator("[data-scale-label]").allTextContents();
+  if (!scaleLabels.some((text) => text.includes("MacBook")) || !scaleLabels.some((text) => text.includes("iPhone"))) {
+    throw new Error(`Expected one scale label per pane (MacBook + iPhone), got: ${JSON.stringify(scaleLabels)}`);
+  }
 
   // Sync toggles are independent and reflect their on/off state visually.
   await page.locator("#bpSyncScroll").click();

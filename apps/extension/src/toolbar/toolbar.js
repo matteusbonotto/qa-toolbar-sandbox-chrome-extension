@@ -1063,14 +1063,16 @@ function buildDeviceFrameHtml(pane, device) {
     ? `<div class="qts-bp-phone-status"><span>${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span><span>▂▄▆ 🔋</span></div>`
     : `<div class="qts-bp-laptop-bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="qts-bp-address">${escapeHtml(device.label)} · ${device.width}×${device.height}</span></div>`;
   return `
-    <div class="qts-bp-frame kind-${device.kind}" data-pane="${pane}">
-      ${chrome}
-      <div class="qts-bp-viewport-wrap" data-viewport-wrap>
-        <iframe data-bp-iframe style="width:${device.width}px;height:${device.height}px"></iframe>
+    <div class="qts-bp-pane" data-pane-wrap="${pane}">
+      <div class="qts-bp-frame kind-${device.kind}" data-pane="${pane}">
+        ${chrome}
+        <div class="qts-bp-viewport-wrap" data-viewport-wrap>
+          <iframe data-bp-iframe style="width:${device.width}px;height:${device.height}px"></iframe>
+        </div>
+        ${device.kind === "phone" ? `<div class="qts-bp-home-indicator"></div>` : ""}
       </div>
-      ${device.kind === "phone" ? `<div class="qts-bp-home-indicator"></div>` : ""}
+      <div class="qts-bp-scale-label" data-scale-label></div>
     </div>
-    <div class="qts-bp-scale-label" data-scale-label></div>
   `;
 }
 
@@ -1144,18 +1146,29 @@ function openBreakpointViewer() {
 
   function fitAndLoad() {
     const url = urlInput.value.trim();
+    const deviceA = findDevice(selectA.value);
+    const deviceB = findDevice(selectB.value);
+
+    // A shared scale (not one computed independently per pane) is what keeps
+    // relative real-world proportions intact — a 1280px monitor must always
+    // render bigger than a 379px phone at the same zoom. Fitting each device
+    // to its own box independently (the previous bug) let the phone claim
+    // ~100% while the monitor was squeezed down, inverting their real sizes.
+    const paneWidthBudget = stage.clientWidth / 2 - 50;
+    const paneHeightBudget = stage.clientHeight - 70;
+    const widestDevice = Math.max(deviceA.width, deviceB.width);
+    const tallestDevice = Math.max(deviceA.height, deviceB.height);
+    const scale = Math.min(1, paneWidthBudget / widestDevice, paneHeightBudget / tallestDevice);
+
     stage.querySelectorAll("[data-pane]").forEach((frame) => {
-      const device = findDevice(frame.dataset.pane === "a" ? selectA.value : selectB.value);
+      const device = frame.dataset.pane === "a" ? deviceA : deviceB;
       const wrap = frame.querySelector("[data-viewport-wrap]");
       const iframe = frame.querySelector("[data-bp-iframe]");
-      const availableWidth = Math.min(560, stage.clientWidth / 2 - 60);
-      const availableHeight = stage.clientHeight - 90;
-      const scale = Math.min(1, availableWidth / device.width, availableHeight / device.height);
       wrap.style.width = `${Math.round(device.width * scale)}px`;
       wrap.style.height = `${Math.round(device.height * scale)}px`;
       iframe.style.transform = `scale(${scale})`;
       if (/^https?:\/\//i.test(url) && iframe.src !== url) iframe.src = url;
-      const label = frame.parentElement.querySelector("[data-scale-label]");
+      const label = frame.closest("[data-pane-wrap]").querySelector("[data-scale-label]");
       if (label) label.textContent = `${device.label} · ${device.width}×${device.height} · ${Math.round(scale * 100)}%`;
     });
   }
