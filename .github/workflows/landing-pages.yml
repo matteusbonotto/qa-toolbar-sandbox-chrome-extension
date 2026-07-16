@@ -1,4 +1,4 @@
-name: Publish landing page
+name: Publish landing page and admin panel
 
 on:
   workflow_dispatch:
@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - "apps/landing/**"
+      - "apps/admin/**"
       - "packages/**"
       - "package.json"
       - "package-lock.json"
@@ -40,6 +41,12 @@ jobs:
       - uses: actions/configure-pages@v5
       - name: Build landing with the repository base path
         run: npm run build -w @qts/landing -- --base "/${{ github.event.repository.name }}/"
+      - name: Build admin panel under the /admin/ subpath
+        run: npm run build -w @qts/admin -- --base "/${{ github.event.repository.name }}/admin/"
+      - name: Merge admin build into the landing output
+        run: |
+          mkdir -p apps/landing/dist/admin
+          cp -r apps/admin/dist/. apps/landing/dist/admin/
       - uses: actions/upload-pages-artifact@v4
         with:
           path: apps/landing/dist
