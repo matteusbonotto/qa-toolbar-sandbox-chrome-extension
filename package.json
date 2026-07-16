@@ -1,0 +1,17 @@
+{
+  "name": "qa-toolbar-sandbox",
+  "version": "1.0.0",
+  "private": true,
+  "description": "QA Toolbar Sandbox — rebuilt from the Tampermonkey userscript as a plain HTML/CSS/JS Manifest V3 extension, no build step.",
+  "scripts": {
+    "security:repo": "node scripts/check-repository.mjs",
+    "test:chrome": "node scripts/smoke-extension.mjs",
+    "prepare": "node scripts/install-git-hooks.mjs"
+  },
+  "engines": {
+    "node": ">=20.19.0"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
+}

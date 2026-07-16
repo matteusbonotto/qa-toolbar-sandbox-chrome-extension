@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QA Toolbar Sandbox — Configurações</title>
+  <link rel="icon" href="../../icons/icon-32.png" />
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="nav">
+      <div class="brand"><img src="../../icons/icon-32.png" alt="" /><span>QA Toolbar Sandbox</span></div>
+      <nav>
+        <button type="button" class="navItem isActive" data-tab="scope">Onde a barra aparece</button>
+        <button type="button" class="navItem" data-tab="workspace">Workspace</button>
+        <button type="button" class="navItem" data-tab="data">Importar / Exportar</button>
+      </nav>
+    </aside>
+    <main class="content">
+      <section data-panel="scope" class="panel isActive">
+        <header class="panelHead">
+          <h1>Onde a barra de ferramentas aparece</h1>
+          <p>Por padrão a extensão funciona em qualquer site. Restrinja aqui se quiser limitar a URLs específicas.</p>
+        </header>
+        <div class="card">
+          <label class="radioRow">
+            <input type="radio" name="scopeMode" value="all" />
+            <div><b>Todos os sites (padrão)</b><small>A barra é injetada em qualquer página que você visitar.</small></div>
+          </label>
+          <label class="radioRow">
+            <input type="radio" name="scopeMode" value="custom" />
+            <div><b>Apenas URLs específicas</b><small>Use padrões como <code>https://*.exemplo.com/*</code>, um por linha.</small></div>
+          </label>
+          <textarea id="scopePatterns" rows="6" placeholder="https://app.exemplo.com/*&#10;https://*.minhaempresa.com/*" disabled></textarea>
+          <div class="actions">
+            <button type="button" class="button primary" id="saveScope">Salvar</button>
+            <span class="savedHint" id="scopeSavedHint"></span>
+          </div>
+        </div>
+      </section>
+
+      <section data-panel="workspace" class="panel">
+        <header class="panelHead">
+          <h1>Workspace</h1>
+          <p>Clientes, projetos, produtos e ambientes — nada vem pré-cadastrado, você organiza do seu jeito.</p>
+        </header>
+        <div class="grid2">
+          <div class="card">
+            <div class="cardHead"><h2>Clientes</h2><span class="count" id="clientCount">0</span></div>
+            <div class="list" id="clientList"></div>
+            <form class="inlineForm" id="clientForm"><input type="text" placeholder="Nome do cliente" required id="clientName" /><button type="submit" class="button">+ Criar</button></form>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h2>Projetos</h2><span class="count" id="projectCount">0</span></div>
+            <div class="list" id="projectList"></div>
+            <form class="inlineForm" id="projectForm">
+              <select id="projectClient" required></select>
+              <input type="text" placeholder="Nome do projeto" required id="projectName" />
+              <button type="submit" class="button">+ Criar</button>
+            </form>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h2>Produtos</h2><span class="count" id="productCount">0</span></div>
+            <div class="list" id="productList"></div>
+            <form class="inlineForm" id="productForm">
+              <select id="productProject" required></select>
+              <input type="text" placeholder="Nome do produto" required id="productName" />
+              <button type="submit" class="button">+ Criar</button>
+            </form>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h2>Ambientes</h2><span class="count" id="environmentCount">0</span></div>
+            <div class="list" id="environmentList"></div>
+            <form class="inlineForm formWide" id="environmentForm">
+              <select id="environmentProduct" required></select>
+              <input type="text" placeholder="Nome do ambiente (ex.: QA, Staging)" required id="environmentName" />
+              <input type="color" id="environmentColor" value="#ef3340" title="Cor da barra" />
+              <input type="text" placeholder="Padrões de URL, separados por vírgula" required id="environmentPatterns" />
+              <button type="submit" class="button">+ Criar</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section data-panel="data" class="panel">
+        <header class="panelHead">
+          <h1>Importar / Exportar</h1>
+          <p>Leve seu workspace entre navegadores ou compartilhe uma configuração com o time.</p>
+        </header>
+        <div class="card">
+          <div class="actions">
+            <button type="button" class="button primary" id="exportButton">Exportar workspace (JSON)</button>
+            <button type="button" class="button" id="importButton">Importar JSON</button>
+            <button type="button" class="button danger" id="resetButton">Resetar workspace</button>
+            <input type="file" id="importFile" accept="application/json" hidden />
+          </div>
+          <p class="hint" id="dataHint"></p>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="../lib/storage-content.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

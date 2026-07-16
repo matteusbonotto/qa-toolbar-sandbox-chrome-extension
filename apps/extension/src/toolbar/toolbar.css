@@ -1,0 +1,17 @@
+/* Styles for the host page: only the spacer that pushes content down and a
+   handful of `!important` resets that must reach into the page's own cascade.
+   Everything else the toolbar draws lives inside a closed Shadow Root and is
+   naturally isolated from the host page's CSS. */
+#qts-toolbar-spacer {
+  all: initial;
+  display: block !important;
+  width: 100% !important;
+  height: var(--qts-toolbar-height, 34px) !important;
+  min-height: var(--qts-toolbar-height, 34px) !important;
+  flex-shrink: 0 !important;
+  transition: height 160ms ease !important;
+}
+
+html {
+  scroll-padding-top: var(--qts-toolbar-height, 34px);
+}
