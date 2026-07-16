@@ -141,7 +141,11 @@ function buildShadowHost() {
       button:hover { background: rgba(0,0,0,.32); }
       button.iconOnly { width: 26px; padding: 0; justify-content: center; }
       button.isActive { background: #ffd700 !important; color: #111 !important; border-color: #fff !important; }
-      #clearAllButton.isHidden { display: none; }
+      #clearAllButton.isHidden, .isHidden { display: none !important; }
+      #recordToggleButton.isActive { background: #c70e0e !important; color: #fff !important; border-color: #fff !important; animation: qts-rec-pulse 1.6s ease-in-out infinite; }
+      #recordToggleButton.isPaused { background: #ffd700 !important; color: #111 !important; animation: none; }
+      @keyframes qts-rec-pulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
+      #recordTimer { font-variant-numeric: tabular-nums; opacity: .9; }
       #restoreButton {
         all: unset; box-sizing: border-box; position: fixed; top: 6px; right: 8px; z-index: 2147483647;
         width: 30px; height: 26px; display: none; align-items: center; justify-content: center;
@@ -179,6 +183,9 @@ function buildShadowHost() {
         <button id="shapeButton" class="iconOnly" type="button" title="Desenhar forma">▭</button>
         <button id="clearAllButton" class="isHidden" type="button" title="Remover todas as anotações">Limpar</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="Capturar screenshot">📷</button>
+        <button id="recordToggleButton" class="iconOnly" type="button" title="Iniciar gravação de evidência">⏺</button>
+        <button id="recordStopButton" class="iconOnly isHidden" type="button" title="Parar gravação">⏹</button>
+        <span id="recordTimer" class="isHidden">00:00</span>
         <div id="toolsWrapper">
           <button id="toolsButton" type="button" title="Ferramentas">Tools ▾</button>
           <div id="toolsMenu" role="menu">
@@ -209,6 +216,8 @@ function buildShadowHost() {
   shadow.getElementById("shapeButton").addEventListener("click", (event) => enablePlacementMode("shape", event.currentTarget));
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
+  shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
+  shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
 
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -1252,6 +1261,140 @@ document.addEventListener("qts:force-http-state", (event) => {
   state.forceHttpActive = Boolean(event.detail?.active);
   state.shadowRoot?.getElementById("forceHttpMenuItem")?.classList.toggle("isActive", state.forceHttpActive);
 });
+
+// ---------------------------------------------------------------------------
+// Evidence recording: getDisplayMedia + MediaRecorder, start/pause/resume/
+// stop, download as MP4 when the browser's MediaRecorder supports it,
+// falling back to WebM otherwise (documented limitation, not a silent one —
+// the download filename extension always matches what was actually
+// recorded). GIF/Convertio conversion is a follow-up, not required to
+// produce usable evidence today.
+// ---------------------------------------------------------------------------
+
+const recordingState = {
+  status: "idle", // idle | recording | paused
+  stream: null,
+  recorder: null,
+  chunks: [],
+  mimeType: "",
+  elapsedMs: 0,
+  segmentStartedAt: 0,
+  timerId: null,
+};
+
+function pickRecordingMimeType() {
+  const candidates = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  return candidates.find((type) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) || "";
+}
+
+function formatDuration(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function updateRecordTimerDisplay() {
+  const elapsed = recordingState.elapsedMs + (recordingState.status === "recording" ? Date.now() - recordingState.segmentStartedAt : 0);
+  const timer = state.shadowRoot?.getElementById("recordTimer");
+  if (timer) timer.textContent = formatDuration(elapsed);
+}
+
+function setRecordingUi() {
+  const toggle = state.shadowRoot?.getElementById("recordToggleButton");
+  const stopButton = state.shadowRoot?.getElementById("recordStopButton");
+  const timer = state.shadowRoot?.getElementById("recordTimer");
+  if (!toggle) return;
+  toggle.classList.toggle("isActive", recordingState.status === "recording");
+  toggle.classList.toggle("isPaused", recordingState.status === "paused");
+  toggle.textContent = recordingState.status === "recording" ? "⏸" : recordingState.status === "paused" ? "▶" : "⏺";
+  toggle.title = recordingState.status === "recording" ? "Pausar gravação" : recordingState.status === "paused" ? "Retomar gravação" : "Iniciar gravação de evidência";
+  stopButton?.classList.toggle("isHidden", recordingState.status === "idle");
+  timer?.classList.toggle("isHidden", recordingState.status === "idle");
+}
+
+async function handleRecordToggle() {
+  if (recordingState.status === "idle") { await startEvidenceRecording(); return; }
+  if (recordingState.status === "recording") { pauseEvidenceRecording(); return; }
+  resumeEvidenceRecording();
+}
+
+async function startEvidenceRecording() {
+  if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
+    openDrawer({ title: "Gravação indisponível", bodyHtml: `<p>Este navegador não suporta captura de tela (getDisplayMedia/MediaRecorder).</p>` });
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 24, max: 30 } }, audio: false });
+  } catch {
+    return; // User cancelled the native picker — not an error.
+  }
+  const mimeType = pickRecordingMimeType();
+  recordingState.stream = stream;
+  recordingState.chunks = [];
+  recordingState.mimeType = mimeType;
+  recordingState.elapsedMs = 0;
+  recordingState.recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
+  recordingState.recorder.addEventListener("dataavailable", (event) => {
+    if (event.data?.size) recordingState.chunks.push(event.data);
+  });
+  stream.getVideoTracks()[0]?.addEventListener("ended", () => {
+    if (recordingState.status !== "idle") stopEvidenceRecording();
+  }, { once: true });
+
+  recordingState.recorder.start(1000);
+  recordingState.status = "recording";
+  recordingState.segmentStartedAt = Date.now();
+  recordingState.timerId = window.setInterval(updateRecordTimerDisplay, 500);
+  setRecordingUi();
+}
+
+function pauseEvidenceRecording() {
+  if (recordingState.status !== "recording" || !recordingState.recorder) return;
+  recordingState.recorder.pause();
+  recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
+  recordingState.status = "paused";
+  setRecordingUi();
+}
+
+function resumeEvidenceRecording() {
+  if (recordingState.status !== "paused" || !recordingState.recorder) return;
+  recordingState.recorder.resume();
+  recordingState.segmentStartedAt = Date.now();
+  recordingState.status = "recording";
+  setRecordingUi();
+}
+
+async function stopEvidenceRecording() {
+  if (recordingState.status === "idle" || !recordingState.recorder) return;
+  const recorder = recordingState.recorder;
+  if (recordingState.status === "recording") recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
+  window.clearInterval(recordingState.timerId);
+  recordingState.timerId = null;
+
+  const stopped = new Promise((resolveStop) => recorder.addEventListener("stop", resolveStop, { once: true }));
+  recorder.stop();
+  await stopped;
+  recordingState.stream?.getTracks().forEach((track) => track.stop());
+
+  const blob = new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" });
+  const extension = (recordingState.mimeType || "").includes("mp4") ? "mp4" : "webm";
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `qa-evidencia-${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+
+  recordingState.status = "idle";
+  recordingState.recorder = null;
+  recordingState.stream = null;
+  recordingState.chunks = [];
+  recordingState.elapsedMs = 0;
+  setRecordingUi();
+  updateRecordTimerDisplay();
+}
 
 async function boot() {
   if (!document.body) {

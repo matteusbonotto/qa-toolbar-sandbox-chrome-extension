@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdir, rm } from "node:fs/promises";
+import { mkdir, rm, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
@@ -29,6 +29,9 @@ const context = await chromium.launchPersistentContext(profilePath, {
     "--window-position=20,20",
     "--window-size=1400,900",
     "--no-first-run",
+    // Bypasses the native getDisplayMedia picker so evidence recording can be exercised for real.
+    "--auto-select-desktop-capture-source=QA Smoke Host",
+    "--use-fake-ui-for-media-stream",
   ],
   viewport: { width: 1400, height: 900 },
 });
@@ -98,6 +101,39 @@ try {
   if (!download.suggestedFilename().startsWith("qa-screenshot-")) {
     throw new Error(`Unexpected screenshot filename: ${download.suggestedFilename()}`);
   }
+
+  // Evidence recording: start (real getDisplayMedia via --auto-select-desktop-capture-source,
+  // no mocking), confirm the timer runs, pause, resume, then stop and confirm a real video
+  // file downloads with a duration greater than zero.
+  await page.locator("#recordToggleButton").click();
+  await page.waitForFunction(() => {
+    const host = document.querySelector("#qts-toolbar-host").shadowRoot;
+    return host.getElementById("recordToggleButton").classList.contains("isActive");
+  }, { timeout: 5_000 });
+  await page.waitForTimeout(1_200);
+  const timerAfterRecording = await page.locator("#recordTimer").textContent();
+  if (timerAfterRecording === "00:00") throw new Error("Record timer did not advance while recording");
+  await page.screenshot({ path: resolve(evidencePath, "vanilla-recording-active.png"), fullPage: false });
+
+  await page.locator("#recordToggleButton").click(); // pause
+  const isPaused = await page.evaluate(() => document.querySelector("#qts-toolbar-host").shadowRoot.getElementById("recordToggleButton").classList.contains("isPaused"));
+  if (!isPaused) throw new Error("Record toggle should show paused state after pausing");
+  await page.locator("#recordToggleButton").click(); // resume
+  await page.waitForTimeout(800);
+
+  const [recordingDownload] = await Promise.all([
+    page.waitForEvent("download", { timeout: 8_000 }),
+    page.locator("#recordStopButton").click(),
+  ]);
+  const recordingFilename = recordingDownload.suggestedFilename();
+  if (!/^qa-evidencia-.+\.(mp4|webm)$/.test(recordingFilename)) {
+    throw new Error(`Unexpected evidence recording filename: ${recordingFilename}`);
+  }
+  const recordingPath = await recordingDownload.path();
+  const recordingStats = await stat(recordingPath);
+  if (recordingStats.size < 1000) throw new Error(`Recorded evidence file looks empty: ${recordingStats.size} bytes`);
+  const idleAfterStop = await page.evaluate(() => document.querySelector("#qts-toolbar-host").shadowRoot.getElementById("recordTimer").classList.contains("isHidden"));
+  if (!idleAfterStop) throw new Error("Record timer should hide again once recording stops");
 
   // Tools menu: open it once via the button, exercising the dropdown itself.
   const openTools = () => page.locator("#toolsButton").click();
@@ -255,6 +291,7 @@ try {
     clearAllWorks: true, screenshotWorks: true, workspaceCrudWorks: true,
     freezeClockWorks: true, forceHttpWorks: true, inspectorsCaptureWorks: true,
     jsonStudioWorks: true, breakpointViewerWorks: true, clickSpyWorks: true,
+    evidenceRecordingWorks: true, recordingFileSizeBytes: recordingStats.size,
     consoleErrors: 0, workerErrors: 0,
   }));
 } finally {
