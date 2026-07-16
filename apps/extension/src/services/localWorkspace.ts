@@ -3,6 +3,7 @@ import { localWorkspaceSchema, redactValue, type LocalWorkspace } from "@qts/dom
 export type ImportMode = "merge" | "replace";
 export type ResetScope = "layout" | "toolbar" | "theme" | "project" | "permissions" | "convertio" | "all";
 export type WorkspaceExport = { schemaVersion: 2; applicationVersion: string; exportType: "safe" | "complete"; createdAt: string; locale: string; checksum: string; data: unknown };
+export type WorkspaceCollection = Exclude<keyof LocalWorkspace, "schemaVersion" | "applicationVersion" | "locale" | "activeProjectId" | "preferences">;
 
 export function emptyWorkspace(): LocalWorkspace {
   return { schemaVersion: 2, applicationVersion: "0.1.6", locale: "pt-BR", activeProjectId: null, clients: [], projects: [], products: [], environments: [], accounts: [], paymentMethods: [], apis: [], inspectors: [], accountTypes: [], resources: [], preferences: { theme: "red", colorMode: "system", pinnedTools: [], language: "pt-BR" } };
@@ -40,6 +41,22 @@ export function resetWorkspace(workspace: LocalWorkspace, scope: ResetScope): Lo
   if (scope === "theme") return { ...workspace, preferences: { ...workspace.preferences, theme: "red", colorMode: "system" } };
   if (scope === "toolbar" || scope === "layout") return { ...workspace, preferences: { ...workspace.preferences, pinnedTools: [] } };
   return structuredClone(workspace);
+}
+
+export function replaceWorkspaceEntity(
+  workspace: LocalWorkspace,
+  collection: WorkspaceCollection,
+  entityId: string,
+  candidate: unknown,
+): LocalWorkspace {
+  if (!candidate || typeof candidate !== "object") throw new Error("A entidade editada deve ser um objeto JSON.");
+  const current = workspace[collection];
+  if (!current.some((entity) => entity.id === entityId)) throw new Error("A entidade não existe mais.");
+  const replacement = { ...(candidate as Record<string, unknown>), id: entityId, updatedAt: new Date().toISOString() };
+  return localWorkspaceSchema.parse({
+    ...workspace,
+    [collection]: current.map((entity) => entity.id === entityId ? replacement : entity),
+  });
 }
 
 async function checksum(value: unknown): Promise<string> {

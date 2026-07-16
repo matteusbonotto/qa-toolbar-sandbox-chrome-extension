@@ -9,8 +9,10 @@ import { ConvertioSettings } from "./ConvertioSettings";
 import { BreakpointViewer } from "./BreakpointViewer";
 import { HelpCenter } from "./HelpCenter";
 import { WorkspaceManager } from "./WorkspaceManager";
+import { authorizeExtensionSurface } from "../services/accessGate";
 
 type Tab = "setup" | "workspace" | "plans" | "account" | "data" | "convertio" | "breakpoints" | "faq" | "about";
+const protectedTabs = new Set<Tab>(["setup", "workspace", "data", "convertio", "breakpoints"]);
 type PlanCard = {
   key: "free" | "pro" | "scale";
   name: string;
@@ -38,6 +40,7 @@ export function PopupApp() {
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
   const [signedIn, setSignedIn] = useState(false);
+  const [authResolved, setAuthResolved] = useState(false);
   const [signedInEmail, setSignedInEmail] = useState("");
   const [entitlements, setEntitlements] = useState<EntitlementCache | null>(null);
   const [theme, setTheme] = useState<ThemeKey>("red");
@@ -59,13 +62,24 @@ export function PopupApp() {
       if (isLocale(qtsLocale)) setLocale(qtsLocale);
     });
     try {
-      void createAuthApi().session().then(async (session) => {
+      void authorizeExtensionSurface(createAuthApi()).then(async (session) => {
         setSignedIn(Boolean(session));
         setSignedInEmail(session?.user.email ?? "");
+        if (!session) setTab("account");
         if (session) setEntitlements(await refreshEntitlements(session.accessToken));
-      }).catch(() => undefined);
-    } catch { /* shown when used */ }
+      }).finally(() => setAuthResolved(true));
+    } catch { setTab("account"); setAuthResolved(true); }
   }, []);
+
+  const openTab = (nextTab: Tab) => {
+    if (protectedTabs.has(nextTab) && !signedIn) {
+      setMessage("Entre na sua conta para acessar as configurações.");
+      setTab("account");
+      return;
+    }
+    setMessage("");
+    setTab(nextTab);
+  };
 
   const saveAppearance = (nextTheme: ThemeKey, nextMode: ColorMode) => {
     setTheme(nextTheme); setColorMode(nextMode);
@@ -128,15 +142,20 @@ export function PopupApp() {
     catch (error) { setMessage(error instanceof Error ? error.message : "Portal indisponível"); } finally { setBusy(false); }
   };
 
+  if (!authResolved) return <main className="qtsControlCenter" data-theme={theme} data-mode={colorMode}><section className="qtsAuthLoading" role="status">Verificando sua sessão...</section></main>;
+
+  const activeTab = protectedTabs.has(tab) && !signedIn ? "account" : tab;
+  const pageTitle = ({ setup: "Configuração guiada", workspace: "Workspace de QA", plans: "Planos e acesso", account: "Minha conta", breakpoints: "Laboratório responsivo", convertio: "Conversão para GIF", data: "Dados e segurança", faq: "Central de ajuda", about: "Sobre o produto" } as const)[tab];
+
   return <main ref={localizedRootRef} className="qtsControlCenter" data-theme={theme} data-mode={colorMode}>
     <aside className="qtsControlNav">
       <img src={logoUrl} width="192" height="192" alt="QA Sandbox Toolbar" />
-      <nav><button className={tab === "setup" ? "isActive" : ""} onClick={() => setTab("setup")}><FiSettings /> {t("common.settings")}</button><button className={tab === "workspace" ? "isActive" : ""} onClick={() => setTab("workspace")}><FiSettings /> Workspace</button><button className={tab === "plans" ? "isActive" : ""} onClick={() => setTab("plans")}><FiStar /> {t("common.plans")}</button><button className={tab === "account" ? "isActive" : ""} onClick={() => setTab("account")}><FiUser /> {t("common.account")}</button><button className={tab === "breakpoints" ? "isActive" : ""} onClick={() => setTab("breakpoints")}><FiMonitor /> {t("navigation.breakpoints")}</button><button className={tab === "convertio" ? "isActive" : ""} onClick={() => setTab("convertio")}><FiZap /> {t("navigation.convertio")}</button><button className={tab === "data" ? "isActive" : ""} onClick={() => setTab("data")}><FiShield /> {t("navigation.data")}</button><button className={tab === "faq" ? "isActive" : ""} onClick={() => setTab("faq")}><FiHelpCircle /> FAQ</button><button className={tab === "about" ? "isActive" : ""} onClick={() => setTab("about")}><FiInfo /> About</button></nav>
+      <nav><button className={activeTab === "setup" ? "isActive" : ""} onClick={() => openTab("setup")}><FiSettings /> {t("common.settings")}</button><button className={activeTab === "workspace" ? "isActive" : ""} onClick={() => openTab("workspace")}><FiSettings /> Workspace</button><button className={activeTab === "plans" ? "isActive" : ""} onClick={() => openTab("plans")}><FiStar /> {t("common.plans")}</button><button className={activeTab === "account" ? "isActive" : ""} onClick={() => openTab("account")}><FiUser /> {t("common.account")}</button><button className={activeTab === "breakpoints" ? "isActive" : ""} onClick={() => openTab("breakpoints")}><FiMonitor /> {t("navigation.breakpoints")}</button><button className={activeTab === "convertio" ? "isActive" : ""} onClick={() => openTab("convertio")}><FiZap /> {t("navigation.convertio")}</button><button className={activeTab === "data" ? "isActive" : ""} onClick={() => openTab("data")}><FiShield /> {t("navigation.data")}</button><button className={activeTab === "faq" ? "isActive" : ""} onClick={() => openTab("faq")}><FiHelpCircle /> FAQ</button><button className={activeTab === "about" ? "isActive" : ""} onClick={() => openTab("about")}><FiInfo /> About</button></nav>
       <label className="qtsLocaleSelector">{t("common.language")}<select value={locale} onChange={(event) => saveLocale(event.target.value as Locale)}><option value="pt-BR">Português (Brasil)</option><option value="en">English</option><option value="es">Español</option></select></label>
-      <div className="qtsTrialBadge"><FiGift /><span><b>30 dias Full Access</b><small>Sem cartão · downgrade seguro</small></span></div>
+      <div className="qtsTrialBadge"><FiGift /><span><b>{entitlements ? entitlements.trial.active ? `${entitlements.trial.daysRemaining} dias Full Access` : `${entitlements.plan.name} Full Access` : signedIn ? "Sincronizando acesso" : "Acesso Starter"}</b><small>{entitlements?.access.active && !entitlements.access.expiresAt ? "Acesso permanente" : entitlements?.access.expiresAt ? `Válido até ${new Date(entitlements.access.expiresAt).toLocaleDateString(locale)}` : "Entre para sincronizar seu plano"}</small></span></div>
     </aside>
     <section className="qtsControlContent">
-      <header><div><small>QA SANDBOX TOOLBAR</small><h1>{tab === "setup" ? "Deixe tudo pronto para testar" : tab === "plans" ? "Escolha o ritmo da sua operação" : "Conta e benefícios"}</h1></div>{themesEnabled && <div className="qtsAppearance"><select value={theme} onChange={(event) => saveAppearance(event.target.value as ThemeKey, colorMode)} aria-label="Tema">{themeCatalog.map((item) => <option value={item.key} key={item.key}>{item.name}</option>)}</select><button onClick={() => saveAppearance(theme, colorMode === "dark" ? "light" : "dark")} aria-label="Alternar modo">{colorMode === "dark" ? <FiSun /> : <FiMoon />}</button></div>}<span className="qtsConnection"><i /> {entitlements ? `${entitlements.plan.name}${entitlements.trial.active ? ` · ${entitlements.trial.daysRemaining} dias` : ""}` : signedIn ? "Sincronizando" : "Modo Starter"}</span></header>
+      <header><div><small>QA SANDBOX TOOLBAR</small><h1>{pageTitle}</h1></div>{themesEnabled && <div className="qtsAppearance"><select value={theme} onChange={(event) => saveAppearance(event.target.value as ThemeKey, colorMode)} aria-label="Tema">{themeCatalog.map((item) => <option value={item.key} key={item.key}>{item.name}</option>)}</select><button onClick={() => saveAppearance(theme, colorMode === "dark" ? "light" : "dark")} aria-label="Alternar modo">{colorMode === "dark" ? <FiSun /> : <FiMoon />}</button></div>}<span className="qtsConnection"><i /> {entitlements ? `${entitlements.plan.name}${entitlements.trial.active ? ` · ${entitlements.trial.daysRemaining} dias` : entitlements.access.active && !entitlements.access.expiresAt ? " · permanente" : ""}` : signedIn ? "Sincronizando" : "Modo Starter"}</span></header>
       {message && <div className="qtsControlMessage">{message}</div>}
       {entitlements?.access.expiryWarning && <div className="qtsControlMessage">Seu acesso expira em {entitlements.access.daysRemaining} dias. Renove ou aplique outro voucher para não interromper seus testes.</div>}
 

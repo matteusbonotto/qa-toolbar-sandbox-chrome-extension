@@ -18,3 +18,21 @@ export function diffJson(left: unknown, right: unknown): { path: string; before:
   };
   walk(left, right, "$", 0); return changes;
 }
+
+export function queryJsonPath(value: unknown, expression: string): unknown {
+  const normalized = expression.trim();
+  if (!normalized.startsWith("$") || /[^$.[\]\w-]/.test(normalized)) throw new Error("JSONPath suporta apenas propriedades e índices, por exemplo $.data.items[0].id");
+  const segments = normalized.slice(1).replace(/\[(\d+)\]/g, ".$1").split(".").filter(Boolean);
+  return segments.reduce<unknown>((current, segment) => current && typeof current === "object" ? (current as Record<string, unknown>)[segment] : undefined, value);
+}
+
+export function inferJsonSchema(value: unknown, depth = 0): Record<string, unknown> {
+  if (depth > 12) return { description: "Depth truncated" };
+  if (value === null) return { type: "null" };
+  if (Array.isArray(value)) return { type: "array", items: value.length ? inferJsonSchema(value[0], depth + 1) : {} };
+  if (typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>).slice(0, 500);
+    return { type: "object", properties: Object.fromEntries(entries.map(([key, entry]) => [key, inferJsonSchema(entry, depth + 1)])), required: entries.map(([key]) => key), additionalProperties: true };
+  }
+  return { type: typeof value === "number" && Number.isInteger(value) ? "integer" : typeof value };
+}

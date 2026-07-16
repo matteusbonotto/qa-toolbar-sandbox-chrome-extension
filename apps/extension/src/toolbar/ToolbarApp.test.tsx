@@ -1,7 +1,14 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useToolbarStore } from "../store/useToolbarStore";
-import { ToolbarApp } from "./ToolbarApp";
+import { contrastingText, ToolbarApp } from "./ToolbarApp";
+
+describe("environment color contrast", () => {
+  it("uses readable text over light and dark environment colors", () => {
+    expect(contrastingText("#ffd700")).toBe("#111111");
+    expect(contrastingText("#0057b8")).toBe("#ffffff");
+  });
+});
 
 describe("ToolbarApp", () => {
   beforeEach(async () => {
@@ -52,7 +59,7 @@ describe("ToolbarApp", () => {
       checkedAt: new Date().toISOString(),
     } });
     render(<ToolbarApp />);
-    await waitFor(() => expect(screen.getByText("PRO · PRONTO PARA TESTAR")).toBeInTheDocument());
+    await waitFor(() => expect(browser.storage.local.get).toHaveBeenCalled());
     fireEvent.click(screen.getByRole("button", { name: "Start local capture" }));
     fireEvent.click(screen.getByRole("menuitem", { name: /MP4\/WebM/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Pause local capture" })).toBeInTheDocument());
@@ -81,7 +88,7 @@ describe("ToolbarApp", () => {
     });
     render(<ToolbarApp />);
     await waitFor(() => expect(screen.getByText("BETA")).toBeInTheDocument());
-    expect(screen.getByTitle("Demo Workspace")).toBeInTheDocument();
+    expect(screen.getByTitle("Projeto: Demo Workspace")).toBeInTheDocument();
   });
 
   it("minimizes the top windowsill and exposes a restore control", () => {
