@@ -1,4 +1,11 @@
 import { acceptLandingSession } from "../src/services/sessionHandoff";
+import { authorizeExtensionSurface } from "../src/services/accessGate";
+import { createAuthApi } from "../src/services/runtimeConfig";
+
+async function requireAuthenticated<T>(operation: () => Promise<T>): Promise<T | { error: "authentication_required" }> {
+  const session = await authorizeExtensionSurface(createAuthApi());
+  return session ? operation() : { error: "authentication_required" };
+}
 
 export default defineBackground(() => {
   browser.runtime.onMessageExternal.addListener((message, sender) => {
@@ -8,22 +15,22 @@ export default defineBackground(() => {
   });
   browser.runtime.onMessage.addListener((message) => {
     if (!message || typeof message !== "object" || (message as { type?: unknown }).type !== "qts:capture-visible-tab") return undefined;
-    return browser.tabs.captureVisibleTab({ format: "png" }).then((dataUrl) => ({ dataUrl }));
+    return requireAuthenticated(() => browser.tabs.captureVisibleTab({ format: "png" }).then((dataUrl) => ({ dataUrl })));
   });
   browser.runtime.onMessage.addListener((message, sender) => {
     const request = message as { type?: unknown; nonce?: unknown };
     if (request?.type !== "qts:install-network-bridge" || typeof request.nonce !== "string" || request.nonce.length !== 36 || !sender.tab?.id) return undefined;
-    return browser.scripting.executeScript({ target: { tabId: sender.tab.id }, world: "MAIN", func: installNetworkBridge, args: [request.nonce] }).then(() => ({ installed: true }));
+    return requireAuthenticated(() => browser.scripting.executeScript({ target: { tabId: sender.tab!.id! }, world: "MAIN", func: installNetworkBridge, args: [request.nonce as string] }).then(() => ({ installed: true })));
   });
   browser.runtime.onMessage.addListener((message, sender) => {
     const request = message as { type?: unknown; pattern?: unknown; status?: unknown };
     if (request?.type !== "qts:set-forced-fetch" || !sender.tab?.id || (request.pattern !== null && (typeof request.pattern !== "string" || request.pattern.length > 200)) || (request.status !== null && (typeof request.status !== "number" || request.status < 400 || request.status > 599))) return undefined;
-    return browser.scripting.executeScript({ target: { tabId: sender.tab.id }, world: "MAIN", func: setForcedFetch, args: [request.pattern as string | null, request.status as number | null] }).then(() => ({ applied: true }));
+    return requireAuthenticated(() => browser.scripting.executeScript({ target: { tabId: sender.tab!.id! }, world: "MAIN", func: setForcedFetch, args: [request.pattern as string | null, request.status as number | null] }).then(() => ({ applied: true })));
   });
   browser.runtime.onMessage.addListener((message, sender) => {
     const request = message as { type?: unknown; frozenAt?: unknown };
     if (request?.type !== "qts:toggle-frozen-clock" || !sender.tab?.id || (request.frozenAt !== null && typeof request.frozenAt !== "number")) return undefined;
-    return browser.scripting.executeScript({ target: { tabId: sender.tab.id }, world: "MAIN", func: setFrozenClock, args: [request.frozenAt as number | null] }).then(() => ({ applied: true }));
+    return requireAuthenticated(() => browser.scripting.executeScript({ target: { tabId: sender.tab!.id! }, world: "MAIN", func: setFrozenClock, args: [request.frozenAt as number | null] }).then(() => ({ applied: true })));
   });
   browser.action.onClicked.addListener(() => {
     void browser.runtime.openOptionsPage();
