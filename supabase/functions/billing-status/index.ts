@@ -33,6 +33,7 @@ serve(async (request) => {
 
   const trialGrant = grants?.find((entry) => entry.source === "trial");
   const accessGrant = grants?.find((entry) => entry.source !== "trial") ?? trialGrant;
+  const trialIsEffectiveAccess = accessGrant?.source === "trial";
   const { data: confirmedPayment } = subscription?.provider_subscription_id
     ? await admin.from("payment_events").select("id")
       .eq("user_id", user.id)
@@ -93,7 +94,9 @@ serve(async (request) => {
       expiryWarning: accessDaysRemaining !== null && accessDaysRemaining <= 30,
       installUrl: serverConfig().chromeWebStoreUrl,
     },
-    trial: { active: Boolean(trialGrant), endsAt: trialEnd, daysRemaining },
+    // A historical trial must not downgrade or visually override a permanent,
+    // paid, founder, license or manual grant.
+    trial: { active: trialIsEffectiveAccess, endsAt: trialIsEffectiveAccess ? trialEnd : null, daysRemaining: trialIsEffectiveAccess ? daysRemaining : 0 },
     referral: { code: referral?.code ?? null, qualified: referral?.qualified_referrals ?? 0 },
     checkedAt: now,
     ...(offlineToken ? { offlineToken } : {}),
