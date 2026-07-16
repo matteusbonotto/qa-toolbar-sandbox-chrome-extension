@@ -591,10 +591,104 @@ function drawerStyles() {
     .qts-net-item b { color: #ffd700; }
     .qts-net-item small { display: block; color: #888; word-break: break-all; }
     .qts-json-tree { font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+
+    /* Toolbar shared by every data-listing drawer: search + smart filters + collapse-to-minimal. */
+    .qts-toolbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+    .qts-toolbar-row input[type="search"] { flex: 1 1 160px; min-width: 0; }
+    .qts-icon-btn { width: 32px; height: 32px; padding: 0; border: 1px solid #333; border-radius: 8px; background: #1c1c1c; color: #fff; cursor: pointer; flex: 0 0 auto; }
+    .qts-icon-btn:hover { border-color: #ffd700; }
+    .qts-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+    .qts-filter-bar.isCollapsed, .qts-toolbar-search.isCollapsed { display: none; }
+    .qts-toggle-group { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #262626; border-radius: 8px; background: #131313; }
+    .qts-toggle-group button { height: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #ccc; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .qts-toggle-group button.isSelected { background: #b20808; color: #fff; }
+    .qts-combo { position: relative; border: 1px solid #262626; border-radius: 8px; background: #131313; }
+    .qts-combo summary { list-style: none; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ddd; }
+    .qts-combo summary::-webkit-details-marker { display: none; }
+    .qts-combo summary .qts-combo-count { color: #ffd700; }
+    .qts-combo[open] > .qts-combo-panel { display: flex; }
+    .qts-combo-panel {
+      display: none; flex-direction: column; gap: 6px; position: absolute; top: 34px; left: 0; z-index: 5;
+      width: max(220px, 100%); max-height: 260px; padding: 8px; border: 1px solid #333; border-radius: 8px;
+      background: #101010; box-shadow: 0 12px 30px rgba(0,0,0,.5); overflow: auto;
+    }
+    .qts-combo-option { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 11px; cursor: pointer; }
+    .qts-combo-option img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex: 0 0 auto; }
+    .qts-combo-clear { align-self: flex-end; background: none; border: 0; color: #ff8a8a; font-size: 10px; cursor: pointer; padding: 2px 4px; }
+
+    /* Friendly (default) vs raw JSON detail view. */
+    .qts-view-switch { display: inline-flex; margin-bottom: 10px; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
+    .qts-view-switch button { height: 28px; padding: 0 12px; border: 0; background: #171717; color: #aaa; font-size: 11px; font-weight: 800; cursor: pointer; }
+    .qts-view-switch button.isSelected { background: #b20808; color: #fff; }
+    .qts-friendly-field { display: grid; grid-template-columns: minmax(120px,180px) 1fr; gap: 10px; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; }
+    .qts-friendly-field .qts-field-label { color: #ffd700; font-size: 10px; font-weight: 800; text-transform: uppercase; word-break: break-word; align-self: start; padding-top: 2px; }
+    .qts-friendly-field .qts-field-value { word-break: break-word; }
+    .qts-friendly-section { margin: 4px 0; border: 1px solid #222; border-radius: 8px; overflow: hidden; }
+    .qts-friendly-section > summary { padding: 7px 10px; background: #161616; color: #fff; font-size: 11px; font-weight: 800; cursor: pointer; list-style: none; }
+    .qts-friendly-section > summary::-webkit-details-marker { display: none; }
+    .qts-friendly-section > summary .qts-count { color: #888; font-weight: 600; }
+    .qts-friendly-hidden { display: none !important; }
   `;
 }
 
+// ---------------------------------------------------------------------------
+// Smart filters: ≤4 distinct values render as a toggle-button group; more
+// than that becomes a searchable combobox with checkboxes (image optional).
+// Used by every data-listing drawer, not just Inspectors.
+// ---------------------------------------------------------------------------
+
+function renderSmartFilter({ key, label, options }, selected, onChange) {
+  if (!options.length) return "";
+  if (options.length <= 4) {
+    return `<div class="qts-toggle-group" data-filter-key="${escapeHtml(key)}">
+      ${options.map((option) => `<button type="button" data-value="${escapeHtml(option.value)}" class="${selected.has(option.value) ? "isSelected" : ""}">${escapeHtml(option.label)}</button>`).join("")}
+    </div>`;
+  }
+  return `<details class="qts-combo" data-filter-key="${escapeHtml(key)}">
+    <summary>${escapeHtml(label)} <span class="qts-combo-count">${selected.size ? `(${selected.size})` : ""}</span></summary>
+    <div class="qts-combo-panel">
+      <input type="search" placeholder="Buscar..." data-combo-search />
+      <button type="button" class="qts-combo-clear" data-combo-clear>Limpar seleção</button>
+      <div data-combo-options>
+        ${options.map((option) => `
+          <label class="qts-combo-option" data-combo-option data-search="${escapeHtml(option.label.toLowerCase())}">
+            <input type="checkbox" data-value="${escapeHtml(option.value)}" ${selected.has(option.value) ? "checked" : ""} />
+            ${option.image ? `<img src="${escapeHtml(option.image)}" alt="" />` : ""}
+            <span>${escapeHtml(option.label)}</span>
+          </label>
+        `).join("")}
+      </div>
+    </div>
+  </details>`;
+}
+
+function wireSmartFilter(container, onChange) {
+  container.querySelectorAll("[data-filter-key]").forEach((widget) => {
+    const key = widget.dataset.filterKey;
+    if (widget.classList.contains("qts-toggle-group")) {
+      widget.querySelectorAll("button").forEach((button) => button.addEventListener("click", () => {
+        button.classList.toggle("isSelected");
+        onChange(key, button.dataset.value, button.classList.contains("isSelected"));
+      }));
+      return;
+    }
+    widget.querySelectorAll("[data-combo-option] input").forEach((checkbox) => checkbox.addEventListener("change", () => {
+      onChange(key, checkbox.value, checkbox.checked);
+    }));
+    widget.querySelector("[data-combo-search]")?.addEventListener("input", (event) => {
+      const term = event.target.value.trim().toLowerCase();
+      widget.querySelectorAll("[data-combo-option]").forEach((option) => {
+        option.style.display = !term || option.dataset.search.includes(term) ? "" : "none";
+      });
+    });
+    widget.querySelector("[data-combo-clear]")?.addEventListener("click", () => {
+      widget.querySelectorAll("input[type=checkbox]").forEach((checkbox) => { checkbox.checked = false; onChange(key, checkbox.value, false); });
+    });
+  });
+}
+
 function openDrawer({ title, wide = false, bodyHtml, onReady }) {
+  cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
     <div class="qts-drawer-backdrop" id="drawerBackdrop">
@@ -626,6 +720,96 @@ function renderJsonTree(value, depth = 0) {
   }
   if (typeof value === "string") return `<span style="color:#8ad1ff">${escapeHtml(JSON.stringify(value))}</span>`;
   return `<span style="color:#9bffb0">${escapeHtml(String(value))}</span>`;
+}
+
+function humanizeKey(key) {
+  const spaced = String(key)
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/[_-]+/g, " ")
+    .trim();
+  return spaced.charAt(0).toUpperCase() + spaced.slice(1);
+}
+
+function formatPrimitive(value) {
+  if (value === null || value === undefined) return `<span style="color:#666">—</span>`;
+  if (typeof value === "boolean") return value ? "Sim" : "Não";
+  return escapeHtml(String(value));
+}
+
+/**
+ * Friendly (default) rendering of arbitrary JSON: primitive fields as
+ * label/value rows, objects as collapsible sections, arrays as numbered
+ * collapsible sections — everything generic, nothing product-specific.
+ */
+function renderFriendlyJson(value, keyLabel = null, depth = 0) {
+  if (value === null || typeof value !== "object") {
+    if (keyLabel === null) return `<div class="qts-friendly-field"><div class="qts-field-value">${formatPrimitive(value)}</div></div>`;
+    return `<div class="qts-friendly-field" data-friendly-key="${escapeHtml(keyLabel)}" data-friendly-value="${escapeHtml(String(value))}">
+      <div class="qts-field-label">${escapeHtml(humanizeKey(keyLabel))}</div><div class="qts-field-value">${formatPrimitive(value)}</div>
+    </div>`;
+  }
+  if (Array.isArray(value)) {
+    const label = keyLabel === null ? `Lista` : humanizeKey(keyLabel);
+    if (!value.length) return `<div class="qts-friendly-field" data-friendly-key="${escapeHtml(keyLabel || "")}"><div class="qts-field-label">${escapeHtml(label)}</div><div class="qts-field-value" style="color:#666">Vazio</div></div>`;
+    return `<details class="qts-friendly-section" ${depth < 1 ? "open" : ""} data-friendly-key="${escapeHtml(keyLabel || "")}">
+      <summary>${escapeHtml(label)} <span class="qts-count">(${value.length})</span></summary>
+      <div>${value.map((item, index) => renderFriendlyJson(item, `#${index + 1}`, depth + 1)).join("")}</div>
+    </details>`;
+  }
+  const keys = Object.keys(value);
+  const inner = keys.map((key) => renderFriendlyJson(value[key], key, depth + 1)).join("");
+  if (keyLabel === null) return `<div>${inner}</div>`;
+  return `<details class="qts-friendly-section" ${depth < 1 ? "open" : ""} data-friendly-key="${escapeHtml(keyLabel)}">
+    <summary>${escapeHtml(humanizeKey(keyLabel))} <span class="qts-count">(${keys.length})</span></summary>
+    <div>${inner}</div>
+  </details>`;
+}
+
+function filterFriendlyView(container, term) {
+  const normalized = term.trim().toLowerCase();
+  container.querySelectorAll("[data-friendly-key]").forEach((node) => {
+    if (!normalized) { node.classList.remove("qts-friendly-hidden"); return; }
+    const haystack = `${node.dataset.friendlyKey || ""} ${node.dataset.friendlyValue || ""} ${node.textContent}`.toLowerCase();
+    node.classList.toggle("qts-friendly-hidden", !haystack.includes(normalized));
+  });
+  // Auto-expand sections that contain a visible match so search results aren't hidden inside a closed <details>.
+  container.querySelectorAll("details.qts-friendly-section").forEach((section) => {
+    if (normalized && !section.classList.contains("qts-friendly-hidden")) section.open = true;
+  });
+}
+
+/**
+ * Renders a JSON value with a friendly/raw switch (friendly is the default)
+ * plus a search box that filters the friendly view, and a "minimizar" toggle
+ * that collapses everything down to just the header for a minimal view.
+ */
+function renderJsonDetail(container, value) {
+  container.innerHTML = `
+    <div class="qts-toolbar-row">
+      <div class="qts-view-switch"><button type="button" data-mode="friendly" class="isSelected">Amigável</button><button type="button" data-mode="raw">Raw</button></div>
+      <input type="search" placeholder="Buscar campo ou valor..." data-json-search />
+      <button type="button" class="qts-icon-btn" data-json-minimize title="Minimizar / expandir">▬</button>
+    </div>
+    <div data-json-content></div>
+  `;
+  const content = container.querySelector("[data-json-content]");
+  const searchInput = container.querySelector("[data-json-search]");
+  let mode = "friendly";
+  const renderMode = () => {
+    content.innerHTML = mode === "friendly" ? renderFriendlyJson(value) : `<div class="qts-json-tree">${renderJsonTree(value)}</div>`;
+    filterFriendlyView(content, searchInput.value);
+  };
+  container.querySelectorAll("[data-mode]").forEach((button) => button.addEventListener("click", () => {
+    mode = button.dataset.mode;
+    container.querySelectorAll("[data-mode]").forEach((item) => item.classList.toggle("isSelected", item === button));
+    renderMode();
+  }));
+  searchInput.addEventListener("input", () => filterFriendlyView(content, searchInput.value));
+  container.querySelector("[data-json-minimize]").addEventListener("click", () => {
+    const minimized = content.classList.toggle("qts-friendly-hidden");
+    container.querySelector("[data-json-minimize]").classList.toggle("isActive", minimized);
+  });
+  renderMode();
 }
 
 // ---------------------------------------------------------------------------
@@ -739,26 +923,79 @@ function handleNetworkCaptured(entry) {
   if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
 }
 
+const inspectorsFilterState = { query: "", method: new Set(), status: new Set(), source: new Set(), collapsed: false };
+
+function statusBucket(status) {
+  if (!status) return "—";
+  return `${String(status)[0]}xx`;
+}
+
+function buildInspectorFilterFields() {
+  const methods = [...new Set(state.networkHistory.map((entry) => entry.method))].sort();
+  const statuses = [...new Set(state.networkHistory.map((entry) => statusBucket(entry.status)))].sort();
+  const sources = [...new Set(state.networkHistory.map((entry) => entry.source))].sort();
+  return [
+    { key: "method", label: "Método", options: methods.map((value) => ({ value, label: value })) },
+    { key: "status", label: "Status", options: statuses.map((value) => ({ value, label: value })) },
+    { key: "source", label: "Origem", options: sources.map((value) => ({ value, label: value })) },
+  ];
+}
+
+function matchesInspectorFilters(entry) {
+  const query = inspectorsFilterState.query.trim().toLowerCase();
+  if (query) {
+    const haystack = `${entry.url} ${entry.method} ${entry.status} ${JSON.stringify(entry.payload)}`.toLowerCase();
+    if (!haystack.includes(query)) return false;
+  }
+  if (inspectorsFilterState.method.size && !inspectorsFilterState.method.has(entry.method)) return false;
+  if (inspectorsFilterState.status.size && !inspectorsFilterState.status.has(statusBucket(entry.status))) return false;
+  if (inspectorsFilterState.source.size && !inspectorsFilterState.source.has(entry.source)) return false;
+  return true;
+}
+
 function renderInspectorsList() {
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
-  if (!state.networkHistory.length) {
-    body.innerHTML = `<div class="qts-empty">Nenhuma resposta JSON capturada ainda nesta página.</div>`;
-    return;
-  }
-  body.innerHTML = state.networkHistory.map((entry, index) => `
-    <div class="qts-net-item" data-index="${index}">
-      <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+  const fields = buildInspectorFilterFields();
+  const filtered = state.networkHistory.filter(matchesInspectorFilters);
+
+  body.innerHTML = `
+    <div class="qts-toolbar-row">
+      <input type="search" placeholder="Buscar URL, método ou conteúdo..." id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="${inspectorsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="Ocultar/mostrar filtros">▬</button>
     </div>
-  `).join("");
-  body.querySelectorAll("[data-index]").forEach((row) => row.addEventListener("click", () => {
-    const entry = state.networkHistory[Number(row.dataset.index)];
-    openDrawer({
-      title: `${entry.method} ${entry.status}`,
-      wide: true,
-      bodyHtml: `<div class="qts-json-tree">${renderJsonTree(entry.payload)}</div>`,
-    });
+    <div class="qts-filter-bar ${inspectorsFilterState.collapsed ? "isCollapsed" : ""}" id="inspectorsFilterBar">
+      ${fields.map((field) => renderSmartFilter(field, inspectorsFilterState[field.key], null)).join("")}
+    </div>
+    <div id="inspectorsListBody"></div>
+  `;
+
+  const listBody = body.querySelector("#inspectorsListBody");
+  listBody.innerHTML = filtered.length
+    ? filtered.map((entry) => `
+        <div class="qts-net-item" data-id="${escapeHtml(entry.id)}">
+          <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+        </div>
+      `).join("")
+    : `<div class="qts-empty">${state.networkHistory.length ? "Nenhum resultado para os filtros atuais." : "Nenhuma resposta JSON capturada ainda nesta página."}</div>`;
+
+  listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
+    const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
+    openDrawer({ title: `${entry.method} ${entry.status}`, wide: true, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
+
+  body.querySelector("#inspectorsSearch").addEventListener("input", (event) => {
+    inspectorsFilterState.query = event.target.value;
+    renderInspectorsList();
+  });
+  body.querySelector("#inspectorsCollapseToggle").addEventListener("click", () => {
+    inspectorsFilterState.collapsed = !inspectorsFilterState.collapsed;
+    renderInspectorsList();
+  });
+  wireSmartFilter(body.querySelector("#inspectorsFilterBar"), (key, value, isSelected) => {
+    if (isSelected) inspectorsFilterState[key].add(value); else inspectorsFilterState[key].delete(value);
+    renderInspectorsList();
+  });
 }
 
 function openInspectorsDrawer() {
@@ -804,39 +1041,193 @@ function openJsonStudio() {
 }
 
 // ---------------------------------------------------------------------------
-// Breakpoint Viewer: mobile/desktop side-by-side preview via iframes.
+// Breakpoint Viewer: full-screen device-frame comparison (not a sidebar) —
+// each pane emulates the device's real pixel size and browser/device chrome,
+// scaled down to fit. Scroll/click sync only work when the loaded page is
+// same-origin as the top document (cross-origin iframes block script access
+// by design); when that fails we tell the user instead of silently no-oping.
 // ---------------------------------------------------------------------------
 
-function openBreakpointViewer() {
-  const initialUrl = window.location.href;
-  openDrawer({
-    title: "Breakpoint Viewer",
-    wide: true,
-    bodyHtml: `
-      <input id="bpUrl" type="url" value="${escapeHtml(initialUrl)}" style="margin-bottom:10px" />
-      <div style="display:grid;grid-template-columns:375px 1fr;gap:12px">
-        <div>
-          <small style="color:#888">Mobile · 375×667</small>
-          <iframe id="bpMobile" style="width:375px;height:667px;border:1px solid #333;border-radius:8px;background:#fff"></iframe>
-        </div>
-        <div>
-          <small style="color:#888">Desktop · 100%</small>
-          <iframe id="bpDesktop" style="width:100%;height:667px;border:1px solid #333;border-radius:8px;background:#fff"></iframe>
-        </div>
+const DEVICE_PRESETS = [
+  { id: "macbook-air", label: "MacBook Air M2", width: 1280, height: 832, kind: "laptop" },
+  { id: "laptop-1366", label: "Laptop 1366", width: 1366, height: 768, kind: "laptop" },
+  { id: "ipad", label: "iPad", width: 768, height: 1024, kind: "tablet" },
+  { id: "iphone-12-pro-max", label: "iPhone 12 Pro Max", width: 379, height: 820, kind: "phone" },
+  { id: "iphone-se", label: "iPhone SE", width: 375, height: 667, kind: "phone" },
+];
+
+const breakpointViewerState = { syncScroll: false, syncClick: false, resizeObserver: null, cleanupFns: [] };
+
+function buildDeviceFrameHtml(pane, device) {
+  const chrome = device.kind === "phone"
+    ? `<div class="qts-bp-phone-status"><span>${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span><span>▂▄▆ 🔋</span></div>`
+    : `<div class="qts-bp-laptop-bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="qts-bp-address">${escapeHtml(device.label)} · ${device.width}×${device.height}</span></div>`;
+  return `
+    <div class="qts-bp-frame kind-${device.kind}" data-pane="${pane}">
+      ${chrome}
+      <div class="qts-bp-viewport-wrap" data-viewport-wrap>
+        <iframe data-bp-iframe style="width:${device.width}px;height:${device.height}px"></iframe>
       </div>
-    `,
-    onReady: (body) => {
-      const urlInput = body.querySelector("#bpUrl");
-      const load = () => {
-        const url = urlInput.value.trim();
-        if (!/^https?:\/\//i.test(url)) return;
-        body.querySelector("#bpMobile").src = url;
-        body.querySelector("#bpDesktop").src = url;
+      ${device.kind === "phone" ? `<div class="qts-bp-home-indicator"></div>` : ""}
+    </div>
+    <div class="qts-bp-scale-label" data-scale-label></div>
+  `;
+}
+
+function breakpointStyles() {
+  return `
+    .qts-bp-overlay { position: fixed; inset: 0; z-index: 2147483647; background: #050505; display: flex; flex-direction: column; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #fff; }
+    .qts-bp-topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #262626; background: #111; flex-wrap: wrap; }
+    .qts-bp-topbar input[type="url"] { flex: 1 1 220px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #fff; }
+    .qts-bp-topbar select { height: 34px; padding: 0 8px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #fff; }
+    .qts-bp-toggle { height: 34px; padding: 0 12px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #ccc; cursor: pointer; font-weight: 700; }
+    .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
+    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
+    .qts-bp-stage { flex: 1; display: flex; align-items: center; justify-content: center; gap: 26px; overflow: auto; padding: 20px; }
+    .qts-bp-pane { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; max-width: 100%; }
+    .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: #1a1a1a; border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.5); }
+    .qts-bp-frame.kind-phone { border-radius: 34px; padding: 14px 8px; border: 2px solid #2c2c2c; }
+    .qts-bp-laptop-bar { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
+    .qts-bp-laptop-bar .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .qts-bp-laptop-bar .dot.r { background: #ff5f57; } .qts-bp-laptop-bar .dot.y { background: #febc2e; } .qts-bp-laptop-bar .dot.g { background: #28c840; }
+    .qts-bp-address { margin-left: 8px; padding: 3px 10px; border-radius: 6px; background: #262626; color: #999; font-size: 10px; }
+    .qts-bp-phone-status { width: 100%; display: flex; justify-content: space-between; padding: 4px 14px; color: #ccc; font-size: 10px; }
+    .qts-bp-viewport-wrap { position: relative; overflow: hidden; background: #fff; border-radius: 4px; }
+    .qts-bp-viewport-wrap iframe { position: absolute; top: 0; left: 0; transform-origin: top left; border: 0; }
+    .qts-bp-home-indicator { width: 90px; height: 4px; border-radius: 99px; background: #444; margin-top: 8px; }
+    .qts-bp-scale-label { color: #888; font-size: 10px; }
+  `;
+}
+
+function cleanupBreakpointViewer() {
+  breakpointViewerState.resizeObserver?.disconnect();
+  breakpointViewerState.resizeObserver = null;
+  breakpointViewerState.cleanupFns.forEach((fn) => fn());
+  breakpointViewerState.cleanupFns = [];
+}
+
+function openBreakpointViewer() {
+  cleanupBreakpointViewer();
+  const drawerHost = ensureDrawerHost();
+  const initialUrl = /^https?:\/\//i.test(window.location.href) ? window.location.href : "https://example.com";
+  drawerHost.innerHTML = `<style>${breakpointStyles()}</style>
+    <div class="qts-bp-overlay">
+      <div class="qts-bp-topbar">
+        <input type="url" id="bpUrl" value="${escapeHtml(initialUrl)}" placeholder="https://..." />
+        <select id="bpDeviceA">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 0 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
+        <select id="bpDeviceB">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 3 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
+        <button type="button" class="qts-bp-toggle" id="bpSyncScroll">Sincronizar scroll</button>
+        <button type="button" class="qts-bp-toggle" id="bpSyncClick">Sincronizar clique</button>
+        <button type="button" class="qts-bp-close" id="bpClose">×</button>
+      </div>
+      <div class="qts-bp-stage" id="bpStage"></div>
+    </div>`;
+
+  const close = () => { cleanupBreakpointViewer(); closeDrawer(); };
+  drawerHost.querySelector("#bpClose").addEventListener("click", close);
+  const escHandler = (event) => { if (event.key === "Escape") close(); };
+  document.addEventListener("keydown", escHandler, true);
+  breakpointViewerState.cleanupFns.push(() => document.removeEventListener("keydown", escHandler, true));
+
+  const stage = drawerHost.querySelector("#bpStage");
+  const urlInput = drawerHost.querySelector("#bpUrl");
+  const selectA = drawerHost.querySelector("#bpDeviceA");
+  const selectB = drawerHost.querySelector("#bpDeviceB");
+
+  function findDevice(id) { return DEVICE_PRESETS.find((device) => device.id === id) ?? DEVICE_PRESETS[0]; }
+
+  function layout() {
+    stage.innerHTML = buildDeviceFrameHtml("a", findDevice(selectA.value)) + buildDeviceFrameHtml("b", findDevice(selectB.value));
+    fitAndLoad();
+    wireSync();
+  }
+
+  function fitAndLoad() {
+    const url = urlInput.value.trim();
+    stage.querySelectorAll("[data-pane]").forEach((frame) => {
+      const device = findDevice(frame.dataset.pane === "a" ? selectA.value : selectB.value);
+      const wrap = frame.querySelector("[data-viewport-wrap]");
+      const iframe = frame.querySelector("[data-bp-iframe]");
+      const availableWidth = Math.min(560, stage.clientWidth / 2 - 60);
+      const availableHeight = stage.clientHeight - 90;
+      const scale = Math.min(1, availableWidth / device.width, availableHeight / device.height);
+      wrap.style.width = `${Math.round(device.width * scale)}px`;
+      wrap.style.height = `${Math.round(device.height * scale)}px`;
+      iframe.style.transform = `scale(${scale})`;
+      if (/^https?:\/\//i.test(url) && iframe.src !== url) iframe.src = url;
+      const label = frame.parentElement.querySelector("[data-scale-label]");
+      if (label) label.textContent = `${device.label} · ${device.width}×${device.height} · ${Math.round(scale * 100)}%`;
+    });
+  }
+
+  function wireSync() {
+    const iframeA = stage.querySelector('[data-pane="a"] iframe');
+    const iframeB = stage.querySelector('[data-pane="b"] iframe');
+    if (!iframeA || !iframeB) return;
+    let syncing = false;
+
+    const attach = () => {
+      let docA;
+      let docB;
+      try {
+        docA = iframeA.contentWindow.document;
+        docB = iframeB.contentWindow.document;
+      } catch {
+        showToolbarToast("Sincronização indisponível: a página carregada é de outra origem (cross-origin).");
+        return;
+      }
+
+      const scrollHandler = (source, target) => () => {
+        if (!breakpointViewerState.syncScroll || syncing) return;
+        syncing = true;
+        const sourceWindow = source.contentWindow;
+        const ratio = sourceWindow.scrollY / Math.max(1, sourceWindow.document.documentElement.scrollHeight - sourceWindow.innerHeight);
+        const targetWindow = target.contentWindow;
+        targetWindow.scrollTo(0, ratio * Math.max(0, targetWindow.document.documentElement.scrollHeight - targetWindow.innerHeight));
+        syncing = false;
       };
-      urlInput.addEventListener("change", load);
-      load();
-    },
+      docA.defaultView.addEventListener("scroll", scrollHandler(iframeA, iframeB));
+      docB.defaultView.addEventListener("scroll", scrollHandler(iframeB, iframeA));
+
+      const clickHandler = (source, target) => (event) => {
+        if (!breakpointViewerState.syncClick) return;
+        const ratioX = event.clientX / source.contentWindow.innerWidth;
+        const ratioY = event.clientY / source.contentWindow.innerHeight;
+        const targetDoc = target.contentWindow.document;
+        const targetElement = targetDoc.elementFromPoint(ratioX * target.contentWindow.innerWidth, ratioY * target.contentWindow.innerHeight);
+        targetElement?.click();
+      };
+      docA.addEventListener("click", clickHandler(iframeA, iframeB), true);
+      docB.addEventListener("click", clickHandler(iframeB, iframeA), true);
+    };
+
+    iframeA.addEventListener("load", attach, { once: true });
+  }
+
+  function showToolbarToast(message) {
+    const toast = document.createElement("div");
+    toast.textContent = message;
+    toast.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#101010;color:#fff;border:1px solid #ffd700;border-radius:999px;padding:10px 16px;z-index:2147483647;font-size:12px;max-width:80vw;text-align:center";
+    drawerHost.appendChild(toast);
+    window.setTimeout(() => toast.remove(), 3500);
+  }
+
+  urlInput.addEventListener("change", fitAndLoad);
+  selectA.addEventListener("change", layout);
+  selectB.addEventListener("change", layout);
+  drawerHost.querySelector("#bpSyncScroll").addEventListener("click", (event) => {
+    breakpointViewerState.syncScroll = !breakpointViewerState.syncScroll;
+    event.currentTarget.classList.toggle("isOn", breakpointViewerState.syncScroll);
   });
+  drawerHost.querySelector("#bpSyncClick").addEventListener("click", (event) => {
+    breakpointViewerState.syncClick = !breakpointViewerState.syncClick;
+    event.currentTarget.classList.toggle("isOn", breakpointViewerState.syncClick);
+  });
+
+  breakpointViewerState.resizeObserver = new ResizeObserver(() => fitAndLoad());
+  breakpointViewerState.resizeObserver.observe(stage);
+
+  layout();
 }
 
 document.addEventListener("qts:network-captured", (event) => handleNetworkCaptured(event.detail));

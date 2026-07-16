@@ -133,9 +133,29 @@ try {
   await page.locator(".qts-net-item").first().waitFor({ timeout: 2_000 });
   const netItemCount = await page.locator(".qts-net-item").count();
   if (netItemCount < 2) throw new Error(`Expected at least 2 captured network entries (forced + real), got ${netItemCount}`);
+
+  // Search filters the list.
+  await page.locator("#inspectorsSearch").fill("nested");
+  await page.waitForTimeout(150);
+  const filteredCount = await page.locator(".qts-net-item").count();
+  if (filteredCount !== 1) throw new Error(`Expected search "nested" to leave exactly 1 result, got ${filteredCount}`);
+  await page.locator("#inspectorsSearch").fill("");
+
+  // Collapse toggle hides the filter/search chrome for a minimal view, and can be re-expanded.
+  await page.locator("#inspectorsCollapseToggle").click();
+  const collapsedVisible = await page.locator("#inspectorsFilterBar").isVisible();
+  if (collapsedVisible) throw new Error("Inspectors filter bar should be hidden after collapsing");
+  await page.locator("#inspectorsCollapseToggle").click();
+
+  // Opening an entry defaults to the friendly view; the Raw toggle switches to the JSON tree.
   await page.locator(".qts-net-item").first().click();
+  await page.locator(".qts-friendly-field, .qts-friendly-section").first().waitFor({ timeout: 2_000 });
+  const rawVisibleBeforeToggle = await page.locator(".qts-json-tree").count();
+  if (rawVisibleBeforeToggle !== 0) throw new Error("Raw view should not render until explicitly selected");
+  await page.screenshot({ path: resolve(evidencePath, "vanilla-inspectors-friendly.png"), fullPage: false });
+  await page.locator("[data-mode='raw']").click();
   await page.locator(".qts-json-tree").waitFor({ timeout: 2_000 });
-  await page.screenshot({ path: resolve(evidencePath, "vanilla-inspectors.png"), fullPage: false });
+  await page.screenshot({ path: resolve(evidencePath, "vanilla-inspectors-raw.png"), fullPage: false });
   await page.locator("#drawerClose").click();
 
   // JSON Studio: paste minified JSON, format it, confirm it becomes multi-line.
@@ -147,19 +167,46 @@ try {
   if (!formattedJson.includes("\n")) throw new Error("JSON Studio format did not pretty-print the JSON");
   await page.locator("#drawerClose").click();
 
-  // Breakpoint Viewer: both iframes should load the URL typed in.
+  // Breakpoint Viewer: full-screen, both device panes load the URL typed in, scaled to the device's real size.
   await openTools();
   await page.locator("#breakpointMenuItem").click();
   await page.waitForTimeout(400);
-  const iframeSrcs = await page.evaluate(() => {
+  const bpState = await page.evaluate(() => {
     const host = document.querySelector("#qts-toolbar-host").shadowRoot;
-    return [host.getElementById("bpMobile")?.src, host.getElementById("bpDesktop")?.src];
+    const overlay = host.querySelector(".qts-bp-overlay");
+    const paneA = host.querySelector('[data-pane="a"] iframe');
+    const paneB = host.querySelector('[data-pane="b"] iframe');
+    return {
+      isFullScreen: overlay ? getComputedStyle(overlay).position === "fixed" && overlay.getBoundingClientRect().width === window.innerWidth : false,
+      srcA: paneA?.src, srcB: paneB?.src,
+      transformA: paneA?.style.transform, transformB: paneB?.style.transform,
+      hasLaptopChrome: Boolean(host.querySelector(".qts-bp-laptop-bar")),
+      hasPhoneChrome: Boolean(host.querySelector(".qts-bp-phone-status")),
+    };
   });
-  if (!iframeSrcs[0]?.startsWith("http://127.0.0.1:43117") || !iframeSrcs[1]?.startsWith("http://127.0.0.1:43117")) {
-    throw new Error(`Breakpoint Viewer iframes did not load the expected URL: ${JSON.stringify(iframeSrcs)}`);
+  if (!bpState.isFullScreen) throw new Error("Breakpoint Viewer should cover the full screen, not a sidebar");
+  if (!bpState.srcA?.startsWith("http://127.0.0.1:43117") || !bpState.srcB?.startsWith("http://127.0.0.1:43117")) {
+    throw new Error(`Breakpoint Viewer panes did not load the expected URL: ${JSON.stringify(bpState)}`);
   }
-  await page.screenshot({ path: resolve(evidencePath, "vanilla-breakpoint-viewer.png"), fullPage: false });
-  await page.locator("#drawerClose").click();
+  if (!bpState.transformA?.includes("scale") || !bpState.transformB?.includes("scale")) {
+    throw new Error("Breakpoint Viewer panes should emulate real device scale via CSS transform");
+  }
+  if (!bpState.hasLaptopChrome || !bpState.hasPhoneChrome) throw new Error("Breakpoint Viewer should render device/browser chrome for each pane kind");
+
+  // Sync toggles are independent and reflect their on/off state visually.
+  await page.locator("#bpSyncScroll").click();
+  await page.locator("#bpSyncClick").click();
+  const syncState = await page.evaluate(() => {
+    const host = document.querySelector("#qts-toolbar-host").shadowRoot;
+    return [host.getElementById("bpSyncScroll").classList.contains("isOn"), host.getElementById("bpSyncClick").classList.contains("isOn")];
+  });
+  if (!syncState[0] || !syncState[1]) throw new Error(`Expected both sync toggles to be on: ${JSON.stringify(syncState)}`);
+  await page.locator("#bpSyncScroll").click();
+  const scrollOffAfterToggle = await page.evaluate(() => document.querySelector("#qts-toolbar-host").shadowRoot.getElementById("bpSyncScroll").classList.contains("isOn"));
+  if (scrollOffAfterToggle) throw new Error("Sync scroll toggle should turn off independently of sync click");
+
+  await page.screenshot({ path: resolve(evidencePath, "vanilla-breakpoint-viewer.png"), fullPage: true });
+  await page.locator("#bpClose").click();
 
   // Click Spy: activate, click the sample link, confirm it reports the destination instead of navigating.
   await openTools();
