@@ -10,8 +10,10 @@
   "scripts": {
     "dev": "npm run dev -w @qts/extension",
     "dev:landing": "npm run dev -w @qts/landing",
+    "dev:admin": "npm run dev -w @qts/admin",
     "preview:landing": "npm run preview -w @qts/landing",
-    "build": "npm run build -w @qts/domain && npm run build -w @qts/extension && npm run build -w @qts/landing",
+    "preview:admin": "npm run preview -w @qts/admin",
+    "build": "npm run build -w @qts/domain && npm run build -w @qts/extension && npm run build -w @qts/landing && npm run build -w @qts/admin",
     "zip": "npm run zip -w @qts/extension",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
