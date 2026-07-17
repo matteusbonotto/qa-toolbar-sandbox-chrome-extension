@@ -17,9 +17,15 @@ const COLLECTION_KEYS = [
 export const DEFAULT_ENABLED_TOOLS = Object.freeze([
   "clickSpy", "freezeClock", "forceHttp", "inspectors", "jsonStudio",
   "breakpoints", "testAccounts", "paymentMethods", "resources",
-  "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill",
+  "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView",
 ]);
 const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
+const SCHEMA_4_TOOLS = ["keyView"];
+const KEY_VIEW_POSITIONS = new Set([
+  "top-left", "top-center", "top-right",
+  "middle-left", "middle-center", "middle-right",
+  "bottom-left", "bottom-center", "bottom-right",
+]);
 
 const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
 const SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
@@ -70,7 +76,7 @@ export function normalizeUrlPatterns(input) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [],
@@ -81,7 +87,25 @@ export function createEmptyWorkspace() {
       pinnedTools: ["passFail", "screenshot", "notes", "record"],
       pinnedMacroIds: [],
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
+      keyView: {
+        enabled: false,
+        typingMode: false,
+        theme: "dark",
+        position: "bottom-center",
+        mouseEffects: true,
+      },
     },
+  };
+}
+
+function normalizeKeyViewPreferences(value) {
+  const source = value && typeof value === "object" ? value : {};
+  return {
+    enabled: source.enabled === true,
+    typingMode: source.typingMode === true,
+    theme: source.theme === "light" ? "light" : "dark",
+    position: KEY_VIEW_POSITIONS.has(source.position) ? source.position : "bottom-center",
+    mouseEffects: source.mouseEffects !== false,
   };
 }
 
@@ -157,9 +181,12 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 3) {
     for (const tool of SCHEMA_3_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 4) {
+    for (const tool of SCHEMA_4_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 3,
+    schemaVersion: 4,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments,
     testAccounts: copyCollection("testAccounts").filter((item) => environments.some((environment) => environment.id === item.environmentId)),
@@ -179,6 +206,7 @@ export function normalizeWorkspace(rawWorkspace) {
       pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools,
       pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
       enabledTools: normalizedEnabledTools,
+      keyView: normalizeKeyViewPreferences(preferences.keyView),
     },
   };
   for (const key of COLLECTION_KEYS) workspace[key] = Array.isArray(workspace[key]) ? workspace[key] : [];

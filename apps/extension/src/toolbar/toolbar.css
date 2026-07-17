@@ -137,3 +137,74 @@ body.qts-placement-mode, body.qts-placement-mode * {
   position: absolute !important; inset: 0 !important; border: 3px solid #ef3340 !important; border-radius: 8px !important;
   background: rgba(239,51,64,.08) !important; cursor: grab !important;
 }
+
+/* Key View is rendered in the light DOM so screen recordings include it and
+   host-page styles cannot hide or deform the keyboard/mouse visualizer. */
+#qts-key-view-overlay {
+  all: initial;
+  position: fixed !important; z-index: 2147483646 !important; max-width: min(720px, calc(100vw - 32px)) !important;
+  display: flex !important; flex-direction: column !important; gap: 10px !important; pointer-events: none !important;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+}
+#qts-key-view-overlay *, #qts-mouse-view-overlay * { box-sizing: border-box !important; font-family: inherit !important; }
+#qts-key-view-overlay[data-position="top-left"] { top: 66px !important; left: 20px !important; align-items: flex-start !important; }
+#qts-key-view-overlay[data-position="top-center"] { top: 66px !important; left: 50% !important; transform: translateX(-50%) !important; align-items: center !important; }
+#qts-key-view-overlay[data-position="top-right"] { top: 66px !important; right: 20px !important; align-items: flex-end !important; }
+#qts-key-view-overlay[data-position="middle-left"] { top: 50% !important; left: 20px !important; transform: translateY(-50%) !important; align-items: flex-start !important; }
+#qts-key-view-overlay[data-position="middle-center"] { top: 50% !important; left: 50% !important; transform: translate(-50%,-50%) !important; align-items: center !important; }
+#qts-key-view-overlay[data-position="middle-right"] { top: 50% !important; right: 20px !important; transform: translateY(-50%) !important; align-items: flex-end !important; }
+#qts-key-view-overlay[data-position="bottom-left"] { bottom: 22px !important; left: 20px !important; align-items: flex-start !important; }
+#qts-key-view-overlay[data-position="bottom-center"] { bottom: 22px !important; left: 50% !important; transform: translateX(-50%) !important; align-items: center !important; }
+#qts-key-view-overlay[data-position="bottom-right"] { right: 20px !important; bottom: 22px !important; align-items: flex-end !important; }
+#qts-key-view-overlay [hidden] { display: none !important; }
+.qts-key-view-shortcut {
+  all: initial; display: flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important;
+  max-width: 100% !important; filter: drop-shadow(0 12px 16px rgba(0,0,0,.34)) !important;
+}
+.qts-key-view-shortcut.isFading { animation: qts-key-view-linger 3s ease forwards !important; }
+@keyframes qts-key-view-linger { 0%,78% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(5px) scale(.98); } }
+.qts-key-plus { all: initial; color: #fff !important; font: 900 18px/1 sans-serif !important; text-shadow: 0 2px 6px #000 !important; }
+.qts-keycap { flex: 0 0 auto !important; overflow: visible !important; }
+.qts-keycap-shadow { fill: #000 !important; }
+.qts-keycap-face { fill: #1d2028 !important; stroke: #4c5260 !important; stroke-width: 2 !important; }
+.qts-keycap-shine { fill: none !important; stroke: rgba(255,255,255,.26) !important; stroke-width: 2 !important; stroke-linecap: round !important; }
+.qts-keycap text { fill: #fff !important; font: 800 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; }
+#qts-key-view-overlay[data-theme="light"] .qts-keycap-shadow { fill: #858585 !important; }
+#qts-key-view-overlay[data-theme="light"] .qts-keycap-face { fill: #fff !important; stroke: #d1d1d1 !important; }
+#qts-key-view-overlay[data-theme="light"] .qts-keycap-shine { stroke: rgba(255,255,255,.92) !important; }
+#qts-key-view-overlay[data-theme="light"] .qts-keycap text { fill: #111 !important; }
+#qts-key-view-overlay[data-theme="light"] .qts-key-plus { color: #111 !important; text-shadow: 0 1px 4px #fff !important; }
+.qts-key-view-typing {
+  all: initial; width: min(560px, calc(100vw - 32px)) !important; max-height: min(260px, 45vh) !important; padding: 13px 13px 10px !important;
+  display: grid !important; grid-template-columns: minmax(0,1fr) auto !important; gap: 10px !important; align-items: end !important;
+  border: 1px solid #4c5260 !important; border-radius: 13px !important; background: rgba(20,22,28,.96) !important; color: #fff !important;
+  box-shadow: 0 12px 30px rgba(0,0,0,.42), inset 0 1px rgba(255,255,255,.08) !important; pointer-events: auto !important;
+}
+.qts-key-view-typing pre {
+  all: initial; min-width: 0 !important; max-height: 220px !important; overflow: auto !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important;
+  color: inherit !important; font: 700 18px/1.5 ui-monospace, Consolas, monospace !important; user-select: text !important;
+}
+.qts-key-view-typing button {
+  all: initial; padding: 7px 10px !important; border: 1px solid rgba(255,255,255,.28) !important; border-radius: 8px !important;
+  background: #b20808 !important; color: #fff !important; font: 800 11px/1 sans-serif !important; cursor: pointer !important;
+}
+#qts-key-view-overlay[data-theme="light"] .qts-key-view-typing { border-color: #cacaca !important; background: rgba(255,255,255,.96) !important; color: #111 !important; box-shadow: 0 12px 30px rgba(0,0,0,.25), inset 0 1px #fff !important; }
+
+#qts-mouse-view-overlay {
+  all: initial; position: fixed !important; z-index: 2147483646 !important; width: 52px !important; height: 68px !important;
+  opacity: 0 !important; transform: scale(.88) !important; transform-origin: top right !important; transition: opacity 90ms ease, transform 120ms ease !important;
+  pointer-events: none !important; filter: drop-shadow(0 9px 10px rgba(0,0,0,.38)) !important;
+}
+#qts-mouse-view-overlay.isVisible { opacity: 1 !important; transform: scale(1) !important; }
+#qts-mouse-view-overlay svg { width: 52px !important; height: 68px !important; overflow: visible !important; }
+.qts-mouse-shadow { fill: rgba(0,0,0,.48) !important; }
+.qts-mouse-body, .qts-mouse-left, .qts-mouse-right { fill: #1d2028 !important; stroke: #f2f2f2 !important; stroke-width: 1.5 !important; }
+.qts-mouse-divider { fill: none !important; stroke: #f2f2f2 !important; stroke-width: 1.4 !important; }
+.qts-mouse-wheel { fill: #f2f2f2 !important; }
+.qts-mouse-arrow { display: none !important; fill: #111 !important; }
+#qts-mouse-view-overlay[data-theme="light"] .qts-mouse-body, #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-left, #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-right { fill: #fff !important; stroke: #111 !important; }
+#qts-mouse-view-overlay[data-theme="light"] .qts-mouse-divider { stroke: #111 !important; }
+#qts-mouse-view-overlay[data-theme="light"] .qts-mouse-wheel { fill: #111 !important; }
+#qts-mouse-view-overlay[data-action="left"] .qts-mouse-left, #qts-mouse-view-overlay[data-action="right"] .qts-mouse-right { fill: #ef3340 !important; }
+#qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: #ffd700 !important; }
+#qts-mouse-view-overlay[data-action="scroll-up"] .qts-mouse-arrow-up, #qts-mouse-view-overlay[data-action="scroll-down"] .qts-mouse-arrow-down { display: block !important; }

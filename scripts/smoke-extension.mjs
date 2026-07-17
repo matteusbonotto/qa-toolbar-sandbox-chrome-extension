@@ -70,9 +70,11 @@ try {
   await options.getByRole("button", { name: "My account" }).waitFor();
   if (await options.locator("html").getAttribute("lang") !== "en") throw new Error("Options locale did not switch to English");
   if (await options.locator("#clientName").getAttribute("placeholder") !== "Client name") throw new Error("Options placeholders were not translated to English");
+  if (!await options.getByText("Enable Key View", { exact: true }).count()) throw new Error("Key View settings were not translated to English");
   await options.locator('#langSwitch [data-locale="es"]').click();
   await options.getByRole("button", { name: "Mi cuenta" }).waitFor();
   if (await options.locator("#environmentName").getAttribute("placeholder") !== "Nombre del entorno (ej.: QA, Staging)") throw new Error("Options placeholders were not translated to Spanish");
+  if (!await options.getByText("Activar Key View", { exact: true }).count()) throw new Error("Key View settings were not translated to Spanish");
   await options.locator('#langSwitch [data-locale="pt-BR"]').click();
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signedInState").waitFor({ state: "visible" });
@@ -142,6 +144,57 @@ try {
   });
   if (responsiveCentering.frameCount !== 2 || Math.abs(responsiveCentering.stageCenter - responsiveCentering.groupCenter) > 2) throw new Error(`Responsive View is not centered: ${JSON.stringify(responsiveCentering)}`);
   await host.locator("#bpClose").click();
+
+  // Key View renders SVG keycaps for three seconds, keeps opt-in typing only in
+  // memory, never captures sensitive fields, and visualizes mouse actions.
+  await host.locator("#toolsButton").click();
+  await host.locator("#keyViewMenuItem").click();
+  if (await host.locator("[data-key-view-position]").count() !== 9) throw new Error("Key View does not expose all nine screen positions");
+  await host.locator("#keyViewTyping").check();
+  await host.locator("#keyViewTheme").selectOption("light");
+  await host.locator('[data-key-view-position="top-right"]').click();
+  await host.locator("#keyViewSave").click();
+  await host.getByText("Configurações salvas.").waitFor();
+  await host.locator("#keyViewToggle").click();
+  await host.locator("#drawerClose").click();
+  await host.locator("#macroText").click();
+  await host.keyboard.type("asd123!@# ç");
+  await host.locator("h1").click();
+  await host.keyboard.press("Control+V");
+  const keyView = await host.evaluate(() => {
+    const overlay = document.querySelector("#qts-key-view-overlay");
+    return {
+      theme: overlay?.dataset.theme,
+      position: overlay?.dataset.position,
+      typing: overlay?.querySelector("[data-key-view-text]")?.textContent,
+      keycaps: [...(overlay?.querySelectorAll("[data-key-view-shortcut] .qts-keycap") || [])].map((keycap) => keycap.getAttribute("aria-label")),
+      svgCount: overlay?.querySelectorAll("[data-key-view-shortcut] svg").length || 0,
+    };
+  });
+  if (keyView.theme !== "light" || keyView.position !== "top-right" || keyView.typing !== "asd123!@# ç" || keyView.svgCount !== 2 || keyView.keycaps.join("+") !== "Ctrl+V") throw new Error(`Key View keyboard mismatch: ${JSON.stringify(keyView)}`);
+  await host.screenshot({ path: resolve(evidencePath, "extension-key-view.png"), fullPage: false });
+  const typingBeforePassword = await host.locator("[data-key-view-text]").innerText();
+  await host.locator("#qaPassword").click();
+  await host.keyboard.type("NeverCapture9!");
+  if (await host.locator("[data-key-view-text]").innerText() !== typingBeforePassword) throw new Error("Key View captured a sensitive password field");
+  await host.locator("#qaPassword").fill("");
+  await host.waitForTimeout(3_100);
+  if (!await host.locator("[data-key-view-shortcut]").isHidden()) throw new Error("Key View shortcut did not fade after three seconds");
+  await host.locator("main").dispatchEvent("mousedown", { button: 0, clientX: 420, clientY: 320 });
+  if (await host.locator("#qts-mouse-view-overlay").getAttribute("data-action") !== "left") throw new Error("Key View did not visualize the left mouse button");
+  await host.locator("main").dispatchEvent("mouseup", { button: 0, clientX: 420, clientY: 320 });
+  await host.locator("main").dispatchEvent("mousedown", { button: 2, clientX: 430, clientY: 330 });
+  if (await host.locator("#qts-mouse-view-overlay").getAttribute("data-action") !== "right") throw new Error("Key View did not visualize the right mouse button");
+  await host.locator("main").dispatchEvent("wheel", { deltaY: 120, clientX: 440, clientY: 340 });
+  if (await host.locator("#qts-mouse-view-overlay").getAttribute("data-action") !== "scroll-down") throw new Error("Key View did not visualize scroll direction");
+  await host.locator("[data-key-view-clear]").click();
+  if (await host.locator("#qts-key-view-overlay").count()) throw new Error("Key View typing was not cleared on demand");
+  await host.locator("#toolsButton").click();
+  await host.locator("#keyViewMenuItem").click();
+  await host.locator("#keyViewToggle").click();
+  await host.locator("#drawerClose").click();
+  await host.locator("h1").press("Control+C");
+  if (await host.locator("#qts-key-view-overlay").count()) throw new Error("Key View kept listening after being disabled");
 
   // Character Counter measures Unicode code points with and without whitespace.
   await host.locator("#toolsButton").click();
@@ -234,6 +287,8 @@ try {
 
   // Compact mode hides project/product names, preserving their image/initial badges and environment.
   await options.getByRole("button", { name: "Barra e aparência" }).click();
+  await options.waitForFunction(() => document.querySelector("#keyViewTheme")?.value === "light" && document.querySelector("#keyViewPosition")?.value === "top-right" && !document.querySelector("#keyViewEnabled")?.checked);
+  if (await options.locator('[data-tool="keyView"]').count() !== 1 || await options.locator('[data-tool="keyView"]').isChecked() !== true) throw new Error("Key View menu preference did not persist in options");
   await options.locator("#compactMode").check();
   await options.locator("#savePreferences").click();
   await host.waitForTimeout(500);
@@ -316,7 +371,7 @@ try {
   if (!await options.locator('.protectedNav[data-tab="workspace"]').isDisabled()) throw new Error("Protected settings remained enabled after logout");
 
   if (hostErrors.length || optionsErrors.length || workerErrors.length) throw new Error(`Console errors:\n${[...hostErrors, ...optionsErrors, ...workerErrors].join("\n")}`);
-  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, hierarchyAndUrl: true, responsiveViewCentered: true, characterCounter: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactMode: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
+  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, hierarchyAndUrl: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactMode: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
 } finally {
   await context.close();
   await new Promise((resolveClosed) => server.close(resolveClosed));

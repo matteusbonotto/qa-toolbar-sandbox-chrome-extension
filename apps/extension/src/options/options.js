@@ -1,4 +1,4 @@
-const { getWorkspace, saveWorkspace, getSiteScope, saveSiteScope, normalizeWorkspace, normalizeUrlPatterns } = window.QTS_STORAGE;
+const { getWorkspace, saveWorkspace, getSiteScope, saveSiteScope, normalizeWorkspace, normalizeUrlPatterns, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 
 let workspace = null;
 let accessState = null;
@@ -130,6 +130,12 @@ function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
   document.getElementById("compactMode").checked = preferences.compactMode === true;
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
+  const keyView = preferences.keyView || {};
+  document.getElementById("keyViewEnabled").checked = keyView.enabled === true;
+  document.getElementById("keyViewTypingMode").checked = keyView.typingMode === true;
+  document.getElementById("keyViewMouseEffects").checked = keyView.mouseEffects !== false;
+  document.getElementById("keyViewTheme").value = keyView.theme === "light" ? "light" : "dark";
+  document.getElementById("keyViewPosition").value = keyView.position || "bottom-center";
   const pinned = new Set(preferences.pinnedTools || []);
   document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
   const enabledTools = new Set(preferences.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
@@ -140,6 +146,13 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     ...(workspace.preferences || {}),
     compactMode: document.getElementById("compactMode").checked,
     pushSiteContent: document.getElementById("pushSiteContent").checked,
+    keyView: {
+      enabled: document.getElementById("keyViewEnabled").checked,
+      typingMode: document.getElementById("keyViewTypingMode").checked,
+      mouseEffects: document.getElementById("keyViewMouseEffects").checked,
+      theme: document.getElementById("keyViewTheme").value,
+      position: document.getElementById("keyViewPosition").value,
+    },
     pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
   };
@@ -339,4 +352,9 @@ document.getElementById("resetButton").addEventListener("click", async () => {
   await loadScopeUi();
   renderWorkspace();
   await loadAccess(true);
+  onStorageChanged(async (changes) => {
+    if (!changes[STORAGE_KEYS.workspace]) return;
+    workspace = await getWorkspace();
+    renderWorkspace();
+  });
 })();

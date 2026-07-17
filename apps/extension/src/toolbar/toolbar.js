@@ -24,6 +24,15 @@ const state = {
   macroRecording: null,
   macroPlaying: false,
   selectionCleanup: null,
+  keyView: {
+    listening: false,
+    cleanup: null,
+    shortcutTimer: null,
+    mouseTimer: null,
+    typingText: "",
+    pointerX: 24,
+    pointerY: 72,
+  },
 };
 
 const FORCE_HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503];
@@ -158,7 +167,7 @@ function applyPinnedTools() {
     inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
     characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
-    inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem",
+    inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
   };
   for (const [key, id] of Object.entries(menuItems)) root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key));
   renderPinnedMacros();
@@ -184,6 +193,7 @@ function render() {
   urlElement.title = currentUrl;
   root.getElementById("restoreButton").classList.toggle("isVisible", state.minimized);
   applyPinnedTools();
+  syncKeyView();
   setSpacerHeight();
 }
 
@@ -297,6 +307,7 @@ function buildShadowHost() {
             <button type="button" id="multiClickMenuItem" role="menuitem">⚡ ${escapeHtml(t.multiClickMenuLabel)}</button>
             <button type="button" id="inputLabMenuItem" role="menuitem">✅ ${escapeHtml(t.inputLabMenuLabel)}</button>
             <button type="button" id="fakerFillMenuItem" role="menuitem">✨ ${escapeHtml(t.fakerFillMenuLabel)}</button>
+            <button type="button" id="keyViewMenuItem" role="menuitem">⌨ ${escapeHtml(t.keyViewMenuLabel || "Key View")}</button>
             <button type="button" id="clickSpyMenuItem" role="menuitem">🖱 Click Spy</button>
             <button type="button" id="freezeClockMenuItem" role="menuitem">⏸ Freeze Clock</button>
             <button type="button" id="forceHttpMenuItem" role="menuitem">⚠ Force HTTP</button>
@@ -352,6 +363,7 @@ function buildShadowHost() {
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
   shadow.getElementById("inputLabMenuItem").addEventListener("click", () => { openInputLab(); closeToolsMenu(); });
   shadow.getElementById("fakerFillMenuItem").addEventListener("click", () => { openFakerFill(); closeToolsMenu(); });
+  shadow.getElementById("keyViewMenuItem").addEventListener("click", () => { openKeyView(); closeToolsMenu(); });
 
   return { host, shadow };
 }
@@ -386,6 +398,7 @@ function mountToolbar() {
 
 function removeToolbar({ disableBridge = false } = {}) {
   cancelElementSelection();
+  stopKeyView();
   state.macroRecording?.cleanup?.();
   state.macroRecording = null;
   state.integrityObserver?.disconnect();
@@ -817,6 +830,27 @@ function drawerStyles() {
     .qts-status { min-height: 18px; margin-top: 8px; color: #ffd700; }
     .qts-result-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .qts-result-table th, .qts-result-table td { padding: 7px; border-bottom: 1px solid #292929; text-align: left; }
+    .qts-key-view-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+    .qts-key-view-status div { display: grid; gap: 2px; }
+    .qts-key-view-status small, .qts-switch-row small { display: block; color: #999; font-weight: 500; }
+    .qts-switch-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; padding: 11px; margin-bottom: 8px; border: 1px solid #292929; border-radius: 10px; background: #121212; cursor: pointer; }
+    .qts-switch-row input { width: 17px !important; height: 17px; margin: 2px 0 0; accent-color: #ef3340; }
+    .qts-field-label { display: grid; gap: 7px; margin: 12px 0; color: #ddd; font-weight: 750; }
+    .qts-position-grid { width: 132px; display: grid; grid-template-columns: repeat(3, 40px); gap: 6px; }
+    .qts-position-grid button { width: 40px; height: 36px; border: 1px solid #393939; border-radius: 8px; background: #171717; color: #aaa; cursor: pointer; font-size: 16px; }
+    .qts-position-grid button.isSelected { border-color: #ffd700; background: #b20808; color: #fff; box-shadow: 0 0 0 2px rgba(255,215,0,.18); }
+    .qts-key-view-preview { min-height: 82px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; border: 1px dashed #3b3b3b; border-radius: 12px; background: #080808; color: #aaa; }
+    .qts-key-view-preview .qts-keycap { flex: 0 0 auto; overflow: visible; }
+    .qts-key-view-preview .qts-keycap-shadow { fill: #000; }
+    .qts-key-view-preview .qts-keycap-face { fill: #1d2028; stroke: #4c5260; stroke-width: 2; }
+    .qts-key-view-preview .qts-keycap-shine { fill: none; stroke: rgba(255,255,255,.26); stroke-width: 2; stroke-linecap: round; }
+    .qts-key-view-preview .qts-keycap text { fill: #fff; font: 800 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    .qts-key-view-preview[data-theme="light"] { background: #dedede; color: #444; }
+    .qts-key-view-preview[data-theme="light"] .qts-keycap-shadow { fill: #858585; }
+    .qts-key-view-preview[data-theme="light"] .qts-keycap-face { fill: #fff; stroke: #d1d1d1; }
+    .qts-key-view-preview[data-theme="light"] .qts-keycap-shine { stroke: rgba(255,255,255,.9); }
+    .qts-key-view-preview[data-theme="light"] .qts-keycap text { fill: #111; }
+    .qts-privacy-note p { margin: 5px 0 0; color: #aaa; }
     @media (max-width: 680px) { .qts-macro-layout { grid-template-columns: 1fr; } .qts-palette { grid-template-columns: repeat(2,minmax(0,1fr)); } .qts-step { grid-template-columns: 28px 95px minmax(0,1fr) 32px; } }
   `;
 }
@@ -829,6 +863,25 @@ const QA_SURFACE_TRANSLATIONS = {
     "Contador de caracteres": "Character Counter", "Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.": "Paste or select text to measure characters, words, lines, and bytes.", "Digite ou cole seu texto...": "Type or paste your text...", "Usar seleção da página": "Use page selection", "Limpar": "Clear", "Com espaços": "With spaces", "Sem espaços": "Without spaces", "Palavras": "Words", "Linhas": "Lines", "Elemento": "Element", "Selecionar na página": "Select on page", "Quantidade": "Count", "Intervalo (ms)": "Interval (ms)", "Executar multiclick": "Run multiclick", "Repita cliques em um elemento, com limite e intervalo controlados.": "Repeat clicks on an element with controlled count and interval.", "Input Lab": "Input Lab", "Selecionar input na página": "Select input on page", "Rodar kit de validação": "Run validation kit", "Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.": "Inspect HTML constraints and test text, numbers, special characters, Unicode, empty values, and limits without submitting the form. The original value is restored.", "Caso": "Case", "Enviado": "Attempted", "Recebido": "Received", "Validade": "Validity", "Tipo": "Type", "Obrigatório": "Required", "Mínimo": "Minimum", "Máximo": "Maximum", "Não": "No", "Sim": "Yes", "Faker Fill": "Faker Fill", "Escopo": "Scope", "Página atual": "Current page", "Formulário selecionado": "Selected form", "Selecionar formulário": "Select form", "Preencher agora": "Fill now", "Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.": "Fill forms with local synthetic data in one click. Passwords, cards, CVV, tokens, and hidden fields are always skipped.", "Macro Studio": "Macro Studio", "Gravar macro": "Record macro", "+ Nova no Vibe Code": "+ New in Vibe Code", "Importar": "Import", "Exportar todas": "Export all", "Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.": "Record actions or build a visual flow. Everything stays local and only validated declarative actions run.", "Monte o fluxo arrastando blocos. As setas representam a ordem de execução.": "Build the flow by dragging blocks. Arrows show the execution order.", "Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.": "Real Playwright code generated from the same flow. The extension does not execute pasted code.", "Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.": "No saved macros. Record your actions or start in Vibe Code.", "Executar": "Run", "Editar": "Edit", "Fixar no menu": "Pin to menu", "Desafixar": "Unpin", "Exportar": "Export", "Excluir": "Delete", "Salvar macro": "Save macro", "Nome da macro": "Macro name", "Descrição opcional": "Optional description", "Copiar código": "Copy code", "Clique": "Click", "Escrever": "Fill", "Selecionar": "Select", "Tecla": "Key", "Esperar": "Wait", "Primeiro formulário": "First form", "Página": "Page", "Marcar": "Check", "Desmarcar": "Uncheck", "Valor": "Value", "Seletor CSS": "CSS selector", "Remover": "Remove", "Arraste uma função para cá ou clique em uma opção da paleta.": "Drag a function here or choose one from the palette.", "Macros": "Macros"
   },
 };
+
+Object.assign(QA_SURFACE_TRANSLATIONS.es, {
+  "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Muestra atajos y acciones del ratón durante demostraciones, pruebas y grabaciones.",
+  "Ativo nesta página": "Activo en esta página", "Desativado": "Desactivado", "Desativar": "Desactivar", "Ativar": "Activar",
+  "Modo Typing": "Modo escritura", "Mantém o texto digitado na tela até você clicar em Limpar.": "Mantiene el texto escrito en pantalla hasta que hagas clic en Limpiar.",
+  "Visualizar mouse": "Visualizar ratón", "Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.": "Resalta los clics izquierdo, derecho y central, y la dirección del desplazamiento junto al puntero.",
+  "Aparência das teclas": "Apariencia de las teclas", "Tecla preta · texto branco": "Tecla negra · texto blanco", "Tecla branca · texto preto": "Tecla blanca · texto negro",
+  "Posição na tela": "Posición en pantalla", "Privacidade local": "Privacidad local", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "El texto no se guarda ni se envía. Nunca se capturan campos de contraseña, tarjeta, CVV, token o secreto.",
+  "Salvar configurações": "Guardar configuración", "Limpar texto": "Limpiar texto", "Configurações salvas.": "Configuración guardada.", "Texto limpo.": "Texto borrado.",
+});
+Object.assign(QA_SURFACE_TRANSLATIONS.en, {
+  "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
+  "Ativo nesta página": "Active on this page", "Desativado": "Disabled", "Desativar": "Disable", "Ativar": "Enable",
+  "Modo Typing": "Typing mode", "Mantém o texto digitado na tela até você clicar em Limpar.": "Keeps typed text on screen until you click Clear.",
+  "Visualizar mouse": "Show mouse", "Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.": "Highlights left, right, and middle clicks, plus scroll direction beside the pointer.",
+  "Aparência das teclas": "Key appearance", "Tecla preta · texto branco": "Black key · white text", "Tecla branca · texto preto": "White key · black text",
+  "Posição na tela": "Screen position", "Privacidade local": "Local privacy", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "Text is neither saved nor sent. Password, card, CVV, token, and secret fields are never captured.",
+  "Salvar configurações": "Save settings", "Limpar texto": "Clear text", "Configurações salvas.": "Settings saved.", "Texto limpo.": "Text cleared.",
+});
 
 function translateQaSurfaceText(value) {
   const translations = QA_SURFACE_TRANSLATIONS[state.t?.locale];
@@ -1626,6 +1679,309 @@ function openBreakpointViewer() {
 // ---------------------------------------------------------------------------
 // QA productivity kit: counters, Faker Fill, Input Lab, Multiclick and macros.
 // ---------------------------------------------------------------------------
+
+const KEY_VIEW_POSITIONS = [
+  ["top-left", "↖", "Superior esquerdo"], ["top-center", "↑", "Superior centro"], ["top-right", "↗", "Superior direito"],
+  ["middle-left", "←", "Centro esquerdo"], ["middle-center", "•", "Centro"], ["middle-right", "→", "Centro direito"],
+  ["bottom-left", "↙", "Inferior esquerdo"], ["bottom-center", "↓", "Inferior centro"], ["bottom-right", "↘", "Inferior direito"],
+];
+const KEY_VIEW_SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
+const KEY_VIEW_MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta", "AltGraph"]);
+
+function getKeyViewPreferences() {
+  return state.workspace?.preferences?.keyView || { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true };
+}
+
+function isKeyViewOwnSurface(event) {
+  return event.composedPath?.().some((node) => node?.id === HOST_ID || node?.id === "qts-key-view-overlay" || node?.id === "qts-mouse-view-overlay") === true;
+}
+
+function editableTypingTarget(target) {
+  return target instanceof Element ? target.closest("input,textarea,[contenteditable='true'],[contenteditable='plaintext-only']") : null;
+}
+
+function isSensitiveTypingTarget(target) {
+  const editable = editableTypingTarget(target);
+  if (!editable) return false;
+  if (editable instanceof HTMLInputElement && ["password", "hidden"].includes(editable.type)) return true;
+  const hints = [editable.id, editable.getAttribute("name"), editable.getAttribute("autocomplete"), editable.getAttribute("aria-label"), editable.getAttribute("placeholder")].filter(Boolean).join(" ");
+  return KEY_VIEW_SENSITIVE_HINT.test(hints);
+}
+
+function keyViewLabel(key) {
+  const labels = {
+    Control: "Ctrl", Meta: "Meta", Alt: "Alt", AltGraph: "AltGr", Shift: "Shift",
+    Escape: "Esc", " ": "Space", ArrowUp: "↑", ArrowDown: "↓", ArrowLeft: "←", ArrowRight: "→",
+    Enter: "Enter", Tab: "Tab", Backspace: "Backspace", Delete: "Delete", PageUp: "Page Up", PageDown: "Page Down",
+  };
+  return labels[key] || String(key || "").slice(0, 18);
+}
+
+function shortcutLabels(event) {
+  if (!event.key || event.key === "Dead" || KEY_VIEW_MODIFIER_KEYS.has(event.key)) return [];
+  const labels = [];
+  if (event.ctrlKey) labels.push("Ctrl");
+  if (event.altKey) labels.push(event.getModifierState?.("AltGraph") ? "AltGr" : "Alt");
+  if (event.shiftKey) labels.push("Shift");
+  if (event.metaKey) labels.push("Meta");
+  const primary = keyViewLabel(event.key);
+  if (!labels.includes(primary)) labels.push(event.key.length === 1 && (event.ctrlKey || event.altKey || event.metaKey) ? primary.toUpperCase() : primary);
+  return labels;
+}
+
+function keycapSvg(label) {
+  const width = Math.min(142, Math.max(46, 22 + Array.from(label).length * 9));
+  return `<svg class="qts-keycap" viewBox="0 0 ${width} 54" width="${width}" height="54" role="img" aria-label="${escapeHtml(label)}">
+    <rect class="qts-keycap-shadow" x="3" y="8" width="${width - 6}" height="42" rx="9" />
+    <rect class="qts-keycap-face" x="3" y="3" width="${width - 6}" height="42" rx="9" />
+    <path class="qts-keycap-shine" d="M11 7h${Math.max(10, width - 22)}a5 5 0 0 1 5 5" />
+    <text x="${width / 2}" y="29" text-anchor="middle">${escapeHtml(label)}</text>
+  </svg>`;
+}
+
+function updateKeyViewOverlayAppearance(overlay) {
+  if (!overlay) return;
+  const preferences = getKeyViewPreferences();
+  overlay.dataset.theme = preferences.theme;
+  overlay.dataset.position = preferences.position;
+}
+
+function ensureKeyViewOverlay() {
+  let overlay = document.getElementById("qts-key-view-overlay");
+  if (overlay) { updateKeyViewOverlayAppearance(overlay); return overlay; }
+  overlay = document.createElement("div");
+  overlay.id = "qts-key-view-overlay";
+  overlay.setAttribute("aria-live", "polite");
+  overlay.innerHTML = `<div class="qts-key-view-shortcut" data-key-view-shortcut hidden></div>
+    <div class="qts-key-view-typing" data-key-view-typing hidden>
+      <pre data-key-view-text></pre><button type="button" data-key-view-clear>Limpar</button>
+    </div>`;
+  overlay.querySelector("[data-key-view-clear]").addEventListener("click", (event) => {
+    event.stopPropagation();
+    clearKeyViewTyping();
+  });
+  document.documentElement.appendChild(overlay);
+  updateKeyViewOverlayAppearance(overlay);
+  return overlay;
+}
+
+function removeKeyViewOverlayIfEmpty() {
+  const overlay = document.getElementById("qts-key-view-overlay");
+  if (!overlay) return;
+  if (overlay.querySelector("[data-key-view-shortcut]")?.hidden && overlay.querySelector("[data-key-view-typing]")?.hidden) overlay.remove();
+}
+
+function showKeyViewShortcut(labels) {
+  if (!labels.length) return;
+  const overlay = ensureKeyViewOverlay();
+  const shortcut = overlay.querySelector("[data-key-view-shortcut]");
+  shortcut.innerHTML = labels.map(keycapSvg).join('<span class="qts-key-plus">+</span>');
+  shortcut.hidden = false;
+  shortcut.classList.remove("isFading");
+  void shortcut.offsetWidth;
+  shortcut.classList.add("isFading");
+  window.clearTimeout(state.keyView.shortcutTimer);
+  state.keyView.shortcutTimer = window.setTimeout(() => {
+    shortcut.hidden = true;
+    shortcut.classList.remove("isFading");
+    removeKeyViewOverlayIfEmpty();
+  }, 3_000);
+}
+
+function renderKeyViewTyping() {
+  const overlay = ensureKeyViewOverlay();
+  const panel = overlay.querySelector("[data-key-view-typing]");
+  const content = overlay.querySelector("[data-key-view-text]");
+  panel.hidden = !state.keyView.typingText;
+  content.textContent = state.keyView.typingText;
+  content.dataset.length = String(Array.from(state.keyView.typingText).length);
+  if (!state.keyView.typingText) removeKeyViewOverlayIfEmpty();
+}
+
+function appendKeyViewTyping(value) {
+  if (!getKeyViewPreferences().typingMode || !value) return;
+  const characters = Array.from(`${state.keyView.typingText}${value}`);
+  state.keyView.typingText = characters.slice(-2_000).join("");
+  renderKeyViewTyping();
+}
+
+function deleteKeyViewTypingCharacter() {
+  const characters = Array.from(state.keyView.typingText);
+  characters.pop();
+  state.keyView.typingText = characters.join("");
+  renderKeyViewTyping();
+}
+
+function clearKeyViewTyping() {
+  state.keyView.typingText = "";
+  renderKeyViewTyping();
+}
+
+function positionMouseView(overlay) {
+  const width = 52;
+  const height = 68;
+  let left = state.keyView.pointerX - width - 12;
+  let top = state.keyView.pointerY + 16;
+  if (left < 8) left = Math.min(window.innerWidth - width - 8, state.keyView.pointerX + 18);
+  if (top + height > window.innerHeight - 8) top = Math.max(56, state.keyView.pointerY - height - 18);
+  overlay.style.left = `${Math.max(8, left)}px`;
+  overlay.style.top = `${Math.max(56, top)}px`;
+}
+
+function ensureMouseViewOverlay() {
+  let overlay = document.getElementById("qts-mouse-view-overlay");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "qts-mouse-view-overlay";
+  overlay.innerHTML = `<svg viewBox="0 0 52 68" role="img" aria-label="Ação do mouse">
+    <path class="qts-mouse-shadow" d="M26 4C13 4 5 13 5 27v14c0 15 8 23 21 23s21-8 21-23V27C47 13 39 4 26 4Z" />
+    <path class="qts-mouse-body" d="M26 2C13 2 5 11 5 25v14c0 15 8 23 21 23s21-8 21-23V25C47 11 39 2 26 2Z" />
+    <path class="qts-mouse-left" d="M24 5C14 6 9 13 9 25v3h15V5Z" />
+    <path class="qts-mouse-right" d="M28 5c10 1 15 8 15 20v3H28V5Z" />
+    <path class="qts-mouse-divider" d="M26 4v25M8 30h36" />
+    <rect class="qts-mouse-wheel" x="22" y="11" width="8" height="15" rx="4" />
+    <path class="qts-mouse-arrow qts-mouse-arrow-up" d="m26 13-3 4h6Z" />
+    <path class="qts-mouse-arrow qts-mouse-arrow-down" d="m26 24 3-4h-6Z" />
+  </svg>`;
+  document.documentElement.appendChild(overlay);
+  return overlay;
+}
+
+function showMouseView(action, duration = 650) {
+  if (!getKeyViewPreferences().enabled || !getKeyViewPreferences().mouseEffects) return;
+  const overlay = ensureMouseViewOverlay();
+  overlay.dataset.action = action;
+  overlay.dataset.theme = getKeyViewPreferences().theme;
+  positionMouseView(overlay);
+  overlay.classList.add("isVisible");
+  window.clearTimeout(state.keyView.mouseTimer);
+  state.keyView.mouseTimer = window.setTimeout(() => overlay.classList.remove("isVisible"), duration);
+}
+
+function handleKeyViewKeydown(event) {
+  if (isKeyViewOwnSurface(event)) return;
+  const sensitive = isSensitiveTypingTarget(event.target);
+  const labels = shortcutLabels(event);
+  const isShortcut = event.ctrlKey || event.altKey || event.metaKey || event.key.length > 1;
+  if (isShortcut && labels.length) showKeyViewShortcut(labels);
+  if (!getKeyViewPreferences().typingMode || sensitive || editableTypingTarget(event.target)) return;
+  if (event.ctrlKey || event.altKey || event.metaKey) return;
+  if (event.key.length === 1) appendKeyViewTyping(event.key);
+  else if (event.key === "Enter") appendKeyViewTyping("\n");
+  else if (event.key === "Tab") appendKeyViewTyping("\t");
+  else if (event.key === "Backspace") deleteKeyViewTypingCharacter();
+}
+
+function handleKeyViewBeforeInput(event) {
+  if (!getKeyViewPreferences().typingMode || isKeyViewOwnSurface(event) || isSensitiveTypingTarget(event.target)) return;
+  if (["insertText", "insertCompositionText"].includes(event.inputType) && event.data) appendKeyViewTyping(event.data);
+  else if (["insertLineBreak", "insertParagraph"].includes(event.inputType)) appendKeyViewTyping("\n");
+  else if (event.inputType === "deleteContentBackward") deleteKeyViewTypingCharacter();
+}
+
+function startKeyView() {
+  if (state.keyView.listening) { updateKeyViewOverlayAppearance(document.getElementById("qts-key-view-overlay")); return; }
+  const onPointerMove = (event) => {
+    if (isKeyViewOwnSurface(event)) return;
+    state.keyView.pointerX = event.clientX;
+    state.keyView.pointerY = event.clientY;
+    const overlay = document.getElementById("qts-mouse-view-overlay");
+    if (overlay?.classList.contains("isVisible")) positionMouseView(overlay);
+  };
+  const onMouseDown = (event) => {
+    if (isKeyViewOwnSurface(event)) return;
+    state.keyView.pointerX = event.clientX; state.keyView.pointerY = event.clientY;
+    showMouseView(event.button === 2 ? "right" : event.button === 1 ? "middle" : "left", 900);
+  };
+  const onMouseUp = () => {
+    const overlay = document.getElementById("qts-mouse-view-overlay");
+    if (!overlay) return;
+    window.clearTimeout(state.keyView.mouseTimer);
+    state.keyView.mouseTimer = window.setTimeout(() => overlay.classList.remove("isVisible"), 320);
+  };
+  const onWheel = (event) => {
+    if (isKeyViewOwnSurface(event) || event.deltaY === 0) return;
+    state.keyView.pointerX = event.clientX; state.keyView.pointerY = event.clientY;
+    showMouseView(event.deltaY < 0 ? "scroll-up" : "scroll-down", 750);
+  };
+  document.addEventListener("keydown", handleKeyViewKeydown, true);
+  document.addEventListener("beforeinput", handleKeyViewBeforeInput, true);
+  document.addEventListener("pointermove", onPointerMove, { capture: true, passive: true });
+  document.addEventListener("mousedown", onMouseDown, { capture: true, passive: true });
+  document.addEventListener("mouseup", onMouseUp, { capture: true, passive: true });
+  document.addEventListener("wheel", onWheel, { capture: true, passive: true });
+  state.keyView.cleanup = () => {
+    document.removeEventListener("keydown", handleKeyViewKeydown, true);
+    document.removeEventListener("beforeinput", handleKeyViewBeforeInput, true);
+    document.removeEventListener("pointermove", onPointerMove, true);
+    document.removeEventListener("mousedown", onMouseDown, true);
+    document.removeEventListener("mouseup", onMouseUp, true);
+    document.removeEventListener("wheel", onWheel, true);
+  };
+  state.keyView.listening = true;
+}
+
+function stopKeyView() {
+  state.keyView.cleanup?.();
+  state.keyView.cleanup = null;
+  state.keyView.listening = false;
+  state.keyView.typingText = "";
+  window.clearTimeout(state.keyView.shortcutTimer);
+  window.clearTimeout(state.keyView.mouseTimer);
+  document.getElementById("qts-key-view-overlay")?.remove();
+  document.getElementById("qts-mouse-view-overlay")?.remove();
+}
+
+function syncKeyView() {
+  const preferences = getKeyViewPreferences();
+  state.shadowRoot?.getElementById("keyViewMenuItem")?.classList.toggle("isActive", preferences.enabled === true);
+  if (preferences.enabled) {
+    if (!preferences.typingMode && state.keyView.typingText) clearKeyViewTyping();
+    startKeyView();
+    const mouseOverlay = document.getElementById("qts-mouse-view-overlay");
+    if (mouseOverlay) mouseOverlay.dataset.theme = preferences.theme;
+  } else if (state.keyView.listening || document.getElementById("qts-key-view-overlay")) stopKeyView();
+}
+
+async function saveKeyViewPreferences(next) {
+  state.workspace.preferences = { ...(state.workspace.preferences || {}), keyView: { ...getKeyViewPreferences(), ...next } };
+  await persistWorkspaceState();
+}
+
+function openKeyView() {
+  const preferences = getKeyViewPreferences();
+  let selectedPosition = preferences.position;
+  openDrawer({
+    title: "Key View",
+    bodyHtml: `<p class="qts-tool-lead">Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.</p>
+      <div class="qts-card qts-key-view-status"><div><b>Key View</b><small>${preferences.enabled ? "Ativo nesta página" : "Desativado"}</small></div><button class="action ${preferences.enabled ? "" : "primary"}" id="keyViewToggle" type="button">${preferences.enabled ? "Desativar" : "Ativar"}</button></div>
+      <label class="qts-switch-row"><input id="keyViewTyping" type="checkbox" ${preferences.typingMode ? "checked" : ""} /><span><b>Modo Typing</b><small>Mantém o texto digitado na tela até você clicar em Limpar.</small></span></label>
+      <label class="qts-switch-row"><input id="keyViewMouse" type="checkbox" ${preferences.mouseEffects ? "checked" : ""} /><span><b>Visualizar mouse</b><small>Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.</small></span></label>
+      <label class="qts-field-label">Aparência das teclas<select id="keyViewTheme"><option value="dark" ${preferences.theme === "dark" ? "selected" : ""}>Tecla preta · texto branco</option><option value="light" ${preferences.theme === "light" ? "selected" : ""}>Tecla branca · texto preto</option></select></label>
+      <div class="qts-field-label"><span>Posição na tela</span><div class="qts-position-grid">${KEY_VIEW_POSITIONS.map(([value, icon, label]) => `<button class="${value === preferences.position ? "isSelected" : ""}" type="button" data-key-view-position="${value}" title="${label}" aria-label="${label}">${icon}</button>`).join("")}</div></div>
+      <div class="qts-key-view-preview" data-theme="${preferences.theme}" id="keyViewPreview">${keycapSvg("Ctrl")}<span>+</span>${keycapSvg("V")}</div>
+      <div class="qts-card qts-privacy-note"><b>Privacidade local</b><p>O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.</p></div>
+      <div class="qts-card-actions"><button class="action primary" id="keyViewSave" type="button">Salvar configurações</button><button class="action" id="keyViewClear" type="button">Limpar texto</button></div><div class="qts-status" id="keyViewStatus"></div>`,
+    onReady(body) {
+      const theme = body.querySelector("#keyViewTheme");
+      const preview = body.querySelector("#keyViewPreview");
+      theme.addEventListener("change", () => { preview.dataset.theme = theme.value; });
+      body.querySelectorAll("[data-key-view-position]").forEach((button) => button.addEventListener("click", () => {
+        selectedPosition = button.dataset.keyViewPosition;
+        body.querySelectorAll("[data-key-view-position]").forEach((candidate) => candidate.classList.toggle("isSelected", candidate === button));
+      }));
+      body.querySelector("#keyViewToggle").addEventListener("click", async () => {
+        await saveKeyViewPreferences({ enabled: !getKeyViewPreferences().enabled });
+        openKeyView();
+      });
+      body.querySelector("#keyViewSave").addEventListener("click", async () => {
+        await saveKeyViewPreferences({ typingMode: body.querySelector("#keyViewTyping").checked, mouseEffects: body.querySelector("#keyViewMouse").checked, theme: theme.value, position: selectedPosition });
+        body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");
+      });
+      body.querySelector("#keyViewClear").addEventListener("click", () => { clearKeyViewTyping(); body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Texto limpo."); });
+    },
+  });
+}
 
 function showQaToast(message, tone = "info") {
   if (!state.shadowRoot) return;

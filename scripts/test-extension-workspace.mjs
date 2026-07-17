@@ -12,13 +12,15 @@ const workspace = normalizeWorkspace({
   preferences: { compactMode: true },
 });
 
-assert.equal(workspace.schemaVersion, 3);
+assert.equal(workspace.schemaVersion, 4);
 assert.equal(workspace.environments[0].projectId, "project-a");
 assert.equal(workspace.environments[0].clientId, "client-a");
 assert.deepEqual(workspace.environments[0].urlPatterns, ["https://qa.example.com/*"]);
 assert.equal(workspace.preferences.compactMode, true);
 assert.equal(workspace.preferences.enabledTools.includes("paymentMethods"), true);
 assert.equal(workspace.preferences.enabledTools.includes("macroStudio"), true);
+assert.equal(workspace.preferences.enabledTools.includes("keyView"), true);
+assert.deepEqual(workspace.preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true });
 
 const macroWorkspace = normalizeWorkspace({
   macros: [{
@@ -41,11 +43,16 @@ assert.equal(macroWorkspace.macros[0].steps[2].interval, 5_000);
 assert.deepEqual(macroWorkspace.preferences.pinnedMacroIds, ["checkout"]);
 assert.equal(JSON.stringify(macroWorkspace).includes("must-not-survive"), false);
 
-const filteredTools = normalizeWorkspace({ schemaVersion: 3, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
+const filteredTools = normalizeWorkspace({ schemaVersion: 4, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
 assert.deepEqual(filteredTools.preferences.enabledTools, ["inspectors"]);
 
 const upgradedTools = normalizeWorkspace({ schemaVersion: 2, preferences: { enabledTools: ["inspectors"] } });
-assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"]);
+assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView"]);
+
+const schemaThreeUpgrade = normalizeWorkspace({ schemaVersion: 3, preferences: { enabledTools: ["inspectors"], keyView: { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false } } });
+assert.deepEqual(schemaThreeUpgrade.preferences.enabledTools, ["inspectors", "keyView"]);
+assert.deepEqual(schemaThreeUpgrade.preferences.keyView, { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false });
+assert.equal(normalizeWorkspace({ schemaVersion: 4, preferences: { keyView: { position: "outside", theme: "pink" } } }).preferences.keyView.position, "bottom-center");
 
 const orphaned = normalizeWorkspace({ clients: [], projects: [], products: [], environments: [{ id: "bad", productId: "missing", name: "Bad", url: "https://bad.example.com" }] });
 assert.equal(orphaned.environments.length, 0);
