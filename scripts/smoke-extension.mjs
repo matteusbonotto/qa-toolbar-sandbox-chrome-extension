@@ -182,9 +182,10 @@ try {
     root?.getElementById("drawerClose")?.click();
     root?.getElementById("toolsButton")?.click();
     root?.getElementById("resourcesMenuItem")?.click();
-    return root?.getElementById("drawerBody")?.textContent || "";
+    return { text: root?.getElementById("drawerBody")?.textContent || "", href: root?.getElementById("drawerBody")?.querySelector("a")?.href || "" };
   });
-  if (!resourcesDrawer.includes("Runbook QA") || !resourcesDrawer.includes("https://example.com/runbook")) throw new Error(`Resources drawer mismatch: ${resourcesDrawer}`);
+  const resourceUrl = new URL(resourcesDrawer.href);
+  if (!resourcesDrawer.text.includes("Runbook QA") || resourceUrl.protocol !== "https:" || resourceUrl.hostname !== "example.com" || resourceUrl.pathname !== "/runbook") throw new Error(`Resources drawer mismatch: ${JSON.stringify(resourcesDrawer)}`);
   await options.getByRole("button", { name: "Importar / Exportar" }).click();
   const downloadPromise = options.waitForEvent("download");
   await options.locator("#exportButton").click();

@@ -1,4 +1,4 @@
-import { readFile, readdir, stat } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { resolve, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -36,11 +36,11 @@ export async function verifyExtensionSource(sourceDirectory) {
 
   let totalBytes = 0;
   for (let index = 0; index < files.length; index += 1) {
-    const info = await stat(files[index]);
-    totalBytes += info.size;
-    if (info.size > 2_000_000) throw new Error(`Extension file is unexpectedly large: ${entries[index]}`);
+    const contents = await readFile(files[index]);
+    totalBytes += contents.byteLength;
+    if (contents.byteLength > 2_000_000) throw new Error(`Extension file is unexpectedly large: ${entries[index]}`);
     if (!/\.(?:js|css|html|json)$/i.test(entries[index])) continue;
-    const text = await readFile(files[index], "utf8");
+    const text = contents.toString("utf8");
     if (SECRET_PATTERNS.some((pattern) => pattern.test(text))) throw new Error(`Secret-like value found in extension source: ${entries[index]}`);
   }
   if (totalBytes > 8_000_000) throw new Error("Extension package exceeds the 8 MB source safety limit");
