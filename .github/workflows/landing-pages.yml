@@ -49,8 +49,12 @@ jobs:
         run: |
           mkdir -p apps/landing/dist/admin
           cp -R apps/admin/dist/. apps/landing/dist/admin/
-      - name: Add SPA fallback so deep links (e.g. /privacidade) survive a direct load/reload
+      - name: Add SPA fallback so deep links survive a direct load/reload
         run: cp apps/landing/dist/index.html apps/landing/dist/404.html
+      - name: Give /privacidade/ a real 200 response (Chrome Web Store checks the HTTP status, not just the body)
+        run: |
+          mkdir -p apps/landing/dist/privacidade
+          cp apps/landing/dist/index.html apps/landing/dist/privacidade/index.html
       - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/landing/dist
