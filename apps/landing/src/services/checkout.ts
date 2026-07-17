@@ -93,6 +93,28 @@ export async function signUp(email: string, password: string): Promise<Session |
   return data.session;
 }
 
+const publishedExtensionId = "ddaapjklnfjhjigeglgmjmadjnmdodfe";
+
+export async function handoffSessionToExtension(session: Session): Promise<boolean> {
+  if (!session.access_token || !session.refresh_token || !session.expires_at) return false;
+  const chromeRuntime = (globalThis as typeof globalThis & { chrome?: { runtime?: {
+    lastError?: unknown;
+    sendMessage?: (extensionId: string, message: unknown, callback: (response?: { accepted?: boolean }) => void) => void;
+  } } }).chrome?.runtime;
+  if (!chromeRuntime?.sendMessage) return false;
+  return new Promise((resolve) => {
+    chromeRuntime.sendMessage!(publishedExtensionId, {
+      type: "qts:landing-session-handoff",
+      session: {
+        accessToken: session.access_token,
+        refreshToken: session.refresh_token,
+        expiresAt: session.expires_at,
+        user: { id: session.user.id, email: session.user.email },
+      },
+    }, (response) => resolve(!chromeRuntime.lastError && response?.accepted === true));
+  });
+}
+
 export async function sendSignInLink(email: string): Promise<void> {
   const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).href;
   const { error } = await requireClient().auth.signInWithOtp({

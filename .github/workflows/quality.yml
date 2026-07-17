@@ -17,7 +17,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Reject secrets and private artifacts before installing dependencies
-        run: node scripts/check-repository.mjs
+        run: node scripts/check-repository.mjs && node scripts/check-extension-bundle.mjs
       - uses: actions/setup-node@v7
         with:
           node-version: 22

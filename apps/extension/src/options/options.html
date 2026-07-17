@@ -12,128 +12,121 @@
     <aside class="nav">
       <div class="brand"><img src="../../icons/icon-32.png" alt="" /><span>QA Toolbar Sandbox</span></div>
       <nav>
-        <button type="button" class="navItem isActive" data-tab="scope" data-i18n="optionsNavScope">Onde a barra aparece</button>
-        <button type="button" class="navItem" data-tab="workspace" data-i18n="optionsNavWorkspace">Workspace</button>
-        <button type="button" class="navItem" data-tab="data" data-i18n="optionsNavData">Importar / Exportar</button>
+        <button type="button" class="navItem isActive" data-tab="account">Minha conta</button>
+        <button type="button" class="navItem protectedNav" data-tab="general" disabled>Barra e aparência</button>
+        <button type="button" class="navItem protectedNav" data-tab="workspace" disabled>Workspace</button>
+        <button type="button" class="navItem protectedNav" data-tab="test-data" disabled>Dados de teste</button>
+        <button type="button" class="navItem protectedNav" data-tab="integrations" disabled>Inspectors e recursos</button>
+        <button type="button" class="navItem protectedNav" data-tab="data" disabled>Importar / Exportar</button>
       </nav>
-      <div class="langSwitch" id="langSwitch" role="group" data-i18n-title="optionsNavLanguage">
-        <button type="button" data-locale="pt-BR">PT</button>
-        <button type="button" data-locale="es">ES</button>
-        <button type="button" data-locale="en">EN</button>
+      <div class="langSwitch" id="langSwitch" role="group" aria-label="Idioma">
+        <button type="button" data-locale="pt-BR">PT</button><button type="button" data-locale="es">ES</button><button type="button" data-locale="en">EN</button>
       </div>
     </aside>
+
     <main class="content">
-      <section data-panel="scope" class="panel isActive">
-        <header class="panelHead">
-          <h1 data-i18n="optionsScopeTitle">Onde a barra de ferramentas aparece</h1>
-          <p data-i18n="optionsScopeLead">Por padrão a extensão funciona em qualquer site. Restrinja aqui se quiser limitar a URLs específicas.</p>
-        </header>
-        <div class="card">
-          <label class="radioRow">
-            <input type="radio" name="scopeMode" value="all" />
-            <div><b data-i18n="optionsScopeAllTitle">Todos os sites (padrão)</b><small data-i18n="optionsScopeAllHint">A barra é injetada em qualquer página que você visitar.</small></div>
-          </label>
-          <label class="radioRow">
-            <input type="radio" name="scopeMode" value="custom" />
-            <div><b data-i18n="optionsScopeCustomTitle">Apenas URLs específicas</b><small><span data-i18n="optionsScopeCustomHintPrefix">Use padrões como</span> <code>https://*.exemplo.com/*</code>, um por linha.</small></div>
-          </label>
-          <textarea id="scopePatterns" rows="6" data-i18n-placeholder="optionsScopePatternsPlaceholder" placeholder="https://app.exemplo.com/*&#10;https://*.minhaempresa.com/*" disabled></textarea>
-          <div class="actions">
-            <button type="button" class="button primary" id="saveScope" data-i18n="optionsSave">Salvar</button>
-            <span class="savedHint" id="scopeSavedHint"></span>
+      <section data-panel="account" class="panel isActive">
+        <header class="panelHead"><h1>Minha conta</h1><p>Entre para liberar suas configurações e a barra nos ambientes autorizados.</p></header>
+        <div class="card accountCard">
+          <div id="signedOutState">
+            <form id="loginForm" class="loginForm">
+              <label>E-mail<input id="loginEmail" type="email" autocomplete="username" required /></label>
+              <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" minlength="8" required /></label>
+              <button class="button primary" type="submit">Entrar</button>
+            </form>
+            <p class="hint">Ainda não tem acesso? Crie sua conta ou escolha um plano no site.</p>
+            <a class="button linkButton" href="https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/" target="_blank" rel="noreferrer">Abrir site e planos</a>
           </div>
+          <div id="signedInState" hidden>
+            <div class="accountSummary"><img src="../../icons/icon-48.png" alt="" /><div><strong id="accountEmail"></strong><span id="accountPlan"></span></div></div>
+            <div class="actions"><button class="button" id="refreshAccess" type="button">Atualizar acesso</button><button class="button danger" id="signOutButton" type="button">Sair</button></div>
+          </div>
+          <p class="formMessage" id="authMessage" role="status"></p>
         </div>
       </section>
 
-      <section data-panel="workspace" class="panel">
-        <header class="panelHead">
-          <h1 data-i18n="optionsWorkspaceTitle">Workspace</h1>
-          <p data-i18n="optionsWorkspaceLead">Clientes, projetos, produtos e ambientes — nada vem pré-cadastrado, você organiza do seu jeito.</p>
-        </header>
+      <section data-panel="general" class="panel protectedPanel">
+        <header class="panelHead"><h1>Barra e aparência</h1><p>Defina onde a barra aparece e quais atalhos ficam visíveis.</p></header>
         <div class="grid2">
           <div class="card">
-            <div class="cardHead"><h2 data-i18n="optionsClients">Clientes</h2><span class="count" id="clientCount">0</span></div>
-            <div class="list" id="clientList"></div>
-            <form class="inlineForm formWide" id="clientForm">
-              <input type="text" data-i18n-placeholder="optionsClientNamePlaceholder" placeholder="Nome do cliente" required id="clientName" />
-              <input type="url" data-i18n-placeholder="optionsLogoUrlPlaceholder" placeholder="URL do logo (opcional)" id="clientLogoUrl" />
-              <input type="text" data-i18n-placeholder="optionsAbbreviationPlaceholder" placeholder="Sigla (opcional)" maxlength="4" class="abbrevInput" id="clientAbbreviation" />
-              <label class="checkRow"><input type="checkbox" id="clientShowLabel" checked /><span data-i18n="optionsShowLabel">Mostrar nome ao lado do ícone</span></label>
-              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
-            </form>
+            <div class="cardHead"><h2>Onde a barra aparece</h2></div>
+            <label class="radioRow"><input type="radio" name="scopeMode" value="environments" /><div><b>URLs dos ambientes</b><small>Usa as URLs configuradas em cada ambiente do Workspace.</small></div></label>
+            <label class="radioRow"><input type="radio" name="scopeMode" value="custom" /><div><b>Restringir com lista personalizada</b><small>A URL também precisa pertencer a um ambiente. Use padrões como <code>https://*.exemplo.com/*</code>, um por linha.</small></div></label>
+            <textarea id="scopePatterns" rows="5" placeholder="https://app.exemplo.com/*" disabled></textarea>
+            <div class="actions"><button type="button" class="button primary" id="saveScope">Salvar URLs</button><span class="savedHint" id="scopeSavedHint"></span></div>
           </div>
           <div class="card">
-            <div class="cardHead"><h2 data-i18n="optionsProjects">Projetos</h2><span class="count" id="projectCount">0</span></div>
-            <div class="list" id="projectList"></div>
-            <form class="inlineForm formWide" id="projectForm">
-              <select id="projectClient" required></select>
-              <input type="text" data-i18n-placeholder="optionsProjectNamePlaceholder" placeholder="Nome do projeto" required id="projectName" />
-              <input type="url" data-i18n-placeholder="optionsLogoUrlPlaceholder" placeholder="URL do logo (opcional)" id="projectLogoUrl" />
-              <input type="text" data-i18n-placeholder="optionsAbbreviationPlaceholder" placeholder="Sigla (opcional)" maxlength="4" class="abbrevInput" id="projectAbbreviation" />
-              <label class="checkRow"><input type="checkbox" id="projectShowLabel" checked /><span data-i18n="optionsShowLabel">Mostrar nome ao lado do ícone</span></label>
-              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
-            </form>
-          </div>
-          <div class="card">
-            <div class="cardHead"><h2 data-i18n="optionsProducts">Produtos</h2><span class="count" id="productCount">0</span></div>
-            <div class="list" id="productList"></div>
-            <form class="inlineForm formWide" id="productForm">
-              <select id="productProject" required></select>
-              <input type="text" data-i18n-placeholder="optionsProductNamePlaceholder" placeholder="Nome do produto" required id="productName" />
-              <input type="url" data-i18n-placeholder="optionsLogoUrlPlaceholder" placeholder="URL do logo (opcional)" id="productLogoUrl" />
-              <input type="text" data-i18n-placeholder="optionsAbbreviationPlaceholder" placeholder="Sigla (opcional)" maxlength="4" class="abbrevInput" id="productAbbreviation" />
-              <label class="checkRow"><input type="checkbox" id="productShowLabel" checked /><span data-i18n="optionsShowLabel">Mostrar nome ao lado do ícone</span></label>
-              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
-            </form>
-          </div>
-          <div class="card cardFullWidth">
-            <div class="cardHead"><h2 data-i18n="optionsEnvironments">Ambientes</h2><span class="count" id="environmentCount">0</span></div>
-            <div class="list" id="environmentList"></div>
-            <form class="inlineForm formWide" id="environmentForm">
-              <select id="environmentProduct" required></select>
-              <input type="text" data-i18n-placeholder="optionsEnvironmentNamePlaceholder" placeholder="Nome do ambiente (ex.: QA, Staging)" required id="environmentName" />
-              <input type="color" id="environmentColor" value="#ef3340" data-i18n-title="optionsEnvironmentColorTitle" title="Cor da barra" />
-              <input type="text" data-i18n-placeholder="optionsEnvironmentPatternsPlaceholder" placeholder="Padrões de URL, separados por vírgula" required id="environmentPatterns" />
-              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
-            </form>
-          </div>
-          <div class="card cardFullWidth">
-            <div class="cardHead"><h2 data-i18n="optionsTestAccounts">Contas de teste</h2><span class="count" id="testAccountCount">0</span></div>
-            <p class="sandboxWarning" data-i18n="optionsTestAccountsWarning">Uso exclusivamente sandbox — nunca cadastre credenciais reais. Senhas ficam só neste navegador e nunca saem na exportação.</p>
-            <div class="list" id="testAccountList"></div>
-            <form class="inlineForm formWide" id="testAccountForm">
-              <select id="testAccountEnvironment" required></select>
-              <input type="text" data-i18n-placeholder="optionsAccountLabelPlaceholder" placeholder="Nome da conta (ex.: Conta padrão)" required id="testAccountLabel" />
-              <input type="text" data-i18n-placeholder="optionsAccountTypePlaceholder" placeholder="Tipo de conta (ex.: Gold, PJ, Admin)" id="testAccountType" />
-              <input type="text" data-i18n-placeholder="optionsAccountUsernamePlaceholder" placeholder="Usuário / e-mail" id="testAccountUsername" />
-              <input type="password" data-i18n-placeholder="optionsAccountPasswordPlaceholder" placeholder="Senha" id="testAccountPassword" autocomplete="new-password" />
-              <input type="text" data-i18n-placeholder="optionsAccountNotesPlaceholder" placeholder="Observações (opcional)" id="testAccountNotes" />
-              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
-            </form>
+            <div class="cardHead"><h2>Exibição</h2></div>
+            <label class="toggleRow"><input id="compactMode" type="checkbox" /><span><b>Modo compacto</b><small>Oculta os nomes de projeto e produto; mantém ícones e ambiente.</small></span></label>
+            <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Empurrar conteúdo do site</b><small>Reserva o espaço da barra no topo da página.</small></span></label>
+            <fieldset><legend>Atalhos fixados</legend><div class="checkGrid">
+              <label><input type="checkbox" data-pinned="passFail" /> Status e marcações</label>
+              <label><input type="checkbox" data-pinned="screenshot" /> Screenshot</label>
+              <label><input type="checkbox" data-pinned="notes" /> Notas e formas</label>
+              <label><input type="checkbox" data-pinned="record" /> Gravação</label>
+            </div></fieldset>
+            <fieldset><legend>Ferramentas no menu</legend><div class="checkGrid">
+              <label><input type="checkbox" data-tool="clickSpy" /> Click Spy</label>
+              <label><input type="checkbox" data-tool="freezeClock" /> Freeze Clock</label>
+              <label><input type="checkbox" data-tool="forceHttp" /> Force HTTP</label>
+              <label><input type="checkbox" data-tool="inspectors" /> Inspectors</label>
+              <label><input type="checkbox" data-tool="jsonStudio" /> JSON Studio</label>
+              <label><input type="checkbox" data-tool="breakpoints" /> Breakpoints</label>
+              <label><input type="checkbox" data-tool="testAccounts" /> Contas de teste</label>
+              <label><input type="checkbox" data-tool="paymentMethods" /> Meios de pagamento</label>
+              <label><input type="checkbox" data-tool="resources" /> Recursos e links</label>
+            </div></fieldset>
+            <div class="actions"><button type="button" class="button primary" id="savePreferences">Salvar aparência</button><span class="savedHint" id="preferencesSavedHint"></span></div>
           </div>
         </div>
       </section>
 
-      <section data-panel="data" class="panel">
-        <header class="panelHead">
-          <h1 data-i18n="optionsDataTitle">Importar / Exportar</h1>
-          <p data-i18n="optionsDataLead">Leve seu workspace entre navegadores ou compartilhe uma configuração com o time.</p>
-        </header>
-        <div class="card">
-          <div class="actions">
-            <button type="button" class="button primary" id="exportButton" data-i18n="optionsExport">Exportar workspace (JSON)</button>
-            <button type="button" class="button" id="importButton" data-i18n="optionsImport">Importar JSON</button>
-            <button type="button" class="button danger" id="resetButton" data-i18n="optionsReset">Resetar workspace</button>
-            <input type="file" id="importFile" accept="application/json" hidden />
+      <section data-panel="workspace" class="panel protectedPanel">
+        <header class="panelHead"><h1>Workspace</h1><p>Cliente → projeto → produto → ambientes. Toda alteração reflete na barra imediatamente.</p></header>
+        <label class="searchBox">Buscar no workspace<input id="workspaceSearch" type="search" placeholder="Nome, URL ou ambiente" /></label>
+        <div class="grid2">
+          <div class="card"><div class="cardHead"><h2>Clientes</h2><span class="count" id="clientCount">0</span></div><div class="list" id="clientList"></div>
+            <form class="inlineForm formWide" id="clientForm"><input type="hidden" id="clientEditId" /><input type="text" placeholder="Nome do cliente" required id="clientName" /><input type="url" placeholder="URL do logo (opcional)" id="clientLogoUrl" /><input type="text" placeholder="Sigla" maxlength="4" class="abbrevInput" id="clientAbbreviation" /><label class="checkRow"><input type="checkbox" id="clientShowLabel" checked /> Mostrar nome</label><button type="submit" class="button">Salvar</button><button type="button" class="button cancelEdit" data-cancel="client" hidden>Cancelar</button></form>
           </div>
-          <p class="hint" id="dataHint"></p>
+          <div class="card"><div class="cardHead"><h2>Projetos</h2><span class="count" id="projectCount">0</span></div><div class="list" id="projectList"></div>
+            <form class="inlineForm formWide" id="projectForm"><input type="hidden" id="projectEditId" /><select id="projectClient" required></select><input type="text" placeholder="Nome do projeto" required id="projectName" /><input type="url" placeholder="URL do logo (opcional)" id="projectLogoUrl" /><input type="text" placeholder="Sigla" maxlength="4" class="abbrevInput" id="projectAbbreviation" /><label class="checkRow"><input type="checkbox" id="projectShowLabel" checked /> Mostrar nome</label><button type="submit" class="button">Salvar</button><button type="button" class="button cancelEdit" data-cancel="project" hidden>Cancelar</button></form>
+          </div>
+          <div class="card"><div class="cardHead"><h2>Produtos</h2><span class="count" id="productCount">0</span></div><div class="list" id="productList"></div>
+            <form class="inlineForm formWide" id="productForm"><input type="hidden" id="productEditId" /><select id="productProject" required></select><input type="text" placeholder="Nome do produto" required id="productName" /><input type="url" placeholder="URL do logo (opcional)" id="productLogoUrl" /><input type="text" placeholder="Sigla" maxlength="4" class="abbrevInput" id="productAbbreviation" /><label class="checkRow"><input type="checkbox" id="productShowLabel" checked /> Mostrar nome</label><button type="submit" class="button">Salvar</button><button type="button" class="button cancelEdit" data-cancel="product" hidden>Cancelar</button></form>
+          </div>
+          <div class="card"><div class="cardHead"><h2>Ambientes</h2><span class="count" id="environmentCount">0</span></div><div class="list" id="environmentList"></div>
+            <form class="inlineForm formWide" id="environmentForm"><input type="hidden" id="environmentEditId" /><select id="environmentProduct" required></select><input type="text" placeholder="Nome do ambiente (ex.: QA, Staging)" required id="environmentName" /><input type="color" id="environmentColor" value="#3a3a3a" title="Cor da barra" /><textarea id="environmentPatterns" rows="3" placeholder="Uma URL ou padrão por linha&#10;https://app.exemplo.com/*" required></textarea><button type="submit" class="button">Salvar</button><button type="button" class="button cancelEdit" data-cancel="environment" hidden>Cancelar</button></form>
+          </div>
         </div>
+      </section>
+
+      <section data-panel="test-data" class="panel protectedPanel">
+        <header class="panelHead"><h1>Dados de teste</h1><p>Credenciais e pagamentos ficam somente neste navegador e são removidos da exportação segura.</p></header>
+        <div class="grid2">
+          <div class="card"><div class="cardHead"><h2>Contas de teste</h2><span class="count" id="testAccountCount">0</span></div><p class="sandboxWarning">Uso exclusivamente sandbox — nunca cadastre credenciais reais.</p><div class="list" id="testAccountList"></div>
+            <form class="inlineForm formWide" id="testAccountForm"><input type="hidden" id="testAccountEditId" /><select id="testAccountEnvironment" required></select><input type="text" placeholder="Nome da conta" required id="testAccountLabel" /><input type="text" placeholder="Tipo de conta" id="testAccountType" /><input type="text" placeholder="Usuário / e-mail" id="testAccountUsername" /><input type="password" placeholder="Senha" id="testAccountPassword" autocomplete="new-password" /><input type="text" placeholder="Observações" id="testAccountNotes" /><button type="submit" class="button">Salvar</button><button type="button" class="button cancelEdit" data-cancel="testAccount" hidden>Cancelar</button></form>
+          </div>
+          <div class="card"><div class="cardHead"><h2>Meios de pagamento</h2><span class="count" id="paymentMethodCount">0</span></div><p class="sandboxWarning">Somente dados sandbox. O valor sensível nunca entra na exportação.</p><div class="list" id="paymentMethodList"></div>
+            <form class="inlineForm formWide" id="paymentMethodForm"><input type="hidden" id="paymentMethodEditId" /><select id="paymentMethodEnvironment"></select><input type="text" id="paymentMethodLabel" placeholder="Nome (ex.: Visa aprovado)" required /><select id="paymentMethodType"><option value="card">Cartão</option><option value="pix">PIX</option><option value="bank">Conta bancária</option><option value="other">Outro</option></select><input type="text" id="paymentMethodValue" placeholder="Número/token sandbox" /><input type="text" id="paymentMethodNotes" placeholder="Observações" /><button type="submit" class="button">Salvar</button><button type="button" class="button cancelEdit" data-cancel="paymentMethod" hidden>Cancelar</button></form>
+          </div>
+        </div>
+      </section>
+
+      <section data-panel="integrations" class="panel protectedPanel">
+        <header class="panelHead"><h1>Inspectors e recursos</h1><p>Configuração declarativa: nenhum JavaScript inserido pelo usuário é executado.</p></header>
+        <div class="grid2">
+          <div class="card"><div class="cardHead"><h2>Inspectors</h2><span class="count" id="inspectorCount">0</span></div><div class="list" id="inspectorList"></div><form class="inlineForm" id="inspectorForm"><input type="hidden" id="inspectorEditId" /><input id="inspectorLabel" placeholder="Nome" required /><textarea id="inspectorPatterns" rows="3" placeholder="Rotas/endpoints, um por linha" required></textarea><button class="button" type="submit">Salvar</button><button type="button" class="button cancelEdit" data-cancel="inspector" hidden>Cancelar</button></form></div>
+          <div class="card"><div class="cardHead"><h2>APIs</h2><span class="count" id="apiCount">0</span></div><div class="list" id="apiList"></div><form class="inlineForm" id="apiForm"><input type="hidden" id="apiEditId" /><input id="apiLabel" placeholder="Nome" required /><input id="apiBaseUrl" type="url" placeholder="https://api.exemplo.com" required /><input id="apiToken" type="password" placeholder="Token local (opcional)" autocomplete="new-password" /><button class="button" type="submit">Salvar</button><button type="button" class="button cancelEdit" data-cancel="api" hidden>Cancelar</button></form></div>
+          <div class="card cardFullWidth"><div class="cardHead"><h2>Recursos e links</h2><span class="count" id="resourceCount">0</span></div><div class="list" id="resourceList"></div><form class="inlineForm" id="resourceForm"><input type="hidden" id="resourceEditId" /><input id="resourceLabel" placeholder="Nome" required /><input id="resourceUrl" type="url" placeholder="https://..." required /><button class="button" type="submit">Salvar</button><button type="button" class="button cancelEdit" data-cancel="resource" hidden>Cancelar</button></form></div>
+        </div>
+      </section>
+
+      <section data-panel="data" class="panel protectedPanel">
+        <header class="panelHead"><h1>Importar / Exportar</h1><p>A importação valida e normaliza vínculos e URLs antes de substituir o workspace.</p></header>
+        <div class="card"><div class="actions"><button type="button" class="button primary" id="exportButton">Exportação segura (JSON)</button><button type="button" class="button" id="importButton">Importar JSON</button><button type="button" class="button danger" id="resetButton">Resetar workspace</button><input type="file" id="importFile" accept="application/json,.json" hidden /></div><p class="hint" id="dataHint" role="status"></p></div>
       </section>
     </main>
   </div>
-  <script src="../lib/storage-content.js"></script>
-  <script src="../lib/i18n-content.js"></script>
-  <script src="../lib/avatar-content.js"></script>
-  <script src="options.js"></script>
+  <script src="../lib/storage-content.js"></script><script src="../lib/i18n-content.js"></script><script src="../lib/avatar-content.js"></script><script src="options.js"></script>
 </body>
 </html>

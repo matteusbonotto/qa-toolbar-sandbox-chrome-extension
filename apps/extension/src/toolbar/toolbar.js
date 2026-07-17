@@ -1,6 +1,6 @@
 const { getWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 
-const TOOLBAR_HEIGHT = 34;
+const TOOLBAR_HEIGHT = 48;
 const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
 
@@ -15,6 +15,12 @@ const state = {
   forceHttpActive: false,
   networkHistory: [],
   t: null,
+  authorized: false,
+  integrityObserver: null,
+  integrityInterval: null,
+  accessInterval: null,
+  locationInterval: null,
+  lastHref: window.location.href,
 };
 
 const FORCE_HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503];
@@ -59,7 +65,7 @@ function matchesAnyPattern(patterns, href) {
 
 function findActiveEnvironment(workspace) {
   const href = window.location.href;
-  return (workspace.environments || []).find((environment) => matchesAnyPattern(environment.urlPatterns, href)) ?? null;
+  return (workspace.environments || []).find((environment) => environment.active !== false && matchesAnyPattern(environment.urlPatterns, href)) ?? null;
 }
 
 function findById(collection, id) {
@@ -77,7 +83,7 @@ function contrastTextColor(hexColor) {
 }
 
 function getCurrentHeight() {
-  return state.minimized ? 0 : TOOLBAR_HEIGHT;
+  return state.minimized || state.workspace?.preferences?.pushSiteContent === false ? 0 : TOOLBAR_HEIGHT;
 }
 
 function setSpacerHeight() {
@@ -94,25 +100,62 @@ function setSpacerHeight() {
  */
 function buildBreadcrumb(workspace, environment) {
   if (!environment) {
-    return { clientHtml: "", mainHtml: escapeHtml(state.t.noEnvironment), color: "#3a3a3a", text: "#ffffff" };
+    return { clientHtml: "", mainHtml: "", color: "#3a3a3a", text: "#ffffff" };
   }
   const client = findById(workspace.clients, environment.clientId);
   const project = findById(workspace.projects, environment.projectId);
   const product = findById(workspace.products, environment.productId);
   const color = environment.color || "#ef3340";
 
-  const clientHtml = client ? window.QTS_AVATAR.buildEntityHtml(client, { size: 15, maxChars: 14 }) : "";
+  const compact = workspace.preferences?.compactMode === true;
+  const clientHtml = client ? window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: true }, { size: 14, maxChars: 18 }) : "";
   const segments = [project, product]
     .filter(Boolean)
-    .map((entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 19, maxChars: 16 }));
-  segments.push(`<strong>${escapeHtml(environment.name)}</strong>`);
+    .map((entity) => window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compact ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 }));
+  segments.push(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`);
 
   return {
     clientHtml,
-    mainHtml: segments.join('<span class="qts-crumb-sep">›</span>'),
+    mainHtml: segments.join('<span class="qts-crumb-sep">|</span>'),
     color,
     text: contrastTextColor(color),
   };
+}
+
+const SENSITIVE_QUERY_KEYS = /^(?:token|access_token|refresh_token|authorization|code|secret|key|password|session)$/i;
+function safeCurrentUrl() {
+  try {
+    const url = new URL(window.location.href);
+    for (const key of [...url.searchParams.keys()]) {
+      if (SENSITIVE_QUERY_KEYS.test(key)) url.searchParams.set(key, "[oculto]");
+    }
+    if (/token|secret|password|session/i.test(url.hash)) url.hash = "#oculto";
+    return url.href;
+  } catch {
+    return String(window.location.href).slice(0, 2_048);
+  }
+}
+
+function applyPinnedTools() {
+  const root = state.shadowRoot;
+  if (!root) return;
+  const pinned = new Set(state.workspace?.preferences?.pinnedTools || []);
+  const groups = {
+    passFail: ["testStatusButton", "passButton", "failButton"],
+    notes: ["noteButton", "shapeButton"],
+    screenshot: ["screenshotButton"],
+    record: ["recordToggleButton", "recordStopButton", "recordTimer"],
+  };
+  for (const [key, ids] of Object.entries(groups)) {
+    for (const id of ids) root.getElementById(id)?.classList.toggle("isPreferenceHidden", !pinned.has(key));
+  }
+  const enabledTools = new Set(state.workspace?.preferences?.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
+  const menuItems = {
+    clickSpy: "clickSpyMenuItem", freezeClock: "freezeClockMenuItem", forceHttp: "forceHttpMenuItem",
+    inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
+    testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
+  };
+  for (const [key, id] of Object.entries(menuItems)) root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key));
 }
 
 function render() {
@@ -129,8 +172,12 @@ function render() {
   clientLabel.innerHTML = breadcrumb.clientHtml;
   clientLabel.classList.toggle("isHidden", !breadcrumb.clientHtml);
   root.getElementById("breadcrumb").innerHTML = breadcrumb.mainHtml;
+  const currentUrl = safeCurrentUrl();
+  const urlElement = root.getElementById("currentUrl");
+  urlElement.textContent = currentUrl;
+  urlElement.title = currentUrl;
   root.getElementById("restoreButton").classList.toggle("isVisible", state.minimized);
-
+  applyPinnedTools();
   setSpacerHeight();
 }
 
@@ -153,20 +200,32 @@ function buildShadowHost() {
         box-shadow: 0 2px 10px rgba(0,0,0,.25); transition: transform 160ms ease;
       }
       #bar.isMinimized { transform: translateY(-110%); }
-      #left, #right { display: flex; align-items: center; gap: 6px; min-width: 0; }
-      #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30vw; display: flex; align-items: center; gap: 4px; }
+      #left { min-width: 0; flex: 1 1 auto; display: grid; grid-template-rows: 15px 25px; align-content: center; gap: 1px; }
+      #right { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; }
+      #contextRow { min-width: 0; display: flex; align-items: center; gap: 8px; }
+      #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
       .qts-client-label {
-        display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700;
-        opacity: .82; padding-right: 7px; margin-right: 3px; border-right: 1px solid rgba(255,255,255,.3);
-        flex-shrink: 0;
+        display: inline-flex; align-items: center; gap: 4px; width: max-content; max-width: 220px;
+        font-size: 9px; line-height: 14px; font-weight: 700; opacity: .74; overflow: hidden;
       }
       .qts-client-label.isHidden { display: none; }
       .qts-badge-avatar {
         display: inline-flex; align-items: center; justify-content: center; border-radius: 5px;
         color: #fff; font-weight: 800; flex-shrink: 0; object-fit: cover; vertical-align: middle;
       }
-      .qts-badge-name { vertical-align: middle; }
+      .qts-badge-name { vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
+      #currentUrl {
+        position: relative; min-width: 150px; max-width: min(34vw, 620px); height: 24px; padding: 0 11px 0 31px;
+        display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; border: 1px solid rgba(0,0,0,.2);
+        border-radius: 999px; background: rgba(255,255,255,.94); color: #17191f; font-size: 11px; line-height: 22px;
+        font-weight: 650; box-shadow: inset 0 1px 2px rgba(0,0,0,.11); direction: ltr;
+      }
+      #currentUrl::before {
+        content: ""; position: absolute; left: 9px; top: 5px; width: 13px; height: 13px; background: #167c4b;
+        -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 1.5c.69 0 1.58 1.45 1.94 4.044H6.06C6.42 2.95 7.31 1.5 8 1.5ZM1.5 8c0-.323.024-.64.07-.95h3.37A15.7 15.7 0 0 0 4.9 8c0 .323.014.64.04.95H1.57A6.6 6.6 0 0 1 1.5 8Zm4.52 0c0-.326.015-.644.044-.95h3.872c.029.306.044.624.044.95 0 .326-.015.644-.044.95H6.064A10.5 10.5 0 0 1 6.02 8Zm5.04-.95h3.37c.046.31.07.627.07.95 0 .323-.024.64-.07.95h-3.37c.026-.31.04-.627.04-.95 0-.323-.014-.64-.04-.95ZM2.146 10.456H5.1c.15.866.38 1.676.67 2.386a6.5 6.5 0 0 1-3.624-2.386Zm3.914 0h3.88C9.58 13.05 8.69 14.5 8 14.5c-.69 0-1.58-1.45-1.94-4.044Z'/%3E%3C/svg%3E") center/contain no-repeat;
+        mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 1.5c.69 0 1.58 1.45 1.94 4.044H6.06C6.42 2.95 7.31 1.5 8 1.5ZM1.5 8c0-.323.024-.64.07-.95h3.37A15.7 15.7 0 0 0 4.9 8c0 .323.014.64.04.95H1.57A6.6 6.6 0 0 1 1.5 8Zm4.52 0c0-.326.015-.644.044-.95h3.872c.029.306.044.624.044.95 0 .326-.015.644-.044.95H6.064A10.5 10.5 0 0 1 6.02 8Zm5.04-.95h3.37c.046.31.07.627.07.95 0 .323-.024.64-.07.95h-3.37c.026-.31.04-.627.04-.95 0-.323-.014-.64-.04-.95ZM2.146 10.456H5.1c.15.866.38 1.676.67 2.386a6.5 6.5 0 0 1-3.624-2.386Zm3.914 0h3.88C9.58 13.05 8.69 14.5 8 14.5c-.69 0-1.58-1.45-1.94-4.044Z'/%3E%3C/svg%3E") center/contain no-repeat;
+      }
       button {
         all: unset; box-sizing: border-box; cursor: pointer; height: 24px; padding: 0 9px;
         display: inline-flex; align-items: center; gap: 5px; border-radius: 7px;
@@ -176,7 +235,7 @@ function buildShadowHost() {
       button:hover { background: rgba(0,0,0,.32); }
       button.iconOnly { width: 26px; padding: 0; justify-content: center; }
       button.isActive { background: #ffd700 !important; color: #111 !important; border-color: #fff !important; }
-      #clearAllButton.isHidden, .isHidden { display: none !important; }
+      #clearAllButton.isHidden, .isHidden, .isPreferenceHidden { display: none !important; }
       #recordToggleButton.isActive { background: #c70e0e !important; color: #fff !important; border-color: #fff !important; animation: qts-rec-pulse 1.6s ease-in-out infinite; }
       #recordToggleButton.isPaused { background: #ffd700 !important; color: #111 !important; animation: none; }
       @keyframes qts-rec-pulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
@@ -188,8 +247,6 @@ function buildShadowHost() {
         font: 900 13px sans-serif; cursor: pointer; box-shadow: 0 8px 18px rgba(0,0,0,.34);
       }
       #restoreButton.isVisible { display: inline-flex; }
-      .brand { opacity: .85; font-weight: 900; letter-spacing: .04em; }
-
       #toolsWrapper { position: relative; }
       #toolsMenu {
         position: absolute; top: 30px; right: 0; width: 220px; padding: 6px; display: grid; gap: 4px;
@@ -205,11 +262,10 @@ function buildShadowHost() {
       #toolsMenu button.isActive { background: #ffd700 !important; color: #111 !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; }
     </style>
-    <div id="bar" role="toolbar" aria-label="QA Toolbar Sandbox">
+    <div id="bar" role="toolbar" aria-label="Ferramentas de QA">
       <div id="left">
-        <span class="brand">QA Sandbox</span>
         <span id="clientLabel" class="qts-client-label isHidden"></span>
-        <span id="breadcrumb"></span>
+        <div id="contextRow"><span id="breadcrumb"></span><span id="currentUrl"></span></div>
       </div>
       <div id="right">
         <button id="testStatusButton" type="button" title="${escapeHtml(t.testStatusTitle)}">${escapeHtml(t.testStatus)}</button>
@@ -232,6 +288,8 @@ function buildShadowHost() {
             <button type="button" id="jsonStudioMenuItem" role="menuitem">🧪 ${escapeHtml(t.jsonStudioTitle)}</button>
             <button type="button" id="breakpointMenuItem" role="menuitem">📐 Breakpoint Viewer</button>
             <button type="button" id="testAccountsMenuItem" role="menuitem">🔑 ${escapeHtml(t.testAccountsMenuLabel)}</button>
+            <button type="button" id="paymentMethodsMenuItem" role="menuitem">💳 ${escapeHtml(t.paymentMethodsMenuLabel)}</button>
+            <button type="button" id="resourcesMenuItem" role="menuitem">🔗 ${escapeHtml(t.resourcesMenuLabel)}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">⚙</button>
@@ -270,6 +328,8 @@ function buildShadowHost() {
   shadow.getElementById("jsonStudioMenuItem").addEventListener("click", () => { openJsonStudio(); closeToolsMenu(); });
   shadow.getElementById("breakpointMenuItem").addEventListener("click", () => { openBreakpointViewer(); closeToolsMenu(); });
   shadow.getElementById("testAccountsMenuItem").addEventListener("click", () => { openTestAccountsDrawer(); closeToolsMenu(); });
+  shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
+  shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
 
   return { host, shadow };
 }
@@ -290,6 +350,7 @@ function isToolbarHealthy() {
 }
 
 function mountToolbar() {
+  if (document.getElementById(HOST_ID) || !state.authorized || !state.environment) return;
   const { host, shadow } = buildShadowHost();
   state.shadowRoot = shadow;
   document.documentElement.appendChild(host);
@@ -301,7 +362,34 @@ function mountToolbar() {
   render();
 }
 
+function removeToolbar({ disableBridge = false } = {}) {
+  state.integrityObserver?.disconnect();
+  state.integrityObserver = null;
+  if (state.integrityInterval) window.clearInterval(state.integrityInterval);
+  state.integrityInterval = null;
+  document.getElementById(HOST_ID)?.remove();
+  document.getElementById(SPACER_ID)?.remove();
+  document.querySelectorAll(".qts-modal-backdrop,.qts-result-overlay,.qts-floating-item,.qts-shape-preview").forEach((element) => element.remove());
+  state.shadowRoot = null;
+  document.documentElement.style.setProperty("--qts-toolbar-height", "0px");
+  document.dispatchEvent(new CustomEvent("qts:pagebridge-active", { detail: { active: false } }));
+  if (disableBridge) document.dispatchEvent(new CustomEvent("qts:pagebridge-disable"));
+}
+
+function syncToolbarForCurrentLocation() {
+  state.environment = findActiveEnvironment(state.workspace || { environments: [] });
+  if (!state.authorized || !state.environment) {
+    removeToolbar();
+    return;
+  }
+  if (!isToolbarHealthy()) mountToolbar();
+  else render();
+  document.dispatchEvent(new CustomEvent("qts:pagebridge-active", { detail: { active: true } }));
+  installIntegrityMonitor();
+}
+
 function scheduleRepair() {
+  if (!state.authorized || !state.environment) return;
   if (scheduleRepair.timer) return;
   scheduleRepair.timer = window.setTimeout(() => {
     scheduleRepair.timer = null;
@@ -310,6 +398,7 @@ function scheduleRepair() {
 }
 
 function installIntegrityMonitor() {
+  if (state.integrityObserver) return;
   const observer = new MutationObserver((mutations) => {
     const relevant = mutations.some((mutation) =>
       [...mutation.removedNodes].some((node) => node.nodeType === 1 && (node.id === HOST_ID || node.id === SPACER_ID)),
@@ -317,7 +406,8 @@ function installIntegrityMonitor() {
     if (relevant || !isToolbarHealthy()) scheduleRepair();
   });
   observer.observe(document.documentElement, { childList: true, subtree: true });
-  window.setInterval(() => {
+  state.integrityObserver = observer;
+  state.integrityInterval = window.setInterval(() => {
     if (!isToolbarHealthy()) scheduleRepair();
   }, 1500);
 }
@@ -579,7 +669,8 @@ function clearAllFloatingItems() {
 
 function updateClearAllVisibility() {
   const hasItems = document.querySelectorAll(".qts-floating-item").length > 0;
-  state.shadowRoot?.getElementById("clearAllButton")?.classList.toggle("isHidden", !hasItems);
+  const notesPinned = (state.workspace?.preferences?.pinnedTools || []).includes("notes");
+  state.shadowRoot?.getElementById("clearAllButton")?.classList.toggle("isHidden", !hasItems || !notesPinned);
 }
 
 // ---------------------------------------------------------------------------
@@ -966,6 +1057,12 @@ function openForceHttpDialog() {
 // ---------------------------------------------------------------------------
 
 function handleNetworkCaptured(entry) {
+  const configured = (state.workspace.inspectors || []).filter((inspector) => inspector.active !== false && Array.isArray(inspector.patterns) && inspector.patterns.length);
+  if (configured.length && !configured.some((inspector) => inspector.patterns.some((pattern) => {
+    const candidate = String(pattern || "").trim();
+    if (!candidate) return false;
+    try { return candidate.includes("*") ? wildcardToRegExp(candidate).test(String(entry?.url || "")) : String(entry?.url || "").toLowerCase().includes(candidate.toLowerCase()); } catch { return false; }
+  }))) return;
   state.networkHistory.unshift(entry);
   if (state.networkHistory.length > 150) state.networkHistory.length = 150;
   const badge = state.shadowRoot?.getElementById("inspectorsBadge");
@@ -1118,6 +1215,65 @@ function renderTestAccountsList() {
 function openTestAccountsDrawer() {
   openDrawer({ title: state.t.testAccountsDrawerTitle, bodyHtml: "" });
   renderTestAccountsList();
+}
+
+// Payment methods and resources are environment-aware, read-only views of
+// local configuration. Sensitive payment values remain masked until a direct
+// reveal action and never enter the safe workspace export.
+const revealedPaymentMethodIds = new Set();
+
+function maskedPaymentValue(value) {
+  const raw = String(value || "");
+  if (!raw) return "—";
+  const compact = raw.replace(/\s+/g, "");
+  const suffix = compact.slice(-4);
+  return `${"•".repeat(Math.max(4, Math.min(12, compact.length - suffix.length)))}${suffix}`;
+}
+
+function renderPaymentMethodsList() {
+  const body = state.shadowRoot.getElementById("drawerBody");
+  if (!body) return;
+  const methods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id));
+  if (!methods.length) {
+    body.innerHTML = `<div class="qts-empty">${escapeHtml(state.t.paymentMethodsEmptyForEnv)}</div>`;
+    return;
+  }
+  body.innerHTML = `<div style="display:grid;gap:10px">${methods.map((method) => {
+    const revealed = revealedPaymentMethodIds.has(method.id);
+    const value = revealed ? escapeHtml(method.value || "—") : escapeHtml(maskedPaymentValue(method.value));
+    return `<div class="qts-net-item" style="cursor:default">
+      <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:#ffd700">${escapeHtml(method.type || "other")}</span>
+      <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><small>${value}</small>
+      ${method.value ? `<button type="button" class="action" data-reveal-payment="${escapeHtml(method.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? "🙈" : "👁"}</button>` : ""}</div>
+      ${method.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(method.notes)}</small>` : ""}
+    </div>`;
+  }).join("")}</div>`;
+  body.querySelectorAll("[data-reveal-payment]").forEach((button) => button.addEventListener("click", () => {
+    const id = button.dataset.revealPayment;
+    if (revealedPaymentMethodIds.has(id)) revealedPaymentMethodIds.delete(id); else revealedPaymentMethodIds.add(id);
+    renderPaymentMethodsList();
+  }));
+}
+
+function openPaymentMethodsDrawer() {
+  openDrawer({ title: state.t.paymentMethodsDrawerTitle, bodyHtml: "" });
+  renderPaymentMethodsList();
+}
+
+function safeExternalUrl(value) {
+  try {
+    const url = new URL(String(value || ""));
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) return null;
+    return url.href;
+  } catch { return null; }
+}
+
+function openResourcesDrawer() {
+  const resources = (state.workspace.resources || []).filter((resource) => resource.active !== false).map((resource) => ({ ...resource, safeUrl: safeExternalUrl(resource.url) })).filter((resource) => resource.safeUrl);
+  openDrawer({
+    title: state.t.resourcesDrawerTitle,
+    bodyHtml: resources.length ? `<div style="display:grid;gap:10px">${resources.map((resource) => `<a class="qts-net-item" href="${escapeHtml(resource.safeUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;color:#fff;text-decoration:none"><b>${escapeHtml(resource.label || resource.safeUrl)}</b><small style="display:block;margin-top:4px;color:#888">${escapeHtml(resource.safeUrl)}</small></a>`).join("")}</div>` : `<div class="qts-empty">${escapeHtml(state.t.resourcesEmpty)}</div>`,
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1519,6 +1675,23 @@ async function stopEvidenceRecording() {
   updateRecordTimerDisplay();
 }
 
+function requestAccessState(force = false) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "qts:get-access-state", force }, (response) => {
+      if (chrome.runtime.lastError) return resolve({ active: false });
+      resolve(response || { active: false });
+    });
+  });
+}
+
+async function refreshAuthorization(force = false) {
+  const access = await requestAccessState(force);
+  state.authorized = access.active === true;
+  if (!state.authorized) removeToolbar({ disableBridge: true });
+  else syncToolbarForCurrentLocation();
+  return state.authorized;
+}
+
 async function boot() {
   if (!document.body) {
     document.addEventListener("DOMContentLoaded", boot, { once: true });
@@ -1527,17 +1700,37 @@ async function boot() {
 
   state.t = await window.QTS_I18N.load();
   state.workspace = await getWorkspace();
-  state.environment = findActiveEnvironment(state.workspace);
-
-  mountToolbar();
-  installIntegrityMonitor();
+  if (!await refreshAuthorization(true)) return;
 
   onStorageChanged(async (changes) => {
     if (!changes[STORAGE_KEYS.workspace]) return;
     state.workspace = await getWorkspace();
-    state.environment = findActiveEnvironment(state.workspace);
-    render();
+    syncToolbarForCurrentLocation();
   });
+
+  document.addEventListener("qts:location-change", () => syncToolbarForCurrentLocation());
+  window.addEventListener("popstate", () => syncToolbarForCurrentLocation());
+  window.addEventListener("hashchange", () => syncToolbarForCurrentLocation());
+  state.locationInterval = window.setInterval(() => {
+    if (state.lastHref === window.location.href) return;
+    state.lastHref = window.location.href;
+    syncToolbarForCurrentLocation();
+  }, 200);
+  state.accessInterval = window.setInterval(() => { void refreshAuthorization(true); }, 60_000);
 }
+
+chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+  if (message?.type === "qts:remove-toolbar") {
+    state.authorized = false;
+    removeToolbar({ disableBridge: true });
+    sendResponse({ removed: true });
+    return undefined;
+  }
+  if (message?.type === "qts:sync-toolbar") {
+    refreshAuthorization(true).then((active) => sendResponse({ present: true, active }));
+    return true;
+  }
+  return undefined;
+});
 
 void boot();

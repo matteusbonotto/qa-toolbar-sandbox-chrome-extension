@@ -8,6 +8,7 @@
 (() => {
   if (window.__qtsPageBridgeInstalled) return;
   window.__qtsPageBridgeInstalled = true;
+  let enabled = true;
 
   const NETWORK_EVENT = "qts:network-captured";
   const FREEZE_COMMAND_EVENT = "qts:freeze-clock-command";
@@ -29,6 +30,7 @@
   }
 
   function publishCapture(entry) {
+    if (!enabled) return;
     history.unshift(entry);
     if (history.length > HISTORY_LIMIT) history.length = HISTORY_LIMIT;
     document.dispatchEvent(new CustomEvent(NETWORK_EVENT, { detail: entry }));
@@ -55,6 +57,7 @@
   const originalFetch = window.fetch;
   if (typeof originalFetch === "function" && !originalFetch.__qtsPatched) {
     const patchedFetch = function (...args) {
+      if (!enabled) return originalFetch.apply(this, args);
       const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url;
       const method = args[1]?.method || (typeof args[0] === "object" ? args[0]?.method : undefined) || "GET";
 
@@ -93,6 +96,7 @@
       return originalOpen.call(this, method, url, ...rest);
     };
     XhrProto.send = function (...args) {
+      if (!enabled) return originalSend.apply(this, args);
       this.addEventListener("load", () => {
         try {
           const payload = typeof this.response === "object" && this.response !== null
@@ -150,6 +154,7 @@
   };
 
   document.addEventListener(FREEZE_COMMAND_EVENT, (event) => {
+    if (!enabled) return;
     const shouldFreeze = Boolean(event.detail?.freeze);
     if (shouldFreeze && !frozen) {
       frozenAt = OriginalDate.now();
@@ -167,6 +172,7 @@
   // Force HTTP: arm the next matching fetch to return a chosen status once.
   // ---------------------------------------------------------------------
   document.addEventListener(FORCE_HTTP_COMMAND_EVENT, (event) => {
+    if (!enabled) return;
     const status = Number(event.detail?.status || 0);
     window.__qtsForcedStatus = status > 0 ? status : null;
     document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: Boolean(window.__qtsForcedStatus) } }));
@@ -174,5 +180,34 @@
 
   document.addEventListener("qts:pagebridge-ping", () => {
     document.dispatchEvent(new CustomEvent("qts:pagebridge-pong", { detail: { at: Date.now() } }));
+  });
+
+  const publishLocation = () => document.dispatchEvent(new CustomEvent("qts:location-change", { detail: { href: location.href } }));
+  for (const method of ["pushState", "replaceState"]) {
+    const original = history[method];
+    history[method] = function (...args) {
+      const result = original.apply(this, args);
+      publishLocation();
+      return result;
+    };
+  }
+  window.addEventListener("popstate", publishLocation);
+  window.addEventListener("hashchange", publishLocation);
+
+  document.addEventListener("qts:pagebridge-active", (event) => {
+    enabled = event.detail?.active === true;
+    if (!enabled) {
+      window.__qtsForcedStatus = null;
+      if (frozen) {
+        frozen = false;
+        const queued = [...pendingTimeouts.values()];
+        pendingTimeouts.clear();
+        queued.forEach((run) => originalSetTimeout(run, 0));
+      }
+    }
+  });
+  document.addEventListener("qts:pagebridge-disable", () => {
+    enabled = false;
+    window.__qtsForcedStatus = null;
   });
 })();

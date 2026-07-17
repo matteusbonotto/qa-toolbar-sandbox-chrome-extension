@@ -7,6 +7,7 @@ import { VouchersPage } from "./pages/VouchersPage";
 import { AccessPage } from "./pages/AccessPage";
 import { LicensesPage } from "./pages/LicensesPage";
 import { UsersPage } from "./pages/UsersPage";
+import { AuditPage } from "./pages/AuditPage";
 
 function Gate() {
   const { status } = useAuth();
@@ -27,6 +28,7 @@ function Gate() {
           <Route path="/acessos" element={<AccessPage />} />
           <Route path="/licencas" element={<LicensesPage />} />
           <Route path="/usuarios" element={<UsersPage />} />
+          <Route path="/auditoria" element={<AuditPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

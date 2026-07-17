@@ -43,5 +43,11 @@ verify_jwt = false
 [functions.access-status]
 verify_jwt = false
 
+[functions.auth-sign-in]
+verify_jwt = false
+
+[functions.auth-refresh]
+verify_jwt = false
+
 [functions.admin-email-otp]
 verify_jwt = false

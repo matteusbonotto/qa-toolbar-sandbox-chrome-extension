@@ -2,11 +2,15 @@ import { useState } from "react";
 import {
   createVoucher,
   createVoucherCampaign,
+  deleteVoucher,
+  deleteVoucherCampaign,
   listPlans,
   listVouchers,
   listVoucherCampaigns,
   setVoucherCampaignEnabled,
   setVoucherStatus,
+  updateVoucher,
+  updateVoucherCampaign,
 } from "../lib/api";
 import { useAsyncData } from "../lib/useAsyncData";
 
@@ -21,6 +25,7 @@ export function VouchersPage() {
   const [voucherGrantDays, setVoucherGrantDays] = useState("");
   const [voucherBusy, setVoucherBusy] = useState(false);
   const [voucherFormError, setVoucherFormError] = useState<string | null>(null);
+  const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null);
 
   const [campaignCode, setCampaignCode] = useState("");
   const [campaignLabel, setCampaignLabel] = useState("");
@@ -29,23 +34,21 @@ export function VouchersPage() {
   const [campaignMaxRedemptions, setCampaignMaxRedemptions] = useState("");
   const [campaignBusy, setCampaignBusy] = useState(false);
   const [campaignFormError, setCampaignFormError] = useState<string | null>(null);
+  const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
 
   async function handleCreateVoucher(event: React.FormEvent) {
     event.preventDefault();
-    if (!voucherCode.trim() || !voucherLabel.trim() || !voucherPlanId) return;
+    if ((!editingVoucherId && !voucherCode.trim()) || !voucherLabel.trim() || !voucherPlanId) return;
     setVoucherBusy(true);
     setVoucherFormError(null);
     try {
-      await createVoucher({
-        code: voucherCode,
-        label: voucherLabel,
-        planId: voucherPlanId,
-        grantDays: voucherGrantDays ? Number(voucherGrantDays) : null,
-        expiresAt: null,
-      });
+      const input = { label: voucherLabel, planId: voucherPlanId, grantDays: voucherGrantDays ? Number(voucherGrantDays) : null, expiresAt: null };
+      if (editingVoucherId) await updateVoucher(editingVoucherId, input);
+      else await createVoucher({ code: voucherCode, ...input });
       setVoucherCode("");
       setVoucherLabel("");
       setVoucherGrantDays("");
+      setEditingVoucherId(null);
       vouchers.reload();
     } catch (err) {
       setVoucherFormError(err instanceof Error ? err.message : String(err));
@@ -56,21 +59,17 @@ export function VouchersPage() {
 
   async function handleCreateCampaign(event: React.FormEvent) {
     event.preventDefault();
-    if (!campaignCode.trim() || !campaignLabel.trim() || !campaignPlanId) return;
+    if ((!editingCampaignId && !campaignCode.trim()) || !campaignLabel.trim() || !campaignPlanId) return;
     setCampaignBusy(true);
     setCampaignFormError(null);
     try {
-      await createVoucherCampaign({
-        code: campaignCode,
-        label: campaignLabel,
-        planId: campaignPlanId,
-        grantDays: Number(campaignGrantDays) || 30,
-        maximumRedemptions: campaignMaxRedemptions ? Number(campaignMaxRedemptions) : null,
-        expiresAt: null,
-      });
+      const input = { label: campaignLabel, planId: campaignPlanId, grantDays: Number(campaignGrantDays) || 30, maximumRedemptions: campaignMaxRedemptions ? Number(campaignMaxRedemptions) : null, expiresAt: null };
+      if (editingCampaignId) await updateVoucherCampaign(editingCampaignId, input);
+      else await createVoucherCampaign({ code: campaignCode, ...input });
       setCampaignCode("");
       setCampaignLabel("");
       setCampaignMaxRedemptions("");
+      setEditingCampaignId(null);
       campaigns.reload();
     } catch (err) {
       setCampaignFormError(err instanceof Error ? err.message : String(err));
@@ -94,7 +93,7 @@ export function VouchersPage() {
         <h2>Voucher de uso único</h2>
         {voucherFormError ? <div className="qa-error">{voucherFormError}</div> : null}
         <form className="qa-form-row" onSubmit={handleCreateVoucher}>
-          <input placeholder="Código (ex.: BEMVINDO30)" value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} />
+          <input disabled={Boolean(editingVoucherId)} placeholder={editingVoucherId ? "Código preservado (hash)" : "Código (ex.: BEMVINDO30)"} value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} />
           <input placeholder="Rótulo" value={voucherLabel} onChange={(e) => setVoucherLabel(e.target.value)} />
           <select value={voucherPlanId} onChange={(e) => setVoucherPlanId(e.target.value)}>
             <option value="">Plano…</option>
@@ -106,8 +105,9 @@ export function VouchersPage() {
           </select>
           <input placeholder="Dias concedidos (opcional)" value={voucherGrantDays} onChange={(e) => setVoucherGrantDays(e.target.value)} />
           <button type="submit" className="qa-btn primary" disabled={voucherBusy}>
-            + Criar
+            {editingVoucherId ? "Salvar edição" : "+ Criar"}
           </button>
+          {editingVoucherId ? <button type="button" className="qa-btn" onClick={() => { setEditingVoucherId(null); setVoucherCode(""); setVoucherLabel(""); setVoucherPlanId(""); setVoucherGrantDays(""); }}>Cancelar</button> : null}
         </form>
 
         {vouchers.error ? <div className="qa-error">{vouchers.error}</div> : null}
@@ -133,6 +133,7 @@ export function VouchersPage() {
                   <td>{voucher.grant_days ?? "—"}</td>
                   <td>{new Date(voucher.created_at).toLocaleDateString("pt-BR")}</td>
                   <td>
+                    {voucher.status !== "used" ? <button type="button" className="qa-btn" onClick={() => { setEditingVoucherId(voucher.id); setVoucherCode(""); setVoucherLabel(voucher.label); setVoucherPlanId(voucher.plan_id); setVoucherGrantDays(voucher.grant_days ? String(voucher.grant_days) : ""); }}>Editar</button> : null}{" "}
                     {voucher.status !== "used" ? (
                       <button
                         type="button"
@@ -142,6 +143,7 @@ export function VouchersPage() {
                         {voucher.status === "disabled" ? "Reativar" : "Desativar"}
                       </button>
                     ) : null}
+                    {voucher.status !== "used" ? <button type="button" className="qa-btn danger" style={{ marginLeft: 6 }} onClick={() => { if (window.confirm("Excluir este voucher? O código não poderá ser recuperado.")) void deleteVoucher(voucher.id).then(vouchers.reload); }}>Excluir</button> : null}
                   </td>
                 </tr>
               ))}
@@ -160,7 +162,7 @@ export function VouchersPage() {
         </p>
         {campaignFormError ? <div className="qa-error">{campaignFormError}</div> : null}
         <form className="qa-form-row" onSubmit={handleCreateCampaign}>
-          <input placeholder="Código (ex.: LANCAMENTO20)" value={campaignCode} onChange={(e) => setCampaignCode(e.target.value)} />
+          <input disabled={Boolean(editingCampaignId)} placeholder={editingCampaignId ? "Código preservado (hash)" : "Código (ex.: LANCAMENTO20)"} value={campaignCode} onChange={(e) => setCampaignCode(e.target.value)} />
           <input placeholder="Rótulo" value={campaignLabel} onChange={(e) => setCampaignLabel(e.target.value)} />
           <select value={campaignPlanId} onChange={(e) => setCampaignPlanId(e.target.value)}>
             <option value="">Plano…</option>
@@ -173,8 +175,9 @@ export function VouchersPage() {
           <input placeholder="Dias concedidos" value={campaignGrantDays} onChange={(e) => setCampaignGrantDays(e.target.value)} />
           <input placeholder="Limite de resgates (vazio = ilimitado)" value={campaignMaxRedemptions} onChange={(e) => setCampaignMaxRedemptions(e.target.value)} />
           <button type="submit" className="qa-btn primary" disabled={campaignBusy}>
-            + Criar
+            {editingCampaignId ? "Salvar edição" : "+ Criar"}
           </button>
+          {editingCampaignId ? <button type="button" className="qa-btn" onClick={() => { setEditingCampaignId(null); setCampaignCode(""); setCampaignLabel(""); setCampaignPlanId(""); setCampaignGrantDays("30"); setCampaignMaxRedemptions(""); }}>Cancelar</button> : null}
         </form>
 
         {campaigns.error ? <div className="qa-error">{campaigns.error}</div> : null}
@@ -203,6 +206,7 @@ export function VouchersPage() {
                     {campaign.maximum_redemptions ? ` / ${campaign.maximum_redemptions}` : ""}
                   </td>
                   <td>
+                    <button type="button" className="qa-btn" onClick={() => { setEditingCampaignId(campaign.id); setCampaignCode(""); setCampaignLabel(campaign.label); setCampaignPlanId(campaign.plan_id); setCampaignGrantDays(String(campaign.grant_days)); setCampaignMaxRedemptions(campaign.maximum_redemptions ? String(campaign.maximum_redemptions) : ""); }}>Editar</button>{" "}
                     <button
                       type="button"
                       className="qa-btn danger"
@@ -210,6 +214,7 @@ export function VouchersPage() {
                     >
                       {campaign.enabled ? "Desativar" : "Reativar"}
                     </button>
+                    {campaign.redemption_count === 0 ? <button type="button" className="qa-btn danger" style={{ marginLeft: 6 }} onClick={() => { if (window.confirm("Excluir esta campanha sem resgates?")) void deleteVoucherCampaign(campaign.id).then(campaigns.reload); }}>Excluir</button> : null}
                   </td>
                 </tr>
               ))}

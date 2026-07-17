@@ -2,6 +2,7 @@ import { getDashboardMetrics } from "../lib/api";
 import { useAsyncData } from "../lib/useAsyncData";
 
 const METRIC_LABELS: Record<string, string> = {
+  monthlyRecurringRevenueMinor: "MRR estimado",
   activeSubscriptions: "Assinaturas ativas",
   trialingSubscriptions: "Em trial",
   vouchersRedeemed: "Vouchers resgatados",
@@ -28,7 +29,7 @@ export function DashboardPage() {
         <div className="qa-metrics-grid">
           {Object.entries(data).map(([key, value]) => (
             <div key={key} className="qa-metric-card">
-              <div className="value">{value}</div>
+              <div className="value">{key === "monthlyRecurringRevenueMinor" ? new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(value / 100) : value}</div>
               <div className="label">{METRIC_LABELS[key] ?? key}</div>
             </div>
           ))}
