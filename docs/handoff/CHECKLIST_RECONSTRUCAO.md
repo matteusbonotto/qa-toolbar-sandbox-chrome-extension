@@ -47,8 +47,10 @@ hardcoded no browser; senha não é persistida pela LP; URL da Store vem do back
       `admin-email-otp` e route guard implementados para a conta confirmada
       `matteusbonotto+admin@gmail.com`. O código nativo de reautenticação do Supabase tem 8 dígitos,
       expira efetivamente em 10 minutos pelo challenge e só é enviado após uma sessão de senha
-      recente. A prova founder é armazenada somente como SHA-256, validada pelo RLS em cada operação,
-      expira em no máximo 60 minutos e o frontend encerra a sessão nesse momento. Smoke real com
+      recente. A prova founder é armazenada no banco somente como SHA-256, validada pelo RLS em cada
+      operação; o token entregue ao navegador fica apenas na memória da página, nunca em storage
+      persistente. A prova expira em no máximo 60 minutos e o frontend encerra a sessão nesse
+      momento. Smoke real com
       conta temporária confirmou: senha sem OTP bloqueada, envio de e-mail `200`, OTP incorreto `401`
       prova adulterada e revogada bloqueadas, prova válida aceita, constraint acima de 60 minutos
       rejeitada e limpeza das contas/dados temporários. Falta o cadastro definitivo e o login humano
@@ -87,9 +89,10 @@ de reautenticação; login passwordless/OTP isolado não cria prova founder.
 - [~] Estrutura de afiliados/referrals e `reward_referral()` transacional implementadas; falta validar
       a recompensa com um primeiro pagamento assinado completo.
 
-**Estado**: projeto `xhusvkylbouwtpcevgri` ativo; migrations `20260717010000_bootstrap.sql` e
-`20260717020000_fix_user_signup.sql` aplicadas. `schema.sql` é fonte reproduzível e deve ficar no Git;
-ele não contém chaves, senhas ou vouchers em texto puro.
+**Estado**: projeto `xhusvkylbouwtpcevgri` ativo; as seis migrations de
+`20260717010000_bootstrap.sql` a `20260717060000_fix_admin_user_directory.sql` estão aplicadas e
+sincronizadas com o repositório. `schema.sql` é fonte reproduzível e deve ficar no Git; ele não contém
+chaves, senhas ou vouchers em texto puro.
 
 ## 4. Stripe — catálogo novo
 
@@ -112,15 +115,15 @@ ele não contém chaves, senhas ou vouchers em texto puro.
 - [x] `access-status` — publicada; só retorna URL oficial da Store para entitlement ativo e não confia
       em query string de retorno do Stripe.
 
-**Estado real em 2026-07-17**: as seis funções têm implementação e passaram em `deno check`;
-os 3 testes Deno do helper HTTP/CORS também passam.
+**Estado real em 2026-07-17**: as sete funções têm implementação e passaram em `deno check`;
+os 6 testes Deno dos helpers HTTP/CORS e MFA também passam.
 O gateway está configurado em `supabase/config.toml`; `scripts/bootstrap-new-backend.ps1`
 aplica o schema, envia os segredos e publica todas as funções com um comando. SQL não consegue
 publicar código Deno por si só; por isso o deploy usa a API oficial do Supabase.
 
-**Deploy real em 2026-07-17**: migrations aplicadas ao projeto `xhusvkylbouwtpcevgri`; 6 Edge
+**Deploy real em 2026-07-17**: migrations aplicadas ao projeto `xhusvkylbouwtpcevgri`; 7 Edge
 Functions publicadas; 6 Stripe Prices de teste registrados; webhook Stripe criado para o projeto
-novo; CORS validado em 6 funções × 10 origens (132 assertions). Smokes ao vivo: keep-alive `200`,
+novo; CORS validado em 7 funções × 10 origens (224 assertions). Smokes ao vivo: keep-alive `200`,
 endpoints de usuário sem sessão `401`, webhook sem assinatura `400`, trial autenticado confirmado,
 sessão paga test criada e validada, e `access-status` retornando a Store oficial somente após acesso.
 
@@ -149,8 +152,10 @@ sessão paga test criada e validada, e `access-status` retornando a Store oficia
 - [x] Histórico remoto auditado em 2026-07-17: 57 commits acessíveis verificados, sem formato real
       de Stripe secret, webhook secret, Supabase secret, GitHub token ou chave privada. O único JWT
       encontrado é fixture assinada de teste com chave pública, sem service role.
-- [x] Pages publicado auditado: HTML e bundle `200`, zero formatos de segredo; `.env`, `schema.sql`,
-      `supabase/schema.sql` e `/admin/` não existem no artefato publicado atual (`404`).
+- [x] Pages publicado auditado após o PR #25: landing, `/admin/` e quatro assets retornam `200`,
+      preços oficiais renderizam no Chromium sem erro de console e o JavaScript público tem zero
+      formatos de segredo; `.env`, `.env.edge.local`, `schema.sql`, `supabase/schema.sql` e o
+      project-ref temporário não existem no artefato (`404`).
 - [x] Cupons de exemplo hardcoded removidos da LP; validação/consumo ocorre no backend por hash.
 - [x] Workflow Pages exige `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` como repository
       variables, constrói landing + admin e falha fechado se a configuração pública estiver ausente.
@@ -161,8 +166,10 @@ sessão paga test criada e validada, e `access-status` retornando a Store oficia
       reautenticação do Supabase, que já entrega nonce de 8 dígitos e funcionou no smoke real.
       A migration `060000` também corrigiu o retorno de `auth.users.email` (`varchar` → `text`) na
       RPC `admin_list_users()`, falha encontrada pelo smoke MFA e incorporada ao `schema.sql`.
-- [ ] Configurar as duas repository variables no GitHub, publicar/mesclar em `main` e validar a URL
-      real do Pages. Bloqueado localmente porque o GitHub CLI (`gh`) ainda não está instalado/autenticado.
+- [x] Repository variables `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` configuradas sem
+      imprimir o valor da chave pública; PR #25 aprovado por `verify` e CodeQL sem novos alertas,
+      mesclado em `main` (`18d0ab5`) via API autenticada do GitHub, sem depender de `gh` ou acesso
+      administrativo no Windows. Workflow Pages `29557385312` concluído com sucesso e URL real validada.
 - [ ] Criar/confirmar a conta founder e validar o login humano no admin publicado.
 
 ---
