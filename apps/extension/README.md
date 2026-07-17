@@ -53,6 +53,17 @@ land in `artifacts/runtime-evidence/` (gitignored).
   is shared across every matched site, but a content script's `window.localStorage`
   is the *page's* storage. Only `chrome.storage.local` is extension-scoped
   and follows the user from site to site.
+- **i18n as a classic-script dictionary, not `chrome.i18n` messages.json.**
+  `src/lib/i18n-content.js` mirrors the `window.QTS_STORAGE` pattern: a
+  `window.QTS_I18N` dictionary for pt-BR/es/en, with the active locale stored
+  under `qtsLocale` in `chrome.storage.local` (independent from the workspace
+  key so it survives a workspace reset). `chrome.i18n`'s built-in
+  `messages.json` mechanism only follows the *browser's* UI language and can't
+  be switched from inside the extension's own UI — this needed a picker in
+  the options page, so a small custom dictionary made more sense than fighting
+  that constraint. The toolbar (`toolbar.js`) reads `state.t` once at boot;
+  a locale change from Options takes effect on next reload of the page, the
+  same trade-off already accepted for site-scope changes.
 
 ## Status
 

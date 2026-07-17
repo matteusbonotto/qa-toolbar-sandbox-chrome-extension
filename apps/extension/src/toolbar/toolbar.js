@@ -14,16 +14,20 @@ const state = {
   clockFrozen: false,
   forceHttpActive: false,
   networkHistory: [],
+  t: null,
 };
 
 const FORCE_HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503];
 
-const TEST_STATUS_OPTIONS = [
-  { key: "pass", label: "Pass", icon: "✓", color: "#179153" },
-  { key: "fail", label: "Fail", icon: "✕", color: "#c70e0e" },
-  { key: "blocked", label: "Blocked", icon: "⛔", color: "#a34b05" },
-  { key: "limitation", label: "Limitation", icon: "△", color: "#5b21b6" },
-];
+function getTestStatusOptions() {
+  const t = state.t;
+  return [
+    { key: "pass", label: t.statusPass, icon: "✓", color: "#179153" },
+    { key: "fail", label: t.statusFail, icon: "✕", color: "#c70e0e" },
+    { key: "blocked", label: t.statusBlocked, icon: "⛔", color: "#a34b05" },
+    { key: "limitation", label: t.statusLimitation, icon: "△", color: "#5b21b6" },
+  ];
+}
 const TEST_STATUS_HISTORY_KEY = "qtsTestStatusHistoryV1";
 
 function escapeHtml(value) {
@@ -80,17 +84,32 @@ function setSpacerHeight() {
   document.documentElement.style.setProperty("--qts-toolbar-height", `${getCurrentHeight()}px`);
 }
 
+/**
+ * White-label breadcrumb: Client renders as a small, de-emphasized corner
+ * label (logo/initials only by default), while Project → Product → Environment
+ * form the main sequence, each entity rendering as a logo image, or — when no
+ * logo is set — an auto-generated colored initials badge, so a brand-new
+ * client/project/product is never a blank space. Per-entity `showLabel`
+ * controls whether the name is spelled out next to the badge.
+ */
 function buildBreadcrumb(workspace, environment) {
   if (!environment) {
-    return { label: "Nenhum ambiente configurado para esta URL", color: "#3a3a3a", text: "#ffffff" };
+    return { clientHtml: "", mainHtml: escapeHtml(state.t.noEnvironment), color: "#3a3a3a", text: "#ffffff" };
   }
   const client = findById(workspace.clients, environment.clientId);
   const project = findById(workspace.projects, environment.projectId);
   const product = findById(workspace.products, environment.productId);
-  const parts = [client?.name, project?.name, product?.name].filter(Boolean);
   const color = environment.color || "#ef3340";
+
+  const clientHtml = client ? window.QTS_AVATAR.buildEntityHtml(client, { size: 15, maxChars: 14 }) : "";
+  const segments = [project, product]
+    .filter(Boolean)
+    .map((entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 19, maxChars: 16 }));
+  segments.push(`<strong>${escapeHtml(environment.name)}</strong>`);
+
   return {
-    label: parts.length ? `${parts.join(" · ")} — ${environment.name}` : environment.name,
+    clientHtml,
+    mainHtml: segments.join('<span class="qts-crumb-sep">›</span>'),
     color,
     text: contrastTextColor(color),
   };
@@ -106,13 +125,17 @@ function render() {
   bar.style.setProperty("--qts-text", breadcrumb.text);
   bar.classList.toggle("isMinimized", state.minimized);
 
-  root.getElementById("breadcrumb").textContent = breadcrumb.label;
+  const clientLabel = root.getElementById("clientLabel");
+  clientLabel.innerHTML = breadcrumb.clientHtml;
+  clientLabel.classList.toggle("isHidden", !breadcrumb.clientHtml);
+  root.getElementById("breadcrumb").innerHTML = breadcrumb.mainHtml;
   root.getElementById("restoreButton").classList.toggle("isVisible", state.minimized);
 
   setSpacerHeight();
 }
 
 function buildShadowHost() {
+  const t = state.t;
   const host = document.createElement("div");
   host.id = HOST_ID;
   host.style.all = "initial";
@@ -131,7 +154,19 @@ function buildShadowHost() {
       }
       #bar.isMinimized { transform: translateY(-110%); }
       #left, #right { display: flex; align-items: center; gap: 6px; min-width: 0; }
-      #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30vw; }
+      #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 30vw; display: flex; align-items: center; gap: 4px; }
+      .qts-crumb-sep { opacity: .55; }
+      .qts-client-label {
+        display: inline-flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700;
+        opacity: .82; padding-right: 7px; margin-right: 3px; border-right: 1px solid rgba(255,255,255,.3);
+        flex-shrink: 0;
+      }
+      .qts-client-label.isHidden { display: none; }
+      .qts-badge-avatar {
+        display: inline-flex; align-items: center; justify-content: center; border-radius: 5px;
+        color: #fff; font-weight: 800; flex-shrink: 0; object-fit: cover; vertical-align: middle;
+      }
+      .qts-badge-name { vertical-align: middle; }
       button {
         all: unset; box-sizing: border-box; cursor: pointer; height: 24px; padding: 0 9px;
         display: inline-flex; align-items: center; gap: 5px; border-radius: 7px;
@@ -173,35 +208,37 @@ function buildShadowHost() {
     <div id="bar" role="toolbar" aria-label="QA Toolbar Sandbox">
       <div id="left">
         <span class="brand">QA Sandbox</span>
+        <span id="clientLabel" class="qts-client-label isHidden"></span>
         <span id="breadcrumb"></span>
       </div>
       <div id="right">
-        <button id="testStatusButton" type="button" title="Registrar status do teste">Test Status</button>
-        <button id="passButton" class="iconOnly" type="button" title="Marcador Pass">✓</button>
-        <button id="failButton" class="iconOnly" type="button" title="Marcador Fail">✕</button>
-        <button id="noteButton" class="iconOnly" type="button" title="Nota de texto">T</button>
-        <button id="shapeButton" class="iconOnly" type="button" title="Desenhar forma">▭</button>
-        <button id="clearAllButton" class="isHidden" type="button" title="Remover todas as anotações">Limpar</button>
-        <button id="screenshotButton" class="iconOnly" type="button" title="Capturar screenshot">📷</button>
-        <button id="recordToggleButton" class="iconOnly" type="button" title="Iniciar gravação de evidência">⏺</button>
-        <button id="recordStopButton" class="iconOnly isHidden" type="button" title="Parar gravação">⏹</button>
+        <button id="testStatusButton" type="button" title="${escapeHtml(t.testStatusTitle)}">${escapeHtml(t.testStatus)}</button>
+        <button id="passButton" class="iconOnly" type="button" title="${escapeHtml(t.pass)}">✓</button>
+        <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">✕</button>
+        <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
+        <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">▭</button>
+        <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
+        <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">📷</button>
+        <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">⏺</button>
+        <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">⏹</button>
         <span id="recordTimer" class="isHidden">00:00</span>
         <div id="toolsWrapper">
-          <button id="toolsButton" type="button" title="Ferramentas">Tools ▾</button>
+          <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ▾</button>
           <div id="toolsMenu" role="menu">
             <button type="button" id="clickSpyMenuItem" role="menuitem">🖱 Click Spy</button>
             <button type="button" id="freezeClockMenuItem" role="menuitem">⏸ Freeze Clock</button>
             <button type="button" id="forceHttpMenuItem" role="menuitem">⚠ Force HTTP</button>
-            <button type="button" id="inspectorsMenuItem" role="menuitem">{ } Inspectors<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
-            <button type="button" id="jsonStudioMenuItem" role="menuitem">🧪 JSON Studio</button>
+            <button type="button" id="inspectorsMenuItem" role="menuitem">{ } ${escapeHtml(t.inspectorsTitle)}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
+            <button type="button" id="jsonStudioMenuItem" role="menuitem">🧪 ${escapeHtml(t.jsonStudioTitle)}</button>
             <button type="button" id="breakpointMenuItem" role="menuitem">📐 Breakpoint Viewer</button>
+            <button type="button" id="testAccountsMenuItem" role="menuitem">🔑 ${escapeHtml(t.testAccountsMenuLabel)}</button>
           </div>
         </div>
-        <button id="settingsButton" class="iconOnly" type="button" title="Configurações">⚙</button>
-        <button id="minimizeButton" class="iconOnly" type="button" title="Minimizar">▲</button>
+        <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">⚙</button>
+        <button id="minimizeButton" class="iconOnly" type="button" title="${escapeHtml(t.minimize)}">▲</button>
       </div>
     </div>
-    <button id="restoreButton" type="button" title="Mostrar QA Toolbar Sandbox">▼</button>
+    <button id="restoreButton" type="button" title="${escapeHtml(t.restore)}">▼</button>
   `;
 
   shadow.getElementById("settingsButton").addEventListener("click", () => {
@@ -232,6 +269,7 @@ function buildShadowHost() {
   shadow.getElementById("inspectorsMenuItem").addEventListener("click", () => { openInspectorsDrawer(); closeToolsMenu(); });
   shadow.getElementById("jsonStudioMenuItem").addEventListener("click", () => { openJsonStudio(); closeToolsMenu(); });
   shadow.getElementById("breakpointMenuItem").addEventListener("click", () => { openBreakpointViewer(); closeToolsMenu(); });
+  shadow.getElementById("testAccountsMenuItem").addEventListener("click", () => { openTestAccountsDrawer(); closeToolsMenu(); });
 
   return { host, shadow };
 }
@@ -295,14 +333,15 @@ function closeTestStatusModal() {
 
 function openTestStatusModal() {
   closeTestStatusModal();
+  const options = getTestStatusOptions();
   const modal = document.createElement("div");
   modal.id = "qts-test-status-modal";
   modal.className = "qts-modal-backdrop";
   modal.innerHTML = `
     <div class="qts-modal">
-      <header><h2>Test Status</h2><button type="button" data-close>×</button></header>
+      <header><h2>${escapeHtml(state.t.testStatus)}</h2><button type="button" data-close>×</button></header>
       <div class="qts-status-grid">
-        ${TEST_STATUS_OPTIONS.map((option) => `
+        ${options.map((option) => `
           <button type="button" class="qts-status-option" data-status="${option.key}" style="--qts-status-color:${option.color}">
             <span class="qts-status-icon">${option.icon}</span><span>${escapeHtml(option.label)}</span>
           </button>
@@ -317,7 +356,7 @@ function openTestStatusModal() {
   modal.querySelectorAll("[data-status]").forEach((button) => {
     button.addEventListener("click", () => {
       const key = button.dataset.status;
-      const option = TEST_STATUS_OPTIONS.find((item) => item.key === key);
+      const option = options.find((item) => item.key === key);
       closeTestStatusModal();
       showResultOverlay(option);
       void recordTestStatus(option);
@@ -396,7 +435,7 @@ function placeMarker(kind, clientX, clientY) {
   marker.style.top = `${Math.max(getCurrentHeight() + 4, clientY - size / 2)}px`;
   marker.innerHTML = `
     <div class="qts-marker-body ${kind === "fail" ? "isFail" : "isPass"}" data-drag-handle>${kind === "fail" ? "✕" : "✓"}</div>
-    <button type="button" class="qts-remove-btn" title="Remover">×</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
   `;
   document.body.appendChild(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
@@ -405,27 +444,28 @@ function placeMarker(kind, clientX, clientY) {
 }
 
 function addFloatingTextNote() {
+  const t = state.t;
   const note = document.createElement("div");
   note.className = "qts-floating-item qts-note isEditing";
   note.style.left = `${Math.max(12, window.innerWidth - 320)}px`;
   note.style.top = `${getCurrentHeight() + 24}px`;
   note.innerHTML = `
-    <div class="qts-editor-head" data-drag-handle><span>Nota de texto</span><button type="button" class="qts-remove-btn" title="Remover">×</button></div>
+    <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button></div>
     <div class="qts-editor-body">
-      <textarea placeholder="Escreva aqui..."></textarea>
-      <div class="qts-editor-actions"><button type="button" data-save>Salvar</button></div>
+      <textarea placeholder="${escapeHtml(t.notePlaceholder)}"></textarea>
+      <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
     </div>
   `;
   document.body.appendChild(note);
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {
-    const text = note.querySelector("textarea").value.trim() || "Nota";
+    const text = note.querySelector("textarea").value.trim() || t.noteDefault;
     note.className = "qts-floating-item qts-note isSaved";
     note.innerHTML = `
       <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
-      <button type="button" class="qts-edit-btn" title="Editar">✎</button>
-      <button type="button" class="qts-remove-btn" title="Remover">×</button>
+      <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">✎</button>
+      <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
     `;
     makeDraggable(note, note.querySelector("[data-drag-handle]"));
     note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
@@ -435,23 +475,24 @@ function addFloatingTextNote() {
 }
 
 function reopenTextNoteEditor(note, currentText) {
+  const t = state.t;
   note.className = "qts-floating-item qts-note isEditing";
   note.innerHTML = `
-    <div class="qts-editor-head" data-drag-handle><span>Nota de texto</span><button type="button" class="qts-remove-btn" title="Remover">×</button></div>
+    <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button></div>
     <div class="qts-editor-body">
-      <textarea placeholder="Escreva aqui...">${escapeHtml(currentText)}</textarea>
-      <div class="qts-editor-actions"><button type="button" data-save>Salvar</button></div>
+      <textarea placeholder="${escapeHtml(t.notePlaceholder)}">${escapeHtml(currentText)}</textarea>
+      <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
     </div>
   `;
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {
-    const text = note.querySelector("textarea").value.trim() || "Nota";
+    const text = note.querySelector("textarea").value.trim() || t.noteDefault;
     note.className = "qts-floating-item qts-note isSaved";
     note.innerHTML = `
       <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
-      <button type="button" class="qts-edit-btn" title="Editar">✎</button>
-      <button type="button" class="qts-remove-btn" title="Remover">×</button>
+      <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">✎</button>
+      <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
     `;
     makeDraggable(note, note.querySelector("[data-drag-handle]"));
     note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
@@ -503,7 +544,7 @@ function placeShape(left, top, width, height) {
   shape.style.height = `${height}px`;
   shape.innerHTML = `
     <div class="qts-shape-box" data-drag-handle></div>
-    <button type="button" class="qts-remove-btn" title="Remover">×</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
   `;
   document.body.appendChild(shape);
   makeDraggable(shape, shape.querySelector("[data-drag-handle]"));
@@ -656,8 +697,8 @@ function renderSmartFilter({ key, label, options }, selected, onChange) {
   return `<details class="qts-combo" data-filter-key="${escapeHtml(key)}">
     <summary>${escapeHtml(label)} <span class="qts-combo-count">${selected.size ? `(${selected.size})` : ""}</span></summary>
     <div class="qts-combo-panel">
-      <input type="search" placeholder="Buscar..." data-combo-search />
-      <button type="button" class="qts-combo-clear" data-combo-clear>Limpar seleção</button>
+      <input type="search" placeholder="${escapeHtml(state.t.searchPlaceholder)}" data-combo-search />
+      <button type="button" class="qts-combo-clear" data-combo-clear>${escapeHtml(state.t.clearSelection)}</button>
       <div data-combo-options>
         ${options.map((option) => `
           <label class="qts-combo-option" data-combo-option data-search="${escapeHtml(option.label.toLowerCase())}">
@@ -758,8 +799,8 @@ function renderFriendlyJson(value, keyLabel = null, depth = 0) {
     </div>`;
   }
   if (Array.isArray(value)) {
-    const label = keyLabel === null ? `Lista` : humanizeKey(keyLabel);
-    if (!value.length) return `<div class="qts-friendly-field" data-friendly-key="${escapeHtml(keyLabel || "")}"><div class="qts-field-label">${escapeHtml(label)}</div><div class="qts-field-value" style="color:#666">Vazio</div></div>`;
+    const label = keyLabel === null ? state.t.list : humanizeKey(keyLabel);
+    if (!value.length) return `<div class="qts-friendly-field" data-friendly-key="${escapeHtml(keyLabel || "")}"><div class="qts-field-label">${escapeHtml(label)}</div><div class="qts-field-value" style="color:#666">${escapeHtml(state.t.emptyList)}</div></div>`;
     return `<details class="qts-friendly-section" ${depth < 1 ? "open" : ""} data-friendly-key="${escapeHtml(keyLabel || "")}">
       <summary>${escapeHtml(label)} <span class="qts-count">(${value.length})</span></summary>
       <div>${value.map((item, index) => renderFriendlyJson(item, `#${index + 1}`, depth + 1)).join("")}</div>
@@ -793,11 +834,12 @@ function filterFriendlyView(container, term) {
  * that collapses everything down to just the header for a minimal view.
  */
 function renderJsonDetail(container, value) {
+  const t = state.t;
   container.innerHTML = `
     <div class="qts-toolbar-row">
-      <div class="qts-view-switch"><button type="button" data-mode="friendly" class="isSelected">Amigável</button><button type="button" data-mode="raw">Raw</button></div>
-      <input type="search" placeholder="Buscar campo ou valor..." data-json-search />
-      <button type="button" class="qts-icon-btn" data-json-minimize title="Minimizar / expandir">▬</button>
+      <div class="qts-view-switch"><button type="button" data-mode="friendly" class="isSelected">${escapeHtml(t.friendly)}</button><button type="button" data-mode="raw">${escapeHtml(t.raw)}</button></div>
+      <input type="search" placeholder="${escapeHtml(t.jsonSearchPlaceholder)}" data-json-search />
+      <button type="button" class="qts-icon-btn" data-json-minimize title="${escapeHtml(t.minimizeTitle)}">▬</button>
     </div>
     <div data-json-content></div>
   `;
@@ -868,15 +910,16 @@ function deactivateClickSpy() {
 }
 
 function reportClickSpyTarget(target) {
+  const t = state.t;
   const anchor = target.closest?.("a[href]");
   const description = [
-    ["Elemento", target.tagName.toLowerCase()],
-    ["Texto", target.textContent?.trim().slice(0, 80) || "—"],
-    ["Destino", anchor ? new URL(anchor.getAttribute("href"), window.location.href).href : "—"],
-    ["Tipo", anchor ? "Navegação" : target.tagName === "BUTTON" || target.getAttribute("type") === "submit" ? "Ação/submit" : "Controle de formulário"],
+    [t.clickSpyElement, target.tagName.toLowerCase()],
+    [t.clickSpyText, target.textContent?.trim().slice(0, 80) || "—"],
+    [t.clickSpyDestination, anchor ? new URL(anchor.getAttribute("href"), window.location.href).href : "—"],
+    [t.clickSpyType, anchor ? t.clickSpyNavigation : target.tagName === "BUTTON" || target.getAttribute("type") === "submit" ? t.clickSpyActionSubmit : t.clickSpyFormControl],
   ];
   openDrawer({
-    title: "Click Spy — resultado",
+    title: t.clickSpyResultTitle,
     bodyHtml: `<div style="display:grid;gap:10px">${description.map(([label, value]) => `
       <div><div style="color:#ffd700;font-size:10px;text-transform:uppercase;font-weight:800">${escapeHtml(label)}</div><div style="word-break:break-all">${escapeHtml(value)}</div></div>
     `).join("")}</div>`,
@@ -894,14 +937,15 @@ function toggleFreezeClock() {
 }
 
 function openForceHttpDialog() {
+  const t = state.t;
   openDrawer({
-    title: "Force HTTP — forçar próxima resposta",
+    title: t.forceHttpTitle,
     bodyHtml: `
-      <p style="color:#999;margin-top:0">Escolha um status para a próxima requisição JSON (fetch). A regra é usada uma única vez.</p>
+      <p style="color:#999;margin-top:0">${escapeHtml(t.forceHttpDescription)}</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${FORCE_HTTP_STATUSES.map((status) => `<button type="button" class="action" data-status="${status}">HTTP ${status}</button>`).join("")}
       </div>
-      <div style="margin-top:14px"><button type="button" class="action" id="forceHttpClear">Cancelar regra ativa</button></div>
+      <div style="margin-top:14px"><button type="button" class="action" id="forceHttpClear">${escapeHtml(t.forceHttpCancel)}</button></div>
     `,
     onReady: (body) => {
       body.querySelectorAll("[data-status]").forEach((button) => button.addEventListener("click", () => {
@@ -944,9 +988,9 @@ function buildInspectorFilterFields() {
   const statuses = [...new Set(state.networkHistory.map((entry) => statusBucket(entry.status)))].sort();
   const sources = [...new Set(state.networkHistory.map((entry) => entry.source))].sort();
   return [
-    { key: "method", label: "Método", options: methods.map((value) => ({ value, label: value })) },
-    { key: "status", label: "Status", options: statuses.map((value) => ({ value, label: value })) },
-    { key: "source", label: "Origem", options: sources.map((value) => ({ value, label: value })) },
+    { key: "method", label: state.t.filterMethod, options: methods.map((value) => ({ value, label: value })) },
+    { key: "status", label: state.t.filterStatus, options: statuses.map((value) => ({ value, label: value })) },
+    { key: "source", label: state.t.filterSource, options: sources.map((value) => ({ value, label: value })) },
   ];
 }
 
@@ -963,6 +1007,7 @@ function matchesInspectorFilters(entry) {
 }
 
 function renderInspectorsList() {
+  const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
   const fields = buildInspectorFilterFields();
@@ -970,8 +1015,8 @@ function renderInspectorsList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="Buscar URL, método ou conteúdo..." id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="${inspectorsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
-      <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="Ocultar/mostrar filtros">▬</button>
+      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="${inspectorsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">▬</button>
     </div>
     <div class="qts-filter-bar ${inspectorsFilterState.collapsed ? "isCollapsed" : ""}" id="inspectorsFilterBar">
       ${fields.map((field) => renderSmartFilter(field, inspectorsFilterState[field.key], null)).join("")}
@@ -986,7 +1031,7 @@ function renderInspectorsList() {
           <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
         </div>
       `).join("")
-    : `<div class="qts-empty">${state.networkHistory.length ? "Nenhum resultado para os filtros atuais." : "Nenhuma resposta JSON capturada ainda nesta página."}</div>`;
+    : `<div class="qts-empty">${state.networkHistory.length ? t.noFilterResults : t.noResponsesYet}</div>`;
 
   listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
@@ -1008,9 +1053,71 @@ function renderInspectorsList() {
 }
 
 function openInspectorsDrawer() {
-  openDrawer({ title: "Inspectors", wide: true, bodyHtml: "" });
+  openDrawer({ title: state.t.inspectorsTitle, wide: true, bodyHtml: "" });
   state.shadowRoot.getElementById("drawerHost").dataset.view = "inspectors";
   renderInspectorsList();
+}
+
+// ---------------------------------------------------------------------------
+// Test accounts: read-only view of the accounts registered (from Settings)
+// for the environment matching the current URL. Sandbox-only by design —
+// passwords are masked by default and never leave this drawer; managing
+// (creating/removing) accounts happens on the options page, not here.
+// ---------------------------------------------------------------------------
+
+const revealedTestAccountIds = new Set();
+
+function renderTestAccountsList() {
+  const t = state.t;
+  const body = state.shadowRoot.getElementById("drawerBody");
+  if (!body) return;
+
+  if (!state.environment) {
+    body.innerHTML = `<div class="qts-empty">${escapeHtml(t.testAccountsNoEnvironment)}</div>`;
+    return;
+  }
+
+  const accounts = (state.workspace.testAccounts || []).filter((account) => account.environmentId === state.environment.id);
+  if (!accounts.length) {
+    body.innerHTML = `<div class="qts-empty">${escapeHtml(t.testAccountsEmptyForEnv)}</div>`;
+    return;
+  }
+
+  body.innerHTML = `<div style="display:grid;gap:10px">${accounts.map((account) => {
+    const revealed = revealedTestAccountIds.has(account.id);
+    const passwordDisplay = account.password ? (revealed ? escapeHtml(account.password) : "•".repeat(Math.min(10, account.password.length))) : "—";
+    return `
+      <div class="qts-net-item" data-account-id="${escapeHtml(account.id)}" style="cursor:default">
+        <b>${escapeHtml(account.label)}</b>${account.accountType ? ` <span style="color:#ffd700">${escapeHtml(account.accountType)}</span>` : ""}
+        <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <small>${escapeHtml(account.username || "—")}</small>
+          <small>${passwordDisplay}</small>
+          ${account.password ? `<button type="button" class="action" data-reveal-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? "🙈" : "👁"}</button>` : ""}
+          ${account.username ? `<button type="button" class="action" data-copy-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">⧉</button>` : ""}
+        </div>
+        ${account.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(account.notes)}</small>` : ""}
+      </div>
+    `;
+  }).join("")}</div>`;
+
+  body.querySelectorAll("[data-reveal-account]").forEach((button) => button.addEventListener("click", () => {
+    const id = button.dataset.revealAccount;
+    if (revealedTestAccountIds.has(id)) revealedTestAccountIds.delete(id); else revealedTestAccountIds.add(id);
+    renderTestAccountsList();
+  }));
+  body.querySelectorAll("[data-copy-account]").forEach((button) => button.addEventListener("click", async () => {
+    const account = accounts.find((item) => item.id === button.dataset.copyAccount);
+    if (!account?.username) return;
+    await navigator.clipboard.writeText(account.username).catch(() => {});
+    const original = button.textContent;
+    button.textContent = "✓";
+    window.setTimeout(() => { button.textContent = original; }, 1200);
+  }));
+}
+
+function openTestAccountsDrawer() {
+  openDrawer({ title: state.t.testAccountsDrawerTitle, bodyHtml: "" });
+  renderTestAccountsList();
 }
 
 // ---------------------------------------------------------------------------
@@ -1018,15 +1125,16 @@ function openInspectorsDrawer() {
 // ---------------------------------------------------------------------------
 
 function openJsonStudio() {
+  const t = state.t;
   openDrawer({
-    title: "JSON Studio",
+    title: t.jsonStudioTitle,
     wide: true,
     bodyHtml: `
-      <textarea id="jsonInput" rows="16" placeholder="Cole um JSON aqui..." style="font:12px ui-monospace,Consolas,monospace"></textarea>
+      <textarea id="jsonInput" rows="16" placeholder="${escapeHtml(t.jsonStudioPlaceholder)}" style="font:12px ui-monospace,Consolas,monospace"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px">
-        <button type="button" class="action primary" id="jsonFormat">Formatar</button>
-        <button type="button" class="action" id="jsonCompact">Compactar</button>
-        <button type="button" class="action" id="jsonCopy">Copiar</button>
+        <button type="button" class="action primary" id="jsonFormat">${escapeHtml(t.jsonStudioFormat)}</button>
+        <button type="button" class="action" id="jsonCompact">${escapeHtml(t.jsonStudioCompact)}</button>
+        <button type="button" class="action" id="jsonCopy">${escapeHtml(t.jsonStudioCopy)}</button>
       </div>
       <p id="jsonError" style="color:#ff6b6b"></p>
     `,
@@ -1039,7 +1147,7 @@ function openJsonStudio() {
           input.value = transform(parsed);
           errorEl.textContent = "";
         } catch (error) {
-          errorEl.textContent = `JSON inválido: ${error.message}`;
+          errorEl.textContent = t.jsonStudioInvalid(error.message);
         }
       };
       body.querySelector("#jsonFormat").addEventListener("click", () => run((parsed) => JSON.stringify(parsed, null, 2)));
@@ -1118,6 +1226,7 @@ function cleanupBreakpointViewer() {
 }
 
 function openBreakpointViewer() {
+  const t = state.t;
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   const initialUrl = /^https?:\/\//i.test(window.location.href) ? window.location.href : "https://example.com";
@@ -1127,8 +1236,8 @@ function openBreakpointViewer() {
         <input type="url" id="bpUrl" value="${escapeHtml(initialUrl)}" placeholder="https://..." />
         <select id="bpDeviceA">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 0 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
         <select id="bpDeviceB">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 3 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
-        <button type="button" class="qts-bp-toggle" id="bpSyncScroll">Sincronizar scroll</button>
-        <button type="button" class="qts-bp-toggle" id="bpSyncClick">Sincronizar clique</button>
+        <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
+        <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
         <button type="button" class="qts-bp-close" id="bpClose">×</button>
       </div>
       <div class="qts-bp-stage" id="bpStage"></div>
@@ -1195,7 +1304,7 @@ function openBreakpointViewer() {
         docA = iframeA.contentWindow.document;
         docB = iframeB.contentWindow.document;
       } catch {
-        showToolbarToast("Sincronização indisponível: a página carregada é de outra origem (cross-origin).");
+        showToolbarToast(state.t.crossOriginToast);
         return;
       }
 
@@ -1308,7 +1417,7 @@ function setRecordingUi() {
   toggle.classList.toggle("isActive", recordingState.status === "recording");
   toggle.classList.toggle("isPaused", recordingState.status === "paused");
   toggle.textContent = recordingState.status === "recording" ? "⏸" : recordingState.status === "paused" ? "▶" : "⏺";
-  toggle.title = recordingState.status === "recording" ? "Pausar gravação" : recordingState.status === "paused" ? "Retomar gravação" : "Iniciar gravação de evidência";
+  toggle.title = recordingState.status === "recording" ? state.t.recordPause : recordingState.status === "paused" ? state.t.recordResume : state.t.recordStart;
   stopButton?.classList.toggle("isHidden", recordingState.status === "idle");
   timer?.classList.toggle("isHidden", recordingState.status === "idle");
 }
@@ -1321,7 +1430,7 @@ async function handleRecordToggle() {
 
 async function startEvidenceRecording() {
   if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
-    openDrawer({ title: "Gravação indisponível", bodyHtml: `<p>Este navegador não suporta captura de tela (getDisplayMedia/MediaRecorder).</p>` });
+    openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
     return;
   }
   let stream;
@@ -1402,6 +1511,7 @@ async function boot() {
     return;
   }
 
+  state.t = await window.QTS_I18N.load();
   state.workspace = await getWorkspace();
   state.environment = findActiveEnvironment(state.workspace);
 

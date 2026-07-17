@@ -38,7 +38,7 @@ async function applyContentScriptRegistration() {
     {
       id: TOOLBAR_SCRIPT_ID,
       matches,
-      js: ["src/lib/storage-content.js", "src/toolbar/toolbar.js"],
+      js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/toolbar/toolbar.js"],
       css: ["src/toolbar/toolbar.css"],
       runAt: "document_idle",
       allFrames: false,
@@ -68,7 +68,7 @@ async function injectIntoOpenTabs(matches) {
     try {
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", files: ["src/pagebridge/pagebridge.js"] });
       await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["src/toolbar/toolbar.css"] });
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/toolbar/toolbar.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/toolbar/toolbar.js"] });
     } catch {
       // Restricted pages (chrome://, the Web Store, etc.) reject injection — expected, not an error.
     }

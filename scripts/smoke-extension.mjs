@@ -1,5 +1,5 @@
 import { createServer } from "node:http";
-import { mkdir, rm, stat } from "node:fs/promises";
+import { mkdir, readFile, rm, stat } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
@@ -282,6 +282,96 @@ try {
 
   const clientCount = await page.locator("#clientCount").textContent();
   if (clientCount !== "1") throw new Error(`Expected 1 client after creating one, got ${clientCount}`);
+
+  // White-label badges: a client with no logo/abbreviation gets auto-derived initials.
+  const clientBadgeText = await page.locator("#clientList .qts-badge-initials").textContent();
+  if (!clientBadgeText || clientBadgeText.length > 4) throw new Error(`Expected short auto-derived client initials, got: ${clientBadgeText}`);
+
+  // Project with an explicit abbreviation + name shown, product with an abbreviation but name hidden (icon-only).
+  await page.locator("#projectClient").selectOption({ label: "Cliente Demo" });
+  await page.getByPlaceholder("Nome do projeto").fill("Webapp Demo");
+  await page.locator("#projectAbbreviation").fill("WEB");
+  await page.locator("#projectForm button[type=submit]").click();
+  await page.waitForTimeout(150);
+
+  await page.locator("#productProject").selectOption({ label: "Webapp Demo" });
+  await page.getByPlaceholder("Nome do produto").fill("AR");
+  await page.locator("#productAbbreviation").fill("AR");
+  await page.locator("#productShowLabel").uncheck();
+  await page.locator("#productForm button[type=submit]").click();
+  await page.waitForTimeout(150);
+
+  await page.locator("#environmentProduct").selectOption({ label: "AR" });
+  await page.getByPlaceholder("Nome do ambiente (ex.: QA, Staging)").fill("BETA");
+  await page.getByPlaceholder("Padrões de URL, separados por vírgula").fill("http://127.0.0.1:43117/*");
+  await page.locator("#environmentForm button[type=submit]").click();
+  await page.waitForTimeout(150);
+
+  // Test accounts: sandbox-only credentials scoped to an environment, masked by default.
+  await page.locator("#testAccountEnvironment").selectOption({ label: "AR · BETA" });
+  await page.getByPlaceholder("Nome da conta (ex.: Conta padrão)").fill("Conta Gold");
+  await page.locator("#testAccountType").fill("Gold");
+  await page.locator("#testAccountUsername").fill("gold.tester@example.com");
+  await page.locator("#testAccountPassword").fill("s3nh4-super-secreta");
+  await page.locator("#testAccountForm button[type=submit]").click();
+  await page.waitForTimeout(150);
+  await page.screenshot({ path: resolve(evidencePath, "vanilla-options-workspace-full.png"), fullPage: true });
+
+  const maskedPassword = await page.locator("#testAccountList .listRow small").last().textContent();
+  if (maskedPassword.includes("s3nh4-super-secreta")) throw new Error("Password should be masked by default in the options list");
+
+  await page.locator("#testAccountList [data-reveal]").click();
+  const revealedPassword = await page.locator("#testAccountList .listRow small").last().textContent();
+  if (!revealedPassword.includes("s3nh4-super-secreta")) throw new Error(`Expected revealed password in options list, got: ${revealedPassword}`);
+  await page.locator("#testAccountList [data-reveal]").click();
+  await page.waitForTimeout(150);
+
+  const exportDownloadPromise = page.waitForEvent("download", { timeout: 8_000 });
+  await page.evaluate(() => document.getElementById("exportButton").click());
+  const exportDownload = await exportDownloadPromise;
+  const exportPath = await exportDownload.path();
+  const exportedJson = await readFile(exportPath, "utf8");
+  if (exportedJson.includes("s3nh4-super-secreta")) throw new Error("Exported workspace JSON must never include test account passwords");
+  if (!exportedJson.includes("gold.tester@example.com")) throw new Error("Exported workspace JSON should still include the non-secret username");
+
+  const productBadgeHasName = await page.evaluate(() => {
+    const row = Array.from(document.querySelectorAll("#productList .listRow")).find((el) => el.textContent.includes("AR"));
+    return row ? row.querySelector(".qts-badge-name") !== null : null;
+  });
+  if (productBadgeHasName !== false) throw new Error(`Expected product badge to hide its name (showLabel unchecked), found name element: ${productBadgeHasName}`);
+
+  // Reload the test page: the environment now matches this URL, so the breadcrumb should render
+  // client/project/product badges instead of the "no environment" fallback.
+  await page.goto("http://127.0.0.1:43117/");
+  await page.waitForTimeout(500);
+  const breadcrumbAfterSetup = await page.evaluate(() => {
+    const host = document.getElementById("qts-toolbar-host");
+    const root = host?.shadowRoot;
+    return {
+      clientLabelHtml: root?.getElementById("clientLabel")?.innerHTML ?? null,
+      clientLabelHidden: root?.getElementById("clientLabel")?.classList.contains("isHidden") ?? null,
+      breadcrumbHtml: root?.getElementById("breadcrumb")?.innerHTML ?? null,
+    };
+  });
+  if (breadcrumbAfterSetup.clientLabelHidden !== false) throw new Error("Client corner label should be visible once an environment matches");
+  if (!breadcrumbAfterSetup.clientLabelHtml?.includes("qts-badge-avatar")) throw new Error(`Client label missing badge: ${breadcrumbAfterSetup.clientLabelHtml}`);
+  if (!breadcrumbAfterSetup.breadcrumbHtml?.includes("Webapp Demo")) throw new Error(`Breadcrumb missing project name (showLabel on): ${breadcrumbAfterSetup.breadcrumbHtml}`);
+  if (!breadcrumbAfterSetup.breadcrumbHtml?.includes("BETA")) throw new Error(`Breadcrumb missing environment name: ${breadcrumbAfterSetup.breadcrumbHtml}`);
+  await page.screenshot({ path: resolve(evidencePath, "vanilla-breadcrumb-badges.png"), fullPage: false });
+
+  // Toolbar-side test accounts drawer: read-only view scoped to the matching environment,
+  // masked by default, with a per-account reveal toggle.
+  await openTools();
+  await page.locator("#testAccountsMenuItem").click();
+  await page.locator(".qts-drawer-body .qts-net-item").waitFor({ timeout: 2_000 });
+  const drawerMasked = await page.locator(".qts-drawer-body .qts-net-item").textContent();
+  if (!drawerMasked.includes("Conta Gold") || drawerMasked.includes("s3nh4-super-secreta")) {
+    throw new Error(`Test accounts drawer should show the account masked: ${drawerMasked}`);
+  }
+  await page.locator("[data-reveal-account]").click();
+  const drawerRevealed = await page.locator(".qts-drawer-body .qts-net-item").textContent();
+  if (!drawerRevealed.includes("s3nh4-super-secreta")) throw new Error(`Expected revealed password in toolbar drawer: ${drawerRevealed}`);
+  await page.locator("#drawerClose").click();
 
   if (errors.length) throw new Error(`Console errors:\n${errors.join("\n")}`);
   if (workerErrors.length) throw new Error(`Background service worker errors:\n${workerErrors.join("\n")}`);
