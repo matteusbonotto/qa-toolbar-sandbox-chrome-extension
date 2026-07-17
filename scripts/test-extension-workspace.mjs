@@ -12,15 +12,40 @@ const workspace = normalizeWorkspace({
   preferences: { compactMode: true },
 });
 
-assert.equal(workspace.schemaVersion, 2);
+assert.equal(workspace.schemaVersion, 3);
 assert.equal(workspace.environments[0].projectId, "project-a");
 assert.equal(workspace.environments[0].clientId, "client-a");
 assert.deepEqual(workspace.environments[0].urlPatterns, ["https://qa.example.com/*"]);
 assert.equal(workspace.preferences.compactMode, true);
 assert.equal(workspace.preferences.enabledTools.includes("paymentMethods"), true);
+assert.equal(workspace.preferences.enabledTools.includes("macroStudio"), true);
 
-const filteredTools = normalizeWorkspace({ preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
+const macroWorkspace = normalizeWorkspace({
+  macros: [{
+    id: "checkout",
+    name: "Checkout feliz",
+    steps: [
+      { action: "click", selector: "#buy" },
+      { action: "fill", selector: "#name", value: "Pessoa QA" },
+      { action: "multiClick", selector: "#plus", count: 999, interval: 99999 },
+      { action: "fill", selector: "#password", value: "must-not-survive" },
+      { action: "javascript", value: "alert(1)" },
+    ],
+  }],
+  preferences: { pinnedMacroIds: ["checkout"] },
+});
+assert.equal(macroWorkspace.macros.length, 1);
+assert.equal(macroWorkspace.macros[0].steps.length, 3);
+assert.equal(macroWorkspace.macros[0].steps[2].count, 100);
+assert.equal(macroWorkspace.macros[0].steps[2].interval, 5_000);
+assert.deepEqual(macroWorkspace.preferences.pinnedMacroIds, ["checkout"]);
+assert.equal(JSON.stringify(macroWorkspace).includes("must-not-survive"), false);
+
+const filteredTools = normalizeWorkspace({ schemaVersion: 3, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
 assert.deepEqual(filteredTools.preferences.enabledTools, ["inspectors"]);
+
+const upgradedTools = normalizeWorkspace({ schemaVersion: 2, preferences: { enabledTools: ["inspectors"] } });
+assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"]);
 
 const orphaned = normalizeWorkspace({ clients: [], projects: [], products: [], environments: [{ id: "bad", productId: "missing", name: "Bad", url: "https://bad.example.com" }] });
 assert.equal(orphaned.environments.length, 0);

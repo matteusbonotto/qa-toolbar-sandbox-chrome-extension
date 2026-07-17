@@ -1,4 +1,4 @@
-const { getWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
+const { getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 
 const TOOLBAR_HEIGHT = 48;
 const HOST_ID = "qts-toolbar-host";
@@ -21,6 +21,9 @@ const state = {
   accessInterval: null,
   locationInterval: null,
   lastHref: window.location.href,
+  macroRecording: null,
+  macroPlaying: false,
+  selectionCleanup: null,
 };
 
 const FORCE_HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503];
@@ -154,8 +157,11 @@ function applyPinnedTools() {
     clickSpy: "clickSpyMenuItem", freezeClock: "freezeClockMenuItem", forceHttp: "forceHttpMenuItem",
     inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
+    characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
+    inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem",
   };
   for (const [key, id] of Object.entries(menuItems)) root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key));
+  renderPinnedMacros();
 }
 
 function render() {
@@ -261,6 +267,9 @@ function buildShadowHost() {
       #toolsMenu button:hover { background: #232323; border-color: #ffd700; }
       #toolsMenu button.isActive { background: #ffd700 !important; color: #111 !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; }
+      #macroRecordingChip { background: #8f0909; color: #fff; border-color: #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
+      #pinnedMacrosMenu:empty { display: none; }
+      #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
     </style>
     <div id="bar" role="toolbar" aria-label="Ferramentas de QA">
       <div id="left">
@@ -278,9 +287,16 @@ function buildShadowHost() {
         <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">⏺</button>
         <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">⏹</button>
         <span id="recordTimer" class="isHidden">00:00</span>
+        <button id="macroRecordingChip" class="isHidden" type="button">● Macro <span id="macroStepCount">0</span> · parar</button>
         <div id="toolsWrapper">
           <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ▾</button>
           <div id="toolsMenu" role="menu">
+            <div id="pinnedMacrosMenu"></div>
+            <button type="button" id="macroStudioMenuItem" role="menuitem">🧩 ${escapeHtml(t.macroStudioMenuLabel)}</button>
+            <button type="button" id="characterCounterMenuItem" role="menuitem">🔤 ${escapeHtml(t.characterCounterMenuLabel)}</button>
+            <button type="button" id="multiClickMenuItem" role="menuitem">⚡ ${escapeHtml(t.multiClickMenuLabel)}</button>
+            <button type="button" id="inputLabMenuItem" role="menuitem">✅ ${escapeHtml(t.inputLabMenuLabel)}</button>
+            <button type="button" id="fakerFillMenuItem" role="menuitem">✨ ${escapeHtml(t.fakerFillMenuLabel)}</button>
             <button type="button" id="clickSpyMenuItem" role="menuitem">🖱 Click Spy</button>
             <button type="button" id="freezeClockMenuItem" role="menuitem">⏸ Freeze Clock</button>
             <button type="button" id="forceHttpMenuItem" role="menuitem">⚠ Force HTTP</button>
@@ -313,6 +329,7 @@ function buildShadowHost() {
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
   shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
   shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
+  shadow.getElementById("macroRecordingChip").addEventListener("click", () => stopMacroRecording());
 
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -330,6 +347,11 @@ function buildShadowHost() {
   shadow.getElementById("testAccountsMenuItem").addEventListener("click", () => { openTestAccountsDrawer(); closeToolsMenu(); });
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
+  shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
+  shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
+  shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
+  shadow.getElementById("inputLabMenuItem").addEventListener("click", () => { openInputLab(); closeToolsMenu(); });
+  shadow.getElementById("fakerFillMenuItem").addEventListener("click", () => { openFakerFill(); closeToolsMenu(); });
 
   return { host, shadow };
 }
@@ -363,6 +385,9 @@ function mountToolbar() {
 }
 
 function removeToolbar({ disableBridge = false } = {}) {
+  cancelElementSelection();
+  state.macroRecording?.cleanup?.();
+  state.macroRecording = null;
   state.integrityObserver?.disconnect();
   state.integrityObserver = null;
   if (state.integrityInterval) window.clearInterval(state.integrityInterval);
@@ -769,7 +794,73 @@ function drawerStyles() {
     .qts-friendly-section > summary::-webkit-details-marker { display: none; }
     .qts-friendly-section > summary .qts-count { color: #888; font-weight: 600; }
     .qts-friendly-hidden { display: none !important; }
+    .qts-tool-lead { margin: 0 0 12px; color: #aaa; }
+    .qts-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 8px; margin: 10px 0; }
+    .qts-metric { padding: 11px; border: 1px solid #282828; border-radius: 10px; background: #141414; }
+    .qts-metric strong { display: block; color: #ffd700; font-size: 20px; }
+    .qts-metric small { color: #aaa; }
+    .qts-card { padding: 12px; margin-bottom: 8px; border: 1px solid #292929; border-radius: 10px; background: #121212; }
+    .qts-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .qts-card-actions { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 9px; }
+    .qts-card-actions button.action { height: 28px; font-size: 11px; }
+    .qts-tabs { display: inline-flex; gap: 4px; padding: 3px; margin-bottom: 12px; border: 1px solid #292929; border-radius: 9px; }
+    .qts-tabs button { padding: 7px 12px; border: 0; border-radius: 7px; background: transparent; color: #aaa; cursor: pointer; font-weight: 800; }
+    .qts-tabs button.isSelected { background: #b20808; color: #fff; }
+    .qts-macro-layout { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: 12px; }
+    .qts-palette { display: grid; align-content: start; gap: 6px; }
+    .qts-palette button { padding: 9px; border: 1px dashed #444; border-radius: 8px; background: #171717; color: #fff; cursor: grab; text-align: left; }
+    .qts-flow { min-height: 220px; padding: 9px; border: 1px dashed #444; border-radius: 10px; }
+    .qts-step { position: relative; display: grid; grid-template-columns: 28px 115px minmax(0,1fr) 32px; gap: 7px; align-items: center; padding: 8px; margin-bottom: 16px; border: 1px solid #333; border-radius: 9px; background: #171717; }
+    .qts-step:not(:last-child)::after { content: "↓"; position: absolute; left: 14px; bottom: -18px; color: #ffd700; }
+    .qts-step-index { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #b20808; font-weight: 900; }
+    .qts-code { min-height: 350px; padding: 14px; border: 1px solid #2c2c2c; border-radius: 10px; background: #080808; color: #9bffb0; font: 12px/1.55 ui-monospace, Consolas, monospace; white-space: pre; overflow: auto; }
+    .qts-status { min-height: 18px; margin-top: 8px; color: #ffd700; }
+    .qts-result-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    .qts-result-table th, .qts-result-table td { padding: 7px; border-bottom: 1px solid #292929; text-align: left; }
+    @media (max-width: 680px) { .qts-macro-layout { grid-template-columns: 1fr; } .qts-palette { grid-template-columns: repeat(2,minmax(0,1fr)); } .qts-step { grid-template-columns: 28px 95px minmax(0,1fr) 32px; } }
   `;
+}
+
+const QA_SURFACE_TRANSLATIONS = {
+  es: {
+    "Contador de caracteres": "Contador de caracteres", "Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.": "Pega o selecciona un texto para medir caracteres, palabras, líneas y bytes.", "Digite ou cole seu texto...": "Escribe o pega tu texto...", "Usar seleção da página": "Usar selección de la página", "Limpar": "Limpiar", "Com espaços": "Con espacios", "Sem espaços": "Sin espacios", "Palavras": "Palabras", "Linhas": "Líneas", "Elemento": "Elemento", "Selecionar na página": "Seleccionar en la página", "Quantidade": "Cantidad", "Intervalo (ms)": "Intervalo (ms)", "Executar multiclick": "Ejecutar multiclic", "Repita cliques em um elemento, com limite e intervalo controlados.": "Repite clics en un elemento con cantidad e intervalo controlados.", "Input Lab": "Laboratorio de inputs", "Selecionar input na página": "Seleccionar input en la página", "Rodar kit de validação": "Ejecutar kit de validación", "Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.": "Inspecciona las reglas HTML y prueba texto, números, caracteres especiales, Unicode, vacío y límites sin enviar el formulario. El valor original se restaura.", "Caso": "Caso", "Enviado": "Enviado", "Recebido": "Recibido", "Validade": "Validez", "Tipo": "Tipo", "Obrigatório": "Obligatorio", "Mínimo": "Mínimo", "Máximo": "Máximo", "Não": "No", "Sim": "Sí", "Faker Fill": "Relleno con datos ficticios", "Escopo": "Alcance", "Página atual": "Página actual", "Formulário selecionado": "Formulario seleccionado", "Selecionar formulário": "Seleccionar formulario", "Preencher agora": "Rellenar ahora", "Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.": "Rellena formularios con datos sintéticos locales en un clic. Las contraseñas, tarjetas, CVV, tokens y campos ocultos siempre se ignoran.", "Macro Studio": "Estudio de macros", "Gravar macro": "Grabar macro", "+ Nova no Vibe Code": "+ Nueva en Vibe Code", "Importar": "Importar", "Exportar todas": "Exportar todas", "Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.": "Graba acciones o crea un flujo visual. Todo permanece local y solo se ejecutan acciones declarativas validadas.", "Monte o fluxo arrastando blocos. As setas representam a ordem de execução.": "Crea el flujo arrastrando bloques. Las flechas muestran el orden de ejecución.", "Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.": "Código Playwright real generado desde el mismo flujo. La extensión no ejecuta código pegado.", "Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.": "No hay macros guardadas. Graba tus acciones o empieza en Vibe Code.", "Executar": "Ejecutar", "Editar": "Editar", "Fixar no menu": "Fijar en el menú", "Desafixar": "Desfijar", "Exportar": "Exportar", "Excluir": "Eliminar", "Salvar macro": "Guardar macro", "Nome da macro": "Nombre de la macro", "Descrição opcional": "Descripción opcional", "Copiar código": "Copiar código", "Clique": "Clic", "Escrever": "Escribir", "Selecionar": "Seleccionar", "Tecla": "Tecla", "Esperar": "Esperar", "Primeiro formulário": "Primer formulario", "Página": "Página", "Marcar": "Marcar", "Desmarcar": "Desmarcar", "Valor": "Valor", "Seletor CSS": "Selector CSS", "Remover": "Eliminar", "Arraste uma função para cá ou clique em uma opção da paleta.": "Arrastra una función aquí o elige una opción de la paleta.", "Macros": "Macros"
+  },
+  en: {
+    "Contador de caracteres": "Character Counter", "Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.": "Paste or select text to measure characters, words, lines, and bytes.", "Digite ou cole seu texto...": "Type or paste your text...", "Usar seleção da página": "Use page selection", "Limpar": "Clear", "Com espaços": "With spaces", "Sem espaços": "Without spaces", "Palavras": "Words", "Linhas": "Lines", "Elemento": "Element", "Selecionar na página": "Select on page", "Quantidade": "Count", "Intervalo (ms)": "Interval (ms)", "Executar multiclick": "Run multiclick", "Repita cliques em um elemento, com limite e intervalo controlados.": "Repeat clicks on an element with controlled count and interval.", "Input Lab": "Input Lab", "Selecionar input na página": "Select input on page", "Rodar kit de validação": "Run validation kit", "Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.": "Inspect HTML constraints and test text, numbers, special characters, Unicode, empty values, and limits without submitting the form. The original value is restored.", "Caso": "Case", "Enviado": "Attempted", "Recebido": "Received", "Validade": "Validity", "Tipo": "Type", "Obrigatório": "Required", "Mínimo": "Minimum", "Máximo": "Maximum", "Não": "No", "Sim": "Yes", "Faker Fill": "Faker Fill", "Escopo": "Scope", "Página atual": "Current page", "Formulário selecionado": "Selected form", "Selecionar formulário": "Select form", "Preencher agora": "Fill now", "Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.": "Fill forms with local synthetic data in one click. Passwords, cards, CVV, tokens, and hidden fields are always skipped.", "Macro Studio": "Macro Studio", "Gravar macro": "Record macro", "+ Nova no Vibe Code": "+ New in Vibe Code", "Importar": "Import", "Exportar todas": "Export all", "Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.": "Record actions or build a visual flow. Everything stays local and only validated declarative actions run.", "Monte o fluxo arrastando blocos. As setas representam a ordem de execução.": "Build the flow by dragging blocks. Arrows show the execution order.", "Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.": "Real Playwright code generated from the same flow. The extension does not execute pasted code.", "Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.": "No saved macros. Record your actions or start in Vibe Code.", "Executar": "Run", "Editar": "Edit", "Fixar no menu": "Pin to menu", "Desafixar": "Unpin", "Exportar": "Export", "Excluir": "Delete", "Salvar macro": "Save macro", "Nome da macro": "Macro name", "Descrição opcional": "Optional description", "Copiar código": "Copy code", "Clique": "Click", "Escrever": "Fill", "Selecionar": "Select", "Tecla": "Key", "Esperar": "Wait", "Primeiro formulário": "First form", "Página": "Page", "Marcar": "Check", "Desmarcar": "Uncheck", "Valor": "Value", "Seletor CSS": "CSS selector", "Remover": "Remove", "Arraste uma função para cá ou clique em uma opção da paleta.": "Drag a function here or choose one from the palette.", "Macros": "Macros"
+  },
+};
+
+function translateQaSurfaceText(value) {
+  const translations = QA_SURFACE_TRANSLATIONS[state.t?.locale];
+  if (!translations || !value) return value;
+  const leading = value.match(/^\s*/)?.[0] || "";
+  const trailing = value.match(/\s*$/)?.[0] || "";
+  const core = value.trim();
+  let translated = translations[core] || core;
+  if (translated === core) {
+    const suffix = Object.keys(translations).sort((left, right) => right.length - left.length).find((source) => core.endsWith(` ${source}`));
+    if (suffix) translated = `${core.slice(0, -suffix.length)}${translations[suffix]}`;
+  }
+  if (state.t.locale === "en") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 step(s)").replace(/(\d+) clique\(s\)/g, "$1 click(s)").replace(/campo\(s\)/g, "field(s)").replace(/sensível\(is\) protegido\(s\)/g, "sensitive field(s) protected");
+  if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)");
+  if (state.t.locale === "en") translated = translated.replace(/^Executando /, "Running ").replace(/^Macro concluída:/, "Macro completed:").replace(/^Macro interrompida:/, "Macro stopped:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "The macro could not be started safely.");
+  if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
+  return `${leading}${translated}${trailing}`;
+}
+
+function localizeQaSurface(root) {
+  if (!root || state.t?.locale === "pt-BR") return;
+  const walker = document.createTreeWalker(root, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+  let node = walker.currentNode;
+  while (node) {
+    if (node.nodeType === Node.TEXT_NODE) {
+      const translated = translateQaSurfaceText(node.nodeValue);
+      if (translated !== node.nodeValue) node.nodeValue = translated;
+    } else if (node.nodeType === Node.ELEMENT_NODE) {
+      for (const attribute of ["placeholder", "title", "aria-label"]) if (node.hasAttribute(attribute)) node.setAttribute(attribute, translateQaSurfaceText(node.getAttribute(attribute)));
+    }
+    node = walker.nextNode();
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -840,6 +931,7 @@ function openDrawer({ title, wide = false, bodyHtml, onReady }) {
     </div>`;
   drawerHost.querySelector("#drawerClose").addEventListener("click", closeDrawer);
   drawerHost.querySelector("#drawerBackdrop").addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop") closeDrawer(); });
+  localizeQaSurface(drawerHost);
   onReady?.(drawerHost.querySelector("#drawerBody"));
 }
 
@@ -1531,6 +1623,397 @@ function openBreakpointViewer() {
   layout();
 }
 
+// ---------------------------------------------------------------------------
+// QA productivity kit: counters, Faker Fill, Input Lab, Multiclick and macros.
+// ---------------------------------------------------------------------------
+
+function showQaToast(message, tone = "info") {
+  if (!state.shadowRoot) return;
+  const toast = document.createElement("div");
+  toast.textContent = translateQaSurfaceText(message);
+  toast.style.cssText = `position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483647;max-width:min(620px,88vw);padding:10px 16px;border:1px solid ${tone === "error" ? "#ff6767" : "#ffd700"};border-radius:999px;background:#0b0b0b;color:#fff;font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.45)`;
+  state.shadowRoot.appendChild(toast);
+  window.setTimeout(() => toast.remove(), 3_500);
+}
+
+async function persistWorkspaceState() {
+  state.workspace = await saveWorkspace(state.workspace);
+  render();
+  return state.workspace;
+}
+
+function downloadMacroJson(macros) {
+  const payload = { format: "qts-macros", version: 1, exportedAt: new Date().toISOString(), macros };
+  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `qa-macros-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
+}
+
+function renderPinnedMacros() {
+  const container = state.shadowRoot?.getElementById("pinnedMacrosMenu");
+  if (!container) return;
+  const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
+  const macros = (state.workspace?.macros || []).filter((macro) => pinned.has(macro.id));
+  container.innerHTML = macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">▶ ${escapeHtml(macro.name)}</button>`).join("");
+  container.querySelectorAll("[data-pinned-macro]").forEach((button) => button.addEventListener("click", () => {
+    const macro = (state.workspace.macros || []).find((item) => item.id === button.dataset.pinnedMacro);
+    closeToolsMenu();
+    if (macro) void playMacro(macro);
+  }));
+}
+
+function openCharacterCounter() {
+  const selected = String(document.getSelection()?.toString() || "");
+  openDrawer({
+    title: "Contador de caracteres",
+    bodyHtml: `<p class="qts-tool-lead">Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.</p>
+      <textarea id="characterCounterInput" rows="9" placeholder="Digite ou cole seu texto...">${escapeHtml(selected)}</textarea>
+      <div class="qts-card-actions"><button class="action" id="useSelection" type="button">Usar seleção da página</button><button class="action" id="clearCounter" type="button">Limpar</button></div>
+      <div class="qts-tool-grid" id="characterMetrics"></div>`,
+    onReady(body) {
+      const input = body.querySelector("#characterCounterInput");
+      const output = body.querySelector("#characterMetrics");
+      const update = () => {
+        const metrics = window.QTS_QA_TOOLS.countCharacters(input.value);
+        output.innerHTML = [["Com espaços", metrics.withSpaces], ["Sem espaços", metrics.withoutSpaces], ["Palavras", metrics.words], ["Linhas", metrics.lines], ["Bytes UTF-8", metrics.bytes]].map(([label, value]) => `<div class="qts-metric"><strong>${value}</strong><small>${label}</small></div>`).join("");
+      };
+      input.addEventListener("input", update);
+      body.querySelector("#useSelection").addEventListener("click", () => { input.value = String(document.getSelection()?.toString() || ""); update(); });
+      body.querySelector("#clearCounter").addEventListener("click", () => { input.value = ""; update(); input.focus(); });
+      update();
+    },
+  });
+}
+
+function cancelElementSelection() {
+  state.selectionCleanup?.();
+  state.selectionCleanup = null;
+}
+
+function selectPageElement({ accepts = () => true, onSelected, instruction }) {
+  closeDrawer();
+  cancelElementSelection();
+  const style = document.createElement("style");
+  style.id = "qts-element-selector-style";
+  style.textContent = "html.qts-selecting,html.qts-selecting *{cursor:crosshair!important}.qts-selection-candidate{outline:3px solid #ffd700!important;outline-offset:2px!important}";
+  document.documentElement.appendChild(style);
+  document.documentElement.classList.add("qts-selecting");
+  let candidate = null;
+  const cleanup = () => {
+    candidate?.classList.remove("qts-selection-candidate");
+    document.documentElement.classList.remove("qts-selecting");
+    style.remove();
+    document.removeEventListener("mouseover", onOver, true);
+    document.removeEventListener("click", onClick, true);
+    document.removeEventListener("keydown", onKey, true);
+  };
+  const onOver = (event) => {
+    if (event.target.closest?.(`#${HOST_ID}`)) return;
+    candidate?.classList.remove("qts-selection-candidate");
+    candidate = event.target;
+    candidate.classList.add("qts-selection-candidate");
+  };
+  const onClick = (event) => {
+    if (event.target.closest?.(`#${HOST_ID}`)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    const target = event.target;
+    if (!accepts(target)) { showQaToast("Selecione um elemento compatível.", "error"); return; }
+    cleanup(); state.selectionCleanup = null; onSelected(target);
+  };
+  const onKey = (event) => { if (event.key === "Escape") { cleanup(); state.selectionCleanup = null; showQaToast("Seleção cancelada."); } };
+  document.addEventListener("mouseover", onOver, true);
+  document.addEventListener("click", onClick, true);
+  document.addEventListener("keydown", onKey, true);
+  state.selectionCleanup = cleanup;
+  showQaToast(instruction || "Clique no elemento da página. Esc cancela.");
+}
+
+function openMultiClick(selectedElement = null) {
+  const selector = selectedElement ? window.QTS_QA_TOOLS.uniqueSelector(selectedElement) : "";
+  openDrawer({
+    title: "Multiclick",
+    bodyHtml: `<p class="qts-tool-lead">Repita cliques em um elemento, com limite e intervalo controlados.</p>
+      <label>Elemento</label><input id="multiSelector" value="${escapeHtml(selector)}" readonly placeholder="Nenhum elemento selecionado" />
+      <div class="qts-card-actions"><button class="action" id="multiSelect" type="button">Selecionar na página</button></div>
+      <div class="qts-tool-grid"><label>Quantidade<input id="multiCount" type="number" min="2" max="100" value="5" /></label><label>Intervalo (ms)<input id="multiInterval" type="number" min="0" max="5000" value="150" /></label></div>
+      <button class="action primary" id="multiRun" type="button" ${selector ? "" : "disabled"}>Executar multiclick</button><div class="qts-status" id="multiStatus"></div>`,
+    onReady(body) {
+      body.querySelector("#multiSelect").addEventListener("click", () => selectPageElement({ onSelected: (element) => openMultiClick(element), instruction: "Clique no botão ou elemento que deve receber os cliques." }));
+      body.querySelector("#multiRun").addEventListener("click", async (event) => {
+        const runButton = event.currentTarget;
+        runButton.disabled = true;
+        const count = Math.min(100, Math.max(2, Number(body.querySelector("#multiCount").value) || 2));
+        const interval = Math.min(5_000, Math.max(0, Number(body.querySelector("#multiInterval").value) || 0));
+        const status = body.querySelector("#multiStatus");
+        try { await window.QTS_QA_TOOLS.executeStep({ action: "multiClick", selector, count, interval }); status.textContent = `${count} cliques concluídos.`; }
+        catch (error) { status.textContent = error.message; }
+        runButton.disabled = false;
+      });
+    },
+  });
+}
+
+function openInputLab(selectedElement = null) {
+  const info = selectedElement ? window.QTS_QA_TOOLS.inspectInput(selectedElement) : null;
+  const infoHtml = info ? `<div class="qts-card"><b>${escapeHtml(info.selector)}</b><div class="qts-tool-grid">${[["Tipo", info.type], ["Obrigatório", info.required ? "Sim" : "Não"], ["Mínimo", info.min ?? info.minLength ?? "—"], ["Máximo", info.max ?? info.maxLength ?? "—"], ["Pattern", info.pattern || "—"]].map(([label, value]) => `<div><small>${label}</small><br><b>${escapeHtml(value)}</b></div>`).join("")}</div></div>` : "";
+  openDrawer({
+    title: "Input Lab",
+    bodyHtml: `<p class="qts-tool-lead">Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.</p>
+      <button class="action" id="inputSelect" type="button">Selecionar input na página</button>${infoHtml}
+      ${info ? `<button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Rodar kit de validação</button><div id="inputResults"></div>` : ""}`,
+    onReady(body) {
+      body.querySelector("#inputSelect").addEventListener("click", () => selectPageElement({ accepts: (element) => ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName), onSelected: (element) => openInputLab(element), instruction: "Clique no input que deseja validar." }));
+      body.querySelector("#inputRun")?.addEventListener("click", async (event) => {
+        const runButton = event.currentTarget;
+        runButton.disabled = true;
+        const output = body.querySelector("#inputResults"); output.textContent = "Testando...";
+        try {
+          const results = await window.QTS_QA_TOOLS.runInputValidation(selectedElement);
+          output.innerHTML = `<table class="qts-result-table"><thead><tr><th>Caso</th><th>Enviado</th><th>Recebido</th><th>Validade</th></tr></thead><tbody>${results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${result.attemptedLength}</td><td>${result.actualLength}</td><td>${result.accepted ? "✓ aceito" : `✕ ${escapeHtml(result.message || "rejeitado")}`}</td></tr>`).join("")}</tbody></table>`;
+        } catch (error) { output.textContent = error.message; }
+        runButton.disabled = false;
+      });
+    },
+  });
+}
+
+function openFakerFill(selectedRoot = null) {
+  openDrawer({
+    title: "Faker Fill",
+    bodyHtml: `<p class="qts-tool-lead">Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.</p>
+      <div class="qts-card"><b>Escopo</b><p>${selectedRoot ? "Formulário selecionado" : "Página atual"}</p></div>
+      <div class="qts-card-actions"><button class="action" id="fakerSelectForm" type="button">Selecionar formulário</button><button class="action primary" id="fakerRun" type="button">Preencher agora</button></div><div class="qts-status" id="fakerStatus"></div>`,
+    onReady(body) {
+      body.querySelector("#fakerSelectForm").addEventListener("click", () => selectPageElement({ accepts: (element) => Boolean(element.closest("form")), onSelected: (element) => openFakerFill(element.closest("form")), instruction: "Clique dentro do formulário que deseja preencher." }));
+      body.querySelector("#fakerRun").addEventListener("click", () => {
+        const result = window.QTS_QA_TOOLS.fillWithFakeData(selectedRoot || document);
+        body.querySelector("#fakerStatus").textContent = `${result.filled} campo(s) preenchido(s); ${result.protectedCount} sensível(is) protegido(s).`;
+      });
+    },
+  });
+}
+
+function appendRecordedStep(step) {
+  const recording = state.macroRecording;
+  if (!recording || recording.steps.length >= 200) return;
+  const elapsed = Date.now() - recording.lastAt;
+  if (recording.steps.length && elapsed > 700) recording.steps.push({ action: "wait", ms: Math.min(3_000, elapsed) });
+  const previous = recording.steps.at(-1);
+  if (previous && previous.action === step.action && previous.selector === step.selector && ["fill", "select", "check"].includes(step.action)) recording.steps[recording.steps.length - 1] = step;
+  else recording.steps.push(step);
+  recording.lastAt = Date.now();
+  const count = state.shadowRoot?.getElementById("macroStepCount");
+  if (count) count.textContent = recording.steps.length;
+}
+
+function startMacroRecording() {
+  if (state.macroRecording) return;
+  closeDrawer();
+  const click = (event) => {
+    const element = event.target;
+    if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || window.QTS_QA_TOOLS.isSensitiveElement(element)) return;
+    if (element.matches("input,textarea,select,option")) return;
+    const target = element.closest("button,a,[role=button],label") || element;
+    const selector = window.QTS_QA_TOOLS.uniqueSelector(target);
+    if (selector) appendRecordedStep({ action: "click", selector });
+  };
+  const change = (event) => {
+    const element = event.target;
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement) || window.QTS_QA_TOOLS.isSensitiveElement(element)) return;
+    const selector = window.QTS_QA_TOOLS.uniqueSelector(element);
+    if (!selector) return;
+    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) appendRecordedStep({ action: "check", selector, checked: element.checked });
+    else appendRecordedStep({ action: element instanceof HTMLSelectElement ? "select" : "fill", selector, value: element.value });
+  };
+  const keydown = (event) => {
+    if (!["Enter", "Escape", "Tab"].includes(event.key) || window.QTS_QA_TOOLS.isSensitiveElement(event.target)) return;
+    const selector = window.QTS_QA_TOOLS.uniqueSelector(event.target);
+    if (selector) appendRecordedStep({ action: "press", selector, value: event.key });
+  };
+  document.addEventListener("click", click, true);
+  document.addEventListener("change", change, true);
+  document.addEventListener("keydown", keydown, true);
+  state.macroRecording = { steps: [], lastAt: Date.now(), cleanup: () => { document.removeEventListener("click", click, true); document.removeEventListener("change", change, true); document.removeEventListener("keydown", keydown, true); } };
+  state.shadowRoot?.getElementById("macroRecordingChip")?.classList.remove("isHidden");
+  showQaToast("Gravação iniciada. Senhas e dados sensíveis não serão capturados.");
+}
+
+function stopMacroRecording() {
+  const recording = state.macroRecording;
+  if (!recording) return;
+  recording.cleanup();
+  state.macroRecording = null;
+  state.shadowRoot?.getElementById("macroRecordingChip")?.classList.add("isHidden");
+  openMacroEditor({ id: crypto.randomUUID(), name: `Macro ${new Date().toLocaleTimeString().slice(0, 5)}`, description: "", steps: recording.steps.filter((step, index, all) => !(step.action === "wait" && index === all.length - 1)) });
+}
+
+function macroRunRequest(operation, run) {
+  return new Promise((resolve) => chrome.runtime.sendMessage({ type: "qts:macro-run", operation, run }, (response) => resolve(chrome.runtime.lastError ? { ok: false } : response || { ok: false })));
+}
+
+async function continueMacroRun(run, { announce = false } = {}) {
+  if (state.macroPlaying || !run || run.expiresAt <= Date.now()) { if (run) await macroRunRequest("clear"); return; }
+  const macro = (state.workspace?.macros || []).find((item) => item.id === run.macroId);
+  if (!macro?.steps?.length || run.index >= macro.steps.length) { await macroRunRequest("clear"); return; }
+  state.macroPlaying = true;
+  if (announce) showQaToast(`Executando “${macro.name}”...`);
+  try {
+    for (let index = run.index; index < macro.steps.length; index += 1) {
+      await macroRunRequest("set", { ...run, index: index + 1 });
+      await window.QTS_QA_TOOLS.executeStep(macro.steps[index]);
+    }
+    await macroRunRequest("clear");
+    showQaToast(`Macro concluída: ${macro.steps.length} etapa(s).`);
+  } catch (error) {
+    await macroRunRequest("clear");
+    showQaToast(`Macro interrompida: ${error.message}`, "error");
+  }
+  state.macroPlaying = false;
+}
+
+async function playMacro(macro) {
+  if (state.macroPlaying || !macro?.steps?.length) return;
+  const run = { macroId: macro.id, index: 0, expiresAt: Date.now() + 10 * 60_000 };
+  const saved = await macroRunRequest("set", run);
+  if (!saved?.ok) { showQaToast("Não foi possível iniciar a macro com segurança.", "error"); return; }
+  await continueMacroRun(run, { announce: true });
+}
+
+function defaultMacroStep(action) {
+  if (action === "wait") return { action, ms: 500 };
+  if (action === "scroll") return { action, y: 500 };
+  if (action === "fakerFill") return { action, scope: "page" };
+  if (action === "multiClick") return { action, selector: "button", count: 2, interval: 100 };
+  if (action === "check") return { action, selector: "input[type=checkbox]", checked: true };
+  if (["fill", "select", "press"].includes(action)) return { action, selector: "input", value: action === "press" ? "Enter" : "" };
+  return { action: "click", selector: "button" };
+}
+
+function macroStepFields(step) {
+  if (step.action === "wait") return `<input data-field="ms" type="number" min="0" max="30000" value="${Number(step.ms) || 500}" aria-label="Espera em milissegundos" />`;
+  if (step.action === "scroll") return `<input data-field="y" type="number" value="${Number(step.y) || 0}" aria-label="Posição vertical" />`;
+  if (step.action === "fakerFill") return `<select data-field="scope"><option value="page" ${step.scope !== "form" ? "selected" : ""}>Página</option><option value="form" ${step.scope === "form" ? "selected" : ""}>Primeiro formulário</option></select>`;
+  const selector = `<input data-field="selector" value="${escapeHtml(step.selector || "")}" placeholder="Seletor CSS" aria-label="Seletor CSS" />`;
+  if (step.action === "check") return `${selector}<select data-field="checked"><option value="true" ${step.checked !== false ? "selected" : ""}>Marcar</option><option value="false" ${step.checked === false ? "selected" : ""}>Desmarcar</option></select>`;
+  if (step.action === "multiClick") return `${selector}<span style="display:flex;gap:5px"><input data-field="count" type="number" min="2" max="100" value="${Number(step.count) || 2}" aria-label="Quantidade" /><input data-field="interval" type="number" min="0" max="5000" value="${Number(step.interval) || 100}" aria-label="Intervalo" /></span>`;
+  if (["fill", "select", "press"].includes(step.action)) return `${selector}<input data-field="value" value="${escapeHtml(step.value || "")}" placeholder="Valor" aria-label="Valor" />`;
+  return selector;
+}
+
+function renderMacroFlow(container, steps, refreshCode) {
+  const actions = [["click", "Clique"], ["fill", "Escrever"], ["select", "Selecionar"], ["check", "Checkbox"], ["press", "Tecla"], ["wait", "Esperar"], ["scroll", "Scroll"], ["multiClick", "Multiclick"], ["fakerFill", "Faker Fill"]];
+  container.innerHTML = steps.length ? steps.map((step, index) => `<div class="qts-step" draggable="true" data-step-index="${index}"><span class="qts-step-index">${index + 1}</span><select data-field="action">${actions.map(([value, label]) => `<option value="${value}" ${step.action === value ? "selected" : ""}>${label}</option>`).join("")}</select><div data-step-fields>${macroStepFields(step)}</div><button class="qts-icon-btn" type="button" data-remove-step title="Remover">×</button></div>`).join("") : `<div class="qts-empty">Arraste uma função para cá ou clique em uma opção da paleta.</div>`;
+  container.querySelectorAll("[data-step-index]").forEach((row) => {
+    const index = Number(row.dataset.stepIndex);
+    row.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/qts-step", String(index)));
+    row.addEventListener("dragover", (event) => event.preventDefault());
+    row.addEventListener("drop", (event) => { event.preventDefault(); const from = Number(event.dataTransfer.getData("text/qts-step")); if (Number.isInteger(from) && from !== index) { const [moved] = steps.splice(from, 1); steps.splice(index, 0, moved); renderMacroFlow(container, steps, refreshCode); refreshCode(); } });
+    row.querySelector("[data-remove-step]").addEventListener("click", () => { steps.splice(index, 1); renderMacroFlow(container, steps, refreshCode); refreshCode(); });
+    row.querySelector("[data-field=action]").addEventListener("change", (event) => { steps[index] = defaultMacroStep(event.target.value); renderMacroFlow(container, steps, refreshCode); refreshCode(); });
+    row.querySelectorAll("input,select").forEach((field) => field.addEventListener("input", refreshCode));
+  });
+}
+
+function collectMacroEditor(body, original, steps) {
+  const collected = steps.map((step, index) => {
+    const row = body.querySelector(`[data-step-index="${index}"]`);
+    if (!row) return step;
+    const get = (name) => row.querySelector(`[data-field="${name}"]`)?.value;
+    const action = get("action") || step.action;
+    const output = { action };
+    if (!["wait", "scroll", "fakerFill"].includes(action)) output.selector = get("selector") || "";
+    if (["fill", "select", "press"].includes(action)) output.value = get("value") || "";
+    if (action === "check") output.checked = get("checked") !== "false";
+    if (action === "wait") output.ms = Number(get("ms")) || 500;
+    if (action === "scroll") output.y = Number(get("y")) || 0;
+    if (action === "multiClick") { output.count = Number(get("count")) || 2; output.interval = Number(get("interval")) || 100; }
+    if (action === "fakerFill") output.scope = get("scope") === "form" ? "form" : "page";
+    return output;
+  });
+  return { ...original, name: body.querySelector("#macroName").value.trim(), description: body.querySelector("#macroDescription").value.trim(), updatedAt: new Date().toISOString(), steps: collected };
+}
+
+function openMacroEditor(macro) {
+  const original = structuredClone(macro);
+  const steps = structuredClone(macro.steps || []);
+  const palette = [["click", "🖱 Clique"], ["fill", "⌨ Escrever"], ["select", "▾ Selecionar"], ["check", "☑ Checkbox"], ["press", "↵ Tecla"], ["wait", "⏱ Esperar"], ["scroll", "↕ Scroll"], ["multiClick", "⚡ Multiclick"], ["fakerFill", "✨ Faker Fill"]];
+  openDrawer({
+    title: "Macro Studio",
+    wide: true,
+    bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">← Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
+      <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
+      <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
+      <section id="vibeMode"><p class="qts-tool-lead">Monte o fluxo arrastando blocos. As setas representam a ordem de execução.</p><div class="qts-macro-layout"><aside class="qts-palette">${palette.map(([action, label]) => `<button type="button" draggable="true" data-palette-action="${action}">${label}</button>`).join("")}</aside><div class="qts-flow" id="macroFlow"></div></div></section>
+      <section id="coderMode" hidden><div class="qts-toolbar-row"><p class="qts-tool-lead" style="flex:1">Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.</p><button class="action" id="copyMacroCode" type="button">Copiar código</button></div><pre class="qts-code" id="macroCode"></pre></section><div class="qts-status" id="macroEditorStatus"></div>`,
+    onReady(body) {
+      const flow = body.querySelector("#macroFlow");
+      const current = () => collectMacroEditor(body, original, steps);
+      const refreshCode = () => { body.querySelector("#macroCode").textContent = window.QTS_QA_TOOLS.generatePlaywrightCode(current()); };
+      renderMacroFlow(flow, steps, refreshCode); refreshCode();
+      body.querySelectorAll("[data-palette-action]").forEach((button) => {
+        button.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/qts-new-action", button.dataset.paletteAction));
+        button.addEventListener("click", () => { steps.push(defaultMacroStep(button.dataset.paletteAction)); renderMacroFlow(flow, steps, refreshCode); refreshCode(); });
+      });
+      flow.addEventListener("dragover", (event) => event.preventDefault());
+      flow.addEventListener("drop", (event) => { const action = event.dataTransfer.getData("text/qts-new-action"); if (action) { event.preventDefault(); steps.push(defaultMacroStep(action)); renderMacroFlow(flow, steps, refreshCode); refreshCode(); } });
+      body.querySelectorAll("[data-macro-mode]").forEach((button) => button.addEventListener("click", () => { body.querySelectorAll("[data-macro-mode]").forEach((item) => item.classList.toggle("isSelected", item === button)); body.querySelector("#vibeMode").hidden = button.dataset.macroMode !== "vibe"; body.querySelector("#coderMode").hidden = button.dataset.macroMode !== "coder"; refreshCode(); }));
+      body.querySelector("#macroName").addEventListener("input", refreshCode);
+      body.querySelector("#macroBack").addEventListener("click", openMacroStudio);
+      body.querySelector("#copyMacroCode").addEventListener("click", () => navigator.clipboard.writeText(body.querySelector("#macroCode").textContent).then(() => { body.querySelector("#macroEditorStatus").textContent = "Código copiado."; }).catch(() => {}));
+      body.querySelector("#macroSave").addEventListener("click", async () => {
+        const next = current();
+        if (!next.name || !next.steps.length) { body.querySelector("#macroEditorStatus").textContent = "Informe um nome e adicione ao menos uma etapa."; return; }
+        const index = (state.workspace.macros || []).findIndex((item) => item.id === next.id);
+        if (index >= 0) state.workspace.macros[index] = next; else state.workspace.macros.push({ ...next, createdAt: new Date().toISOString() });
+        await persistWorkspaceState(); openMacroStudio(); showQaToast("Macro salva.");
+      });
+    },
+  });
+}
+
+async function importMacrosFile(file) {
+  if (!file || file.size > 1_000_000) throw new Error("Arquivo acima de 1 MB");
+  const parsed = JSON.parse(await file.text());
+  if (parsed?.format !== "qts-macros" || parsed?.version !== 1 || !Array.isArray(parsed.macros)) throw new Error("Formato de macro inválido");
+  const existing = new Set((state.workspace.macros || []).map((macro) => macro.id));
+  const imported = parsed.macros.slice(0, 100).map((macro) => ({ ...macro, id: existing.has(macro.id) ? crypto.randomUUID() : macro.id || crypto.randomUUID() }));
+  state.workspace.macros = [...(state.workspace.macros || []), ...imported].slice(0, 100);
+  await persistWorkspaceState();
+  return imported.length;
+}
+
+function openMacroStudio() {
+  const macros = state.workspace?.macros || [];
+  const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
+  openDrawer({
+    title: "Macro Studio",
+    wide: true,
+    bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
+      <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">● Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
+      <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? "📌" : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">▶ Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
+    onReady(body) {
+      body.querySelector("#startMacroRecording").addEventListener("click", startMacroRecording);
+      body.querySelector("#newMacro").addEventListener("click", () => openMacroEditor({ id: crypto.randomUUID(), name: "Nova macro", description: "", steps: [] }));
+      body.querySelector("#exportAllMacros").addEventListener("click", () => downloadMacroJson(macros));
+      const file = body.querySelector("#macroFile");
+      body.querySelector("#importMacros").addEventListener("click", () => file.click());
+      file.addEventListener("change", async () => { try { const count = await importMacrosFile(file.files[0]); openMacroStudio(); showQaToast(`${count} macro(s) importada(s).`); } catch (error) { body.querySelector("#macroStatus").textContent = error.message; } });
+      body.querySelectorAll("[data-macro-id]").forEach((card) => card.addEventListener("click", async (event) => {
+        const action = event.target.dataset.macroAction; if (!action) return;
+        const macro = (state.workspace.macros || []).find((item) => item.id === card.dataset.macroId); if (!macro) return;
+        if (action === "play") { closeDrawer(); await playMacro(macro); }
+        if (action === "edit") openMacroEditor(macro);
+        if (action === "export") downloadMacroJson([macro]);
+        if (action === "pin") { const ids = new Set(state.workspace.preferences.pinnedMacroIds || []); if (ids.has(macro.id)) ids.delete(macro.id); else ids.add(macro.id); state.workspace.preferences.pinnedMacroIds = [...ids].slice(0, 20); await persistWorkspaceState(); openMacroStudio(); }
+        if (action === "delete" && confirm(`Excluir a macro “${macro.name}”?`)) { state.workspace.macros = state.workspace.macros.filter((item) => item.id !== macro.id); state.workspace.preferences.pinnedMacroIds = (state.workspace.preferences.pinnedMacroIds || []).filter((id) => id !== macro.id); await persistWorkspaceState(); openMacroStudio(); }
+      }));
+    },
+  });
+}
+
 document.addEventListener("qts:network-captured", (event) => handleNetworkCaptured(event.detail));
 document.addEventListener("qts:freeze-clock-state", (event) => {
   state.clockFrozen = Boolean(event.detail?.frozen);
@@ -1717,6 +2200,8 @@ async function boot() {
     syncToolbarForCurrentLocation();
   }, 200);
   state.accessInterval = window.setInterval(() => { void refreshAuthorization(true); }, 60_000);
+  const pendingRun = await macroRunRequest("get");
+  if (pendingRun?.ok && pendingRun.run) void continueMacroRun(pendingRun.run, { announce: true });
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

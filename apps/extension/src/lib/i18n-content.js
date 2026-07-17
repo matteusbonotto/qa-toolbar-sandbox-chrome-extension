@@ -11,6 +11,7 @@
 
   const MESSAGES = {
     "pt-BR": {
+      locale: "pt-BR",
       testStatus: "Test Status",
       testStatusTitle: "Registrar status do teste",
       pass: "Marcador Pass",
@@ -145,8 +146,14 @@
       resourcesMenuLabel: "Recursos e links",
       resourcesDrawerTitle: "Recursos e links",
       resourcesEmpty: "Nenhum recurso cadastrado.",
+      characterCounterMenuLabel: "Contador de caracteres",
+      macroStudioMenuLabel: "Macro Studio",
+      multiClickMenuLabel: "Multiclick",
+      inputLabMenuLabel: "Input Lab",
+      fakerFillMenuLabel: "Faker Fill",
     },
     es: {
+      locale: "es",
       testStatus: "Test Status",
       testStatusTitle: "Registrar estado de la prueba",
       pass: "Marcador Pass",
@@ -281,8 +288,14 @@
       resourcesMenuLabel: "Recursos y enlaces",
       resourcesDrawerTitle: "Recursos y enlaces",
       resourcesEmpty: "No hay recursos registrados.",
+      characterCounterMenuLabel: "Contador de caracteres",
+      macroStudioMenuLabel: "Estudio de macros",
+      multiClickMenuLabel: "Multiclic",
+      inputLabMenuLabel: "Laboratorio de inputs",
+      fakerFillMenuLabel: "Relleno con datos ficticios",
     },
     en: {
+      locale: "en",
       testStatus: "Test Status",
       testStatusTitle: "Record test status",
       pass: "Pass marker",
@@ -417,6 +430,11 @@
       resourcesMenuLabel: "Resources and links",
       resourcesDrawerTitle: "Resources and links",
       resourcesEmpty: "No resource registered.",
+      characterCounterMenuLabel: "Character Counter",
+      macroStudioMenuLabel: "Macro Studio",
+      multiClickMenuLabel: "Multiclick",
+      inputLabMenuLabel: "Input Lab",
+      fakerFillMenuLabel: "Faker Fill",
     },
   };
 

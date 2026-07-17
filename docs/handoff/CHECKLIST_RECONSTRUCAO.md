@@ -177,8 +177,22 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       recursos aparecem na barra, e inspectors configurados filtram as capturas. Exportação exclui
       senhas, dados de pagamento e tokens locais, inclui checksum SHA-256; falha de importação preserva
       o workspace anterior.
-- [x] Smoke em Chrome real cobre bloqueio sem autenticação, login/acesso, hierarquia/URL, modo
-      compacto, edição de ambiente, SPA, exportação segura e logout, com 0 erros de console/worker.
+- [x] Kit de produtividade integrado à barra: Contador de caracteres (com/sem espaços, palavras,
+      linhas e bytes UTF-8), Multiclick com seleção visual/limites, Input Lab que testa seis classes
+      de entrada sem submeter o formulário e restaura o valor original, e Faker Fill local que
+      preenche página/formulário com dados sintéticos sem tocar senha, cartão, CVV, token ou segredo.
+- [x] Macro Studio declarativo: grava clique/escrita/select/checkbox/tecla; Vibe Code com paleta,
+      drag and drop e fluxo conectado; Coder gera Playwright real somente leitura; CRUD, execução,
+      importação/exportação versionada e macros fixadas no menu. Reprodução continua na mesma aba
+      após navegação completa, com estado efêmero de 10 minutos em `chrome.storage.session`. Upgrade
+      de workspace schema 2 → 3 preserva as preferências e habilita o novo kit automaticamente.
+- [x] Segurança de macros documentada no ADR 0002: sem `eval`, `new Function`, JavaScript de usuário
+      ou código remoto; allowlist de nove ações, limites rígidos, normalização única e bloqueio de
+      campos/seletores sensíveis na gravação, importação, Faker e execução.
+- [x] Smoke em Chrome real cobre bloqueio sem autenticação, login/acesso, hierarquia/URL, contador,
+      Faker protegido, Input Lab, Multiclick, gravação/reprodução, Vibe Code/Coder, import/export,
+      macro fixada, retomada após navegação, modo compacto, edição de ambiente, SPA, exportação
+      segura e logout, com 0 erros de console/worker.
 - [x] Script de build simples (`npm run package:extension`) que gera um `.zip` em `~/Downloads`
       (só manifest.json + icons/ + src/ — exclui explicitamente qualquer artefato local tipo
       node_modules/.wxt, mesmo que sobrem no disco de sessões antigas).
@@ -196,6 +210,10 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       de segredo. Empacotador local e workflow manual usam a mesma whitelist/verificação por
       `npm run release:chrome:update`. O upload deve atualizar o item já publicado; nunca criar uma
       segunda extensão.
+- [x] Versão `v1.1.0` preparada com o novo kit de QA e Macro Studio, sem adicionar permissões ao
+      Manifest V3. `release:chrome:update` aprovou scanner do repositório, scanner dos 19 arquivos
+      da extensão (302,9 KB de fonte), smoke Chrome e gerou ZIP de 88,2 KB. Guia de uso em
+      `docs/GUIA_FERRAMENTAS_QA.md` e decisão de segurança no ADR 0002.
 
 ## 7. Segurança e publicação
 
@@ -229,7 +247,7 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       análise, mesclado via API segura em `main` (`77736fb`). Quality `29561893446`, CodeQL
       `29561893367`, Pages `29561893358` e o empacotamento da Store `29561904597` concluíram com
       sucesso. O artefato `chrome-web-store-package` (`8399588287`, 64.240 bytes) está disponível.
-- [ ] Enviar o artefato `v1.0.1` como atualização do item existente
+- [ ] Enviar o artefato `v1.1.0` como atualização do item existente
       `ddaapjklnfjhjigeglgmjmadjnmdodfe` na Chrome Web Store e aguardar a revisão da loja. Não criar
       um segundo item.
 - [ ] No primeiro acesso ao admin publicado, clicar em "Primeiro acesso? Criar conta", definir a

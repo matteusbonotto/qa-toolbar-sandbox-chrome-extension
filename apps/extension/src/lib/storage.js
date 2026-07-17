@@ -11,13 +11,18 @@ export const STORAGE_KEYS = Object.freeze({
 
 const COLLECTION_KEYS = [
   "clients", "projects", "products", "environments", "testAccounts",
-  "paymentMethods", "apis", "inspectors", "resources",
+  "paymentMethods", "apis", "inspectors", "resources", "macros",
 ];
 
 export const DEFAULT_ENABLED_TOOLS = Object.freeze([
   "clickSpy", "freezeClock", "forceHttp", "inspectors", "jsonStudio",
   "breakpoints", "testAccounts", "paymentMethods", "resources",
+  "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill",
 ]);
+const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
+
+const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
+const SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
 
 function text(value, maximum = 500) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -65,18 +70,52 @@ export function normalizeUrlPatterns(input) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 2,
+    schemaVersion: 3,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], testAccounts: [],
-    paymentMethods: [], apis: [], inspectors: [], resources: [],
+    paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [],
     preferences: {
       language: "pt-BR",
       pushSiteContent: true,
       compactMode: false,
       pinnedTools: ["passFail", "screenshot", "notes", "record"],
+      pinnedMacroIds: [],
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
     },
   };
+}
+
+function normalizeMacroStep(item) {
+  if (!item || typeof item !== "object" || !MACRO_ACTIONS.has(item.action)) return null;
+  const selector = text(item.selector, 1_000);
+  if (selector && SENSITIVE_HINT.test(selector)) return null;
+  const step = { action: item.action };
+  if (selector) step.selector = selector;
+  if (item.action === "fill" || item.action === "select" || item.action === "press") {
+    const value = text(item.value, 2_000);
+    if (SENSITIVE_HINT.test(value) && item.action !== "press") return null;
+    step.value = value;
+  }
+  if (item.action === "check") step.checked = item.checked !== false;
+  if (item.action === "wait") step.ms = Math.min(30_000, Math.max(0, Number(item.ms) || 500));
+  if (item.action === "scroll") step.y = Math.min(100_000, Math.max(-100_000, Number(item.y) || 0));
+  if (item.action === "multiClick") {
+    step.count = Math.min(100, Math.max(2, Number(item.count) || 2));
+    step.interval = Math.min(5_000, Math.max(0, Number(item.interval) || 100));
+  }
+  if (item.action === "fakerFill") step.scope = item.scope === "form" ? "form" : "page";
+  return step;
+}
+
+function normalizeMacros(input) {
+  return (Array.isArray(input) ? input : []).slice(0, 100).map((item, index) => ({
+    id: id(item?.id, "macro", index),
+    name: text(item?.name, 100) || `Macro ${index + 1}`,
+    description: text(item?.description, 500),
+    createdAt: text(item?.createdAt, 40) || new Date().toISOString(),
+    updatedAt: text(item?.updatedAt, 40) || new Date().toISOString(),
+    steps: (Array.isArray(item?.steps) ? item.steps : []).slice(0, 200).map(normalizeMacroStep).filter(Boolean),
+  }));
 }
 
 export function normalizeWorkspace(rawWorkspace) {
@@ -112,9 +151,15 @@ export function normalizeWorkspace(rawWorkspace) {
     ...item, id: id(item?.id, key.replace(/s$/, ""), index), active: item?.active !== false,
   }));
   const preferences = source.preferences && typeof source.preferences === "object" ? source.preferences : {};
+  const normalizedEnabledTools = Array.isArray(preferences.enabledTools)
+    ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value))
+    : [...empty.preferences.enabledTools];
+  if (Number(source.schemaVersion || 0) < 3) {
+    for (const tool of SCHEMA_3_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 2,
+    schemaVersion: 3,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments,
     testAccounts: copyCollection("testAccounts").filter((item) => environments.some((environment) => environment.id === item.environmentId)),
@@ -125,15 +170,15 @@ export function normalizeWorkspace(rawWorkspace) {
     apis: copyCollection("apis"),
     inspectors: copyCollection("inspectors"),
     resources: copyCollection("resources"),
+    macros: normalizeMacros(source.macros),
     preferences: {
       ...empty.preferences,
       ...preferences,
       compactMode: preferences.compactMode === true,
       pushSiteContent: preferences.pushSiteContent !== false,
       pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools,
-      enabledTools: Array.isArray(preferences.enabledTools)
-        ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value))
-        : empty.preferences.enabledTools,
+      pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
+      enabledTools: normalizedEnabledTools,
     },
   };
   for (const key of COLLECTION_KEYS) workspace[key] = Array.isArray(workspace[key]) ? workspace[key] : [];
