@@ -11,11 +11,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Zip the unbundled extension for Chrome Web Store submission
-        run: |
-          mkdir -p artifacts
-          cd apps/extension
-          zip -r ../../artifacts/qa-toolbar-sandbox-extension.zip . -x "*.DS_Store"
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify and build the whitelisted Chrome Web Store package
+        run: node scripts/package-extension.mjs --output=artifacts/qa-toolbar-sandbox-extension.zip
       - uses: actions/upload-artifact@v4
         with:
           name: chrome-web-store-package

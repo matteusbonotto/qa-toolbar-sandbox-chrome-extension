@@ -40,6 +40,9 @@
 - [~] Pós-pagamento: a LP abre somente `checkout.stripe.com`, consulta `access-status` no retorno
       e exibe a ação explícita da Chrome Web Store apenas com entitlement confirmado. Falta concluir
       um pagamento test completo para provar o webhook assinado ponta a ponta.
+- [x] Quando o acesso fica ativo, a LP repassa a sessão diretamente à extensão publicada
+      (`ddaapjklnfjhjigeglgmjmadjnmdodfe`) usando `externally_connectable`; tokens não entram em URL,
+      query string, log ou bundle estático.
 
 **Estado**: o stub foi removido. Preços vêm de `stripe_prices`; voucher nunca é validado por lista
 hardcoded no browser; senha não é persistida pela LP; URL da Store vem do backend e é validada.
@@ -62,13 +65,19 @@ hardcoded no browser; senha não é persistida pela LP; URL da Store vem do back
       founder correta, exibe as etapas `Senha → Código por e-mail` antes do login e oferece criação
       segura da conta no primeiro acesso. Falta somente criar/confirmar a conta definitiva e concluir
       o login humano com o código real recebido no Gmail.
-- [~] Gestão de vouchers (criar, listar e ativar/desativar implementados; falta edição/exclusão e validação real).
+- [~] Gestão de vouchers e campanhas (criar, listar, editar, ativar/desativar e excluir implementados;
+      exclusão é bloqueada quando já houve uso. Falta validação via login founder humano).
 - [~] Gestão de acessos/entitlements manuais (conceder/revogar implementados; falta validação real).
 - [~] Gestão de licenças (`license_keys` / `license_activations`) implementada na UI; falta validação real.
 - [~] Gestão de usuários (diretório usa `admin_list_users()` para obter e-mail sem expor `auth.users`;
       atribuir/revogar roles implementado; falta validação via login founder real).
-- [~] Dashboard (métricas básicas implementadas; MRR ainda não modelado/exibido).
-- [~] Sistema de roles (founder/support no schema e guard de founder; falta role admin e testes RLS).
+- [~] Dashboard com métricas básicas e MRR estimado a partir de assinaturas ativas e ciclo dos
+      `stripe_prices`; typecheck/build aprovados, falta validação via login founder humano.
+- [~] Sistema de roles (`founder`, `admin`, `support`) no schema, guard de founder e auditoria de
+      mutações administrativas. Migration e triggers executados ao vivo; falta a matriz RLS completa
+      com sessões humanas de cada role.
+- [~] Tela de auditoria administrativa implementada, com listagem sanitizada e limitada; falta
+      validação via login founder humano.
 
 **Estado**: Google OAuth não é necessário. A senha é tratada somente pelo Supabase Auth e nunca é
 incluída no Git, migration, seed, log ou bundle. O Gmail recebe o segundo fator pelo e-mail nativo
@@ -100,8 +109,8 @@ de reautenticação; login passwordless/OTP isolado não cria prova founder.
 - [~] Estrutura de afiliados/referrals e `reward_referral()` transacional implementadas; falta validar
       a recompensa com um primeiro pagamento assinado completo.
 
-**Estado**: projeto `xhusvkylbouwtpcevgri` ativo; as seis migrations de
-`20260717010000_bootstrap.sql` a `20260717060000_fix_admin_user_directory.sql` estão aplicadas e
+**Estado**: projeto `xhusvkylbouwtpcevgri` ativo; as sete migrations de
+`20260717010000_bootstrap.sql` a `20260717070000_admin_role_audit_and_mrr.sql` estão aplicadas e
 sincronizadas com o repositório. `schema.sql` é fonte reproduzível e deve ficar no Git; ele não contém
 chaves, senhas ou vouchers em texto puro.
 
@@ -125,21 +134,43 @@ chaves, senhas ou vouchers em texto puro.
 - [x] `keep-alive` — publicada e validada ao vivo com segredo (`200`), comparação timing-safe e rate limit.
 - [x] `access-status` — publicada; só retorna URL oficial da Store para entitlement ativo e não confia
       em query string de retorno do Stripe.
+- [x] `auth-sign-in` e `auth-refresh` — publicadas para autenticar a extensão sem distribuir chave
+      privada ou service role no pacote; login, renovação e `access-status` foram validados ao vivo
+      com usuário descartável, removido ao final do smoke.
 
-**Estado real em 2026-07-17**: as sete funções têm implementação e passaram em `deno check`;
+**Estado real em 2026-07-17**: as nove funções têm implementação e passaram em `deno check`;
 os 6 testes Deno dos helpers HTTP/CORS e MFA também passam.
 O gateway está configurado em `supabase/config.toml`; `scripts/bootstrap-new-backend.ps1`
 aplica o schema, envia os segredos e publica todas as funções com um comando. SQL não consegue
 publicar código Deno por si só; por isso o deploy usa a API oficial do Supabase.
 
-**Deploy real em 2026-07-17**: migrations aplicadas ao projeto `xhusvkylbouwtpcevgri`; 7 Edge
+**Deploy real em 2026-07-17**: migrations aplicadas ao projeto `xhusvkylbouwtpcevgri`; 9 Edge
 Functions publicadas; 6 Stripe Prices de teste registrados; webhook Stripe criado para o projeto
-novo; CORS validado em 7 funções × 10 origens (224 assertions). Smokes ao vivo: keep-alive `200`,
+novo; CORS validado em 9 funções × 10 origens (288 assertions). Smokes ao vivo: keep-alive `200`,
 endpoints de usuário sem sessão `401`, webhook sem assinatura `400`, trial autenticado confirmado,
-sessão paga test criada e validada, e `access-status` retornando a Store oficial somente após acesso.
+sessão paga test criada e validada, `auth-sign-in`/`auth-refresh` positivos, e `access-status`
+retornando a Store oficial somente após acesso.
 
 ## 6. Extensão Chrome
 
+- [x] Autenticação e entitlement obrigatórios em modo fail-closed: sem sessão válida, acesso ativo
+      ou conexão com o backend a barra não é registrada. A última sessão válida pode ser renovada;
+      sair da conta remove a barra das abas abertas e bloqueia as configurações protegidas.
+- [x] Barra alinhada ao fluxo do `tampermonkey.js`: cliente pequeno e discreto na primeira linha;
+      projeto, produto e ambiente na segunda; sem o nome “QA Sandbox”; cor vem do ambiente.
+- [x] Modo compacto oculta somente os nomes de projeto/produto, mantendo seus ícones e o ambiente.
+- [x] URL atual exibida em pill branco, arredondado e com ícone de globo; parâmetros sensíveis são
+      mascarados. Navegação SPA (`pushState`, `replaceState`, hash e popstate) reavalia o ambiente.
+- [x] Workspace normalizado e reativo: CRUD/duplicação/ativação de clientes, projetos, produtos,
+      ambientes, contas sandbox, pagamentos, inspectors, APIs e recursos. Criar, editar ou importar
+      URLs de ambiente atualiza o registro da barra imediatamente; sem URL configurada não há injeção.
+- [x] Configurações de escopo, aparência, atalhos, dados de teste, integrações e importação/exportação
+      segura reconstruídas. Ferramentas do menu podem ser ativadas individualmente; pagamentos e
+      recursos aparecem na barra, e inspectors configurados filtram as capturas. Exportação exclui
+      senhas, dados de pagamento e tokens locais, inclui checksum SHA-256; falha de importação preserva
+      o workspace anterior.
+- [x] Smoke em Chrome real cobre bloqueio sem autenticação, login/acesso, hierarquia/URL, modo
+      compacto, edição de ambiente, SPA, exportação segura e logout, com 0 erros de console/worker.
 - [x] Script de build simples (`npm run package:extension`) que gera um `.zip` em `~/Downloads`
       (só manifest.json + icons/ + src/ — exclui explicitamente qualquer artefato local tipo
       node_modules/.wxt, mesmo que sobrem no disco de sessões antigas).
@@ -153,6 +184,10 @@ sessão paga test criada e validada, e `access-status` retornando a Store oficia
       **Não naveguei para os domínios reais do Cinemark** (não seria apropriado bater num site
       de produção de terceiros num teste automatizado) — a cobertura de "breadcrumb reage à
       URL certa" já existe de forma genérica em `smoke-extension.mjs`.
+- [x] Pacote `v1.0.1` inspecionado: 22 arquivos, sem `manifest.key`, arquivos proibidos ou padrões
+      de segredo. Empacotador local e workflow manual usam a mesma whitelist/verificação por
+      `npm run release:chrome:update`. O upload deve atualizar o item já publicado; nunca criar uma
+      segunda extensão.
 
 ## 7. Segurança e publicação
 
@@ -189,10 +224,13 @@ sessão paga test criada e validada, e `access-status` retornando a Store oficia
 
 ## O que já está pronto (sessões anteriores)
 
-- [x] Extensão vanilla MV3 reconstruída do zero (sem dados hardcoded, roda em qualquer site).
+- [x] Extensão vanilla MV3 reconstruída do zero (sem dados hardcoded); roda somente em URLs de
+      ambientes autorizados e após autenticação com entitlement ativo.
 - [x] Badges white-label (logo/sigla/iniciais) para Cliente/Projeto/Produto + toggle mostrar nome.
 - [x] Contas de teste sandbox-only (mascaradas, nunca exportadas com senha).
-- [x] i18n completo (pt-BR/es/en) na extensão e na LP.
+- [~] i18n pt-BR/es/en completo na barra e na LP. A tela de configurações reconstruída está completa
+      em pt-BR; os controles de idioma permanecem, mas as novas seções ainda precisam das traduções
+      equivalentes em espanhol e inglês antes de este item voltar para `[x]`.
 - [x] Landing page nova (React/Vite), simulador interativo do toolbar, partículas, nav-toolbar.
 - [x] CI restaurado e adaptado (quality/verify, CodeQL/analyze, deploy do GitHub Pages).
 - [x] PR #24 mergeada + bumps de dependência consolidados + deploy no ar.

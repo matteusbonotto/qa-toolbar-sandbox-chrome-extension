@@ -33,6 +33,10 @@ export function adminClient() {
   return createClient(supabaseUrl(), secret, { auth: { autoRefreshToken: false, persistSession: false } });
 }
 
+export function publicClient() {
+  return createClient(supabaseUrl(), publicKey(), { auth: { autoRefreshToken: false, persistSession: false } });
+}
+
 function parseJwtClaims(token: string): Record<string, unknown> {
   const payload = token.split(".")[1];
   if (!payload) throw new ApiError(401, "invalid_session");

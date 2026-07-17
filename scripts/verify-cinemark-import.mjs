@@ -6,7 +6,7 @@
 // (which stays intentionally generic/white-label) since this one is about proving a specific
 // real-world scenario end to end, not about extension features in general.
 import { resolve } from "node:path";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
@@ -15,6 +15,7 @@ const fixturePath = resolve(root, "apps/extension/fixtures/cinemark-import-examp
 const profilePath = resolve(root, "artifacts/chrome-cinemark-profile");
 const evidencePath = resolve(root, "artifacts/runtime-evidence");
 await mkdir(evidencePath, { recursive: true });
+await rm(profilePath, { recursive: true, force: true });
 
 const context = await chromium.launchPersistentContext(profilePath, {
   headless: false,
@@ -28,6 +29,19 @@ const context = await chromium.launchPersistentContext(profilePath, {
   viewport: { width: 1400, height: 900 },
 });
 
+const fakeSession = {
+  accessToken: "test-access-token-with-more-than-twenty-characters",
+  refreshToken: "test-refresh-token",
+  expiresAt: Math.floor(Date.now() / 1_000) + 3_600,
+  user: { id: "00000000-0000-4000-8000-000000000001", email: "tester@example.com" },
+};
+await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", async (route) => {
+  const name = new URL(route.request().url()).pathname.split("/").pop();
+  if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
+  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, checkedAt: new Date().toISOString() }) });
+  return route.fulfill({ status: 404, body: "{}" });
+});
+
 try {
   let worker = context.serviceWorkers()[0];
   if (!worker) worker = await context.waitForEvent("serviceworker", { timeout: 15_000 });
@@ -39,7 +53,10 @@ try {
   page.on("pageerror", (error) => errors.push(error.message));
 
   await page.goto(`chrome-extension://${extensionId}/src/options/options.html`);
-  await page.waitForTimeout(300);
+  await page.locator("#loginEmail").fill("tester@example.com");
+  await page.locator("#loginPassword").fill("safe-test-password");
+  await page.locator("#loginForm button[type=submit]").click();
+  await page.locator('.protectedNav[data-tab="data"]:not(:disabled)').waitFor({ timeout: 10_000 });
   await page.getByRole("button", { name: "Importar / Exportar" }).click();
 
   const [fileChooser] = await Promise.all([

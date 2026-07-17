@@ -6,8 +6,8 @@
   all: initial;
   display: block !important;
   width: 100% !important;
-  height: var(--qts-toolbar-height, 34px) !important;
-  min-height: var(--qts-toolbar-height, 34px) !important;
+  height: var(--qts-toolbar-height, 48px) !important;
+  min-height: var(--qts-toolbar-height, 48px) !important;
   flex-shrink: 0 !important;
   transition: height 160ms ease !important;
 }

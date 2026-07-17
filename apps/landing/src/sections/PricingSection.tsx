@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { pricingPlans, type PlanId } from "../data/pricingData";
 import {
   loadAccessStatus,
+  handoffSessionToExtension,
   loadPriceCatalog,
   sendSignInLink,
   signIn,
@@ -118,6 +119,7 @@ export function PricingSection() {
         if (stopped) return;
         setAccess(nextAccess);
         if (nextAccess.active) {
+          void handoffSessionToExtension(session);
           setStatusError(false);
           setStatusMessage(t.pricing.accessActive);
           return;

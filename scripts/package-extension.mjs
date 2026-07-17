@@ -9,20 +9,23 @@
 import { createWriteStream } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
-import { resolve } from "node:path";
+import { dirname, resolve } from "node:path";
 import { createRequire } from "node:module";
+import { verifyExtensionSource } from "./check-extension-bundle.mjs";
 
 const archiver = createRequire(import.meta.url)("archiver");
 
 const root = resolve(import.meta.dirname, "..");
 const extensionDir = resolve(root, "apps/extension");
 const manifest = JSON.parse(await readFile(resolve(extensionDir, "manifest.json"), "utf8"));
-
-const downloadsDir = resolve(homedir(), "Downloads");
-await mkdir(downloadsDir, { recursive: true });
+await verifyExtensionSource(extensionDir);
 
 const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-const outputPath = resolve(downloadsDir, `qa-toolbar-sandbox-extension-v${manifest.version}-${timestamp}.zip`);
+const outputArg = process.argv.find((argument) => argument.startsWith("--output="))?.slice("--output=".length);
+const outputPath = outputArg
+  ? resolve(root, outputArg)
+  : resolve(homedir(), "Downloads", `qa-toolbar-sandbox-extension-v${manifest.version}-${timestamp}.zip`);
+await mkdir(dirname(outputPath), { recursive: true });
 
 const output = createWriteStream(outputPath);
 const archive = archiver("zip", { zlib: { level: 9 } });

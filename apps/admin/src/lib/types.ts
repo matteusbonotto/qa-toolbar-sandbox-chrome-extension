@@ -112,6 +112,8 @@ export interface Subscription {
   id: string;
   user_id: string;
   plan_id: string;
+  provider_price_id: string;
+  billing_cycle: "monthly" | "yearly";
   status: SubscriptionStatus;
   current_period_start: string | null;
   current_period_end: string | null;
@@ -141,6 +143,7 @@ export interface AuditLogEntry {
 }
 
 export interface DashboardMetrics {
+  monthlyRecurringRevenueMinor: number;
   activeSubscriptions: number;
   trialingSubscriptions: number;
   vouchersRedeemed: number;

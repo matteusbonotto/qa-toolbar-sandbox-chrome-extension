@@ -32,19 +32,26 @@ export async function listPlans(): Promise<Plan[]> {
 // ---------- Dashboard ----------
 export async function getDashboardMetrics(): Promise<DashboardMetrics> {
   const client = requireClient();
-  const [subscriptions, vouchers, licenses, referrals, profiles] = await Promise.all([
-    client.from("subscriptions").select("status", { count: "exact" }),
+  const [subscriptions, prices, vouchers, licenses, referrals, profiles] = await Promise.all([
+    client.from("subscriptions").select("status,provider_price_id", { count: "exact" }),
+    client.from("stripe_prices").select("provider_price_id,billing_cycle,amount_minor,currency").eq("is_active", true),
     client.from("vouchers").select("status", { count: "exact" }),
     client.from("license_activations").select("revoked_at", { count: "exact" }).is("revoked_at", null),
     client.from("referrals").select("status", { count: "exact" }).in("status", ["qualified", "rewarded"]),
     client.from("profiles").select("id", { count: "exact", head: true }),
   ]);
-  for (const result of [subscriptions, vouchers, licenses, referrals, profiles]) {
+  for (const result of [subscriptions, prices, vouchers, licenses, referrals, profiles]) {
     if (result.error) throw result.error;
   }
   const subs = subscriptions.data ?? [];
+  const priceById = new Map((prices.data ?? []).map((price) => [price.provider_price_id, price]));
   const vList = vouchers.data ?? [];
   return {
+    monthlyRecurringRevenueMinor: subs.filter((subscription) => subscription.status === "active").reduce((total, subscription) => {
+      const price = priceById.get(subscription.provider_price_id);
+      if (!price) return total;
+      return total + (price.billing_cycle === "yearly" ? Math.round(Number(price.amount_minor) / 12) : Number(price.amount_minor));
+    }, 0),
     activeSubscriptions: subs.filter((s) => s.status === "active").length,
     trialingSubscriptions: subs.filter((s) => s.status === "trialing").length,
     vouchersRedeemed: vList.filter((v) => v.status === "used").length,
@@ -80,6 +87,16 @@ export async function setVoucherStatus(id: string, status: "available" | "disabl
   if (error) throw error;
 }
 
+export async function updateVoucher(id: string, input: { label: string; planId: string; grantDays: number | null; expiresAt: string | null }) {
+  const { error } = await requireClient().from("vouchers").update({ label: input.label, plan_id: input.planId, grant_days: input.grantDays, expires_at: input.expiresAt }).eq("id", id).neq("status", "used");
+  if (error) throw error;
+}
+
+export async function deleteVoucher(id: string) {
+  const { error } = await requireClient().from("vouchers").delete().eq("id", id).neq("status", "used");
+  if (error) throw error;
+}
+
 // ---------- Voucher campaigns (multi-redemption codes: discount / extra days / lifetime) ----------
 export async function listVoucherCampaigns(): Promise<VoucherCampaign[]> {
   const { data, error } = await requireClient().from("voucher_campaigns").select("*").order("created_at", { ascending: false });
@@ -110,6 +127,16 @@ export async function createVoucherCampaign(input: {
 
 export async function setVoucherCampaignEnabled(id: string, enabled: boolean) {
   const { error } = await requireClient().from("voucher_campaigns").update({ enabled }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateVoucherCampaign(id: string, input: { label: string; planId: string; grantDays: number; maximumRedemptions: number | null; expiresAt: string | null }) {
+  const { error } = await requireClient().from("voucher_campaigns").update({ label: input.label, plan_id: input.planId, grant_days: input.grantDays, maximum_redemptions: input.maximumRedemptions, expires_at: input.expiresAt }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function deleteVoucherCampaign(id: string) {
+  const { error } = await requireClient().from("voucher_campaigns").delete().eq("id", id).eq("redemption_count", 0);
   if (error) throw error;
 }
 
