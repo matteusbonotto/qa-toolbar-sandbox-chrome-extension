@@ -1256,6 +1256,20 @@ function openBreakpointViewer() {
 
   function findDevice(id) { return DEVICE_PRESETS.find((device) => device.id === id) ?? DEVICE_PRESETS[0]; }
 
+  function normalizedPreviewUrl() {
+    try {
+      const parsed = new URL(urlInput.value.trim());
+      if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+      // Credentials in preview URLs are unnecessary and can leak through the
+      // iframe request. encodeURI also prevents DOM text from becoming markup.
+      parsed.username = "";
+      parsed.password = "";
+      return encodeURI(parsed.href);
+    } catch {
+      return null;
+    }
+  }
+
   function layout() {
     stage.innerHTML = buildDeviceFrameHtml("a", findDevice(selectA.value)) + buildDeviceFrameHtml("b", findDevice(selectB.value));
     fitAndLoad();
@@ -1263,7 +1277,7 @@ function openBreakpointViewer() {
   }
 
   function fitAndLoad() {
-    const url = urlInput.value.trim();
+    const url = normalizedPreviewUrl();
     const deviceA = findDevice(selectA.value);
     const deviceB = findDevice(selectB.value);
 
@@ -1285,7 +1299,7 @@ function openBreakpointViewer() {
       wrap.style.width = `${Math.round(device.width * scale)}px`;
       wrap.style.height = `${Math.round(device.height * scale)}px`;
       iframe.style.transform = `scale(${scale})`;
-      if (/^https?:\/\//i.test(url) && iframe.src !== url) iframe.src = url;
+      if (url && iframe.src !== url) iframe.src = url;
       const label = frame.closest("[data-pane-wrap]").querySelector("[data-scale-label]");
       if (label) label.textContent = `${device.label} · ${device.width}×${device.height} · ${Math.round(scale * 100)}%`;
     });

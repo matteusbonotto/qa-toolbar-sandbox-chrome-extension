@@ -88,7 +88,9 @@ if ($LASTEXITCODE -ne 0) { throw 'Stripe catalog bootstrap failed.' }
 $stripeCatalogValues = $stripeCatalogJson | ConvertFrom-Json
 $stripeCatalogValues.PSObject.Properties | ForEach-Object { $configuredValues[$_.Name] = [string]$_.Value }
 
-& node scripts/bootstrap-stripe-webhook.mjs --env-file $secretsPath --project-ref $ProjectRef | Out-Null
+& powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-stripe-webhook.ps1 `
+  -SecretsFile $secretsPath `
+  -ProjectRef $ProjectRef | Out-Null
 if ($LASTEXITCODE -ne 0) { throw 'Stripe webhook bootstrap failed.' }
 $webhookLine = Get-Content -LiteralPath $secretsPath | Where-Object { $_ -match '^STRIPE_WEBHOOK_SECRET=' } | Select-Object -First 1
 if ($webhookLine) { $configuredValues['STRIPE_WEBHOOK_SECRET'] = ($webhookLine -split '=', 2)[1].Trim() }

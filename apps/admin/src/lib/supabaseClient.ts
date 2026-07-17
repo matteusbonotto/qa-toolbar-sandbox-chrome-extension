@@ -1,12 +1,16 @@
 import { createClient } from "@supabase/supabase-js";
 
-const ADMIN_MFA_STORAGE_KEY = "qts.admin.mfa.v1";
 const ADMIN_AUTH_STORAGE_KEY = "qts.admin.auth.v1";
 
 export interface StoredAdminMfaSession {
   token: string;
   expiresAt: string;
 }
+
+// MFA proof is intentionally memory-only. Persisting it in web storage would
+// give injected page code a reusable second-factor token. A reload therefore
+// fails closed and requires the administrator to authenticate again.
+let activeAdminMfaSession: StoredAdminMfaSession | null = null;
 
 // Public/anon key only — this app never sees a service-role key. Founder-only access is
 // enforced server-side (RLS + the roles/user_roles tables), never trusted from the client;
@@ -17,28 +21,21 @@ export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 export function readAdminMfaSession(): StoredAdminMfaSession | null {
-  try {
-    const parsed = JSON.parse(sessionStorage.getItem(ADMIN_MFA_STORAGE_KEY) ?? "null") as Partial<StoredAdminMfaSession> | null;
-    if (!parsed || typeof parsed.token !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(parsed.token)
-      || typeof parsed.expiresAt !== "string" || !Number.isFinite(Date.parse(parsed.expiresAt))) {
-      return null;
-    }
-    return { token: parsed.token, expiresAt: parsed.expiresAt };
-  } catch {
+  const session = activeAdminMfaSession;
+  if (!session || !/^[A-Za-z0-9_-]{43}$/.test(session.token)
+    || !Number.isFinite(Date.parse(session.expiresAt)) || Date.parse(session.expiresAt) <= Date.now()) {
+    activeAdminMfaSession = null;
     return null;
   }
+  return { ...session };
 }
 
 export function storeAdminMfaSession(session: StoredAdminMfaSession): void {
-  sessionStorage.setItem(ADMIN_MFA_STORAGE_KEY, JSON.stringify(session));
+  activeAdminMfaSession = { ...session };
 }
 
 export function clearAdminMfaSession(): void {
-  try {
-    sessionStorage.removeItem(ADMIN_MFA_STORAGE_KEY);
-  } catch {
-    // Storage denial is treated as signed out by the caller.
-  }
+  activeAdminMfaSession = null;
 }
 
 async function fetchWithAdminMfa(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
