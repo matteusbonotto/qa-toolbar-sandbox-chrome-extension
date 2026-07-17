@@ -30,6 +30,11 @@
       `prefers-reduced-motion`).
 - [x] Trocar e-mail de suporte em todo o site para `contato@matheusbonotto.com.br`.
 - [x] Visualização de planos anual x mensal, com desconto de ~20% no anual.
+- [x] Login/cadastro removido do corpo da página e movido para modal aberto por "Entrar" no navbar
+      ou pelo CTA de qualquer plano; copy de cliente não menciona Supabase, backend ou detalhes de
+      infraestrutura. Modal validado em desktop e viewport de 390 px.
+- [x] Seletor de produto `Mobile` agora altera o simulador para um frame real de telefone (`390px`,
+      layout vertical), em vez de trocar apenas breadcrumb/URL.
 - [x] Plano Free: trial de 30 dias concedido transacionalmente no Supabase, sem criar assinatura
       Stripe de valor zero. Smoke autenticado executado e usuário temporário removido.
 - [~] Pós-pagamento: a LP abre somente `checkout.stripe.com`, consulta `access-status` no retorno
@@ -53,8 +58,10 @@ hardcoded no browser; senha não é persistida pela LP; URL da Store vem do back
       momento. Smoke real com
       conta temporária confirmou: senha sem OTP bloqueada, envio de e-mail `200`, OTP incorreto `401`
       prova adulterada e revogada bloqueadas, prova válida aceita, constraint acima de 60 minutos
-      rejeitada e limpeza das contas/dados temporários. Falta o cadastro definitivo e o login humano
-      com o código real no Pages.
+      rejeitada e limpeza das contas/dados temporários. A tela publicada agora fixa a identidade
+      founder correta, exibe as etapas `Senha → Código por e-mail` antes do login e oferece criação
+      segura da conta no primeiro acesso. Falta somente criar/confirmar a conta definitiva e concluir
+      o login humano com o código real recebido no Gmail.
 - [~] Gestão de vouchers (criar, listar e ativar/desativar implementados; falta edição/exclusão e validação real).
 - [~] Gestão de acessos/entitlements manuais (conceder/revogar implementados; falta validação real).
 - [~] Gestão de licenças (`license_keys` / `license_activations`) implementada na UI; falta validação real.
@@ -80,11 +87,15 @@ de reautenticação; login passwordless/OTP isolado não cria prova founder.
       Em 2026-07-17 também foram adicionados `stripe_prices`, `checkout_sessions`,
       `referral_profiles` e RPCs transacionais exigidas pelas Edge Functions.
 - [x] Seed não sensível de planos (Smoke Test / Regression Runner / Root Cause Analyst / Release Manager) no schema.
-- [~] Script idempotente para seed de 4 usuários de teste (um por plano), com senha fornecida apenas por `QTS_TEST_USER_PASSWORD`:
+- [x] Script idempotente para seed de 4 usuários de teste (um por plano), executado no projeto real
+      em modo `--users-only`; nesse modo usa senha aleatória não exibida e o login da LP oferece link
+      por e-mail, sem senha compartilhada:
       - `matteusbonotto+st@gmail.com` → Smoke Test (free)
       - `matteusbonotto+rr@gmail.com` → Regression Runner
       - `matteusbonotto+rca@gmail.com` → Root Cause Analyst
       - `matteusbonotto+rm@gmail.com` → Release Manager
+      As quatro sessões foram validadas ao vivo por magic link gerado sem envio de e-mail; cada
+      `access-status` retornou acesso ativo e exatamente o plano esperado.
 - [~] Script de seed de vouchers de teste: desconto, dias extras, vitalício; falta executar no projeto real.
 - [~] Estrutura de afiliados/referrals e `reward_referral()` transacional implementadas; falta validar
       a recompensa com um primeiro pagamento assinado completo.
@@ -152,8 +163,9 @@ sessão paga test criada e validada, e `access-status` retornando a Store oficia
 - [x] Histórico remoto auditado em 2026-07-17: 57 commits acessíveis verificados, sem formato real
       de Stripe secret, webhook secret, Supabase secret, GitHub token ou chave privada. O único JWT
       encontrado é fixture assinada de teste com chave pública, sem service role.
-- [x] Pages publicado auditado após o PR #25: landing, `/admin/` e quatro assets retornam `200`,
-      preços oficiais renderizam no Chromium sem erro de console e o JavaScript público tem zero
+- [x] Pages publicado auditado após o PR #27 (`7f5448e`, workflow `29558921233`): landing, `/admin/`
+      e quatro assets retornam `200`; modal por navbar/plano, frame Mobile de `390px`, cadastro founder
+      e etapa OTP renderizam no Chromium sem erro de console/rede. O JavaScript público tem zero
       formatos de segredo; `.env`, `.env.edge.local`, `schema.sql`, `supabase/schema.sql` e o
       project-ref temporário não existem no artefato (`404`).
 - [x] Cupons de exemplo hardcoded removidos da LP; validação/consumo ocorre no backend por hash.
@@ -170,7 +182,8 @@ sessão paga test criada e validada, e `access-status` retornando a Store oficia
       imprimir o valor da chave pública; PR #25 aprovado por `verify` e CodeQL sem novos alertas,
       mesclado em `main` (`18d0ab5`) via API autenticada do GitHub, sem depender de `gh` ou acesso
       administrativo no Windows. Workflow Pages `29557385312` concluído com sucesso e URL real validada.
-- [ ] Criar/confirmar a conta founder e validar o login humano no admin publicado.
+- [ ] No primeiro acesso ao admin publicado, clicar em "Primeiro acesso? Criar conta", definir a
+      senha da conta `matteusbonotto+admin@gmail.com`, confirmar o e-mail e validar o OTP humano.
 
 ---
 
