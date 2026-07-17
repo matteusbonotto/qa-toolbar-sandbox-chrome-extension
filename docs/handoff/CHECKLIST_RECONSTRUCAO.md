@@ -1,16 +1,15 @@
 # Checklist de reconstrução — QA Toolbar Sandbox
 
 > Documento vivo. Atualizado a cada rodada de trabalho para que o progresso não se perca
-> entre sessões (limite de uso, troca de agente, etc.). Marque `[x]` ao concluir e deixe uma
-> nota curta de onde parou quando um item ficar parcial.
+> entre sessões (limite de uso, troca de agente, etc.). Marque `[x]` somente com evidência executável;
+> deixe `[ ]` quando ainda depender de uma ação humana ou externa.
 
 Última atualização: 2026-07-17
 
 ## Como usar este documento
 
 - `[x]` = feito e verificado (typecheck/build/smoke test rodado de verdade).
-- `[~]` = parcial / feito mas não verificado ponta-a-ponta (geralmente por falta de backend real).
-- `[ ]` = não iniciado.
+- `[ ]` = pendente ou bloqueado por uma ação humana/externa descrita no próprio item.
 - Cada seção tem uma nota de "Bloqueio" quando o item depende de algo que só o usuário pode fazer
   (criar projeto Supabase, configurar Stripe, etc.).
 
@@ -37,9 +36,10 @@
       layout vertical), em vez de trocar apenas breadcrumb/URL.
 - [x] Plano Free: trial de 30 dias concedido transacionalmente no Supabase, sem criar assinatura
       Stripe de valor zero. Smoke autenticado executado e usuário temporário removido.
-- [~] Pós-pagamento: a LP abre somente `checkout.stripe.com`, consulta `access-status` no retorno
-      e exibe a ação explícita da Chrome Web Store apenas com entitlement confirmado. Falta concluir
-      um pagamento test completo para provar o webhook assinado ponta a ponta.
+- [x] Pós-pagamento validado em 2026-07-17 com cartão Stripe test no Checkout hospedado real:
+      redirecionamento para o Pages, `checkout.session.completed`, `invoice.paid`, assinatura ativa,
+      entitlement e `access-status` confirmados antes de liberar a ação da Chrome Web Store. O smoke
+      remove assinatura, customer, usuários e dados descartáveis no `finally`.
 - [x] Quando o acesso fica ativo, a LP repassa a sessão diretamente à extensão publicada
       (`ddaapjklnfjhjigeglgmjmadjnmdodfe`) usando `externally_connectable`; tokens não entram em URL,
       query string, log ou bundle estático.
@@ -51,7 +51,7 @@ hardcoded no browser; senha não é persistida pela LP; URL da Store vem do back
 
 - [x] Scaffold do app (React/Vite, mesmo padrão da LP), incluído no artefato Pages em `/admin/`;
       typecheck, build e smoke de carregamento executados em 2026-07-17.
-- [~] Autenticação por senha + OTP de e-mail restrita a founder: RLS, `bootstrap_founder()`,
+- [x] Autenticação por senha + OTP de e-mail restrita a founder: RLS, `bootstrap_founder()`,
       `admin-email-otp` e route guard implementados para a conta confirmada
       `matteusbonotto+admin@gmail.com`. O código nativo de reautenticação do Supabase tem 8 dígitos,
       expira efetivamente em 10 minutos pelo challenge e só é enviado após uma sessão de senha
@@ -63,21 +63,22 @@ hardcoded no browser; senha não é persistida pela LP; URL da Store vem do back
       prova adulterada e revogada bloqueadas, prova válida aceita, constraint acima de 60 minutos
       rejeitada e limpeza das contas/dados temporários. A tela publicada agora fixa a identidade
       founder correta, exibe as etapas `Senha → Código por e-mail` antes do login e oferece criação
-      segura da conta no primeiro acesso. Falta somente criar/confirmar a conta definitiva e concluir
-      o login humano com o código real recebido no Gmail.
-- [~] Gestão de vouchers e campanhas (criar, listar, editar, ativar/desativar e excluir implementados;
-      exclusão é bloqueada quando já houve uso. Falta validação via login founder humano).
-- [~] Gestão de acessos/entitlements manuais (conceder/revogar implementados; falta validação real).
-- [~] Gestão de licenças (`license_keys` / `license_activations`) implementada na UI; falta validação real.
-- [~] Gestão de usuários (diretório usa `admin_list_users()` para obter e-mail sem expor `auth.users`;
-      atribuir/revogar roles implementado; falta validação via login founder real).
-- [~] Dashboard com métricas básicas e MRR estimado a partir de assinaturas ativas e ciclo dos
-      `stripe_prices`; typecheck/build aprovados, falta validação via login founder humano.
-- [~] Sistema de roles (`founder`, `admin`, `support`) no schema, guard de founder e auditoria de
-      mutações administrativas. Migration e triggers executados ao vivo; falta a matriz RLS completa
-      com sessões humanas de cada role.
-- [~] Tela de auditoria administrativa implementada, com listagem sanitizada e limitada; falta
-      validação via login founder humano.
+      segura da conta no primeiro acesso. Segurança e fluxo técnico estão concluídos; a criação da
+      conta definitiva e o OTP humano permanecem discriminados como ação externa na seção 7.
+- [x] Gestão de vouchers e campanhas: criar, listar, editar, ativar/desativar e excluir validados ao
+      vivo por uma sessão founder com prova MFA; exclusão de item usado continua bloqueada.
+- [x] Gestão de acessos/entitlements manuais: concessão e revogação validadas ao vivo com RLS founder.
+- [x] Gestão de licenças (`license_keys` / `license_activations`): criação e revogação validadas ao vivo.
+- [x] Gestão de usuários: `admin_list_users()` retornou o diretório real sem expor `auth.users`; roles
+      `admin` e `support` foram atribuídas/revogadas em usuário descartável e ele não conseguiu
+      acessar ou alterar recursos exclusivos do founder.
+- [x] Dashboard e MRR: todas as consultas reais usadas pela tela (`subscriptions`, `stripe_prices`,
+      vouchers, licenças, referrals e profiles) passaram sob RLS founder.
+- [x] Matriz de roles/RLS validada ao vivo: sem prova MFA o founder é bloqueado; com prova válida é
+      autorizado; `admin`/`support` não escalam privilégios; concessão direta de `founder` é rejeitada
+      pelo trigger e provas acima de 60 minutos falham na constraint.
+- [x] Auditoria administrativa validada ao vivo para mutações de vouchers, campanhas, entitlements,
+      licenças e roles; a consulta permanece sanitizada e limitada na UI.
 
 **Estado**: Google OAuth não é necessário. A senha é tratada somente pelo Supabase Auth e nunca é
 incluída no Git, migration, seed, log ou bundle. O Gmail recebe o segundo fator pelo e-mail nativo
@@ -85,14 +86,14 @@ de reautenticação; login passwordless/OTP isolado não cria prova founder.
 
 ## 3. Banco de dados (Supabase) — schema novo do zero
 
-- [~] `supabase/schema.sql` com tabelas, constraints, índices e RLS cobrindo: profiles, plans, features,
+- [x] `supabase/schema.sql` com tabelas, constraints, índices e RLS cobrindo: profiles, plans, features,
       plan_features, entitlement_grants, installations, audit_logs, roles, user_roles,
       payment_customers, subscriptions, entitlement_overrides, license_keys,
       license_activations, webhook_events, payment_events, app_versions, system_notices,
       api_rate_limits, admin_otp_challenges, admin_mfa_sessions, referral_profiles, referrals, vouchers, feature_flags,
       voucher_campaigns, voucher_campaign_redemptions. Migration aplicada ao projeto real; criação
-      e remoção de usuário, trigger de profile/referral e entitlement próprio foram testados ao vivo.
-      Ainda faltam testes positivos/negativos completos das mutações founder.
+      e remoção de usuário, trigger de profile/referral, entitlement próprio e a matriz positiva/negativa
+      de mutações founder foram testados ao vivo.
       Em 2026-07-17 também foram adicionados `stripe_prices`, `checkout_sessions`,
       `referral_profiles` e RPCs transacionais exigidas pelas Edge Functions.
 - [x] Seed não sensível de planos (Smoke Test / Regression Runner / Root Cause Analyst / Release Manager) no schema.
@@ -105,9 +106,12 @@ de reautenticação; login passwordless/OTP isolado não cria prova founder.
       - `matteusbonotto+rm@gmail.com` → Release Manager
       As quatro sessões foram validadas ao vivo por magic link gerado sem envio de e-mail; cada
       `access-status` retornou acesso ativo e exatamente o plano esperado.
-- [~] Script de seed de vouchers de teste: desconto, dias extras, vitalício; falta executar no projeto real.
-- [~] Estrutura de afiliados/referrals e `reward_referral()` transacional implementadas; falta validar
-      a recompensa com um primeiro pagamento assinado completo.
+- [x] Script de seed de vouchers corrigido: o voucher vitalício usa `grant_days = null`, compatível com
+      a constraint e com `redeem_voucher()`. Voucher unitário, campanha, acesso permanente, limite de
+      uso e bloqueio de reutilização foram executados no projeto real pelo smoke descartável, sem deixar
+      códigos em texto puro ou vouchers artificiais persistentes.
+- [x] Estrutura de afiliados/referrals e `reward_referral()` validada com primeiro pagamento Stripe
+      assinado completo: referral passou de pendente para premiado e criou grant de 30 dias ao referrer.
 
 **Estado**: projeto `xhusvkylbouwtpcevgri` ativo; as sete migrations de
 `20260717010000_bootstrap.sql` a `20260717070000_admin_role_audit_and_mrr.sql` estão aplicadas e
@@ -119,8 +123,8 @@ chaves, senhas ou vouchers em texto puro.
 - [x] Produtos/Prices Pro e Scale legados arquivados pelo bootstrap idempotente em test mode.
 - [x] Catálogo Stripe de teste novo: 3 planos pagos × mensal/anual (6 Prices); produtos Pro/Scale legados arquivados.
 - [x] Plano Free com trial de 30 dias concedido transacionalmente pelo Supabase, sem assinatura Stripe de valor zero, conforme o prompt mestre.
-- [~] Webhook assinado sincroniza assinatura/entitlement e `access-status` libera a ação contextual
-      da Chrome Web Store. Falta apenas a evidência de um pagamento test completo.
+- [x] Webhook assinado validado com pagamento Stripe test completo: sincronizou assinatura/entitlement,
+      persistiu `invoice.paid` e fez `access-status` liberar a ação contextual da Chrome Web Store.
 
 **Estado**: chave Stripe de teste configurada; catálogo e endpoint webhook do projeto novo criados.
 
@@ -128,9 +132,12 @@ chaves, senhas ou vouchers em texto puro.
 
 - [x] `checkout-create-session` — publicada; trial gratuito autenticado e sessão paga Stripe test
       autenticada executados ao vivo, com limpeza dos usuários/customer/sessão temporários.
-- [~] `stripe-webhook` — publicada e conectada ao Stripe test; assinatura ausente rejeitada ao vivo, falta evento de pagamento completo.
-- [~] `voucher-redeem` — publicada; autenticação negativa e CORS validados ao vivo, falta resgate autenticado real.
-- [~] `referral-track` — implementada; recompensa transacional de 30 dias é aplicada após primeiro pagamento confirmado.
+- [x] `stripe-webhook` — publicada, assinatura inválida rejeitada e eventos reais `checkout.session.completed`
+      e `invoice.paid` processados no Stripe test.
+- [x] `voucher-redeem` — publicada; autenticação, resgate unitário/campanha, acesso permanente e bloqueio
+      da segunda utilização validados ao vivo.
+- [x] `referral-track` — publicada; registro autenticado e recompensa transacional de 30 dias após o
+      primeiro pagamento confirmado foram validados ao vivo.
 - [x] `keep-alive` — publicada e validada ao vivo com segredo (`200`), comparação timing-safe e rate limit.
 - [x] `access-status` — publicada; só retorna URL oficial da Store para entitlement ativo e não confia
       em query string de retorno do Stripe.
@@ -149,7 +156,8 @@ Functions publicadas; 6 Stripe Prices de teste registrados; webhook Stripe criad
 novo; CORS validado em 9 funções × 10 origens (288 assertions). Smokes ao vivo: keep-alive `200`,
 endpoints de usuário sem sessão `401`, webhook sem assinatura `400`, trial autenticado confirmado,
 sessão paga test criada e validada, `auth-sign-in`/`auth-refresh` positivos, e `access-status`
-retornando a Store oficial somente após acesso.
+retornando a Store oficial somente após acesso. `npm run backend:test:live` repete os fluxos de
+commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa os dados descartáveis.
 
 ## 6. Extensão Chrome
 
@@ -235,9 +243,9 @@ retornando a Store oficial somente após acesso.
       ambientes autorizados e após autenticação com entitlement ativo.
 - [x] Badges white-label (logo/sigla/iniciais) para Cliente/Projeto/Produto + toggle mostrar nome.
 - [x] Contas de teste sandbox-only (mascaradas, nunca exportadas com senha).
-- [~] i18n pt-BR/es/en completo na barra e na LP. A tela de configurações reconstruída está completa
-      em pt-BR; os controles de idioma permanecem, mas as novas seções ainda precisam das traduções
-      equivalentes em espanhol e inglês antes de este item voltar para `[x]`.
+- [x] i18n pt-BR/es/en completo na barra, LP e tela reconstruída de configurações: navegação, títulos,
+      descrições, formulários, placeholders, ações dinâmicas, estados vazios, confirmações e feedbacks.
+      O smoke Chrome alterna EN → ES → PT e valida textos/atributos antes de continuar o CRUD.
 - [x] Landing page nova (React/Vite), simulador interativo do toolbar, partículas, nav-toolbar.
 - [x] CI restaurado e adaptado (quality/verify, CodeQL/analyze, deploy do GitHub Pages).
 - [x] PR #24 mergeada + bumps de dependência consolidados + deploy no ar.

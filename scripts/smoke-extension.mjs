@@ -66,6 +66,14 @@ try {
   await options.locator("#loginPassword").fill("safe-test-password");
   await options.locator("#loginForm button[type=submit]").click();
   await options.locator('.protectedNav[data-tab="workspace"]:not(:disabled)').waitFor({ timeout: 10_000 });
+  await options.locator('#langSwitch [data-locale="en"]').click();
+  await options.getByRole("button", { name: "My account" }).waitFor();
+  if (await options.locator("html").getAttribute("lang") !== "en") throw new Error("Options locale did not switch to English");
+  if (await options.locator("#clientName").getAttribute("placeholder") !== "Client name") throw new Error("Options placeholders were not translated to English");
+  await options.locator('#langSwitch [data-locale="es"]').click();
+  await options.getByRole("button", { name: "Mi cuenta" }).waitFor();
+  if (await options.locator("#environmentName").getAttribute("placeholder") !== "Nombre del entorno (ej.: QA, Staging)") throw new Error("Options placeholders were not translated to Spanish");
+  await options.locator('#langSwitch [data-locale="pt-BR"]').click();
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signedInState").waitFor({ state: "visible" });
   await options.screenshot({ path: resolve(evidencePath, "extension-authenticated-account.png"), fullPage: true });
@@ -202,7 +210,7 @@ try {
   if (!await options.locator('.protectedNav[data-tab="workspace"]').isDisabled()) throw new Error("Protected settings remained enabled after logout");
 
   if (hostErrors.length || optionsErrors.length || workerErrors.length) throw new Error(`Console errors:\n${[...hostErrors, ...optionsErrors, ...workerErrors].join("\n")}`);
-  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, hierarchyAndUrl: true, compactMode: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
+  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, hierarchyAndUrl: true, compactMode: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
 } finally {
   await context.close();
   await new Promise((resolveClosed) => server.close(resolveClosed));
