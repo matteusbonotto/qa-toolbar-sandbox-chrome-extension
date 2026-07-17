@@ -68,7 +68,7 @@ async function applyContentScriptRegistration({ forceAccess = false } = {}) {
   }
   await chrome.scripting.registerContentScripts([
     { id: PAGEBRIDGE_SCRIPT_ID, matches, js: ["src/pagebridge/pagebridge.js"], world: "MAIN", runAt: "document_start", allFrames: false },
-    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: false },
+    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/qa-tools-content.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: false },
   ]);
   await injectIntoOpenTabs(matches);
 }
@@ -83,7 +83,7 @@ async function injectIntoOpenTabs(matches) {
       if (existing?.present) return;
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", files: ["src/pagebridge/pagebridge.js"] });
       await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["src/toolbar/toolbar.css"] });
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/toolbar/toolbar.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/qa-tools-content.js", "src/toolbar/toolbar.js"] });
     } catch {}
   }));
 }
@@ -103,6 +103,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== "object" || sender.id !== chrome.runtime.id) return undefined;
   if (message.type === "qts:get-access-state") {
     getAccessState({ force: message.force === true }).then(sendResponse);
+    return true;
+  }
+  if (message.type === "qts:macro-run") {
+    getAccessState().then(async (access) => {
+      // Only our registered content script has a sender.tab. It is already
+      // scoped to authorized environment patterns by the dynamic registration.
+      if (!access.active || !sender.tab?.id) return sendResponse({ ok: false, error: "authentication_required" });
+      const key = `qtsMacroRunTab${sender.tab.id}`;
+      if (message.operation === "get") {
+        const stored = await chrome.storage.session.get(key);
+        return sendResponse({ ok: true, run: stored[key] || null });
+      }
+      if (message.operation === "clear") {
+        await chrome.storage.session.remove(key);
+        return sendResponse({ ok: true });
+      }
+      if (message.operation === "set" && message.run && typeof message.run === "object") {
+        const run = { macroId: String(message.run.macroId || "").slice(0, 120), index: Math.max(0, Math.min(200, Number(message.run.index) || 0)), expiresAt: Math.min(Date.now() + 10 * 60_000, Number(message.run.expiresAt) || 0) };
+        if (!run.macroId || run.expiresAt <= Date.now()) return sendResponse({ ok: false, error: "invalid_macro_run" });
+        await chrome.storage.session.set({ [key]: run });
+        return sendResponse({ ok: true });
+      }
+      return sendResponse({ ok: false, error: "invalid_operation" });
+    }).catch(() => sendResponse({ ok: false, error: "macro_run_failed" }));
     return true;
   }
   if (message.type === "qts:auth-sign-in" && isOwnOptionsPage(sender)) {

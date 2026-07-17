@@ -17,7 +17,7 @@ const server = createServer((request, response) => {
     return;
   }
   response.setHeader("content-type", "text/html; charset=utf-8");
-  response.end(`<!doctype html><html><head><title>QA Smoke Host</title></head><body style="margin:0;font:16px sans-serif"><main style="padding:90px 30px"><h1>Ambiente de teste</h1><button id="spaApp">Ir para /app</button><button id="spaOutside">Ir para /outside</button><a id="sampleLink" href="https://example.com/destino">Link de exemplo</a></main><script>spaApp.onclick=()=>history.pushState({},'', '/app?token=segredo-nao-pode-aparecer');spaOutside.onclick=()=>history.pushState({},'', '/outside');</script></body></html>`);
+  response.end(`<!doctype html><html><head><title>QA Smoke Host</title></head><body style="margin:0;font:16px sans-serif"><main style="padding:90px 30px"><h1>Ambiente de teste</h1><button id="spaApp">Ir para /app</button><button id="spaOutside">Ir para /outside</button><button id="navMacro">Navegar na macro</button><a id="sampleLink" href="https://example.com/destino">Link de exemplo</a><hr><button id="multiTarget" type="button">Alvo</button><button id="macroTarget" type="button">Ação da macro</button><form id="qaForm"><label>Nome <input id="qaName" name="name" maxlength="12" required></label><label>E-mail <input id="qaEmail" name="email" type="email"></label><label>Observação <textarea id="macroText" name="notes"></textarea></label><label>Senha <input id="qaPassword" name="password" type="password"></label><label>Perfil <select id="qaProfile" name="profile"><option value="">Selecione</option><option value="qa">QA</option></select></label></form></main><script>spaApp.onclick=()=>history.pushState({},'', '/app?token=segredo-nao-pode-aparecer');spaOutside.onclick=()=>history.pushState({},'', '/outside');navMacro.onclick=()=>location.href='/app/next';multiTarget.onclick=()=>multiTarget.dataset.clicks=String(Number(multiTarget.dataset.clicks||0)+1);macroTarget.onclick=()=>macroTarget.dataset.clicks=String(Number(macroTarget.dataset.clicks||0)+1);</script></body></html>`);
 });
 await new Promise((resolveReady) => server.listen(43117, "127.0.0.1", resolveReady));
 
@@ -126,6 +126,95 @@ try {
   await host.locator("#drawerClose").click();
   if (!await toolbar.isVisible()) throw new Error("Toolbar disappeared after using a tool");
 
+  // Character Counter measures Unicode code points with and without whitespace.
+  await host.locator("#toolsButton").click();
+  await host.locator("#characterCounterMenuItem").click();
+  await host.locator("#characterCounterInput").fill("QA test!\nOK");
+  const counterText = await host.locator("#characterMetrics").innerText();
+  for (const expected of ["11\nCom espaços", "9\nSem espaços", "3\nPalavras", "2\nLinhas"]) if (!counterText.includes(expected)) throw new Error(`Character Counter mismatch: ${counterText}`);
+  await host.locator("#drawerClose").click();
+
+  // Faker Fill populates visible form fields locally and always protects passwords.
+  await host.locator("#toolsButton").click();
+  await host.locator("#fakerFillMenuItem").click();
+  await host.locator("#fakerRun").click();
+  const fakerResult = await host.evaluate(() => ({ name: document.querySelector("#qaName").value, email: document.querySelector("#qaEmail").value, password: document.querySelector("#qaPassword").value }));
+  if (!fakerResult.name || !fakerResult.email.endsWith("@example.com") || fakerResult.password) throw new Error(`Faker Fill security mismatch: ${JSON.stringify(fakerResult)}`);
+  await host.locator("#drawerClose").click();
+
+  // Input Lab inspects constraints, tests six data classes and restores the original value.
+  await host.locator("#qaName").fill("Original");
+  await host.locator("#toolsButton").click();
+  await host.locator("#inputLabMenuItem").click();
+  await host.locator("#inputSelect").click();
+  await host.locator("#qaName").click();
+  await host.locator("#inputRun").click();
+  await host.locator("#inputResults tbody tr").nth(5).waitFor();
+  if (await host.locator("#inputResults tbody tr").count() !== 6 || await host.locator("#qaName").inputValue() !== "Original") throw new Error("Input Lab did not complete or restore the input");
+  await host.locator("#drawerClose").click();
+
+  // Multiclick uses the visual selector and respects the requested count.
+  await host.locator("#toolsButton").click();
+  await host.locator("#multiClickMenuItem").click();
+  await host.locator("#multiSelect").click();
+  await host.locator("#multiTarget").click();
+  await host.locator("#multiCount").fill("4");
+  await host.locator("#multiInterval").fill("0");
+  await host.locator("#multiRun").click();
+  await host.getByText("4 cliques concluídos.").waitFor();
+  if (await host.locator("#multiTarget").getAttribute("data-clicks") !== "4") throw new Error("Multiclick executed an incorrect count");
+  await host.locator("#drawerClose").click();
+
+  // Macro recording captures normal interactions but ignores password content.
+  await host.locator("#toolsButton").click();
+  await host.locator("#macroStudioMenuItem").click();
+  await host.locator("#startMacroRecording").click();
+  await host.locator("#macroTarget").click();
+  await host.locator("#macroText").fill("texto gravado");
+  await host.locator("#macroText").press("Tab");
+  await host.locator("#qaPassword").fill("segredo-da-gravacao");
+  await host.locator("#qaPassword").press("Tab");
+  await host.locator("#macroRecordingChip").click();
+  await host.locator("#macroSave").click();
+  await host.locator("#macroList .qts-card").first().waitFor();
+  await host.locator('#macroList .qts-card').first().locator('[data-macro-action="pin"]').click();
+  await host.locator("#macroList .qts-card").first().waitFor();
+  const pinnedMacroCount = await host.locator("#pinnedMacrosMenu [data-pinned-macro]").count();
+  if (pinnedMacroCount !== 1) throw new Error("Pinned macro was not added to the tools menu");
+  await host.locator('#macroList .qts-card').first().locator('[data-macro-action="edit"]').click();
+  await host.locator('[data-macro-mode="coder"]').click();
+  const generatedCode = await host.locator("#macroCode").innerText();
+  if (!generatedCode.includes("page.locator") || generatedCode.includes("segredo-da-gravacao") || /\beval\s*\(/.test(generatedCode)) throw new Error(`Unsafe or incomplete generated macro code: ${generatedCode}`);
+  await host.locator("#macroBack").click();
+  const macroDownloadPromise = host.waitForEvent("download");
+  await host.locator("#exportAllMacros").click();
+  const macroDownload = await macroDownloadPromise;
+  const macroExport = await readFile(await macroDownload.path(), "utf8");
+  const macroPayload = JSON.parse(macroExport);
+  if (macroPayload.format !== "qts-macros" || macroPayload.version !== 1 || macroPayload.macros.length !== 1 || macroExport.includes("segredo-da-gravacao")) throw new Error("Macro export format/security mismatch");
+  await host.locator("#macroFile").setInputFiles({ name: "imported-macro.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ format: "qts-macros", version: 1, macros: [{ id: "imported", name: "Importada QA", steps: [{ action: "click", selector: "#navMacro" }, { action: "javascript", value: "alert(1)" }, { action: "fill", selector: "#macroText", value: "após navegação" }] }] })) });
+  await host.getByText("Importada QA").waitFor();
+  if (await host.locator("#macroList .qts-card").count() !== 2) throw new Error("Macro import did not merge the validated macro");
+  await host.locator("#drawerClose").click();
+
+  // Replaying the recorded macro performs the captured click and fill.
+  await host.evaluate(() => { document.querySelector("#macroTarget").dataset.clicks = "0"; document.querySelector("#macroText").value = ""; });
+  await host.locator("#toolsButton").click();
+  await host.locator("#pinnedMacrosMenu [data-pinned-macro]").click();
+  await host.waitForFunction(() => document.querySelector("#macroTarget")?.dataset.clicks === "1" && document.querySelector("#macroText")?.value === "texto gravado", null, { timeout: 15_000 });
+  const replay = await host.evaluate(() => ({ clicks: document.querySelector("#macroTarget").dataset.clicks, value: document.querySelector("#macroText").value }));
+  if (replay.clicks !== "1" || replay.value !== "texto gravado") throw new Error(`Macro replay mismatch: ${JSON.stringify(replay)}`);
+
+  // A pending run is scoped to the current tab and resumes after full document navigation.
+  await host.locator("#toolsButton").click();
+  await host.locator("#macroStudioMenuItem").click();
+  await host.locator('#macroList .qts-card').filter({ hasText: "Importada QA" }).locator('[data-macro-action="play"]').click();
+  await host.waitForURL("**/app/next");
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await host.waitForFunction(() => document.querySelector("#macroText")?.value === "após navegação");
+  await host.goto("http://127.0.0.1:43117/");
+  await toolbar.waitFor({ timeout: 10_000 });
+
   // Compact mode hides project/product names, preserving their image/initial badges and environment.
   await options.getByRole("button", { name: "Barra e aparência" }).click();
   await options.locator("#compactMode").check();
@@ -210,7 +299,7 @@ try {
   if (!await options.locator('.protectedNav[data-tab="workspace"]').isDisabled()) throw new Error("Protected settings remained enabled after logout");
 
   if (hostErrors.length || optionsErrors.length || workerErrors.length) throw new Error(`Console errors:\n${[...hostErrors, ...optionsErrors, ...workerErrors].join("\n")}`);
-  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, hierarchyAndUrl: true, compactMode: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
+  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, hierarchyAndUrl: true, characterCounter: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactMode: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
 } finally {
   await context.close();
   await new Promise((resolveClosed) => server.close(resolveClosed));

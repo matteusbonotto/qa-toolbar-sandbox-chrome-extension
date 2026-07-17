@@ -1,7 +1,10 @@
 // Classic-script storage/normalization twin used by options and content pages.
 (() => {
   const STORAGE_KEYS = Object.freeze({ workspace: "qtsWorkspaceV1", siteScope: "qtsSiteScopeV1", uiState: "qtsUiStateV1", authSession: "qtsAuthSessionV1", accessStatus: "qtsAccessStatusV1" });
-  const DEFAULT_ENABLED_TOOLS = Object.freeze(["clickSpy", "freezeClock", "forceHttp", "inspectors", "jsonStudio", "breakpoints", "testAccounts", "paymentMethods", "resources"]);
+  const DEFAULT_ENABLED_TOOLS = Object.freeze(["clickSpy", "freezeClock", "forceHttp", "inspectors", "jsonStudio", "breakpoints", "testAccounts", "paymentMethods", "resources", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"]);
+  const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
+  const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
+  const SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
   const text = (value, maximum = 500) => String(value ?? "").trim().slice(0, maximum);
   const id = (value, prefix, index) => text(value, 120).replace(/[^a-z0-9_-]/gi, "_") || `${prefix}_${index + 1}`;
   const appearance = (item) => {
@@ -27,8 +30,23 @@
     return output.slice(0, 100);
   }
   function createEmptyWorkspace() {
-    return { schemaVersion: 2, updatedAt: new Date().toISOString(), clients: [], projects: [], products: [], environments: [], testAccounts: [], paymentMethods: [], apis: [], inspectors: [], resources: [], preferences: { language: "pt-BR", pushSiteContent: true, compactMode: false, pinnedTools: ["passFail", "screenshot", "notes", "record"], enabledTools: [...DEFAULT_ENABLED_TOOLS] } };
+    return { schemaVersion: 3, updatedAt: new Date().toISOString(), clients: [], projects: [], products: [], environments: [], testAccounts: [], paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], preferences: { language: "pt-BR", pushSiteContent: true, compactMode: false, pinnedTools: ["passFail", "screenshot", "notes", "record"], pinnedMacroIds: [], enabledTools: [...DEFAULT_ENABLED_TOOLS] } };
   }
+  function normalizeStep(item) {
+    if (!item || typeof item !== "object" || !MACRO_ACTIONS.has(item.action)) return null;
+    const selector = text(item.selector, 1000);
+    if (selector && SENSITIVE_HINT.test(selector)) return null;
+    const step = { action: item.action };
+    if (selector) step.selector = selector;
+    if (["fill", "select", "press"].includes(item.action)) { const value = text(item.value, 2000); if (SENSITIVE_HINT.test(value) && item.action !== "press") return null; step.value = value; }
+    if (item.action === "check") step.checked = item.checked !== false;
+    if (item.action === "wait") step.ms = Math.min(30000, Math.max(0, Number(item.ms) || 500));
+    if (item.action === "scroll") step.y = Math.min(100000, Math.max(-100000, Number(item.y) || 0));
+    if (item.action === "multiClick") { step.count = Math.min(100, Math.max(2, Number(item.count) || 2)); step.interval = Math.min(5000, Math.max(0, Number(item.interval) || 100)); }
+    if (item.action === "fakerFill") step.scope = item.scope === "form" ? "form" : "page";
+    return step;
+  }
+  function normalizeMacros(input) { return (Array.isArray(input) ? input : []).slice(0, 100).map((item, index) => ({ id: id(item?.id, "macro", index), name: text(item?.name, 100) || `Macro ${index + 1}`, description: text(item?.description, 500), createdAt: text(item?.createdAt, 40) || new Date().toISOString(), updatedAt: text(item?.updatedAt, 40) || new Date().toISOString(), steps: (Array.isArray(item?.steps) ? item.steps : []).slice(0, 200).map(normalizeStep).filter(Boolean) })); }
   function normalizeWorkspace(rawWorkspace) {
     const source = rawWorkspace && typeof rawWorkspace === "object" ? rawWorkspace : {};
     const empty = createEmptyWorkspace();
@@ -44,7 +62,9 @@
     }).filter((item) => products.some((product) => product.id === item.productId));
     const copy = (key) => (Array.isArray(source[key]) ? source[key] : []).map((item, index) => ({ ...item, id: id(item?.id, key.replace(/s$/, ""), index), active: item?.active !== false }));
     const preferences = source.preferences && typeof source.preferences === "object" ? source.preferences : {};
-    return { ...empty, schemaVersion: 2, updatedAt: text(source.updatedAt, 40) || empty.updatedAt, clients, projects, products, environments, testAccounts: copy("testAccounts").filter((item) => environments.some((environment) => environment.id === item.environmentId)), paymentMethods: copy("paymentMethods").map((item) => ({ ...item, environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null })), apis: copy("apis"), inspectors: copy("inspectors"), resources: copy("resources"), preferences: { ...empty.preferences, ...preferences, compactMode: preferences.compactMode === true, pushSiteContent: preferences.pushSiteContent !== false, pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools, enabledTools: Array.isArray(preferences.enabledTools) ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value)) : empty.preferences.enabledTools } };
+    const normalizedEnabledTools = Array.isArray(preferences.enabledTools) ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value)) : [...empty.preferences.enabledTools];
+    if (Number(source.schemaVersion || 0) < 3) for (const tool of SCHEMA_3_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    return { ...empty, schemaVersion: 3, updatedAt: text(source.updatedAt, 40) || empty.updatedAt, clients, projects, products, environments, testAccounts: copy("testAccounts").filter((item) => environments.some((environment) => environment.id === item.environmentId)), paymentMethods: copy("paymentMethods").map((item) => ({ ...item, environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null })), apis: copy("apis"), inspectors: copy("inspectors"), resources: copy("resources"), macros: normalizeMacros(source.macros), preferences: { ...empty.preferences, ...preferences, compactMode: preferences.compactMode === true, pushSiteContent: preferences.pushSiteContent !== false, pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools, pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [], enabledTools: normalizedEnabledTools } };
   }
   const createDefaultSiteScope = () => ({ mode: "environments", patterns: [] });
   async function getWorkspace() { const stored = await chrome.storage.local.get(STORAGE_KEYS.workspace); return normalizeWorkspace(stored[STORAGE_KEYS.workspace]); }
