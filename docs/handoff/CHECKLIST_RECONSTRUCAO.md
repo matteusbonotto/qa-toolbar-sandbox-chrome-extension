@@ -198,17 +198,17 @@ retornando a Store oficial somente após acesso.
 - [x] Histórico remoto auditado em 2026-07-17: 57 commits acessíveis verificados, sem formato real
       de Stripe secret, webhook secret, Supabase secret, GitHub token ou chave privada. O único JWT
       encontrado é fixture assinada de teste com chave pública, sem service role.
-- [x] Pages publicado auditado após o PR #27 (`7f5448e`, workflow `29558921233`): landing, `/admin/`
-      e quatro assets retornam `200`; modal por navbar/plano, frame Mobile de `390px`, cadastro founder
-      e etapa OTP renderizam no Chromium sem erro de console/rede. O JavaScript público tem zero
-      formatos de segredo; `.env`, `.env.edge.local`, `schema.sql`, `supabase/schema.sql` e o
-      project-ref temporário não existem no artefato (`404`).
+- [x] Pages publicado auditado após o PR #29 (`77736fb`, workflow `29561893358`): landing e `/admin/`
+      retornam `200`; modal por navbar/plano, frame Mobile de `390px`, identidade founder e etapa OTP
+      renderizam no Chromium real com 0 erros de console. O bundle publicado contém o handoff para o
+      ID oficial, MRR e Auditoria; `.env`, `.env.edge.local`, `schema.sql`, `supabase/schema.sql` e
+      `tampermonkey.js` não existem no artefato (`404`).
 - [x] Cupons de exemplo hardcoded removidos da LP; validação/consumo ocorre no backend por hash.
 - [x] Workflow Pages exige `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` como repository
       variables, constrói landing + admin e falha fechado se a configuração pública estiver ausente.
 - [x] Build de produção e smoke Chrome headless locais aprovados para LP, preços reais e `/admin/`.
 - [x] MFA administrativo aplicado ao Supabase real em 2026-07-17: migrations `040000`/`050000`,
-      sete Edge Functions publicadas e CORS aprovado para 10 origens (224 assertions). O plano Free
+      nove Edge Functions publicadas e CORS aprovado para 10 origens (288 assertions). O plano Free
       não permite personalizar Magic Link com o remetente padrão; foi usado o e-mail nativo de
       reautenticação do Supabase, que já entrega nonce de 8 dígitos e funcionou no smoke real.
       A migration `060000` também corrigiu o retorno de `auth.users.email` (`varchar` → `text`) na
@@ -217,6 +217,13 @@ retornando a Store oficial somente após acesso.
       imprimir o valor da chave pública; PR #25 aprovado por `verify` e CodeQL sem novos alertas,
       mesclado em `main` (`18d0ab5`) via API autenticada do GitHub, sem depender de `gh` ou acesso
       administrativo no Windows. Workflow Pages `29557385312` concluído com sucesso e URL real validada.
+- [x] PR #29 aprovado por `verify` e CodeQL sem novos alertas após corrigir os dois achados da primeira
+      análise, mesclado via API segura em `main` (`77736fb`). Quality `29561893446`, CodeQL
+      `29561893367`, Pages `29561893358` e o empacotamento da Store `29561904597` concluíram com
+      sucesso. O artefato `chrome-web-store-package` (`8399588287`, 64.240 bytes) está disponível.
+- [ ] Enviar o artefato `v1.0.1` como atualização do item existente
+      `ddaapjklnfjhjigeglgmjmadjnmdodfe` na Chrome Web Store e aguardar a revisão da loja. Não criar
+      um segundo item.
 - [ ] No primeiro acesso ao admin publicado, clicar em "Primeiro acesso? Criar conta", definir a
       senha da conta `matteusbonotto+admin@gmail.com`, confirmar o e-mail e validar o OTP humano.
 
