@@ -185,15 +185,22 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       drag and drop e fluxo conectado; Coder gera Playwright real somente leitura; CRUD, execução,
       importação/exportação versionada e macros fixadas no menu. Reprodução continua na mesma aba
       após navegação completa, com estado efêmero de 10 minutos em `chrome.storage.session`. Upgrade
-      de workspace schema 2 → 3 preserva as preferências e habilita o novo kit automaticamente.
+      de workspace schema 2 → 4 preserva as preferências e habilita os novos kits automaticamente.
 - [x] Segurança de macros documentada no ADR 0002: sem `eval`, `new Function`, JavaScript de usuário
       ou código remoto; allowlist de nove ações, limites rígidos, normalização única e bloqueio de
       campos/seletores sensíveis na gravação, importação, Faker e execução.
 - [x] Responsive/Breakpoint View centraliza laptop e telefone como um único grupo visual, em vez de
       posicionar cada dispositivo no centro de metade da tela; o conjunto continua responsivo e pode
       reorganizar os frames em janelas estreitas. Smoke mede o centro geométrico no Chrome real.
+- [x] Key View local e opt-in: atalhos como `Ctrl+V` usam teclas SVG com efeito 3D e desaparecem em
+      3 segundos; temas claro/escuro e grade de 9 posições são configuráveis. Modo Typing mantém até
+      2.000 caracteres somente em memória até clicar em Limpar e bloqueia campos sensíveis. O mouse
+      visual destaca clique esquerdo/direito/meio e scroll para cima/baixo sem cancelar os eventos.
+      Preferências normalizadas no workspace schema 4 e disponíveis tanto no drawer quanto na tela
+      completa de configurações, com i18n pt-BR/es/en.
 - [x] Smoke em Chrome real cobre bloqueio sem autenticação, login/acesso, hierarquia/URL, contador,
-      Faker protegido, Input Lab, Multiclick, gravação/reprodução, Vibe Code/Coder, import/export,
+      Key View/Typing/mouse e proteção de senha, Faker protegido, Input Lab, Multiclick,
+      gravação/reprodução, Vibe Code/Coder, import/export,
       macro fixada, retomada após navegação, modo compacto, edição de ambiente, SPA, exportação
       segura e logout, com 0 erros de console/worker.
 - [x] Script de build simples (`npm run package:extension`) que gera um `.zip` em `~/Downloads`
@@ -220,6 +227,10 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
 - [x] Patch `v1.1.1` centraliza o conjunto do Responsive View, preserva escala compartilhada e
       adiciona cobertura geométrica no smoke Chrome. `release:chrome:update` aprovou scanners,
       smoke completo (0 erros) e gerou ZIP de 88,0 KB a partir de 304,1 KB de fonte inspecionada.
+- [x] Versão `v1.1.2` implementa o Key View, migra preferências para o workspace schema 4 e adiciona
+      cobertura real de atalhos SVG, expiração, Typing protegido, nove posições, temas e mouse.
+      `release:chrome:update` aprovou 348 arquivos no scanner do repositório, bundle com 19 arquivos
+      e 341,0 KB de fonte, smoke completo com 0 erros e ZIP final de 96,8 KB.
 
 ## 7. Segurança e publicação
 
@@ -253,7 +264,7 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       análise, mesclado via API segura em `main` (`77736fb`). Quality `29561893446`, CodeQL
       `29561893367`, Pages `29561893358` e o empacotamento da Store `29561904597` concluíram com
       sucesso. O artefato `chrome-web-store-package` (`8399588287`, 64.240 bytes) está disponível.
-- [ ] Enviar o artefato `v1.1.1` como atualização do item existente
+- [ ] Enviar o artefato `v1.1.2` como atualização do item existente
       `ddaapjklnfjhjigeglgmjmadjnmdodfe` na Chrome Web Store e aguardar a revisão da loja. Não criar
       um segundo item.
 - [ ] No primeiro acesso ao admin publicado, clicar em "Primeiro acesso? Criar conta", definir a

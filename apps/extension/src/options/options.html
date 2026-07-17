@@ -80,8 +80,21 @@
               <label><input type="checkbox" data-tool="multiClick" /> Multiclick</label>
               <label><input type="checkbox" data-tool="inputLab" /> Input Lab</label>
               <label><input type="checkbox" data-tool="fakerFill" /> Faker Fill</label>
+              <label><input type="checkbox" data-tool="keyView" /> Key View</label>
             </div></fieldset>
             <div class="actions"><button type="button" class="button primary" id="savePreferences">Salvar aparência</button><span class="savedHint" id="preferencesSavedHint"></span></div>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h2>Key View</h2></div>
+            <p class="cardLead">Visualize atalhos de teclado, digitação e ações do mouse em demonstrações e gravações.</p>
+            <label class="toggleRow"><input id="keyViewEnabled" type="checkbox" /><span><b>Ativar Key View</b><small>Exibe os atalhos por 3 segundos e ativa os efeitos escolhidos.</small></span></label>
+            <label class="toggleRow"><input id="keyViewTypingMode" type="checkbox" /><span><b>Modo Typing</b><small>Mantém o texto digitado visível até clicar em Limpar.</small></span></label>
+            <label class="toggleRow"><input id="keyViewMouseEffects" type="checkbox" /><span><b>Visualizar mouse</b><small>Destaca clique esquerdo, direito, meio e direção do scroll.</small></span></label>
+            <div class="formGrid2">
+              <label>Aparência<select id="keyViewTheme"><option value="dark">Tecla preta · texto branco</option><option value="light">Tecla branca · texto preto</option></select></label>
+              <label>Posição<select id="keyViewPosition"><option value="top-left">Superior esquerdo</option><option value="top-center">Superior centro</option><option value="top-right">Superior direito</option><option value="middle-left">Centro esquerdo</option><option value="middle-center">Centro</option><option value="middle-right">Centro direito</option><option value="bottom-left">Inferior esquerdo</option><option value="bottom-center">Inferior centro</option><option value="bottom-right">Inferior direito</option></select></label>
+            </div>
+            <p class="securityHint">O buffer de digitação fica somente na memória. Senhas, cartões, CVV, tokens e segredos não são capturados.</p>
           </div>
         </div>
       </section>

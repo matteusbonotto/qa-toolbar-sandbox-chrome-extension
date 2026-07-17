@@ -151,6 +151,7 @@
       multiClickMenuLabel: "Multiclick",
       inputLabMenuLabel: "Input Lab",
       fakerFillMenuLabel: "Faker Fill",
+      keyViewMenuLabel: "Key View",
     },
     es: {
       locale: "es",
@@ -293,6 +294,7 @@
       multiClickMenuLabel: "Multiclic",
       inputLabMenuLabel: "Laboratorio de inputs",
       fakerFillMenuLabel: "Relleno con datos ficticios",
+      keyViewMenuLabel: "Key View",
     },
     en: {
       locale: "en",
@@ -435,6 +437,7 @@
       multiClickMenuLabel: "Multiclick",
       inputLabMenuLabel: "Input Lab",
       fakerFillMenuLabel: "Faker Fill",
+      keyViewMenuLabel: "Key View",
     },
   };
 

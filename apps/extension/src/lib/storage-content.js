@@ -1,8 +1,10 @@
 // Classic-script storage/normalization twin used by options and content pages.
 (() => {
   const STORAGE_KEYS = Object.freeze({ workspace: "qtsWorkspaceV1", siteScope: "qtsSiteScopeV1", uiState: "qtsUiStateV1", authSession: "qtsAuthSessionV1", accessStatus: "qtsAccessStatusV1" });
-  const DEFAULT_ENABLED_TOOLS = Object.freeze(["clickSpy", "freezeClock", "forceHttp", "inspectors", "jsonStudio", "breakpoints", "testAccounts", "paymentMethods", "resources", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"]);
+  const DEFAULT_ENABLED_TOOLS = Object.freeze(["clickSpy", "freezeClock", "forceHttp", "inspectors", "jsonStudio", "breakpoints", "testAccounts", "paymentMethods", "resources", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView"]);
   const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
+  const SCHEMA_4_TOOLS = ["keyView"];
+  const KEY_VIEW_POSITIONS = new Set(["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"]);
   const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
   const SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
   const text = (value, maximum = 500) => String(value ?? "").trim().slice(0, maximum);
@@ -30,7 +32,11 @@
     return output.slice(0, 100);
   }
   function createEmptyWorkspace() {
-    return { schemaVersion: 3, updatedAt: new Date().toISOString(), clients: [], projects: [], products: [], environments: [], testAccounts: [], paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], preferences: { language: "pt-BR", pushSiteContent: true, compactMode: false, pinnedTools: ["passFail", "screenshot", "notes", "record"], pinnedMacroIds: [], enabledTools: [...DEFAULT_ENABLED_TOOLS] } };
+    return { schemaVersion: 4, updatedAt: new Date().toISOString(), clients: [], projects: [], products: [], environments: [], testAccounts: [], paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], preferences: { language: "pt-BR", pushSiteContent: true, compactMode: false, pinnedTools: ["passFail", "screenshot", "notes", "record"], pinnedMacroIds: [], enabledTools: [...DEFAULT_ENABLED_TOOLS], keyView: { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true } } };
+  }
+  function normalizeKeyView(value) {
+    const source = value && typeof value === "object" ? value : {};
+    return { enabled: source.enabled === true, typingMode: source.typingMode === true, theme: source.theme === "light" ? "light" : "dark", position: KEY_VIEW_POSITIONS.has(source.position) ? source.position : "bottom-center", mouseEffects: source.mouseEffects !== false };
   }
   function normalizeStep(item) {
     if (!item || typeof item !== "object" || !MACRO_ACTIONS.has(item.action)) return null;
@@ -64,7 +70,8 @@
     const preferences = source.preferences && typeof source.preferences === "object" ? source.preferences : {};
     const normalizedEnabledTools = Array.isArray(preferences.enabledTools) ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value)) : [...empty.preferences.enabledTools];
     if (Number(source.schemaVersion || 0) < 3) for (const tool of SCHEMA_3_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
-    return { ...empty, schemaVersion: 3, updatedAt: text(source.updatedAt, 40) || empty.updatedAt, clients, projects, products, environments, testAccounts: copy("testAccounts").filter((item) => environments.some((environment) => environment.id === item.environmentId)), paymentMethods: copy("paymentMethods").map((item) => ({ ...item, environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null })), apis: copy("apis"), inspectors: copy("inspectors"), resources: copy("resources"), macros: normalizeMacros(source.macros), preferences: { ...empty.preferences, ...preferences, compactMode: preferences.compactMode === true, pushSiteContent: preferences.pushSiteContent !== false, pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools, pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [], enabledTools: normalizedEnabledTools } };
+    if (Number(source.schemaVersion || 0) < 4) for (const tool of SCHEMA_4_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    return { ...empty, schemaVersion: 4, updatedAt: text(source.updatedAt, 40) || empty.updatedAt, clients, projects, products, environments, testAccounts: copy("testAccounts").filter((item) => environments.some((environment) => environment.id === item.environmentId)), paymentMethods: copy("paymentMethods").map((item) => ({ ...item, environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null })), apis: copy("apis"), inspectors: copy("inspectors"), resources: copy("resources"), macros: normalizeMacros(source.macros), preferences: { ...empty.preferences, ...preferences, compactMode: preferences.compactMode === true, pushSiteContent: preferences.pushSiteContent !== false, pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools, pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [], enabledTools: normalizedEnabledTools, keyView: normalizeKeyView(preferences.keyView) } };
   }
   const createDefaultSiteScope = () => ({ mode: "environments", patterns: [] });
   async function getWorkspace() { const stored = await chrome.storage.local.get(STORAGE_KEYS.workspace); return normalizeWorkspace(stored[STORAGE_KEYS.workspace]); }

@@ -9,6 +9,18 @@ As ferramentas aparecem em **Tools** na barra e podem ser ativadas ou ocultadas 
 - **Input Lab**: selecione um input para ler suas regras e testar vazio, texto, número, caracteres especiais, Unicode e excesso de caracteres. O formulário não é enviado e o valor original volta ao final.
 - **Faker Fill**: preenche a página ou um formulário escolhido com dados sintéticos. Campos sensíveis são ignorados.
 
+## Key View
+
+Abra **Tools → Key View** para ativar e personalizar o visualizador usado em demonstrações e gravações.
+
+- Atalhos como `Ctrl + V` aparecem em teclas SVG com efeito 3D e desaparecem após 3 segundos.
+- Escolha entre tecla preta com texto branco ou tecla branca com texto preto.
+- A posição pode ser qualquer ponto de uma grade 3 × 3: esquerda, centro e direita nas faixas superior, central e inferior.
+- **Modo Typing** mantém o texto digitado na tela até clicar em **Limpar**. O buffer tem no máximo 2.000 caracteres e existe somente na memória da página.
+- **Visualizar mouse** desenha o mouse próximo ao ponteiro e destaca clique esquerdo, direito, meio e scroll para cima/baixo sem bloquear a interação original.
+
+As mesmas preferências ficam disponíveis em **Configurações → Barra e aparência → Key View**.
+
 ## Macro Studio
 
 1. Abra **Tools → Macro Studio → Gravar macro**.
@@ -27,6 +39,7 @@ Clique, Escrever, Selecionar, Checkbox, Tecla, Esperar, Scroll, Multiclick e Fak
 
 - Use somente ambientes e dados de teste.
 - Senhas, tokens, cartões e códigos de segurança não são gravados nem preenchidos.
+- O Key View não captura digitação em campos identificados como senha, cartão, CVV, token ou segredo e nunca persiste o texto exibido.
 - A extensão não executa código colado. O modo Coder é uma saída Playwright para revisão/cópia.
 - Macros retomam na mesma aba após navegação, desde que a nova URL continue pertencendo a um ambiente autorizado.
 - Sites com CAPTCHA, iframe de outra origem ou Shadow DOM fechado podem exigir automação Playwright dedicada.

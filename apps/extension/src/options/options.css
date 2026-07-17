@@ -24,6 +24,10 @@ button,input,select,textarea { font:inherit; color:inherit; }
 .card { padding:18px; border:1px solid var(--border); border-radius:15px; background:linear-gradient(145deg,rgba(26,29,39,.96),rgba(18,20,27,.96)); display:grid; align-content:start; gap:13px; box-shadow:0 16px 42px rgba(0,0,0,.16); }
 .cardHead { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .cardHead h2 { margin:0; font-size:15px; }
+.cardLead,.securityHint { margin:0; color:var(--muted); font-size:12px; }
+.securityHint { padding:10px; border:1px solid rgba(66,213,194,.28); border-radius:9px; background:rgba(66,213,194,.06); }
+.formGrid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.formGrid2 label { display:grid; gap:5px; color:var(--muted); font-size:11px; font-weight:750; }
 .count { min-width:26px; padding:2px 8px; border-radius:999px; background:#252938; color:var(--muted); text-align:center; font-size:11px; }
 .accountCard { max-width:640px; }
 .loginForm { display:grid; grid-template-columns:1fr 1fr auto; align-items:end; gap:10px; }
@@ -77,4 +81,4 @@ input[type="checkbox"],input[type="radio"] { accent-color:var(--accent); }
 .savedHint,.hint { color:var(--muted); font-size:12px; }
 .accountType { padding:1px 6px; border-radius:999px; background:#272b39; color:var(--accent-2); font-size:10px; }
 @media (max-width:1000px) { .grid2 { grid-template-columns:1fr; } .cardFullWidth { grid-column:auto; } .loginForm { grid-template-columns:1fr; } }
-@media (max-width:720px) { .shell { display:block; } .nav { position:static; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--border); } .nav nav { grid-template-columns:repeat(2,minmax(0,1fr)); } .brand { padding-bottom:10px; } .langSwitch { margin-top:8px; } .content { padding:22px 14px; } .checkGrid { grid-template-columns:1fr; } }
+@media (max-width:720px) { .shell { display:block; } .nav { position:static; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--border); } .nav nav { grid-template-columns:repeat(2,minmax(0,1fr)); } .brand { padding-bottom:10px; } .langSwitch { margin-top:8px; } .content { padding:22px 14px; } .checkGrid,.formGrid2 { grid-template-columns:1fr; } }
