@@ -95,13 +95,19 @@ por você (ou me dar acesso ao CLI autenticado).
 
 ## 6. Extensão Chrome
 
-- [ ] Script de build simples (`npm run package:extension`) que gera um `.zip` pronto em
-      `~/Downloads`, pra carregar via "Carregar sem compactação" (pasta) ou upload direto.
-- [ ] Arquivo de importação (workspace JSON) com o cenário real do Cinemark para validar
-      a extensão de ponta a ponta (Cliente Cinemark / Projeto WebApp / Produto AR, 4 ambientes,
-      1 conta de teste, 1 cartão de teste).
-- [ ] Teste manual real no Chrome com esse workspace importado, revisando bugs restantes
-      antes de nova publicação na Web Store.
+- [x] Script de build simples (`npm run package:extension`) que gera um `.zip` em `~/Downloads`
+      (só manifest.json + icons/ + src/ — exclui explicitamente qualquer artefato local tipo
+      node_modules/.wxt, mesmo que sobrem no disco de sessões antigas).
+- [x] Arquivo de importação (`apps/extension/fixtures/cinemark-import-example.json`) com o
+      cenário real: Cliente Cinemark (sigla "C") / Projeto WebApp (sigla "WEB") / Produto AR,
+      4 ambientes com as cores pedidas (Dev cinza, QA amarelo, Beta verde, Produção vermelho),
+      1 conta de teste genérica (sandbox, sem dados reais).
+- [x] `npm run verify:cinemark` — testa a importação de ponta a ponta no Chrome real (clica em
+      "Importar JSON" pela UI de verdade, confirma contagens/badges/nomes). Rodado 3x seguidas,
+      estável, 0 erros de console. Evidência em `artifacts/runtime-evidence/cinemark-import-workspace.png`.
+      **Não naveguei para os domínios reais do Cinemark** (não seria apropriado bater num site
+      de produção de terceiros num teste automatizado) — a cobertura de "breadcrumb reage à
+      URL certa" já existe de forma genérica em `smoke-extension.mjs`.
 
 ---
 

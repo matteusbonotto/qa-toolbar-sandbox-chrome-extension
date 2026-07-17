@@ -13,12 +13,15 @@
     "test": "npm run test --workspaces --if-present",
     "security:repo": "node scripts/check-repository.mjs",
     "test:chrome": "node scripts/smoke-extension.mjs",
+    "package:extension": "node scripts/package-extension.mjs",
+    "verify:cinemark": "node scripts/verify-cinemark-import.mjs",
     "prepare": "node scripts/install-git-hooks.mjs"
   },
   "engines": {
     "node": ">=20.19.0"
   },
   "devDependencies": {
+    "archiver": "^7.0.1",
     "playwright": "^1.61.1"
   }
 }
