@@ -1,0 +1,86 @@
+:root {
+  --qts-bg: #06070c;
+  --qts-bg-elevated: #0d0f18;
+  --qts-bg-card: #12141f;
+  --qts-bg-card-hover: #171a29;
+  --qts-border: rgba(255, 255, 255, 0.08);
+  --qts-border-strong: rgba(255, 255, 255, 0.16);
+
+  --qts-text: #f4f5f9;
+  --qts-text-muted: #a6acc2;
+  --qts-text-dim: #6d7390;
+
+  --qts-accent: #7c5cff;
+  --qts-accent-strong: #9d84ff;
+  --qts-accent-soft: rgba(124, 92, 255, 0.16);
+  --qts-teal: #33d6b0;
+  --qts-teal-soft: rgba(51, 214, 176, 0.16);
+  --qts-amber: #ffb454;
+  --qts-amber-soft: rgba(255, 180, 84, 0.16);
+  --qts-red: #ff6b6b;
+  --qts-red-soft: rgba(255, 107, 107, 0.16);
+
+  --qts-gradient-brand: linear-gradient(135deg, #7c5cff 0%, #33d6b0 100%);
+  --qts-gradient-radial: radial-gradient(60% 60% at 50% 0%, rgba(124, 92, 255, 0.25) 0%, rgba(6, 7, 12, 0) 70%);
+
+  --qts-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --qts-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --qts-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.45);
+  --qts-shadow-glow: 0 0 0 1px rgba(124, 92, 255, 0.3), 0 20px 60px rgba(124, 92, 255, 0.25);
+
+  --qts-radius-sm: 8px;
+  --qts-radius-md: 14px;
+  --qts-radius-lg: 22px;
+  --qts-radius-pill: 999px;
+
+  --qts-font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --qts-font-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
+
+  --qts-container: 1180px;
+  --qts-space-1: 4px;
+  --qts-space-2: 8px;
+  --qts-space-3: 12px;
+  --qts-space-4: 16px;
+  --qts-space-5: 24px;
+  --qts-space-6: 32px;
+  --qts-space-7: 48px;
+  --qts-space-8: 64px;
+  --qts-space-9: 96px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--qts-bg);
+  color: var(--qts-text);
+  font-family: var(--qts-font-sans);
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+a {
+  color: inherit;
+}
+
+button {
+  font-family: inherit;
+}
+
+::selection {
+  background: var(--qts-accent-soft);
+  color: var(--qts-text);
+}

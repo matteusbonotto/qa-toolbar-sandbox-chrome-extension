@@ -1,35 +1,24 @@
 {
   "name": "qa-toolbar-sandbox",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
-  "description": "Local-first QA browser toolbox",
+  "description": "QA Toolbar Sandbox — rebuilt from the Tampermonkey userscript as a plain HTML/CSS/JS Manifest V3 extension, no build step. Landing page rebuilt separately in apps/landing.",
   "workspaces": [
-    "apps/*",
-    "packages/*"
+    "apps/landing"
   ],
   "scripts": {
-    "dev": "npm run dev -w @qts/extension",
     "dev:landing": "npm run dev -w @qts/landing",
-    "preview:landing": "npm run preview -w @qts/landing",
-    "build": "npm run build -w @qts/domain && npm run build -w @qts/extension && npm run build -w @qts/landing",
-    "zip": "npm run zip -w @qts/extension",
+    "build:landing": "npm run build -w @qts/landing",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "security:repo": "node scripts/check-repository.mjs",
-    "security:bundle": "node scripts/check-extension-bundle.mjs",
-    "check": "npm run security:repo && npm run typecheck && npm run test && npm run build && npm run security:bundle",
-    "release:chrome": "npm run check && npm run zip && node scripts/prepare-chrome-store-package.mjs",
-    "release:chrome:update": "npm version patch -w @qts/extension --no-git-tag-version && npm run release:chrome",
-    "prepare": "node scripts/install-git-hooks.mjs",
-    "prepare:extension": "npm run prepare -w @qts/extension"
+    "test:chrome": "node scripts/smoke-extension.mjs",
+    "prepare": "node scripts/install-git-hooks.mjs"
   },
   "engines": {
     "node": ">=20.19.0"
   },
-  "overrides": {
-    "esbuild": "0.28.1",
-    "shell-quote": "1.10.0",
-    "tmp": "0.2.7",
-    "uuid": "11.1.1"
+  "devDependencies": {
+    "playwright": "^1.61.1"
   }
 }

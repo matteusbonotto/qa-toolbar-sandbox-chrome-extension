@@ -9,16 +9,13 @@ permissions:
 jobs:
   package:
     runs-on: ubuntu-latest
-    env:
-      WXT_PUBLIC_OFFLINE_LICENSE_PUBLIC_JWK: ${{ vars.WXT_PUBLIC_OFFLINE_LICENSE_PUBLIC_JWK }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-      - run: npm ci
-      - run: npm run release:chrome
+      - uses: actions/checkout@v7
+      - name: Zip the unbundled extension for Chrome Web Store submission
+        run: |
+          mkdir -p artifacts
+          cd apps/extension
+          zip -r ../../artifacts/qa-toolbar-sandbox-extension.zip . -x "*.DS_Store"
       - uses: actions/upload-artifact@v4
         with:
           name: chrome-web-store-package

@@ -1,13 +1,19 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
-import { App } from "./App";
-import "./styles.css";
+import "./styles/tokens.css";
+import "./styles/app.css";
+import App from "./App";
+import { I18nProvider } from "./i18n/I18nProvider";
 
-const root = document.getElementById("root");
-if (!root) throw new Error("Root element was not found");
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  throw new Error("Root element #root not found");
+}
 
-createRoot(root).render(
+createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <I18nProvider>
+      <App />
+    </I18nProvider>
   </StrictMode>,
 );

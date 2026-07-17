@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>QA Toolbar Sandbox — Configurações</title>
+  <link rel="icon" href="../../icons/icon-32.png" />
+  <link rel="stylesheet" href="options.css" />
+</head>
+<body>
+  <div class="shell">
+    <aside class="nav">
+      <div class="brand"><img src="../../icons/icon-32.png" alt="" /><span>QA Toolbar Sandbox</span></div>
+      <nav>
+        <button type="button" class="navItem isActive" data-tab="scope" data-i18n="optionsNavScope">Onde a barra aparece</button>
+        <button type="button" class="navItem" data-tab="workspace" data-i18n="optionsNavWorkspace">Workspace</button>
+        <button type="button" class="navItem" data-tab="data" data-i18n="optionsNavData">Importar / Exportar</button>
+      </nav>
+      <div class="langSwitch" id="langSwitch" role="group" data-i18n-title="optionsNavLanguage">
+        <button type="button" data-locale="pt-BR">PT</button>
+        <button type="button" data-locale="es">ES</button>
+        <button type="button" data-locale="en">EN</button>
+      </div>
+    </aside>
+    <main class="content">
+      <section data-panel="scope" class="panel isActive">
+        <header class="panelHead">
+          <h1 data-i18n="optionsScopeTitle">Onde a barra de ferramentas aparece</h1>
+          <p data-i18n="optionsScopeLead">Por padrão a extensão funciona em qualquer site. Restrinja aqui se quiser limitar a URLs específicas.</p>
+        </header>
+        <div class="card">
+          <label class="radioRow">
+            <input type="radio" name="scopeMode" value="all" />
+            <div><b data-i18n="optionsScopeAllTitle">Todos os sites (padrão)</b><small data-i18n="optionsScopeAllHint">A barra é injetada em qualquer página que você visitar.</small></div>
+          </label>
+          <label class="radioRow">
+            <input type="radio" name="scopeMode" value="custom" />
+            <div><b data-i18n="optionsScopeCustomTitle">Apenas URLs específicas</b><small><span data-i18n="optionsScopeCustomHintPrefix">Use padrões como</span> <code>https://*.exemplo.com/*</code>, um por linha.</small></div>
+          </label>
+          <textarea id="scopePatterns" rows="6" data-i18n-placeholder="optionsScopePatternsPlaceholder" placeholder="https://app.exemplo.com/*&#10;https://*.minhaempresa.com/*" disabled></textarea>
+          <div class="actions">
+            <button type="button" class="button primary" id="saveScope" data-i18n="optionsSave">Salvar</button>
+            <span class="savedHint" id="scopeSavedHint"></span>
+          </div>
+        </div>
+      </section>
+
+      <section data-panel="workspace" class="panel">
+        <header class="panelHead">
+          <h1 data-i18n="optionsWorkspaceTitle">Workspace</h1>
+          <p data-i18n="optionsWorkspaceLead">Clientes, projetos, produtos e ambientes — nada vem pré-cadastrado, você organiza do seu jeito.</p>
+        </header>
+        <div class="grid2">
+          <div class="card">
+            <div class="cardHead"><h2 data-i18n="optionsClients">Clientes</h2><span class="count" id="clientCount">0</span></div>
+            <div class="list" id="clientList"></div>
+            <form class="inlineForm formWide" id="clientForm">
+              <input type="text" data-i18n-placeholder="optionsClientNamePlaceholder" placeholder="Nome do cliente" required id="clientName" />
+              <input type="url" data-i18n-placeholder="optionsLogoUrlPlaceholder" placeholder="URL do logo (opcional)" id="clientLogoUrl" />
+              <input type="text" data-i18n-placeholder="optionsAbbreviationPlaceholder" placeholder="Sigla (opcional)" maxlength="4" class="abbrevInput" id="clientAbbreviation" />
+              <label class="checkRow"><input type="checkbox" id="clientShowLabel" checked /><span data-i18n="optionsShowLabel">Mostrar nome ao lado do ícone</span></label>
+              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
+            </form>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h2 data-i18n="optionsProjects">Projetos</h2><span class="count" id="projectCount">0</span></div>
+            <div class="list" id="projectList"></div>
+            <form class="inlineForm formWide" id="projectForm">
+              <select id="projectClient" required></select>
+              <input type="text" data-i18n-placeholder="optionsProjectNamePlaceholder" placeholder="Nome do projeto" required id="projectName" />
+              <input type="url" data-i18n-placeholder="optionsLogoUrlPlaceholder" placeholder="URL do logo (opcional)" id="projectLogoUrl" />
+              <input type="text" data-i18n-placeholder="optionsAbbreviationPlaceholder" placeholder="Sigla (opcional)" maxlength="4" class="abbrevInput" id="projectAbbreviation" />
+              <label class="checkRow"><input type="checkbox" id="projectShowLabel" checked /><span data-i18n="optionsShowLabel">Mostrar nome ao lado do ícone</span></label>
+              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
+            </form>
+          </div>
+          <div class="card">
+            <div class="cardHead"><h2 data-i18n="optionsProducts">Produtos</h2><span class="count" id="productCount">0</span></div>
+            <div class="list" id="productList"></div>
+            <form class="inlineForm formWide" id="productForm">
+              <select id="productProject" required></select>
+              <input type="text" data-i18n-placeholder="optionsProductNamePlaceholder" placeholder="Nome do produto" required id="productName" />
+              <input type="url" data-i18n-placeholder="optionsLogoUrlPlaceholder" placeholder="URL do logo (opcional)" id="productLogoUrl" />
+              <input type="text" data-i18n-placeholder="optionsAbbreviationPlaceholder" placeholder="Sigla (opcional)" maxlength="4" class="abbrevInput" id="productAbbreviation" />
+              <label class="checkRow"><input type="checkbox" id="productShowLabel" checked /><span data-i18n="optionsShowLabel">Mostrar nome ao lado do ícone</span></label>
+              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
+            </form>
+          </div>
+          <div class="card cardFullWidth">
+            <div class="cardHead"><h2 data-i18n="optionsEnvironments">Ambientes</h2><span class="count" id="environmentCount">0</span></div>
+            <div class="list" id="environmentList"></div>
+            <form class="inlineForm formWide" id="environmentForm">
+              <select id="environmentProduct" required></select>
+              <input type="text" data-i18n-placeholder="optionsEnvironmentNamePlaceholder" placeholder="Nome do ambiente (ex.: QA, Staging)" required id="environmentName" />
+              <input type="color" id="environmentColor" value="#ef3340" data-i18n-title="optionsEnvironmentColorTitle" title="Cor da barra" />
+              <input type="text" data-i18n-placeholder="optionsEnvironmentPatternsPlaceholder" placeholder="Padrões de URL, separados por vírgula" required id="environmentPatterns" />
+              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
+            </form>
+          </div>
+          <div class="card cardFullWidth">
+            <div class="cardHead"><h2 data-i18n="optionsTestAccounts">Contas de teste</h2><span class="count" id="testAccountCount">0</span></div>
+            <p class="sandboxWarning" data-i18n="optionsTestAccountsWarning">Uso exclusivamente sandbox — nunca cadastre credenciais reais. Senhas ficam só neste navegador e nunca saem na exportação.</p>
+            <div class="list" id="testAccountList"></div>
+            <form class="inlineForm formWide" id="testAccountForm">
+              <select id="testAccountEnvironment" required></select>
+              <input type="text" data-i18n-placeholder="optionsAccountLabelPlaceholder" placeholder="Nome da conta (ex.: Conta padrão)" required id="testAccountLabel" />
+              <input type="text" data-i18n-placeholder="optionsAccountTypePlaceholder" placeholder="Tipo de conta (ex.: Gold, PJ, Admin)" id="testAccountType" />
+              <input type="text" data-i18n-placeholder="optionsAccountUsernamePlaceholder" placeholder="Usuário / e-mail" id="testAccountUsername" />
+              <input type="password" data-i18n-placeholder="optionsAccountPasswordPlaceholder" placeholder="Senha" id="testAccountPassword" autocomplete="new-password" />
+              <input type="text" data-i18n-placeholder="optionsAccountNotesPlaceholder" placeholder="Observações (opcional)" id="testAccountNotes" />
+              <button type="submit" class="button" data-i18n="optionsCreate">+ Criar</button>
+            </form>
+          </div>
+        </div>
+      </section>
+
+      <section data-panel="data" class="panel">
+        <header class="panelHead">
+          <h1 data-i18n="optionsDataTitle">Importar / Exportar</h1>
+          <p data-i18n="optionsDataLead">Leve seu workspace entre navegadores ou compartilhe uma configuração com o time.</p>
+        </header>
+        <div class="card">
+          <div class="actions">
+            <button type="button" class="button primary" id="exportButton" data-i18n="optionsExport">Exportar workspace (JSON)</button>
+            <button type="button" class="button" id="importButton" data-i18n="optionsImport">Importar JSON</button>
+            <button type="button" class="button danger" id="resetButton" data-i18n="optionsReset">Resetar workspace</button>
+            <input type="file" id="importFile" accept="application/json" hidden />
+          </div>
+          <p class="hint" id="dataHint"></p>
+        </div>
+      </section>
+    </main>
+  </div>
+  <script src="../lib/storage-content.js"></script>
+  <script src="../lib/i18n-content.js"></script>
+  <script src="../lib/avatar-content.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>

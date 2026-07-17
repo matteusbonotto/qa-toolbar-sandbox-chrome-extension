@@ -6,7 +6,6 @@ on:
     branches: [main]
     paths:
       - "apps/landing/**"
-      - "packages/**"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/landing-pages.yml"
@@ -21,26 +20,19 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    env:
-      VITE_SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-      VITE_SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Require browser-safe commerce configuration
-        run: |
-          test -n "$VITE_SUPABASE_URL"
-          test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
-      - run: npm run typecheck
-      - run: npm run test
-      - uses: actions/configure-pages@v5
+      - run: npm run typecheck -w @qts/landing
+      - run: npm run test -w @qts/landing
+      - uses: actions/configure-pages@v6
       - name: Build landing with the repository base path
         run: npm run build -w @qts/landing -- --base "/${{ github.event.repository.name }}/"
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/landing/dist
 
@@ -56,4 +48,4 @@ jobs:
     steps:
       - name: Deploy GitHub Pages
         id: deployment
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
