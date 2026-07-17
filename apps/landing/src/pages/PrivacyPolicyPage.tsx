@@ -6,7 +6,7 @@ export function PrivacyPolicyPage() {
   return (
     <main className="qts-privacy-page">
       <div className="qts-container qts-privacy-inner">
-        <a className="qts-back-link" href="/">
+        <a className="qts-back-link" href={import.meta.env.BASE_URL}>
           {t.privacy.back}
         </a>
         <span className="qts-eyebrow">{t.privacy.eyebrow}</span>

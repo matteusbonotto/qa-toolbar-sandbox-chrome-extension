@@ -378,7 +378,7 @@
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-.qts-mock-bar-scroll {
+.qts-mock-bar-crumb-wrap {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -389,11 +389,30 @@
   padding: 2px 2px;
 }
 
-.qts-mock-bar-scroll::-webkit-scrollbar {
+.qts-mock-bar-crumb-wrap::-webkit-scrollbar {
   display: none;
 }
 
-.qts-mock-bar-scroll > * {
+.qts-mock-bar-crumb-wrap > * {
+  flex-shrink: 0;
+}
+
+.qts-mock-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 2px;
+}
+
+.qts-mock-bar-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.qts-mock-bar-actions > * {
   flex-shrink: 0;
 }
 
@@ -484,13 +503,6 @@
 
 .qts-badge-name {
   white-space: nowrap;
-}
-
-.qts-mock-bar-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
 }
 
 .qts-mock-bar-btn {
@@ -683,6 +695,110 @@
 
 /* Pricing */
 
+.qts-account-panel,
+.qts-access-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--qts-space-5);
+  padding: var(--qts-space-5);
+  margin-bottom: var(--qts-space-5);
+  border: 1px solid var(--qts-border);
+  border-radius: var(--qts-radius-lg);
+  background: var(--qts-bg-card);
+}
+
+.qts-account-panel h3,
+.qts-account-panel p {
+  margin: 0;
+}
+
+.qts-account-panel p,
+.qts-access-panel span {
+  color: var(--qts-text-muted);
+  font-size: 0.85rem;
+}
+
+.qts-account-form {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(220px, 1fr);
+  gap: var(--qts-space-3);
+  width: min(680px, 100%);
+}
+
+.qts-account-form .qts-voucher-input {
+  min-width: 0;
+  width: 100%;
+}
+
+.qts-terms-check {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--qts-space-2);
+  grid-column: 1 / -1;
+  color: var(--qts-text-muted);
+  font-size: 0.8rem;
+}
+
+.qts-terms-check input {
+  margin-top: 2px;
+}
+
+.qts-terms-check a {
+  color: var(--qts-accent);
+}
+
+.qts-account-actions,
+.qts-account-session {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--qts-space-3);
+}
+
+.qts-account-actions {
+  grid-column: 1 / -1;
+}
+
+.qts-account-session {
+  flex-wrap: wrap;
+}
+
+.qts-access-panel {
+  border-color: color-mix(in srgb, var(--qts-teal) 55%, var(--qts-border));
+}
+
+.qts-access-panel > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qts-checkout-message {
+  margin: 0 0 var(--qts-space-5);
+  padding: var(--qts-space-3) var(--qts-space-4);
+  border-radius: var(--qts-radius-sm);
+  color: var(--qts-teal);
+  background: color-mix(in srgb, var(--qts-teal) 10%, transparent);
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.qts-checkout-message.is-error {
+  color: var(--qts-red);
+  background: color-mix(in srgb, var(--qts-red) 10%, transparent);
+}
+
+.qts-billing-toggle-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--qts-space-5);
+}
+
+.qts-billing-toggle-row .qts-segmented-btn {
+  padding: 9px 18px;
+}
+
 .qts-voucher-row {
   display: flex;
   align-items: center;
@@ -813,6 +929,29 @@
   color: var(--qts-text-dim);
 }
 
+@media (max-width: 760px) {
+  .qts-account-panel,
+  .qts-access-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .qts-account-form {
+    grid-template-columns: 1fr;
+  }
+
+  .qts-account-form > *,
+  .qts-account-actions,
+  .qts-terms-check {
+    grid-column: 1;
+  }
+
+  .qts-account-actions,
+  .qts-account-session {
+    justify-content: flex-start;
+  }
+}
+
 /* Support */
 
 .qts-support-grid {
@@ -867,7 +1006,8 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--qts-gradient-brand);
+  background: var(--qts-bg-card);
+  object-fit: cover;
   vertical-align: middle;
   margin: 0 2px;
 }

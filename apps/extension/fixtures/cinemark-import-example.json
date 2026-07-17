@@ -1,0 +1,87 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-07-17T00:00:00.000Z",
+  "clients": [
+    {
+      "id": "client-cinemark",
+      "name": "Cinemark",
+      "abbreviation": "C",
+      "showLabel": true
+    }
+  ],
+  "projects": [
+    {
+      "id": "project-webapp",
+      "clientId": "client-cinemark",
+      "name": "WebApp",
+      "abbreviation": "WEB",
+      "showLabel": true
+    }
+  ],
+  "products": [
+    {
+      "id": "product-ar",
+      "projectId": "project-webapp",
+      "name": "AR",
+      "showLabel": true
+    }
+  ],
+  "environments": [
+    {
+      "id": "env-dev",
+      "productId": "product-ar",
+      "projectId": "project-webapp",
+      "clientId": "client-cinemark",
+      "name": "Dev",
+      "color": "#6b7280",
+      "urlPatterns": ["https://ar-dev-www-ext.cinemark.com.ar/*"]
+    },
+    {
+      "id": "env-qa",
+      "productId": "product-ar",
+      "projectId": "project-webapp",
+      "clientId": "client-cinemark",
+      "name": "QA",
+      "color": "#eab308",
+      "urlPatterns": ["https://ar-qa-www-ext.cinemark.com.ar/*"]
+    },
+    {
+      "id": "env-beta",
+      "productId": "product-ar",
+      "projectId": "project-webapp",
+      "clientId": "client-cinemark",
+      "name": "Beta",
+      "color": "#22c55e",
+      "urlPatterns": ["https://www-beta.cinemark.com.ar/*"]
+    },
+    {
+      "id": "env-prod",
+      "productId": "product-ar",
+      "projectId": "project-webapp",
+      "clientId": "client-cinemark",
+      "name": "Produção",
+      "color": "#ef4444",
+      "urlPatterns": ["https://www.cinemark.com.ar/*"]
+    }
+  ],
+  "testAccounts": [
+    {
+      "id": "account-comum",
+      "environmentId": "env-qa",
+      "label": "Conta comum",
+      "accountType": "Comum",
+      "username": "qa.comum@cinemark.test",
+      "password": "Sandbox@123",
+      "notes": "Conta de teste genérica — sem vínculo com dados reais de cliente."
+    }
+  ],
+  "paymentMethods": [],
+  "apis": [],
+  "inspectors": [],
+  "resources": [],
+  "preferences": {
+    "language": "pt-BR",
+    "pushSiteContent": true,
+    "pinnedTools": ["passFail", "screenshot", "notes"]
+  }
+}

@@ -4,21 +4,33 @@
   "private": true,
   "description": "QA Toolbar Sandbox — rebuilt from the Tampermonkey userscript as a plain HTML/CSS/JS Manifest V3 extension, no build step. Landing page rebuilt separately in apps/landing.",
   "workspaces": [
-    "apps/landing"
+    "apps/landing",
+    "apps/admin"
   ],
   "scripts": {
     "dev:landing": "npm run dev -w @qts/landing",
     "build:landing": "npm run build -w @qts/landing",
+    "dev:admin": "npm run dev -w @qts/admin",
+    "build:admin": "npm run build -w @qts/admin",
+    "backend:bootstrap": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/bootstrap-new-backend.ps1",
+    "backend:stripe:catalog": "node scripts/bootstrap-stripe-catalog.mjs --archive-legacy",
+    "backend:stripe:webhook": "node scripts/bootstrap-stripe-webhook.mjs",
+    "backend:test:cors": "node scripts/test-edge-functions-cors.mjs",
+    "backend:check": "npx --yes deno@latest test --config supabase/functions/deno.json --allow-env supabase/functions/_shared/http_test.ts supabase/functions/_shared/admin_mfa_test.ts && npx --yes deno@latest check --config supabase/functions/deno.json supabase/functions/checkout-create-session/index.ts supabase/functions/stripe-webhook/index.ts supabase/functions/voucher-redeem/index.ts supabase/functions/referral-track/index.ts supabase/functions/keep-alive/index.ts supabase/functions/access-status/index.ts supabase/functions/admin-email-otp/index.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
+    "test:pages": "node scripts/smoke-landing-pages.mjs",
     "security:repo": "node scripts/check-repository.mjs",
     "test:chrome": "node scripts/smoke-extension.mjs",
+    "package:extension": "node scripts/package-extension.mjs",
+    "verify:cinemark": "node scripts/verify-cinemark-import.mjs",
     "prepare": "node scripts/install-git-hooks.mjs"
   },
   "engines": {
     "node": ">=20.19.0"
   },
   "devDependencies": {
+    "archiver": "^7.0.1",
     "playwright": "^1.61.1"
   }
 }

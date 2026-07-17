@@ -9,7 +9,8 @@ import { ParticleBackground } from "./components/ParticleBackground";
 import { SiteNavToolbar } from "./components/SiteNavToolbar";
 
 export default function App() {
-  const isPrivacyPage = window.location.pathname === "/privacidade";
+  const privacyPath = `${import.meta.env.BASE_URL}privacidade`;
+  const isPrivacyPage = window.location.pathname === privacyPath || window.location.pathname === `${privacyPath}/`;
 
   if (isPrivacyPage) {
     return (

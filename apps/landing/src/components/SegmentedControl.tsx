@@ -14,7 +14,7 @@ interface SegmentedControlProps {
 export function SegmentedControl({ label, options, value, onChange }: SegmentedControlProps) {
   return (
     <div className="qts-sim-field">
-      <span className="qts-sim-field-label">{label}</span>
+      {label ? <span className="qts-sim-field-label">{label}</span> : null}
       <div className="qts-segmented" role="tablist" aria-label={label}>
         {options.map((option) => (
           <button
