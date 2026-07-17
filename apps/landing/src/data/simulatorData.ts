@@ -13,6 +13,7 @@ interface WhiteLabelEntity {
 }
 
 export interface SimProduct extends WhiteLabelEntity {
+  viewport?: "desktop" | "mobile";
   environments: SimEnvironment[];
 }
 
@@ -53,6 +54,7 @@ export const simulatorWorkspace: SimClient[] = [
             name: "Mobile",
             abbreviation: "MOB",
             showLabel: false,
+            viewport: "mobile",
             environments: [
               { id: "dev", name: "Dev", color: "#7c5cff", url: "dev.lojafictus.com/app/checkout" },
               { id: "qa", name: "QA", color: "#33d6b0", url: "qa.lojafictus.com/app/checkout" },

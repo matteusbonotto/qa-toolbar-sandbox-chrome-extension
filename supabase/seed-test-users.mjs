@@ -9,6 +9,9 @@
 //   QTS_TEST_USER_PASSWORD='<local password>' \
 //   node supabase/seed-test-users.mjs
 //
+// For passwordless test-account setup (no vouchers and no shared password):
+//   SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node supabase/seed-test-users.mjs --users-only
+//
 // What it does:
 //   1. Creates (or reuses) 4 auth users, one per plan, all pre-confirmed,
 //      password supplied through QTS_TEST_USER_PASSWORD, and grants each an entitlement_grant for its
@@ -21,16 +24,18 @@
 // Safe to re-run: existing users/plans/vouchers are detected and skipped.
 
 import { createClient } from "@supabase/supabase-js";
-import { webcrypto } from "node:crypto";
+import { randomBytes, webcrypto } from "node:crypto";
 
 const SUPABASE_URL = process.env.SUPABASE_URL;
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
-const TEST_USER_PASSWORD = process.env.QTS_TEST_USER_PASSWORD;
+const USERS_ONLY = process.argv.includes("--users-only");
+const TEST_USER_PASSWORD = process.env.QTS_TEST_USER_PASSWORD
+  || (USERS_ONLY ? `${randomBytes(32).toString("base64url")}Aa1!` : "");
 
 if (!SUPABASE_URL || !SERVICE_ROLE_KEY || !TEST_USER_PASSWORD) {
   console.error(
     "Missing env vars. Run as:\n" +
-      "  SUPABASE_URL=https://xxxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=eyJ... QTS_TEST_USER_PASSWORD='<local password>' node supabase/seed-test-users.mjs",
+      "  SUPABASE_URL=https://xxxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=... QTS_TEST_USER_PASSWORD='<local password>' node supabase/seed-test-users.mjs",
   );
   process.exit(1);
 }
@@ -82,7 +87,7 @@ async function findUserByEmail(email) {
 async function ensureUser(email) {
   const existing = await findUserByEmail(email);
   if (existing) {
-    console.log(`  user exists: ${email} (${existing.id})`);
+    console.log(`  user exists: ${email}`);
     return existing;
   }
   const { data, error } = await supabase.auth.admin.createUser({
@@ -91,7 +96,7 @@ async function ensureUser(email) {
     email_confirm: true,
   });
   if (error) throw error;
-  console.log(`  created: ${email} (${data.user.id})`);
+  console.log(`  created: ${email}`);
   return data.user;
 }
 
@@ -165,6 +170,11 @@ async function main() {
     console.log(`- ${u.label} <${u.email}>`);
     const user = await ensureUser(u.email);
     await ensurePlanGrant(user.id, u.planKey);
+  }
+
+  if (USERS_ONLY) {
+    console.log("\nDone. Test accounts are ready for passwordless email-link access.");
+    return;
   }
 
   console.log("\nCreating voucher tester account...");

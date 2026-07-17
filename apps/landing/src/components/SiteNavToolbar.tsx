@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/I18nProvider";
 import { LOCALES } from "../i18n/translations";
+import { openAccountModal } from "../lib/accountModal";
 
 export function SiteNavToolbar() {
   const { t, locale, setLocale } = useI18n();
@@ -70,9 +71,9 @@ export function SiteNavToolbar() {
             </button>
           ))}
         </div>
-        <a href="#planos" className="qts-site-toolbar-cta">
+        <button type="button" className="qts-site-toolbar-cta" onClick={openAccountModal}>
           {t.nav.install}
-        </a>
+        </button>
       </div>
     </div>
   );

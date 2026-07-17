@@ -93,6 +93,15 @@ export async function signUp(email: string, password: string): Promise<Session |
   return data.session;
 }
 
+export async function sendSignInLink(email: string): Promise<void> {
+  const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+  const { error } = await requireClient().auth.signInWithOtp({
+    email,
+    options: { emailRedirectTo: redirectTo, shouldCreateUser: false },
+  });
+  if (error) throw new Error("magic_link_failed");
+}
+
 export async function signOut(): Promise<void> {
   const { error } = await requireClient().auth.signOut();
   if (error) throw new Error("signout_failed");

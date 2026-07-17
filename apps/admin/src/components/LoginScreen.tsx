@@ -1,14 +1,24 @@
 import { useEffect, useState, type FormEvent } from "react";
-import { useAuth } from "../lib/AuthProvider";
+import { FOUNDER_EMAIL, useAuth } from "../lib/AuthProvider";
 import { isSupabaseConfigured } from "../lib/supabaseClient";
 
 export function LoginScreen() {
-  const { status, otpEmail, signInWithPassword, verifyEmailOtp, resendEmailOtp, signOut } = useAuth();
-  const [email, setEmail] = useState("");
+  const {
+    status,
+    otpEmail,
+    signInWithPassword,
+    createFounderAccount,
+    verifyEmailOtp,
+    resendEmailOtp,
+    signOut,
+  } = useAuth();
+  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [resendIn, setResendIn] = useState(60);
 
   useEffect(() => {
@@ -19,15 +29,34 @@ export function LoginScreen() {
 
   async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!email.trim() || !password) return;
+    if (!password) return;
     setBusy(true);
     setError(null);
+    setNotice(null);
     try {
-      await signInWithPassword(email.trim(), password);
+      await signInWithPassword(FOUNDER_EMAIL, password);
       setPassword("");
       setResendIn(60);
     } catch {
-      setError("Não foi possível entrar ou enviar o código. Confira e-mail, senha e confirmação da conta.");
+      setError("Senha incorreta ou conta ainda não confirmada. Se for o primeiro acesso, crie a conta abaixo.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (password.length < 8 || !acceptedTerms) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      await createFounderAccount(password);
+      setPassword("");
+      setNotice("Conta iniciada. Confirme o e-mail recebido e depois volte para entrar com sua senha.");
+      setMode("signin");
+    } catch {
+      setError("Não foi possível criar a conta. Ela pode já existir; nesse caso, volte para Entrar.");
     } finally {
       setBusy(false);
     }
@@ -56,13 +85,14 @@ export function LoginScreen() {
       setOtp("");
       setResendIn(60);
     } catch {
-      setError("Não foi possível reenviar. Aguarde um minuto ou autentique novamente com a senha.");
+      setError("Não foi possível reenviar agora. Aguarde um minuto ou autentique novamente com a senha.");
     } finally {
       setBusy(false);
     }
   }
 
   const otpPending = status === "otp-pending";
+  const privacyUrl = new URL("../privacidade", new URL(import.meta.env.BASE_URL, window.location.origin)).href;
 
   return (
     <div className="qa-login-screen">
@@ -70,19 +100,23 @@ export function LoginScreen() {
         <span className="qa-brand-dot" />
         <span>QA Toolbar Sandbox — Admin</span>
       </div>
-      <h1>{otpPending ? "Confirme o código" : status === "forbidden" ? "Acesso restrito" : "Entre para continuar"}</h1>
+      <h1>{otpPending ? "Digite o código recebido" : mode === "signup" ? "Criar acesso administrativo" : "Entre para continuar"}</h1>
       <p>
         {otpPending
           ? `Enviamos um código de 8 dígitos para ${otpEmail ?? "o Gmail cadastrado"}. Ele expira em 10 minutos.`
-          : status === "forbidden"
-            ? "A sessão atual não possui autorização founder com segundo fator válido."
-            : "Primeiro confirme e-mail e senha. Depois será obrigatório informar o código recebido no Gmail."}
+          : mode === "signup"
+            ? "Defina sua senha e confirme o e-mail para ativar o acesso."
+            : "Use sua senha e, na etapa seguinte, confirme o código enviado ao seu e-mail."}
       </p>
+
+      <div className="qa-login-steps" aria-label="Etapas de autenticação">
+        <div className={!otpPending ? "is-active" : "is-complete"}><strong>1</strong><span>Senha</span></div>
+        <span className="qa-login-step-line" />
+        <div className={otpPending ? "is-active" : ""}><strong>2</strong><span>Código por e-mail</span></div>
+      </div>
+
       {!isSupabaseConfigured ? (
-        <div className="qa-config-warning">
-          Configuração pública do Supabase ausente. O build exige VITE_SUPABASE_URL e
-          VITE_SUPABASE_PUBLISHABLE_KEY; nenhuma chave privilegiada pertence ao navegador.
-        </div>
+        <div className="qa-config-warning">O serviço de autenticação está indisponível nesta publicação.</div>
       ) : otpPending ? (
         <form className="qa-login-form" onSubmit={(event) => void handleOtpSubmit(event)}>
           <label>
@@ -96,6 +130,7 @@ export function LoginScreen() {
               maxLength={8}
               required
               autoFocus
+              placeholder="00000000"
               value={otp}
               onChange={(event) => setOtp(event.target.value.replace(/\D/g, "").slice(0, 8))}
             />
@@ -104,51 +139,51 @@ export function LoginScreen() {
           <button type="submit" className="qa-google-btn" disabled={busy || otp.length !== 8}>
             {busy ? "Validando…" : "Validar código"}
           </button>
-          <button
-            type="button"
-            className="qa-login-secondary"
-            disabled={busy || resendIn > 0}
-            onClick={() => void handleResend()}
-          >
+          <button type="button" className="qa-login-secondary" disabled={busy || resendIn > 0} onClick={() => void handleResend()}>
             {resendIn > 0 ? `Reenviar em ${resendIn}s` : "Reenviar código"}
           </button>
           <button type="button" className="qa-login-secondary" disabled={busy} onClick={() => void signOut()}>
-            Voltar e informar a senha novamente
+            Voltar para a senha
           </button>
           <small>Após a validação, o acesso administrativo dura no máximo 60 minutos.</small>
         </form>
       ) : (
-        <form className="qa-login-form" onSubmit={(event) => void handlePasswordSubmit(event)}>
+        <form className="qa-login-form" onSubmit={(event) => void (mode === "signin" ? handlePasswordSubmit(event) : handleCreateAccount(event))}>
+          <div className="qa-admin-identity">
+            <span>Conta autorizada</span>
+            <strong>{FOUNDER_EMAIL}</strong>
+          </div>
           <label>
-            E-mail
-            <input
-              type="email"
-              autoComplete="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-            />
-          </label>
-          <label>
-            Senha
+            {mode === "signup" ? "Crie uma senha" : "Senha"}
             <input
               type="password"
-              autoComplete="current-password"
+              minLength={8}
+              autoComplete={mode === "signup" ? "new-password" : "current-password"}
               required
+              autoFocus
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          {error ? <div className="qa-error" role="alert">{error}</div> : null}
-          <button type="submit" className="qa-google-btn" disabled={busy}>
-            {busy ? "Entrando…" : "Continuar com senha"}
-          </button>
-          {status === "forbidden" ? (
-            <button type="button" className="qa-login-secondary" disabled={busy} onClick={() => void signOut()}>
-              Encerrar sessão
-            </button>
+          {mode === "signup" ? (
+            <label className="qa-terms-check">
+              <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
+              <span>Li e aceito a <a href={privacyUrl}>Política de Privacidade</a>.</span>
+            </label>
           ) : null}
-          <small>Conta ainda não criada? Cadastre e confirme o e-mail primeiro pela landing page.</small>
+          {notice ? <div className="qa-notice" role="status">{notice}</div> : null}
+          {error ? <div className="qa-error" role="alert">{error}</div> : null}
+          <button type="submit" className="qa-google-btn" disabled={busy || (mode === "signup" && !acceptedTerms)}>
+            {busy ? "Aguarde…" : mode === "signin" ? "Continuar com senha" : "Criar conta"}
+          </button>
+          <button type="button" className="qa-login-secondary" disabled={busy} onClick={() => {
+            setMode((current) => current === "signin" ? "signup" : "signin");
+            setError(null);
+            setNotice(null);
+            setPassword("");
+          }}>
+            {mode === "signin" ? "Primeiro acesso? Criar conta" : "Já tenho conta"}
+          </button>
         </form>
       )}
     </div>
