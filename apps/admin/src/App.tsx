@@ -4,6 +4,7 @@ import { LoginScreen } from "./components/LoginScreen";
 import { Layout } from "./components/Layout";
 import { DashboardPage } from "./pages/DashboardPage";
 import { VouchersPage } from "./pages/VouchersPage";
+import { FeatureFlagsPage } from "./pages/FeatureFlagsPage";
 import { AccessPage } from "./pages/AccessPage";
 import { LicensesPage } from "./pages/LicensesPage";
 import { UsersPage } from "./pages/UsersPage";
@@ -25,6 +26,7 @@ function Gate() {
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/vouchers" element={<VouchersPage />} />
+          <Route path="/features" element={<FeatureFlagsPage />} />
           <Route path="/acessos" element={<AccessPage />} />
           <Route path="/licencas" element={<LicensesPage />} />
           <Route path="/usuarios" element={<UsersPage />} />

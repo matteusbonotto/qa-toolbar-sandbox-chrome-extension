@@ -5,6 +5,7 @@ import { useAuth } from "../lib/AuthProvider";
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/vouchers", label: "Vouchers", end: false },
+  { to: "/features", label: "Feature flags", end: false },
   { to: "/acessos", label: "Acessos", end: false },
   { to: "/licencas", label: "Licenças", end: false },
   { to: "/usuarios", label: "Usuários", end: false },

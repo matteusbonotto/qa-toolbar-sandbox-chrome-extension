@@ -5,9 +5,11 @@ import type {
   DashboardMetrics,
   EntitlementGrant,
   EntitlementSource,
+  Feature,
   LicenseActivation,
   LicenseKey,
   Plan,
+  PlanFeatureValue,
   Profile,
   Referral,
   Role,
@@ -27,6 +29,25 @@ export async function listPlans(): Promise<Plan[]> {
   const { data, error } = await requireClient().from("plans").select("*").order("created_at");
   if (error) throw error;
   return data ?? [];
+}
+
+// ---------- Features / plan_features (per-plan feature flags) ----------
+export async function listFeatures(): Promise<Feature[]> {
+  const { data, error } = await requireClient().from("features").select("*").order("key");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function listPlanFeatures(): Promise<PlanFeatureValue[]> {
+  const { data, error } = await requireClient().from("plan_features").select("plan_id,feature_id,value");
+  if (error) throw error;
+  return data ?? [];
+}
+
+export async function setPlanFeatureValue(planId: string, featureId: string, value: boolean | number | string) {
+  const { error } = await requireClient().from("plan_features")
+    .upsert({ plan_id: planId, feature_id: featureId, value }, { onConflict: "plan_id,feature_id" });
+  if (error) throw error;
 }
 
 // ---------- Dashboard ----------
