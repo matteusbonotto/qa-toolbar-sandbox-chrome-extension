@@ -121,6 +121,29 @@ export interface Dictionary {
     ctaFree: string;
     ctaPaid: string;
     checkoutPending: string;
+    accountTitle: string;
+    accountLead: string;
+    emailLabel: string;
+    passwordLabel: string;
+    signIn: string;
+    signUp: string;
+    signOut: string;
+    signedInAs: string;
+    acceptTerms: string;
+    privacyLink: string;
+    authRequired: string;
+    confirmationSent: string;
+    configUnavailable: string;
+    pricingUnavailable: string;
+    voucherQueued: string;
+    accessActive: string;
+    accessPermanent: string;
+    accessExpires: string;
+    installExtension: string;
+    paymentProcessing: string;
+    paymentCanceled: string;
+    checkoutFailed: string;
+    working: string;
     plans: Record<"smoke-test" | "regression-runner" | "root-cause-analyst" | "release-manager", PlanTranslation>;
   };
   support: {
@@ -255,7 +278,7 @@ const pt: Dictionary = {
   pricing: {
     eyebrow: "Planos",
     title: "Comece grátis, cresça no seu ritmo",
-    lead: "Todos os planos passam pelo checkout do Stripe — inclusive o gratuito, que libera 30 dias completos antes de qualquer cobrança. Tem voucher? Aplique abaixo antes de escolher o plano.",
+    lead: "O plano gratuito e vouchers são liberados pelo Supabase; planos pagos seguem para o checkout seguro do Stripe. Entre na sua conta antes de escolher.",
     voucherPlaceholder: "Código do voucher",
     voucherApply: "Aplicar",
     voucherAppliedSuffix: "aplicado",
@@ -271,7 +294,30 @@ const pt: Dictionary = {
     freeNote: "Grátis por 30 dias, depois escolha um plano",
     ctaFree: "Começar grátis",
     ctaPaid: "Assinar",
-    checkoutPending: "O checkout via Stripe ainda está sendo preparado. Deixe seu e-mail na seção de suporte que avisamos assim que estiver no ar.",
+    checkoutPending: "Seu pagamento está sendo confirmado pelo backend. Esta página não libera acesso apenas pelo retorno do Stripe.",
+    accountTitle: "Sua conta",
+    accountLead: "Use e-mail e senha. A senha é enviada somente ao Supabase e nunca é salva por esta página.",
+    emailLabel: "E-mail",
+    passwordLabel: "Senha (mínimo de 8 caracteres)",
+    signIn: "Entrar",
+    signUp: "Criar conta",
+    signOut: "Sair",
+    signedInAs: "Conectado como",
+    acceptTerms: "Li e aceito a Política de Privacidade para criar minha conta.",
+    privacyLink: "Ler a política",
+    authRequired: "Entre ou crie sua conta antes de escolher um plano.",
+    confirmationSent: "Confira seu e-mail e confirme a conta antes de entrar.",
+    configUnavailable: "A configuração pública do backend não está disponível nesta publicação.",
+    pricingUnavailable: "Não foi possível carregar os preços oficiais agora.",
+    voucherQueued: "será validado com segurança pelo backend ao escolher o plano",
+    accessActive: "Acesso ativo",
+    accessPermanent: "sem data de expiração",
+    accessExpires: "válido até",
+    installExtension: "Instalar extensão oficial",
+    paymentProcessing: "Pagamento recebido; aguardando confirmação assinada do Stripe.",
+    paymentCanceled: "Checkout cancelado. Nenhuma liberação foi feita.",
+    checkoutFailed: "Não foi possível concluir esta etapa. Revise os dados e tente novamente.",
+    working: "Aguarde…",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -453,7 +499,7 @@ const es: Dictionary = {
   pricing: {
     eyebrow: "Planes",
     title: "Empieza gratis, crece a tu ritmo",
-    lead: "Todos los planes pasan por el checkout de Stripe — incluso el gratuito, que libera 30 días completos antes de cualquier cobro. ¿Tienes un voucher? Aplícalo abajo antes de elegir el plan.",
+    lead: "El plan gratuito y los vouchers se liberan en Supabase; los planes de pago siguen al checkout seguro de Stripe. Inicia sesión antes de elegir.",
     voucherPlaceholder: "Código del voucher",
     voucherApply: "Aplicar",
     voucherAppliedSuffix: "aplicado",
@@ -469,7 +515,30 @@ const es: Dictionary = {
     freeNote: "Gratis por 30 días, luego elige un plan",
     ctaFree: "Empezar gratis",
     ctaPaid: "Suscribirse",
-    checkoutPending: "El checkout de Stripe todavía se está preparando. Deja tu correo en la sección de soporte y te avisaremos en cuanto esté disponible.",
+    checkoutPending: "El backend está confirmando tu pago. Esta página no libera acceso solo por el retorno de Stripe.",
+    accountTitle: "Tu cuenta",
+    accountLead: "Usa correo y contraseña. La contraseña se envía solo a Supabase y nunca se guarda en esta página.",
+    emailLabel: "Correo",
+    passwordLabel: "Contraseña (mínimo 8 caracteres)",
+    signIn: "Entrar",
+    signUp: "Crear cuenta",
+    signOut: "Salir",
+    signedInAs: "Conectado como",
+    acceptTerms: "He leído y acepto la Política de Privacidad para crear mi cuenta.",
+    privacyLink: "Leer la política",
+    authRequired: "Entra o crea tu cuenta antes de elegir un plan.",
+    confirmationSent: "Revisa tu correo y confirma la cuenta antes de entrar.",
+    configUnavailable: "La configuración pública del backend no está disponible en esta publicación.",
+    pricingUnavailable: "No fue posible cargar los precios oficiales ahora.",
+    voucherQueued: "será validado de forma segura por el backend al elegir el plan",
+    accessActive: "Acceso activo",
+    accessPermanent: "sin fecha de expiración",
+    accessExpires: "válido hasta",
+    installExtension: "Instalar extensión oficial",
+    paymentProcessing: "Pago recibido; esperando la confirmación firmada de Stripe.",
+    paymentCanceled: "Checkout cancelado. No se liberó ningún acceso.",
+    checkoutFailed: "No fue posible completar esta etapa. Revisa los datos e inténtalo de nuevo.",
+    working: "Espera…",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -651,7 +720,7 @@ const en: Dictionary = {
   pricing: {
     eyebrow: "Pricing",
     title: "Start free, grow at your pace",
-    lead: "Every plan goes through Stripe checkout — including the free one, which unlocks a full 30 days before any charge. Have a voucher? Apply it below before picking a plan.",
+    lead: "The free plan and vouchers are granted by Supabase; paid plans continue to secure Stripe Checkout. Sign in before choosing.",
     voucherPlaceholder: "Voucher code",
     voucherApply: "Apply",
     voucherAppliedSuffix: "applied",
@@ -667,7 +736,30 @@ const en: Dictionary = {
     freeNote: "Free for 30 days, then pick a plan",
     ctaFree: "Start for free",
     ctaPaid: "Subscribe",
-    checkoutPending: "Stripe checkout is still being wired up. Leave your email in the support section and we'll let you know as soon as it's live.",
+    checkoutPending: "The backend is confirming your payment. This page never grants access based only on the Stripe return URL.",
+    accountTitle: "Your account",
+    accountLead: "Use email and password. Your password is sent only to Supabase and is never stored by this page.",
+    emailLabel: "Email",
+    passwordLabel: "Password (8 characters minimum)",
+    signIn: "Sign in",
+    signUp: "Create account",
+    signOut: "Sign out",
+    signedInAs: "Signed in as",
+    acceptTerms: "I have read and accept the Privacy Policy to create my account.",
+    privacyLink: "Read the policy",
+    authRequired: "Sign in or create your account before choosing a plan.",
+    confirmationSent: "Check your email and confirm the account before signing in.",
+    configUnavailable: "The public backend configuration is unavailable in this deployment.",
+    pricingUnavailable: "Official prices could not be loaded right now.",
+    voucherQueued: "will be securely validated by the backend when you choose a plan",
+    accessActive: "Active access",
+    accessPermanent: "no expiration date",
+    accessExpires: "valid until",
+    installExtension: "Install official extension",
+    paymentProcessing: "Payment received; waiting for Stripe's signed confirmation.",
+    paymentCanceled: "Checkout canceled. No access was granted.",
+    checkoutFailed: "This step could not be completed. Review the details and try again.",
+    working: "Please wait…",
     plans: {
       "smoke-test": {
         name: "Smoke Test",

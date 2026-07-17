@@ -30,68 +30,99 @@
       `prefers-reduced-motion`).
 - [x] Trocar e-mail de suporte em todo o site para `contato@matheusbonotto.com.br`.
 - [x] Visualização de planos anual x mensal, com desconto de ~20% no anual.
-- [ ] Plano Free: checkout no Stripe com valor R$0 por 30 dias, depois vira free limitado.
-- [ ] Pós-pagamento: liberar download + redirecionar para Chrome Web Store.
+- [x] Plano Free: trial de 30 dias concedido transacionalmente no Supabase, sem criar assinatura
+      Stripe de valor zero. Smoke autenticado executado e usuário temporário removido.
+- [~] Pós-pagamento: a LP abre somente `checkout.stripe.com`, consulta `access-status` no retorno
+      e exibe a ação explícita da Chrome Web Store apenas com entitlement confirmado. Falta concluir
+      um pagamento test completo para provar o webhook assinado ponta a ponta.
 
-**Nota**: os dois últimos itens desta seção dependem do backend (Stripe + Supabase) que
-ainda não existe — o checkout hoje é um stub honesto (mostra mensagem "ainda não configurado"
-em vez de fingir sucesso). Serão implementados quando o backend novo estiver de pé.
+**Estado**: o stub foi removido. Preços vêm de `stripe_prices`; voucher nunca é validado por lista
+hardcoded no browser; senha não é persistida pela LP; URL da Store vem do backend e é validada.
 
 ## 2. Painel Admin (`apps/admin`, novo)
 
-- [ ] Scaffold do app (React/Vite, mesmo padrão da LP).
-- [ ] Autenticação restrita a founder (Google OAuth, e-mail verificado).
-- [ ] CRUD de vouchers (código, plano, dias concedidos, limite de resgates, ativo/inativo).
-- [ ] CRUD de acessos/entitlements manuais (conceder/revogar plano a um usuário).
-- [ ] Gestão de licenças (`license_keys` / `license_activations`).
-- [ ] Gestão de usuários (listar, ver plano atual, roles).
-- [ ] Dashboard (métricas: assinaturas ativas, MRR estimado, vouchers resgatados, etc.).
-- [ ] Sistema de roles (founder/admin/support — ver schema `roles`/`user_roles`).
+- [x] Scaffold do app (React/Vite, mesmo padrão da LP), incluído no artefato Pages em `/admin/`;
+      typecheck, build e smoke de carregamento executados em 2026-07-17.
+- [~] Autenticação por senha + OTP de e-mail restrita a founder: RLS, `bootstrap_founder()`,
+      `admin-email-otp` e route guard implementados para a conta confirmada
+      `matteusbonotto+admin@gmail.com`. O código nativo de reautenticação do Supabase tem 8 dígitos,
+      expira efetivamente em 10 minutos pelo challenge e só é enviado após uma sessão de senha
+      recente. A prova founder é armazenada somente como SHA-256, validada pelo RLS em cada operação,
+      expira em no máximo 60 minutos e o frontend encerra a sessão nesse momento. Smoke real com
+      conta temporária confirmou: senha sem OTP bloqueada, envio de e-mail `200`, OTP incorreto `401`
+      prova adulterada e revogada bloqueadas, prova válida aceita, constraint acima de 60 minutos
+      rejeitada e limpeza das contas/dados temporários. Falta o cadastro definitivo e o login humano
+      com o código real no Pages.
+- [~] Gestão de vouchers (criar, listar e ativar/desativar implementados; falta edição/exclusão e validação real).
+- [~] Gestão de acessos/entitlements manuais (conceder/revogar implementados; falta validação real).
+- [~] Gestão de licenças (`license_keys` / `license_activations`) implementada na UI; falta validação real.
+- [~] Gestão de usuários (diretório usa `admin_list_users()` para obter e-mail sem expor `auth.users`;
+      atribuir/revogar roles implementado; falta validação via login founder real).
+- [~] Dashboard (métricas básicas implementadas; MRR ainda não modelado/exibido).
+- [~] Sistema de roles (founder/support no schema e guard de founder; falta role admin e testes RLS).
 
-**Bloqueio**: painel vai chamar Supabase (tabelas abaixo). Sem projeto novo configurado,
-fica funcional na UI mas sem dados reais até você plugar as credenciais.
+**Estado**: Google OAuth não é necessário. A senha é tratada somente pelo Supabase Auth e nunca é
+incluída no Git, migration, seed, log ou bundle. O Gmail recebe o segundo fator pelo e-mail nativo
+de reautenticação; login passwordless/OTP isolado não cria prova founder.
 
 ## 3. Banco de dados (Supabase) — schema novo do zero
 
-- [ ] `supabase/schema.sql` robusto, à prova de erros, cobrindo: profiles, plans, features,
+- [~] `supabase/schema.sql` com tabelas, constraints, índices e RLS cobrindo: profiles, plans, features,
       plan_features, entitlement_grants, installations, audit_logs, roles, user_roles,
       payment_customers, subscriptions, entitlement_overrides, license_keys,
       license_activations, webhook_events, payment_events, app_versions, system_notices,
-      api_rate_limits, referral_profiles, referrals, vouchers, feature_flags,
-      voucher_campaigns, voucher_campaign_redemptions — mais RLS policies.
-- [ ] Seed de planos (Smoke Test / Regression Runner / Root Cause Analyst / Release Manager).
-- [ ] Seed de 4 usuários de teste (um por plano), senha `Qwert@1234`:
+      api_rate_limits, admin_otp_challenges, admin_mfa_sessions, referral_profiles, referrals, vouchers, feature_flags,
+      voucher_campaigns, voucher_campaign_redemptions. Migration aplicada ao projeto real; criação
+      e remoção de usuário, trigger de profile/referral e entitlement próprio foram testados ao vivo.
+      Ainda faltam testes positivos/negativos completos das mutações founder.
+      Em 2026-07-17 também foram adicionados `stripe_prices`, `checkout_sessions`,
+      `referral_profiles` e RPCs transacionais exigidas pelas Edge Functions.
+- [x] Seed não sensível de planos (Smoke Test / Regression Runner / Root Cause Analyst / Release Manager) no schema.
+- [~] Script idempotente para seed de 4 usuários de teste (um por plano), com senha fornecida apenas por `QTS_TEST_USER_PASSWORD`:
       - `matteusbonotto+st@gmail.com` → Smoke Test (free)
       - `matteusbonotto+rr@gmail.com` → Regression Runner
       - `matteusbonotto+rca@gmail.com` → Root Cause Analyst
       - `matteusbonotto+rm@gmail.com` → Release Manager
-- [ ] Seed de vouchers de teste: desconto, dias extras, vitalício.
-- [ ] Esquema de afiliados: código de referral, vantagem para quem indicou quando o indicado paga.
+- [~] Script de seed de vouchers de teste: desconto, dias extras, vitalício; falta executar no projeto real.
+- [~] Estrutura de afiliados/referrals e `reward_referral()` transacional implementadas; falta validar
+      a recompensa com um primeiro pagamento assinado completo.
 
-**Bloqueio**: preciso que você crie o projeto Supabase novo e rode este `schema.sql` lá —
-não tenho como executar contra um banco real a partir daqui.
+**Estado**: projeto `xhusvkylbouwtpcevgri` ativo; migrations `20260717010000_bootstrap.sql` e
+`20260717020000_fix_user_signup.sql` aplicadas. `schema.sql` é fonte reproduzível e deve ficar no Git;
+ele não contém chaves, senhas ou vouchers em texto puro.
 
 ## 4. Stripe — catálogo novo
 
-- [ ] Zerar/arquivar catálogo de produtos e preços atual (ação manual sua no dashboard Stripe,
-      ou script que eu preparo pra você rodar).
-- [ ] Catálogo novo: 4 planos, cada um com 2 tipos de cobrança (mensal/anual).
-- [ ] Preço R$0 / 30 dias para o plano Free (trial via checkout, não bypass).
-- [ ] Webhook de confirmação de pagamento → libera download + redireciona pra Chrome Web Store.
+- [x] Produtos/Prices Pro e Scale legados arquivados pelo bootstrap idempotente em test mode.
+- [x] Catálogo Stripe de teste novo: 3 planos pagos × mensal/anual (6 Prices); produtos Pro/Scale legados arquivados.
+- [x] Plano Free com trial de 30 dias concedido transacionalmente pelo Supabase, sem assinatura Stripe de valor zero, conforme o prompt mestre.
+- [~] Webhook assinado sincroniza assinatura/entitlement e `access-status` libera a ação contextual
+      da Chrome Web Store. Falta apenas a evidência de um pagamento test completo.
 
-**Bloqueio**: preciso de uma chave Stripe seguindo o fluxo combinado (nunca colada em texto
-puro no chat) e acesso ao dashboard para criar produtos/preços.
+**Estado**: chave Stripe de teste configurada; catálogo e endpoint webhook do projeto novo criados.
 
 ## 5. Edge Functions (Supabase)
 
-- [ ] `checkout-create-session` — cria sessão Stripe Checkout (planos + voucher).
-- [ ] `stripe-webhook` — processa eventos de pagamento, atualiza `subscriptions`/`entitlement_grants`.
-- [ ] `voucher-redeem` — resgata voucher/campanha, cria `entitlement_grants`.
-- [ ] `referral-track` — registra indicação e aplica recompensa ao indicador.
-- [ ] `keep-alive` — ping periódico para manter o projeto Supabase free-tier ativo.
+- [x] `checkout-create-session` — publicada; trial gratuito autenticado e sessão paga Stripe test
+      autenticada executados ao vivo, com limpeza dos usuários/customer/sessão temporários.
+- [~] `stripe-webhook` — publicada e conectada ao Stripe test; assinatura ausente rejeitada ao vivo, falta evento de pagamento completo.
+- [~] `voucher-redeem` — publicada; autenticação negativa e CORS validados ao vivo, falta resgate autenticado real.
+- [~] `referral-track` — implementada; recompensa transacional de 30 dias é aplicada após primeiro pagamento confirmado.
+- [x] `keep-alive` — publicada e validada ao vivo com segredo (`200`), comparação timing-safe e rate limit.
+- [x] `access-status` — publicada; só retorna URL oficial da Store para entitlement ativo e não confia
+      em query string de retorno do Stripe.
 
-**Bloqueio**: código pronto, mas o deploy (`supabase functions deploy`) precisa ser feito
-por você (ou me dar acesso ao CLI autenticado).
+**Estado real em 2026-07-17**: as seis funções têm implementação e passaram em `deno check`;
+os 3 testes Deno do helper HTTP/CORS também passam.
+O gateway está configurado em `supabase/config.toml`; `scripts/bootstrap-new-backend.ps1`
+aplica o schema, envia os segredos e publica todas as funções com um comando. SQL não consegue
+publicar código Deno por si só; por isso o deploy usa a API oficial do Supabase.
+
+**Deploy real em 2026-07-17**: migrations aplicadas ao projeto `xhusvkylbouwtpcevgri`; 6 Edge
+Functions publicadas; 6 Stripe Prices de teste registrados; webhook Stripe criado para o projeto
+novo; CORS validado em 6 funções × 10 origens (132 assertions). Smokes ao vivo: keep-alive `200`,
+endpoints de usuário sem sessão `401`, webhook sem assinatura `400`, trial autenticado confirmado,
+sessão paga test criada e validada, e `access-status` retornando a Store oficial somente após acesso.
 
 ## 6. Extensão Chrome
 
@@ -108,6 +139,31 @@ por você (ou me dar acesso ao CLI autenticado).
       **Não naveguei para os domínios reais do Cinemark** (não seria apropriado bater num site
       de produção de terceiros num teste automatizado) — a cobertura de "breadcrumb reage à
       URL certa" já existe de forma genérica em `smoke-extension.mjs`.
+
+## 7. Segurança e publicação
+
+- [x] `.env.edge.local` confirmado como ignorado e não rastreado; o bootstrap remove variáveis
+      `SUPABASE_*`, `VITE_*` e `APP_SUPABASE_*` antes de enviar o arquivo de secrets às Functions.
+- [x] `supabase/schema.sql` e migrations mantidos no Git por serem DDL reproduzível sem segredo.
+      Senhas, service role, Stripe secret, webhook secret e vouchers reais permanecem fora do Git.
+- [x] Histórico remoto auditado em 2026-07-17: 57 commits acessíveis verificados, sem formato real
+      de Stripe secret, webhook secret, Supabase secret, GitHub token ou chave privada. O único JWT
+      encontrado é fixture assinada de teste com chave pública, sem service role.
+- [x] Pages publicado auditado: HTML e bundle `200`, zero formatos de segredo; `.env`, `schema.sql`,
+      `supabase/schema.sql` e `/admin/` não existem no artefato publicado atual (`404`).
+- [x] Cupons de exemplo hardcoded removidos da LP; validação/consumo ocorre no backend por hash.
+- [x] Workflow Pages exige `VITE_SUPABASE_URL` e `VITE_SUPABASE_PUBLISHABLE_KEY` como repository
+      variables, constrói landing + admin e falha fechado se a configuração pública estiver ausente.
+- [x] Build de produção e smoke Chrome headless locais aprovados para LP, preços reais e `/admin/`.
+- [x] MFA administrativo aplicado ao Supabase real em 2026-07-17: migrations `040000`/`050000`,
+      sete Edge Functions publicadas e CORS aprovado para 10 origens (224 assertions). O plano Free
+      não permite personalizar Magic Link com o remetente padrão; foi usado o e-mail nativo de
+      reautenticação do Supabase, que já entrega nonce de 8 dígitos e funcionou no smoke real.
+      A migration `060000` também corrigiu o retorno de `auth.users.email` (`varchar` → `text`) na
+      RPC `admin_list_users()`, falha encontrada pelo smoke MFA e incorporada ao `schema.sql`.
+- [ ] Configurar as duas repository variables no GitHub, publicar/mesclar em `main` e validar a URL
+      real do Pages. Bloqueado localmente porque o GitHub CLI (`gh`) ainda não está instalado/autenticado.
+- [ ] Criar/confirmar a conta founder e validar o login humano no admin publicado.
 
 ---
 
