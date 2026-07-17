@@ -1115,6 +1115,10 @@
   box-shadow: var(--qts-shadow-glow);
 }
 
+.qts-plan-card.is-current-plan {
+  border-color: #17b978;
+}
+
 .qts-plan-badge {
   position: absolute;
   top: -12px;
@@ -1125,6 +1129,20 @@
   font-weight: 700;
   padding: 4px 10px;
   border-radius: var(--qts-radius-pill);
+}
+
+.qts-plan-badge-current {
+  left: auto;
+  right: var(--qts-space-5);
+  background: #17b978;
+  color: #06120c;
+}
+
+.qts-plan-change-hint {
+  text-align: center;
+  color: var(--qts-text-muted);
+  font-size: 0.85rem;
+  margin-top: var(--qts-space-4);
 }
 
 .qts-plan-card h3 {

@@ -155,6 +155,10 @@ export interface Dictionary {
     forgotPasswordEmailRequired: string;
     forgotPasswordSent: string;
     forgotPasswordFailed: string;
+    alreadySubscribed: string;
+    currentPlanBadge: string;
+    currentPlanCta: string;
+    unavailableWhileSubscribed: string;
     plans: Record<"smoke-test" | "regression-runner" | "root-cause-analyst" | "release-manager", PlanTranslation>;
   };
   support: {
@@ -356,6 +360,10 @@ const pt: Dictionary = {
     forgotPasswordEmailRequired: "Digite seu e-mail acima para receber o link de redefinição.",
     forgotPasswordSent: "Enviamos um link para redefinir sua senha. Confira seu e-mail.",
     forgotPasswordFailed: "Não foi possível enviar o link agora. Tente novamente em instantes.",
+    alreadySubscribed: "Você já tem uma assinatura ativa. Para trocar de plano, fale com o suporte.",
+    currentPlanBadge: "Seu plano atual",
+    currentPlanCta: "Plano atual",
+    unavailableWhileSubscribed: "Indisponível — assinatura ativa",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -608,6 +616,10 @@ const es: Dictionary = {
     forgotPasswordEmailRequired: "Escribe tu correo arriba para recibir el enlace de restablecimiento.",
     forgotPasswordSent: "Enviamos un enlace para restablecer tu contraseña. Revisa tu correo.",
     forgotPasswordFailed: "No fue posible enviar el enlace ahora. Inténtalo de nuevo en un momento.",
+    alreadySubscribed: "Ya tienes una suscripción activa. Para cambiar de plan, contacta con soporte.",
+    currentPlanBadge: "Tu plan actual",
+    currentPlanCta: "Plan actual",
+    unavailableWhileSubscribed: "No disponible — suscripción activa",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -860,6 +872,10 @@ const en: Dictionary = {
     forgotPasswordEmailRequired: "Type your email above to receive the reset link.",
     forgotPasswordSent: "We sent a link to reset your password. Check your email.",
     forgotPasswordFailed: "Could not send the link right now. Try again in a moment.",
+    alreadySubscribed: "You already have an active subscription. To change plans, contact support.",
+    currentPlanBadge: "Your current plan",
+    currentPlanCta: "Current plan",
+    unavailableWhileSubscribed: "Unavailable — active subscription",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
