@@ -255,6 +255,10 @@ export function ToolbarSimulator() {
       </div>
 
       <div className="qts-mock-device-stage">
+      <p className="qts-illustration-badge">
+        <span className="qts-illustration-badge-dot" aria-hidden="true" />
+        {t.simulator.illustrationBadge}
+      </p>
       <div
         className={`qts-mock-browser${product.viewport === "mobile" ? " is-mobile" : ""}`}
         data-viewport={product.viewport ?? "desktop"}

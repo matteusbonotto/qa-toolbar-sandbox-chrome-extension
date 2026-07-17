@@ -34,6 +34,7 @@ export interface Dictionary {
   };
   simulator: {
     hint: string;
+    illustrationBadge: string;
     client: string;
     project: string;
     product: string;
@@ -205,6 +206,7 @@ const pt: Dictionary = {
   },
   simulator: {
     hint: "Simule a troca de contexto e use as ferramentas de teste — tudo funciona de verdade aqui dentro.",
+    illustrationBadge: "Ilustração interativa — não é a extensão real instalada",
     client: "Cliente",
     project: "Projeto",
     product: "Produto",
@@ -432,6 +434,7 @@ const es: Dictionary = {
   },
   simulator: {
     hint: "Simula el cambio de contexto y usa las herramientas de prueba — todo funciona de verdad aquí dentro.",
+    illustrationBadge: "Ilustración interactiva — no es la extensión real instalada",
     client: "Cliente",
     project: "Proyecto",
     product: "Producto",
@@ -659,6 +662,7 @@ const en: Dictionary = {
   },
   simulator: {
     hint: "Switch context and use the testing tools — everything here actually works.",
+    illustrationBadge: "Interactive illustration — not the real installed extension",
     client: "Client",
     project: "Project",
     product: "Product",

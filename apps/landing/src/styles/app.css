@@ -333,9 +333,34 @@
 
 /* Mock browser */
 
+.qts-illustration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+  margin: 0 0 var(--qts-space-3);
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--qts-border);
+  background: var(--qts-bg-card);
+  color: var(--qts-text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.qts-illustration-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--qts-accent);
+  flex-shrink: 0;
+}
+
 .qts-mock-device-stage {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   min-width: 0;
 }
