@@ -32,6 +32,8 @@ jobs:
       - uses: actions/configure-pages@v6
       - name: Build landing with the repository base path
         run: npm run build -w @qts/landing -- --base "/${{ github.event.repository.name }}/"
+      - name: Add SPA fallback so deep links (e.g. /privacidade) survive a direct load/reload
+        run: cp apps/landing/dist/index.html apps/landing/dist/404.html
       - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/landing/dist

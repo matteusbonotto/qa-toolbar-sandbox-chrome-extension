@@ -2,15 +2,17 @@ export type PlanId = "smoke-test" | "regression-runner" | "root-cause-analyst" |
 
 export interface PricingPlan {
   id: PlanId;
-  price: number;
+  priceMonthly: number;
+  /** Total charged per year (already discounted vs. 12x the monthly price). */
+  priceYearly: number;
   recommended?: boolean;
 }
 
 export const pricingPlans: PricingPlan[] = [
-  { id: "smoke-test", price: 0 },
-  { id: "regression-runner", price: 19 },
-  { id: "root-cause-analyst", price: 39, recommended: true },
-  { id: "release-manager", price: 69 },
+  { id: "smoke-test", priceMonthly: 0, priceYearly: 0 },
+  { id: "regression-runner", priceMonthly: 19, priceYearly: 182 },
+  { id: "root-cause-analyst", priceMonthly: 39, priceYearly: 374, recommended: true },
+  { id: "release-manager", priceMonthly: 69, priceYearly: 662 },
 ];
 
 export interface VoucherCode {

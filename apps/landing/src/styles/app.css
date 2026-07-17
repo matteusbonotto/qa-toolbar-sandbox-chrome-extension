@@ -378,7 +378,7 @@
   transition: background 0.25s ease, color 0.25s ease;
 }
 
-.qts-mock-bar-scroll {
+.qts-mock-bar-crumb-wrap {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -389,11 +389,30 @@
   padding: 2px 2px;
 }
 
-.qts-mock-bar-scroll::-webkit-scrollbar {
+.qts-mock-bar-crumb-wrap::-webkit-scrollbar {
   display: none;
 }
 
-.qts-mock-bar-scroll > * {
+.qts-mock-bar-crumb-wrap > * {
+  flex-shrink: 0;
+}
+
+.qts-mock-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow-x: auto;
+  scrollbar-width: none;
+  padding: 2px 2px;
+}
+
+.qts-mock-bar-actions::-webkit-scrollbar {
+  display: none;
+}
+
+.qts-mock-bar-actions > * {
   flex-shrink: 0;
 }
 
@@ -484,13 +503,6 @@
 
 .qts-badge-name {
   white-space: nowrap;
-}
-
-.qts-mock-bar-actions {
-  display: flex;
-  gap: 6px;
-  flex-wrap: nowrap;
-  flex-shrink: 0;
 }
 
 .qts-mock-bar-btn {
@@ -683,6 +695,16 @@
 
 /* Pricing */
 
+.qts-billing-toggle-row {
+  display: flex;
+  justify-content: center;
+  margin-bottom: var(--qts-space-5);
+}
+
+.qts-billing-toggle-row .qts-segmented-btn {
+  padding: 9px 18px;
+}
+
 .qts-voucher-row {
   display: flex;
   align-items: center;
@@ -867,7 +889,8 @@
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  background: var(--qts-gradient-brand);
+  background: var(--qts-bg-card);
+  object-fit: cover;
   vertical-align: middle;
   margin: 0 2px;
 }

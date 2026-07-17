@@ -16,10 +16,11 @@ export function Footer() {
           <a href="#sobre">{t.footer.navAbout}</a>
           <a href="#planos">{t.footer.navPricing}</a>
           <a href="#suporte">{t.footer.navSupport}</a>
-          <a href="/privacidade">{t.footer.navPrivacy}</a>
+          <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.footer.navPrivacy}</a>
         </nav>
         <p className="qts-footer-credit">
-          {t.footer.creditPrefix} <span className="qts-footer-avatar" aria-hidden="true" />{" "}
+          {t.footer.creditPrefix}{" "}
+          <img className="qts-footer-avatar" src="https://matheusbonotto.com.br/assets/logo-branco.png" alt="" aria-hidden="true" />{" "}
           <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer">
             Matheus Bonotto
           </a>{" "}

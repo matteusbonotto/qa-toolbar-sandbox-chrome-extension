@@ -86,7 +86,7 @@ export function MockToolbar({
 
   return (
     <div className="qts-mock-bar" style={{ background: color, color: textColor }}>
-      <div className="qts-mock-bar-scroll">
+      <div className="qts-mock-bar-crumb-wrap">
         <span className="qts-mock-client-label">
           <EntityBadge name={client.name} abbreviation={client.abbreviation} showLabel={client.showLabel} size={15} maxChars={14} />
         </span>
@@ -97,6 +97,9 @@ export function MockToolbar({
           <span className="qts-mock-bar-sep">›</span>
           <strong>{environmentName}</strong>
         </div>
+      </div>
+
+      <div className="qts-mock-bar-actions">
         <button
           type="button"
           className={`qts-mock-bar-btn${testStatusOpen ? " is-active" : ""}`}

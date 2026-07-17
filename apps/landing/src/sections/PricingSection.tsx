@@ -2,6 +2,9 @@ import { useMemo, useState } from "react";
 import { pricingPlans, voucherCodes } from "../data/pricingData";
 import { startCheckout } from "../services/checkout";
 import { useI18n } from "../i18n/I18nProvider";
+import { SegmentedControl } from "../components/SegmentedControl";
+
+type BillingCycle = "monthly" | "yearly";
 
 function formatPrice(value: number, locale: string, freeLabel: string): string {
   if (value === 0) return freeLabel;
@@ -12,6 +15,7 @@ function formatPrice(value: number, locale: string, freeLabel: string): string {
 
 export function PricingSection() {
   const { t, locale } = useI18n();
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("yearly");
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<{ code: string; percentOff: number } | null>(null);
   const [voucherError, setVoucherError] = useState<string | null>(null);
@@ -45,9 +49,12 @@ export function PricingSection() {
   const discountedPrices = useMemo(() => {
     const percentOff = appliedVoucher?.percentOff ?? 0;
     return Object.fromEntries(
-      pricingPlans.map((plan) => [plan.id, Math.round(plan.price * (1 - percentOff / 100))]),
+      pricingPlans.map((plan) => {
+        const base = billingCycle === "yearly" ? plan.priceYearly : plan.priceMonthly;
+        return [plan.id, Math.round(base * (1 - percentOff / 100))];
+      }),
     );
-  }, [appliedVoucher]);
+  }, [appliedVoucher, billingCycle]);
 
   return (
     <section className="qts-section" id="planos">
@@ -55,6 +62,18 @@ export function PricingSection() {
         <span className="qts-eyebrow">{t.pricing.eyebrow}</span>
         <h2>{t.pricing.title}</h2>
         <p className="qts-section-lead">{t.pricing.lead}</p>
+
+        <div className="qts-billing-toggle-row">
+          <SegmentedControl
+            label=""
+            value={billingCycle}
+            onChange={(value) => setBillingCycle(value as BillingCycle)}
+            options={[
+              { id: "monthly", label: t.pricing.billingMonthly },
+              { id: "yearly", label: `${t.pricing.billingYearly} · ${t.pricing.billingYearlySavings}` },
+            ]}
+          />
+        </div>
 
         <div className="qts-voucher-row">
           <input
@@ -78,14 +97,16 @@ export function PricingSection() {
         <div className="qts-pricing-grid">
           {pricingPlans.map((plan) => {
             const planText = t.pricing.plans[plan.id];
+            const isFree = plan.priceMonthly === 0;
+            const periodLabel = billingCycle === "yearly" ? t.pricing.perYear : t.pricing.perMonth;
             return (
               <div key={plan.id} className={`qts-plan-card${plan.recommended ? " is-recommended" : ""}`}>
                 {plan.recommended ? <span className="qts-plan-badge">{t.pricing.recommendedBadge}</span> : null}
                 <h3>{planText.name}</h3>
                 <p className="qts-plan-tagline">{planText.tagline}</p>
                 <div className="qts-plan-price">
-                  <strong>{formatPrice(discountedPrices[plan.id] ?? plan.price, locale, t.pricing.free)}</strong>
-                  <span>{plan.price === 0 ? t.pricing.freeNote : t.pricing.perMonth}</span>
+                  <strong>{formatPrice(discountedPrices[plan.id] ?? 0, locale, t.pricing.free)}</strong>
+                  <span>{isFree ? t.pricing.freeNote : periodLabel}</span>
                 </div>
                 <ul className="qts-plan-features">
                   {planText.features.map((feature) => (
@@ -98,7 +119,7 @@ export function PricingSection() {
                   onClick={() => handleSelectPlan(plan.id)}
                   disabled={pendingPlanId === plan.id}
                 >
-                  {plan.price === 0 ? t.pricing.ctaFree : t.pricing.ctaPaid}
+                  {isFree ? t.pricing.ctaFree : t.pricing.ctaPaid}
                 </button>
                 {checkoutStatus[plan.id] ? <p className="qts-plan-status">{t.pricing.checkoutPending}</p> : null}
               </div>

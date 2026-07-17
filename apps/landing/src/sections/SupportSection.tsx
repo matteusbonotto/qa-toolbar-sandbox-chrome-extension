@@ -10,7 +10,7 @@ export function SupportSection() {
           <span className="qts-eyebrow">{t.support.eyebrow1}</span>
           <h2>{t.support.title1}</h2>
           <p className="qts-section-lead">{t.support.body1}</p>
-          <a className="qts-btn qts-btn-ghost" href="mailto:suporte@qatoolbarsandbox.com">
+          <a className="qts-btn qts-btn-ghost" href="mailto:contato@matheusbonotto.com.br">
             {t.support.cta1}
           </a>
         </div>
@@ -18,7 +18,7 @@ export function SupportSection() {
           <span className="qts-eyebrow">{t.support.eyebrow2}</span>
           <h2>{t.support.title2}</h2>
           <p className="qts-section-lead">{t.support.body2}</p>
-          <a className="qts-btn qts-btn-primary" href="mailto:contato@qatoolbarsandbox.com">
+          <a className="qts-btn qts-btn-primary" href="mailto:contato@matheusbonotto.com.br">
             {t.support.cta2}
           </a>
         </div>

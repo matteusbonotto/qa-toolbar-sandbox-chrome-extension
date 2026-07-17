@@ -112,6 +112,10 @@ export interface Dictionary {
     voucherErrorInvalid: string;
     recommendedBadge: string;
     perMonth: string;
+    perYear: string;
+    billingMonthly: string;
+    billingYearly: string;
+    billingYearlySavings: string;
     free: string;
     freeNote: string;
     ctaFree: string;
@@ -259,6 +263,10 @@ const pt: Dictionary = {
     voucherErrorInvalid: "Voucher inválido ou expirado.",
     recommendedBadge: "Melhor custo-benefício",
     perMonth: "por mês",
+    perYear: "por ano",
+    billingMonthly: "Mensal",
+    billingYearly: "Anual",
+    billingYearlySavings: "economize até 20%",
     free: "Grátis",
     freeNote: "Grátis por 30 dias, depois escolha um plano",
     ctaFree: "Começar grátis",
@@ -311,7 +319,7 @@ const pt: Dictionary = {
   support: {
     eyebrow1: "Suporte & sugestões",
     title1: "Achou um bug ou tem uma ideia?",
-    body1: "Toda sugestão vira roadmap. Escreva para suporte@qatoolbarsandbox.com com o máximo de contexto possível — print, passos, e o que você esperava ver.",
+    body1: "Toda sugestão vira roadmap. Escreva para contato@matheusbonotto.com.br com o máximo de contexto possível — print, passos, e o que você esperava ver.",
     cta1: "Enviar mensagem",
     eyebrow2: "Projeto personalizado",
     title2: "Precisa de algo sob medida?",
@@ -342,7 +350,7 @@ const pt: Dictionary = {
     accountTitle: "Conta e cobrança",
     accountBody: "Ao criar uma conta — seja pela landing page ou pela extensão — coletamos seu e-mail e informações de pagamento processadas diretamente pelo Stripe (nunca armazenamos dados de cartão em nossos servidores). Ao continuar, você consente com esta política e com os termos de uso.",
     contactTitle: "Contato",
-    contactBody: "Dúvidas sobre privacidade? Escreva para privacidade@qatoolbarsandbox.com.",
+    contactBody: "Dúvidas sobre privacidade? Escreva para contato@matheusbonotto.com.br.",
   },
 };
 
@@ -453,6 +461,10 @@ const es: Dictionary = {
     voucherErrorInvalid: "Voucher inválido o expirado.",
     recommendedBadge: "Mejor relación calidad-precio",
     perMonth: "por mes",
+    perYear: "por año",
+    billingMonthly: "Mensual",
+    billingYearly: "Anual",
+    billingYearlySavings: "ahorra hasta 20%",
     free: "Gratis",
     freeNote: "Gratis por 30 días, luego elige un plan",
     ctaFree: "Empezar gratis",
@@ -505,7 +517,7 @@ const es: Dictionary = {
   support: {
     eyebrow1: "Soporte y sugerencias",
     title1: "¿Encontraste un error o tienes una idea?",
-    body1: "Toda sugerencia se convierte en roadmap. Escribe a suporte@qatoolbarsandbox.com con el máximo de contexto posible — captura, pasos, y qué esperabas ver.",
+    body1: "Toda sugerencia se convierte en roadmap. Escribe a contato@matheusbonotto.com.br con el máximo de contexto posible — captura, pasos, y qué esperabas ver.",
     cta1: "Enviar mensaje",
     eyebrow2: "Proyecto personalizado",
     title2: "¿Necesitas algo a medida?",
@@ -536,7 +548,7 @@ const es: Dictionary = {
     accountTitle: "Cuenta y facturación",
     accountBody: "Al crear una cuenta — sea desde la landing page o desde la extensión — recopilamos tu correo e información de pago procesada directamente por Stripe (nunca almacenamos datos de tarjetas en nuestros servidores). Al continuar, aceptas esta política y los términos de uso.",
     contactTitle: "Contacto",
-    contactBody: "¿Dudas sobre privacidad? Escribe a privacidade@qatoolbarsandbox.com.",
+    contactBody: "¿Dudas sobre privacidad? Escribe a contato@matheusbonotto.com.br.",
   },
 };
 
@@ -647,6 +659,10 @@ const en: Dictionary = {
     voucherErrorInvalid: "Invalid or expired voucher.",
     recommendedBadge: "Best value",
     perMonth: "per month",
+    perYear: "per year",
+    billingMonthly: "Monthly",
+    billingYearly: "Yearly",
+    billingYearlySavings: "save up to 20%",
     free: "Free",
     freeNote: "Free for 30 days, then pick a plan",
     ctaFree: "Start for free",
@@ -699,7 +715,7 @@ const en: Dictionary = {
   support: {
     eyebrow1: "Support & suggestions",
     title1: "Found a bug or have an idea?",
-    body1: "Every suggestion becomes roadmap. Write to suporte@qatoolbarsandbox.com with as much context as possible — screenshot, steps, and what you expected to see.",
+    body1: "Every suggestion becomes roadmap. Write to contato@matheusbonotto.com.br with as much context as possible — screenshot, steps, and what you expected to see.",
     cta1: "Send a message",
     eyebrow2: "Custom project",
     title2: "Need something tailor-made?",
@@ -730,7 +746,7 @@ const en: Dictionary = {
     accountTitle: "Account and billing",
     accountBody: "When you create an account — whether from the landing page or the extension — we collect your email and payment information processed directly by Stripe (we never store card data on our servers). By continuing, you consent to this policy and the terms of use.",
     contactTitle: "Contact",
-    contactBody: "Questions about privacy? Write to privacidade@qatoolbarsandbox.com.",
+    contactBody: "Questions about privacy? Write to contato@matheusbonotto.com.br.",
   },
 };
 
