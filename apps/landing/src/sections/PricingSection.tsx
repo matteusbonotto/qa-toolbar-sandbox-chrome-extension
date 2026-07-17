@@ -5,6 +5,7 @@ import {
   loadAccessStatus,
   handoffSessionToExtension,
   loadPriceCatalog,
+  sendPasswordReset,
   sendSignInLink,
   signIn,
   signOut,
@@ -230,6 +231,24 @@ export function PricingSection() {
     }
   }
 
+  async function handleForgotPassword() {
+    setAuthError(null);
+    setAuthMessage(null);
+    if (!email.trim()) {
+      setAuthError(t.pricing.forgotPasswordEmailRequired);
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      await sendPasswordReset(email.trim());
+      setAuthMessage(t.pricing.forgotPasswordSent);
+    } catch {
+      setAuthError(t.pricing.forgotPasswordFailed);
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
   async function handleSignOut() {
     setAuthBusy(true);
     try {
@@ -355,9 +374,14 @@ export function PricingSection() {
                       {authBusy ? t.pricing.working : authMode === "signin" ? t.pricing.signIn : t.pricing.signUp}
                     </button>
                     {authMode === "signin" ? (
-                      <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleSendSignInLink()}>
-                        {t.pricing.emailLink}
-                      </button>
+                      <>
+                        <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleSendSignInLink()}>
+                          {t.pricing.emailLink}
+                        </button>
+                        <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleForgotPassword()}>
+                          {t.pricing.forgotPassword}
+                        </button>
+                      </>
                     ) : null}
                   </form>
                 </>

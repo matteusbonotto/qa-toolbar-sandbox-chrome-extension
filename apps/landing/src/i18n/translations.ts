@@ -151,6 +151,10 @@ export interface Dictionary {
     paymentCanceled: string;
     checkoutFailed: string;
     working: string;
+    forgotPassword: string;
+    forgotPasswordEmailRequired: string;
+    forgotPasswordSent: string;
+    forgotPasswordFailed: string;
     plans: Record<"smoke-test" | "regression-runner" | "root-cause-analyst" | "release-manager", PlanTranslation>;
   };
   support: {
@@ -183,6 +187,22 @@ export interface Dictionary {
     accountBody: string;
     contactTitle: string;
     contactBody: string;
+  };
+  resetPassword: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    newPasswordLabel: string;
+    confirmPasswordLabel: string;
+    submit: string;
+    working: string;
+    success: string;
+    successCta: string;
+    mismatch: string;
+    tooShort: string;
+    invalidLink: string;
+    genericError: string;
+    backLink: string;
   };
 }
 
@@ -332,6 +352,10 @@ const pt: Dictionary = {
     paymentCanceled: "Checkout cancelado. Nenhuma liberação foi feita.",
     checkoutFailed: "Não foi possível concluir esta etapa. Revise os dados e tente novamente.",
     working: "Aguarde…",
+    forgotPassword: "Esqueci minha senha",
+    forgotPasswordEmailRequired: "Digite seu e-mail acima para receber o link de redefinição.",
+    forgotPasswordSent: "Enviamos um link para redefinir sua senha. Confira seu e-mail.",
+    forgotPasswordFailed: "Não foi possível enviar o link agora. Tente novamente em instantes.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -411,6 +435,22 @@ const pt: Dictionary = {
     accountBody: "Ao criar uma conta — seja pela landing page ou pela extensão — coletamos seu e-mail e informações de pagamento processadas diretamente pelo Stripe (nunca armazenamos dados de cartão em nossos servidores). Ao continuar, você consente com esta política e com os termos de uso.",
     contactTitle: "Contato",
     contactBody: "Dúvidas sobre privacidade? Escreva para contato@matheusbonotto.com.br.",
+  },
+  resetPassword: {
+    eyebrow: "QA Toolbar Sandbox",
+    title: "Redefinir senha",
+    lead: "Escolha uma nova senha para sua conta.",
+    newPasswordLabel: "Nova senha",
+    confirmPasswordLabel: "Repetir nova senha",
+    submit: "Concluir",
+    working: "Aguarde…",
+    success: "Senha atualizada. Você já pode entrar com a nova senha.",
+    successCta: "Voltar para o início",
+    mismatch: "As senhas não coincidem.",
+    tooShort: "A senha precisa ter pelo menos 8 caracteres.",
+    invalidLink: "Este link de redefinição é inválido ou expirou. Solicite um novo em \"Esqueci minha senha\".",
+    genericError: "Não foi possível atualizar sua senha agora. Tente novamente.",
+    backLink: "Voltar para o início",
   },
 };
 
@@ -560,6 +600,10 @@ const es: Dictionary = {
     paymentCanceled: "Checkout cancelado. No se liberó ningún acceso.",
     checkoutFailed: "No fue posible completar esta etapa. Revisa los datos e inténtalo de nuevo.",
     working: "Espera…",
+    forgotPassword: "Olvidé mi contraseña",
+    forgotPasswordEmailRequired: "Escribe tu correo arriba para recibir el enlace de restablecimiento.",
+    forgotPasswordSent: "Enviamos un enlace para restablecer tu contraseña. Revisa tu correo.",
+    forgotPasswordFailed: "No fue posible enviar el enlace ahora. Inténtalo de nuevo en un momento.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -639,6 +683,22 @@ const es: Dictionary = {
     accountBody: "Al crear una cuenta — sea desde la landing page o desde la extensión — recopilamos tu correo e información de pago procesada directamente por Stripe (nunca almacenamos datos de tarjetas en nuestros servidores). Al continuar, aceptas esta política y los términos de uso.",
     contactTitle: "Contacto",
     contactBody: "¿Dudas sobre privacidad? Escribe a contato@matheusbonotto.com.br.",
+  },
+  resetPassword: {
+    eyebrow: "QA Toolbar Sandbox",
+    title: "Restablecer contraseña",
+    lead: "Elige una nueva contraseña para tu cuenta.",
+    newPasswordLabel: "Nueva contraseña",
+    confirmPasswordLabel: "Repetir nueva contraseña",
+    submit: "Confirmar",
+    working: "Espera…",
+    success: "Contraseña actualizada. Ya puedes entrar con la nueva contraseña.",
+    successCta: "Volver al inicio",
+    mismatch: "Las contraseñas no coinciden.",
+    tooShort: "La contraseña debe tener al menos 8 caracteres.",
+    invalidLink: "Este enlace de restablecimiento no es válido o expiró. Solicita uno nuevo en \"Olvidé mi contraseña\".",
+    genericError: "No fue posible actualizar tu contraseña ahora. Inténtalo de nuevo.",
+    backLink: "Volver al inicio",
   },
 };
 
@@ -788,6 +848,10 @@ const en: Dictionary = {
     paymentCanceled: "Checkout canceled. No access was granted.",
     checkoutFailed: "This step could not be completed. Review the details and try again.",
     working: "Please wait…",
+    forgotPassword: "Forgot my password",
+    forgotPasswordEmailRequired: "Type your email above to receive the reset link.",
+    forgotPasswordSent: "We sent a link to reset your password. Check your email.",
+    forgotPasswordFailed: "Could not send the link right now. Try again in a moment.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -867,6 +931,22 @@ const en: Dictionary = {
     accountBody: "When you create an account — whether from the landing page or the extension — we collect your email and payment information processed directly by Stripe (we never store card data on our servers). By continuing, you consent to this policy and the terms of use.",
     contactTitle: "Contact",
     contactBody: "Questions about privacy? Write to contato@matheusbonotto.com.br.",
+  },
+  resetPassword: {
+    eyebrow: "QA Toolbar Sandbox",
+    title: "Reset password",
+    lead: "Choose a new password for your account.",
+    newPasswordLabel: "New password",
+    confirmPasswordLabel: "Confirm new password",
+    submit: "Finish",
+    working: "Please wait…",
+    success: "Password updated. You can now sign in with the new password.",
+    successCta: "Back to home",
+    mismatch: "Passwords do not match.",
+    tooShort: "Password must be at least 8 characters.",
+    invalidLink: "This reset link is invalid or has expired. Request a new one from \"Forgot my password\".",
+    genericError: "Could not update your password right now. Try again.",
+    backLink: "Back to home",
   },
 };
 
