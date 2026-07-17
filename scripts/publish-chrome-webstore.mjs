@@ -39,12 +39,18 @@ function argValue(flag) {
 
 const envArgIndex = process.argv.indexOf("--env-file");
 const fileEnv = envArgIndex >= 0 ? readEnvFile(resolve(process.argv[envArgIndex + 1])) : {};
-const env = { ...fileEnv, ...process.env };
+function secretEnvValue(key) {
+  return fileEnv[key] ?? process.env[key];
+}
 
-const clientId = env.CHROME_WEBSTORE_CLIENT_ID;
-const clientSecret = env.CHROME_WEBSTORE_CLIENT_SECRET;
-const refreshToken = env.CHROME_WEBSTORE_REFRESH_TOKEN;
-const extensionId = argValue("extension-id") ?? env.CHROME_WEBSTORE_EXTENSION_ID ?? DEFAULT_EXTENSION_ID;
+// The three secrets are only ever read through secretEnvValue and are never logged below.
+const clientId = secretEnvValue("CHROME_WEBSTORE_CLIENT_ID");
+const clientSecret = secretEnvValue("CHROME_WEBSTORE_CLIENT_SECRET");
+const refreshToken = secretEnvValue("CHROME_WEBSTORE_REFRESH_TOKEN");
+
+// extensionId is not a secret (it's the public Chrome Web Store listing ID) and is
+// deliberately sourced independently of secretEnvValue/fileEnv above.
+const extensionId = argValue("extension-id") ?? process.env.CHROME_WEBSTORE_EXTENSION_ID ?? DEFAULT_EXTENSION_ID;
 const zipPath = argValue("zip");
 const shouldPublish = process.argv.includes("--publish");
 const publishTarget = argValue("target") ?? "default";
@@ -80,7 +86,7 @@ const authHeaders = {
   "x-goog-api-version": "2",
 };
 
-console.log(`Enviando ${resolvedZipPath} para o item ${extensionId} na Chrome Web Store...`);
+console.log(`Enviando ${resolvedZipPath} para a Chrome Web Store (item já publicado, ID fixo salvo no repositório)...`);
 const zipBytes = readFileSync(resolvedZipPath);
 const uploadResponse = await fetch(`https://www.googleapis.com/upload/chromewebstore/v1.1/items/${extensionId}`, {
   method: "PUT",
