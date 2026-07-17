@@ -196,7 +196,7 @@ async function main() {
   await ensureVoucher({
     label: "QA test — vitalício",
     planKey: "release-manager",
-    grantDays: 36500,
+    grantDays: null,
     kind: "LIFETIME",
   });
 

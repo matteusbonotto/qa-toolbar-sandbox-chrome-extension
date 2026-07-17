@@ -6,6 +6,10 @@ let currentLocale = "pt-BR";
 let searchQuery = "";
 const revealedAccountIds = new Set();
 
+function t(message, replacements) {
+  return window.QTS_OPTIONS_I18N.translateText(message, currentLocale, replacements);
+}
+
 const COLLECTION_UI = {
   clients: { listId: "clientList", prefix: "client" },
   projects: { listId: "projectList", prefix: "project" },
@@ -38,13 +42,14 @@ function switchTab(tabName) {
 
 function showMessage(elementId, message, kind = "") {
   const element = document.getElementById(elementId);
-  element.textContent = message;
+  element.textContent = t(message);
   element.className = `formMessage${kind ? ` is${kind}` : ""}`;
 }
 
 async function loadLocale() {
   currentLocale = await window.QTS_I18N.getLocale();
   document.documentElement.lang = currentLocale;
+  window.QTS_OPTIONS_I18N.apply(currentLocale);
   document.querySelectorAll("#langSwitch button").forEach((button) => button.classList.toggle("isActive", button.dataset.locale === currentLocale));
 }
 
@@ -68,7 +73,7 @@ async function loadAccess(force = false) {
 
 document.querySelectorAll(".navItem").forEach((item) => item.addEventListener("click", () => switchTab(item.dataset.tab)));
 document.querySelectorAll("#langSwitch button").forEach((button) => button.addEventListener("click", async () => {
-  await window.QTS_I18N.setLocale(button.dataset.locale); await loadLocale();
+  await window.QTS_I18N.setLocale(button.dataset.locale); await loadLocale(); renderWorkspace();
 }));
 
 document.getElementById("loginForm").addEventListener("submit", async (event) => {
@@ -118,7 +123,7 @@ document.getElementById("saveScope").addEventListener("click", async () => {
   const patterns = normalizeUrlPatterns(document.getElementById("scopePatterns").value);
   if (mode === "custom" && !patterns.length) return showMessage("scopeSavedHint", "Adicione ao menos uma URL.", "Error");
   await saveSiteScope({ mode, patterns });
-  document.getElementById("scopeSavedHint").textContent = "Salvo.";
+  document.getElementById("scopeSavedHint").textContent = t("Salvo.");
 });
 
 function loadPreferenceUi() {
@@ -139,7 +144,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
   };
   await persistWorkspace();
-  document.getElementById("preferencesSavedHint").textContent = "Salvo — a barra já foi atualizada.";
+  document.getElementById("preferencesSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
 });
 
 function findById(collection, id) {
@@ -158,18 +163,18 @@ function matchesSearch(item) {
 
 function rowActions(collection, item, { reveal = false } = {}) {
   return `<div class="rowActions">
-    ${reveal ? `<button type="button" data-action="reveal" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="Mostrar/ocultar senha">${revealedAccountIds.has(item.id) ? "Ocultar" : "Ver"}</button>` : ""}
-    <button type="button" data-action="edit" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="Editar">Editar</button>
-    <button type="button" data-action="duplicate" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="Duplicar">Duplicar</button>
-    <button type="button" data-action="toggle" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="Ativar/desativar">${item.active === false ? "Ativar" : "Pausar"}</button>
-    <button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="Excluir">Excluir</button>
+    ${reveal ? `<button type="button" data-action="reveal" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mostrar/ocultar senha"))}">${escapeHtml(t(revealedAccountIds.has(item.id) ? "Ocultar" : "Ver"))}</button>` : ""}
+    <button type="button" data-action="edit" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Editar"))}">${escapeHtml(t("Editar"))}</button>
+    <button type="button" data-action="duplicate" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Duplicar"))}">${escapeHtml(t("Duplicar"))}</button>
+    <button type="button" data-action="toggle" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Ativar/desativar"))}">${escapeHtml(t(item.active === false ? "Ativar" : "Pausar"))}</button>
+    <button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Excluir"))}">${escapeHtml(t("Excluir"))}</button>
   </div>`;
 }
 
 function renderRows(collection, formatter, options = {}) {
   const element = document.getElementById(COLLECTION_UI[collection].listId);
   const items = (workspace[collection] || []).filter(matchesSearch);
-  if (!items.length) { element.innerHTML = `<div class="listEmpty">${searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."}</div>`; return; }
+  if (!items.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
   element.innerHTML = items.map((item) => `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div>${formatter(item)}</div>${rowActions(collection, item, { reveal: options.reveal?.(item) })}</div>`).join("");
 }
 
@@ -193,16 +198,17 @@ function renderWorkspace() {
     const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "—";
     return `<b>${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(environmentDisplayName(findById("environments", item.environmentId) || {}))} · ${escapeHtml(item.username || "—")} · ${password}</small>`;
   }, { reveal: (item) => Boolean(item.password) });
-  renderRows("paymentMethods", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.type || "other")} · ${item.value ? "valor protegido" : "sem valor"} · ${escapeHtml(item.environmentId ? environmentDisplayName(findById("environments", item.environmentId) || {}) : "Todos os ambientes")} · ${escapeHtml(item.notes || "")}</small>`);
+  renderRows("paymentMethods", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.environmentId ? environmentDisplayName(findById("environments", item.environmentId) || {}) : t("Todos os ambientes"))} · ${escapeHtml(item.notes || "")}</small>`);
   renderRows("inspectors", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml((item.patterns || []).join(", "))}</small>`);
-  renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "—")} · ${item.token ? "token local configurado" : "sem token"}</small>`);
+  renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "—")} · ${escapeHtml(t(item.token ? "token local configurado" : "sem token"))}</small>`);
   renderRows("resources", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.url || "—")}</small>`);
-  renderSelect("projectClient", workspace.clients, "Selecione o cliente");
-  renderSelect("productProject", workspace.projects, "Selecione o projeto");
-  renderSelect("environmentProduct", workspace.products, "Selecione o produto");
-  renderSelect("testAccountEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), "Selecione o ambiente");
-  renderSelect("paymentMethodEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), "Todos os ambientes");
+  renderSelect("projectClient", workspace.clients, t("Selecione o cliente"));
+  renderSelect("productProject", workspace.projects, t("Selecione o projeto"));
+  renderSelect("environmentProduct", workspace.products, t("Selecione o produto"));
+  renderSelect("testAccountEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Selecione o ambiente"));
+  renderSelect("paymentMethodEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Todos os ambientes"));
   loadPreferenceUi();
+  window.QTS_OPTIONS_I18N.apply(currentLocale);
 }
 
 async function persistWorkspace() {
@@ -283,9 +289,9 @@ document.addEventListener("click", async (event) => {
   if (!item) return;
   if (action === "reveal") { revealedAccountIds.has(id) ? revealedAccountIds.delete(id) : revealedAccountIds.add(id); renderWorkspace(); return; }
   if (action === "edit") { editItem(collection, item); return; }
-  if (action === "duplicate") { workspace[collection].push({ ...structuredClone(item), id: uid(COLLECTION_UI[collection].prefix), name: item.name ? `${item.name} (cópia)` : undefined, label: item.label ? `${item.label} (cópia)` : undefined }); await persistWorkspace(); return; }
+  if (action === "duplicate") { workspace[collection].push({ ...structuredClone(item), id: uid(COLLECTION_UI[collection].prefix), name: item.name ? `${item.name} (${t("cópia")})` : undefined, label: item.label ? `${item.label} (${t("cópia")})` : undefined }); await persistWorkspace(); return; }
   if (action === "toggle") { item.active = item.active === false; await persistWorkspace(); return; }
-  if (action === "remove") { if (!confirm("Excluir este item? Itens dependentes também serão removidos.")) return; cascadeRemove(collection, id); await persistWorkspace(); }
+  if (action === "remove") { if (!confirm(t("Excluir este item? Itens dependentes também serão removidos."))) return; cascadeRemove(collection, id); await persistWorkspace(); }
 });
 
 async function sha256Hex(value) {
@@ -318,13 +324,13 @@ document.getElementById("importFile").addEventListener("change", async (event) =
     }
     workspace = normalizeWorkspace(candidate);
     await persistWorkspace();
-    document.getElementById("dataHint").textContent = `Importado: ${workspace.clients.length} cliente(s), ${workspace.environments.length} ambiente(s). URLs e vínculos foram normalizados.`;
-  } catch (error) { workspace = previousWorkspace; renderWorkspace(); document.getElementById("dataHint").textContent = `Falha ao importar: ${error.message}. O workspace anterior foi preservado.`; }
+    document.getElementById("dataHint").textContent = t("Importado: {clients} cliente(s), {environments} ambiente(s). URLs e vínculos foram normalizados.", { clients: workspace.clients.length, environments: workspace.environments.length });
+  } catch (error) { workspace = previousWorkspace; renderWorkspace(); document.getElementById("dataHint").textContent = t("Falha ao importar: {error}. O workspace anterior foi preservado.", { error: t(error.message) }); }
   event.target.value = "";
 });
 document.getElementById("resetButton").addEventListener("click", async () => {
-  if (!confirm("Apagar somente o workspace local? Sua conta e assinatura não serão removidas.")) return;
-  workspace = window.QTS_STORAGE.createEmptyWorkspace(); await persistWorkspace(); document.getElementById("dataHint").textContent = "Workspace local resetado.";
+  if (!confirm(t("Apagar somente o workspace local? Sua conta e assinatura não serão removidas."))) return;
+  workspace = window.QTS_STORAGE.createEmptyWorkspace(); await persistWorkspace(); document.getElementById("dataHint").textContent = t("Workspace local resetado.");
 });
 
 (async () => {

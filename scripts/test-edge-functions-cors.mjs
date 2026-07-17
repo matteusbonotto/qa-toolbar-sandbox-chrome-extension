@@ -6,16 +6,16 @@ const args = Object.fromEntries(process.argv.slice(2).map((item, index, all) => 
   return [item.slice(2), all[index + 1]];
 }).filter(([key]) => typeof key === "string"));
 
-const baseUrl = String(args["base-url"] ?? "").replace(/\/$/, "");
 const envFile = path.resolve(String(args["env-file"] ?? ".env.edge.local"));
-if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/i.test(baseUrl)) {
-  throw new Error("Use --base-url https://<project-ref>.supabase.co");
-}
 if (!fs.existsSync(envFile)) throw new Error(`Environment file not found: ${envFile}`);
 
 const env = Object.fromEntries(fs.readFileSync(envFile, "utf8").split(/\r?\n/)
   .map((line) => line.trim()).filter((line) => line && !line.startsWith("#") && line.includes("="))
   .map((line) => { const at = line.indexOf("="); return [line.slice(0, at).trim(), line.slice(at + 1).trim()]; }));
+const baseUrl = String(args["base-url"] ?? env.SUPABASE_URL ?? "").replace(/^['"]|['"]$/g, "").replace(/\/$/, "");
+if (!/^https:\/\/[a-z0-9]+\.supabase\.co$/i.test(baseUrl)) {
+  throw new Error("Use --base-url https://<project-ref>.supabase.co or set SUPABASE_URL in the ignored env file");
+}
 const webOrigins = (env.ALLOWED_ORIGINS ?? "").split(",").map((value) => value.trim()).filter(Boolean);
 const extensionOrigins = (env.ALLOWED_EXTENSION_IDS ?? "").split(",").map((value) => value.trim()).filter(Boolean)
   .map((id) => `chrome-extension://${id}`);
