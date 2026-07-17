@@ -47,7 +47,7 @@ jobs:
         run: |
           mkdir -p apps/landing/dist/admin
           cp -r apps/admin/dist/. apps/landing/dist/admin/
-      - uses: actions/upload-pages-artifact@v4
+      - uses: actions/upload-pages-artifact@v5
         with:
           path: apps/landing/dist
 
