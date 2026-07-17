@@ -28,12 +28,14 @@ interface AuthContextValue {
   session: Session | null;
   otpEmail: string | null;
   signInWithPassword: (email: string, password: string) => Promise<void>;
+  createFounderAccount: (password: string) => Promise<void>;
   verifyEmailOtp: (code: string) => Promise<void>;
   resendEmailOtp: () => Promise<void>;
   signOut: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
+export const FOUNDER_EMAIL = "matteusbonotto+admin@gmail.com";
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -159,6 +161,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     passwordFlowRef.current = true;
     setStatus("loading");
     const normalizedEmail = email.trim().toLowerCase();
+    if (normalizedEmail !== FOUNDER_EMAIL) {
+      passwordFlowRef.current = false;
+      setStatus("signed-out");
+      throw new Error("admin_email_required");
+    }
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email: normalizedEmail, password });
       if (error || !data.session || !data.user) throw new Error("invalid_credentials");
@@ -178,6 +185,23 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus("signed-out");
       throw error;
     }
+  }
+
+  async function createFounderAccount(password: string) {
+    if (!supabase) throw new Error("backend_not_configured");
+    if (password.length < 8) throw new Error("weak_password");
+    clearAdminMfaSession();
+    clearExpiryTimer();
+    const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).href;
+    const { data, error } = await supabase.auth.signUp({
+      email: FOUNDER_EMAIL,
+      password,
+      options: { emailRedirectTo: redirectTo },
+    });
+    if (error) throw new Error("founder_signup_failed");
+    if (data.session) await supabase.auth.signOut({ scope: "local" });
+    setSession(null);
+    setStatus("signed-out");
   }
 
   async function verifyEmailOtp(code: string) {
@@ -231,6 +255,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       otpEmail,
       signInWithPassword,
+      createFounderAccount,
       verifyEmailOtp,
       resendEmailOtp,
       signOut,

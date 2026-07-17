@@ -4,6 +4,7 @@ import { pricingPlans, type PlanId } from "../data/pricingData";
 import {
   loadAccessStatus,
   loadPriceCatalog,
+  sendSignInLink,
   signIn,
   signOut,
   signUp,
@@ -16,6 +17,7 @@ import {
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { useI18n } from "../i18n/I18nProvider";
 import { SegmentedControl } from "../components/SegmentedControl";
+import { OPEN_ACCOUNT_MODAL_EVENT } from "../lib/accountModal";
 
 const voucherPattern = /^[A-Z0-9-]{6,64}$/;
 
@@ -42,6 +44,11 @@ export function PricingSection() {
   const [password, setPassword] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [queuedPlanId, setQueuedPlanId] = useState<PlanId | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(() => {
     const state = new URLSearchParams(window.location.search).get("checkout");
     if (state === "success") return t.pricing.paymentProcessing;
@@ -51,6 +58,31 @@ export function PricingSection() {
   const [statusError, setStatusError] = useState(false);
   const [access, setAccess] = useState<AccessStatus | null>(null);
   const checkoutReturn = new URLSearchParams(window.location.search).get("checkout");
+
+  useEffect(() => {
+    const openFromNavigation = () => {
+      setQueuedPlanId(null);
+      setAuthMessage(null);
+      setAuthError(null);
+      setAuthModalOpen(true);
+    };
+    window.addEventListener(OPEN_ACCOUNT_MODAL_EVENT, openFromNavigation);
+    return () => window.removeEventListener(OPEN_ACCOUNT_MODAL_EVENT, openFromNavigation);
+  }, []);
+
+  useEffect(() => {
+    if (!authModalOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setAuthModalOpen(false);
+    };
+    document.body.style.overflow = "hidden";
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [authModalOpen]);
 
   useEffect(() => {
     if (!isSupabaseConfigured || !supabase) {
@@ -120,14 +152,43 @@ export function PricingSection() {
     return t.pricing.checkoutFailed;
   }
 
+  function messageForAuthError(error: unknown): string {
+    const code = error instanceof Error ? error.message : "";
+    if (code === "invalid_credentials") return t.pricing.invalidCredentials;
+    if (code === "signup_failed") return t.pricing.signupFailed;
+    if (code === "magic_link_failed") return t.pricing.checkoutFailed;
+    if (code === "backend_not_configured") return t.pricing.configUnavailable;
+    return t.pricing.checkoutFailed;
+  }
+
+  function openAuthModal(planId: PlanId | null = null) {
+    setQueuedPlanId(planId);
+    setAuthMessage(planId ? t.pricing.authRequired : null);
+    setAuthError(null);
+    setAuthModalOpen(true);
+  }
+
+  function closeAuthModal() {
+    if (authBusy) return;
+    setAuthModalOpen(false);
+    setQueuedPlanId(null);
+    setAuthMessage(null);
+    setAuthError(null);
+  }
+
   async function handleAuth(mode: "signin" | "signup") {
-    setStatusError(false);
-    if (!email.trim() || password.length < 8 || (mode === "signup" && !acceptedTerms)) {
-      setStatusError(true);
-      setStatusMessage(t.pricing.checkoutFailed);
+    setAuthError(null);
+    setAuthMessage(null);
+    if (!email.trim() || password.length < 8) {
+      setAuthError(t.pricing.checkoutFailed);
+      return;
+    }
+    if (mode === "signup" && !acceptedTerms) {
+      setAuthError(t.pricing.termsRequired);
       return;
     }
     setAuthBusy(true);
+    let planToStart: PlanId | null = null;
     try {
       const nextSession = mode === "signin"
         ? await signIn(email.trim(), password)
@@ -135,13 +196,33 @@ export function PricingSection() {
       setPassword("");
       if (nextSession) {
         setSession(nextSession);
-        setStatusMessage(null);
+        planToStart = queuedPlanId;
+        setQueuedPlanId(null);
+        setAuthModalOpen(false);
       } else {
-        setStatusMessage(t.pricing.confirmationSent);
+        setAuthMessage(t.pricing.confirmationSent);
       }
     } catch (error) {
-      setStatusError(true);
-      setStatusMessage(messageForError(error));
+      setAuthError(messageForAuthError(error));
+    } finally {
+      setAuthBusy(false);
+    }
+    if (planToStart) await completePlanSelection(planToStart);
+  }
+
+  async function handleSendSignInLink() {
+    setAuthError(null);
+    setAuthMessage(null);
+    if (!email.trim()) {
+      setAuthError(t.pricing.checkoutFailed);
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      await sendSignInLink(email.trim());
+      setAuthMessage(t.pricing.emailLinkSent);
+    } catch (error) {
+      setAuthError(messageForAuthError(error));
     } finally {
       setAuthBusy(false);
     }
@@ -153,6 +234,8 @@ export function PricingSection() {
       await signOut();
       setAccess(null);
       setStatusMessage(null);
+      setAuthMessage(null);
+      setAuthError(null);
     } catch (error) {
       setStatusError(true);
       setStatusMessage(messageForError(error));
@@ -177,12 +260,7 @@ export function PricingSection() {
     setAppliedVoucher(code);
   }
 
-  async function handleSelectPlan(planId: PlanId) {
-    if (!session) {
-      setStatusError(true);
-      setStatusMessage(t.pricing.authRequired);
-      return;
-    }
+  async function completePlanSelection(planId: PlanId) {
     setPendingPlanId(planId);
     setStatusError(false);
     setStatusMessage(null);
@@ -207,6 +285,14 @@ export function PricingSection() {
     }
   }
 
+  async function handleSelectPlan(planId: PlanId) {
+    if (!session) {
+      openAuthModal(planId);
+      return;
+    }
+    await completePlanSelection(planId);
+  }
+
   const accessExpiry = access?.expiresAt
     ? new Date(access.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : locale === "es" ? "es-ES" : "pt-BR")
     : null;
@@ -218,54 +304,65 @@ export function PricingSection() {
         <h2>{t.pricing.title}</h2>
         <p className="qts-section-lead">{t.pricing.lead}</p>
 
-        <div className="qts-account-panel">
-          <div>
-            <h3>{t.pricing.accountTitle}</h3>
-            <p>{t.pricing.accountLead}</p>
+        {authModalOpen ? (
+          <div className="qts-auth-overlay" onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeAuthModal();
+          }}>
+            <div className="qts-auth-modal" role="dialog" aria-modal="true" aria-labelledby="qts-auth-title">
+              <button type="button" className="qts-auth-close" aria-label={t.pricing.closeModal} onClick={closeAuthModal}>×</button>
+              <span className="qts-eyebrow">QA Toolbar Sandbox</span>
+              <h3 id="qts-auth-title">{t.pricing.accountTitle}</h3>
+              <p>{t.pricing.accountLead}</p>
+              {session ? (
+                <div className="qts-auth-session">
+                  <span>{t.pricing.signedInAs} <strong>{session.user.email}</strong></span>
+                  <button type="button" className="qts-btn qts-btn-ghost" disabled={authBusy} onClick={() => void handleSignOut()}>
+                    {t.pricing.signOut}
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <div className="qts-auth-tabs" role="tablist">
+                    <button type="button" role="tab" aria-selected={authMode === "signin"} className={authMode === "signin" ? "is-active" : ""} onClick={() => {
+                      setAuthMode("signin"); setAuthError(null); setAuthMessage(null);
+                    }}>{t.pricing.signIn}</button>
+                    <button type="button" role="tab" aria-selected={authMode === "signup"} className={authMode === "signup" ? "is-active" : ""} onClick={() => {
+                      setAuthMode("signup"); setAuthError(null); setAuthMessage(null);
+                    }}>{t.pricing.signUp}</button>
+                  </div>
+                  <form className="qts-auth-form" onSubmit={(event) => {
+                    event.preventDefault(); void handleAuth(authMode);
+                  }}>
+                    <label>
+                      <span>{t.pricing.emailLabel}</span>
+                      <input type="email" autoComplete="email" required autoFocus value={email} onChange={(event) => setEmail(event.target.value)} />
+                    </label>
+                    <label>
+                      <span>{t.pricing.passwordLabel}</span>
+                      <input type="password" minLength={8} autoComplete={authMode === "signup" ? "new-password" : "current-password"} required value={password} onChange={(event) => setPassword(event.target.value)} />
+                    </label>
+                    {authMode === "signup" ? (
+                      <label className="qts-terms-check">
+                        <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
+                        <span>{t.pricing.acceptTerms} <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.pricing.privacyLink}</a>.</span>
+                      </label>
+                    ) : null}
+                    {authMessage ? <div className="qts-auth-feedback" role="status">{authMessage}</div> : null}
+                    {authError ? <div className="qts-auth-feedback is-error" role="alert">{authError}</div> : null}
+                    <button type="submit" className="qts-btn qts-btn-primary qts-auth-submit" disabled={authBusy || (authMode === "signup" && !acceptedTerms)}>
+                      {authBusy ? t.pricing.working : authMode === "signin" ? t.pricing.signIn : t.pricing.signUp}
+                    </button>
+                    {authMode === "signin" ? (
+                      <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleSendSignInLink()}>
+                        {t.pricing.emailLink}
+                      </button>
+                    ) : null}
+                  </form>
+                </>
+              )}
+            </div>
           </div>
-          {session ? (
-            <div className="qts-account-session">
-              <span>{t.pricing.signedInAs} <strong>{session.user.email}</strong></span>
-              <button type="button" className="qts-btn qts-btn-ghost" disabled={authBusy} onClick={() => void handleSignOut()}>
-                {t.pricing.signOut}
-              </button>
-            </div>
-          ) : (
-            <div className="qts-account-form">
-              <input
-                type="email"
-                autoComplete="email"
-                className="qts-voucher-input"
-                aria-label={t.pricing.emailLabel}
-                placeholder={t.pricing.emailLabel}
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-              />
-              <input
-                type="password"
-                minLength={8}
-                autoComplete="current-password"
-                className="qts-voucher-input"
-                aria-label={t.pricing.passwordLabel}
-                placeholder={t.pricing.passwordLabel}
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-              />
-              <label className="qts-terms-check">
-                <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
-                <span>{t.pricing.acceptTerms} <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.pricing.privacyLink}</a>.</span>
-              </label>
-              <div className="qts-account-actions">
-                <button type="button" className="qts-btn qts-btn-ghost" disabled={authBusy} onClick={() => void handleAuth("signin")}>
-                  {authBusy ? t.pricing.working : t.pricing.signIn}
-                </button>
-                <button type="button" className="qts-btn qts-btn-primary" disabled={authBusy || !acceptedTerms} onClick={() => void handleAuth("signup")}>
-                  {authBusy ? t.pricing.working : t.pricing.signUp}
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        ) : null}
 
         {access?.active ? (
           <div className="qts-access-panel" role="status">

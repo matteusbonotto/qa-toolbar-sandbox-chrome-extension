@@ -254,7 +254,11 @@ export function ToolbarSimulator() {
         />
       </div>
 
-      <div className="qts-mock-browser">
+      <div className="qts-mock-device-stage">
+      <div
+        className={`qts-mock-browser${product.viewport === "mobile" ? " is-mobile" : ""}`}
+        data-viewport={product.viewport ?? "desktop"}
+      >
         <div className="qts-mock-browser-chrome">
           <div className="qts-mock-browser-dots">
             <span />
@@ -344,6 +348,7 @@ export function ToolbarSimulator() {
           </div>
         ) : null}
         {toast ? <div className="qts-mock-toast">{toast}</div> : null}
+      </div>
       </div>
     </div>
   );

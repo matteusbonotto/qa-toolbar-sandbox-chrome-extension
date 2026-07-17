@@ -62,11 +62,44 @@ try {
   if (!pricingText.includes("R$")) {
     throw new Error(`Official backend prices did not render. resources=${failedResources.join(" | ")} console=${consoleErrors.join(" | ")} content=${pricingText.slice(0, 500)}`);
   }
+  const landingText = await page.locator("body").innerText();
+  if (/\b(?:Supabase|backend)\b/i.test(landingText)) {
+    throw new Error("Customer-facing landing copy contains implementation details.");
+  }
+  if (await page.locator(".qts-account-panel").count()) {
+    throw new Error("Account form must not remain embedded in the pricing page.");
+  }
+
+  const desktopWidth = await page.locator('[data-viewport="desktop"]').evaluate((element) => element.getBoundingClientRect().width);
+  await page.locator(".qts-simulator-controls .qts-sim-field").nth(2).getByRole("tab", { name: "Mobile" }).click();
+  const mobileFrame = page.locator('[data-viewport="mobile"]');
+  await mobileFrame.waitFor();
+  const mobileWidth = await mobileFrame.evaluate((element) => element.getBoundingClientRect().width);
+  if (mobileWidth >= desktopWidth || mobileWidth > 410) {
+    throw new Error(`Mobile simulator did not switch to a phone viewport. desktop=${desktopWidth} mobile=${mobileWidth}`);
+  }
+
+  await page.locator(".qts-site-toolbar-cta").click();
+  const accountDialog = page.getByRole("dialog");
+  await accountDialog.waitFor();
+  if (await accountDialog.locator('input[type="email"]').count() !== 1 || await accountDialog.locator('input[type="password"]').count() !== 1) {
+    throw new Error("Navbar account modal did not render the login form.");
+  }
+  await accountDialog.locator(".qts-auth-close").click();
+  await page.locator(".qts-plan-cta").first().click();
+  await page.getByRole("dialog").waitFor();
+  await page.locator(".qts-auth-close").click();
 
   await page.goto(`${origin}${basePath}admin/`, { waitUntil: "networkidle" });
   if (!(await page.title()).includes("Admin")) throw new Error("Admin artifact did not load.");
-  if (await page.locator('input[type="email"]').count() !== 1 || await page.locator('input[type="password"]').count() !== 1) {
-    throw new Error("Admin email/password login form did not render.");
+  if (await page.locator('input[type="email"]').count() !== 0 || await page.locator('input[type="password"]').count() !== 1) {
+    throw new Error("Admin founder/password login form did not render.");
+  }
+  if (!(await page.locator("body").innerText()).includes("Código por e-mail")) {
+    throw new Error("Admin login does not explain the second OTP step.");
+  }
+  if (!(await page.locator("body").innerText()).includes("matteusbonotto+admin@gmail.com")) {
+    throw new Error("Admin login does not pin the authorized founder account.");
   }
   if (consoleErrors.length) throw new Error(`Browser console errors: ${consoleErrors.join(" | ")}`);
   console.log("Browser smoke passed: backend pricing and embedded admin artifact.");
