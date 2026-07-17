@@ -1,7 +1,31 @@
 name: Build Chrome Web Store package
 
 on:
+  # Auto-publish path: any push to main that touches the extension source builds, scans,
+  # smoke-tests in a real (virtually-displayed) Chrome, and publishes straight to Chrome Web
+  # Store review — no manual approval step. Chosen deliberately: every commit reaching main on
+  # this path is trusted to ship. Google's own human review still happens after this runs; this
+  # only replaces the manual "drag the zip into the dashboard" step.
+  push:
+    branches: [main]
+    paths:
+      - "apps/extension/**"
+      - "scripts/package-extension.mjs"
+      - "scripts/check-extension-bundle.mjs"
+      - "scripts/publish-chrome-webstore.mjs"
+      - "scripts/smoke-extension.mjs"
+  # Manual path: build the downloadable artifact any time, and optionally upload/publish on
+  # demand (e.g. re-running after fixing a rejected submission, without needing a new commit).
   workflow_dispatch:
+    inputs:
+      upload_to_store:
+        description: "Também enviar o pacote para a Chrome Web Store (fica como rascunho até revisão)"
+        type: boolean
+        default: false
+      publish_live:
+        description: "Além do upload, enviar para revisão/publicação imediata (só tem efeito se 'upload_to_store' estiver marcado)"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -24,3 +48,43 @@ jobs:
           path: artifacts/*
           if-no-files-found: error
           retention-days: 14
+
+  publish-to-store:
+    needs: package
+    if: >-
+      github.event_name == 'push' ||
+      (github.event_name == 'workflow_dispatch' && inputs.upload_to_store)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
+      CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
+      CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Verify Chrome Web Store secrets are configured
+        run: |
+          if [ -z "$CHROME_WEBSTORE_CLIENT_ID" ] || [ -z "$CHROME_WEBSTORE_CLIENT_SECRET" ] || [ -z "$CHROME_WEBSTORE_REFRESH_TOKEN" ]; then
+            echo "::error::CHROME_WEBSTORE_CLIENT_ID/CLIENT_SECRET/REFRESH_TOKEN não estão configurados como repository secrets. Veja docs/DEPLOY_CHROME_WEBSTORE.md."
+            exit 1
+          fi
+      - name: Repository security scan
+        run: npm run security:repo
+      - name: Install Chromium for the real-browser smoke test
+        run: npx playwright install --with-deps chromium
+      - name: Ensure a virtual display is available
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Real-Chrome smoke test (virtual display)
+        run: xvfb-run --auto-servernum -- npm run test:chrome
+      - name: Build whitelisted package
+        run: node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip
+      - name: Upload to Chrome Web Store (and publish on push, or when requested manually)
+        run: >-
+          node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip
+          ${{ (github.event_name == 'push' || inputs.publish_live) && '--publish' || '' }}

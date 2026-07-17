@@ -24,6 +24,14 @@ O login também pode ser feito na landing page oficial. Quando a versão publica
 
 Senhas de contas sandbox, valores de pagamento e tokens de API permanecem em `chrome.storage.local` e são removidos da exportação. Logout remove a UI injetada, mas preserva o workspace.
 
+## Rodar localmente num Chrome de verdade
+
+`npm run dev:extension` abre uma janela real e visível do Chrome (o mesmo Chromium que o Playwright
+usa nos smokes) já com `apps/extension` carregada via `--load-extension`, sem mockar a rede — fala
+com o backend real, igual o Chrome de um usuário. O perfil fica em `artifacts/chrome-dev-profile/` e
+sobrevive entre execuções (login e workspace continuam lá); apague a pasta para recomeçar do zero.
+Feche a janela do Chrome para encerrar o comando.
+
 ## Verificação
 
 `npm run test:chrome` executa em Chromium real o contrato deslogado → login → CRUD → toolbar → modo compacto → edição de URL → navegação SPA → pagamentos/recursos → exportação segura → logout.
@@ -34,5 +42,14 @@ Senhas de contas sandbox, valores de pagamento e tokens de API permanecem em `ch
 
 `npm run release:chrome:update` executa os scanners, o smoke em Chrome real e gera o ZIP verificado em
 Downloads. O pacote usa whitelist (`manifest.json`, `icons/` e `src/`) e rejeita `manifest.key`, `.env`,
-source maps, fixtures, testes e padrões de segredo. Envie esse ZIP como atualização do item existente
-`ddaapjklnfjhjigeglgmjmadjnmdodfe`; não crie outro item na Store.
+source maps, fixtures, testes e padrões de segredo.
+
+Duas formas de enviar essa atualização para o item existente `ddaapjklnfjhjigeglgmjmadjnmdodfe` (nunca
+cria um segundo item):
+
+- **Manual**: arraste o ZIP gerado no painel do desenvolvedor da Store.
+- **Automatizado**: `npm run release:chrome:upload` (envia como rascunho) ou
+  `npm run release:chrome:publish` (envia e já manda para revisão), via
+  [Chrome Web Store Publish API](../../docs/DEPLOY_CHROME_WEBSTORE.md). Exige uma configuração OAuth
+  única, feita uma vez pela conta dona da extensão — veja `docs/DEPLOY_CHROME_WEBSTORE.md`. A
+  revisão manual da Google acontece do mesmo jeito nos dois casos.

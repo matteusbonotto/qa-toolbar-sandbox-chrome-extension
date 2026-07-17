@@ -27,8 +27,12 @@
     "security:repo": "node scripts/check-repository.mjs",
     "security:extension": "node scripts/check-extension-bundle.mjs",
     "test:chrome": "node scripts/smoke-extension.mjs",
+    "dev:extension": "node scripts/dev-extension-chrome.mjs",
     "package:extension": "node scripts/package-extension.mjs",
     "release:chrome:update": "npm run security:repo && npm run security:extension && npm run test:chrome && npm run package:extension",
+    "chrome-webstore:oauth-setup": "node scripts/chrome-webstore-oauth-setup.mjs",
+    "release:chrome:upload": "npm run security:repo && npm run security:extension && npm run test:chrome && node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip && node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip",
+    "release:chrome:publish": "npm run security:repo && npm run security:extension && npm run test:chrome && node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip && node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip --publish",
     "verify:cinemark": "node scripts/verify-cinemark-import.mjs",
     "prepare": "node scripts/install-git-hooks.mjs"
   },
