@@ -1450,8 +1450,8 @@ function breakpointStyles() {
     .qts-bp-toggle { height: 34px; padding: 0 12px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #ccc; cursor: pointer; font-weight: 700; }
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
     .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
-    .qts-bp-stage { flex: 1; display: flex; align-items: center; justify-content: center; gap: 26px; overflow: auto; padding: 20px; }
-    .qts-bp-pane { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1 1 0; min-width: 0; max-width: 100%; }
+    .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
+    .qts-bp-pane { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
     .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: #1a1a1a; border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.5); }
     .qts-bp-frame.kind-phone { border-radius: 34px; padding: 14px 8px; border: 2px solid #2c2c2c; }
     .qts-bp-laptop-bar { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 10px; }

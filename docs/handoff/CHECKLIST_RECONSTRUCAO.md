@@ -189,6 +189,9 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
 - [x] Segurança de macros documentada no ADR 0002: sem `eval`, `new Function`, JavaScript de usuário
       ou código remoto; allowlist de nove ações, limites rígidos, normalização única e bloqueio de
       campos/seletores sensíveis na gravação, importação, Faker e execução.
+- [x] Responsive/Breakpoint View centraliza laptop e telefone como um único grupo visual, em vez de
+      posicionar cada dispositivo no centro de metade da tela; o conjunto continua responsivo e pode
+      reorganizar os frames em janelas estreitas. Smoke mede o centro geométrico no Chrome real.
 - [x] Smoke em Chrome real cobre bloqueio sem autenticação, login/acesso, hierarquia/URL, contador,
       Faker protegido, Input Lab, Multiclick, gravação/reprodução, Vibe Code/Coder, import/export,
       macro fixada, retomada após navegação, modo compacto, edição de ambiente, SPA, exportação
@@ -214,6 +217,9 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       Manifest V3. `release:chrome:update` aprovou scanner do repositório, scanner dos 19 arquivos
       da extensão (302,9 KB de fonte), smoke Chrome e gerou ZIP de 88,2 KB. Guia de uso em
       `docs/GUIA_FERRAMENTAS_QA.md` e decisão de segurança no ADR 0002.
+- [x] Patch `v1.1.1` centraliza o conjunto do Responsive View, preserva escala compartilhada e
+      adiciona cobertura geométrica no smoke Chrome. `release:chrome:update` aprovou scanners,
+      smoke completo (0 erros) e gerou ZIP de 88,0 KB a partir de 304,1 KB de fonte inspecionada.
 
 ## 7. Segurança e publicação
 
@@ -247,7 +253,7 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       análise, mesclado via API segura em `main` (`77736fb`). Quality `29561893446`, CodeQL
       `29561893367`, Pages `29561893358` e o empacotamento da Store `29561904597` concluíram com
       sucesso. O artefato `chrome-web-store-package` (`8399588287`, 64.240 bytes) está disponível.
-- [ ] Enviar o artefato `v1.1.0` como atualização do item existente
+- [ ] Enviar o artefato `v1.1.1` como atualização do item existente
       `ddaapjklnfjhjigeglgmjmadjnmdodfe` na Chrome Web Store e aguardar a revisão da loja. Não criar
       um segundo item.
 - [ ] No primeiro acesso ao admin publicado, clicar em "Primeiro acesso? Criar conta", definir a
