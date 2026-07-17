@@ -1,0 +1,47 @@
+project_id = "qa-toolbar-sandbox"
+
+[auth]
+site_url = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/"
+jwt_expiry = 3600
+additional_redirect_urls = [
+  "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/",
+  "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/admin/",
+  "http://localhost:5173/",
+  "http://localhost:5174/"
+]
+enable_signup = true
+
+[auth.email]
+enable_signup = true
+enable_confirmations = true
+max_frequency = "1m"
+otp_length = 8
+otp_expiry = 3600
+
+[auth.mfa.totp]
+enroll_enabled = true
+verify_enabled = true
+
+[storage.vector]
+enabled = false
+
+[functions.checkout-create-session]
+verify_jwt = false
+
+[functions.stripe-webhook]
+verify_jwt = false
+
+[functions.voucher-redeem]
+verify_jwt = false
+
+[functions.referral-track]
+verify_jwt = false
+
+[functions.keep-alive]
+verify_jwt = false
+
+[functions.access-status]
+verify_jwt = false
+
+[functions.admin-email-otp]
+verify_jwt = false

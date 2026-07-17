@@ -10,7 +10,7 @@ Sua missão é entregar como um único produto comercial completo:
 2. extensão Chrome profissional e local-first;
 3. backend Supabase reproduzível por migrations, seeds e Edge Functions;
 4. cobrança Stripe alinhada ao mesmo catálogo de planos e features;
-5. painel administrativo protegido por Google Authentication;
+5. painel administrativo protegido por Supabase Auth com e-mail/senha;
 6. documentação, testes, evidências, deploy e pacote Chrome Web Store.
 
 Não encerre em diagnóstico, mock, wireframe, código parcial ou build local. Continue até que todos os critérios de aceite deste documento estejam implementados, testados e evidenciados. Não declare sucesso sem prova executável.
@@ -81,13 +81,16 @@ Entregue script automatizado que teste todas as funções e todos os IDs autoriz
 
 ## Painel administrativo exclusivo
 
-Crie `apps/admin` ou área administrativa equivalente, separada da LP pública. Login exclusivamente por Google OAuth via Supabase. Somente a identidade normalizada `matteusbonotto+qa@gmail.com` pode receber a role `founder` e entrar.
+Crie `apps/admin` ou área administrativa equivalente, separada da LP pública. Por decisão posterior do proprietário, o login usa senha seguida obrigatoriamente pelo código de reautenticação enviado ao e-mail via Supabase Auth. Somente a identidade confirmada e normalizada `matteusbonotto+admin@gmail.com` pode receber a role `founder` e entrar. A senha e o OTP nunca pertencem ao código, migration, seed, Git ou logs.
 
 Essa restrição deve existir no backend, não somente no frontend:
 
 - tabela de roles/user roles protegida por RLS;
 - bootstrap reproduzível por migration/seed seguro ou comando administrativo documentado;
 - função/RPC/Edge Function que compara `auth.uid()`, e-mail verificado e role;
+- challenge de OTP criado somente por sessão com método `password` recente, código de e-mail de 8 dígitos com janela efetiva de 10 minutos e uso único;
+- prova founder aleatória armazenada apenas por hash, exigida pelo RLS em toda operação administrativa e expirada em no máximo 60 minutos;
+- ao expirar a prova, encerrar a sessão local e exigir senha + novo OTP, sem renovação silenciosa;
 - route guard no frontend como camada adicional;
 - qualquer outro e-mail recebe 403 e evento de auditoria;
 - usuários não alteram a própria role; admins não concedem founder;
@@ -170,7 +173,7 @@ Configure `.gitignore`, `.env.example`, scanner de segredos, auditoria de depend
 - schemas, migrations e RLS positivos/negativos;
 - CORS OPTIONS/POST para cada função e extensão autorizada/desautorizada;
 - autenticação, refresh, logout e fail-closed;
-- founder Google permitido e outro e-mail negado;
+- founder confirmado com senha + OTP de e-mail permitido; senha isolada, OTP isolado, código incorreto, token adulterado e outro e-mail negados;
 - entitlement Starter/Pro/Scale/trial/manual/permanente/expirado/offline;
 - Stripe webhook assinado, duplicado, fora de ordem e inválido;
 - vouchers concorrentes e reuso;
@@ -191,7 +194,7 @@ Só marque concluído quando:
 - usuário deslogado não acessa configurações nem toolbar;
 - login da extensão funciona sem CORS para o ID publicado e IDs autorizados;
 - conta Scale permanente é reconhecida ponta a ponta;
-- admin aceita somente o Google da conta `matteusbonotto+qa@gmail.com` por autorização backend;
+- admin aceita somente a conta confirmada `matteusbonotto+admin@gmail.com` após senha + OTP por autorização backend, com sessão máxima de 60 minutos;
 - LP, Supabase, Stripe, admin e extensão usam o mesmo estado de acesso;
 - onboarding e CRUDs são coerentes, profissionais e persistem no mesmo workspace;
 - cor configurada do ambiente colore a windowsill inteira pela URL;

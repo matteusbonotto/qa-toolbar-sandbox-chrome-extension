@@ -28,3 +28,8 @@ supabase/.temp/
 !.github/dependabot.yml
 tampermonkey.js
 docs/internal/
+
+# Windows folder-customization artifacts (local shell metadata, never product assets)
+/desktop.ini
+/.win-folder-custom.desktop.ini.backup
+/*.ico
