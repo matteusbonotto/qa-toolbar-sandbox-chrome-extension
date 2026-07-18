@@ -290,8 +290,14 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       (`CHROME_WEBSTORE_CLIENT_ID/CLIENT_SECRET/REFRESH_TOKEN`) como GitHub Actions repository
       secrets para esse caminho automático funcionar em CI (só existem no `.env` local até agora) e
       confirmar a revisão da loja no rascunho já enviado.
-- [ ] No primeiro acesso ao admin publicado, clicar em "Primeiro acesso? Criar conta", definir a
-      senha da conta `matteusbonotto+admin@gmail.com`, confirmar o e-mail e validar o OTP humano.
+- [x] A tela pública de "Primeiro acesso? Criar conta" foi removida — permitia que qualquer
+      visitante de `/admin/` tentasse cadastrar a conta founder antes de você (o e-mail alvo
+      fica visível na própria tela). Provisionamento agora é só por script local com a
+      service-role key (`supabase/bootstrap-admin-account.mjs`), e "esqueci minha senha" usa o
+      fluxo padrão de reset do Supabase.
+- [ ] Rodar `supabase/bootstrap-admin-account.mjs` uma vez (cria a conta se não existir, ou só
+      redefine a senha se já existir) e fazer o primeiro login real em `/admin/` + validar o OTP
+      humano.
 
 ---
 

@@ -376,7 +376,10 @@
 }
 
 .qts-mock-browser.is-mobile {
-  flex: 0 1 390px;
+  /* flex-shrink: 0 (not a flex-basis) — .qts-mock-device-stage is a column flex container
+     (for the illustration badge above it), so a flex-basis here would size the main axis
+     (height), squashing the phone frame down to a square instead of controlling its width. */
+  flex-shrink: 0;
   width: 100%;
   min-width: 0;
   max-width: 390px;
@@ -754,6 +757,125 @@
   font-size: 1.05rem;
   max-width: 70ch;
   margin: 0 0 var(--qts-space-6);
+}
+
+/* Feature groups / accordion */
+
+.qts-feature-groups {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--qts-space-5);
+}
+
+.qts-feature-group {
+  background: var(--qts-bg-card);
+  border: 1px solid var(--qts-border);
+  border-radius: var(--qts-radius-lg);
+  padding: var(--qts-space-5);
+}
+
+.qts-feature-group-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--qts-space-3);
+  margin-bottom: var(--qts-space-4);
+}
+
+.qts-feature-group-icon {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--qts-accent-soft);
+  font-size: 1.1rem;
+}
+
+.qts-feature-group-head h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.qts-feature-group-head p {
+  margin: 0;
+  color: var(--qts-text-muted);
+  font-size: 0.88rem;
+}
+
+.qts-feature-items {
+  display: flex;
+  flex-direction: column;
+}
+
+.qts-feature-item {
+  border-top: 1px solid var(--qts-border);
+}
+
+.qts-feature-item summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: var(--qts-space-3);
+  padding: var(--qts-space-3) 0;
+  cursor: pointer;
+}
+
+.qts-feature-item summary::-webkit-details-marker {
+  display: none;
+}
+
+.qts-feature-item-icon {
+  flex-shrink: 0;
+  width: 30px;
+  text-align: center;
+  font-size: 1rem;
+}
+
+.qts-feature-item-heading {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.qts-feature-item-heading b {
+  font-size: 0.92rem;
+}
+
+.qts-feature-item-heading small {
+  color: var(--qts-text-muted);
+  font-size: 0.8rem;
+}
+
+.qts-feature-item-chevron {
+  flex-shrink: 0;
+  color: var(--qts-text-dim);
+  transition: transform 0.2s ease;
+}
+
+.qts-feature-item[open] .qts-feature-item-chevron {
+  transform: rotate(180deg);
+}
+
+.qts-feature-item-details {
+  margin: 0 0 var(--qts-space-3) 42px;
+  color: var(--qts-text-muted);
+  font-size: 0.88rem;
+  max-width: 62ch;
+}
+
+.qts-feature-item-details-solo {
+  margin: 0;
+  padding-top: var(--qts-space-3);
+  border-top: 1px solid var(--qts-border);
+}
+
+@media (max-width: 780px) {
+  .qts-feature-groups {
+    grid-template-columns: 1fr;
+  }
 }
 
 .qts-pillars {

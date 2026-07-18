@@ -20,6 +20,7 @@ export interface Dictionary {
     about: string;
     simulator: string;
     semiauto: string;
+    features: string;
     pricing: string;
     support: string;
     install: string;
@@ -101,6 +102,13 @@ export interface Dictionary {
     titleGradient: string;
     body: string;
     gifAlt: string;
+  };
+  features: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    groups: Record<string, { title: string; description: string }>;
+    items: Record<string, { title: string; short: string; details: string }>;
   };
   pricing: {
     eyebrow: string;
@@ -216,6 +224,7 @@ const pt: Dictionary = {
     about: "Sobre",
     simulator: "Simulador",
     semiauto: "Sabor automático",
+    features: "Ferramentas",
     pricing: "Planos",
     support: "Suporte",
     install: "Entrar",
@@ -306,6 +315,139 @@ const pt: Dictionary = {
     titleGradient: "sabor automático",
     body: "A gente não tira o humano da jogada — só acelera ele. O QA Toolbar Sandbox cuida do trabalho repetitivo (contexto, evidências, captura de rede, timers) enquanto você mantém o olhar crítico que nenhuma automação substitui. É teste manual, com sabor automático.",
     gifAlt: "Sabor energético, sabor automático",
+  },
+  features: {
+    eyebrow: "Ferramentas",
+    title: "O que muda no seu dia de testes",
+    lead: "O ganho real não é a quantidade de recursos — é nunca mais se perder entre abas de ambientes e projetos diferentes enquanto testa manualmente. Cada grupo abaixo é o que está de verdade no menu Tools da extensão; clique para abrir e ver como funciona.",
+    groups: {
+      evidence: {
+        title: "Evidências e resultado do teste",
+        description: "Registre o que aconteceu sem sair da página nem abrir outra ferramenta.",
+      },
+      inspection: {
+        title: "Depuração e inspeção técnica",
+        description: "Enxergue rede, JSON e comportamento responsivo sem abrir o DevTools.",
+      },
+      productivityKit: {
+        title: "Kit de produtividade QA",
+        description: "Tarefas repetitivas de teste de formulário, resolvidas em segundos.",
+      },
+      macroStudio: {
+        title: "Automação declarativa",
+        description: "Grave uma vez, reproduza sempre — sem escrever uma linha de código.",
+      },
+      keyView: {
+        title: "Key View",
+        description: "Mostre na tela o que você está digitando e clicando, em tempo real.",
+      },
+      sandboxData: {
+        title: "Contas e dados sandbox",
+        description: "Credenciais e cartões de teste ao alcance, nunca expostos por engano.",
+      },
+    },
+    items: {
+      testStatus: {
+        title: "Test Status",
+        short: "Marca Pass, Fail, Blocked ou Limitation em um clique.",
+        details: "Um menu com quatro status (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) registra o resultado do caso de teste direto na página, com a URL e o horário — sem precisar copiar isso à mão para uma planilha ou ferramenta externa enquanto o contexto ainda está fresco na tela.",
+      },
+      passFail: {
+        title: "Marcadores Pass/Fail",
+        short: "Aponte exatamente onde um elemento passou ou falhou.",
+        details: "Clique em qualquer ponto da página para deixar um marcador visual de ✓ ou ✕ ali mesmo — ótimo para apontar precisamente qual botão, campo ou seção falhou antes de tirar o screenshot de evidência, sem precisar desenhar isso depois numa ferramenta de imagem.",
+      },
+      notesShapes: {
+        title: "Notas e formas",
+        short: "Anotações de texto e destaques desenhados sobre a página.",
+        details: "Notas de texto arrastáveis e formas de destaque ficam sobrepostas à página real, permitindo documentar um bug com contexto visual completo — sem precisar de outra aba pra escrever a descrição do problema.",
+      },
+      screenshot: {
+        title: "Screenshot",
+        short: "Captura instantânea da tela com um clique.",
+        details: "Gera a evidência de screenshot no momento exato do teste, já com os marcadores e anotações visíveis, pronta para anexar no chamado ou no card do board.",
+      },
+      recording: {
+        title: "Gravação de evidências",
+        short: "Grava a tela em vídeo enquanto você testa.",
+        details: "Inicia e para a gravação de vídeo (MP4/GIF conforme o plano) direto da barra, sem precisar de um software de gravação de tela separado rodando em paralelo — a evidência sai pronta pra anexar.",
+      },
+      inspectors: {
+        title: "Inspectors",
+        short: "Lista ao vivo das respostas de API relevantes para o seu teste.",
+        details: "Captura chamadas de rede que batem com padrões de URL que você configura por ambiente — só o que importa para o seu teste aparece, filtrável por método, status e origem, sem o ruído de uma aba de Network genérica do navegador.",
+      },
+      jsonStudio: {
+        title: "JSON Studio",
+        short: "Formata, comprime e copia payloads JSON.",
+        details: "Abre qualquer resposta capturada já formatada e legível, com atalho para compactar ou copiar — sem precisar colar o JSON cru em um site externo de formatação toda vez que precisar ler uma resposta de API.",
+      },
+      forceHttp: {
+        title: "Force HTTP",
+        short: "Simula respostas de erro (400, 404, 500...) sob demanda.",
+        details: "Força a próxima resposta de rede a simular um status de erro específico, pra testar como a tela se comporta em cenários de falha sem precisar derrubar o backend ou esperar um erro acontecer de verdade.",
+      },
+      freezeClock: {
+        title: "Freeze Clock",
+        short: "Congela a data/hora do navegador no momento que você escolher.",
+        details: "Trava o relógio da página num instante específico para testar regras dependentes de data (promoções, expiração, fuso horário) de forma determinística, sem precisar mudar a data do sistema operacional inteiro.",
+      },
+      clickSpy: {
+        title: "Click Spy",
+        short: "Destaca visualmente cada elemento clicável ao passar o mouse.",
+        details: "Contorna em tempo real qualquer elemento clicável sob o cursor, útil para mapear rapidamente a área clicável real de um componente antes de escrever um passo de teste ou reportar uma área de clique errada.",
+      },
+      breakpointViewer: {
+        title: "Breakpoint Viewer (Responsive View)",
+        short: "Veja a mesma página em vários tamanhos de tela ao mesmo tempo.",
+        details: "Renderiza a página lado a lado em molduras de laptop e celular sincronizadas, pra pegar problema de layout responsivo sem precisar redimensionar a janela do navegador nem alternar entre dispositivos no DevTools.",
+      },
+      characterCounter: {
+        title: "Contador de caracteres",
+        short: "Conta caracteres, palavras, linhas e bytes UTF-8.",
+        details: "Mede o texto selecionado na página (ou qualquer texto colado) com e sem espaços — direto na barra, sem abrir uma calculadora de caracteres em outra aba pra validar limite de campo.",
+      },
+      multiClick: {
+        title: "Multiclick",
+        short: "Clica no mesmo elemento várias vezes, no intervalo que você definir.",
+        details: "Selecione visualmente um elemento, escolha de 2 a 100 cliques e o intervalo entre eles — útil pra testar debounce, double-submit e comportamento sob cliques repetidos sem ficar clicando manualmente.",
+      },
+      inputLab: {
+        title: "Input Lab",
+        short: "Testa um campo com texto, número, Unicode e excesso de caracteres.",
+        details: "Roda um kit de validação (vazio, texto, número, caracteres especiais, Unicode, limite excedido) num input selecionado, sem enviar o formulário, e restaura o valor original ao final — cobre casos de borda que normalmente exigiriam digitar cada um manualmente.",
+      },
+      fakerFill: {
+        title: "Faker Fill",
+        short: "Preenche a página ou um formulário com dados sintéticos realistas.",
+        details: "Preenche automaticamente nome, e-mail, endereço e outros campos comuns com dados fictícios plausíveis, pulando sempre senha, cartão, CVV, token e segredo — acelera o preenchimento repetitivo sem tocar em dado sensível.",
+      },
+      macroStudio: {
+        title: "Macro Studio",
+        short: "Grava uma sequência de ações e reproduz depois, quando quiser.",
+        details: "Grava clique, digitação, seleção, checkbox e tecla enquanto você navega normalmente; revise o fluxo no modo Vibe Code (arrastar e soltar), salve, fixe no menu para reexecutar em um clique, e use o Coder para copiar a mesma sequência como um teste Playwright real — sem escrever nenhuma linha de código para gravar e reproduzir.",
+      },
+      keyView: {
+        title: "Key View",
+        short: "Mostra na tela os atalhos de teclado e cliques do mouse em tempo real.",
+        details: "Exibe combinações de teclado (ex.: Ctrl+V) como teclas com efeito 3D que desaparecem sozinhas, um modo Typing que acumula o que foi digitado até você limpar, e um indicador visual de clique esquerdo/direito/meio e scroll — ideal para gravações e demonstrações onde a plateia precisa ver exatamente o que você está fazendo.",
+      },
+      testAccounts: {
+        title: "Contas de teste",
+        short: "Credenciais sandbox por ambiente, sempre mascaradas.",
+        details: "Guarda usuário e senha de teste vinculados ao ambiente ativo, mascarados na barra e nunca incluídos na exportação — acaba com a busca por credencial de teste perdida numa nota ou planilha compartilhada.",
+      },
+      paymentMethods: {
+        title: "Meios de pagamento",
+        short: "Cartões de teste sandbox, filtrados pelo ambiente atual.",
+        details: "Mantém números de cartão de teste organizados por ambiente e mascarados na barra, prontos pra copiar na hora de testar um checkout sem precisar procurar a documentação do gateway de pagamento toda vez.",
+      },
+      resources: {
+        title: "Recursos e links",
+        short: "Atalhos para documentação e ferramentas do projeto, direto no menu.",
+        details: "Guarda links úteis (documentação, board, ambiente de staging) associados ao ambiente ativo, com URL validada antes de abrir — menos abas fixadas manualmente no navegador para lembrar onde estava cada coisa.",
+      },
+    },
   },
   pricing: {
     eyebrow: "Planos",
@@ -472,6 +614,7 @@ const es: Dictionary = {
     about: "Acerca de",
     simulator: "Simulador",
     semiauto: "Sabor automático",
+    features: "Herramientas",
     pricing: "Planes",
     support: "Soporte",
     install: "Entrar",
@@ -562,6 +705,139 @@ const es: Dictionary = {
     titleGradient: "sabor automático",
     body: "No sacamos al humano de la jugada — solo lo aceleramos. QA Toolbar Sandbox se encarga del trabajo repetitivo (contexto, evidencias, captura de red, temporizadores) mientras tú mantienes la mirada crítica que ninguna automatización sustituye. Es prueba manual, con sabor automático.",
     gifAlt: "Sabor energético, sabor automático",
+  },
+  features: {
+    eyebrow: "Herramientas",
+    title: "Lo que cambia en tu día de pruebas",
+    lead: "La ganancia real no es la cantidad de funciones — es no volver a perderte entre pestañas de distintos entornos y proyectos mientras pruebas manualmente. Cada grupo de abajo es lo que realmente está en el menú Tools de la extensión; haz clic para ver cómo funciona.",
+    groups: {
+      evidence: {
+        title: "Evidencias y resultado de la prueba",
+        description: "Registra lo que pasó sin salir de la página ni abrir otra herramienta.",
+      },
+      inspection: {
+        title: "Depuración e inspección técnica",
+        description: "Observa red, JSON y comportamiento responsivo sin abrir el DevTools.",
+      },
+      productivityKit: {
+        title: "Kit de productividad QA",
+        description: "Tareas repetitivas de formularios, resueltas en segundos.",
+      },
+      macroStudio: {
+        title: "Automatización declarativa",
+        description: "Graba una vez, reproduce siempre — sin escribir una línea de código.",
+      },
+      keyView: {
+        title: "Key View",
+        description: "Muestra en pantalla lo que estás escribiendo y clicando, en tiempo real.",
+      },
+      sandboxData: {
+        title: "Cuentas y datos sandbox",
+        description: "Credenciales y tarjetas de prueba a mano, nunca expuestas por error.",
+      },
+    },
+    items: {
+      testStatus: {
+        title: "Test Status",
+        short: "Marca Pass, Fail, Blocked o Limitation con un clic.",
+        details: "Un menú con cuatro estados (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) registra el resultado del caso de prueba directo en la página, con la URL y la hora — sin copiarlo a mano a una hoja de cálculo mientras el contexto sigue fresco en pantalla.",
+      },
+      passFail: {
+        title: "Marcadores Pass/Fail",
+        short: "Señala exactamente dónde un elemento pasó o falló.",
+        details: "Haz clic en cualquier punto de la página para dejar un marcador visual de ✓ o ✕ ahí mismo — ideal para apuntar con precisión qué botón, campo o sección falló antes de tomar la captura de evidencia.",
+      },
+      notesShapes: {
+        title: "Notas y formas",
+        short: "Anotaciones de texto y resaltados dibujados sobre la página.",
+        details: "Notas de texto arrastrables y formas de resaltado se superponen a la página real, permitiendo documentar un bug con contexto visual completo — sin necesitar otra pestaña para escribir la descripción del problema.",
+      },
+      screenshot: {
+        title: "Captura de pantalla",
+        short: "Captura instantánea con un clic.",
+        details: "Genera la evidencia de captura en el momento exacto de la prueba, ya con los marcadores y anotaciones visibles, lista para adjuntar al ticket o a la tarjeta del board.",
+      },
+      recording: {
+        title: "Grabación de evidencias",
+        short: "Graba la pantalla en video mientras pruebas.",
+        details: "Inicia y detiene la grabación de video (MP4/GIF según el plan) directo desde la barra, sin necesitar un software de grabación aparte — la evidencia queda lista para adjuntar.",
+      },
+      inspectors: {
+        title: "Inspectors",
+        short: "Lista en vivo de las respuestas de API relevantes para tu prueba.",
+        details: "Captura llamadas de red que coinciden con patrones de URL configurados por entorno — solo lo que importa para tu prueba aparece, filtrable por método, estado y origen, sin el ruido de una pestaña de Network genérica del navegador.",
+      },
+      jsonStudio: {
+        title: "JSON Studio",
+        short: "Formatea, comprime y copia payloads JSON.",
+        details: "Abre cualquier respuesta capturada ya formateada y legible, con acceso directo para compactar o copiar — sin pegar el JSON crudo en un sitio externo cada vez que necesitas leer una respuesta de API.",
+      },
+      forceHttp: {
+        title: "Force HTTP",
+        short: "Simula respuestas de error (400, 404, 500...) bajo demanda.",
+        details: "Fuerza la próxima respuesta de red a simular un estado de error específico, para probar cómo se comporta la pantalla en escenarios de fallo sin tumbar el backend ni esperar a que ocurra un error real.",
+      },
+      freezeClock: {
+        title: "Freeze Clock",
+        short: "Congela la fecha/hora del navegador en el momento que elijas.",
+        details: "Fija el reloj de la página en un instante específico para probar reglas dependientes de fecha (promociones, expiración, zona horaria) de forma determinística, sin cambiar la fecha de todo el sistema operativo.",
+      },
+      clickSpy: {
+        title: "Click Spy",
+        short: "Resalta visualmente cada elemento clicable al pasar el mouse.",
+        details: "Contornea en tiempo real cualquier elemento clicable bajo el cursor, útil para mapear rápidamente el área clicable real de un componente antes de escribir un paso de prueba.",
+      },
+      breakpointViewer: {
+        title: "Breakpoint Viewer (Responsive View)",
+        short: "Mira la misma página en varios tamaños de pantalla a la vez.",
+        details: "Renderiza la página lado a lado en marcos de laptop y celular sincronizados, para detectar problemas de diseño responsivo sin redimensionar la ventana ni alternar dispositivos en el DevTools.",
+      },
+      characterCounter: {
+        title: "Contador de caracteres",
+        short: "Cuenta caracteres, palabras, líneas y bytes UTF-8.",
+        details: "Mide el texto seleccionado en la página (o cualquier texto pegado) con y sin espacios — directo en la barra, sin abrir una calculadora de caracteres en otra pestaña.",
+      },
+      multiClick: {
+        title: "Multiclick",
+        short: "Clica el mismo elemento varias veces, en el intervalo que definas.",
+        details: "Selecciona visualmente un elemento, elige de 2 a 100 clics y el intervalo entre ellos — útil para probar debounce, doble envío y comportamiento bajo clics repetidos sin clicar manualmente.",
+      },
+      inputLab: {
+        title: "Input Lab",
+        short: "Prueba un campo con texto, número, Unicode y exceso de caracteres.",
+        details: "Ejecuta un kit de validación (vacío, texto, número, caracteres especiales, Unicode, límite excedido) en un input seleccionado, sin enviar el formulario, y restaura el valor original al final.",
+      },
+      fakerFill: {
+        title: "Faker Fill",
+        short: "Rellena la página o un formulario con datos sintéticos realistas.",
+        details: "Rellena automáticamente nombre, correo, dirección y otros campos comunes con datos ficticios plausibles, siempre saltando contraseña, tarjeta, CVV, token y secreto.",
+      },
+      macroStudio: {
+        title: "Macro Studio",
+        short: "Graba una secuencia de acciones y repítela cuando quieras.",
+        details: "Graba clic, escritura, selección, checkbox y tecla mientras navegas normalmente; revisa el flujo en modo Vibe Code (arrastrar y soltar), guárdalo, fíjalo en el menú para reejecutarlo con un clic, y usa Coder para copiar la misma secuencia como una prueba Playwright real.",
+      },
+      keyView: {
+        title: "Key View",
+        short: "Muestra en pantalla los atajos de teclado y clics del mouse en tiempo real.",
+        details: "Muestra combinaciones de teclado (ej.: Ctrl+V) como teclas con efecto 3D que desaparecen solas, un modo Typing que acumula lo escrito hasta que lo limpies, y un indicador visual de clic izquierdo/derecho/central y scroll — ideal para grabaciones y demostraciones.",
+      },
+      testAccounts: {
+        title: "Cuentas de prueba",
+        short: "Credenciales sandbox por entorno, siempre enmascaradas.",
+        details: "Guarda usuario y contraseña de prueba vinculados al entorno activo, enmascarados en la barra y nunca incluidos en la exportación.",
+      },
+      paymentMethods: {
+        title: "Métodos de pago",
+        short: "Tarjetas de prueba sandbox, filtradas por el entorno actual.",
+        details: "Mantiene números de tarjeta de prueba organizados por entorno y enmascarados en la barra, listos para copiar al probar un checkout.",
+      },
+      resources: {
+        title: "Recursos y enlaces",
+        short: "Atajos a documentación y herramientas del proyecto, directo en el menú.",
+        details: "Guarda enlaces útiles (documentación, board, entorno de staging) asociados al entorno activo, con URL validada antes de abrir.",
+      },
+    },
   },
   pricing: {
     eyebrow: "Planes",
@@ -728,6 +1004,7 @@ const en: Dictionary = {
     about: "About",
     simulator: "Simulator",
     semiauto: "Auto flavor",
+    features: "Tools",
     pricing: "Pricing",
     support: "Support",
     install: "Sign in",
@@ -818,6 +1095,139 @@ const en: Dictionary = {
     titleGradient: "automated flavor",
     body: "We don't take the human out of the loop — we just speed them up. QA Toolbar Sandbox handles the repetitive work (context, evidence, network capture, timers) while you keep the critical eye no automation can replace. It's manual testing, with an automated flavor.",
     gifAlt: "Energetic flavor, automated flavor",
+  },
+  features: {
+    eyebrow: "Tools",
+    title: "What actually changes in your testing day",
+    lead: "The real win isn't the number of features — it's never losing yourself across tabs from different environments and projects while testing manually again. Every group below is really in the extension's Tools menu; click to open it and see how it works.",
+    groups: {
+      evidence: {
+        title: "Evidence and test result",
+        description: "Record what happened without leaving the page or opening another tool.",
+      },
+      inspection: {
+        title: "Debugging and technical inspection",
+        description: "See network, JSON and responsive behavior without opening DevTools.",
+      },
+      productivityKit: {
+        title: "QA productivity kit",
+        description: "Repetitive form-testing chores, solved in seconds.",
+      },
+      macroStudio: {
+        title: "Declarative automation",
+        description: "Record once, replay any time — without writing a line of code.",
+      },
+      keyView: {
+        title: "Key View",
+        description: "Show what you're typing and clicking on screen, live.",
+      },
+      sandboxData: {
+        title: "Sandbox accounts and data",
+        description: "Test credentials and cards on hand, never exposed by accident.",
+      },
+    },
+    items: {
+      testStatus: {
+        title: "Test Status",
+        short: "Mark Pass, Fail, Blocked or Limitation in one click.",
+        details: "A four-state menu (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) records the test case result right on the page, with the URL and timestamp — no copying it by hand into a spreadsheet while the context is still fresh on screen.",
+      },
+      passFail: {
+        title: "Pass/Fail markers",
+        short: "Point exactly where an element passed or failed.",
+        details: "Click anywhere on the page to drop a visual ✓ or ✕ marker right there — great for pinpointing exactly which button, field or section failed before taking the evidence screenshot.",
+      },
+      notesShapes: {
+        title: "Notes and shapes",
+        short: "Text annotations and highlights drawn over the page.",
+        details: "Draggable text notes and highlight shapes overlay the real page, letting you document a bug with full visual context — no separate tab needed to write up the problem description.",
+      },
+      screenshot: {
+        title: "Screenshot",
+        short: "Instant screen capture with one click.",
+        details: "Generates the screenshot evidence at the exact moment of the test, already showing markers and annotations, ready to attach to the ticket or board card.",
+      },
+      recording: {
+        title: "Evidence recording",
+        short: "Records your screen on video while you test.",
+        details: "Starts and stops video recording (MP4/GIF depending on the plan) right from the bar, no separate screen-recording software needed — the evidence comes out ready to attach.",
+      },
+      inspectors: {
+        title: "Inspectors",
+        short: "A live list of the API responses that matter for your test.",
+        details: "Captures network calls matching URL patterns you configure per environment — only what matters for your test shows up, filterable by method, status and source, without the noise of a generic browser Network tab.",
+      },
+      jsonStudio: {
+        title: "JSON Studio",
+        short: "Formats, compacts and copies JSON payloads.",
+        details: "Opens any captured response already formatted and readable, with a shortcut to compact or copy it — no pasting raw JSON into an external formatter site every time you need to read an API response.",
+      },
+      forceHttp: {
+        title: "Force HTTP",
+        short: "Simulates error responses (400, 404, 500...) on demand.",
+        details: "Forces the next network response to simulate a specific error status, to test how the screen behaves in failure scenarios without taking down the backend or waiting for a real error to happen.",
+      },
+      freezeClock: {
+        title: "Freeze Clock",
+        short: "Freezes the browser's date/time at the moment you choose.",
+        details: "Pins the page's clock to a specific instant to test date-dependent rules (promotions, expiration, timezone) deterministically, without changing the whole operating system's date.",
+      },
+      clickSpy: {
+        title: "Click Spy",
+        short: "Visually highlights every clickable element under the mouse.",
+        details: "Outlines any clickable element under the cursor in real time, useful for quickly mapping a component's actual clickable area before writing a test step or reporting a wrong click zone.",
+      },
+      breakpointViewer: {
+        title: "Breakpoint Viewer (Responsive View)",
+        short: "See the same page at several screen sizes at once.",
+        details: "Renders the page side by side in synced laptop and phone frames, to catch responsive layout issues without resizing the browser window or switching devices in DevTools.",
+      },
+      characterCounter: {
+        title: "Character counter",
+        short: "Counts characters, words, lines and UTF-8 bytes.",
+        details: "Measures the text selected on the page (or any pasted text) with and without spaces — right in the bar, no separate character-counting tab needed to validate a field limit.",
+      },
+      multiClick: {
+        title: "Multiclick",
+        short: "Clicks the same element repeatedly, at the interval you set.",
+        details: "Visually select an element, choose 2 to 100 clicks and the interval between them — useful for testing debounce, double-submit and behavior under repeated clicks without clicking manually yourself.",
+      },
+      inputLab: {
+        title: "Input Lab",
+        short: "Tests a field with text, numbers, Unicode and overflow.",
+        details: "Runs a validation kit (empty, text, number, special characters, Unicode, overflow) against a selected input without submitting the form, and restores the original value afterward.",
+      },
+      fakerFill: {
+        title: "Faker Fill",
+        short: "Fills the page or a form with realistic synthetic data.",
+        details: "Automatically fills name, email, address and other common fields with plausible fake data, always skipping password, card, CVV, token and secret fields.",
+      },
+      macroStudio: {
+        title: "Macro Studio",
+        short: "Records a sequence of actions and replays it any time you want.",
+        details: "Records clicks, typing, selects, checkboxes and key presses while you browse normally; review the flow in Vibe Code mode (drag and drop), save it, pin it to the menu to re-run it in one click, and use Coder to copy that same sequence as a real Playwright test — no code needed to record or replay.",
+      },
+      keyView: {
+        title: "Key View",
+        short: "Shows keyboard shortcuts and mouse clicks on screen, live.",
+        details: "Displays key combos (e.g. Ctrl+V) as 3D-styled keys that fade out on their own, a Typing mode that accumulates what you type until you clear it, and a visual indicator for left/right/middle click and scroll — ideal for recordings and demos where the audience needs to see exactly what you're doing.",
+      },
+      testAccounts: {
+        title: "Test accounts",
+        short: "Sandbox credentials per environment, always masked.",
+        details: "Stores test username and password tied to the active environment, masked in the bar and never included in the export.",
+      },
+      paymentMethods: {
+        title: "Payment methods",
+        short: "Sandbox test cards, filtered by the current environment.",
+        details: "Keeps test card numbers organized per environment and masked in the bar, ready to copy when testing a checkout.",
+      },
+      resources: {
+        title: "Resources and links",
+        short: "Shortcuts to project docs and tools, right in the menu.",
+        details: "Stores useful links (docs, board, staging environment) tied to the active environment, with the URL validated before opening.",
+      },
+    },
   },
   pricing: {
     eyebrow: "Pricing",

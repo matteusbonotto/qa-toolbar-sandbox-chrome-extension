@@ -1,26 +1,26 @@
 # QA Toolbar Sandbox
 
-Ground-up rebuild started 2026-07-16. The extension is now a direct, plain
-HTML/CSS/JS Manifest V3 conversion of the Tampermonkey userscript — no
-bundler, no framework, no hardcoded product data. See
-[`apps/extension/README.md`](apps/extension/README.md) for how it's built and
-why, and [`docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md`](docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md)
-for the full product spec this rebuild follows.
+Local-first QA toolbar for Chrome (Manifest V3), plus a SaaS landing page, founder admin
+panel and Supabase backend for billing/entitlements. Ground-up rebuild started 2026-07-16 as
+a direct conversion of the original Tampermonkey userscript.
 
-The previous implementation (React/TypeScript/WXT extension, landing page,
-admin panel, Supabase backend) is preserved for reference in
-[`old_codex/`](old_codex/README.md) — nothing from it is reused.
+- [`apps/extension/`](apps/extension/README.md) — the extension: manifest, storage layer,
+  environment-aware toolbar, workspace CRUD (clients/projects/products/environments/test
+  accounts/macros), the QA productivity kit (Character Counter, Multiclick, Input Lab, Faker
+  Fill, Macro Studio, Key View), all gated per plan via `plan_features`.
+- `apps/landing/` — the marketing site, pricing/checkout, and account flows (sign up, sign in,
+  forgot/reset password).
+- `apps/admin/` — founder-only dashboard (vouchers, licenses, users, entitlements, feature
+  flags, MRR). Password + e-mail OTP; no public self-signup — see
+  [`supabase/bootstrap-admin-account.mjs`](supabase/bootstrap-admin-account.mjs).
+- `supabase/` — schema, migrations, Edge Functions, and the local-only provisioning/seed
+  scripts (never run by CI, always by a human with the service-role key).
+- `docs/` — product spec, per-decision ADRs, the QA tools guide, Chrome Web Store deploy
+  guide, and `docs/PENDENCIAS_USUARIO.md` for anything only the founder can action.
 
-## What exists so far
-
-- `apps/extension/` — the extension core: manifest, storage layer, windowsill
-  toolbar with environment-aware coloring, generic workspace data model
-  (clients/projects/products/environments — no hardcoded example data),
-  import/export, and a site-scope setting (runs everywhere by default,
-  restrict from the options page).
-
-Landing page, admin panel and backend are being rebuilt next; this file will
-grow as each lands.
+See [`docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md`](docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md)
+for the full product spec, and [`docs/handoff/CHECKLIST_RECONSTRUCAO.md`](docs/handoff/CHECKLIST_RECONSTRUCAO.md)
+for what's built and verified so far.
 
 ## Load and verify the extension
 
@@ -35,11 +35,26 @@ npm install
 npm run test:chrome
 ```
 
+For interactive local testing against the real backend (not the mocked smoke-test flow):
+
+```bash
+npm run dev:extension
+```
+
+## Landing page / admin
+
+```bash
+npm run dev:landing
+npm run dev:admin
+```
+
 ## Security scan
 
 ```bash
 npm run security:repo
+npm run security:extension
 ```
 
-Scans every tracked/staged file for secret patterns and forbidden paths
-before commit (also wired as the pre-commit hook via `npm run prepare`).
+Scans every tracked/staged file for secret patterns and forbidden paths before commit (also
+wired as the pre-commit hook via `npm run prepare`), and verifies the packaged extension only
+contains the whitelisted files.

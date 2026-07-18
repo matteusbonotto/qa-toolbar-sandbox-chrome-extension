@@ -28,7 +28,7 @@ interface AuthContextValue {
   session: Session | null;
   otpEmail: string | null;
   signInWithPassword: (email: string, password: string) => Promise<void>;
-  createFounderAccount: (password: string) => Promise<void>;
+  sendPasswordReset: () => Promise<void>;
   verifyEmailOtp: (code: string) => Promise<void>;
   resendEmailOtp: () => Promise<void>;
   signOut: () => Promise<void>;
@@ -187,21 +187,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function createFounderAccount(password: string) {
+  // There is deliberately no public "create account" flow — the founder account is
+  // provisioned once via supabase/bootstrap-admin-account.mjs (service-role, run locally).
+  // Forgotten password recovers through the same Supabase reset-password e-mail flow the
+  // landing page uses, landing on the LP's own /redefinir-senha page (that page doesn't care
+  // which app initiated the reset — it just updates whichever account is in the recovery
+  // session), avoiding this app's HashRouter ever having to parse Supabase's recovery tokens.
+  async function sendPasswordReset() {
     if (!supabase) throw new Error("backend_not_configured");
-    if (password.length < 8) throw new Error("weak_password");
-    clearAdminMfaSession();
-    clearExpiryTimer();
-    const redirectTo = new URL(import.meta.env.BASE_URL, window.location.origin).href;
-    const { data, error } = await supabase.auth.signUp({
-      email: FOUNDER_EMAIL,
-      password,
-      options: { emailRedirectTo: redirectTo },
-    });
-    if (error) throw new Error("founder_signup_failed");
-    if (data.session) await supabase.auth.signOut({ scope: "local" });
-    setSession(null);
-    setStatus("signed-out");
+    const redirectTo = new URL("../redefinir-senha", new URL(import.meta.env.BASE_URL, window.location.origin)).href;
+    const { error } = await supabase.auth.resetPasswordForEmail(FOUNDER_EMAIL, { redirectTo });
+    if (error) throw new Error("password_reset_failed");
   }
 
   async function verifyEmailOtp(code: string) {
@@ -255,7 +251,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       session,
       otpEmail,
       signInWithPassword,
-      createFounderAccount,
+      sendPasswordReset,
       verifyEmailOtp,
       resendEmailOtp,
       signOut,

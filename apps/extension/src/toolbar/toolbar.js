@@ -149,6 +149,34 @@ function safeCurrentUrl() {
   }
 }
 
+// Sound effects: short cues for test status results, HTTP errors captured by the network
+// inspector, and macro playback starting. Disabled entirely via preferences.soundEffects.
+const SOUND_FILES = {
+  pass: "src/assets/sounds/test-pass.mp3",
+  fail: "src/assets/sounds/test-fail.mp3",
+  blocked: "src/assets/sounds/test-block.mp3",
+  limitation: "src/assets/sounds/test-block.mp3",
+  httpError: "src/assets/sounds/http-error.mp3",
+  macroPlay: "src/assets/sounds/play-macro.mp3",
+};
+
+function soundEffectsEnabled() {
+  return state.workspace?.preferences?.soundEffects !== false;
+}
+
+function playSound(key) {
+  if (!soundEffectsEnabled()) return;
+  const path = SOUND_FILES[key];
+  if (!path) return;
+  try {
+    const audio = new Audio(chrome.runtime.getURL(path));
+    audio.volume = 0.6;
+    void audio.play().catch(() => {});
+  } catch {
+    // Ignore playback failures (e.g. autoplay policy) — sound is a nicety, never blocking.
+  }
+}
+
 // Tools gated by the account's plan (via access-status' `features` map), on top of the
 // per-user "which menu items are enabled" preference. Keys here match the Supabase
 // `features.key` rows exactly (see supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql).
@@ -514,6 +542,7 @@ function openTestStatusModal() {
       const option = options.find((item) => item.key === key);
       closeTestStatusModal();
       showResultOverlay(option);
+      playSound(key);
       void recordTestStatus(option);
     });
   });
@@ -1237,6 +1266,7 @@ function handleNetworkCaptured(entry) {
   }))) return;
   state.networkHistory.unshift(entry);
   if (state.networkHistory.length > 150) state.networkHistory.length = 150;
+  if (Number(entry?.status) >= 400) playSound("httpError");
   const badge = state.shadowRoot?.getElementById("inspectorsBadge");
   if (badge) {
     badge.textContent = String(state.networkHistory.length);
@@ -2266,6 +2296,7 @@ async function continueMacroRun(run, { announce = false } = {}) {
 
 async function playMacro(macro) {
   if (!hasPlanFeature("macroStudio") || state.macroPlaying || !macro?.steps?.length) return;
+  playSound("macroPlay");
   const run = { macroId: macro.id, index: 0, expiresAt: Date.now() + 10 * 60_000 };
   const saved = await macroRunRequest("set", run);
   if (!saved?.ok) { showQaToast("Não foi possível iniciar a macro com segurança.", "error"); return; }

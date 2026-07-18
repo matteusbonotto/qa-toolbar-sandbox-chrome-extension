@@ -12,6 +12,7 @@ export function SiteNavToolbar() {
       { id: "sobre", label: t.nav.about },
       { id: "simulador", label: t.nav.simulator },
       { id: "semi-automatico", label: t.nav.semiauto },
+      { id: "ferramentas", label: t.nav.features },
       { id: "planos", label: t.nav.pricing },
       { id: "suporte", label: t.nav.support },
     ],
