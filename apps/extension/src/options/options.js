@@ -130,6 +130,7 @@ function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
   document.getElementById("compactMode").checked = preferences.compactMode === true;
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
+  document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
   const keyView = preferences.keyView || {};
   document.getElementById("keyViewEnabled").checked = keyView.enabled === true;
   document.getElementById("keyViewTypingMode").checked = keyView.typingMode === true;
@@ -146,6 +147,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     ...(workspace.preferences || {}),
     compactMode: document.getElementById("compactMode").checked,
     pushSiteContent: document.getElementById("pushSiteContent").checked,
+    soundEffects: document.getElementById("soundEffects").checked,
     keyView: {
       enabled: document.getElementById("keyViewEnabled").checked,
       typingMode: document.getElementById("keyViewTypingMode").checked,

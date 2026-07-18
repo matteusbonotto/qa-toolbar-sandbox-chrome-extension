@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { resolve, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const ALLOWED_FILES = [/^manifest\.json$/, /^icons\/[a-z0-9._-]+\.png$/i, /^src\/[a-z0-9_./-]+\.(?:js|css|html)$/i];
+const ALLOWED_FILES = [/^manifest\.json$/, /^icons\/[a-z0-9._-]+\.png$/i, /^src\/[a-z0-9_./-]+\.(?:js|css|html|mp3)$/i];
 const FORBIDDEN_NAMES = /(^|\/)(?:\.env(?:\..*)?|manifest\.key|node_modules|fixtures?|tests?|artifacts?|.*\.(?:map|pem|key|p12|pfx|sqlite|log))($|\/)/i;
 const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,

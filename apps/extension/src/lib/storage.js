@@ -87,6 +87,7 @@ export function createEmptyWorkspace() {
       pinnedTools: ["passFail", "screenshot", "notes", "record"],
       pinnedMacroIds: [],
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
+      soundEffects: true,
       keyView: {
         enabled: false,
         typingMode: false,
@@ -206,6 +207,7 @@ export function normalizeWorkspace(rawWorkspace) {
       pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools,
       pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
       enabledTools: normalizedEnabledTools,
+      soundEffects: preferences.soundEffects !== false,
       keyView: normalizeKeyViewPreferences(preferences.keyView),
     },
   };
