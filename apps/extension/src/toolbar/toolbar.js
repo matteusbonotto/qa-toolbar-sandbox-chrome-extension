@@ -271,7 +271,7 @@ function buildShadowHost() {
         box-shadow: 0 2px 10px rgba(0,0,0,.25); transition: transform 160ms ease;
       }
       #bar.isMinimized { transform: translateY(-110%); }
-      #left { min-width: 0; flex: 1 1 auto; display: grid; grid-template-rows: 15px 25px; align-content: center; gap: 1px; }
+      #left { min-width: 0; flex: 1 1 auto; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
       #right { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; }
       #contextRow { min-width: 0; display: flex; align-items: center; gap: 8px; }
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
