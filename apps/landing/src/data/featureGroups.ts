@@ -1,69 +1,69 @@
+import type { IconName } from "../components/Icon";
+
 // Structure only (icons/grouping) — the actual copy (titles/descriptions) lives in i18n
-// translations.ts under `t.features`, keyed by these same `key` values. Icons here are the
-// exact glyphs used in the real extension toolbar menu (apps/extension/src/toolbar/toolbar.js),
-// not stand-in illustrations.
+// translations.ts under `t.features`, keyed by these same `key` values.
 export interface FeatureItem {
   key: string;
-  icon: string;
+  icon: IconName;
 }
 
 export interface FeatureGroup {
   key: string;
-  icon: string;
+  icon: IconName;
   items: FeatureItem[];
 }
 
 export const featureGroups: FeatureGroup[] = [
   {
     key: "evidence",
-    icon: "📷",
+    icon: "camera",
     items: [
-      { key: "testStatus", icon: "⛔" },
-      { key: "passFail", icon: "✓" },
-      { key: "notesShapes", icon: "▭" },
-      { key: "screenshot", icon: "📷" },
-      { key: "recording", icon: "⏺" },
+      { key: "testStatus", icon: "check2Circle" },
+      { key: "passFail", icon: "checkSquare" },
+      { key: "notesShapes", icon: "square" },
+      { key: "screenshot", icon: "camera" },
+      { key: "recording", icon: "recordCircle" },
     ],
   },
   {
     key: "inspection",
-    icon: "{ }",
+    icon: "braces",
     items: [
-      { key: "inspectors", icon: "{ }" },
-      { key: "jsonStudio", icon: "🧪" },
-      { key: "forceHttp", icon: "⚠" },
-      { key: "freezeClock", icon: "⏸" },
-      { key: "clickSpy", icon: "🖱" },
-      { key: "breakpointViewer", icon: "📐" },
+      { key: "inspectors", icon: "braces" },
+      { key: "jsonStudio", icon: "codeSlash" },
+      { key: "forceHttp", icon: "exclamationTriangle" },
+      { key: "freezeClock", icon: "pauseCircle" },
+      { key: "clickSpy", icon: "mouse2" },
+      { key: "breakpointViewer", icon: "aspectRatio" },
     ],
   },
   {
     key: "productivityKit",
-    icon: "⚡",
+    icon: "lightningCharge",
     items: [
-      { key: "characterCounter", icon: "🔤" },
-      { key: "multiClick", icon: "⚡" },
-      { key: "inputLab", icon: "✅" },
-      { key: "fakerFill", icon: "✨" },
+      { key: "characterCounter", icon: "fonts" },
+      { key: "multiClick", icon: "lightningCharge" },
+      { key: "inputLab", icon: "checkSquare" },
+      { key: "fakerFill", icon: "stars" },
     ],
   },
   {
     key: "macroStudio",
-    icon: "🧩",
-    items: [{ key: "macroStudio", icon: "🧩" }],
+    icon: "puzzle",
+    items: [{ key: "macroStudio", icon: "puzzle" }],
   },
   {
     key: "keyView",
-    icon: "⌨",
-    items: [{ key: "keyView", icon: "⌨" }],
+    icon: "keyboard",
+    items: [{ key: "keyView", icon: "keyboard" }],
   },
   {
     key: "sandboxData",
-    icon: "🔑",
+    icon: "key",
     items: [
-      { key: "testAccounts", icon: "🔑" },
-      { key: "paymentMethods", icon: "💳" },
-      { key: "resources", icon: "🔗" },
+      { key: "testAccounts", icon: "key" },
+      { key: "paymentMethods", icon: "creditCard" },
+      { key: "resources", icon: "link45deg" },
     ],
   },
 ];
