@@ -444,8 +444,14 @@ export function PricingSection() {
             const planText = t.pricing.plans[plan.id];
             const price = priceCatalog[plan.id]?.[billingCycle];
             const unavailable = pricingError ? "—" : t.pricing.working;
-            const isCurrentPlan = access?.active === true && access.plan?.key === plan.id;
-            const isBlockedByOtherPlan = access?.active === true && access.plan?.key !== plan.id;
+            // Gate on `billing` (present only when a real Stripe subscription row backs the
+            // access), not on `access.active` in general — a founder/courtesy grant with no
+            // Stripe subscription (apps/admin's AccessPage supports granting access without a
+            // plan) is "active" but never blocks checkout-create-session server-side, so it
+            // must not block a purchase here either.
+            const hasBlockingSubscription = access?.billing != null;
+            const isCurrentPlan = hasBlockingSubscription && access?.plan?.key === plan.id;
+            const isBlockedByOtherPlan = hasBlockingSubscription && access?.plan?.key !== plan.id;
             return (
               <div key={plan.id} className={`qts-plan-card${plan.recommended ? " is-recommended" : ""}${isCurrentPlan ? " is-current-plan" : ""}`}>
                 {plan.recommended ? <span className="qts-plan-badge">{t.pricing.recommendedBadge}</span> : null}
@@ -478,7 +484,7 @@ export function PricingSection() {
             );
           })}
         </div>
-        {access?.active ? <p className="qts-plan-change-hint">{t.pricing.alreadySubscribed}</p> : null}
+        {access?.billing != null ? <p className="qts-plan-change-hint">{t.pricing.alreadySubscribed}</p> : null}
       </div>
     </section>
   );

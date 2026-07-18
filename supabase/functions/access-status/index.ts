@@ -69,6 +69,14 @@ serve(async (request) => {
       const key = relation<FeatureRelation>(row.features)?.key;
       if (key) features[key] = row.value as boolean | number | string;
     }
+  } else if (active && !rawPlan) {
+    // Manual grants (founder/courtesy/extended trial) can be created without a plan attached —
+    // apps/admin's AccessPage explicitly supports this ("Conceda acesso... sem passar pelo
+    // Stripe"). Treat that as unrestricted rather than silently stripping every gated tool: grant
+    // every boolean feature. Non-boolean (limit) features have no defined "generous default" and
+    // are left unset — nothing currently reads them.
+    const { data: featureRows } = await admin.from("features").select("key").eq("value_type", "boolean");
+    for (const row of featureRows ?? []) features[row.key] = true;
   }
 
   return jsonResponse(request, {

@@ -89,7 +89,9 @@ export function FeatureFlagsPage() {
                             defaultValue={typeof rawValue === "number" ? rawValue : ""}
                             disabled={busy}
                             onBlur={(event) => {
-                              const next = Number(event.target.value);
+                              const raw = event.target.value.trim();
+                              if (raw === "") return;
+                              const next = Number(raw);
                               if (Number.isFinite(next)) void handleChange(plan.id, feature.id, next);
                             }}
                           />
