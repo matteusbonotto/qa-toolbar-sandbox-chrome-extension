@@ -85,6 +85,13 @@ async function requestOtp(request: Request) {
   });
   if (!emailResponse.ok) {
     await admin.from("admin_otp_challenges").delete().eq("id", challenge.id);
+    // Surface Supabase's own native-email rate limit distinctly — it's a real, temporary,
+    // self-resolving condition (the built-in email sender has a low per-hour cap), not a
+    // system failure. Everything else stays a generic delivery failure.
+    const emailErrorBody = await emailResponse.json().catch(() => null) as { error_code?: string } | null;
+    if (emailResponse.status === 429 || emailErrorBody?.error_code === "over_email_send_rate_limit") {
+      throw new ApiError(429, "otp_email_rate_limited");
+    }
     throw new ApiError(503, "otp_delivery_failed");
   }
 
