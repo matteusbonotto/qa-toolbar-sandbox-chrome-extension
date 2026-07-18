@@ -4,8 +4,13 @@ import { serve } from "../_shared/handler.ts";
 import { jsonResponse, requirePost } from "../_shared/http.ts";
 
 interface PlanRelation {
+  id: string;
   key: string;
   name: string;
+}
+
+interface FeatureRelation {
+  key: string;
 }
 
 function relation<T>(value: T | T[] | null | undefined): T | null {
@@ -21,14 +26,14 @@ serve(async (request) => {
   const now = new Date().toISOString();
   const [{ data: grants, error: grantsError }, { data: subscription, error: subscriptionError }] = await Promise.all([
     admin.from("entitlement_grants")
-      .select("source,expires_at,created_at,plans(key,name)")
+      .select("source,expires_at,created_at,plans(id,key,name)")
       .eq("user_id", user.id)
       .is("revoked_at", null)
       .lte("starts_at", now)
       .or(`expires_at.is.null,expires_at.gt.${now}`)
       .order("created_at", { ascending: false }),
     admin.from("subscriptions")
-      .select("status,current_period_end,cancel_at_period_end,provider_subscription_id,plans(key,name)")
+      .select("status,current_period_end,cancel_at_period_end,provider_subscription_id,plans(id,key,name)")
       .eq("user_id", user.id)
       .in("status", ["active", "trialing", "past_due"])
       .order("updated_at", { ascending: false })
@@ -55,6 +60,25 @@ serve(async (request) => {
   const rawPlan = relation<PlanRelation>(paidAccess ? subscription?.plans : selectedGrant?.plans);
   const active = Boolean(selectedGrant);
 
+  let features: Record<string, boolean | number | string> = {};
+  if (active && rawPlan) {
+    const { data: featureRows } = await admin.from("plan_features")
+      .select("value,features(key)")
+      .eq("plan_id", rawPlan.id);
+    for (const row of featureRows ?? []) {
+      const key = relation<FeatureRelation>(row.features)?.key;
+      if (key) features[key] = row.value as boolean | number | string;
+    }
+  } else if (active && !rawPlan) {
+    // Manual grants (founder/courtesy/extended trial) can be created without a plan attached —
+    // apps/admin's AccessPage explicitly supports this ("Conceda acesso... sem passar pelo
+    // Stripe"). Treat that as unrestricted rather than silently stripping every gated tool: grant
+    // every boolean feature. Non-boolean (limit) features have no defined "generous default" and
+    // are left unset — nothing currently reads them.
+    const { data: featureRows } = await admin.from("features").select("key").eq("value_type", "boolean");
+    for (const row of featureRows ?? []) features[row.key] = true;
+  }
+
   return jsonResponse(request, {
     active,
     plan: rawPlan ? { key: rawPlan.key, name: rawPlan.name } : null,
@@ -65,6 +89,7 @@ serve(async (request) => {
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
       paymentConfirmed: Boolean(confirmedPayment),
     } : null,
+    features,
     installUrl: active ? chromeWebStoreUrl() : null,
     checkedAt: now,
   });

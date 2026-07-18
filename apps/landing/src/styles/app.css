@@ -333,9 +333,34 @@
 
 /* Mock browser */
 
+.qts-illustration-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  align-self: center;
+  margin: 0 0 var(--qts-space-3);
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1px solid var(--qts-border);
+  background: var(--qts-bg-card);
+  color: var(--qts-text-dim);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.qts-illustration-badge-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--qts-accent);
+  flex-shrink: 0;
+}
+
 .qts-mock-device-stage {
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   justify-content: center;
   min-width: 0;
 }
@@ -1090,6 +1115,10 @@
   box-shadow: var(--qts-shadow-glow);
 }
 
+.qts-plan-card.is-current-plan {
+  border-color: #17b978;
+}
+
 .qts-plan-badge {
   position: absolute;
   top: -12px;
@@ -1100,6 +1129,20 @@
   font-weight: 700;
   padding: 4px 10px;
   border-radius: var(--qts-radius-pill);
+}
+
+.qts-plan-badge-current {
+  left: auto;
+  right: var(--qts-space-5);
+  background: #17b978;
+  color: #06120c;
+}
+
+.qts-plan-change-hint {
+  text-align: center;
+  color: var(--qts-text-muted);
+  font-size: 0.85rem;
+  margin-top: var(--qts-space-4);
 }
 
 .qts-plan-card h3 {

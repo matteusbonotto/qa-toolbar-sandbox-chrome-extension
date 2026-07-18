@@ -206,6 +206,12 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
 - [x] Script de build simples (`npm run package:extension`) que gera um `.zip` em `~/Downloads`
       (só manifest.json + icons/ + src/ — exclui explicitamente qualquer artefato local tipo
       node_modules/.wxt, mesmo que sobrem no disco de sessões antigas).
+- [x] `npm run dev:extension` abre um Chrome real e visível com a extensão carregada via
+      `--load-extension` (mesmo mecanismo do `test:chrome`, sem os passos automatizados nem mock de
+      rede), com perfil persistente em `artifacts/chrome-dev-profile/` que sobrevive entre execuções.
+      Verificado ao vivo: extensão carrega, ID e caminho do service worker aparecem no terminal, e o
+      processo Chromium isolado (perfil próprio do Playwright, distinto do Chrome do usuário) encerra
+      ao fechar a janela.
 - [x] Arquivo de importação (`apps/extension/fixtures/cinemark-import-example.json`) com o
       cenário real: Cliente Cinemark (sigla "C") / Projeto WebApp (sigla "WEB") / Produto AR,
       4 ambientes com as cores pedidas (Dev cinza, QA amarelo, Beta verde, Produção vermelho),
@@ -231,6 +237,16 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       cobertura real de atalhos SVG, expiração, Typing protegido, nove posições, temas e mouse.
       `release:chrome:update` aprovou 348 arquivos no scanner do repositório, bundle com 19 arquivos
       e 341,0 KB de fonte, smoke completo com 0 erros e ZIP final de 96,8 KB.
+- [x] Publicação na Chrome Web Store automatizada via Publish API oficial do Google
+      (`scripts/publish-chrome-webstore.mjs`), nunca cria item novo (alvo fixo
+      `ddaapjklnfjhjigeglgmjmadjnmdodfe` a menos que `--extension-id` seja passado explicitamente).
+      `npm run chrome-webstore:oauth-setup` faz a troca OAuth única (conta dona da extensão,
+      `client_id`/`client_secret` de um OAuth Client "Desktop app"). Testado ao vivo em 2026-07-17:
+      troca de refresh token por access token com o escopo `chromewebstore` correto, e
+      `npm run release:chrome:upload` completo (scanners + smoke Chrome real 0 erros + upload)
+      aceito pela Store como rascunho do item real. `docs/DEPLOY_CHROME_WEBSTORE.md` documenta o
+      setup e os erros comuns (app em modo "Testing" sem test user cadastrado, refresh token não
+      reemitido).
 
 ## 7. Segurança e publicação
 
@@ -264,9 +280,16 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       análise, mesclado via API segura em `main` (`77736fb`). Quality `29561893446`, CodeQL
       `29561893367`, Pages `29561893358` e o empacotamento da Store `29561904597` concluíram com
       sucesso. O artefato `chrome-web-store-package` (`8399588287`, 64.240 bytes) está disponível.
-- [ ] Enviar o artefato `v1.1.2` como atualização do item existente
-      `ddaapjklnfjhjigeglgmjmadjnmdodfe` na Chrome Web Store e aguardar a revisão da loja. Não criar
-      um segundo item.
+- [x] Enviado como rascunho: `npm run release:chrome:upload --env-file .env` rodou de ponta a ponta
+      em 2026-07-17 (scanners, smoke Chrome real com 0 erros, empacotamento e upload via Chrome Web
+      Store Publish API) para o item existente `ddaapjklnfjhjigeglgmjmadjnmdodfe`. O workflow
+      `chrome-store-package.yml` agora também dispara sozinho a cada `push` em `main` que toque
+      `apps/extension/**`, rodando os mesmos scanners/smoke num Chrome real com display virtual e
+      publicando direto para revisão da Google sem aprovação manual (escolha deliberada) — veja
+      `docs/DEPLOY_CHROME_WEBSTORE.md`. Falta configurar os três secrets
+      (`CHROME_WEBSTORE_CLIENT_ID/CLIENT_SECRET/REFRESH_TOKEN`) como GitHub Actions repository
+      secrets para esse caminho automático funcionar em CI (só existem no `.env` local até agora) e
+      confirmar a revisão da loja no rascunho já enviado.
 - [ ] No primeiro acesso ao admin publicado, clicar em "Primeiro acesso? Criar conta", definir a
       senha da conta `matteusbonotto+admin@gmail.com`, confirmar o e-mail e validar o OTP humano.
 

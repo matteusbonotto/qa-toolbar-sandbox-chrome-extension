@@ -16,6 +16,7 @@ const state = {
   networkHistory: [],
   t: null,
   authorized: false,
+  features: {},
   integrityObserver: null,
   integrityInterval: null,
   accessInterval: null,
@@ -148,6 +149,30 @@ function safeCurrentUrl() {
   }
 }
 
+// Tools gated by the account's plan (via access-status' `features` map), on top of the
+// per-user "which menu items are enabled" preference. Keys here match the Supabase
+// `features.key` rows exactly (see supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql).
+const PLAN_GATED_TOOLS = {
+  characterCounter: "characterCounter.enabled",
+  macroStudio: "macroStudio.enabled",
+  multiClick: "multiClick.enabled",
+  inputLab: "inputLab.enabled",
+  fakerFill: "fakerFill.enabled",
+  keyView: "keyView.enabled",
+};
+
+function hasPlanFeature(toolKey) {
+  const featureKey = PLAN_GATED_TOOLS[toolKey];
+  if (!featureKey) return true;
+  return state.features?.[featureKey] === true;
+}
+
+function requirePlanFeature(toolKey) {
+  if (hasPlanFeature(toolKey)) return true;
+  showQaToast("Este recurso não está disponível no seu plano atual.", "error");
+  return false;
+}
+
 function applyPinnedTools() {
   const root = state.shadowRoot;
   if (!root) return;
@@ -169,7 +194,9 @@ function applyPinnedTools() {
     characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
     inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
   };
-  for (const [key, id] of Object.entries(menuItems)) root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key));
+  for (const [key, id] of Object.entries(menuItems)) {
+    root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
+  }
   renderPinnedMacros();
 }
 
@@ -1934,8 +1961,9 @@ function stopKeyView() {
 
 function syncKeyView() {
   const preferences = getKeyViewPreferences();
-  state.shadowRoot?.getElementById("keyViewMenuItem")?.classList.toggle("isActive", preferences.enabled === true);
-  if (preferences.enabled) {
+  const enabled = preferences.enabled === true && hasPlanFeature("keyView");
+  state.shadowRoot?.getElementById("keyViewMenuItem")?.classList.toggle("isActive", enabled);
+  if (enabled) {
     if (!preferences.typingMode && state.keyView.typingText) clearKeyViewTyping();
     startKeyView();
     const mouseOverlay = document.getElementById("qts-mouse-view-overlay");
@@ -1949,6 +1977,7 @@ async function saveKeyViewPreferences(next) {
 }
 
 function openKeyView() {
+  if (!requirePlanFeature("keyView")) return;
   const preferences = getKeyViewPreferences();
   let selectedPosition = preferences.position;
   openDrawer({
@@ -2011,6 +2040,7 @@ function downloadMacroJson(macros) {
 function renderPinnedMacros() {
   const container = state.shadowRoot?.getElementById("pinnedMacrosMenu");
   if (!container) return;
+  if (!hasPlanFeature("macroStudio")) { container.innerHTML = ""; return; }
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
   const macros = (state.workspace?.macros || []).filter((macro) => pinned.has(macro.id));
   container.innerHTML = macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">▶ ${escapeHtml(macro.name)}</button>`).join("");
@@ -2022,6 +2052,7 @@ function renderPinnedMacros() {
 }
 
 function openCharacterCounter() {
+  if (!requirePlanFeature("characterCounter")) return;
   const selected = String(document.getSelection()?.toString() || "");
   openDrawer({
     title: "Contador de caracteres",
@@ -2088,6 +2119,7 @@ function selectPageElement({ accepts = () => true, onSelected, instruction }) {
 }
 
 function openMultiClick(selectedElement = null) {
+  if (!requirePlanFeature("multiClick")) return;
   const selector = selectedElement ? window.QTS_QA_TOOLS.uniqueSelector(selectedElement) : "";
   openDrawer({
     title: "Multiclick",
@@ -2113,6 +2145,7 @@ function openMultiClick(selectedElement = null) {
 }
 
 function openInputLab(selectedElement = null) {
+  if (!requirePlanFeature("inputLab")) return;
   const info = selectedElement ? window.QTS_QA_TOOLS.inspectInput(selectedElement) : null;
   const infoHtml = info ? `<div class="qts-card"><b>${escapeHtml(info.selector)}</b><div class="qts-tool-grid">${[["Tipo", info.type], ["Obrigatório", info.required ? "Sim" : "Não"], ["Mínimo", info.min ?? info.minLength ?? "—"], ["Máximo", info.max ?? info.maxLength ?? "—"], ["Pattern", info.pattern || "—"]].map(([label, value]) => `<div><small>${label}</small><br><b>${escapeHtml(value)}</b></div>`).join("")}</div></div>` : "";
   openDrawer({
@@ -2137,6 +2170,7 @@ function openInputLab(selectedElement = null) {
 }
 
 function openFakerFill(selectedRoot = null) {
+  if (!requirePlanFeature("fakerFill")) return;
   openDrawer({
     title: "Faker Fill",
     bodyHtml: `<p class="qts-tool-lead">Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.</p>
@@ -2231,7 +2265,7 @@ async function continueMacroRun(run, { announce = false } = {}) {
 }
 
 async function playMacro(macro) {
-  if (state.macroPlaying || !macro?.steps?.length) return;
+  if (!hasPlanFeature("macroStudio") || state.macroPlaying || !macro?.steps?.length) return;
   const run = { macroId: macro.id, index: 0, expiresAt: Date.now() + 10 * 60_000 };
   const saved = await macroRunRequest("set", run);
   if (!saved?.ok) { showQaToast("Não foi possível iniciar a macro com segurança.", "error"); return; }
@@ -2342,6 +2376,7 @@ async function importMacrosFile(file) {
 }
 
 function openMacroStudio() {
+  if (!requirePlanFeature("macroStudio")) return;
   const macros = state.workspace?.macros || [];
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
   openDrawer({
@@ -2523,9 +2558,14 @@ function requestAccessState(force = false) {
   });
 }
 
+function isPlainObject(value) {
+  return Boolean(value) && typeof value === "object" && !Array.isArray(value);
+}
+
 async function refreshAuthorization(force = false) {
   const access = await requestAccessState(force);
   state.authorized = access.active === true;
+  state.features = isPlainObject(access.features) ? access.features : {};
   if (!state.authorized) removeToolbar({ disableBridge: true });
   else syncToolbarForCurrentLocation();
   return state.authorized;

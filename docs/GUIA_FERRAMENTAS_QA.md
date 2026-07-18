@@ -2,6 +2,24 @@
 
 As ferramentas aparecem em **Tools** na barra e podem ser ativadas ou ocultadas em **Configurações → Barra e aparência**.
 
+## Disponibilidade por plano
+
+Todas as ferramentas desta página são liberadas por plano (não é mais tudo-ou-nada): o item some do
+menu **Tools** quando o plano ativo não inclui aquela ferramenta.
+
+| Ferramenta | Smoke Test | Regression Runner | Root Cause Analyst | Release Manager |
+|---|---|---|---|---|
+| Contador de caracteres | ✓ | ✓ | ✓ | ✓ |
+| Multiclick | ✓ | ✓ | ✓ | ✓ |
+| Input Lab | — | ✓ | ✓ | ✓ |
+| Faker Fill | — | ✓ | ✓ | ✓ |
+| Macro Studio | — | — | ✓ | ✓ |
+| Key View | — | — | — | ✓ |
+
+A distribuição é configurável pelo founder em `/admin/` → aba **Feature flags**, sem precisar de
+deploy — a tabela acima reflete a configuração padrão de fábrica
+(`supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql`).
+
 ## Ferramentas rápidas
 
 - **Contador de caracteres**: mede com/sem espaços, palavras, linhas e bytes UTF-8. Pode começar com o texto selecionado na página.

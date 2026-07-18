@@ -7,6 +7,18 @@ function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+function sanitizeFeatures(value) {
+  const result = {};
+  if (!isRecord(value)) return result;
+  for (const [key, raw] of Object.entries(value)) {
+    if (typeof key !== "string" || key.length > 80 || !/^[a-zA-Z][a-zA-Z0-9._-]*$/.test(key)) continue;
+    if (typeof raw === "boolean" || typeof raw === "number" || (typeof raw === "string" && raw.length <= 200)) {
+      result[key] = raw;
+    }
+  }
+  return result;
+}
+
 function validSession(value) {
   return isRecord(value)
     && typeof value.accessToken === "string" && value.accessToken.length >= 20 && value.accessToken.length <= 8_192
@@ -93,6 +105,7 @@ export async function getAccessState({ force = false } = {}) {
       plan: isRecord(status?.plan) ? { key: String(status.plan.key ?? ""), name: String(status.plan.name ?? "") } : null,
       source: typeof status?.source === "string" ? status.source : null,
       expiresAt: typeof status?.expiresAt === "string" ? status.expiresAt : null,
+      features: sanitizeFeatures(status?.features),
       user: { id: session.user.id, email: typeof session.user.email === "string" ? session.user.email : "" },
       checkedAt: typeof status?.checkedAt === "string" ? status.checkedAt : new Date().toISOString(),
       cachedAt: Date.now(),

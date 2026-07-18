@@ -5,6 +5,7 @@ import {
   loadAccessStatus,
   handoffSessionToExtension,
   loadPriceCatalog,
+  sendPasswordReset,
   sendSignInLink,
   signIn,
   signOut,
@@ -151,6 +152,7 @@ export function PricingSection() {
     if (code === "voucher_unavailable") return t.pricing.voucherErrorInvalid;
     if (code === "authentication_required" || code === "invalid_session") return t.pricing.authRequired;
     if (code === "backend_not_configured") return t.pricing.configUnavailable;
+    if (code === "subscription_already_exists") return t.pricing.alreadySubscribed;
     return t.pricing.checkoutFailed;
   }
 
@@ -225,6 +227,24 @@ export function PricingSection() {
       setAuthMessage(t.pricing.emailLinkSent);
     } catch (error) {
       setAuthError(messageForAuthError(error));
+    } finally {
+      setAuthBusy(false);
+    }
+  }
+
+  async function handleForgotPassword() {
+    setAuthError(null);
+    setAuthMessage(null);
+    if (!email.trim()) {
+      setAuthError(t.pricing.forgotPasswordEmailRequired);
+      return;
+    }
+    setAuthBusy(true);
+    try {
+      await sendPasswordReset(email.trim());
+      setAuthMessage(t.pricing.forgotPasswordSent);
+    } catch {
+      setAuthError(t.pricing.forgotPasswordFailed);
     } finally {
       setAuthBusy(false);
     }
@@ -355,9 +375,14 @@ export function PricingSection() {
                       {authBusy ? t.pricing.working : authMode === "signin" ? t.pricing.signIn : t.pricing.signUp}
                     </button>
                     {authMode === "signin" ? (
-                      <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleSendSignInLink()}>
-                        {t.pricing.emailLink}
-                      </button>
+                      <>
+                        <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleSendSignInLink()}>
+                          {t.pricing.emailLink}
+                        </button>
+                        <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleForgotPassword()}>
+                          {t.pricing.forgotPassword}
+                        </button>
+                      </>
                     ) : null}
                   </form>
                 </>
@@ -419,9 +444,18 @@ export function PricingSection() {
             const planText = t.pricing.plans[plan.id];
             const price = priceCatalog[plan.id]?.[billingCycle];
             const unavailable = pricingError ? "—" : t.pricing.working;
+            // Gate on `billing` (present only when a real Stripe subscription row backs the
+            // access), not on `access.active` in general — a founder/courtesy grant with no
+            // Stripe subscription (apps/admin's AccessPage supports granting access without a
+            // plan) is "active" but never blocks checkout-create-session server-side, so it
+            // must not block a purchase here either.
+            const hasBlockingSubscription = access?.billing != null;
+            const isCurrentPlan = hasBlockingSubscription && access?.plan?.key === plan.id;
+            const isBlockedByOtherPlan = hasBlockingSubscription && access?.plan?.key !== plan.id;
             return (
-              <div key={plan.id} className={`qts-plan-card${plan.recommended ? " is-recommended" : ""}`}>
+              <div key={plan.id} className={`qts-plan-card${plan.recommended ? " is-recommended" : ""}${isCurrentPlan ? " is-current-plan" : ""}`}>
                 {plan.recommended ? <span className="qts-plan-badge">{t.pricing.recommendedBadge}</span> : null}
+                {isCurrentPlan ? <span className="qts-plan-badge qts-plan-badge-current">{t.pricing.currentPlanBadge}</span> : null}
                 <h3>{planText.name}</h3>
                 <p className="qts-plan-tagline">{planText.tagline}</p>
                 <div className="qts-plan-price">
@@ -435,14 +469,22 @@ export function PricingSection() {
                   type="button"
                   className={`qts-btn ${plan.recommended ? "qts-btn-primary" : "qts-btn-ghost"} qts-plan-cta`}
                   onClick={() => void handleSelectPlan(plan.id)}
-                  disabled={pendingPlanId !== null || (!plan.isFree && !price)}
+                  disabled={pendingPlanId !== null || (!plan.isFree && !price) || isCurrentPlan || isBlockedByOtherPlan}
+                  title={isBlockedByOtherPlan ? t.pricing.alreadySubscribed : undefined}
                 >
-                  {pendingPlanId === plan.id ? t.pricing.working : plan.isFree ? t.pricing.ctaFree : t.pricing.ctaPaid}
+                  {pendingPlanId === plan.id
+                    ? t.pricing.working
+                    : isCurrentPlan
+                      ? t.pricing.currentPlanCta
+                      : isBlockedByOtherPlan
+                        ? t.pricing.unavailableWhileSubscribed
+                        : plan.isFree ? t.pricing.ctaFree : t.pricing.ctaPaid}
                 </button>
               </div>
             );
           })}
         </div>
+        {access?.billing != null ? <p className="qts-plan-change-hint">{t.pricing.alreadySubscribed}</p> : null}
       </div>
     </section>
   );

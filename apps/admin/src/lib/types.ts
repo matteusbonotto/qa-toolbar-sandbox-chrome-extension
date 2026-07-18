@@ -10,6 +10,19 @@ export interface Plan {
   created_at: string;
 }
 
+export interface Feature {
+  id: string;
+  key: string;
+  value_type: "boolean" | "integer" | "string";
+  description: string;
+}
+
+export interface PlanFeatureValue {
+  plan_id: string;
+  feature_id: string;
+  value: boolean | number | string;
+}
+
 export interface Profile {
   id: string;
   display_name: string | null;

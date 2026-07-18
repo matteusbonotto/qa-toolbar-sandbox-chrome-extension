@@ -257,6 +257,16 @@ a {
   border-bottom: none;
 }
 
+.qa-cell-input {
+  width: 90px;
+  min-height: 32px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+
 .qa-badge {
   display: inline-flex;
   padding: 2px 9px;

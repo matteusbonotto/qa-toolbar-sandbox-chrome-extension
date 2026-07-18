@@ -34,6 +34,7 @@ export interface Dictionary {
   };
   simulator: {
     hint: string;
+    illustrationBadge: string;
     client: string;
     project: string;
     product: string;
@@ -150,6 +151,14 @@ export interface Dictionary {
     paymentCanceled: string;
     checkoutFailed: string;
     working: string;
+    forgotPassword: string;
+    forgotPasswordEmailRequired: string;
+    forgotPasswordSent: string;
+    forgotPasswordFailed: string;
+    alreadySubscribed: string;
+    currentPlanBadge: string;
+    currentPlanCta: string;
+    unavailableWhileSubscribed: string;
     plans: Record<"smoke-test" | "regression-runner" | "root-cause-analyst" | "release-manager", PlanTranslation>;
   };
   support: {
@@ -183,6 +192,22 @@ export interface Dictionary {
     contactTitle: string;
     contactBody: string;
   };
+  resetPassword: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    newPasswordLabel: string;
+    confirmPasswordLabel: string;
+    submit: string;
+    working: string;
+    success: string;
+    successCta: string;
+    mismatch: string;
+    tooShort: string;
+    invalidLink: string;
+    genericError: string;
+    backLink: string;
+  };
 }
 
 const pt: Dictionary = {
@@ -205,6 +230,7 @@ const pt: Dictionary = {
   },
   simulator: {
     hint: "Simule a troca de contexto e use as ferramentas de teste — tudo funciona de verdade aqui dentro.",
+    illustrationBadge: "Ilustração interativa — não é a extensão real instalada",
     client: "Cliente",
     project: "Projeto",
     product: "Produto",
@@ -330,6 +356,14 @@ const pt: Dictionary = {
     paymentCanceled: "Checkout cancelado. Nenhuma liberação foi feita.",
     checkoutFailed: "Não foi possível concluir esta etapa. Revise os dados e tente novamente.",
     working: "Aguarde…",
+    forgotPassword: "Esqueci minha senha",
+    forgotPasswordEmailRequired: "Digite seu e-mail acima para receber o link de redefinição.",
+    forgotPasswordSent: "Enviamos um link para redefinir sua senha. Confira seu e-mail.",
+    forgotPasswordFailed: "Não foi possível enviar o link agora. Tente novamente em instantes.",
+    alreadySubscribed: "Você já tem uma assinatura ativa. Para trocar de plano, fale com o suporte.",
+    currentPlanBadge: "Seu plano atual",
+    currentPlanCta: "Plano atual",
+    unavailableWhileSubscribed: "Indisponível — assinatura ativa",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -338,6 +372,7 @@ const pt: Dictionary = {
           "Toolbar completa em qualquer site",
           "1 workspace (cliente/projeto/produto)",
           "Evidências básicas (screenshot + marcadores)",
+          "Contador de caracteres e Multiclick",
           "Suporte por e-mail",
         ],
       },
@@ -349,6 +384,7 @@ const pt: Dictionary = {
           "Workspaces ilimitados",
           "Gravação de evidências em vídeo",
           "Inspectors de rede + JSON Studio",
+          "Input Lab e Faker Fill (dados de teste sintéticos)",
         ],
       },
       "root-cause-analyst": {
@@ -358,6 +394,7 @@ const pt: Dictionary = {
           "Tudo do Regression Runner",
           "Breakpoint Viewer em tela cheia",
           "Freeze Clock + Force HTTP",
+          "Macro Studio (gravação, replay e exportação Playwright)",
           "Importação/exportação de workspace em equipe",
           "Suporte prioritário",
         ],
@@ -367,6 +404,7 @@ const pt: Dictionary = {
         tagline: "Acesso completo, sem limites",
         features: [
           "Tudo do Root Cause Analyst",
+          "Key View (atalhos, digitação e mouse na tela)",
           "Uso ilimitado em todos os recursos",
           "Múltiplos times e workspaces compartilhados",
           "Onboarding dedicado",
@@ -410,6 +448,22 @@ const pt: Dictionary = {
     contactTitle: "Contato",
     contactBody: "Dúvidas sobre privacidade? Escreva para contato@matheusbonotto.com.br.",
   },
+  resetPassword: {
+    eyebrow: "QA Toolbar Sandbox",
+    title: "Redefinir senha",
+    lead: "Escolha uma nova senha para sua conta.",
+    newPasswordLabel: "Nova senha",
+    confirmPasswordLabel: "Repetir nova senha",
+    submit: "Concluir",
+    working: "Aguarde…",
+    success: "Senha atualizada. Você já pode entrar com a nova senha.",
+    successCta: "Voltar para o início",
+    mismatch: "As senhas não coincidem.",
+    tooShort: "A senha precisa ter pelo menos 8 caracteres.",
+    invalidLink: "Este link de redefinição é inválido ou expirou. Solicite um novo em \"Esqueci minha senha\".",
+    genericError: "Não foi possível atualizar sua senha agora. Tente novamente.",
+    backLink: "Voltar para o início",
+  },
 };
 
 const es: Dictionary = {
@@ -432,6 +486,7 @@ const es: Dictionary = {
   },
   simulator: {
     hint: "Simula el cambio de contexto y usa las herramientas de prueba — todo funciona de verdad aquí dentro.",
+    illustrationBadge: "Ilustración interactiva — no es la extensión real instalada",
     client: "Cliente",
     project: "Proyecto",
     product: "Producto",
@@ -557,6 +612,14 @@ const es: Dictionary = {
     paymentCanceled: "Checkout cancelado. No se liberó ningún acceso.",
     checkoutFailed: "No fue posible completar esta etapa. Revisa los datos e inténtalo de nuevo.",
     working: "Espera…",
+    forgotPassword: "Olvidé mi contraseña",
+    forgotPasswordEmailRequired: "Escribe tu correo arriba para recibir el enlace de restablecimiento.",
+    forgotPasswordSent: "Enviamos un enlace para restablecer tu contraseña. Revisa tu correo.",
+    forgotPasswordFailed: "No fue posible enviar el enlace ahora. Inténtalo de nuevo en un momento.",
+    alreadySubscribed: "Ya tienes una suscripción activa. Para cambiar de plan, contacta con soporte.",
+    currentPlanBadge: "Tu plan actual",
+    currentPlanCta: "Plan actual",
+    unavailableWhileSubscribed: "No disponible — suscripción activa",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -565,6 +628,7 @@ const es: Dictionary = {
           "Toolbar completa en cualquier sitio",
           "1 workspace (cliente/proyecto/producto)",
           "Evidencias básicas (captura + marcadores)",
+          "Contador de caracteres y Multiclick",
           "Soporte por correo",
         ],
       },
@@ -576,6 +640,7 @@ const es: Dictionary = {
           "Workspaces ilimitados",
           "Grabación de evidencias en video",
           "Inspectors de red + JSON Studio",
+          "Input Lab y Faker Fill (datos de prueba sintéticos)",
         ],
       },
       "root-cause-analyst": {
@@ -585,6 +650,7 @@ const es: Dictionary = {
           "Todo de Regression Runner",
           "Breakpoint Viewer a pantalla completa",
           "Freeze Clock + Force HTTP",
+          "Macro Studio (grabación, repetición y exportación a Playwright)",
           "Importación/exportación de workspace en equipo",
           "Soporte prioritario",
         ],
@@ -594,6 +660,7 @@ const es: Dictionary = {
         tagline: "Acceso completo, sin límites",
         features: [
           "Todo de Root Cause Analyst",
+          "Key View (atajos, escritura y mouse en pantalla)",
           "Uso ilimitado en todas las funciones",
           "Múltiples equipos y workspaces compartidos",
           "Onboarding dedicado",
@@ -637,6 +704,22 @@ const es: Dictionary = {
     contactTitle: "Contacto",
     contactBody: "¿Dudas sobre privacidad? Escribe a contato@matheusbonotto.com.br.",
   },
+  resetPassword: {
+    eyebrow: "QA Toolbar Sandbox",
+    title: "Restablecer contraseña",
+    lead: "Elige una nueva contraseña para tu cuenta.",
+    newPasswordLabel: "Nueva contraseña",
+    confirmPasswordLabel: "Repetir nueva contraseña",
+    submit: "Confirmar",
+    working: "Espera…",
+    success: "Contraseña actualizada. Ya puedes entrar con la nueva contraseña.",
+    successCta: "Volver al inicio",
+    mismatch: "Las contraseñas no coinciden.",
+    tooShort: "La contraseña debe tener al menos 8 caracteres.",
+    invalidLink: "Este enlace de restablecimiento no es válido o expiró. Solicita uno nuevo en \"Olvidé mi contraseña\".",
+    genericError: "No fue posible actualizar tu contraseña ahora. Inténtalo de nuevo.",
+    backLink: "Volver al inicio",
+  },
 };
 
 const en: Dictionary = {
@@ -659,6 +742,7 @@ const en: Dictionary = {
   },
   simulator: {
     hint: "Switch context and use the testing tools — everything here actually works.",
+    illustrationBadge: "Interactive illustration — not the real installed extension",
     client: "Client",
     project: "Project",
     product: "Product",
@@ -784,6 +868,14 @@ const en: Dictionary = {
     paymentCanceled: "Checkout canceled. No access was granted.",
     checkoutFailed: "This step could not be completed. Review the details and try again.",
     working: "Please wait…",
+    forgotPassword: "Forgot my password",
+    forgotPasswordEmailRequired: "Type your email above to receive the reset link.",
+    forgotPasswordSent: "We sent a link to reset your password. Check your email.",
+    forgotPasswordFailed: "Could not send the link right now. Try again in a moment.",
+    alreadySubscribed: "You already have an active subscription. To change plans, contact support.",
+    currentPlanBadge: "Your current plan",
+    currentPlanCta: "Current plan",
+    unavailableWhileSubscribed: "Unavailable — active subscription",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -792,6 +884,7 @@ const en: Dictionary = {
           "Full toolbar on any site",
           "1 workspace (client/project/product)",
           "Basic evidence (screenshot + markers)",
+          "Character counter and Multiclick",
           "Email support",
         ],
       },
@@ -803,6 +896,7 @@ const en: Dictionary = {
           "Unlimited workspaces",
           "Video evidence recording",
           "Network Inspectors + JSON Studio",
+          "Input Lab and Faker Fill (synthetic test data)",
         ],
       },
       "root-cause-analyst": {
@@ -812,6 +906,7 @@ const en: Dictionary = {
           "Everything in Regression Runner",
           "Full-screen Breakpoint Viewer",
           "Freeze Clock + Force HTTP",
+          "Macro Studio (record, replay and Playwright export)",
           "Team workspace import/export",
           "Priority support",
         ],
@@ -821,6 +916,7 @@ const en: Dictionary = {
         tagline: "Full access, no limits",
         features: [
           "Everything in Root Cause Analyst",
+          "Key View (on-screen shortcuts, typing and mouse)",
           "Unlimited use of every feature",
           "Multiple teams and shared workspaces",
           "Dedicated onboarding",
@@ -863,6 +959,22 @@ const en: Dictionary = {
     accountBody: "When you create an account — whether from the landing page or the extension — we collect your email and payment information processed directly by Stripe (we never store card data on our servers). By continuing, you consent to this policy and the terms of use.",
     contactTitle: "Contact",
     contactBody: "Questions about privacy? Write to contato@matheusbonotto.com.br.",
+  },
+  resetPassword: {
+    eyebrow: "QA Toolbar Sandbox",
+    title: "Reset password",
+    lead: "Choose a new password for your account.",
+    newPasswordLabel: "New password",
+    confirmPasswordLabel: "Confirm new password",
+    submit: "Finish",
+    working: "Please wait…",
+    success: "Password updated. You can now sign in with the new password.",
+    successCta: "Back to home",
+    mismatch: "Passwords do not match.",
+    tooShort: "Password must be at least 8 characters.",
+    invalidLink: "This reset link is invalid or has expired. Request a new one from \"Forgot my password\".",
+    genericError: "Could not update your password right now. Try again.",
+    backLink: "Back to home",
   },
 };
 

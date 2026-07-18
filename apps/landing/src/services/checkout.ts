@@ -129,6 +129,17 @@ export async function signOut(): Promise<void> {
   if (error) throw new Error("signout_failed");
 }
 
+export async function sendPasswordReset(email: string): Promise<void> {
+  const redirectTo = new URL(`${import.meta.env.BASE_URL}redefinir-senha`, window.location.origin).href;
+  const { error } = await requireClient().auth.resetPasswordForEmail(email, { redirectTo });
+  if (error) throw new Error("password_reset_failed");
+}
+
+export async function updatePassword(newPassword: string): Promise<void> {
+  const { error } = await requireClient().auth.updateUser({ password: newPassword });
+  if (error) throw new Error("password_update_failed");
+}
+
 export async function startCheckout(input: {
   planId: PlanId;
   billingCycle: BillingCycle;
