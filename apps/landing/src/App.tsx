@@ -1,6 +1,7 @@
 import { HeroSection } from "./sections/HeroSection";
 import { AboutSection } from "./sections/AboutSection";
 import { SemiAutoSection } from "./sections/SemiAutoSection";
+import { FeaturesSection } from "./sections/FeaturesSection";
 import { PricingSection } from "./sections/PricingSection";
 import { SupportSection } from "./sections/SupportSection";
 import { Footer } from "./sections/Footer";
@@ -52,6 +53,7 @@ export default function App() {
           <HeroSection />
           <AboutSection />
           <SemiAutoSection />
+          <FeaturesSection />
           <PricingSection />
           <SupportSection />
         </main>
