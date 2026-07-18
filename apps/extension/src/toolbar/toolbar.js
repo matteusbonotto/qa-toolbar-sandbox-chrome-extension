@@ -271,9 +271,9 @@ function buildShadowHost() {
         box-shadow: 0 2px 10px rgba(0,0,0,.25); transition: transform 160ms ease;
       }
       #bar.isMinimized { transform: translateY(-110%); }
-      #left { min-width: 0; flex: 1 1 auto; height: 100%; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
+      #left { min-width: 0; flex: 1 1 auto; height: 100%; display: flex; flex-direction: row; align-items: center; gap: 8px; }
       #right { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; }
-      #contextRow { min-width: 0; display: flex; align-items: center; gap: 8px; }
+      #textStack { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
       .qts-client-label {
@@ -338,8 +338,11 @@ function buildShadowHost() {
     </style>
     <div id="bar" role="toolbar" aria-label="Ferramentas de QA">
       <div id="left">
-        <span id="clientLabel" class="qts-client-label isHidden"></span>
-        <div id="contextRow"><span id="breadcrumb"></span><span id="currentUrl"></span></div>
+        <div id="textStack">
+          <span id="clientLabel" class="qts-client-label isHidden"></span>
+          <span id="breadcrumb"></span>
+        </div>
+        <span id="currentUrl"></span>
       </div>
       <div id="right">
         <button id="testStatusButton" type="button" title="${escapeHtml(t.testStatusTitle)}">${escapeHtml(t.testStatus)}</button>
