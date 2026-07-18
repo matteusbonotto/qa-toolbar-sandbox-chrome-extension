@@ -376,7 +376,10 @@
 }
 
 .qts-mock-browser.is-mobile {
-  flex: 0 1 390px;
+  /* flex-shrink: 0 (not a flex-basis) — .qts-mock-device-stage is a column flex container
+     (for the illustration badge above it), so a flex-basis here would size the main axis
+     (height), squashing the phone frame down to a square instead of controlling its width. */
+  flex-shrink: 0;
   width: 100%;
   min-width: 0;
   max-width: 390px;
