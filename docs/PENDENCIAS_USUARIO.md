@@ -1,15 +1,28 @@
 # Pendências que só você consegue resolver
 
-> Documento vivo, criado em 2026-07-17 pra reunir num lugar só tudo que ficou pendente
-> depois da sessão que adicionou: badge de ilustração na LP, fix da política de privacidade,
-> automação de deploy pra Chrome Web Store, fluxo de esqueci senha, gating de ferramentas por
-> plano + aba de feature flags no admin, e o fix de recompra. Tudo isso está no branch
-> `agent/lp-privacy-and-tooling`, ainda não mergeado em `main`.
+> Documento vivo, criado em 2026-07-17. A primeira leva (branch
+> `agent/lp-privacy-and-tooling`) já foi mergeada em `main`. Esta seção nova é da leva
+> seguinte, branch `agent/admin-security-and-lp-polish`: remoção do auto-cadastro do admin
+> (vulnerabilidade), fix do celular quadrado na LP, efeitos sonoros na extensão, catálogo de
+> ferramentas com accordion na LP, e remoção do `old_codex`. Ainda não mergeado.
 
 Marque `[x]` conforme for resolvendo. Nenhum destes itens pode ser feito por mim — todos exigem
 login, senha, OTP ou uma tela que só você tem acesso.
 
-## 1. Antes de mergear o PR
+## 0. Leva atual (`agent/admin-security-and-lp-polish`) — ainda não mergeada
+
+- [ ] **Revisar e mergear o PR**: https://github.com/matteusbonotto/qa-toolbar-sandbox-chrome-extension/pull/new/agent/admin-security-and-lp-polish
+      — inclui a correção de segurança do admin (urgente: o auto-cadastro público ficou no ar
+      desde o merge anterior até este PR ser mergeado).
+- [ ] Rodar `supabase/bootstrap-admin-account.mjs` (veja seção 4 abaixo) — a tela antiga de
+      "Criar conta" foi removida, esse script é o único jeito de criar/resetar a senha da conta
+      founder agora.
+- [ ] Checar a aba **Security → Dependabot** do repositório: o GitHub reportou 1 vulnerabilidade
+      alta numa dependência ao dar push nesta leva; `npm audit` local não encontrou nada (pode
+      ser uma dependência que só existe no lockfile de um workspace, ou uma advisory que o
+      registro do npm ainda não sincronizou). Não consegui investigar mais sem acesso à aba.
+
+## 1. Antes de mergear o PR (leva anterior, já mergeada)
 
 - [x] **Dispensar o alerta médio do CodeQL** ("File data in outbound network request" em
       `scripts/publish-chrome-webstore.mjs`). Não é bug — é o script mandando o `.zip` pro
