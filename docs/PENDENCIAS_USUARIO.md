@@ -11,7 +11,7 @@ login, senha, OTP ou uma tela que só você tem acesso.
 
 ## 1. Antes de mergear o PR
 
-- [ ] **Dispensar o alerta médio do CodeQL** ("File data in outbound network request" em
+- [x] **Dispensar o alerta médio do CodeQL** ("File data in outbound network request" em
       `scripts/publish-chrome-webstore.mjs`). Não é bug — é o script mandando o `.zip` pro
       endpoint oficial do Google, que é literalmente a função dele. Na aba **Files changed** do
       PR (ou em **Security → Code scanning alerts**), abra o alerta → **Dismiss alert** →
@@ -19,7 +19,7 @@ login, senha, OTP ou uma tela que só você tem acesso.
       extensão pro endpoint oficial da Chrome Web Store API, não é exfiltração."*
       O alerta **alto** (clear-text logging) já foi corrigido no commit `9750aa8` — depois de
       dispensar o médio, o check do CodeQL deve reavaliar e desbloquear o merge.
-- [ ] **Revisar e mergear o PR**: https://github.com/matteusbonotto/qa-toolbar-sandbox-chrome-extension/pull/new/agent/lp-privacy-and-tooling
+- [x] **Revisar e mergear o PR**: https://github.com/matteusbonotto/qa-toolbar-sandbox-chrome-extension/pull/new/agent/lp-privacy-and-tooling
       (ou a PR já aberta, se você já criou uma a partir desse link). Dar push direto em `main`
       foi bloqueado pelo próprio Claude Code — só você consegue mergear.
 
@@ -28,17 +28,17 @@ login, senha, OTP ou uma tela que só você tem acesso.
 Sem isso, o workflow `chrome-store-package.yml` falha logo no início com uma mensagem clara
 (não falha silenciosamente).
 
-- [ ] `Settings → Secrets and variables → Actions → New repository secret`, criar os três, com
+- [x] `Settings → Secrets and variables → Actions → New repository secret`, criar os três, com
       esses nomes exatos:
-  - [ ] `CHROME_WEBSTORE_CLIENT_ID`
-  - [ ] `CHROME_WEBSTORE_CLIENT_SECRET`
-  - [ ] `CHROME_WEBSTORE_REFRESH_TOKEN`
-- [ ] Os valores: copie do seu `.env` local (linhas com esses mesmos nomes, sem as aspas). Não
+  - [x] `CHROME_WEBSTORE_CLIENT_ID`
+  - [x] `CHROME_WEBSTORE_CLIENT_SECRET`
+  - [x] `CHROME_WEBSTORE_REFRESH_TOKEN`
+- [x] Os valores: copie do seu `.env` local (linhas com esses mesmos nomes, sem as aspas). Não
       estão neste documento nem foram colados no chat de propósito.
 
 ## 3. Supabase — permitir o redirect do "esqueci minha senha"
 
-- [ ] `Authentication → URL Configuration → Redirect URLs → Add URL`, adicionar exatamente:
+- [x] `Authentication → URL Configuration → Redirect URLs → Add URL`, adicionar exatamente:
       ```
       https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/redefinir-senha
       ```
@@ -48,15 +48,19 @@ Sem isso, o workflow `chrome-store-package.yml` falha logo no início com uma me
 
 ## 4. Chrome Web Store
 
-- [ ] **Aguardar a revisão pendente da Google terminar** (aprovada ou rejeitada) — enquanto isso,
+- [x] **Aguardar a revisão pendente da Google terminar** (aprovada ou rejeitada) — enquanto isso,
       o painel mostra os botões de editar/publicar desabilitados e o app não aparece na busca
       pública; isso é comportamento normal da Store, não bug daqui.
+      cancelei para adicionar o link correto da privacidade.
+      
 - [ ] Depois que a revisão atual resolver, rodar de novo `npm run release:chrome:upload`
       (ou deixar o push em `main` disparar sozinho, já que o workflow ficou automático) pra
       enviar o pacote com todas as mudanças desta sessão.
-- [ ] Do checklist antigo, ainda pendente: no primeiro acesso ao admin publicado, clicar em
-      "Primeiro acesso? Criar conta", definir a senha de `matteusbonotto+admin@gmail.com`,
-      confirmar o e-mail e validar o OTP humano.
+- [ ] **Mudou**: a tela "Primeiro acesso? Criar conta" foi removida do admin (era uma
+      vulnerabilidade — qualquer visitante de `/admin/` podia tentar cadastrar a conta founder
+      antes de você, já que o e-mail alvo aparece em texto puro na tela). Rode
+      `supabase/bootstrap-admin-account.mjs` localmente (com sua service-role key) pra criar a
+      conta ou redefinir a senha, depois faça login normal em `/admin/` e valide o OTP humano.
 
 ## 5. Testes ao vivo que eu não consegui fazer (sem sessão/credencial real)
 

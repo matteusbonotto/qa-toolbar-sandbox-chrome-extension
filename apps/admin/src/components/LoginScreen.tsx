@@ -7,15 +7,13 @@ export function LoginScreen() {
     status,
     otpEmail,
     signInWithPassword,
-    createFounderAccount,
+    sendPasswordReset,
     verifyEmailOtp,
     resendEmailOtp,
     signOut,
   } = useAuth();
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [password, setPassword] = useState("");
   const [otp, setOtp] = useState("");
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -38,25 +36,21 @@ export function LoginScreen() {
       setPassword("");
       setResendIn(60);
     } catch {
-      setError("Senha incorreta ou conta ainda não confirmada. Se for o primeiro acesso, crie a conta abaixo.");
+      setError("Senha incorreta. Se você esqueceu a senha, use o link abaixo.");
     } finally {
       setBusy(false);
     }
   }
 
-  async function handleCreateAccount(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (password.length < 8 || !acceptedTerms) return;
+  async function handleForgotPassword() {
     setBusy(true);
     setError(null);
     setNotice(null);
     try {
-      await createFounderAccount(password);
-      setPassword("");
-      setNotice("Conta iniciada. Confirme o e-mail recebido e depois volte para entrar com sua senha.");
-      setMode("signin");
+      await sendPasswordReset();
+      setNotice("Se essa conta existir, enviamos um link de redefinição de senha para o e-mail cadastrado.");
     } catch {
-      setError("Não foi possível criar a conta. Ela pode já existir; nesse caso, volte para Entrar.");
+      setError("Não foi possível enviar o link agora. Tente novamente em instantes.");
     } finally {
       setBusy(false);
     }
@@ -92,7 +86,6 @@ export function LoginScreen() {
   }
 
   const otpPending = status === "otp-pending";
-  const privacyUrl = new URL("../privacidade", new URL(import.meta.env.BASE_URL, window.location.origin)).href;
 
   return (
     <div className="qa-login-screen">
@@ -100,13 +93,11 @@ export function LoginScreen() {
         <span className="qa-brand-dot" />
         <span>QA Toolbar Sandbox — Admin</span>
       </div>
-      <h1>{otpPending ? "Digite o código recebido" : mode === "signup" ? "Criar acesso administrativo" : "Entre para continuar"}</h1>
+      <h1>{otpPending ? "Digite o código recebido" : "Entre para continuar"}</h1>
       <p>
         {otpPending
           ? `Enviamos um código de 8 dígitos para ${otpEmail ?? "o Gmail cadastrado"}. Ele expira em 10 minutos.`
-          : mode === "signup"
-            ? "Defina sua senha e confirme o e-mail para ativar o acesso."
-            : "Use sua senha e, na etapa seguinte, confirme o código enviado ao seu e-mail."}
+          : "Use sua senha e, na etapa seguinte, confirme o código enviado ao seu e-mail."}
       </p>
 
       <div className="qa-login-steps" aria-label="Etapas de autenticação">
@@ -148,41 +139,30 @@ export function LoginScreen() {
           <small>Após a validação, o acesso administrativo dura no máximo 60 minutos.</small>
         </form>
       ) : (
-        <form className="qa-login-form" onSubmit={(event) => void (mode === "signin" ? handlePasswordSubmit(event) : handleCreateAccount(event))}>
+        <form className="qa-login-form" onSubmit={(event) => void handlePasswordSubmit(event)}>
           <div className="qa-admin-identity">
             <span>Conta autorizada</span>
             <strong>{FOUNDER_EMAIL}</strong>
           </div>
           <label>
-            {mode === "signup" ? "Crie uma senha" : "Senha"}
+            Senha
             <input
               type="password"
               minLength={8}
-              autoComplete={mode === "signup" ? "new-password" : "current-password"}
+              autoComplete="current-password"
               required
               autoFocus
               value={password}
               onChange={(event) => setPassword(event.target.value)}
             />
           </label>
-          {mode === "signup" ? (
-            <label className="qa-terms-check">
-              <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
-              <span>Li e aceito a <a href={privacyUrl}>Política de Privacidade</a>.</span>
-            </label>
-          ) : null}
           {notice ? <div className="qa-notice" role="status">{notice}</div> : null}
           {error ? <div className="qa-error" role="alert">{error}</div> : null}
-          <button type="submit" className="qa-google-btn" disabled={busy || (mode === "signup" && !acceptedTerms)}>
-            {busy ? "Aguarde…" : mode === "signin" ? "Continuar com senha" : "Criar conta"}
+          <button type="submit" className="qa-google-btn" disabled={busy}>
+            {busy ? "Aguarde…" : "Continuar com senha"}
           </button>
-          <button type="button" className="qa-login-secondary" disabled={busy} onClick={() => {
-            setMode((current) => current === "signin" ? "signup" : "signin");
-            setError(null);
-            setNotice(null);
-            setPassword("");
-          }}>
-            {mode === "signin" ? "Primeiro acesso? Criar conta" : "Já tenho conta"}
+          <button type="button" className="qa-login-secondary" disabled={busy} onClick={() => void handleForgotPassword()}>
+            Esqueci minha senha
           </button>
         </form>
       )}
