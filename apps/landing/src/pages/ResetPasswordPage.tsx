@@ -28,13 +28,22 @@ export function ResetPasswordPage() {
         setReady(true);
       }
     });
-    void client.auth.getSession().then(({ data }) => {
+    // Deliberately does NOT fall back to "any existing session is fine" — a leftover session
+    // from something unrelated (e.g. still signed in from an earlier admin login attempt in
+    // the same browser) must never be accepted as a password-recovery grant, or updatePassword
+    // would run against a stale session and fail with a confusing 422 instead of a clear
+    // "this link is invalid" message. Only the PASSWORD_RECOVERY event — fired specifically when
+    // Supabase's client parses a real recovery code/token out of the URL — counts.
+    const timer = window.setTimeout(() => {
       if (settled) return;
       settled = true;
-      setLinkValid(Boolean(data.session));
+      setLinkValid(false);
       setReady(true);
-    });
-    return () => subscription.subscription.unsubscribe();
+    }, 2_000);
+    return () => {
+      subscription.subscription.unsubscribe();
+      window.clearTimeout(timer);
+    };
   }, []);
 
   async function handleSubmit(event: React.FormEvent) {
