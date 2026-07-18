@@ -25,6 +25,14 @@ export function LoginScreen() {
     return () => window.clearTimeout(timer);
   }, [status, resendIn]);
 
+  function messageForOtpError(error: unknown, fallback: string): string {
+    const code = error instanceof Error ? error.message : "";
+    if (code === "otp_email_rate_limited") {
+      return "O Supabase limitou o envio de e-mails por agora (muitas tentativas em pouco tempo). Espere alguns minutos e tente de novo — não é erro de senha nem de conta.";
+    }
+    return fallback;
+  }
+
   async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!password) return;
@@ -35,8 +43,8 @@ export function LoginScreen() {
       await signInWithPassword(FOUNDER_EMAIL, password);
       setPassword("");
       setResendIn(60);
-    } catch {
-      setError("Senha incorreta. Se você esqueceu a senha, use o link abaixo.");
+    } catch (error) {
+      setError(messageForOtpError(error, "Senha incorreta. Se você esqueceu a senha, use o link abaixo."));
     } finally {
       setBusy(false);
     }
@@ -78,8 +86,8 @@ export function LoginScreen() {
       await resendEmailOtp();
       setOtp("");
       setResendIn(60);
-    } catch {
-      setError("Não foi possível reenviar agora. Aguarde um minuto ou autentique novamente com a senha.");
+    } catch (error) {
+      setError(messageForOtpError(error, "Não foi possível reenviar agora. Aguarde um minuto ou autentique novamente com a senha."));
     } finally {
       setBusy(false);
     }
