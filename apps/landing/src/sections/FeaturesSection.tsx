@@ -1,5 +1,6 @@
 import { featureGroups } from "../data/featureGroups";
 import { useI18n } from "../i18n/I18nProvider";
+import { Icon } from "../components/Icon";
 
 export function FeaturesSection() {
   const { t } = useI18n();
@@ -17,7 +18,9 @@ export function FeaturesSection() {
             return (
               <div key={group.key} className="qts-feature-group">
                 <div className="qts-feature-group-head">
-                  <span className="qts-feature-group-icon" aria-hidden="true">{group.icon}</span>
+                  <span className="qts-feature-group-icon">
+                    <Icon name={group.icon} />
+                  </span>
                   <div>
                     <h3>{groupText.title}</h3>
                     <p>{groupText.description}</p>
@@ -32,12 +35,16 @@ export function FeaturesSection() {
                       return (
                         <details key={item.key} className="qts-feature-item">
                           <summary>
-                            <span className="qts-feature-item-icon" aria-hidden="true">{item.icon}</span>
+                            <span className="qts-feature-item-icon">
+                              <Icon name={item.icon} />
+                            </span>
                             <span className="qts-feature-item-heading">
                               <b>{itemText.title}</b>
                               <small>{itemText.short}</small>
                             </span>
-                            <span className="qts-feature-item-chevron" aria-hidden="true">▾</span>
+                            <span className="qts-feature-item-chevron">
+                              <Icon name="chevronDown" />
+                            </span>
                           </summary>
                           <p className="qts-feature-item-details">{itemText.details}</p>
                         </details>
