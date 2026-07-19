@@ -60,6 +60,10 @@ export async function signIn(email, password) {
   return storeSession(session);
 }
 
+export async function requestPasswordReset(email) {
+  await post("auth-recover-password", { email: String(email ?? "").trim() });
+}
+
 export async function acceptSessionHandoff(session) {
   await chrome.storage.local.remove(STORAGE_KEYS.accessStatus);
   return storeSession(session);

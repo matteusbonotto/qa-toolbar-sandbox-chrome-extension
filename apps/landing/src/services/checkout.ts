@@ -93,7 +93,13 @@ export async function signUp(email: string, password: string): Promise<Session |
   return data.session;
 }
 
-const publishedExtensionId = "ddaapjklnfjhjigeglgmjmadjnmdodfe";
+// The Web Store listing's own assigned ID, plus the deterministic ID every "Baixar extensão"
+// sideload gets (apps/extension/manifest.json has no "key" field — that ID comes from a fixed
+// keypair injected only into the separate sideload package by
+// scripts/package-extension-sideload.mjs). A visitor could have either installed, and
+// chrome.runtime.sendMessage only reaches an extension ID that's actually running, so both are
+// tried; whichever one is installed accepts the handoff, the other just no-ops.
+const candidateExtensionIds = ["ddaapjklnfjhjigeglgmjmadjnmdodfe", "piiiagolpefgheemlppmnpoiniddibjd"];
 
 export async function handoffSessionToExtension(session: Session): Promise<boolean> {
   if (!session.access_token || !session.refresh_token || !session.expires_at) return false;
@@ -102,17 +108,19 @@ export async function handoffSessionToExtension(session: Session): Promise<boole
     sendMessage?: (extensionId: string, message: unknown, callback: (response?: { accepted?: boolean }) => void) => void;
   } } }).chrome?.runtime;
   if (!chromeRuntime?.sendMessage) return false;
-  return new Promise((resolve) => {
-    chromeRuntime.sendMessage!(publishedExtensionId, {
-      type: "qts:landing-session-handoff",
-      session: {
-        accessToken: session.access_token,
-        refreshToken: session.refresh_token,
-        expiresAt: session.expires_at,
-        user: { id: session.user.id, email: session.user.email },
-      },
-    }, (response) => resolve(!chromeRuntime.lastError && response?.accepted === true));
-  });
+  const message = {
+    type: "qts:landing-session-handoff",
+    session: {
+      accessToken: session.access_token,
+      refreshToken: session.refresh_token,
+      expiresAt: session.expires_at,
+      user: { id: session.user.id, email: session.user.email },
+    },
+  };
+  const results = await Promise.all(candidateExtensionIds.map((extensionId) => new Promise<boolean>((resolve) => {
+    chromeRuntime.sendMessage!(extensionId, message, (response) => resolve(!chromeRuntime.lastError && response?.accepted === true));
+  })));
+  return results.some(Boolean);
 }
 
 export async function sendSignInLink(email: string): Promise<void> {

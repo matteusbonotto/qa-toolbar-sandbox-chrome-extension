@@ -397,13 +397,23 @@ export function PricingSection() {
               <strong>{t.pricing.accessActive}: {access.plan?.name}</strong>
               <span>{accessExpiry ? `${t.pricing.accessExpires} ${accessExpiry}` : t.pricing.accessPermanent}</span>
             </div>
-            {access.installUrl ? (
-              <a className="qts-btn qts-btn-primary" href={access.installUrl} target="_blank" rel="noreferrer">
-                {t.pricing.installExtension}
+            <div className="qts-access-panel-actions">
+              {access.installUrl ? (
+                <a className="qts-btn qts-btn-primary" href={access.installUrl} target="_blank" rel="noreferrer">
+                  {t.pricing.installExtension}
+                </a>
+              ) : null}
+              <a
+                className="qts-btn qts-btn-ghost"
+                href={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-extension.zip`}
+                download
+              >
+                {t.pricing.downloadExtensionZip}
               </a>
-            ) : null}
+            </div>
           </div>
         ) : null}
+        {access?.active ? <p className="qts-manual-install-hint">{t.pricing.downloadExtensionHint}</p> : null}
         {statusMessage ? <p className={`qts-checkout-message${statusError ? " is-error" : ""}`} role="status">{statusMessage}</p> : null}
         {pricingError ? <p className="qts-checkout-message is-error" role="alert">{pricingError}</p> : null}
 
