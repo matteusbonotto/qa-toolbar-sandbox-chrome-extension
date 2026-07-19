@@ -11,6 +11,7 @@
   let enabled = true;
 
   const NETWORK_EVENT = "qts:network-captured";
+  const HTTP_ERROR_EVENT = "qts:http-error-captured";
   const FREEZE_COMMAND_EVENT = "qts:freeze-clock-command";
   const FREEZE_STATE_EVENT = "qts:freeze-clock-state";
   const FORCE_HTTP_COMMAND_EVENT = "qts:force-http-command";
@@ -18,7 +19,10 @@
 
   const MAX_PAYLOAD_CHARS = 200_000;
   const HISTORY_LIMIT = 150;
-  const history = [];
+  // Named networkHistory, not history — this file runs in the page's real MAIN world, and a
+  // local `history` binding would shadow window.history for the rest of this scope, silently
+  // breaking the pushState/replaceState patch further below (it did, until this rename).
+  const networkHistory = [];
 
   function safeStringifyPreview(value) {
     try {
@@ -31,8 +35,8 @@
 
   function publishCapture(entry) {
     if (!enabled) return;
-    history.unshift(entry);
-    if (history.length > HISTORY_LIMIT) history.length = HISTORY_LIMIT;
+    networkHistory.unshift(entry);
+    if (networkHistory.length > HISTORY_LIMIT) networkHistory.length = HISTORY_LIMIT;
     document.dispatchEvent(new CustomEvent(NETWORK_EVENT, { detail: entry }));
   }
 
@@ -49,6 +53,24 @@
       payload: JSON.parse(preview.endsWith("…") ? preview.slice(0, -1) : preview),
       truncated: preview.endsWith("…"),
     });
+  }
+
+  // Status-only, body-format-agnostic — unlike captureJsonPayload above, this doesn't need (or
+  // try to parse) the response body, so it catches plain-text/HTML error pages too, not just
+  // JSON APIs. Deliberately excludes Force HTTP's forced responses: those are a QA tester
+  // deliberately simulating a status, not a real page error worth surfacing here.
+  function publishHttpError({ url, method, status, source }) {
+    if (!enabled || !(Number(status) >= 400)) return;
+    document.dispatchEvent(new CustomEvent(HTTP_ERROR_EVENT, {
+      detail: {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        url: String(url || ""),
+        method: String(method || "GET").toUpperCase(),
+        status: Number(status),
+        source,
+        capturedAt: Date.now(),
+      },
+    }));
   }
 
   // ---------------------------------------------------------------------
@@ -75,6 +97,7 @@
 
       const result = originalFetch.apply(this, args);
       result.then((response) => {
+        publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch" });
         response.clone().json()
           .then((payload) => captureJsonPayload({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload }))
           .catch(() => {});
@@ -98,6 +121,7 @@
     XhrProto.send = function (...args) {
       if (!enabled) return originalSend.apply(this, args);
       this.addEventListener("load", () => {
+        publishHttpError({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr" });
         try {
           const payload = typeof this.response === "object" && this.response !== null
             ? this.response
@@ -118,10 +142,13 @@
   const OriginalDate = window.Date;
   const originalSetTimeout = window.setTimeout.bind(window);
   const originalClearTimeout = window.clearTimeout.bind(window);
+  const originalSetInterval = window.setInterval.bind(window);
+  const originalClearInterval = window.clearInterval.bind(window);
   let frozen = false;
   let frozenAt = OriginalDate.now();
   const pendingTimeouts = new Map();
   const cancelledTimeouts = new Set();
+  const cancelledIntervals = new Set();
 
   function FrozenDate(...args) {
     if (!(this instanceof FrozenDate)) return new OriginalDate(frozen ? frozenAt : OriginalDate.now()).toString();
@@ -153,6 +180,24 @@
     return originalClearTimeout(timerId);
   };
 
+  // Intervals repeat on their own schedule, so freezing them just means skipping the tick's
+  // callback while frozen (the real interval keeps running underneath) — queuing-and-replaying
+  // like setTimeout would fire a burst of missed ticks all at once on resume.
+  window.setInterval = function (callback, delay, ...args) {
+    if (typeof callback !== "function") return originalSetInterval(callback, delay, ...args);
+    let timerId;
+    const wrapped = () => {
+      if (cancelledIntervals.has(timerId) || frozen) return;
+      callback(...args);
+    };
+    timerId = originalSetInterval(wrapped, delay);
+    return timerId;
+  };
+  window.clearInterval = function (timerId) {
+    cancelledIntervals.add(timerId);
+    return originalClearInterval(timerId);
+  };
+
   document.addEventListener(FREEZE_COMMAND_EVENT, (event) => {
     if (!enabled) return;
     const shouldFreeze = Boolean(event.detail?.freeze);
@@ -182,6 +227,28 @@
     document.dispatchEvent(new CustomEvent("qts:pagebridge-pong", { detail: { at: Date.now() } }));
   });
 
+  // ---------------------------------------------------------------------
+  // Action trace (Click Spy "Execute and observe"): fetch/XHR are already
+  // observable via qts:network-captured above, and SPA navigation via
+  // qts:location-change below — window.open is the one primitive with no
+  // existing event, so it's the only thing this patches, only while armed.
+  // ---------------------------------------------------------------------
+  let originalWindowOpen = null;
+  document.addEventListener("qts:action-trace-command", (event) => {
+    if (!enabled) return;
+    if (event.detail?.active) {
+      if (originalWindowOpen) return;
+      originalWindowOpen = window.open;
+      window.open = function (...args) {
+        document.dispatchEvent(new CustomEvent("qts:action-trace-event", { detail: { kind: "open", url: String(args[0] || "") } }));
+        return originalWindowOpen.apply(this, args);
+      };
+    } else if (originalWindowOpen) {
+      window.open = originalWindowOpen;
+      originalWindowOpen = null;
+    }
+  });
+
   const publishLocation = () => document.dispatchEvent(new CustomEvent("qts:location-change", { detail: { href: location.href } }));
   for (const method of ["pushState", "replaceState"]) {
     const original = history[method];
@@ -198,6 +265,7 @@
     enabled = event.detail?.active === true;
     if (!enabled) {
       window.__qtsForcedStatus = null;
+      if (originalWindowOpen) { window.open = originalWindowOpen; originalWindowOpen = null; }
       if (frozen) {
         frozen = false;
         const queued = [...pendingTimeouts.values()];

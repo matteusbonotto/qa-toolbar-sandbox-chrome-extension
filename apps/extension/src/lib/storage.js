@@ -15,12 +15,13 @@ const COLLECTION_KEYS = [
 ];
 
 export const DEFAULT_ENABLED_TOOLS = Object.freeze([
-  "clickSpy", "freezeClock", "forceHttp", "inspectors", "jsonStudio",
+  "clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio",
   "breakpoints", "testAccounts", "paymentMethods", "resources",
   "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView",
 ]);
 const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
 const SCHEMA_4_TOOLS = ["keyView"];
+const SCHEMA_5_TOOLS = ["errorMonitor"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -39,13 +40,48 @@ function id(value, prefix, index) {
   return clean || `${prefix}_${index + 1}`;
 }
 
+// 300k chars (~225KB binary) comfortably covers a small uploaded icon as a data: URL — plain
+// http(s) logo URLs are always far under this, so the cap only really bites oversized uploads.
+const IMAGE_VALUE_MAX_CHARS = 300_000;
+
 function entityAppearance(item) {
-  const logoUrl = text(item?.logoUrl ?? item?.logo ?? item?.imageUrl, 2_048);
+  const logoUrl = text(item?.logoUrl ?? item?.logo ?? item?.imageUrl, IMAGE_VALUE_MAX_CHARS);
   const abbreviation = text(item?.abbreviation ?? item?.shortName ?? item?.code, 4).toUpperCase();
   return {
     ...(logoUrl ? { logoUrl } : {}),
     ...(abbreviation ? { abbreviation } : {}),
     showLabel: item?.showLabel !== false,
+    active: item?.active !== false,
+  };
+}
+
+const CUSTOM_FIELD_TYPES = new Set(["string", "boolean", "number"]);
+
+function normalizeCustomFields(input) {
+  return (Array.isArray(input) ? input : []).slice(0, 20).map((field, index) => {
+    const type = CUSTOM_FIELD_TYPES.has(field?.type) ? field.type : "string";
+    const key = text(field?.key ?? field?.label, 40) || `campo_${index + 1}`;
+    let value;
+    if (type === "boolean") value = field?.value === true;
+    else if (type === "number") value = Number.isFinite(Number(field?.value)) ? Number(field.value) : 0;
+    else value = text(field?.value, 200);
+    return { key, type, value };
+  }).filter((field) => field.key);
+}
+
+function normalizeTestAccount(item, index, environments) {
+  const environmentId = id(item?.environmentId, "env", 0);
+  if (!environments.some((environment) => environment.id === environmentId)) return null;
+  return {
+    id: id(item?.id, "testAccount", index),
+    environmentId,
+    label: text(item?.label, 120) || `Conta ${index + 1}`,
+    accountType: text(item?.accountType, 60),
+    accountTypeImage: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
+    username: text(item?.username, 200),
+    password: text(item?.password, 200),
+    notes: text(item?.notes, 1_000),
+    customFields: normalizeCustomFields(item?.customFields),
     active: item?.active !== false,
   };
 }
@@ -76,7 +112,7 @@ export function normalizeUrlPatterns(input) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [],
@@ -84,6 +120,7 @@ export function createEmptyWorkspace() {
       language: "pt-BR",
       pushSiteContent: true,
       compactMode: false,
+      avatarShape: "square",
       pinnedTools: ["passFail", "screenshot", "notes", "record"],
       pinnedMacroIds: [],
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
@@ -185,25 +222,30 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 4) {
     for (const tool of SCHEMA_4_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 5) {
+    for (const tool of SCHEMA_5_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 4,
+    schemaVersion: 5,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments,
-    testAccounts: copyCollection("testAccounts").filter((item) => environments.some((environment) => environment.id === item.environmentId)),
+    testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
+      .map((item, index) => normalizeTestAccount(item, index, environments)).filter(Boolean),
     paymentMethods: copyCollection("paymentMethods").map((item) => ({
       ...item,
       environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null,
     })),
     apis: copyCollection("apis"),
     inspectors: copyCollection("inspectors"),
-    resources: copyCollection("resources"),
+    resources: copyCollection("resources").map((item) => ({ ...item, category: text(item?.category, 60) })),
     macros: normalizeMacros(source.macros),
     preferences: {
       ...empty.preferences,
       ...preferences,
       compactMode: preferences.compactMode === true,
       pushSiteContent: preferences.pushSiteContent !== false,
+      avatarShape: preferences.avatarShape === "round" ? "round" : "square",
       pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools,
       pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
       enabledTools: normalizedEnabledTools,

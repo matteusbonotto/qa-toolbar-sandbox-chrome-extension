@@ -19,10 +19,13 @@ export function Layout({ children }: { children: ReactNode }) {
     <div className="qa-shell">
       <aside className="qa-sidebar">
         <div className="qa-brand">
-          <span className="qa-brand-dot" />
-          <span>QTS Admin</span>
+          <img src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.png`} alt="" width={28} height={28} />
+          <div>
+            <strong>QA Toolbar Sandbox</strong>
+            <span>Admin</span>
+          </div>
         </div>
-        <nav style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <nav className="qa-nav">
           {NAV_ITEMS.map((item) => (
             <NavLink
               key={item.to}

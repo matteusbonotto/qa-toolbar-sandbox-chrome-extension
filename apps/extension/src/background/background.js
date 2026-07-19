@@ -68,7 +68,10 @@ async function applyContentScriptRegistration({ forceAccess = false } = {}) {
   }
   await chrome.scripting.registerContentScripts([
     { id: PAGEBRIDGE_SCRIPT_ID, matches, js: ["src/pagebridge/pagebridge.js"], world: "MAIN", runAt: "document_start", allFrames: false },
-    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/qa-tools-content.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: false },
+    // allFrames:true so the bar also renders inside the Breakpoint Viewer's own device-preview
+    // iframes (same-origin, matching these same URL patterns) — boot()'s tiny-frame guard in
+    // toolbar.js keeps this from mounting in incidental small embedded widgets on normal pages.
+    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: true },
   ]);
   await injectIntoOpenTabs(matches);
 }
@@ -83,7 +86,7 @@ async function injectIntoOpenTabs(matches) {
       if (existing?.present) return;
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", files: ["src/pagebridge/pagebridge.js"] });
       await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["src/toolbar/toolbar.css"] });
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/qa-tools-content.js", "src/toolbar/toolbar.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/toolbar/toolbar.js"] });
     } catch {}
   }));
 }
