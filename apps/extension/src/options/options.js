@@ -68,6 +68,7 @@ async function loadAccess(force = false) {
     showMessage("authMessage", "Não foi possível validar o acesso agora. Confira a conexão e tente novamente.", "Error");
   }
   if (!active) switchTab("account");
+  loadPreferenceUi(); // keeps the Key View plan-gate hint in sync with the freshest access state
   return active;
 }
 
@@ -144,6 +145,10 @@ document.getElementById("saveScope").addEventListener("click", async () => {
   document.getElementById("scopeSavedHint").textContent = t("Salvo.");
 });
 
+function hasKeyViewPlanAccess() {
+  return accessState?.features?.["keyView.enabled"] === true;
+}
+
 function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
   document.getElementById("compactMode").checked = preferences.compactMode === true;
@@ -155,6 +160,14 @@ function loadPreferenceUi() {
   document.getElementById("keyViewMouseEffects").checked = keyView.mouseEffects !== false;
   document.getElementById("keyViewTheme").value = keyView.theme === "light" ? "light" : "dark";
   document.getElementById("keyViewPosition").value = keyView.position || "bottom-center";
+  // Toggling these while the plan doesn't include Key View would save cleanly but never take
+  // visible effect on the bar (hasPlanFeature() in toolbar.js gates it) — disabling here instead
+  // of letting the user "turn it on" and then wondering why nothing happened.
+  const keyViewGated = !hasKeyViewPlanAccess();
+  ["keyViewEnabled", "keyViewTypingMode", "keyViewMouseEffects", "keyViewTheme", "keyViewPosition"].forEach((id) => {
+    document.getElementById(id).disabled = keyViewGated;
+  });
+  document.getElementById("keyViewPlanHint").hidden = !keyViewGated;
   const pinned = new Set(preferences.pinnedTools || []);
   document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
   const enabledTools = new Set(preferences.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);

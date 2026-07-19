@@ -1,4 +1,5 @@
 const { getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
+const ICON = window.QTS_ICONS.svg;
 
 const TOOLBAR_HEIGHT = 48;
 const HOST_ID = "qts-toolbar-host";
@@ -41,10 +42,10 @@ const FORCE_HTTP_STATUSES = [400, 401, 403, 404, 409, 422, 429, 500, 502, 503];
 function getTestStatusOptions() {
   const t = state.t;
   return [
-    { key: "pass", label: t.statusPass, icon: "✓", color: "#179153" },
-    { key: "fail", label: t.statusFail, icon: "✕", color: "#c70e0e" },
-    { key: "blocked", label: t.statusBlocked, icon: "⛔", color: "#a34b05" },
-    { key: "limitation", label: t.statusLimitation, icon: "△", color: "#5b21b6" },
+    { key: "pass", label: t.statusPass, icon: ICON("pass"), color: "#179153" },
+    { key: "fail", label: t.statusFail, icon: ICON("fail"), color: "#c70e0e" },
+    { key: "blocked", label: t.statusBlocked, icon: ICON("blocked"), color: "#a34b05" },
+    { key: "limitation", label: t.statusLimitation, icon: ICON("warning"), color: "#5b21b6" },
   ];
 }
 const TEST_STATUS_HISTORY_KEY = "qtsTestStatusHistoryV1";
@@ -101,6 +102,46 @@ function getCurrentHeight() {
 
 function setSpacerHeight() {
   document.documentElement.style.setProperty("--qts-toolbar-height", `${getCurrentHeight()}px`);
+}
+
+const HEADER_OFFSET_ATTR = "data-qts-header-offset";
+
+function clearSiteFixedHeaderOffsets() {
+  document.querySelectorAll(`[${HEADER_OFFSET_ATTR}]`).forEach((element) => {
+    element.style.marginTop = element.getAttribute(`${HEADER_OFFSET_ATTR}-original`) || "";
+    element.removeAttribute(HEADER_OFFSET_ATTR);
+    element.removeAttribute(`${HEADER_OFFSET_ATTR}-original`);
+  });
+}
+
+/**
+ * The spacer div pushes normal-flow content down, but a site's own position:fixed header
+ * (common on real QA targets) ignores document flow entirely and stays glued under our bar
+ * instead of below it. Auto-detecting every fixed element on an arbitrary page is too fuzzy to
+ * do safely (multiple headers, transformed stacking contexts, sticky sub-navs), so this stays
+ * conservative: only elements actually painted inside our bar's own vertical band right now —
+ * found via a few elementsFromPoint samples rather than a full DOM walk — get nudged down by
+ * margin-top, and only while pushSiteContent is on.
+ */
+function offsetSiteFixedHeaders() {
+  clearSiteFixedHeaderOffsets();
+  const height = getCurrentHeight();
+  if (!height || typeof document.elementsFromPoint !== "function") return;
+  const host = document.getElementById(HOST_ID);
+  const sampleY = Math.max(1, height - 4);
+  const sampleXs = [8, Math.floor(window.innerWidth / 2), Math.max(8, window.innerWidth - 8)];
+  const candidates = new Set();
+  sampleXs.forEach((x) => document.elementsFromPoint(x, sampleY).forEach((element) => candidates.add(element)));
+  candidates.forEach((element) => {
+    if (element === host || host?.contains(element) || element === document.body || element === document.documentElement) return;
+    if (element.id === SPACER_ID || element.hasAttribute(HEADER_OFFSET_ATTR)) return;
+    if (getComputedStyle(element).position !== "fixed") return;
+    const rect = element.getBoundingClientRect();
+    if (rect.top >= height || rect.height === 0) return;
+    element.setAttribute(HEADER_OFFSET_ATTR, "true");
+    element.setAttribute(`${HEADER_OFFSET_ATTR}-original`, element.style.marginTop || "");
+    element.style.marginTop = `${height}px`;
+  });
 }
 
 /**
@@ -250,6 +291,7 @@ function render() {
   applyPinnedTools();
   syncKeyView();
   setSpacerHeight();
+  offsetSiteFixedHeaders();
 }
 
 function buildShadowHost() {
@@ -346,42 +388,42 @@ function buildShadowHost() {
       </div>
       <div id="right">
         <button id="testStatusButton" type="button" title="${escapeHtml(t.testStatusTitle)}">${escapeHtml(t.testStatus)}</button>
-        <button id="passButton" class="iconOnly" type="button" title="${escapeHtml(t.pass)}">✓</button>
-        <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">✕</button>
+        <button id="passButton" class="iconOnly" type="button" title="${escapeHtml(t.pass)}">${ICON("pass")}</button>
+        <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
         <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
-        <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">▭</button>
+        <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
         <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
-        <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">📷</button>
-        <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">⏺</button>
-        <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">⏹</button>
+        <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">${ICON("camera")}</button>
+        <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
+        <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">${ICON("recordStop")}</button>
         <span id="recordTimer" class="isHidden">00:00</span>
-        <button id="macroRecordingChip" class="isHidden" type="button">● Macro <span id="macroStepCount">0</span> · parar</button>
+        <button id="macroRecordingChip" class="isHidden" type="button">${ICON("dot")} Macro <span id="macroStepCount">0</span> · parar</button>
         <div id="toolsWrapper">
-          <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ▾</button>
+          <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ${ICON("chevronDown")}</button>
           <div id="toolsMenu" role="menu">
             <div id="pinnedMacrosMenu"></div>
-            <button type="button" id="macroStudioMenuItem" role="menuitem">🧩 ${escapeHtml(t.macroStudioMenuLabel)}</button>
-            <button type="button" id="characterCounterMenuItem" role="menuitem">🔤 ${escapeHtml(t.characterCounterMenuLabel)}</button>
-            <button type="button" id="multiClickMenuItem" role="menuitem">⚡ ${escapeHtml(t.multiClickMenuLabel)}</button>
-            <button type="button" id="inputLabMenuItem" role="menuitem">✅ ${escapeHtml(t.inputLabMenuLabel)}</button>
-            <button type="button" id="fakerFillMenuItem" role="menuitem">✨ ${escapeHtml(t.fakerFillMenuLabel)}</button>
-            <button type="button" id="keyViewMenuItem" role="menuitem">⌨ ${escapeHtml(t.keyViewMenuLabel || "Key View")}</button>
-            <button type="button" id="clickSpyMenuItem" role="menuitem">🖱 Click Spy</button>
-            <button type="button" id="freezeClockMenuItem" role="menuitem">⏸ Freeze Clock</button>
-            <button type="button" id="forceHttpMenuItem" role="menuitem">⚠ Force HTTP</button>
+            <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
+            <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(t.characterCounterMenuLabel)}</button>
+            <button type="button" id="multiClickMenuItem" role="menuitem">${ICON("multiClick")} ${escapeHtml(t.multiClickMenuLabel)}</button>
+            <button type="button" id="inputLabMenuItem" role="menuitem">${ICON("inputLab")} ${escapeHtml(t.inputLabMenuLabel)}</button>
+            <button type="button" id="fakerFillMenuItem" role="menuitem">${ICON("fakerFill")} ${escapeHtml(t.fakerFillMenuLabel)}</button>
+            <button type="button" id="keyViewMenuItem" role="menuitem">${ICON("keyView")} ${escapeHtml(t.keyViewMenuLabel || "Key View")}</button>
+            <button type="button" id="clickSpyMenuItem" role="menuitem">${ICON("mouse")} Click Spy</button>
+            <button type="button" id="freezeClockMenuItem" role="menuitem">${ICON("freezeClock")} Freeze Clock</button>
+            <button type="button" id="forceHttpMenuItem" role="menuitem">${ICON("warning")} Force HTTP</button>
             <button type="button" id="inspectorsMenuItem" role="menuitem">{ } ${escapeHtml(t.inspectorsTitle)}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
-            <button type="button" id="jsonStudioMenuItem" role="menuitem">🧪 ${escapeHtml(t.jsonStudioTitle)}</button>
-            <button type="button" id="breakpointMenuItem" role="menuitem">📐 Breakpoint Viewer</button>
-            <button type="button" id="testAccountsMenuItem" role="menuitem">🔑 ${escapeHtml(t.testAccountsMenuLabel)}</button>
-            <button type="button" id="paymentMethodsMenuItem" role="menuitem">💳 ${escapeHtml(t.paymentMethodsMenuLabel)}</button>
-            <button type="button" id="resourcesMenuItem" role="menuitem">🔗 ${escapeHtml(t.resourcesMenuLabel)}</button>
+            <button type="button" id="jsonStudioMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(t.jsonStudioTitle)}</button>
+            <button type="button" id="breakpointMenuItem" role="menuitem">${ICON("breakpointViewer")} Breakpoint Viewer</button>
+            <button type="button" id="testAccountsMenuItem" role="menuitem">${ICON("key")} ${escapeHtml(t.testAccountsMenuLabel)}</button>
+            <button type="button" id="paymentMethodsMenuItem" role="menuitem">${ICON("paymentMethods")} ${escapeHtml(t.paymentMethodsMenuLabel)}</button>
+            <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(t.resourcesMenuLabel)}</button>
           </div>
         </div>
-        <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">⚙</button>
-        <button id="minimizeButton" class="iconOnly" type="button" title="${escapeHtml(t.minimize)}">▲</button>
+        <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}</button>
+        <button id="minimizeButton" class="iconOnly" type="button" title="${escapeHtml(t.minimize)}">${ICON("chevronUp")}</button>
       </div>
     </div>
-    <button id="restoreButton" type="button" title="${escapeHtml(t.restore)}">▼</button>
+    <button id="restoreButton" type="button" title="${escapeHtml(t.restore)}">${ICON("chevronDown")}</button>
   `;
 
   shadow.getElementById("settingsButton").addEventListener("click", () => {
@@ -466,6 +508,8 @@ function removeToolbar({ disableBridge = false } = {}) {
   document.getElementById(HOST_ID)?.remove();
   document.getElementById(SPACER_ID)?.remove();
   document.querySelectorAll(".qts-modal-backdrop,.qts-result-overlay,.qts-floating-item,.qts-shape-preview").forEach((element) => element.remove());
+  closeClickSpyTooltip();
+  clearSiteFixedHeaderOffsets();
   state.shadowRoot = null;
   document.documentElement.style.setProperty("--qts-toolbar-height", "0px");
   document.dispatchEvent(new CustomEvent("qts:pagebridge-active", { detail: { active: false } }));
@@ -601,7 +645,7 @@ function enablePlacementMode(mode, triggerButton) {
 }
 
 function isInsideToolbarUi(target) {
-  return Boolean(target.closest?.(`#${HOST_ID}, .qts-floating-item, .qts-modal-backdrop`));
+  return Boolean(target.closest?.(`#${HOST_ID}, .qts-floating-item, .qts-modal-backdrop, .qts-clickspy-tooltip`));
 }
 
 function handlePlacementClick(event) {
@@ -620,54 +664,64 @@ function placeMarker(kind, clientX, clientY) {
   marker.className = "qts-floating-item qts-marker";
   marker.style.left = `${Math.max(4, clientX - size / 2)}px`;
   marker.style.top = `${Math.max(getCurrentHeight() + 4, clientY - size / 2)}px`;
+  marker.style.width = `${size}px`;
+  marker.style.height = `${size}px`;
   marker.innerHTML = `
-    <div class="qts-marker-body ${kind === "fail" ? "isFail" : "isPass"}" data-drag-handle>${kind === "fail" ? "✕" : "✓"}</div>
+    <div class="qts-marker-body ${kind === "fail" ? "isFail" : "isPass"}" data-drag-handle>${kind === "fail" ? ICON("fail") : ICON("pass")}</div>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
+    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}"></div>
   `;
   document.body.appendChild(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
+  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 28, minHeight: 28 });
   marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
   updateClearAllVisibility();
 }
 
-function addFloatingTextNote() {
-  const t = state.t;
-  const note = document.createElement("div");
-  note.className = "qts-floating-item qts-note isEditing";
-  note.style.left = `${Math.max(12, window.innerWidth - 320)}px`;
-  note.style.top = `${getCurrentHeight() + 24}px`;
-  note.innerHTML = `
-    <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button></div>
-    <div class="qts-editor-body">
-      <textarea placeholder="${escapeHtml(t.notePlaceholder)}"></textarea>
-      <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
-    </div>
-  `;
-  document.body.appendChild(note);
-  makeDraggable(note, note.querySelector("[data-drag-handle]"));
-  note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
-  note.querySelector("[data-save]").addEventListener("click", () => {
-    const text = note.querySelector("textarea").value.trim() || t.noteDefault;
-    note.className = "qts-floating-item qts-note isSaved";
-    note.innerHTML = `
-      <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
-      <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">✎</button>
-      <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
-    `;
-    makeDraggable(note, note.querySelector("[data-drag-handle]"));
-    note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
-    note.querySelector(".qts-edit-btn").addEventListener("click", () => reopenTextNoteEditor(note, text));
-  });
-  updateClearAllVisibility();
+const DEFAULT_NOTE_STYLE = { color: "#ffffff", fontSize: 14, background: "translucent" };
+
+function noteBackgroundValue(background) {
+  if (background === "solid") return "#000000";
+  if (background === "none") return "transparent";
+  return "rgba(0,0,0,.6)";
 }
 
-function reopenTextNoteEditor(note, currentText) {
+function renderSavedNote(note, text, style) {
+  const t = state.t;
+  note.className = "qts-floating-item qts-note isSaved";
+  note.innerHTML = `
+    <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
+    <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">${ICON("edit")}</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
+    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(t.resize)}"></div>
+  `;
+  const content = note.querySelector(".qts-note-content");
+  content.style.setProperty("--qts-note-color", style.color);
+  content.style.setProperty("--qts-note-font-size", `${style.fontSize}px`);
+  content.style.setProperty("--qts-note-bg", noteBackgroundValue(style.background));
+  makeDraggable(note, note.querySelector("[data-drag-handle]"));
+  makeResizable(note, note.querySelector("[data-resize-handle]"), { minWidth: 100, minHeight: 40 });
+  note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
+  note.querySelector(".qts-edit-btn").addEventListener("click", () => renderEditingNote(note, text, style));
+}
+
+function renderEditingNote(note, currentText, currentStyle) {
   const t = state.t;
   note.className = "qts-floating-item qts-note isEditing";
+  note.style.height = "";
   note.innerHTML = `
     <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button></div>
     <div class="qts-editor-body">
       <textarea placeholder="${escapeHtml(t.notePlaceholder)}">${escapeHtml(currentText)}</textarea>
+      <div class="qts-note-style-row">
+        <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color value="${currentStyle.color}" /></label>
+        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" value="${currentStyle.fontSize}" data-note-size /></label>
+        <label>${escapeHtml(t.noteBackground)}<select data-note-bg>
+          <option value="translucent" ${currentStyle.background === "translucent" ? "selected" : ""}>${escapeHtml(t.noteBackgroundTranslucent)}</option>
+          <option value="solid" ${currentStyle.background === "solid" ? "selected" : ""}>${escapeHtml(t.noteBackgroundSolid)}</option>
+          <option value="none" ${currentStyle.background === "none" ? "selected" : ""}>${escapeHtml(t.noteBackgroundNone)}</option>
+        </select></label>
+      </div>
       <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
     </div>
   `;
@@ -675,16 +729,23 @@ function reopenTextNoteEditor(note, currentText) {
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {
     const text = note.querySelector("textarea").value.trim() || t.noteDefault;
-    note.className = "qts-floating-item qts-note isSaved";
-    note.innerHTML = `
-      <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
-      <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">✎</button>
-      <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
-    `;
-    makeDraggable(note, note.querySelector("[data-drag-handle]"));
-    note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
-    note.querySelector(".qts-edit-btn").addEventListener("click", () => reopenTextNoteEditor(note, text));
+    const style = {
+      color: note.querySelector("[data-note-color]").value,
+      fontSize: Number(note.querySelector("[data-note-size]").value),
+      background: note.querySelector("[data-note-bg]").value,
+    };
+    renderSavedNote(note, text, style);
   });
+}
+
+function addFloatingTextNote() {
+  const note = document.createElement("div");
+  note.className = "qts-floating-item qts-note isEditing";
+  note.style.left = `${Math.max(12, window.innerWidth - 320)}px`;
+  note.style.top = `${getCurrentHeight() + 24}px`;
+  document.body.appendChild(note);
+  renderEditingNote(note, "", { ...DEFAULT_NOTE_STYLE });
+  updateClearAllVisibility();
 }
 
 function handleShapeMouseDown(event) {
@@ -731,12 +792,51 @@ function placeShape(left, top, width, height) {
   shape.style.height = `${height}px`;
   shape.innerHTML = `
     <div class="qts-shape-box" data-drag-handle></div>
+    <button type="button" class="qts-edit-btn" title="${escapeHtml(state.t.edit)}">${ICON("edit")}</button>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
+    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}"></div>
   `;
   document.body.appendChild(shape);
   makeDraggable(shape, shape.querySelector("[data-drag-handle]"));
+  makeResizable(shape, shape.querySelector("[data-resize-handle]"), { minWidth: 30, minHeight: 30 });
   shape.querySelector(".qts-remove-btn").addEventListener("click", () => { shape.remove(); updateClearAllVisibility(); });
+  shape.querySelector(".qts-edit-btn").addEventListener("click", () => toggleShapeStyleEditor(shape));
   updateClearAllVisibility();
+}
+
+function toggleShapeStyleEditor(shape) {
+  const existing = shape.querySelector(".qts-shape-editor");
+  if (existing) { existing.remove(); return; }
+  const t = state.t;
+  const box = shape.querySelector(".qts-shape-box");
+  const editor = document.createElement("div");
+  editor.className = "qts-shape-editor";
+  editor.innerHTML = `
+    <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-shape-border value="#ef3340" /></label>
+    <label>${escapeHtml(t.shapeEditorFillColor)}<input type="color" data-shape-fill value="#ef3340" /></label>
+    <label>${escapeHtml(t.shapeEditorOpacity)}<input type="range" min="20" max="100" value="100" data-shape-opacity /></label>
+    <label>${escapeHtml(t.shapeEditorRadius)}<input type="range" min="0" max="48" value="8" data-shape-radius /></label>
+  `;
+  shape.appendChild(editor);
+  const apply = () => {
+    const borderColor = editor.querySelector("[data-shape-border]").value;
+    const fillColor = editor.querySelector("[data-shape-fill]").value;
+    const opacity = Number(editor.querySelector("[data-shape-opacity]").value) / 100;
+    const radius = Number(editor.querySelector("[data-shape-radius]").value);
+    box.style.setProperty("--qts-shape-border", `3px solid ${borderColor}`);
+    box.style.setProperty("--qts-shape-bg", hexToRgba(fillColor, 0.15));
+    box.style.setProperty("--qts-shape-opacity", String(opacity));
+    box.style.setProperty("--qts-shape-radius", `${radius}px`);
+  };
+  editor.querySelectorAll("input").forEach((input) => input.addEventListener("input", apply));
+}
+
+function hexToRgba(hex, alpha) {
+  const normalized = hex.replace("#", "");
+  const r = parseInt(normalized.slice(0, 2), 16) || 0;
+  const g = parseInt(normalized.slice(2, 4), 16) || 0;
+  const b = parseInt(normalized.slice(4, 6), 16) || 0;
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function makeDraggable(element, handle) {
@@ -757,6 +857,36 @@ function makeDraggable(element, handle) {
     element.style.top = `${Math.max(getCurrentHeight(), event.clientY - offsetY)}px`;
   });
   document.addEventListener("mouseup", () => { dragging = false; });
+}
+
+// Shared SE-corner drag-resize for markers/shapes/notes — one consistent resize gesture across
+// every annotation type instead of a different interaction per tool.
+function makeResizable(element, handle, { minWidth = 24, minHeight = 24, onResize } = {}) {
+  let resizing = false;
+  let startWidth = 0;
+  let startHeight = 0;
+  let startX = 0;
+  let startY = 0;
+  handle.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    resizing = true;
+    const rect = element.getBoundingClientRect();
+    startWidth = rect.width;
+    startHeight = rect.height;
+    startX = event.clientX;
+    startY = event.clientY;
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  document.addEventListener("mousemove", (event) => {
+    if (!resizing) return;
+    const width = Math.max(minWidth, startWidth + (event.clientX - startX));
+    const height = Math.max(minHeight, startHeight + (event.clientY - startY));
+    element.style.width = `${width}px`;
+    element.style.height = `${height}px`;
+    onResize?.(width, height);
+  });
+  document.addEventListener("mouseup", () => { resizing = false; });
 }
 
 function clearAllFloatingItems() {
@@ -1031,7 +1161,7 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, wide = false, bodyHtml, onReady, view = "" }) {
+function openDrawer({ title, wide = true, bodyHtml, onReady, view = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -1138,7 +1268,7 @@ function renderJsonDetail(container, value) {
     <div class="qts-toolbar-row">
       <div class="qts-view-switch"><button type="button" data-mode="friendly" class="isSelected">${escapeHtml(t.friendly)}</button><button type="button" data-mode="raw">${escapeHtml(t.raw)}</button></div>
       <input type="search" placeholder="${escapeHtml(t.jsonSearchPlaceholder)}" data-json-search />
-      <button type="button" class="qts-icon-btn" data-json-minimize title="${escapeHtml(t.minimizeTitle)}">▬</button>
+      <button type="button" class="qts-icon-btn" data-json-minimize title="${escapeHtml(t.minimizeTitle)}">${ICON("collapse")}</button>
     </div>
     <div data-json-content></div>
   `;
@@ -1169,13 +1299,15 @@ function renderJsonDetail(container, value) {
 
 let clickSpyCleanup = null;
 
+const CLICK_SPY_SELECTOR = "a,button,[role=button],input,select,textarea,[onclick],[data-testid]";
+
 function toggleClickSpy() {
   if (state.clickSpyActive) { deactivateClickSpy(); return; }
   state.clickSpyActive = true;
   state.shadowRoot.getElementById("clickSpyMenuItem").classList.add("isActive");
   let hovered = null;
   const overHandler = (event) => {
-    const target = event.target.closest("a,button,[role=button],input,select,textarea");
+    const target = event.target.closest(CLICK_SPY_SELECTOR);
     if (target === hovered || isInsideToolbarUi(event.target)) return;
     hovered?.classList.remove("qts-spy-hover");
     hovered = target;
@@ -1183,19 +1315,25 @@ function toggleClickSpy() {
   };
   const clickHandler = (event) => {
     if (isInsideToolbarUi(event.target)) return;
-    const target = event.target.closest("a,button,[role=button],input,select,textarea") || event.target;
+    const target = event.target.closest(CLICK_SPY_SELECTOR) || event.target;
     event.preventDefault();
-    event.stopPropagation();
-    reportClickSpyTarget(target);
+    // stopImmediatePropagation (not just stopPropagation) so no other capture-phase listener on
+    // the same target — a site's own analytics/handlers — fires from this pick click.
+    event.stopImmediatePropagation();
+    showClickSpyTooltip(target, event.clientX, event.clientY);
     deactivateClickSpy();
   };
-  const escHandler = (event) => { if (event.key === "Escape") deactivateClickSpy(); };
-  document.addEventListener("mouseover", overHandler, true);
+  const escHandler = (event) => {
+    if (event.key !== "Escape") return;
+    deactivateClickSpy();
+    showQaToast(state.t.clickSpyCancelled);
+  };
+  document.addEventListener("pointerover", overHandler, true);
   document.addEventListener("click", clickHandler, true);
   document.addEventListener("keydown", escHandler, true);
   clickSpyCleanup = () => {
     hovered?.classList.remove("qts-spy-hover");
-    document.removeEventListener("mouseover", overHandler, true);
+    document.removeEventListener("pointerover", overHandler, true);
     document.removeEventListener("click", clickHandler, true);
     document.removeEventListener("keydown", escHandler, true);
   };
@@ -1208,21 +1346,114 @@ function deactivateClickSpy() {
   clickSpyCleanup = null;
 }
 
-function reportClickSpyTarget(target) {
+function describeClickSpyTarget(target) {
   const t = state.t;
   const anchor = target.closest?.("a[href]");
-  const description = [
+  return [
     [t.clickSpyElement, target.tagName.toLowerCase()],
     [t.clickSpyText, target.textContent?.trim().slice(0, 80) || "—"],
     [t.clickSpyDestination, anchor ? new URL(anchor.getAttribute("href"), window.location.href).href : "—"],
     [t.clickSpyType, anchor ? t.clickSpyNavigation : target.tagName === "BUTTON" || target.getAttribute("type") === "submit" ? t.clickSpyActionSubmit : t.clickSpyFormControl],
   ];
-  openDrawer({
-    title: t.clickSpyResultTitle,
-    bodyHtml: `<div style="display:grid;gap:10px">${description.map(([label, value]) => `
-      <div><div style="color:#ffd700;font-size:10px;text-transform:uppercase;font-weight:800">${escapeHtml(label)}</div><div style="word-break:break-all">${escapeHtml(value)}</div></div>
-    `).join("")}</div>`,
+}
+
+let clickSpyTooltipEl = null;
+
+function closeClickSpyTooltip() {
+  clickSpyTooltipEl?.remove();
+  clickSpyTooltipEl = null;
+}
+
+// A small tooltip anchored near the picked element (not the full openDrawer side panel) — lets
+// the tester keep seeing the element they picked while reading the result, matching how a
+// real inspector would surface this instead of yanking focus to a side drawer.
+function showClickSpyTooltip(target, clientX, clientY) {
+  closeClickSpyTooltip();
+  const t = state.t;
+  const description = describeClickSpyTarget(target);
+  const tooltip = document.createElement("div");
+  tooltip.className = "qts-clickspy-tooltip";
+  tooltip.innerHTML = `
+    <div class="qts-clickspy-head"><span>${escapeHtml(t.clickSpyResultTitle)}</span><button type="button" class="qts-remove-btn" data-clickspy-close title="${escapeHtml(t.remove)}">×</button></div>
+    <div class="qts-clickspy-body">${description.map(([label, value]) => `
+      <div><div class="qts-clickspy-label">${escapeHtml(label)}</div><div class="qts-clickspy-value">${escapeHtml(value)}</div></div>
+    `).join("")}</div>
+    <div class="qts-clickspy-actions">
+      <button type="button" class="action" data-clickspy-copy>${ICON("copy")} ${escapeHtml(t.clickSpyCopy)}</button>
+      <button type="button" class="action primary" data-clickspy-execute>${ICON("play")} ${escapeHtml(t.clickSpyExecute)}</button>
+    </div>
+    <div class="qts-clickspy-trace" data-clickspy-trace hidden></div>
+  `;
+  const width = 320;
+  tooltip.style.left = `${Math.min(Math.max(8, clientX - width / 2), window.innerWidth - width - 8)}px`;
+  tooltip.style.top = `${Math.min(Math.max(getCurrentHeight() + 8, clientY + 12), window.innerHeight - 60)}px`;
+  document.body.appendChild(tooltip);
+  clickSpyTooltipEl = tooltip;
+
+  tooltip.querySelector("[data-clickspy-close]").addEventListener("click", closeClickSpyTooltip);
+  tooltip.querySelector("[data-clickspy-copy]").addEventListener("click", async (event) => {
+    await navigator.clipboard.writeText(description.map(([label, value]) => `${label}: ${value}`).join("\n")).catch(() => {});
+    const button = event.currentTarget;
+    const original = button.innerHTML;
+    button.innerHTML = `${ICON("pass")} ${escapeHtml(t.clickSpyCopied)}`;
+    window.setTimeout(() => { if (button.isConnected) button.innerHTML = original; }, 1500);
   });
+  tooltip.querySelector("[data-clickspy-execute]").addEventListener("click", (event) => executeAndObserveClickSpy(target, tooltip, event.currentTarget));
+
+  let dismissTimer = window.setTimeout(closeClickSpyTooltip, 30_000);
+  tooltip.addEventListener("mouseenter", () => window.clearTimeout(dismissTimer));
+  tooltip.addEventListener("mouseleave", () => { dismissTimer = window.setTimeout(closeClickSpyTooltip, 30_000); });
+}
+
+// toolbar.js runs in the content script's ISOLATED world, which has its own separate copy of
+// window — patching window.fetch/history.pushState/etc. from here would only ever touch that
+// isolated copy, invisible to the page's real code (this is exactly why pagebridge.js exists as
+// a MAIN-world script for Freeze Clock/Force HTTP). Rather than duplicating that split for this
+// one feature, this reuses what's already observable from here: qts:network-captured (fetch/XHR,
+// dispatched by pagebridge.js) and qts:location-change (pushState/replaceState/popstate/
+// hashchange, also pagebridge.js) are both real DOM CustomEvents, and `submit` is a real DOM
+// event too — none of those need MAIN-world access to observe. Only window.open is a bare
+// function call with no such event, so that alone is bridged via a dedicated pagebridge command.
+function installTemporaryActionTrace(onEvent) {
+  const networkHandler = (event) => onEvent(state.t.clickSpyEventNetwork, `${event.detail?.method || "GET"} ${event.detail?.url || ""}`);
+  const locationHandler = (event) => onEvent(state.t.clickSpyEventNavigation, event.detail?.href || window.location.href);
+  const submitHandler = (event) => onEvent(state.t.clickSpyEventFormSubmit, event.target?.getAttribute?.("action") || window.location.href);
+  const openHandler = (event) => onEvent(state.t.clickSpyEventNewWindow, event.detail?.url || "");
+  document.addEventListener("qts:network-captured", networkHandler);
+  document.addEventListener("qts:location-change", locationHandler);
+  document.addEventListener("submit", submitHandler, true);
+  document.addEventListener("qts:action-trace-event", openHandler);
+  document.dispatchEvent(new CustomEvent("qts:action-trace-command", { detail: { active: true } }));
+
+  return function restore() {
+    document.dispatchEvent(new CustomEvent("qts:action-trace-command", { detail: { active: false } }));
+    document.removeEventListener("qts:network-captured", networkHandler);
+    document.removeEventListener("qts:location-change", locationHandler);
+    document.removeEventListener("submit", submitHandler, true);
+    document.removeEventListener("qts:action-trace-event", openHandler);
+  };
+}
+
+function executeAndObserveClickSpy(target, tooltip, button) {
+  const t = state.t;
+  const traceLog = tooltip.querySelector("[data-clickspy-trace]");
+  traceLog.hidden = false;
+  traceLog.innerHTML = `<div class="qts-clickspy-event">${escapeHtml(t.clickSpyObserving)}</div>`;
+  button.disabled = true;
+  const seen = [];
+  const renderTrace = () => { traceLog.innerHTML = seen.map(([label, detail]) => `<div class="qts-clickspy-event"><b>${escapeHtml(label)}</b><span>${escapeHtml(detail)}</span></div>`).join(""); };
+  const restore = installTemporaryActionTrace((label, detail) => { seen.push([label, detail]); renderTrace(); });
+
+  if (typeof target.click === "function") target.click();
+  else target.dispatchEvent?.(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+  window.setTimeout(() => {
+    restore();
+    if (!tooltip.isConnected) return;
+    if (!seen.length) traceLog.innerHTML = `<div class="qts-clickspy-event qts-empty">${escapeHtml(t.clickSpyNoEffectsObserved)}</div>`;
+    button.disabled = false;
+    button.innerHTML = `${ICON("play")} ${escapeHtml(t.clickSpyExecuteAgain)}`;
+  }, 3_500);
 }
 
 // ---------------------------------------------------------------------------
@@ -1239,6 +1470,7 @@ function openForceHttpDialog() {
   const t = state.t;
   openDrawer({
     title: t.forceHttpTitle,
+    wide: false,
     bodyHtml: `
       <p style="color:#999;margin-top:0">${escapeHtml(t.forceHttpDescription)}</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -1322,7 +1554,7 @@ function renderInspectorsList() {
   body.innerHTML = `
     <div class="qts-toolbar-row">
       <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="${inspectorsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
-      <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">▬</button>
+      <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
     </div>
     <div class="qts-filter-bar ${inspectorsFilterState.collapsed ? "isCollapsed" : ""}" id="inspectorsFilterBar">
       ${fields.map((field) => renderSmartFilter(field, inspectorsFilterState[field.key], null)).join("")}
@@ -1397,8 +1629,8 @@ function renderTestAccountsList() {
         <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <small>${escapeHtml(account.username || "—")}</small>
           <small>${passwordDisplay}</small>
-          ${account.password ? `<button type="button" class="action" data-reveal-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? "🙈" : "👁"}</button>` : ""}
-          ${account.username ? `<button type="button" class="action" data-copy-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">⧉</button>` : ""}
+          ${account.password ? `<button type="button" class="action" data-reveal-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")}</button>` : ""}
+          ${account.username ? `<button type="button" class="action" data-copy-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${ICON("copy")}</button>` : ""}
         </div>
         ${account.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(account.notes)}</small>` : ""}
       </div>
@@ -1414,9 +1646,9 @@ function renderTestAccountsList() {
     const account = accounts.find((item) => item.id === button.dataset.copyAccount);
     if (!account?.username) return;
     await navigator.clipboard.writeText(account.username).catch(() => {});
-    const original = button.textContent;
-    button.textContent = "✓";
-    window.setTimeout(() => { button.textContent = original; }, 1200);
+    const original = button.innerHTML;
+    button.innerHTML = ICON("pass");
+    window.setTimeout(() => { button.innerHTML = original; }, 1200);
   }));
 }
 
@@ -1452,7 +1684,7 @@ function renderPaymentMethodsList() {
     return `<div class="qts-net-item" style="cursor:default">
       <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:#ffd700">${escapeHtml(method.type || "other")}</span>
       <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><small>${value}</small>
-      ${method.value ? `<button type="button" class="action" data-reveal-payment="${escapeHtml(method.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? "🙈" : "👁"}</button>` : ""}</div>
+      ${method.value ? `<button type="button" class="action" data-reveal-payment="${escapeHtml(method.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")}</button>` : ""}</div>
       ${method.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(method.notes)}</small>` : ""}
     </div>`;
   }).join("")}</div>`;
@@ -1541,7 +1773,7 @@ const breakpointViewerState = { syncScroll: false, syncClick: false, resizeObser
 
 function buildDeviceFrameHtml(pane, device) {
   const chrome = device.kind === "phone"
-    ? `<div class="qts-bp-phone-status"><span>${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span><span>▂▄▆ 🔋</span></div>`
+    ? `<div class="qts-bp-phone-status"><span>${new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}</span><span>${ICON("battery")}</span></div>`
     : `<div class="qts-bp-laptop-bar"><i class="dot r"></i><i class="dot y"></i><i class="dot g"></i><span class="qts-bp-address">${escapeHtml(device.label)} · ${device.width}×${device.height}</span></div>`;
   return `
     <div class="qts-bp-pane" data-pane-wrap="${pane}">
@@ -2079,7 +2311,7 @@ function renderPinnedMacros() {
   if (!hasPlanFeature("macroStudio")) { container.innerHTML = ""; return; }
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
   const macros = (state.workspace?.macros || []).filter((macro) => pinned.has(macro.id));
-  container.innerHTML = macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">▶ ${escapeHtml(macro.name)}</button>`).join("");
+  container.innerHTML = macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">${ICON("play")} ${escapeHtml(macro.name)}</button>`).join("");
   container.querySelectorAll("[data-pinned-macro]").forEach((button) => button.addEventListener("click", () => {
     const macro = (state.workspace.macros || []).find((item) => item.id === button.dataset.pinnedMacro);
     closeToolsMenu();
@@ -2197,7 +2429,7 @@ function openInputLab(selectedElement = null) {
         const output = body.querySelector("#inputResults"); output.textContent = "Testando...";
         try {
           const results = await window.QTS_QA_TOOLS.runInputValidation(selectedElement);
-          output.innerHTML = `<table class="qts-result-table"><thead><tr><th>Caso</th><th>Enviado</th><th>Recebido</th><th>Validade</th></tr></thead><tbody>${results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${result.attemptedLength}</td><td>${result.actualLength}</td><td>${result.accepted ? "✓ aceito" : `✕ ${escapeHtml(result.message || "rejeitado")}`}</td></tr>`).join("")}</tbody></table>`;
+          output.innerHTML = `<table class="qts-result-table"><thead><tr><th>Caso</th><th>Enviado</th><th>Recebido</th><th>Validade</th></tr></thead><tbody>${results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${result.attemptedLength}</td><td>${result.actualLength}</td><td>${result.accepted ? `${ICON("pass")} aceito` : `${ICON("fail")} ${escapeHtml(result.message || "rejeitado")}`}</td></tr>`).join("")}</tbody></table>`;
         } catch (error) { output.textContent = error.message; }
         runButton.disabled = false;
       });
@@ -2366,11 +2598,11 @@ function collectMacroEditor(body, original, steps) {
 function openMacroEditor(macro) {
   const original = structuredClone(macro);
   const steps = structuredClone(macro.steps || []);
-  const palette = [["click", "🖱 Clique"], ["fill", "⌨ Escrever"], ["select", "▾ Selecionar"], ["check", "☑ Checkbox"], ["press", "↵ Tecla"], ["wait", "⏱ Esperar"], ["scroll", "↕ Scroll"], ["multiClick", "⚡ Multiclick"], ["fakerFill", "✨ Faker Fill"]];
+  const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
   openDrawer({
     title: "Macro Studio",
     wide: true,
-    bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">← Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
+    bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
       <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
       <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
       <section id="vibeMode"><p class="qts-tool-lead">Monte o fluxo arrastando blocos. As setas representam a ordem de execução.</p><div class="qts-macro-layout"><aside class="qts-palette">${palette.map(([action, label]) => `<button type="button" draggable="true" data-palette-action="${action}">${label}</button>`).join("")}</aside><div class="qts-flow" id="macroFlow"></div></div></section>
@@ -2420,8 +2652,8 @@ function openMacroStudio() {
     title: "Macro Studio",
     wide: true,
     bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
-      <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">● Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
-      <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? "📌" : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">▶ Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
+      <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
+      <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
     onReady(body) {
       body.querySelector("#startMacroRecording").addEventListener("click", startMacroRecording);
       body.querySelector("#newMacro").addEventListener("click", () => openMacroEditor({ id: crypto.randomUUID(), name: "Nova macro", description: "", steps: [] }));
@@ -2497,7 +2729,7 @@ function setRecordingUi() {
   if (!toggle) return;
   toggle.classList.toggle("isActive", recordingState.status === "recording");
   toggle.classList.toggle("isPaused", recordingState.status === "paused");
-  toggle.textContent = recordingState.status === "recording" ? "⏸" : recordingState.status === "paused" ? "▶" : "⏺";
+  toggle.innerHTML = recordingState.status === "recording" ? ICON("pause") : recordingState.status === "paused" ? ICON("play") : ICON("recordStart");
   toggle.title = recordingState.status === "recording" ? state.t.recordPause : recordingState.status === "paused" ? state.t.recordResume : state.t.recordStart;
   stopButton?.classList.toggle("isHidden", recordingState.status === "idle");
   timer?.classList.toggle("isHidden", recordingState.status === "idle");
@@ -2511,7 +2743,7 @@ async function handleRecordToggle() {
 
 async function startEvidenceRecording() {
   if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
-    openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
+    openDrawer({ title: state.t.recordingUnavailableTitle, wide: false, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
     return;
   }
   let stream;
@@ -2609,6 +2841,12 @@ async function refreshAuthorization(force = false) {
 }
 
 async function boot() {
+  // Registered with allFrames:true so the bar can render inside the Breakpoint Viewer's own
+  // device-preview iframes (matching the same URL patterns as the top-level page) — but that
+  // also means any small embedded same-origin iframe on a normal page (a widget, an SSO frame)
+  // matches too. Skipping tiny frames is a cheap guard: every real device preset we offer is
+  // well above this size, while incidental embedded widgets rarely are.
+  if (window.self !== window.top && (window.innerWidth < 250 || window.innerHeight < 150)) return;
   if (!document.body) {
     document.addEventListener("DOMContentLoaded", boot, { once: true });
     return;
