@@ -11,6 +11,7 @@
   let enabled = true;
 
   const NETWORK_EVENT = "qts:network-captured";
+  const HTTP_ERROR_EVENT = "qts:http-error-captured";
   const FREEZE_COMMAND_EVENT = "qts:freeze-clock-command";
   const FREEZE_STATE_EVENT = "qts:freeze-clock-state";
   const FORCE_HTTP_COMMAND_EVENT = "qts:force-http-command";
@@ -54,6 +55,24 @@
     });
   }
 
+  // Status-only, body-format-agnostic — unlike captureJsonPayload above, this doesn't need (or
+  // try to parse) the response body, so it catches plain-text/HTML error pages too, not just
+  // JSON APIs. Deliberately excludes Force HTTP's forced responses: those are a QA tester
+  // deliberately simulating a status, not a real page error worth surfacing here.
+  function publishHttpError({ url, method, status, source }) {
+    if (!enabled || !(Number(status) >= 400)) return;
+    document.dispatchEvent(new CustomEvent(HTTP_ERROR_EVENT, {
+      detail: {
+        id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+        url: String(url || ""),
+        method: String(method || "GET").toUpperCase(),
+        status: Number(status),
+        source,
+        capturedAt: Date.now(),
+      },
+    }));
+  }
+
   // ---------------------------------------------------------------------
   // Network capture: fetch + XMLHttpRequest, JSON responses only.
   // ---------------------------------------------------------------------
@@ -78,6 +97,7 @@
 
       const result = originalFetch.apply(this, args);
       result.then((response) => {
+        publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch" });
         response.clone().json()
           .then((payload) => captureJsonPayload({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload }))
           .catch(() => {});
@@ -101,6 +121,7 @@
     XhrProto.send = function (...args) {
       if (!enabled) return originalSend.apply(this, args);
       this.addEventListener("load", () => {
+        publishHttpError({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr" });
         try {
           const payload = typeof this.response === "object" && this.response !== null
             ? this.response

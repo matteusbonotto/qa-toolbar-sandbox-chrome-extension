@@ -69,6 +69,19 @@ input[type="checkbox"],input[type="radio"] { accent-color:var(--accent); }
 .checkRow { display:flex; align-items:center; gap:6px; flex:0 0 auto; color:var(--muted); font-size:11px; white-space:nowrap; }
 .checkRow input { width:auto; min-height:0; }
 .qts-badge-avatar { display:inline-flex; align-items:center; justify-content:center; border-radius:6px; color:#fff; font-weight:850; flex-shrink:0; object-fit:cover; vertical-align:middle; }
+.imageInputGroup { display:flex; align-items:center; gap:6px; flex:1 1 220px; min-width:0; }
+.imageInputGroup[data-mode="file"] [data-image-url] { display:none; }
+.imageModeToggle { display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; flex:0 0 auto; }
+.imageModeToggle button { border:0; background:transparent; color:var(--muted); font-size:10px; font-weight:800; padding:6px 8px; cursor:pointer; }
+.imageModeToggle button.isActive { background:var(--accent); color:#111; }
+.customFieldsEditor { flex-basis:100%; display:grid; gap:6px; }
+.customFieldsEditor:empty { display:none; }
+.customFieldRow { display:flex; gap:6px; align-items:center; }
+.customFieldRow input[data-field-key] { flex:1 1 140px; min-width:0; }
+.customFieldRow select[data-field-type] { flex:0 0 110px; }
+.customFieldRow .customFieldValue { flex:1 1 140px; min-width:0; display:flex; align-items:center; }
+.customFieldRow .customFieldValue input[type="text"],.customFieldRow .customFieldValue input[type="number"] { width:100%; }
+.customFieldRow button[data-field-remove] { flex:0 0 auto; }
 .qts-badge-name { margin-left:6px; vertical-align:middle; }
 .sandboxWarning { margin:-3px 0 0; padding:9px 10px; border:1px solid #6c4a24; border-radius:9px; background:#2a1f15; color:#ffbd78; font-size:11px; font-weight:700; }
 .actions { display:flex; gap:9px; align-items:center; flex-wrap:wrap; }

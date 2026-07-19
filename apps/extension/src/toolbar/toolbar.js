@@ -15,6 +15,7 @@ const state = {
   clockFrozen: false,
   forceHttpActive: false,
   networkHistory: [],
+  httpErrors: [],
   t: null,
   authorized: false,
   features: {},
@@ -258,6 +259,7 @@ function applyPinnedTools() {
   const enabledTools = new Set(state.workspace?.preferences?.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
   const menuItems = {
     clickSpy: "clickSpyMenuItem", freezeClock: "freezeClockMenuItem", forceHttp: "forceHttpMenuItem",
+    errorMonitor: "errorMonitorMenuItem",
     inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
     characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
@@ -292,6 +294,11 @@ function render() {
   syncKeyView();
   setSpacerHeight();
   offsetSiteFixedHeaders();
+  const errorBadge = root.getElementById("errorMonitorBadge");
+  if (errorBadge) {
+    errorBadge.textContent = String(state.httpErrors.length);
+    errorBadge.style.display = state.httpErrors.length ? "inline-flex" : "none";
+  }
 }
 
 function buildShadowHost() {
@@ -324,7 +331,8 @@ function buildShadowHost() {
       }
       .qts-client-label.isHidden { display: none; }
       .qts-badge-avatar {
-        display: inline-flex; align-items: center; justify-content: center; border-radius: 5px;
+        display: inline-flex; align-items: center; justify-content: center;
+        border-radius: ${state.workspace?.preferences?.avatarShape === "round" ? "50%" : "5px"};
         color: #fff; font-weight: 800; flex-shrink: 0; object-fit: cover; vertical-align: middle;
       }
       .qts-badge-name { vertical-align: middle; overflow: hidden; text-overflow: ellipsis; }
@@ -411,6 +419,7 @@ function buildShadowHost() {
             <button type="button" id="clickSpyMenuItem" role="menuitem">${ICON("mouse")} Click Spy</button>
             <button type="button" id="freezeClockMenuItem" role="menuitem">${ICON("freezeClock")} Freeze Clock</button>
             <button type="button" id="forceHttpMenuItem" role="menuitem">${ICON("warning")} Force HTTP</button>
+            <button type="button" id="errorMonitorMenuItem" role="menuitem">${ICON("errorMonitor")} ${escapeHtml(t.errorMonitorTitle)}<span id="errorMonitorBadge" class="qts-badge" style="display:none">0</span></button>
             <button type="button" id="inspectorsMenuItem" role="menuitem">{ } ${escapeHtml(t.inspectorsTitle)}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
             <button type="button" id="jsonStudioMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(t.jsonStudioTitle)}</button>
             <button type="button" id="breakpointMenuItem" role="menuitem">${ICON("breakpointViewer")} Breakpoint Viewer</button>
@@ -452,6 +461,7 @@ function buildShadowHost() {
   shadow.getElementById("clickSpyMenuItem").addEventListener("click", () => { toggleClickSpy(); closeToolsMenu(); });
   shadow.getElementById("freezeClockMenuItem").addEventListener("click", () => { toggleFreezeClock(); closeToolsMenu(); });
   shadow.getElementById("forceHttpMenuItem").addEventListener("click", () => { openForceHttpDialog(); closeToolsMenu(); });
+  shadow.getElementById("errorMonitorMenuItem").addEventListener("click", () => { openErrorMonitorDrawer(); closeToolsMenu(); });
   shadow.getElementById("inspectorsMenuItem").addEventListener("click", () => { openInspectorsDrawer(); closeToolsMenu(); });
   shadow.getElementById("jsonStudioMenuItem").addEventListener("click", () => { openJsonStudio(); closeToolsMenu(); });
   shadow.getElementById("breakpointMenuItem").addEventListener("click", () => { openBreakpointViewer(); closeToolsMenu(); });
@@ -959,6 +969,8 @@ function drawerStyles() {
     .qts-net-item b { color: #ffd700; }
     .qts-net-item small { display: block; color: #888; word-break: break-all; }
     .qts-json-tree { font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+    .qts-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: #1c1c1c; border: 1px solid #292929; font-size: 10px; color: #ccc; }
+    .qts-chip b { color: #ffd700; font-weight: 800; }
 
     /* Toolbar shared by every data-listing drawer: search + smart filters + collapse-to-minimal. */
     .qts-toolbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -990,7 +1002,9 @@ function drawerStyles() {
     .qts-view-switch button.isSelected { background: #b20808; color: #fff; }
     .qts-friendly-field { display: grid; grid-template-columns: minmax(120px,180px) 1fr; gap: 10px; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; }
     .qts-friendly-field .qts-field-label { color: #ffd700; font-size: 10px; font-weight: 800; text-transform: uppercase; word-break: break-word; align-self: start; padding-top: 2px; }
-    .qts-friendly-field .qts-field-value { word-break: break-word; }
+    .qts-friendly-field .qts-field-value { word-break: break-word; display: flex; align-items: center; gap: 6px; }
+    .qts-locate-btn { flex: none; width: 22px; height: 22px; padding: 0; border: 1px solid #333; border-radius: 6px; background: #171717; color: #aaa; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
+    .qts-locate-btn:hover { border-color: #ffd700; color: #ffd700; }
     .qts-friendly-section { margin: 4px 0; border: 1px solid #222; border-radius: 8px; overflow: hidden; }
     .qts-friendly-section > summary { padding: 7px 10px; background: #161616; color: #fff; font-size: 11px; font-weight: 800; cursor: pointer; list-style: none; }
     .qts-friendly-section > summary::-webkit-details-marker { display: none; }
@@ -1223,8 +1237,10 @@ function formatPrimitive(value) {
 function renderFriendlyJson(value, keyLabel = null, depth = 0) {
   if (value === null || typeof value !== "object") {
     if (keyLabel === null) return `<div class="qts-friendly-field"><div class="qts-field-value">${formatPrimitive(value)}</div></div>`;
+    const locatable = value !== null && value !== undefined && String(value).trim().length > 0;
     return `<div class="qts-friendly-field" data-friendly-key="${escapeHtml(keyLabel)}" data-friendly-value="${escapeHtml(String(value))}">
-      <div class="qts-field-label">${escapeHtml(humanizeKey(keyLabel))}</div><div class="qts-field-value">${formatPrimitive(value)}</div>
+      <div class="qts-field-label">${escapeHtml(humanizeKey(keyLabel))}</div>
+      <div class="qts-field-value">${formatPrimitive(value)}${locatable ? `<button type="button" class="qts-locate-btn" data-locate-value="${escapeHtml(String(value))}" title="${escapeHtml(state.t.inspectorsLocateOnPage)}">${ICON("cursor")}</button>` : ""}</div>
     </div>`;
   }
   if (Array.isArray(value)) {
@@ -1257,6 +1273,22 @@ function filterFriendlyView(container, term) {
   });
 }
 
+// "Page locator": click a value in the inspector and jump to the matching element on the real
+// page. Generic on purpose (plain text-content matching, not tied to any product's DOM
+// structure) — this only ever looks at leaf elements so a whole-page container never wins
+// just because some deeply nested descendant happens to contain the same text.
+function locateValueOnPage(rawValue) {
+  const needle = String(rawValue ?? "").trim();
+  if (!needle) return;
+  const match = [...document.body.querySelectorAll("*")].find((element) => (
+    element.children.length === 0 && !isInsideToolbarUi(element) && element.textContent?.trim() === needle
+  ));
+  if (!match) { showQaToast(state.t.inspectorsLocateNotFound, "error"); return; }
+  match.scrollIntoView({ behavior: "smooth", block: "center" });
+  match.classList.add("qts-locate-highlight");
+  window.setTimeout(() => match.classList.remove("qts-locate-highlight"), 2200);
+}
+
 /**
  * Renders a JSON value with a friendly/raw switch (friendly is the default)
  * plus a search box that filters the friendly view, and a "minimizar" toggle
@@ -1274,6 +1306,10 @@ function renderJsonDetail(container, value) {
   `;
   const content = container.querySelector("[data-json-content]");
   const searchInput = container.querySelector("[data-json-search]");
+  content.addEventListener("click", (event) => {
+    const button = event.target.closest("[data-locate-value]");
+    if (button) locateValueOnPage(button.dataset.locateValue);
+  });
   let mode = "friendly";
   const renderMode = () => {
     content.innerHTML = mode === "friendly" ? renderFriendlyJson(value) : `<div class="qts-json-tree">${renderJsonTree(value)}</div>`;
@@ -1596,6 +1632,103 @@ function openInspectorsDrawer() {
 }
 
 // ---------------------------------------------------------------------------
+// Error Monitor: a passive, always-on watch for HTTP errors (>=400), separate from both
+// Inspectors (JSON-only, in-memory, resets on navigation) and Force HTTP (deliberate
+// simulation, not a real error). Persisted to sessionStorage so it survives SPA navigation
+// within the same tab, unlike the in-memory-only Inspectors history.
+// ---------------------------------------------------------------------------
+
+const HTTP_ERRORS_SESSION_KEY = "qtsHttpErrorsV1";
+
+function loadHttpErrorsFromSession() {
+  try {
+    const raw = window.sessionStorage.getItem(HTTP_ERRORS_SESSION_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.slice(0, 150) : [];
+  } catch {
+    return [];
+  }
+}
+
+function persistHttpErrors() {
+  try { window.sessionStorage.setItem(HTTP_ERRORS_SESSION_KEY, JSON.stringify(state.httpErrors)); } catch {}
+}
+
+function handleHttpErrorCaptured(entry) {
+  state.httpErrors.unshift(entry);
+  if (state.httpErrors.length > 150) state.httpErrors.length = 150;
+  persistHttpErrors();
+  const badge = state.shadowRoot?.getElementById("errorMonitorBadge");
+  if (badge) {
+    badge.textContent = String(state.httpErrors.length);
+    badge.style.display = state.httpErrors.length ? "inline-flex" : "none";
+  }
+  if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "errorMonitor") renderErrorMonitorList();
+}
+
+const errorMonitorFilterState = { query: "", status: new Set(), source: new Set(), collapsed: false };
+
+function buildErrorMonitorFilterFields() {
+  const statuses = [...new Set(state.httpErrors.map((entry) => statusBucket(entry.status)))].sort();
+  const sources = [...new Set(state.httpErrors.map((entry) => entry.source))].sort();
+  return [
+    { key: "status", label: state.t.filterStatus, options: statuses.map((value) => ({ value, label: value })) },
+    { key: "source", label: state.t.filterSource, options: sources.map((value) => ({ value, label: value })) },
+  ];
+}
+
+function matchesErrorMonitorFilters(entry) {
+  const query = errorMonitorFilterState.query.trim().toLowerCase();
+  if (query && !`${entry.url} ${entry.method} ${entry.status}`.toLowerCase().includes(query)) return false;
+  if (errorMonitorFilterState.status.size && !errorMonitorFilterState.status.has(statusBucket(entry.status))) return false;
+  if (errorMonitorFilterState.source.size && !errorMonitorFilterState.source.has(entry.source)) return false;
+  return true;
+}
+
+function renderErrorMonitorList() {
+  const t = state.t;
+  const body = state.shadowRoot.getElementById("drawerBody");
+  if (!body) return;
+  const fields = buildErrorMonitorFilterFields();
+  const filtered = state.httpErrors.filter(matchesErrorMonitorFilters);
+
+  body.innerHTML = `
+    <div class="qts-toolbar-row">
+      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="errorMonitorSearch" value="${escapeHtml(errorMonitorFilterState.query)}" class="${errorMonitorFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <button type="button" class="qts-icon-btn ${errorMonitorFilterState.collapsed ? "isActive" : ""}" id="errorMonitorCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
+      <button type="button" class="qts-icon-btn" id="errorMonitorClear" title="${escapeHtml(t.clearAll)}">${ICON("fail")}</button>
+    </div>
+    <div class="qts-filter-bar ${errorMonitorFilterState.collapsed ? "isCollapsed" : ""}" id="errorMonitorFilterBar">
+      ${fields.map((field) => renderSmartFilter(field, errorMonitorFilterState[field.key], null)).join("")}
+    </div>
+    <div>${filtered.length ? filtered.map((entry) => `
+      <div class="qts-net-item" style="cursor:default">
+        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+        <small style="display:block;margin-top:2px;color:#666">${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
+      </div>
+    `).join("") : `<div class="qts-empty">${state.httpErrors.length ? t.noFilterResults : t.errorMonitorEmpty}</div>`}</div>
+  `;
+  body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
+  body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
+  body.querySelector("#errorMonitorClear").addEventListener("click", () => {
+    state.httpErrors = [];
+    persistHttpErrors();
+    const badge = state.shadowRoot?.getElementById("errorMonitorBadge");
+    if (badge) badge.style.display = "none";
+    renderErrorMonitorList();
+  });
+  wireSmartFilter(body.querySelector("#errorMonitorFilterBar"), (key, value, isSelected) => {
+    if (isSelected) errorMonitorFilterState[key].add(value); else errorMonitorFilterState[key].delete(value);
+    renderErrorMonitorList();
+  });
+}
+
+function openErrorMonitorDrawer() {
+  openDrawer({ title: state.t.errorMonitorTitle, wide: true, bodyHtml: "", view: "errorMonitor" });
+  renderErrorMonitorList();
+}
+
+// ---------------------------------------------------------------------------
 // Test accounts: read-only view of the accounts registered (from Settings)
 // for the environment matching the current URL. Sandbox-only by design —
 // passwords are masked by default and never leave this drawer; managing
@@ -1603,6 +1736,35 @@ function openInspectorsDrawer() {
 // ---------------------------------------------------------------------------
 
 const revealedTestAccountIds = new Set();
+const testAccountsFilterState = { query: "", accountType: new Set(), collapsed: false };
+
+function buildTestAccountFilterFields(accounts) {
+  const typeImages = new Map();
+  accounts.forEach((account) => { if (account.accountType && account.accountTypeImage) typeImages.set(account.accountType, account.accountTypeImage); });
+  const types = [...new Set(accounts.map((account) => account.accountType).filter(Boolean))].sort();
+  return [
+    { key: "accountType", label: state.t.filterAccountType, options: types.map((value) => ({ value, label: value, image: typeImages.get(value) })) },
+  ];
+}
+
+function matchesTestAccountFilters(account) {
+  const query = testAccountsFilterState.query.trim().toLowerCase();
+  if (query) {
+    const customText = (account.customFields || []).map((field) => `${field.key} ${field.value}`).join(" ");
+    const haystack = `${account.label} ${account.username} ${account.notes} ${account.accountType} ${customText}`.toLowerCase();
+    if (!haystack.includes(query)) return false;
+  }
+  if (testAccountsFilterState.accountType.size && !testAccountsFilterState.accountType.has(account.accountType)) return false;
+  return true;
+}
+
+function renderCustomFieldChips(customFields) {
+  if (!customFields?.length) return "";
+  return `<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">${customFields.map((field) => {
+    const value = field.type === "boolean" ? (field.value ? ICON("pass") : ICON("fail")) : escapeHtml(String(field.value ?? "—"));
+    return `<span class="qts-chip"><b>${escapeHtml(field.key)}</b> ${value}</span>`;
+  }).join("")}</div>`;
+}
 
 function renderTestAccountsList() {
   const t = state.t;
@@ -1614,29 +1776,56 @@ function renderTestAccountsList() {
     return;
   }
 
-  const accounts = (state.workspace.testAccounts || []).filter((account) => account.environmentId === state.environment.id);
-  if (!accounts.length) {
+  const allAccounts = (state.workspace.testAccounts || []).filter((account) => account.environmentId === state.environment.id);
+  if (!allAccounts.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(t.testAccountsEmptyForEnv)}</div>`;
     return;
   }
+  const fields = buildTestAccountFilterFields(allAccounts);
+  const accounts = allAccounts.filter(matchesTestAccountFilters);
 
-  body.innerHTML = `<div style="display:grid;gap:10px">${accounts.map((account) => {
-    const revealed = revealedTestAccountIds.has(account.id);
-    const passwordDisplay = account.password ? (revealed ? escapeHtml(account.password) : "•".repeat(Math.min(10, account.password.length))) : "—";
-    return `
-      <div class="qts-net-item" data-account-id="${escapeHtml(account.id)}" style="cursor:default">
-        <b>${escapeHtml(account.label)}</b>${account.accountType ? ` <span style="color:#ffd700">${escapeHtml(account.accountType)}</span>` : ""}
-        <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-          <small>${escapeHtml(account.username || "—")}</small>
-          <small>${passwordDisplay}</small>
-          ${account.password ? `<button type="button" class="action" data-reveal-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")}</button>` : ""}
-          ${account.username ? `<button type="button" class="action" data-copy-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${ICON("copy")}</button>` : ""}
+  body.innerHTML = `
+    <div class="qts-toolbar-row">
+      <input type="search" placeholder="${escapeHtml(t.testAccountsSearchPlaceholder)}" id="testAccountsSearch" value="${escapeHtml(testAccountsFilterState.query)}" class="${testAccountsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <button type="button" class="qts-icon-btn ${testAccountsFilterState.collapsed ? "isActive" : ""}" id="testAccountsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
+    </div>
+    <div class="qts-filter-bar ${testAccountsFilterState.collapsed ? "isCollapsed" : ""}" id="testAccountsFilterBar">
+      ${fields.map((field) => renderSmartFilter(field, testAccountsFilterState[field.key], null)).join("")}
+    </div>
+    <div id="testAccountsListBody" style="display:grid;gap:10px">${accounts.length ? accounts.map((account) => {
+      const revealed = revealedTestAccountIds.has(account.id);
+      const passwordDisplay = account.password ? (revealed ? escapeHtml(account.password) : "•".repeat(Math.min(10, account.password.length))) : "—";
+      return `
+        <div class="qts-net-item" data-account-id="${escapeHtml(account.id)}" style="cursor:default">
+          <div style="display:flex;align-items:center;gap:6px">
+            ${account.accountTypeImage ? `<img src="${escapeHtml(account.accountTypeImage)}" alt="" style="width:18px;height:18px;border-radius:4px;object-fit:cover" />` : ""}
+            <b>${escapeHtml(account.label)}</b>${account.accountType ? ` <span style="color:#ffd700">${escapeHtml(account.accountType)}</span>` : ""}
+          </div>
+          <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <small>${escapeHtml(account.username || "—")}</small>
+            <small>${passwordDisplay}</small>
+            ${account.password ? `<button type="button" class="action" data-reveal-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")}</button>` : ""}
+            ${account.username ? `<button type="button" class="action" data-copy-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${ICON("copy")}</button>` : ""}
+          </div>
+          ${renderCustomFieldChips(account.customFields)}
+          ${account.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(account.notes)}</small>` : ""}
         </div>
-        ${account.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(account.notes)}</small>` : ""}
-      </div>
-    `;
-  }).join("")}</div>`;
+      `;
+    }).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
+  `;
 
+  body.querySelector("#testAccountsSearch").addEventListener("input", (event) => {
+    testAccountsFilterState.query = event.target.value;
+    renderTestAccountsList();
+  });
+  body.querySelector("#testAccountsCollapseToggle").addEventListener("click", () => {
+    testAccountsFilterState.collapsed = !testAccountsFilterState.collapsed;
+    renderTestAccountsList();
+  });
+  wireSmartFilter(body.querySelector("#testAccountsFilterBar"), (key, value, isSelected) => {
+    if (isSelected) testAccountsFilterState[key].add(value); else testAccountsFilterState[key].delete(value);
+    renderTestAccountsList();
+  });
   body.querySelectorAll("[data-reveal-account]").forEach((button) => button.addEventListener("click", () => {
     const id = button.dataset.revealAccount;
     if (revealedTestAccountIds.has(id)) revealedTestAccountIds.delete(id); else revealedTestAccountIds.add(id);
@@ -1708,12 +1897,54 @@ function safeExternalUrl(value) {
   } catch { return null; }
 }
 
-function openResourcesDrawer() {
-  const resources = (state.workspace.resources || []).filter((resource) => resource.active !== false).map((resource) => ({ ...resource, safeUrl: safeExternalUrl(resource.url) })).filter((resource) => resource.safeUrl);
-  openDrawer({
-    title: state.t.resourcesDrawerTitle,
-    bodyHtml: resources.length ? `<div style="display:grid;gap:10px">${resources.map((resource) => `<a class="qts-net-item" href="${escapeHtml(resource.safeUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;color:#fff;text-decoration:none"><b>${escapeHtml(resource.label || resource.safeUrl)}</b><small style="display:block;margin-top:4px;color:#888">${escapeHtml(resource.safeUrl)}</small></a>`).join("")}</div>` : `<div class="qts-empty">${escapeHtml(state.t.resourcesEmpty)}</div>`,
+const resourcesFilterState = { query: "", category: new Set(), collapsed: false };
+
+function matchesResourceFilters(resource) {
+  const query = resourcesFilterState.query.trim().toLowerCase();
+  if (query && !`${resource.label} ${resource.safeUrl} ${resource.category || ""}`.toLowerCase().includes(query)) return false;
+  if (resourcesFilterState.category.size && !resourcesFilterState.category.has(resource.category || "")) return false;
+  return true;
+}
+
+function renderResourcesList() {
+  const t = state.t;
+  const body = state.shadowRoot.getElementById("drawerBody");
+  if (!body) return;
+  const allResources = (state.workspace.resources || []).filter((resource) => resource.active !== false).map((resource) => ({ ...resource, safeUrl: safeExternalUrl(resource.url) })).filter((resource) => resource.safeUrl);
+  if (!allResources.length) {
+    body.innerHTML = `<div class="qts-empty">${escapeHtml(t.resourcesEmpty)}</div>`;
+    return;
+  }
+  const categories = [...new Set(allResources.map((resource) => resource.category).filter(Boolean))].sort();
+  const fields = categories.length ? [{ key: "category", label: t.filterCategory, options: categories.map((value) => ({ value, label: value })) }] : [];
+  const resources = allResources.filter(matchesResourceFilters);
+
+  body.innerHTML = `
+    <div class="qts-toolbar-row">
+      <input type="search" placeholder="${escapeHtml(t.resourcesSearchPlaceholder)}" id="resourcesSearch" value="${escapeHtml(resourcesFilterState.query)}" class="${resourcesFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <button type="button" class="qts-icon-btn ${resourcesFilterState.collapsed ? "isActive" : ""}" id="resourcesCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
+    </div>
+    <div class="qts-filter-bar ${resourcesFilterState.collapsed ? "isCollapsed" : ""}" id="resourcesFilterBar">
+      ${fields.map((field) => renderSmartFilter(field, resourcesFilterState[field.key], null)).join("")}
+    </div>
+    <div style="display:grid;gap:10px">${resources.length ? resources.map((resource) => `
+      <a class="qts-net-item" href="${escapeHtml(resource.safeUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;color:#fff;text-decoration:none">
+        <b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:#ffd700">${escapeHtml(resource.category)}</span>` : ""}
+        <small style="display:block;margin-top:4px;color:#888">${escapeHtml(resource.safeUrl)}</small>
+      </a>
+    `).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
+  `;
+  body.querySelector("#resourcesSearch").addEventListener("input", (event) => { resourcesFilterState.query = event.target.value; renderResourcesList(); });
+  body.querySelector("#resourcesCollapseToggle").addEventListener("click", () => { resourcesFilterState.collapsed = !resourcesFilterState.collapsed; renderResourcesList(); });
+  wireSmartFilter(body.querySelector("#resourcesFilterBar"), (key, value, isSelected) => {
+    if (isSelected) resourcesFilterState[key].add(value); else resourcesFilterState[key].delete(value);
+    renderResourcesList();
   });
+}
+
+function openResourcesDrawer() {
+  openDrawer({ title: state.t.resourcesDrawerTitle, bodyHtml: "" });
+  renderResourcesList();
 }
 
 // ---------------------------------------------------------------------------
@@ -2675,6 +2906,7 @@ function openMacroStudio() {
 }
 
 document.addEventListener("qts:network-captured", (event) => handleNetworkCaptured(event.detail));
+document.addEventListener("qts:http-error-captured", (event) => handleHttpErrorCaptured(event.detail));
 document.addEventListener("qts:freeze-clock-state", (event) => {
   state.clockFrozen = Boolean(event.detail?.frozen);
   state.shadowRoot?.getElementById("freezeClockMenuItem")?.classList.toggle("isActive", state.clockFrozen);
@@ -2854,6 +3086,7 @@ async function boot() {
 
   state.t = await window.QTS_I18N.load();
   state.workspace = await getWorkspace();
+  state.httpErrors = loadHttpErrorsFromSession();
   if (!await refreshAuthorization(true)) return;
 
   onStorageChanged(async (changes) => {

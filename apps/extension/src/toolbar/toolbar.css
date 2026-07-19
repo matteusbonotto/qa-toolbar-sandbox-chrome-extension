@@ -26,6 +26,16 @@ body.qts-placement-mode, body.qts-placement-mode * {
   cursor: crosshair !important;
 }
 
+.qts-locate-highlight {
+  outline: 3px solid #ffd700 !important;
+  outline-offset: 2px !important;
+  animation: qts-locate-pulse 1.1s ease-in-out 2 !important;
+}
+@keyframes qts-locate-pulse {
+  0%, 100% { background-color: transparent; }
+  50% { background-color: rgba(255, 215, 0, .28); }
+}
+
 /* `all: initial` here is deliberately NOT `!important`: it resets everything
    the host page's stylesheet might have leaked in *before* JS sets each
    element's inline `left`/`top`/`width`/`height` — but `!important` on the

@@ -1,4 +1,28 @@
 const { getWorkspace, saveWorkspace, getSiteScope, saveSiteScope, normalizeWorkspace, normalizeUrlPatterns, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
+const ICON = window.QTS_ICONS.svg;
+
+// URL-vs-upload toggle for logo/image fields: both modes write into the same underlying
+// [data-image-url] input, so every existing reader of that field's .value (appearance(), the
+// test-account form) keeps working unchanged regardless of which mode produced the value.
+function wireImageUpload(group) {
+  const urlInput = group.querySelector("[data-image-url]");
+  const fileInput = group.querySelector("[data-image-file]");
+  const modeButtons = group.querySelectorAll("[data-image-mode]");
+  const setMode = (mode) => {
+    group.dataset.mode = mode;
+    modeButtons.forEach((button) => button.classList.toggle("isActive", button.dataset.imageMode === mode));
+    if (mode === "file") fileInput.click();
+  };
+  modeButtons.forEach((button) => button.addEventListener("click", () => setMode(button.dataset.imageMode)));
+  fileInput.addEventListener("change", () => {
+    const file = fileInput.files?.[0];
+    if (!file) { setMode("url"); return; }
+    const reader = new FileReader();
+    reader.onload = () => { urlInput.value = String(reader.result || ""); };
+    reader.readAsDataURL(file);
+  });
+}
+document.querySelectorAll("[data-image-group]").forEach(wireImageUpload);
 
 let workspace = null;
 let accessState = null;
@@ -154,6 +178,7 @@ function loadPreferenceUi() {
   document.getElementById("compactMode").checked = preferences.compactMode === true;
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
+  document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
   const keyView = preferences.keyView || {};
   document.getElementById("keyViewEnabled").checked = keyView.enabled === true;
   document.getElementById("keyViewTypingMode").checked = keyView.typingMode === true;
@@ -179,6 +204,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     compactMode: document.getElementById("compactMode").checked,
     pushSiteContent: document.getElementById("pushSiteContent").checked,
     soundEffects: document.getElementById("soundEffects").checked,
+    avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
     keyView: {
       enabled: document.getElementById("keyViewEnabled").checked,
       typingMode: document.getElementById("keyViewTypingMode").checked,
@@ -282,7 +308,54 @@ function clearEdit(prefix) {
   form.querySelector(`[data-cancel="${prefix}"]`).hidden = true;
   const showLabel = document.getElementById(`${prefix}ShowLabel`); if (showLabel) showLabel.checked = true;
   if (prefix === "environment") document.getElementById("environmentColor").value = "#3a3a3a";
+  form.querySelectorAll("[data-image-group]").forEach((group) => {
+    group.dataset.mode = "url";
+    group.querySelectorAll("[data-image-mode]").forEach((button) => button.classList.toggle("isActive", button.dataset.imageMode === "url"));
+  });
+  if (prefix === "testAccount") { testAccountCustomFieldsDraft = []; renderCustomFieldsEditor(); }
 }
+
+// Test account custom fields: a small user-defined key/type/value schema (string/boolean/
+// number) rather than a fixed capability list — the founder's explicit ask, since even the
+// original reference tool only ever had a hardcoded set of capability checkboxes.
+let testAccountCustomFieldsDraft = [];
+
+function renderCustomFieldsEditor() {
+  const container = document.getElementById("testAccountCustomFields");
+  container.innerHTML = testAccountCustomFieldsDraft.map((field, index) => `
+    <div class="customFieldRow" data-field-index="${index}">
+      <input type="text" data-field-key placeholder="${escapeHtml(t("Nome do campo"))}" value="${escapeHtml(field.key)}" />
+      <select data-field-type>
+        <option value="string" ${field.type === "string" ? "selected" : ""}>${escapeHtml(t("Texto"))}</option>
+        <option value="boolean" ${field.type === "boolean" ? "selected" : ""}>${escapeHtml(t("Sim/Não"))}</option>
+        <option value="number" ${field.type === "number" ? "selected" : ""}>${escapeHtml(t("Número"))}</option>
+      </select>
+      <span class="customFieldValue">
+        ${field.type === "boolean"
+          ? `<label class="checkRow"><input type="checkbox" data-field-value ${field.value ? "checked" : ""} /> ${escapeHtml(t("Ativo"))}</label>`
+          : `<input type="${field.type === "number" ? "number" : "text"}" data-field-value value="${escapeHtml(field.value)}" placeholder="${escapeHtml(t("Valor"))}" />`}
+      </span>
+      <button type="button" class="button danger" data-field-remove title="${escapeHtml(t("Excluir"))}">${ICON("fail")}</button>
+    </div>
+  `).join("");
+  container.querySelectorAll("[data-field-index]").forEach((row) => {
+    const index = Number(row.dataset.fieldIndex);
+    row.querySelector("[data-field-key]").addEventListener("input", (event) => { testAccountCustomFieldsDraft[index].key = event.target.value; });
+    row.querySelector("[data-field-type]").addEventListener("change", (event) => {
+      testAccountCustomFieldsDraft[index].type = event.target.value;
+      testAccountCustomFieldsDraft[index].value = event.target.value === "boolean" ? false : "";
+      renderCustomFieldsEditor();
+    });
+    row.querySelector("[data-field-value]").addEventListener("input", (event) => {
+      testAccountCustomFieldsDraft[index].value = event.target.type === "checkbox" ? event.target.checked : event.target.value;
+    });
+    row.querySelector("[data-field-remove]").addEventListener("click", () => { testAccountCustomFieldsDraft.splice(index, 1); renderCustomFieldsEditor(); });
+  });
+}
+document.getElementById("testAccountAddField").addEventListener("click", () => {
+  testAccountCustomFieldsDraft.push({ key: "", type: "string", value: "" });
+  renderCustomFieldsEditor();
+});
 document.querySelectorAll(".cancelEdit").forEach((button) => button.addEventListener("click", () => clearEdit(button.dataset.cancel)));
 
 document.getElementById("clientForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("clientEditId").value; upsert("clients", { id: editId || uid("client"), name: document.getElementById("clientName").value.trim(), ...appearance("client") }, editId); clearEdit("client"); await persistWorkspace(); });
@@ -290,11 +363,11 @@ document.getElementById("projectForm").addEventListener("submit", async (event) 
 document.getElementById("productForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("productEditId").value; upsert("products", { id: editId || uid("product"), projectId: document.getElementById("productProject").value, name: document.getElementById("productName").value.trim(), ...appearance("product") }, editId); clearEdit("product"); await persistWorkspace(); });
 document.getElementById("environmentForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("environmentEditId").value; const productId = document.getElementById("environmentProduct").value; const product = findById("products", productId); const project = findById("projects", product?.projectId); upsert("environments", { id: editId || uid("env"), productId, projectId: project?.id, clientId: project?.clientId, name: document.getElementById("environmentName").value.trim(), color: document.getElementById("environmentColor").value, urlPatterns: normalizeUrlPatterns(document.getElementById("environmentPatterns").value), active: true }, editId); clearEdit("environment"); await persistWorkspace(); });
 
-document.getElementById("testAccountForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("testAccountEditId").value; const existing = findById("testAccounts", editId); const password = document.getElementById("testAccountPassword").value; upsert("testAccounts", { id: editId || uid("account"), environmentId: document.getElementById("testAccountEnvironment").value, label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), active: true }, editId); clearEdit("testAccount"); await persistWorkspace(); });
+document.getElementById("testAccountForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("testAccountEditId").value; const existing = findById("testAccounts", editId); const password = document.getElementById("testAccountPassword").value; upsert("testAccounts", { id: editId || uid("account"), environmentId: document.getElementById("testAccountEnvironment").value, label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId); clearEdit("testAccount"); await persistWorkspace(); });
 document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("paymentMethodEditId").value; const existing = findById("paymentMethods", editId); upsert("paymentMethods", { id: editId || uid("payment"), environmentId: document.getElementById("paymentMethodEnvironment").value || null, label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId); clearEdit("paymentMethod"); await persistWorkspace(); });
 document.getElementById("inspectorForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("inspectorEditId").value; upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId); clearEdit("inspector"); await persistWorkspace(); });
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
-document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
+document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
 
 function editItem(collection, item) {
   const prefix = COLLECTION_UI[collection].prefix;
@@ -305,15 +378,19 @@ function editItem(collection, item) {
     projects: { projectClient: item.clientId, projectName: item.name, projectLogoUrl: item.logoUrl, projectAbbreviation: item.abbreviation, projectShowLabel: item.showLabel !== false },
     products: { productProject: item.projectId, productName: item.name, productLogoUrl: item.logoUrl, productAbbreviation: item.abbreviation, productShowLabel: item.showLabel !== false },
     environments: { environmentProduct: item.productId, environmentName: item.name, environmentColor: item.color, environmentPatterns: (item.urlPatterns || []).join("\n") },
-    testAccounts: { testAccountEnvironment: item.environmentId, testAccountLabel: item.label, testAccountType: item.accountType, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
+    testAccounts: { testAccountEnvironment: item.environmentId, testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
     paymentMethods: { paymentMethodEnvironment: item.environmentId || "", paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodValue: "", paymentMethodNotes: item.notes },
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
     apis: { apiLabel: item.label, apiBaseUrl: item.baseUrl, apiToken: "" },
-    resources: { resourceLabel: item.label, resourceUrl: item.url },
+    resources: { resourceLabel: item.label, resourceUrl: item.url, resourceCategory: item.category },
   }[collection];
   for (const [elementId, value] of Object.entries(values || {})) {
     const element = document.getElementById(elementId);
     if (element.type === "checkbox") element.checked = Boolean(value); else element.value = value ?? "";
+  }
+  if (collection === "testAccounts") {
+    testAccountCustomFieldsDraft = structuredClone(item.customFields || []);
+    renderCustomFieldsEditor();
   }
   document.getElementById(`${prefix}Form`).scrollIntoView({ behavior: "smooth", block: "center" });
 }
