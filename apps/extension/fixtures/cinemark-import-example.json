@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 1,
-  "updatedAt": "2026-07-17T00:00:00.000Z",
+  "schemaVersion": 5,
+  "updatedAt": "2026-07-19T00:00:00.000Z",
   "clients": [
     {
       "id": "client-cinemark",
@@ -72,16 +72,64 @@
       "accountType": "Comum",
       "username": "qa.comum@cinemark.test",
       "password": "Sandbox@123",
-      "notes": "Conta de teste genérica — sem vínculo com dados reais de cliente."
+      "notes": "Conta de teste genérica — sem vínculo com dados reais de cliente.",
+      "customFields": [
+        { "key": "Pontos de fidelidade", "type": "number", "value": 1200 },
+        { "key": "Voucher ativo", "type": "boolean", "value": true },
+        { "key": "Nível", "type": "string", "value": "Ouro" }
+      ]
     }
   ],
-  "paymentMethods": [],
-  "apis": [],
-  "inspectors": [],
-  "resources": [],
+  "paymentMethods": [
+    {
+      "id": "payment-visa-aprovado",
+      "environmentId": "env-qa",
+      "label": "Visa aprovado",
+      "type": "card",
+      "value": "4111 1111 1111 1111",
+      "notes": "Cartão sandbox que sempre aprova — uso exclusivo em QA."
+    }
+  ],
+  "apis": [
+    {
+      "id": "api-ar",
+      "label": "API AR (sandbox)",
+      "baseUrl": "https://ar-qa-api.cinemark.com.ar",
+      "token": "sandbox-token-demo"
+    }
+  ],
+  "inspectors": [
+    {
+      "id": "inspector-sessions",
+      "label": "Sessões / Sessions",
+      "patterns": ["/api/sessions", "/api/showtimes"]
+    }
+  ],
+  "resources": [
+    {
+      "id": "resource-runbook",
+      "label": "Runbook de QA",
+      "url": "https://example.com/runbook-qa-cinemark",
+      "category": "Documentação"
+    }
+  ],
+  "macros": [
+    {
+      "id": "macro-login-qa",
+      "name": "Login conta comum",
+      "description": "Abre o formulário de login e envia a conta de teste comum.",
+      "steps": [
+        { "action": "click", "selector": "#login-button" },
+        { "action": "wait", "ms": 500 },
+        { "action": "fill", "selector": "#email", "value": "qa.comum@cinemark.test" },
+        { "action": "press", "selector": "#email", "value": "Tab" }
+      ]
+    }
+  ],
   "preferences": {
     "language": "pt-BR",
     "pushSiteContent": true,
+    "avatarShape": "square",
     "pinnedTools": ["passFail", "screenshot", "notes"]
   }
 }

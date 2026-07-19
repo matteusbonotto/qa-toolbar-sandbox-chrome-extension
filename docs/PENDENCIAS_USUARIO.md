@@ -9,6 +9,36 @@
 Marque `[x]` conforme for resolvendo. Nenhum destes itens pode ser feito por mim — todos exigem
 login, senha, OTP ou uma tela que só você tem acesso.
 
+## -1. URGENTE (2026-07-19): migration de feature flags nunca foi aplicada no banco real
+
+Achado ao investigar por que a conta `+rm@gmail.com` (plano Release Manager, o mais caro) estava
+com ferramentas bloqueadas que deveriam estar liberadas.
+
+**Causa raiz**: nada neste projeto aplica migrations automaticamente no banco real — cada uma
+precisa ser rodada manualmente por você (não tenho a service-role key). O
+`docs/handoff/CHECKLIST_RECONSTRUCAO.md` confirma que as migrations até
+`20260717070000_admin_role_audit_and_mrr.sql` foram aplicadas, mas a seguinte —
+`20260717080000_new_qa_tools_feature_flags.sql`, que cria e distribui os 6 feature flags novos
+(`characterCounter.enabled`, `multiClick.enabled`, `inputLab.enabled`, `fakerFill.enabled`,
+`macroStudio.enabled`, `keyView.enabled`) — nunca teve confirmação de ter sido rodada. O código,
+o `schema.sql` e a migration em si estão todos corretos; é só o banco de produção que ficou sem
+essas linhas, então `access-status` devolve essas 6 chaves como ausentes para todo mundo,
+inclusive Release Manager.
+
+- [ ] **Confirmar e corrigir**: rode `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node
+      scripts/verify-plan-features.mjs` (script novo, só leitura) — ele compara o banco real com
+      a matriz esperada e aponta exatamente o que está faltando.
+- [ ] Se ele apontar problema, o jeito mais rápido de corrigir é `/admin/` → aba **Feature
+      flags** → marcar as 6 caixas da coluna **Release Manager** (e conferir as outras colunas
+      contra a tabela em `docs/GUIA_FERRAMENTAS_QA.md`). Alternativa: colar o conteúdo de
+      `supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql` no SQL Editor do
+      Supabase e rodar — é idempotente, seguro mesmo se parcialmente aplicado.
+- [ ] Rode o script de novo depois do fix para confirmar que bateu 100%.
+- [ ] **Lição para o futuro**: toda vez que uma nova migration for adicionada ao repositório,
+      ela precisa ser aplicada manualmente E essa aplicação precisa ficar registrada em
+      `docs/handoff/CHECKLIST_RECONSTRUCAO.md` — foi a ausência desse registro que permitiu essa
+      migration passar despercebida.
+
 ## 0. Leva atual (`agent/admin-security-and-lp-polish`) — ainda não mergeada
 
 - [ ] **Revisar e mergear o PR**: https://github.com/matteusbonotto/qa-toolbar-sandbox-chrome-extension/pull/new/agent/admin-security-and-lp-polish

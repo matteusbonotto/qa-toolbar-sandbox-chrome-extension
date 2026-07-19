@@ -72,11 +72,31 @@ try {
     products: await page.locator("#productCount").textContent(),
     environments: await page.locator("#environmentCount").textContent(),
     testAccounts: await page.locator("#testAccountCount").textContent(),
+    paymentMethods: await page.locator("#paymentMethodCount").textContent(),
+    inspectors: await page.locator("#inspectorCount").textContent(),
+    apis: await page.locator("#apiCount").textContent(),
+    resources: await page.locator("#resourceCount").textContent(),
   };
-  const expected = { clients: "1", projects: "1", products: "1", environments: "4", testAccounts: "1" };
+  // Every collection the fixture ships must land with exactly one row — this is meant to be a
+  // complete "one example of every CRUD entity" reference, so a silently-dropped collection
+  // (a normalizeWorkspace filter rejecting it, a broken foreign key) must fail loudly here.
+  const expected = { clients: "1", projects: "1", products: "1", environments: "4", testAccounts: "1", paymentMethods: "1", inspectors: "1", apis: "1", resources: "1" };
   for (const [key, value] of Object.entries(expected)) {
     if (counts[key] !== value) throw new Error(`Expected ${key}=${value} after import, got ${counts[key]}`);
   }
+
+  // Test account custom fields (Phase 2 dynamic schema) round-trip through the same edit path a
+  // real user would use — switch to the tab that actually renders the list (the counts above are
+  // read straight from the DOM regardless of panel visibility, but a real click needs the panel
+  // visible), then open the account for editing and confirm all 3 field rows re-render.
+  await page.locator('.protectedNav[data-tab="test-data"]').click();
+  await page.locator("#testAccountList [data-action=edit]").click();
+  const customFieldKeys = await page.locator("#testAccountCustomFields [data-field-key]").evaluateAll((inputs) => inputs.map((input) => input.value));
+  const expectedKeys = ["Pontos de fidelidade", "Voucher ativo", "Nível"];
+  for (const key of expectedKeys) {
+    if (!customFieldKeys.includes(key)) throw new Error(`Missing custom field "${key}" after re-opening the imported account: ${customFieldKeys.join(", ")}`);
+  }
+  await page.locator('[data-cancel="testAccount"]').click();
 
   const clientBadge = await page.locator("#clientList .qts-badge-avatar").textContent();
   if (clientBadge.trim() !== "C") throw new Error(`Expected client badge "C" (Cinemark), got: ${clientBadge}`);
