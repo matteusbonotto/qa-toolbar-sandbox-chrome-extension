@@ -106,6 +106,10 @@
 
       <section data-panel="workspace" class="panel protectedPanel">
         <header class="panelHead"><h1>Workspace</h1><p>Cliente → projeto → produto → ambientes. Toda alteração reflete na barra imediatamente.</p></header>
+        <div class="wizardCard" id="workspaceWizard" hidden>
+          <p class="wizardIntro">Configure seu primeiro ambiente em 4 passos rápidos. Cada card abaixo corresponde a um passo — comece pelo primeiro.</p>
+          <ol class="wizardSteps" id="wizardSteps"></ol>
+        </div>
         <label class="searchBox">Buscar no workspace<input id="workspaceSearch" type="search" placeholder="Nome, URL ou ambiente" /></label>
         <div class="grid2">
           <div class="card"><div class="cardHead"><h2>Clientes</h2><span class="count" id="clientCount">0</span></div><div class="list" id="clientList"></div>

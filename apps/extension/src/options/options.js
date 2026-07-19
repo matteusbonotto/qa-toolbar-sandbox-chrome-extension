@@ -280,7 +280,47 @@ function renderWorkspace() {
   renderSelect("testAccountEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Selecione o ambiente"));
   renderSelect("paymentMethodEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Todos os ambientes"));
   loadPreferenceUi();
+  renderWorkspaceWizard();
   window.QTS_OPTIONS_I18N.apply(currentLocale);
+}
+
+// First-access wizard: guides Client -> Project -> Product -> Environment using the SAME forms
+// already in this panel (no parallel UI) — just a progress strip that tracks which step is next
+// and auto-scrolls there the moment the previous one is saved, so creating the first environment
+// reads as one guided flow instead of four unrelated, easy-to-miss cards.
+let wizardLastActiveStep = -1;
+function renderWorkspaceWizard() {
+  const wizard = document.getElementById("workspaceWizard");
+  const steps = [
+    { label: t("Cliente"), done: workspace.clients.length > 0, targetId: "clientName" },
+    { label: t("Projeto"), done: workspace.projects.length > 0, targetId: "projectClient" },
+    { label: t("Produto"), done: workspace.products.length > 0, targetId: "productProject" },
+    { label: t("Ambiente"), done: workspace.environments.length > 0, targetId: "environmentProduct" },
+  ];
+  const activeIndex = steps.findIndex((step) => !step.done);
+  if (activeIndex === -1) {
+    wizard.hidden = true;
+    wizardLastActiveStep = -1;
+    return;
+  }
+  wizard.hidden = false;
+  document.getElementById("wizardSteps").innerHTML = steps.map((step, index) => `
+    <li class="${step.done ? "isDone" : index === activeIndex ? "isActive" : ""}" data-wizard-step="${index}">
+      <span class="wizardStepNum">${step.done ? ICON("pass") : index + 1}</span>
+      <span>${escapeHtml(step.label)}</span>
+    </li>
+  `).join("");
+  document.querySelectorAll("#wizardSteps [data-wizard-step]").forEach((item) => item.addEventListener("click", () => {
+    const target = document.getElementById(steps[Number(item.dataset.wizardStep)].targetId);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    target?.focus();
+  }));
+  if (activeIndex !== wizardLastActiveStep) {
+    wizardLastActiveStep = activeIndex;
+    const target = document.getElementById(steps[activeIndex].targetId);
+    target?.scrollIntoView({ behavior: "smooth", block: "center" });
+    target?.focus();
+  }
 }
 
 async function persistWorkspace() {

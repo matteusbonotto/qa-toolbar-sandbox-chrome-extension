@@ -504,6 +504,55 @@ function mountToolbar() {
   if (document.body) document.body.insertBefore(spacer, document.body.firstChild);
 
   render();
+  void maybeShowFirstRunIntro();
+}
+
+// One-time callout the very first time the bar ever mounts on any authorized site — after
+// that, chrome.storage.local remembers it was seen and it never shows again. Lives inside the
+// shadow root (not document.body) since it only ever needs to point at our own bar, not overlay
+// arbitrary page content.
+async function maybeShowFirstRunIntro() {
+  if (!state.shadowRoot) return;
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  if (stored[STORAGE_KEYS.uiState]?.hasSeenToolbarIntro) return;
+  if (state.shadowRoot.getElementById("firstRunIntro")) return;
+  const t = state.t;
+  const host = document.createElement("div");
+  host.id = "firstRunIntro";
+  host.innerHTML = `
+    <style>
+      #firstRunIntroCard {
+        position: fixed; bottom: 20px; left: 50%; z-index: 2147483647; transform: translateX(-50%);
+        width: min(320px, calc(100vw - 24px)); padding: 14px; border-radius: 12px;
+        background: #0b0b0b; border: 1px solid #333; box-shadow: 0 16px 34px rgba(0,0,0,.45);
+        color: #fff; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        animation: qts-intro-in 180ms ease;
+      }
+      /* Bottom-center, matching showQaToast's proven-safe spot — anywhere near the bar itself
+         risks sitting on top of the tools dropdown (it did, and blocked clicking menu items).
+         The "to" state must match the base transform exactly, or it snaps sideways once the
+         (non-forwards) animation ends and the base rule's transform takes back over. */
+      @keyframes qts-intro-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translateX(-50%); } }
+      #firstRunIntroCard .qts-intro-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+      #firstRunIntroCard b { color: #ffd700; font-size: 13px; }
+      #firstRunIntroCard p { margin: 0 0 10px; color: #ccc; }
+      #firstRunIntroCard button.qts-intro-close { flex: none; width: 22px; height: 22px; border: 0; border-radius: 999px; background: #b20808; color: #fff; cursor: pointer; }
+      #firstRunIntroCard button.qts-intro-cta { width: 100%; height: 32px; border: 0; border-radius: 8px; background: #ffd700; color: #111; font-weight: 800; cursor: pointer; }
+    </style>
+    <div id="firstRunIntroCard">
+      <div class="qts-intro-head"><b>${escapeHtml(t.firstRunTitle)}</b><button type="button" class="qts-intro-close" title="${escapeHtml(t.close)}">×</button></div>
+      <p>${escapeHtml(t.firstRunBody)}</p>
+      <button type="button" class="qts-intro-cta">${escapeHtml(t.firstRunCta)}</button>
+    </div>
+  `;
+  state.shadowRoot.appendChild(host);
+  const dismiss = async () => {
+    host.remove();
+    const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+    await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...(current[STORAGE_KEYS.uiState] || {}), hasSeenToolbarIntro: true } });
+  };
+  host.querySelector(".qts-intro-close").addEventListener("click", dismiss);
+  host.querySelector(".qts-intro-cta").addEventListener("click", dismiss);
 }
 
 function removeToolbar({ disableBridge = false } = {}) {
