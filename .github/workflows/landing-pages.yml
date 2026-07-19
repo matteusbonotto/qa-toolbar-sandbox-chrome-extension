@@ -7,6 +7,11 @@ on:
     paths:
       - "apps/landing/**"
       - "apps/admin/**"
+      # The LP bundles a manual-install (sideload) zip of the extension as a download fallback —
+      # while Chrome Web Store review is pending, that zip is the only real distribution channel,
+      # so an extension-only change (no apps/landing/apps/admin touched) must still redeploy it.
+      - "apps/extension/**"
+      - "scripts/package-extension-sideload.mjs"
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/landing-pages.yml"
