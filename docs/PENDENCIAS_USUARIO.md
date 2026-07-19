@@ -1,124 +1,67 @@
 # Pendências que só você consegue resolver
 
-> Documento vivo, criado em 2026-07-17. A primeira leva (branch
-> `agent/lp-privacy-and-tooling`) já foi mergeada em `main`. Esta seção nova é da leva
-> seguinte, branch `agent/admin-security-and-lp-polish`: remoção do auto-cadastro do admin
-> (vulnerabilidade), fix do celular quadrado na LP, efeitos sonoros na extensão, catálogo de
-> ferramentas com accordion na LP, e remoção do `old_codex`. Ainda não mergeado.
+> Documento vivo. Reescrito do zero em 2026-07-19 — a versão anterior misturava itens já
+> resolvidos há dias com os realmente pendentes, e isso gerou confusão. A partir de agora, tudo
+> que estiver aqui é **verificado como pendente no momento da última edição**, não copiado de uma
+> lista antiga. Nenhum destes itens pode ser feito por mim — todos exigem login, senha, service
+> role key, OTP ou uma tela que só você tem acesso.
 
-Marque `[x]` conforme for resolvendo. Nenhum destes itens pode ser feito por mim — todos exigem
-login, senha, OTP ou uma tela que só você tem acesso.
+## 1. Aplicar a migration de feature flags no banco real (BLOQUEIA os planos)
 
-## -1. URGENTE (2026-07-19): migration de feature flags nunca foi aplicada no banco real
+Sem isso, `characterCounter`, `multiClick`, `inputLab`, `fakerFill`, `macroStudio` e `keyView`
+continuam ausentes da tabela **Feature flags** do admin e bloqueados pra todo mundo, inclusive
+Release Manager.
 
-Achado ao investigar por que a conta `+rm@gmail.com` (plano Release Manager, o mais caro) estava
-com ferramentas bloqueadas que deveriam estar liberadas.
+- [ ] Rode localmente, com sua service-role key:
+  ```
+  SUPABASE_URL=https://xhusvkylbouwtpcevgri.supabase.co SUPABASE_SERVICE_ROLE_KEY=<sua chave> node scripts/apply-plan-features-migration.mjs
+  ```
+  Ele mesmo confirma no final ("Done. All 6 tools are now correctly gated...").
+- [ ] Se der qualquer erro, roda `node scripts/verify-plan-features.mjs` (mesmas variáveis) e
+      cola aqui o que ele imprimir.
+- [ ] Depois de rodar, atualiza `/admin/` → **Feature flags** e confirma que as 6 linhas novas
+      aparecem com a coluna Release Manager marcada.
 
-**Causa raiz**: nada neste projeto aplica migrations automaticamente no banco real — cada uma
-precisa ser rodada manualmente por você (não tenho a service-role key). O
-`docs/handoff/CHECKLIST_RECONSTRUCAO.md` confirma que as migrations até
-`20260717070000_admin_role_audit_and_mrr.sql` foram aplicadas, mas a seguinte —
-`20260717080000_new_qa_tools_feature_flags.sql`, que cria e distribui os 6 feature flags novos
-(`characterCounter.enabled`, `multiClick.enabled`, `inputLab.enabled`, `fakerFill.enabled`,
-`macroStudio.enabled`, `keyView.enabled`) — nunca teve confirmação de ter sido rodada. O código,
-o `schema.sql` e a migration em si estão todos corretos; é só o banco de produção que ficou sem
-essas linhas, então `access-status` devolve essas 6 chaves como ausentes para todo mundo,
-inclusive Release Manager.
+## 2. Redeploy das Edge Functions (a correção do login de admin só entra em vigor depois disso)
 
-- [ ] **Confirmar e corrigir**: rode `SUPABASE_URL=... SUPABASE_SERVICE_ROLE_KEY=... node
-      scripts/verify-plan-features.mjs` (script novo, só leitura) — ele compara o banco real com
-      a matriz esperada e aponta exatamente o que está faltando.
-- [ ] Se ele apontar problema, o jeito mais rápido de corrigir é `/admin/` → aba **Feature
-      flags** → marcar as 6 caixas da coluna **Release Manager** (e conferir as outras colunas
-      contra a tabela em `docs/GUIA_FERRAMENTAS_QA.md`). Alternativa: colar o conteúdo de
-      `supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql` no SQL Editor do
-      Supabase e rodar — é idempotente, seguro mesmo se parcialmente aplicado.
-- [ ] Rode o script de novo depois do fix para confirmar que bateu 100%.
-- [ ] **Lição para o futuro**: toda vez que uma nova migration for adicionada ao repositório,
-      ela precisa ser aplicada manualmente E essa aplicação precisa ficar registrada em
-      `docs/handoff/CHECKLIST_RECONSTRUCAO.md` — foi a ausência desse registro que permitiu essa
-      migration passar despercebida.
+Mergeamos a correção do bug que travava o login do admin (`invalid_session`), mas Edge Functions
+não atualizam sozinhas com o merge — o código antigo continua rodando até você reenviar.
 
-## 0. Leva atual (`agent/admin-security-and-lp-polish`) — ainda não mergeada
+- [ ] Se ainda não rodou depois do merge do PR #46, rode:
+  ```
+  npx supabase@latest functions deploy --project-ref xhusvkylbouwtpcevgri --use-api
+  ```
+- [ ] Confirma logando de novo em `/admin/` com senha + OTP.
 
-- [ ] **Revisar e mergear o PR**: https://github.com/matteusbonotto/qa-toolbar-sandbox-chrome-extension/pull/new/agent/admin-security-and-lp-polish
-      — inclui a correção de segurança do admin (urgente: o auto-cadastro público ficou no ar
-      desde o merge anterior até este PR ser mergeado).
-- [ ] Rodar `supabase/bootstrap-admin-account.mjs` (veja seção 4 abaixo) — a tela antiga de
-      "Criar conta" foi removida, esse script é o único jeito de criar/resetar a senha da conta
-      founder agora.
-- [ ] Checar a aba **Security → Dependabot** do repositório: o GitHub reportou 1 vulnerabilidade
-      alta numa dependência ao dar push nesta leva; `npm audit` local não encontrou nada (pode
-      ser uma dependência que só existe no lockfile de um workspace, ou uma advisory que o
-      registro do npm ainda não sincronizou). Não consegui investigar mais sem acesso à aba.
+## 3. [RESOLVIDO] Sessão do admin agora sobrevive a um F5
 
-## 1. Antes de mergear o PR (leva anterior, já mergeada)
+Era proposital (token de MFA só em memória, pra um script injetado nunca reutilizá-lo após
+reload) — você escolheu a opção B (meio-termo): o token de MFA agora vive em `sessionStorage`,
+sobrevive a reload e a navegar entre abas da mesma sessão do navegador, mas some ao fechar a
+aba/janela e continua expirando nos 60 minutos normais. Verificado ao vivo: login completo
+(senha + OTP) via Playwright contra o bundle real, reload da página, painel continuou logado.
 
-- [x] **Dispensar o alerta médio do CodeQL** ("File data in outbound network request" em
-      `scripts/publish-chrome-webstore.mjs`). Não é bug — é o script mandando o `.zip` pro
-      endpoint oficial do Google, que é literalmente a função dele. Na aba **Files changed** do
-      PR (ou em **Security → Code scanning alerts**), abra o alerta → **Dismiss alert** →
-      motivo **"False positive"** → comentário sugerido: *"Upload intencional do pacote da
-      extensão pro endpoint oficial da Chrome Web Store API, não é exfiltração."*
-      O alerta **alto** (clear-text logging) já foi corrigido no commit `9750aa8` — depois de
-      dispensar o médio, o check do CodeQL deve reavaliar e desbloquear o merge.
-- [x] **Revisar e mergear o PR**: https://github.com/matteusbonotto/qa-toolbar-sandbox-chrome-extension/pull/new/agent/lp-privacy-and-tooling
-      (ou a PR já aberta, se você já criou uma a partir desse link). Dar push direto em `main`
-      foi bloqueado pelo próprio Claude Code — só você consegue mergear.
+## 4. Chrome Web Store (pausado a pedido seu)
 
-## 2. GitHub Actions — 3 secrets (pra automação de deploy da extensão funcionar)
+Confirmado com dados reais: o workflow de auto-publish falha desde 18/07, em 7 pushes seguidos,
+sem relação com nada desta sessão — provavelmente a revisão do Google ainda pendente/cancelada
+bloqueando o upload. Você pediu pra não investigar isso agora. Quando quiser retomar: abra a run
+mais recente de **Build Chrome Web Store package** → job **publish-to-store** → passo **"Upload to
+Chrome Web Store"** e cola aqui a mensagem de erro.
 
-Sem isso, o workflow `chrome-store-package.yml` falha logo no início com uma mensagem clara
-(não falha silenciosamente).
+## 5. Teste ao vivo que ainda falta
 
-- [x] `Settings → Secrets and variables → Actions → New repository secret`, criar os três, com
-      esses nomes exatos:
-  - [x] `CHROME_WEBSTORE_CLIENT_ID`
-  - [x] `CHROME_WEBSTORE_CLIENT_SECRET`
-  - [x] `CHROME_WEBSTORE_REFRESH_TOKEN`
-- [x] Os valores: copie do seu `.env` local (linhas com esses mesmos nomes, sem as aspas). Não
-      estão neste documento nem foram colados no chat de propósito.
+- [ ] Fluxo completo de "Esqueci minha senha" com e-mail real (pedir link → abrir e-mail →
+      `/redefinir-senha` → trocar senha → logar com a nova).
+- [ ] Depois que o item 1 acima estiver resolvido: conferir com uma conta real de plano baixo
+      (ex. Smoke Test) que Macro Studio e Key View realmente somem do menu — hoje só está
+      validado com plano mockado no smoke automatizado.
 
-## 3. Supabase — permitir o redirect do "esqueci minha senha"
+## O que já está confirmado certo (verificado de novo em 2026-07-19, não é suposição)
 
-- [x] `Authentication → URL Configuration → Redirect URLs → Add URL`, adicionar exatamente:
-      ```
-      https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/redefinir-senha
-      ```
-      (sem barra no final — é a URL que o código monta de verdade). Sem isso, o e-mail de reset
-      de senha é enviado, mas o link de volta pode cair numa página de erro do Supabase em vez
-      de abrir `/redefinir-senha`.
-
-## 4. Chrome Web Store
-
-- [x] **Aguardar a revisão pendente da Google terminar** (aprovada ou rejeitada) — enquanto isso,
-      o painel mostra os botões de editar/publicar desabilitados e o app não aparece na busca
-      pública; isso é comportamento normal da Store, não bug daqui.
-      cancelei para adicionar o link correto da privacidade.
-      
-- [ ] Depois que a revisão atual resolver, rodar de novo `npm run release:chrome:upload`
-      (ou deixar o push em `main` disparar sozinho, já que o workflow ficou automático) pra
-      enviar o pacote com todas as mudanças desta sessão.
-- [ ] **Mudou**: a tela "Primeiro acesso? Criar conta" foi removida do admin (era uma
-      vulnerabilidade — qualquer visitante de `/admin/` podia tentar cadastrar a conta founder
-      antes de você, já que o e-mail alvo aparece em texto puro na tela). Rode
-      `supabase/bootstrap-admin-account.mjs` localmente (com sua service-role key) pra criar a
-      conta ou redefinir a senha, depois faça login normal em `/admin/` e valide o OTP humano.
-
-## 5. Testes ao vivo que eu não consegui fazer (sem sessão/credencial real)
-
-- [ ] Logar no admin (`/admin/`) com a conta founder → aba **Feature flags** (nova) → conferir
-      se a tabela carrega e se marcar/desmarcar uma célula salva de verdade.
-- [ ] Testar o fluxo completo de "Esqueci minha senha" com um e-mail real: pedir o link, abrir o
-      e-mail, clicar, cair em `/redefinir-senha`, trocar a senha, logar com a senha nova.
-- [ ] Com um usuário de plano baixo (ex.: Smoke Test) autenticado na extensão de verdade,
-      conferir se Macro Studio e Key View realmente somem do menu (já validei isso com um mock
-      automatizado, mas vale conferir com uma conta real depois que a distribuição de planos for
-      pra produção).
-
-## O que NÃO está pendente (já feito e verificado nesta sessão)
-
-Typecheck, testes, scanners de segurança (`security:repo`/`security:extension`), build da LP e do
-admin, smoke completo em Chrome real (0 erros), e uma revisão de segurança formal (3 achados
-investigados, 0 confirmados) — tudo isso já rodou e passou. Detalhes técnicos de cada mudança
-estão nas mensagens de commit do branch e em `docs/handoff/CHECKLIST_RECONSTRUCAO.md`.
+Rodado agora, na `main` já com tudo mergeado: `security:repo`, `security:extension`,
+`test-extension-workspace.mjs`, `typecheck` (landing e admin), `test:chrome` (0 erros de console,
+0 erros de worker) — todos passando. Todos os PRs desta sessão (#43, #44, #45, #46) estão
+mergeados. Login de admin com senha + OTP funciona de ponta a ponta (você confirmou). Publicação
+da LP/admin/zip da extensão no GitHub Pages foi simulada localmente passo a passo, idêntica ao
+workflow real, sem erro.
