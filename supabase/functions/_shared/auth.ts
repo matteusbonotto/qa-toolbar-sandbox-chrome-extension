@@ -18,11 +18,20 @@ function supabaseUrl(): string {
   return requiredEnv("SUPABASE_URL");
 }
 
-function publicKey(): string {
+// Last-resort fallback, not a secret: publishable keys are explicitly designed by Supabase to be
+// safe to ship in a public browser bundle (this exact value is already baked into the deployed
+// admin app's JS, verified live against this project's Auth API). Edge Functions normally get a
+// working key for free via Supabase's own auto-injected SUPABASE_ANON_KEY, but if that legacy key
+// is ever disabled on the project (e.g. after migrating to the new key system), every
+// authenticatedContext() call fails with a misleading "invalid_session" — this fallback means
+// that specific failure mode can't happen again, independent of any dashboard/secrets state.
+const KNOWN_PUBLISHABLE_KEY = "sb_publishable_ZgvV9nRJBYIPMHwDJpaxdA_OMr4MUVv";
+
+export function publicKey(): string {
   return Deno.env.get("SUPABASE_ANON_KEY")?.trim()
     || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")?.trim()
     || Deno.env.get("APP_SUPABASE_PUBLIC_KEY")?.trim()
-    || requiredEnv("SUPABASE_PUBLISHABLE_KEY");
+    || KNOWN_PUBLISHABLE_KEY;
 }
 
 export function adminClient() {
@@ -56,7 +65,12 @@ export async function authenticatedContext(request: Request): Promise<Authentica
   if (!token) throw new ApiError(401, "authentication_required");
   const client = createClient(supabaseUrl(), publicKey(), { auth: { autoRefreshToken: false, persistSession: false } });
   const { data, error } = await client.auth.getUser(token);
-  if (error || !data.user) throw new ApiError(401, "invalid_session");
+  if (error || !data.user) {
+    // The client only ever sees a generic "invalid_session" — log the real reason from Supabase
+    // (visible in the function's own logs) so a future failure here doesn't require guessing.
+    console.error("authenticatedContext: getUser rejected the token", error?.message ?? "no user returned");
+    throw new ApiError(401, "invalid_session");
+  }
   return { user: data.user, token, claims: parseJwtClaims(token) };
 }
 
