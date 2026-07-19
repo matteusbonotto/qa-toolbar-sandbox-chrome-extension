@@ -33,28 +33,13 @@ não atualizam sozinhas com o merge — o código antigo continua rodando até v
   ```
 - [ ] Confirma logando de novo em `/admin/` com senha + OTP.
 
-## 3. Decisão sua: a sessão do admin devia sobreviver a um F5?
+## 3. [RESOLVIDO] Sessão do admin agora sobrevive a um F5
 
-Você reportou: logou certo, mas atualizar a página desloga. **Isso não é bug — é proposital**,
-documentado em `apps/admin/src/lib/supabaseClient.ts:10-12`: o token de MFA (segundo fator) fica
-só em memória de propósito, pra um script malicioso injetado na página nunca conseguir reutilizá-lo
-depois de um reload. Reload "falha fechado" e pede senha + OTP de novo.
-
-Isso é uma troca de segurança-por-conveniência real, não um detalhe técnico — por isso não mudei
-sozinho. Três opções:
-
-- **A — Manter como está (mais seguro)**: qualquer reload exige senha + OTP de novo. É o
-  comportamento atual.
-- **B — Meio-termo**: guardar o token de MFA em `sessionStorage` em vez de só memória. Sobrevive a
-  F5 e a navegar entre abas da mesma sessão do navegador, mas some ao fechar a aba/janela e ainda
-  expira nos 60 minutos normais. Reduz um pouco a proteção contra script injetado (mas o token de
-  login principal do Supabase já fica em `localStorage` hoje, então o ganho real de manter só o
-  MFA em memória é menor do que parece).
-- **C — Sobreviver por até 60 min mesmo fechando o navegador**: guardar em `localStorage`. Mais
-  conveniente, mas é a opção com menor proteção contra XSS.
-
-Me diga qual opção prefere (ou se prefere deixar como está) que eu implemento — é uma troca de 5
-minutos de código, só não faço a escolha de segurança por você.
+Era proposital (token de MFA só em memória, pra um script injetado nunca reutilizá-lo após
+reload) — você escolheu a opção B (meio-termo): o token de MFA agora vive em `sessionStorage`,
+sobrevive a reload e a navegar entre abas da mesma sessão do navegador, mas some ao fechar a
+aba/janela e continua expirando nos 60 minutos normais. Verificado ao vivo: login completo
+(senha + OTP) via Playwright contra o bundle real, reload da página, painel continuou logado.
 
 ## 4. Chrome Web Store (pausado a pedido seu)
 
