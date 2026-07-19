@@ -49,6 +49,8 @@ jobs:
         run: |
           mkdir -p apps/landing/dist/admin
           cp -R apps/admin/dist/. apps/landing/dist/admin/
+      - name: Package the manual-install (sideload) extension zip for the download fallback
+        run: npm run package:extension:sideload -- --output=apps/landing/dist/qa-toolbar-sandbox-extension.zip
       - name: Add SPA fallback so deep links survive a direct load/reload
         run: cp apps/landing/dist/index.html apps/landing/dist/404.html
       - name: Give static-checked routes a real 200 response (not just the 404-status SPA fallback)

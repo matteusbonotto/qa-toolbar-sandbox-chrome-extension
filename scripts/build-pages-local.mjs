@@ -19,3 +19,7 @@ for (const [workspace, base] of [["@qts/landing", "/qa-toolbar-sandbox-chrome-ex
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status || 1);
 }
+
+const zipResult = spawnSync(process.execPath, [npmCli, "run", "package:extension:sideload", "--", "--output=apps/landing/dist/qa-toolbar-sandbox-extension.zip"], { cwd: process.cwd(), env, stdio: "inherit" });
+if (zipResult.error) throw zipResult.error;
+if (zipResult.status !== 0) process.exit(zipResult.status || 1);

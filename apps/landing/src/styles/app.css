@@ -988,6 +988,19 @@
   margin: 0;
 }
 
+.qts-access-panel-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--qts-space-3);
+  flex-wrap: wrap;
+}
+
+.qts-manual-install-hint {
+  margin: calc(var(--qts-space-5) * -1) 0 var(--qts-space-5);
+  color: var(--qts-text-muted);
+  font-size: 0.82rem;
+}
+
 .qts-account-panel p,
 .qts-access-panel span {
   color: var(--qts-text-muted);

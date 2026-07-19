@@ -95,6 +95,24 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
   switchTab("general");
 });
 
+document.getElementById("forgotPasswordButton").addEventListener("click", async (event) => {
+  const button = event.currentTarget;
+  const email = document.getElementById("loginEmail").value.trim();
+  if (!email) {
+    showMessage("authMessage", "Informe seu e-mail acima para receber o link de redefinição.", "Error");
+    return;
+  }
+  button.disabled = true;
+  showMessage("authMessage", "Enviando link de redefinição…");
+  const response = await runtimeMessage({ type: "qts:auth-recover-password", email });
+  button.disabled = false;
+  showMessage(
+    "authMessage",
+    response.ok ? "Se essa conta existir, enviamos um link de redefinição de senha para o e-mail cadastrado." : "Não foi possível enviar o link agora. Tente novamente em instantes.",
+    response.ok ? "Success" : "Error",
+  );
+});
+
 document.getElementById("refreshAccess").addEventListener("click", async () => {
   showMessage("authMessage", "Atualizando acesso…");
   const active = await loadAccess(true);
