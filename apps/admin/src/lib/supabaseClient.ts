@@ -7,10 +7,26 @@ export interface StoredAdminMfaSession {
   expiresAt: string;
 }
 
-// MFA proof is intentionally memory-only. Persisting it in web storage would
-// give injected page code a reusable second-factor token. A reload therefore
-// fails closed and requires the administrator to authenticate again.
-let activeAdminMfaSession: StoredAdminMfaSession | null = null;
+// MFA proof lives in sessionStorage (tab-scoped, gone once the tab/browser closes) rather than
+// memory-only or localStorage — a deliberate middle ground picked by the founder: a page reload
+// no longer forces a fresh password+OTP round trip, but the token still never outlives the
+// browser tab and still expires with the normal 60-minute window either way. This is strictly
+// weaker against an injected/XSS script than memory-only (any script running in the tab can read
+// it), though the primary Supabase session token was already persisted in localStorage regardless
+// — sessionStorage is at least scoped to "this tab, this browser session," which localStorage is not.
+const ADMIN_MFA_STORAGE_KEY = "qts.admin.mfa.v1";
+
+function readRawAdminMfaSession(): StoredAdminMfaSession | null {
+  try {
+    const raw = window.sessionStorage.getItem(ADMIN_MFA_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<StoredAdminMfaSession>;
+    if (typeof parsed?.token !== "string" || typeof parsed?.expiresAt !== "string") return null;
+    return { token: parsed.token, expiresAt: parsed.expiresAt };
+  } catch {
+    return null;
+  }
+}
 
 // Public/anon key only — this app never sees a service-role key. Founder-only access is
 // enforced server-side (RLS + the roles/user_roles tables), never trusted from the client;
@@ -21,21 +37,21 @@ export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as 
 export const isSupabaseConfigured = Boolean(supabaseUrl && supabaseAnonKey);
 
 export function readAdminMfaSession(): StoredAdminMfaSession | null {
-  const session = activeAdminMfaSession;
+  const session = readRawAdminMfaSession();
   if (!session || !/^[A-Za-z0-9_-]{43}$/.test(session.token)
     || !Number.isFinite(Date.parse(session.expiresAt)) || Date.parse(session.expiresAt) <= Date.now()) {
-    activeAdminMfaSession = null;
+    clearAdminMfaSession();
     return null;
   }
-  return { ...session };
+  return session;
 }
 
 export function storeAdminMfaSession(session: StoredAdminMfaSession): void {
-  activeAdminMfaSession = { ...session };
+  window.sessionStorage.setItem(ADMIN_MFA_STORAGE_KEY, JSON.stringify(session));
 }
 
 export function clearAdminMfaSession(): void {
-  activeAdminMfaSession = null;
+  window.sessionStorage.removeItem(ADMIN_MFA_STORAGE_KEY);
 }
 
 async function fetchWithAdminMfa(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
