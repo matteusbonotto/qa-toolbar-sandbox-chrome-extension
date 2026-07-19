@@ -7,7 +7,7 @@ import {
   secureAdminToken,
   sha256Hex,
 } from "../_shared/admin_mfa.ts";
-import { adminClient, authenticatedContext, enforceRateLimit } from "../_shared/auth.ts";
+import { adminClient, authenticatedContext, enforceRateLimit, publicKey } from "../_shared/auth.ts";
 import { ApiError, jsonResponse, preflight, readJson, requirePost } from "../_shared/http.ts";
 
 interface RequestBody {
@@ -21,13 +21,6 @@ function requiredEnv(name: string): string {
   const value = Deno.env.get(name)?.trim();
   if (!value) throw new Error(`Missing required server configuration: ${name}`);
   return value;
-}
-
-function publicKey(): string {
-  return Deno.env.get("SUPABASE_ANON_KEY")?.trim()
-    || Deno.env.get("SUPABASE_PUBLISHABLE_KEY")?.trim()
-    || Deno.env.get("APP_SUPABASE_PUBLIC_KEY")?.trim()
-    || requiredEnv("SUPABASE_PUBLISHABLE_KEY");
 }
 
 function asUuid(value: unknown): string {
