@@ -1031,9 +1031,13 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, wide = false, bodyHtml, onReady }) {
+function openDrawer({ title, wide = false, bodyHtml, onReady, view = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
+  // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
+  // whether to live-refresh the Inspectors list. Leaving a stale "inspectors" value here after
+  // switching to a different panel made Inspectors content silently overwrite other drawers.
+  drawerHost.dataset.view = view;
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
     <div class="qts-drawer-backdrop" id="drawerBackdrop">
       <div class="qts-drawer ${wide ? "isWide" : ""}">
@@ -1355,8 +1359,7 @@ function renderInspectorsList() {
 }
 
 function openInspectorsDrawer() {
-  openDrawer({ title: state.t.inspectorsTitle, wide: true, bodyHtml: "" });
-  state.shadowRoot.getElementById("drawerHost").dataset.view = "inspectors";
+  openDrawer({ title: state.t.inspectorsTitle, wide: true, bodyHtml: "", view: "inspectors" });
   renderInspectorsList();
 }
 
