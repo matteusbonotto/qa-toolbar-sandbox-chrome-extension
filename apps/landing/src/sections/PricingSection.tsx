@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import type { Session } from "@supabase/supabase-js";
 import { pricingPlans, type PlanId } from "../data/pricingData";
 import {
@@ -326,7 +327,13 @@ export function PricingSection() {
         <h2>{t.pricing.title}</h2>
         <p className="qts-section-lead">{t.pricing.lead}</p>
 
-        {authModalOpen ? (
+        {authModalOpen ? createPortal(
+          // Portaled straight to <body>: .qts-page-content (an ancestor here) sets its own
+          // position+z-index to sit above the particle canvas, which makes it a stacking
+          // context — so the modal's z-index:100 was only ever winning against siblings
+          // *inside* that context, never against the sticky nav bar (z-index:50) outside it.
+          // Tall modal content pushed the close button up into the nav's band and the nav won
+          // the hit-test despite the "higher" z-index. Escaping to body sidesteps that entirely.
           <div className="qts-auth-overlay" onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeAuthModal();
           }}>
@@ -388,7 +395,8 @@ export function PricingSection() {
                 </>
               )}
             </div>
-          </div>
+          </div>,
+          document.body,
         ) : null}
 
         {access?.active ? (
