@@ -62,6 +62,13 @@ assert.deepEqual(normalizeWorkspace({ preferences: { keyView: { keySize: "large"
 assert.deepEqual(normalizeWorkspace({ preferences: { keyView: { keySize: "huge", mouseSize: "tiny" } } }).preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" });
 assert.deepEqual(normalizeWorkspace({ preferences: { compactMode: true, compactEntities: { client: true, project: false, product: true } } }).preferences.compactEntities, { client: true, project: false, product: true });
 
+// breadcrumbOrder: default is client-first; a custom order is preserved verbatim; malformed/
+// partial/duplicate input still yields all 3 keys exactly once (never drops a breadcrumb segment).
+assert.deepEqual(normalizeWorkspace({}).preferences.breadcrumbOrder, ["client", "project", "product"]);
+assert.deepEqual(normalizeWorkspace({ preferences: { breadcrumbOrder: ["product", "client", "project"] } }).preferences.breadcrumbOrder, ["product", "client", "project"]);
+assert.deepEqual(normalizeWorkspace({ preferences: { breadcrumbOrder: ["product", "product", "bogus"] } }).preferences.breadcrumbOrder, ["product", "client", "project"]);
+assert.deepEqual(normalizeWorkspace({ preferences: { breadcrumbOrder: "not-an-array" } }).preferences.breadcrumbOrder, ["client", "project", "product"]);
+
 // Environments no longer depend on a product at all (see normalizeUrlBindings in storage.js —
 // the fix for "DEV AR"/"DEV BO" duplication moves the product association onto the binding), so
 // an environment with no product/URL relationship yet still survives; only a binding referencing

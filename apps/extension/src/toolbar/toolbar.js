@@ -201,11 +201,12 @@ function resolveEnvironmentUrl(environment) {
 }
 
 /**
- * White-label breadcrumb: Client renders as a small, de-emphasized corner
+ * White-label breadcrumb: by default Client renders as a small, de-emphasized corner
  * label (logo/initials only by default), while Project → Product → Environment
- * form the main sequence, each entity rendering as a logo image, or — when no
- * logo is set — an auto-generated colored initials badge, so a brand-new
- * client/project/product is never a blank space. Per-entity `showLabel`
+ * form the main sequence — but preferences.breadcrumbOrder can move Client into the main
+ * sequence too (it only stays in the corner slot when it's first in that order), each entity
+ * rendering as a logo image, or — when no logo is set — an auto-generated colored initials
+ * badge, so a brand-new client/project/product is never a blank space. Per-entity `showLabel`
  * controls whether the name is spelled out next to the badge. Each visible tier is
  * independently toggleable via preferences.breadcrumbVisibility, and (when the environment
  * resolves to a real URL) clickable to jump back to it — wired via event delegation in
@@ -215,9 +216,11 @@ function buildBreadcrumb(workspace, environment) {
   if (!environment) {
     return { clientHtml: "", mainHtml: "", color: "#3a3a3a", text: "#ffffff" };
   }
-  const client = findById(workspace.clients, environment.clientId);
-  const project = findById(workspace.projects, environment.projectId);
-  const product = findById(workspace.products, environment.productId);
+  const entityFor = {
+    client: findById(workspace.clients, environment.clientId),
+    project: findById(workspace.projects, environment.projectId),
+    product: findById(workspace.products, environment.productId),
+  };
   const color = environment.color || "#ef3340";
   const visibility = workspace.preferences?.breadcrumbVisibility || {};
   const navUrl = resolveEnvironmentUrl(environment);
@@ -228,16 +231,22 @@ function buildBreadcrumb(workspace, environment) {
 
   const legacyCompact = workspace.preferences?.compactMode === true;
   const compactEntities = workspace.preferences?.compactEntities || { project: legacyCompact, product: legacyCompact };
-  const clientHtml = client && visibility.client !== false
-    ? wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: compactEntities.client === true ? false : client.showLabel !== false }, { size: 14, maxChars: 18 }))
-    : "";
-  const segments = [
-    visibility.project !== false ? { entity: project, key: "project" } : null,
-    visibility.product !== false ? { entity: product, key: "product" } : null,
-  ]
-    .filter((item) => item?.entity)
-    .map(({ entity, key }) => wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compactEntities[key] === true ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 })));
-  if (visibility.environment !== false) segments.push(wrapCrumb(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`));
+  const badge = (key, size, maxChars) => {
+    if (key === "environment") return wrapCrumb(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`);
+    const entity = entityFor[key];
+    if (!entity) return "";
+    return wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compactEntities[key] === true ? false : entity.showLabel !== false }, { size, maxChars }));
+  };
+
+  const order = workspace.preferences?.breadcrumbOrder || ["client", "project", "product"];
+  const clientIsFirst = order[0] === "client";
+  const clientHtml = clientIsFirst && visibility.client !== false ? badge("client", 14, 18) : "";
+  const mainKeys = clientIsFirst ? order.slice(1) : order;
+  const segments = mainKeys
+    .filter((key) => visibility[key] !== false)
+    .map((key) => badge(key, 18, 16))
+    .filter(Boolean);
+  if (visibility.environment !== false) segments.push(badge("environment"));
 
   return {
     clientHtml,

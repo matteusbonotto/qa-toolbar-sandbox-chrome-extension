@@ -291,7 +291,79 @@ function loadPreferenceUi() {
   document.querySelectorAll("[data-tool]").forEach((checkbox) => { checkbox.checked = enabledTools.has(checkbox.dataset.tool); });
   const breadcrumbVisibility = preferences.breadcrumbVisibility || {};
   document.querySelectorAll("[data-breadcrumb]").forEach((checkbox) => { checkbox.checked = breadcrumbVisibility[checkbox.dataset.breadcrumb] !== false; });
+  breadcrumbOrderDraft = normalizeBreadcrumbOrderDraft(preferences.breadcrumbOrder);
+  renderBreadcrumbOrderList();
 }
+
+// Cliente/Projeto/Produto priority in the breadcrumb — a local draft array (not saved until
+// "Salvar aparência") so drag/arrow reordering and the live preview stay instant without writing
+// to the workspace on every rearrange. Environment is intentionally not reorderable — it's always
+// the last, "current tier" segment (see buildBreadcrumb in toolbar.js).
+let breadcrumbOrderDraft = ["client", "project", "product"];
+let breadcrumbOrderDragKey = null;
+
+function normalizeBreadcrumbOrderDraft(value) {
+  const known = ["client", "project", "product"];
+  const order = (Array.isArray(value) ? value : []).filter((key) => known.includes(key));
+  for (const key of known) if (!order.includes(key)) order.push(key);
+  return [...new Set(order)];
+}
+
+function renderBreadcrumbOrderList() {
+  const labels = { client: t("Cliente"), project: t("Projeto"), product: t("Produto") };
+  const list = document.getElementById("breadcrumbOrderList");
+  list.innerHTML = breadcrumbOrderDraft.map((key, index) => `
+    <li class="breadcrumbOrderItem" draggable="true" data-order-key="${key}">
+      <span class="dragHandle">⠿</span><span>${escapeHtml(labels[key])}</span>
+      <span class="orderArrows">
+        <button type="button" data-order-move="up" data-order-key="${key}" ${index === 0 ? "disabled" : ""} title="${escapeHtml(t("Mover para cima"))}">↑</button>
+        <button type="button" data-order-move="down" data-order-key="${key}" ${index === breadcrumbOrderDraft.length - 1 ? "disabled" : ""} title="${escapeHtml(t("Mover para baixo"))}">↓</button>
+      </span>
+    </li>`).join("");
+  list.querySelectorAll("[data-order-move]").forEach((button) => button.addEventListener("click", () => {
+    const key = button.dataset.orderKey;
+    const from = breadcrumbOrderDraft.indexOf(key);
+    const to = from + (button.dataset.orderMove === "up" ? -1 : 1);
+    if (to < 0 || to >= breadcrumbOrderDraft.length) return;
+    [breadcrumbOrderDraft[from], breadcrumbOrderDraft[to]] = [breadcrumbOrderDraft[to], breadcrumbOrderDraft[from]];
+    renderBreadcrumbOrderList();
+    renderBarPreview();
+  }));
+  list.querySelectorAll(".breadcrumbOrderItem").forEach((item) => {
+    item.addEventListener("dragstart", () => { breadcrumbOrderDragKey = item.dataset.orderKey; item.classList.add("isDragging"); });
+    item.addEventListener("dragend", () => { item.classList.remove("isDragging"); breadcrumbOrderDragKey = null; });
+    item.addEventListener("dragover", (event) => event.preventDefault());
+    item.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const targetKey = item.dataset.orderKey;
+      if (!breadcrumbOrderDragKey || breadcrumbOrderDragKey === targetKey) return;
+      const from = breadcrumbOrderDraft.indexOf(breadcrumbOrderDragKey);
+      const to = breadcrumbOrderDraft.indexOf(targetKey);
+      breadcrumbOrderDraft.splice(from, 1);
+      breadcrumbOrderDraft.splice(to, 0, breadcrumbOrderDragKey);
+      renderBreadcrumbOrderList();
+      renderBarPreview();
+    });
+  });
+  renderBarPreview();
+}
+
+// Mock breadcrumb using sample names — reflects order/visibility/compact-mode instantly, without
+// needing a real workspace/environment or waiting for "Salvar aparência".
+function renderBarPreview() {
+  const sample = { client: "Cliente", project: "Projeto", product: "Produto", environment: "QA" };
+  const visibility = Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked]));
+  const compact = Object.fromEntries([...document.querySelectorAll("[data-compact-entity]")].map((checkbox) => [checkbox.dataset.compactEntity, checkbox.checked]));
+  const crumb = (key, small) => `<span class="previewCrumb" style="font-size:${small ? "10px" : "12px"}">${compact[key] ? "" : escapeHtml(sample[key])}</span>`;
+  const clientFirst = breadcrumbOrderDraft[0] === "client";
+  document.getElementById("barPreviewClient").innerHTML = clientFirst && visibility.client !== false ? crumb("client", true) : "";
+  const mainKeys = clientFirst ? breadcrumbOrderDraft.slice(1) : [...breadcrumbOrderDraft];
+  const segments = mainKeys.filter((key) => visibility[key] !== false).map((key) => crumb(key, false));
+  if (visibility.environment !== false) segments.push(`<span class="previewCrumb">${escapeHtml(sample.environment)}</span>`);
+  document.getElementById("barPreviewMain").innerHTML = segments.join('<span class="previewSep">|</span>');
+}
+document.querySelectorAll("[data-breadcrumb],[data-compact-entity]").forEach((input) => input.addEventListener("change", renderBarPreview));
+
 document.getElementById("savePreferences").addEventListener("click", async () => {
   const compactEntities = Object.fromEntries([...document.querySelectorAll("[data-compact-entity]")].map((checkbox) => [checkbox.dataset.compactEntity, checkbox.checked]));
   workspace.preferences = {
@@ -313,6 +385,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
     breadcrumbVisibility: Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked])),
+    breadcrumbOrder: [...breadcrumbOrderDraft],
   };
   await persistWorkspace();
   document.getElementById("preferencesSavedHint").textContent = t("Salvo — a barra já foi atualizada.");

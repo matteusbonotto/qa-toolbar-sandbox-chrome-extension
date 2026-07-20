@@ -37,8 +37,20 @@
 
 ## Fase 3 — "Exibição": ordenação + prévia ao vivo da barra
 
-- [ ] Drag-and-drop (ou setas) para prioridade cliente/projeto/produto no breadcrumb.
-- [ ] Prévia ao vivo da barra refletindo os toggles antes de salvar.
+- [x] Nova preferência `breadcrumbOrder` (drag-and-drop + setas ↑↓) para prioridade cliente/
+      projeto/produto no breadcrumb — Ambiente fica sempre por último de propósito. Reaproveita
+      a mesma ideia de reordenação já usada em clientes/projetos/produtos.
+- [x] Prévia ao vivo da barra ("Exibição" → topo do card) refletindo ordem, visibilidade e modo
+      compacto instantaneamente, antes de "Salvar aparência".
+- [x] **Bug real achado e corrigido durante a verificação ao vivo**: o Ambiente nunca aparecia no
+      breadcrumb (nem antes desta fase) — a função `badge()` tinha uma guarda `if (!entity) return ""`
+      que rodava antes do caso especial de Ambiente, e `entityFor` nunca teve uma chave
+      `environment`. Corrigido movendo o caso do Ambiente para antes da guarda.
+- [x] Verificado ao vivo: prévia muda instantaneamente ao mover "Produto" para o topo via seta;
+      após salvar, a barra real reflete a nova ordem (Produto → Cliente → Projeto → Ambiente),
+      com o cliente saindo do canto pequeno e entrando na sequência principal quando não é mais o
+      primeiro. Suite completa rodou limpa (uma falha isolada foi confirmada como flakiness ao
+      rodar de novo sem alterações — não relacionada a esta fase).
 
 ## Fase 4 — Formulários em modal
 

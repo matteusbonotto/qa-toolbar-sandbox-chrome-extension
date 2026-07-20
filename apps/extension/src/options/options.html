@@ -58,6 +58,7 @@
           </div>
           <div class="card">
             <div class="cardHead"><h2>Exibição</h2></div>
+            <div class="barPreviewWrap"><div class="barPreview" id="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia da barra com as configurações atuais (atualiza antes de salvar).</small></div>
             <input id="compactMode" type="checkbox" hidden />
             <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
             <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Empurrar conteúdo do site</b><small>Reserva o espaço da barra no topo da página.</small></span></label>
@@ -69,6 +70,7 @@
               <label><input type="checkbox" data-breadcrumb="product" /> Produto</label>
               <label><input type="checkbox" data-breadcrumb="environment" /> Ambiente</label>
             </div></fieldset>
+            <fieldset><legend>Ordem no breadcrumb</legend><p class="cardLead">Arraste ou use as setas para definir a prioridade de cliente, projeto e produto.</p><ol class="breadcrumbOrderList" id="breadcrumbOrderList"></ol></fieldset>
             <fieldset><legend>Atalhos fixados</legend><div class="checkGrid">
               <label><input type="checkbox" data-pinned="passFail" /> Status e marcações</label>
               <label><input type="checkbox" data-pinned="screenshot" /> Screenshot</label>

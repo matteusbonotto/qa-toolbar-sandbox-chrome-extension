@@ -211,6 +211,7 @@ export function createEmptyWorkspace() {
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
       soundEffects: true,
       breadcrumbVisibility: { client: true, project: true, product: true, environment: true },
+      breadcrumbOrder: ["client", "project", "product"],
       keyView: {
         enabled: false,
         typingMode: false,
@@ -222,6 +223,17 @@ export function createEmptyWorkspace() {
       },
     },
   };
+}
+
+const BREADCRUMB_ORDER_KEYS = ["client", "project", "product"];
+// Environment is intentionally never part of this order — it's the "current tier" indicator,
+// always last, not something the founder asked to reorder. Any missing/unknown/duplicate entry
+// falls back to the default relative order so a malformed preference never drops a segment.
+function normalizeBreadcrumbOrder(value) {
+  const seen = new Set();
+  const order = (Array.isArray(value) ? value : []).filter((key) => BREADCRUMB_ORDER_KEYS.includes(key) && !seen.has(key) && seen.add(key));
+  for (const key of BREADCRUMB_ORDER_KEYS) if (!order.includes(key)) order.push(key);
+  return order;
 }
 
 function normalizeKeyViewPreferences(value) {
@@ -353,6 +365,7 @@ export function normalizeWorkspace(rawWorkspace) {
         product: preferences.breadcrumbVisibility?.product !== false,
         environment: preferences.breadcrumbVisibility?.environment !== false,
       },
+      breadcrumbOrder: normalizeBreadcrumbOrder(preferences.breadcrumbOrder),
       keyView: normalizeKeyViewPreferences(preferences.keyView),
     },
   };
