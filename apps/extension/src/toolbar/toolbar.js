@@ -9,6 +9,7 @@ const state = {
   workspace: null,
   environment: null,
   minimized: false,
+  hideFloatingControls: false,
   shadowRoot: null,
   placementMode: null, // null | "pass" | "fail" | "shape"
   clickSpyActive: false,
@@ -342,6 +343,7 @@ function render() {
   urlElement.textContent = currentUrl;
   urlElement.title = currentUrl;
   root.getElementById("restoreButton").classList.toggle("isVisible", state.minimized);
+  syncFloatingItemControlsButton();
   applyPinnedTools();
   syncKeyView();
   setSpacerHeight();
@@ -447,10 +449,11 @@ function buildShadowHost() {
          way back. Below this width those pinned buttons hide and the same actions move into the
          Tools menu instead (#mobileActionsMenu), which stays reachable regardless of width. */
       @media (max-width: 560px) {
-        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #clearAllButton,
+        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #toggleControlsButton, #clearAllButton,
         #screenshotButton, #recordToggleButton, #recordStopButton, #recordTimer { display: none !important; }
         #mobileActionsMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       }
+      #toggleControlsButton.isActive { background: #ffd700 !important; color: #111 !important; }
     </style>
     <div id="bar" role="toolbar" aria-label="Ferramentas de QA">
       <div id="left">
@@ -466,6 +469,7 @@ function buildShadowHost() {
         <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
         <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
         <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
+        <button id="toggleControlsButton" class="iconOnly" type="button" title="${escapeHtml(t.toggleControlsTitle)}">${ICON("eye")}</button>
         <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">${ICON("camera")}</button>
         <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
@@ -481,6 +485,7 @@ function buildShadowHost() {
               <button type="button" id="mobileFailItem" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
               <button type="button" id="mobileNoteItem" role="menuitem">${escapeHtml(t.note)}</button>
               <button type="button" id="mobileShapeItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
+              <button type="button" id="mobileToggleControlsItem" role="menuitem">${ICON("eye")} ${escapeHtml(t.toggleControlsTitle)}</button>
               <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
@@ -528,6 +533,7 @@ function buildShadowHost() {
   shadow.getElementById("failButton").addEventListener("click", (event) => enablePlacementMode("fail", event.currentTarget));
   shadow.getElementById("noteButton").addEventListener("click", () => addFloatingTextNote());
   shadow.getElementById("shapeButton").addEventListener("click", (event) => enablePlacementMode("shape", event.currentTarget));
+  shadow.getElementById("toggleControlsButton").addEventListener("click", () => toggleFloatingItemControls());
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
   shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
@@ -541,6 +547,7 @@ function buildShadowHost() {
   shadow.getElementById("mobileFailItem").addEventListener("click", () => { enablePlacementMode("fail", shadow.getElementById("failButton")); closeToolsMenu(); });
   shadow.getElementById("mobileNoteItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
   shadow.getElementById("mobileShapeItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileToggleControlsItem").addEventListener("click", () => { toggleFloatingItemControls(); closeToolsMenu(); });
   shadow.getElementById("mobileScreenshotItem").addEventListener("click", () => { captureScreenshot(); closeToolsMenu(); });
   shadow.getElementById("mobileRecordItem").addEventListener("click", () => { handleRecordToggle(); closeToolsMenu(); });
 
@@ -579,6 +586,22 @@ function closeToolsMenu() {
 function setMinimized(value) {
   state.minimized = value;
   render();
+}
+
+// Hides the ×/edit/resize buttons on markers, notes and shapes so screenshots/recordings show
+// only the evidence itself, not the editing chrome around it. Session-only (not persisted to the
+// workspace) since it's meant to be flipped right before capturing, not a lasting preference.
+function toggleFloatingItemControls() {
+  state.hideFloatingControls = !state.hideFloatingControls;
+  syncFloatingItemControlsButton();
+}
+
+function syncFloatingItemControlsButton() {
+  document.documentElement.classList.toggle("qts-hide-item-controls", state.hideFloatingControls);
+  const button = state.shadowRoot?.getElementById("toggleControlsButton");
+  if (!button) return;
+  button.classList.toggle("isActive", state.hideFloatingControls);
+  button.innerHTML = ICON(state.hideFloatingControls ? "eyeSlash" : "eye");
 }
 
 function isToolbarHealthy() {
@@ -662,6 +685,8 @@ function removeToolbar({ disableBridge = false } = {}) {
   document.getElementById(HOST_ID)?.remove();
   document.getElementById(SPACER_ID)?.remove();
   document.querySelectorAll(".qts-modal-backdrop,.qts-result-overlay,.qts-floating-item,.qts-shape-preview").forEach((element) => element.remove());
+  state.hideFloatingControls = false;
+  document.documentElement.classList.remove("qts-hide-item-controls");
   closeClickSpyTooltip();
   clearSiteFixedHeaderOffsets();
   state.shadowRoot = null;

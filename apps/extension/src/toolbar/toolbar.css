@@ -143,6 +143,13 @@ body.qts-placement-mode, body.qts-placement-mode * {
 }
 .qts-resize-handle.hasEditButton { right: 44px !important; }
 
+/* Toggled from the bar's eye/eye-slash button so screenshots/recordings can show a marker/note/
+   shape without its editing chrome around it — the item itself (and, for notes, its text) stays
+   visible and draggable, only the ×/edit/resize affordances hide. */
+html.qts-hide-item-controls .qts-remove-btn,
+html.qts-hide-item-controls .qts-edit-btn,
+html.qts-hide-item-controls .qts-resize-handle { display: none !important; }
+
 .qts-note { width: 260px; }
 .qts-note.isSaved { height: auto; }
 .qts-editor-head {
