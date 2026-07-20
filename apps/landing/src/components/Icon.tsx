@@ -8,6 +8,7 @@ import iconCheck2Circle from "bootstrap-icons/icons/check2-circle.svg?raw";
 import iconChevronDown from "bootstrap-icons/icons/chevron-down.svg?raw";
 import iconCodeSlash from "bootstrap-icons/icons/code-slash.svg?raw";
 import iconCreditCard from "bootstrap-icons/icons/credit-card.svg?raw";
+import iconCrosshair from "bootstrap-icons/icons/crosshair.svg?raw";
 import iconExclamationTriangle from "bootstrap-icons/icons/exclamation-triangle.svg?raw";
 import iconFonts from "bootstrap-icons/icons/fonts.svg?raw";
 import iconKey from "bootstrap-icons/icons/key.svg?raw";
@@ -30,6 +31,7 @@ const ICONS = {
   chevronDown: iconChevronDown,
   codeSlash: iconCodeSlash,
   creditCard: iconCreditCard,
+  crosshair: iconCrosshair,
   exclamationTriangle: iconExclamationTriangle,
   fonts: iconFonts,
   key: iconKey,

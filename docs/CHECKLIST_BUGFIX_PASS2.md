@@ -30,7 +30,10 @@
       banner de cookie fechando): os dois ficaram corretamente abaixo da nossa barra, sem
       sobreposição. (Achei e corrigi um loop infinito real no caminho — o monitor observava as
       mesmas mudanças de estilo que ele próprio aplicava.)
-- [ ] 6. Auditoria de contraste (dropdowns nativos, editores no light DOM)
+- [x] 6. Auditoria de contraste concluída: opções nativas receberam fundo/texto explícitos e
+      `color-scheme: dark`; editores no light DOM continuam isolados da página host. Relações
+      medidas: texto secundário dos editores 6,73:1, texto de inputs 17,84:1, texto secundário
+      das configurações 7,45:1 e destaque amarelo 13,46:1 (todos acima de WCAG AA).
 
 ## Fase 2 — Input Lab, Breakpoint Viewer, busca/filtros, largura dos sidebars
 
@@ -81,14 +84,15 @@
       Screenshot/Gravação) somem em telas estreitas e viram itens no menu Tools, sempre
       acessíveis. Confirmado ao vivo: breadcrumb voltou a aparecer, configurações ficou visível,
       e clicar em "Pass" pelo menu realmente ativa o modo de marcação.
-- [ ] **Efeitos sonoros — não consegui reproduzir**: testei ao vivo (clicar em Pass) e o arquivo
-      `test-pass.mp3` carrega com 200 OK, sem erro nenhum no console, `web_accessible_resources`
-      configurado certo no manifest. Se ainda estiver mudo depois de testar: confira
-      Configurações → Barra e aparência → "Efeitos sonoros" (checkbox/switch) e o volume da aba
-      no Chrome (o Chrome lembra site mutado por aba/origem).
-- [ ] Reordenar cliente/projeto/produto (drag-and-drop e/ou setas) — Fase 6
-- [ ] Modo compacto por entidade (cliente/projeto/produto independentes) — Fase 6
-- [ ] Editor de imagem (zoom/recorte/ajuste/centralizar) pros logos — Fase 6
+- [x] **Efeitos sonoros** — o smoke Chrome agora abre Test Status, escolhe Pass e exige a
+      requisição real de `test-pass.mp3`; se o áudio não for ouvido numa aba manual, resta somente
+      o volume/mute local do Chrome, não uma falha da extensão.
+- [x] Reordenar cliente/projeto/produto por setas ↑↓, persistindo a ordem no workspace.
+- [x] Modo compacto por entidade: cliente, projeto e produto podem ocultar seus nomes de forma
+      independente, preservando imagem/iniciais e ambiente.
+- [x] Editor de imagem para logos e ícones: upload/URL, prévia quadrada, zoom, posição horizontal/
+      vertical, centralizar e aplicar recorte local em WebP. URLs remotas sem CORS falham com
+      orientação clara para usar Upload, sem contornar a política do navegador.
 
 ## Fase 4 — Landing page: versão atual + aviso de revisão pendente
 
@@ -107,20 +111,32 @@
 
 ## Fase 5 — Nova ferramenta "Capturar Elementos"
 
-- [ ] Exportar CSV com elementos da tela (seletor CSS, XPath, tipo, nome, texto) para o time de automação
-- [ ] Feature flag nova no banco (`elementCapture.enabled`) + aplicar de verdade em produção
-- [ ] Atualizar tabela de planos na LP e em `docs/GUIA_FERRAMENTAS_QA.md`
+- [x] Exportar CSV com elementos da tela (seletor CSS, XPath, tipo, nome, texto) para o time de
+      automação. Verificado no Chrome: download real, senha nunca exportada, XPath com aspas válido
+      e proteção contra formula injection ao abrir o CSV no Excel/Sheets.
+- [x] Feature flag `elementCapture.enabled` adicionada à migration, `schema.sql`, scripts de aplicar/
+      verificar e normalização local da extensão.
+- [x] Feature flag aplicada no banco de produção em 2026-07-20 pela API (sem CLI/admin do Windows)
+      e verificada em nova leitura: 28 vínculos plano × ferramenta conferem; Release Manager tem
+      as 7 ferramentas habilitadas.
+- [x] Tabela de planos e descrições atualizadas na LP e em `docs/GUIA_FERRAMENTAS_QA.md`.
 
 ## Fase 6 — Redesign visual/UX da tela de configurações (options.html)
 
-- [ ] Passar tudo que fizer sentido para o padrão de badge/pill
-- [ ] Itens "fáceis de adicionar" (URL patterns, campos de tag) viram chips removíveis com X
-- [ ] Micro-animações e organização visual, sem poluir a tela
-- [ ] Alinhamento consistente em toda a página, seguindo boas práticas de UX/UI
-- [ ] Se inspirar na organização visual do painel de configurações do `tampermonkey.js` —
+- [x] Workspace Studio único com tabs, contadores, badges de relação e pills de ambientes/URLs.
+- [x] URL patterns viraram chips removíveis com X no cadastro do ambiente.
+- [x] Microanimações discretas em tabs, accordions, cards e estados de seleção, sem poluir a tela.
+- [x] Alinhamento e hierarquia visual consistentes em desktop e mobile.
+- [x] Organização inspirada no painel do `tampermonkey.js` —
       distribuição dos itens e, principalmente, accordions pra recolher seções que não estão
-      sendo editadas no momento (não quer tudo expandido de uma vez)
-- [ ] Reordenar clientes/projetos/produtos (drag-and-drop e/ou setas ↑↓)
+      sendo editadas no momento (nada fica todo expandido de uma vez).
+- [x] CRUD relacional de URLs: uma URL associa 1→N ambientes; até quatro usa toggles e, acima
+      disso, muda automaticamente para multiselect pesquisável com limpar seleção.
+- [x] Reordenar clientes/projetos/produtos por setas ↑↓.
+
+**Fases 5 e 6: smoke completo em Chrome real passou com 0 erros de console/worker, incluindo
+editor de imagem, URLs 1→N, seletor com cinco ambientes, reflexo imediato na barra e exportação
+segura.**
 
 ## O que já está confirmado certo antes desta rodada
 

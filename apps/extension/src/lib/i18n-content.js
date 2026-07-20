@@ -185,6 +185,7 @@
       inputLabMenuLabel: "Input Lab",
       fakerFillMenuLabel: "Faker Fill",
       keyViewMenuLabel: "Key View",
+      elementCaptureMenuLabel: "Capturar elementos",
     },
     es: {
       locale: "es",
@@ -361,6 +362,7 @@
       inputLabMenuLabel: "Laboratorio de inputs",
       fakerFillMenuLabel: "Relleno con datos ficticios",
       keyViewMenuLabel: "Key View",
+      elementCaptureMenuLabel: "Capturar elementos",
     },
     en: {
       locale: "en",
@@ -537,6 +539,7 @@
       inputLabMenuLabel: "Input Lab",
       fakerFillMenuLabel: "Faker Fill",
       keyViewMenuLabel: "Key View",
+      elementCaptureMenuLabel: "Capture elements",
     },
   };
 

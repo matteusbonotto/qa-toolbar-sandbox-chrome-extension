@@ -206,16 +206,17 @@ function buildBreadcrumb(workspace, environment) {
     ? `<button type="button" class="qts-crumb-link" data-crumb-nav="${escapeHtml(navUrl)}">${html}</button>`
     : html);
 
-  const compact = workspace.preferences?.compactMode === true;
+  const legacyCompact = workspace.preferences?.compactMode === true;
+  const compactEntities = workspace.preferences?.compactEntities || { project: legacyCompact, product: legacyCompact };
   const clientHtml = client && visibility.client !== false
-    ? wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: true }, { size: 14, maxChars: 18 }))
+    ? wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: compactEntities.client === true ? false : client.showLabel !== false }, { size: 14, maxChars: 18 }))
     : "";
   const segments = [
-    visibility.project !== false ? project : null,
-    visibility.product !== false ? product : null,
+    visibility.project !== false ? { entity: project, key: "project" } : null,
+    visibility.product !== false ? { entity: product, key: "product" } : null,
   ]
-    .filter(Boolean)
-    .map((entity) => wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compact ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 })));
+    .filter((item) => item?.entity)
+    .map(({ entity, key }) => wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compactEntities[key] === true ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 })));
   if (visibility.environment !== false) segments.push(wrapCrumb(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`));
 
   return {
@@ -278,6 +279,7 @@ const PLAN_GATED_TOOLS = {
   inputLab: "inputLab.enabled",
   fakerFill: "fakerFill.enabled",
   keyView: "keyView.enabled",
+  elementCapture: "elementCapture.enabled",
 };
 
 function hasPlanFeature(toolKey) {
@@ -313,6 +315,7 @@ function applyPinnedTools() {
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
     characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
     inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
+    elementCapture: "elementCaptureMenuItem",
   };
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
@@ -498,6 +501,7 @@ function buildShadowHost() {
             <button type="button" id="testAccountsMenuItem" role="menuitem">${ICON("key")} ${escapeHtml(t.testAccountsMenuLabel)}</button>
             <button type="button" id="paymentMethodsMenuItem" role="menuitem">${ICON("paymentMethods")} ${escapeHtml(t.paymentMethodsMenuLabel)}</button>
             <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(t.resourcesMenuLabel)}</button>
+            <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}</button>
@@ -557,6 +561,7 @@ function buildShadowHost() {
   shadow.getElementById("testAccountsMenuItem").addEventListener("click", () => { openTestAccountsDrawer(); closeToolsMenu(); });
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
+  shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
@@ -2844,6 +2849,105 @@ function downloadMacroJson(macros) {
   anchor.download = `qa-macros-${new Date().toISOString().slice(0, 10)}.json`;
   anchor.click();
   window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
+}
+
+function xpathLiteral(value) {
+  const text = String(value ?? "");
+  if (!text.includes('"')) return `"${text}"`;
+  if (!text.includes("'")) return `'${text}'`;
+  return `concat(${text.split('"').map((part, index) => `${index ? `, '\"', ` : ""}"${part}"`).join("")})`;
+}
+
+// ID-shortcut when available (short, stable); otherwise a positional path from <html> down,
+// counting only same-tag siblings so it stays valid even when siblings are added/removed.
+function buildXPath(element) {
+  if (!(element instanceof Element)) return "";
+  if (element.id) return `//*[@id=${xpathLiteral(element.id)}]`;
+  const segments = [];
+  let node = element;
+  while (node instanceof Element && node !== document.documentElement) {
+    let index = 1;
+    let sibling = node.previousElementSibling;
+    while (sibling) {
+      if (sibling.tagName === node.tagName) index += 1;
+      sibling = sibling.previousElementSibling;
+    }
+    segments.unshift(`${node.tagName.toLowerCase()}[${index}]`);
+    node = node.parentElement;
+  }
+  return `/html/${segments.join("/")}`;
+}
+
+// Reuses CLICK_SPY_SELECTOR's definition of "interactive element" rather than inventing a second
+// one. Never captures `.value` for any field (privacy) — only structural/locator data for the
+// automation team, with a `sensitive` flag (reusing the same detection Macro Studio/Key View use)
+// so they know which fields to handle carefully.
+function captureVisibleElements() {
+  return [...document.querySelectorAll(CLICK_SPY_SELECTOR)]
+    .filter((element) => !isInsideToolbarUi(element))
+    .map((element) => ({
+      tag: element.tagName.toLowerCase(),
+      type: element.getAttribute("type") || "",
+      name: element.getAttribute("name") || "",
+      id: element.id || "",
+      cssSelector: window.QTS_QA_TOOLS.uniqueSelector(element),
+      xpath: buildXPath(element),
+      text: String(element.getAttribute("aria-label") || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120),
+      placeholder: element.getAttribute("placeholder") || "",
+      sensitive: window.QTS_QA_TOOLS.isSensitiveElement(element),
+    }));
+}
+
+function toCsvCell(value) {
+  // Prevent spreadsheet formula injection when a site-controlled label/id begins with a
+  // formula marker. The apostrophe is how Excel/Sheets explicitly represent literal text.
+  const raw = String(value ?? "");
+  const text = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadElementCaptureCsv(rows) {
+  const headers = ["tag", "type", "name", "id", "css_selector", "xpath", "text", "placeholder", "sensitive"];
+  const csvKeys = ["tag", "type", "name", "id", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
+  const lines = [headers.join(","), ...rows.map((row) => csvKeys.map((key) => toCsvCell(row[key])).join(","))];
+  // Leading BOM keeps accented pt-BR text readable when the CSV is opened directly in Excel.
+  const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `qa-element-capture-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
+}
+
+function openElementCapture() {
+  if (!requirePlanFeature("elementCapture")) return;
+  let rows = captureVisibleElements();
+  openDrawer({
+    title: "Capturar elementos",
+    wide: true,
+    bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
+      <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
+      <div class="qts-status" id="elementCaptureStatus"></div>
+      <div style="display:grid;gap:8px;max-height:360px;overflow:auto" id="elementCapturePreview"></div>`,
+    onReady(body) {
+      const status = body.querySelector("#elementCaptureStatus");
+      const preview = body.querySelector("#elementCapturePreview");
+      const exportButton = body.querySelector("#elementCaptureExport");
+      const renderPreview = () => {
+        status.textContent = `${rows.length} elemento(s) encontrado(s) na página atual.`;
+        exportButton.disabled = rows.length === 0;
+        preview.innerHTML = rows.length
+          ? rows.slice(0, 50).map((row) => `<div class="qts-net-item" style="cursor:default"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b>${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}<small>${escapeHtml(row.cssSelector)}</small></div>`).join("")
+          : `<div class="qts-empty">Nenhum elemento interativo encontrado nesta página.</div>`;
+      };
+      body.querySelector("#elementCaptureRescan").addEventListener("click", () => { rows = captureVisibleElements(); renderPreview(); });
+      exportButton.addEventListener("click", () => {
+        downloadElementCaptureCsv(rows);
+        showQaToast(`CSV exportado com ${rows.length} elemento(s).`);
+      });
+      renderPreview();
+    },
+  });
 }
 
 function renderPinnedMacros() {

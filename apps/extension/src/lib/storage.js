@@ -17,11 +17,12 @@ const COLLECTION_KEYS = [
 export const DEFAULT_ENABLED_TOOLS = Object.freeze([
   "clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio",
   "breakpoints", "testAccounts", "paymentMethods", "resources",
-  "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView",
+  "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "elementCapture",
 ]);
 const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
 const SCHEMA_4_TOOLS = ["keyView"];
 const SCHEMA_5_TOOLS = ["errorMonitor"];
+const SCHEMA_6_TOOLS = ["elementCapture"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -112,7 +113,7 @@ export function normalizeUrlPatterns(input) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [],
@@ -120,6 +121,7 @@ export function createEmptyWorkspace() {
       language: "pt-BR",
       pushSiteContent: true,
       compactMode: false,
+      compactEntities: { client: false, project: false, product: false },
       avatarShape: "square",
       pinnedTools: ["passFail", "screenshot", "notes", "record"],
       pinnedMacroIds: [],
@@ -231,9 +233,12 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 5) {
     for (const tool of SCHEMA_5_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 6) {
+    for (const tool of SCHEMA_6_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 5,
+    schemaVersion: 6,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments,
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
@@ -250,6 +255,11 @@ export function normalizeWorkspace(rawWorkspace) {
       ...empty.preferences,
       ...preferences,
       compactMode: preferences.compactMode === true,
+      compactEntities: {
+        client: preferences.compactEntities?.client === true,
+        project: preferences.compactEntities?.project === true || (!preferences.compactEntities && preferences.compactMode === true),
+        product: preferences.compactEntities?.product === true || (!preferences.compactEntities && preferences.compactMode === true),
+      },
       pushSiteContent: preferences.pushSiteContent !== false,
       avatarShape: preferences.avatarShape === "round" ? "round" : "square",
       pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools,

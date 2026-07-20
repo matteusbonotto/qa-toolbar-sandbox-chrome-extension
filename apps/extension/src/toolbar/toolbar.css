@@ -180,6 +180,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-note-style-row label { display: grid !important; gap: 3px !important; font-size: 10px !important; color: #999 !important; }
 .qts-note-style-row input[type="color"] { width: 100% !important; height: 26px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; padding: 2px !important; }
 .qts-note-style-row select { height: 26px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; color: #fff !important; font-size: 11px !important; }
+.qts-note-style-row select option { background: #000 !important; color: #fff !important; }
 
 .qts-clickspy-tooltip {
   all: initial;

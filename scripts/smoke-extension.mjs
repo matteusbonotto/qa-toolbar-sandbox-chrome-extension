@@ -7,6 +7,7 @@ const root = resolve(import.meta.dirname, "..");
 const extensionPath = resolve(root, "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-smoke-profile");
 const evidencePath = resolve(root, "artifacts/runtime-evidence");
+const trace = (label) => console.log(`[chrome-smoke] ${label}`);
 await rm(profilePath, { recursive: true, force: true });
 await mkdir(evidencePath, { recursive: true });
 
@@ -26,6 +27,7 @@ const context = await chromium.launchPersistentContext(profilePath, {
   args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, "--window-position=20,20", "--window-size=1400,900", "--no-first-run"],
   viewport: { width: 1400, height: 900 },
 });
+context.setDefaultTimeout(15_000);
 
 const fakeSession = {
   accessToken: "test-access-token-with-more-than-twenty-characters",
@@ -37,7 +39,7 @@ const fakeSession = {
 await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", async (route) => {
   const name = new URL(route.request().url()).pathname.split("/").pop();
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
-  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true }, checkedAt: new Date().toISOString() }) });
+  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true }, checkedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
 
@@ -66,6 +68,7 @@ try {
   await options.locator("#loginPassword").fill("safe-test-password");
   await options.locator("#loginForm button[type=submit]").click();
   await options.locator('.protectedNav[data-tab="workspace"]:not(:disabled)').waitFor({ timeout: 10_000 });
+  trace("authenticated");
   await options.locator('#langSwitch [data-locale="en"]').click();
   await options.getByRole("button", { name: "My account" }).waitFor();
   if (await options.locator("html").getAttribute("lang") !== "en") throw new Error("Options locale did not switch to English");
@@ -81,8 +84,18 @@ try {
   await options.screenshot({ path: resolve(evidencePath, "extension-authenticated-account.png"), fullPage: true });
 
   await options.getByRole("button", { name: "Workspace" }).click();
+  if (await options.locator(".workspaceTab").count() !== 6) throw new Error("Workspace Studio tabs are incomplete");
+  await options.locator("#clientComposer summary").click();
   await options.locator("#clientName").fill("Cliente Demo");
   await options.locator("#clientAbbreviation").fill("CD");
+  await options.locator('#clientForm [data-image-file]').setInputFiles({ name: "client-logo.svg", mimeType: "image/svg+xml", buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="120" height="80"><rect width="120" height="80" fill="#7657ff"/><circle cx="60" cy="40" r="24" fill="#42d5c2"/></svg>') });
+  await options.waitForFunction(() => document.querySelector("#clientLogoUrl")?.value.startsWith("data:image/svg+xml"));
+  await options.locator("#clientForm .imageEditButton").click();
+  await options.locator("#imageEditorDialog[open]").waitFor();
+  await options.locator("#imageEditorZoom").fill("1.35");
+  await options.locator("#imageEditorX").fill("20");
+  await options.locator("#imageEditorApply").click();
+  if (!await options.locator("#clientLogoUrl").inputValue().then((value) => value.startsWith("data:image/webp"))) throw new Error("Image editor did not apply a safe local crop");
   await options.locator("#clientForm button[type=submit]").click();
   await options.locator("#projectClient").selectOption({ label: "Cliente Demo" });
   await options.locator("#projectName").fill("Webapp Demo");
@@ -95,9 +108,49 @@ try {
   await options.locator("#environmentProduct").selectOption({ label: "Checkout" });
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#5b21b6");
-  await options.locator("#environmentPatterns").fill("http://127.0.0.1:43117/*");
+  await options.locator("#environmentPatternDraft").fill("http://127.0.0.1:43117/*");
+  await options.locator("#environmentPatternAdd").click();
   await options.locator("#environmentForm button[type=submit]").click();
   await options.waitForTimeout(600);
+  trace("primary workspace created");
+
+  // URLs are managed relationally: one pattern can belong to multiple environments.
+  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator("#environmentComposer summary").click();
+  await options.locator("#environmentProduct").selectOption({ label: "Checkout" });
+  await options.locator("#environmentName").fill("Beta");
+  await options.locator("#environmentColor").fill("#0f766e");
+  await options.locator("#environmentPatternDraft").fill("http://beta.example.invalid/*");
+  await options.locator("#environmentPatternAdd").click();
+  await options.locator("#environmentForm button[type=submit]").click();
+  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator("#urlRelationComposer > summary").click();
+  await options.locator("#urlPatternInput").fill("https://shared.example.com/*");
+  await options.locator("[data-url-environment]").nth(0).click();
+  await options.locator("[data-url-environment]").nth(1).click();
+  await options.locator("#urlRelationForm button[type=submit]").click();
+  const urlRelations = await options.evaluate(async () => {
+    const stored = await chrome.storage.local.get("qtsWorkspaceV1");
+    return stored.qtsWorkspaceV1.environments.map((environment) => ({ name: environment.name, patterns: environment.urlPatterns }));
+  });
+  if (urlRelations.length !== 2 || urlRelations.some((environment) => !environment.patterns.includes("https://shared.example.com/*"))) throw new Error(`Relational URL association failed: ${JSON.stringify(urlRelations)}`);
+  if (await options.locator('#urlRelationList .relationRow').filter({ hasText: "https://shared.example.com/*" }).locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
+  await options.evaluate(async () => {
+    const next = await window.QTS_STORAGE.getWorkspace();
+    const base = next.environments[0];
+    for (let index = 0; index < 3; index += 1) next.environments.push({ ...base, id: `env_picker_${index}`, name: `Preview ${index + 1}`, urlPatterns: [`https://preview-${index + 1}.example.invalid/*`], primaryUrl: "" });
+    await window.QTS_STORAGE.saveWorkspace(next);
+  });
+  await options.waitForFunction(() => document.querySelector("#environmentCount")?.textContent === "5");
+  await options.locator("#urlRelationComposer > summary").click();
+  await options.locator("#urlEnvironmentPicker .environmentMultiSelect > summary").click();
+  await options.locator("[data-environment-search]").waitFor();
+  if (await options.locator("[data-url-environment]").count()) throw new Error("URL environment picker did not switch to searchable multiselect above four environments");
+  await options.locator("[data-environment-search]").fill("Beta");
+  if (await options.locator('.multiSelectOptions [data-environment-option]:not([hidden])').count() !== 1) throw new Error("URL environment multiselect search did not filter environments");
+  await options.locator("#urlRelationComposer > summary").click();
+  trace("workspace relationships verified");
 
   await host.reload();
   const toolbar = host.getByRole("toolbar", { name: "Ferramentas de QA" });
@@ -119,6 +172,11 @@ try {
   if (!hierarchy.url.includes("http://127.0.0.1:43117/")) throw new Error(`Current URL pill is missing: ${JSON.stringify(hierarchy)}`);
   if (hierarchy.height !== 48 || hierarchy.background !== "rgb(91, 33, 182)") throw new Error(`Toolbar layout/color mismatch: ${JSON.stringify(hierarchy)}`);
   await host.screenshot({ path: resolve(evidencePath, "extension-toolbar-hierarchy-url.png"), fullPage: false });
+  const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
+  await host.locator("#testStatusButton").click();
+  await host.locator('#qts-test-status-modal [data-status="pass"]').click();
+  await passSoundRequestPromise;
+  trace("toolbar hierarchy verified");
 
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
@@ -126,6 +184,30 @@ try {
   await host.locator("#jsonInput").fill('{"ok":true}');
   await host.locator("#jsonFormat").click();
   await host.locator("#drawerClose").click();
+
+  // Element Capture exports automation-ready locators without field values and neutralizes
+  // spreadsheet formulas from site-controlled text before the CSV reaches Excel/Sheets.
+  await host.evaluate(() => {
+    document.querySelector("#sampleLink").textContent = '=HYPERLINK("https://unsafe.example")';
+    document.querySelector("#qaPassword").value = "never-export-this-password";
+    const probe = document.createElement("button");
+    probe.id = 'qa"name\'mixed';
+    probe.textContent = "XPath probe";
+    document.querySelector("main").appendChild(probe);
+  });
+  await host.locator("#toolsButton").click();
+  await host.locator("#elementCaptureMenuItem").click();
+  await host.getByText(/elemento\(s\) encontrado\(s\)/).waitFor();
+  const elementCaptureDownloadPromise = host.waitForEvent("download");
+  await host.locator("#elementCaptureExport").click();
+  const elementCaptureDownload = await elementCaptureDownloadPromise;
+  const elementCaptureCsv = await readFile(await elementCaptureDownload.path(), "utf8");
+  if (!elementCaptureCsv.includes("css_selector,xpath") || !elementCaptureCsv.includes("qa\"\"name'mixed") || !elementCaptureCsv.includes("concat(")) throw new Error("Element Capture did not export the expected CSS/XPath locators");
+  if (elementCaptureCsv.includes("never-export-this-password")) throw new Error("Element Capture leaked a typed password value");
+  if (!elementCaptureCsv.includes("'=HYPERLINK")) throw new Error("Element Capture did not neutralize spreadsheet formula injection");
+  await host.locator("#drawerClose").click();
+  await host.evaluate(() => document.getElementById('qa"name\'mixed')?.remove());
+  trace("element capture verified");
   if (!await toolbar.isVisible()) throw new Error("Toolbar disappeared after using a tool");
 
   // Responsive View keeps the two differently sized devices centered as one visual group.
@@ -157,6 +239,7 @@ try {
   await host.getByText("Configurações salvas.").waitFor();
   await host.locator("#keyViewToggle").click();
   await host.locator("#drawerClose").click();
+  trace("qa tools verified");
   await host.locator("#macroText").click();
   await host.keyboard.type("asd123!@# ç");
   await host.locator("h1").click();
@@ -274,6 +357,7 @@ try {
   await host.waitForFunction(() => document.querySelector("#macroTarget")?.dataset.clicks === "1" && document.querySelector("#macroText")?.value === "texto gravado", null, { timeout: 15_000 });
   const replay = await host.evaluate(() => ({ clicks: document.querySelector("#macroTarget").dataset.clicks, value: document.querySelector("#macroText").value }));
   if (replay.clicks !== "1" || replay.value !== "texto gravado") throw new Error(`Macro replay mismatch: ${JSON.stringify(replay)}`);
+  trace("macro replay verified");
 
   // A pending run is scoped to the current tab and resumes after full document navigation.
   await host.locator("#toolsButton").click();
@@ -289,19 +373,22 @@ try {
   await options.getByRole("button", { name: "Barra e aparência" }).click();
   await options.waitForFunction(() => document.querySelector("#keyViewTheme")?.value === "light" && document.querySelector("#keyViewPosition")?.value === "top-right" && !document.querySelector("#keyViewEnabled")?.checked);
   if (await options.locator('[data-tool="keyView"]').count() !== 1 || await options.locator('[data-tool="keyView"]').isChecked() !== true) throw new Error("Key View menu preference did not persist in options");
-  await options.locator("#compactMode").check();
+  await options.locator('[data-compact-entity="project"]').check();
   await options.locator("#savePreferences").click();
   await host.waitForTimeout(500);
   const compact = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
-    return { text: root?.getElementById("breadcrumb")?.textContent || "", badges: root?.getElementById("breadcrumb")?.querySelectorAll(".qts-badge-avatar").length || 0 };
+    return { client: root?.getElementById("clientLabel")?.textContent || "", text: root?.getElementById("breadcrumb")?.textContent || "", badges: root?.getElementById("breadcrumb")?.querySelectorAll(".qts-badge-avatar").length || 0 };
   });
-  if (compact.text.includes("Webapp Demo") || compact.text.includes("Checkout") || !compact.text.includes("QA") || compact.badges !== 2) throw new Error(`Compact mode mismatch: ${JSON.stringify(compact)}`);
+  if (compact.text.includes("Webapp Demo") || !compact.text.includes("Checkout") || !compact.text.includes("QA") || !compact.client.includes("Cliente Demo") || compact.badges !== 2) throw new Error(`Per-entity compact mode mismatch: ${JSON.stringify(compact)}`);
 
   // Editing the environment uses the same canonical workspace and immediately changes registration.
   await options.getByRole("button", { name: "Workspace" }).click();
-  await options.locator("#environmentList [data-action=edit]").click();
-  await options.locator("#environmentPatterns").fill("http://127.0.0.1:43117/app*");
+  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator("#environmentList [data-action=edit]").first().click();
+  await options.locator("#environmentPatternChips [data-remove-environment-pattern]").first().click();
+  await options.locator("#environmentPatternDraft").fill("http://127.0.0.1:43117/app*");
+  await options.locator("#environmentPatternAdd").click();
   await options.locator("#environmentForm button[type=submit]").click();
   await host.waitForTimeout(700);
   if (await host.locator("#qts-toolbar-host").count()) throw new Error("Toolbar remained on a URL removed from the environment");
@@ -318,23 +405,29 @@ try {
   }
   await host.locator("#spaApp").click();
   await toolbar.waitFor({ timeout: 3_000 });
+  trace("environment and SPA reactivity verified");
 
   // Extra settings categories persist and secure export strips local secrets.
   await options.getByRole("button", { name: "Dados de teste" }).click();
+  await options.locator("#testAccountComposer summary").click();
   await options.locator("#testAccountEnvironment").selectOption({ label: "Checkout · QA" });
   await options.locator("#testAccountLabel").fill("Conta sandbox");
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
+  await options.locator('[data-workspace-tab="payments"]').click();
+  await options.locator("#paymentMethodComposer summary").click();
   await options.locator("#paymentMethodEnvironment").selectOption({ label: "Checkout · QA" });
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();
   await options.getByRole("button", { name: "Inspectors e recursos" }).click();
+  await options.locator("#apiComposer summary").click();
   await options.locator("#apiLabel").fill("API Demo");
   await options.locator("#apiBaseUrl").fill("https://api.example.com");
   await options.locator("#apiToken").fill("local-api-token-value");
   await options.locator("#apiForm button[type=submit]").click();
+  await options.locator("#resourceComposer summary").click();
   await options.locator("#resourceLabel").fill("Runbook QA");
   await options.locator("#resourceUrl").fill("https://example.com/runbook");
   await options.locator("#resourceForm button[type=submit]").click();
@@ -363,6 +456,7 @@ try {
   for (const secret of ["local-password-value", "4242424242424242", "local-api-token-value"]) if (exported.includes(secret)) throw new Error("Secure export leaked a local secret");
   const exportedPayload = JSON.parse(exported);
   if (!/^sha256:[a-f0-9]{64}$/i.test(exportedPayload.checksum || "")) throw new Error("Secure export did not include an integrity checksum");
+  trace("settings and secure export verified");
 
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();
@@ -371,7 +465,7 @@ try {
   if (!await options.locator('.protectedNav[data-tab="workspace"]').isDisabled()) throw new Error("Protected settings remained enabled after logout");
 
   if (hostErrors.length || optionsErrors.length || workerErrors.length) throw new Error(`Console errors:\n${[...hostErrors, ...optionsErrors, ...workerErrors].join("\n")}`);
-  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, hierarchyAndUrl: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactMode: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
+  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, workspaceStudioTabs: true, relationalUrls: true, searchableEnvironmentMultiselect: true, imageEditor: true, hierarchyAndUrl: true, soundEffectsRequested: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, elementCaptureCsvSafe: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactModePerEntity: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
 } finally {
   await context.close();
   await new Promise((resolveClosed) => server.close(resolveClosed));

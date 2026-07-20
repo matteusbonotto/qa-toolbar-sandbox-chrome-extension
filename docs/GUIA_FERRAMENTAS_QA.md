@@ -15,10 +15,12 @@ menu **Tools** quando o plano ativo não inclui aquela ferramenta.
 | Faker Fill | — | ✓ | ✓ | ✓ |
 | Macro Studio | — | — | ✓ | ✓ |
 | Key View | — | — | — | ✓ |
+| Capturar Elementos | — | — | ✓ | ✓ |
 
 A distribuição é configurável pelo founder em `/admin/` → aba **Feature flags**, sem precisar de
 deploy — a tabela acima reflete a configuração padrão de fábrica
-(`supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql`).
+(`supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql` e
+`supabase/migrations/20260720020000_element_capture_feature_flag.sql`).
 
 ## Ferramentas rápidas
 
@@ -53,11 +55,23 @@ Na lista de macros é possível executar, editar, fixar/desafixar no menu, expor
 
 Clique, Escrever, Selecionar, Checkbox, Tecla, Esperar, Scroll, Multiclick e Faker Fill. Os blocos podem ser adicionados pela paleta e reordenados por drag and drop.
 
+## Capturar Elementos
+
+Abra **Tools → Capturar elementos** para escanear a página atual e exportar um CSV com todos os
+elementos interativos (links, botões, inputs, selects) — pensado para acelerar a criação de testes
+de automação.
+
+- Cada linha traz: tag, tipo, `name`, `id`, seletor CSS único, XPath, texto/label visível,
+  placeholder e um marcador `sensitive` para campos identificados como senha/cartão/token.
+- **Nenhum valor digitado é exportado** — só dados estruturais/localizadores, nunca o conteúdo de um campo.
+- **Recapturar** refaz a varredura (útil após a página mudar); **Exportar CSV** baixa o arquivo com a data do dia no nome.
+
 ## Privacidade e limites
 
 - Use somente ambientes e dados de teste.
 - Senhas, tokens, cartões e códigos de segurança não são gravados nem preenchidos.
 - O Key View não captura digitação em campos identificados como senha, cartão, CVV, token ou segredo e nunca persiste o texto exibido.
+- O Capturar Elementos nunca exporta o valor digitado em nenhum campo, apenas seletor/XPath/metadados estruturais.
 - A extensão não executa código colado. O modo Coder é uma saída Playwright para revisão/cópia.
 - Macros retomam na mesma aba após navegação, desde que a nova URL continue pertencendo a um ambiente autorizado.
 - Sites com CAPTCHA, iframe de outra origem ou Shadow DOM fechado podem exigir automação Playwright dedicada.
