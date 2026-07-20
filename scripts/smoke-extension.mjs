@@ -105,51 +105,63 @@ try {
   await options.locator("#productName").fill("Checkout");
   await options.locator("#productAbbreviation").fill("CHK");
   await options.locator("#productForm button[type=submit]").click();
-  await options.locator("#environmentProduct").selectOption({ label: "Checkout" });
+  await options.locator('[data-workspace-tab="environments"]').click();
+  // Uses .open = true (not a summary click) because the first-run wizard already auto-opens this
+  // same composer the instant the previous step (Produto) completes — a click here would toggle
+  // an already-open <details> back closed instead of opening it.
+  await options.evaluate(() => { document.getElementById("environmentComposer").open = true; });
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#5b21b6");
-  await options.locator("#environmentPatternDraft").fill("http://127.0.0.1:43117/*");
-  await options.locator("#environmentPatternAdd").click();
   await options.locator("#environmentForm button[type=submit]").click();
+  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.evaluate(() => { document.getElementById("urlRelationComposer").open = true; });
+  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
+  await options.locator("#urlPatternInput").fill("http://127.0.0.1:43117/*");
+  await options.locator(".environmentToggle", { hasText: "QA" }).click();
+  await options.locator("#urlRelationForm button[type=submit]").click();
   await options.waitForTimeout(600);
   trace("primary workspace created");
 
-  // URLs are managed relationally: one pattern can belong to multiple environments.
+  // Environments are reusable tiers (no product of their own); the product association — and one
+  // pattern belonging to multiple environments — lives entirely on the URL binding.
   await options.locator('[data-workspace-tab="environments"]').click();
-  await options.locator("#environmentComposer summary").click();
-  await options.locator("#environmentProduct").selectOption({ label: "Checkout" });
+  await options.evaluate(() => { document.getElementById("environmentComposer").open = true; });
   await options.locator("#environmentName").fill("Beta");
   await options.locator("#environmentColor").fill("#0f766e");
-  await options.locator("#environmentPatternDraft").fill("http://beta.example.invalid/*");
-  await options.locator("#environmentPatternAdd").click();
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-tab="urls"]').click();
-  await options.locator("#urlRelationComposer > summary").click();
+  await options.evaluate(() => { document.getElementById("urlRelationComposer").open = true; });
+  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
+  await options.locator("#urlPatternInput").fill("http://beta.example.invalid/*");
+  await options.locator(".environmentToggle", { hasText: "Beta" }).click();
+  await options.locator("#urlRelationForm button[type=submit]").click();
+  await options.evaluate(() => { document.getElementById("urlRelationComposer").open = true; });
+  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
   await options.locator("#urlPatternInput").fill("https://shared.example.com/*");
   await options.locator("[data-url-environment]").nth(0).click();
   await options.locator("[data-url-environment]").nth(1).click();
   await options.locator("#urlRelationForm button[type=submit]").click();
-  const urlRelations = await options.evaluate(async () => {
+  const urlBindings = await options.evaluate(async () => {
     const stored = await chrome.storage.local.get("qtsWorkspaceV1");
-    return stored.qtsWorkspaceV1.environments.map((environment) => ({ name: environment.name, patterns: environment.urlPatterns }));
+    return stored.qtsWorkspaceV1.urlBindings.map((binding) => ({ pattern: binding.pattern, environmentIds: binding.environmentIds }));
   });
-  if (urlRelations.length !== 2 || urlRelations.some((environment) => !environment.patterns.includes("https://shared.example.com/*"))) throw new Error(`Relational URL association failed: ${JSON.stringify(urlRelations)}`);
-  if (await options.locator('#urlRelationList .relationRow').filter({ hasText: "https://shared.example.com/*" }).locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
+  const sharedBinding = urlBindings.find((binding) => binding.pattern === "https://shared.example.com/*");
+  if (!sharedBinding || sharedBinding.environmentIds.length !== 2) throw new Error(`Relational URL association failed: ${JSON.stringify(urlBindings)}`);
+  if (await options.locator('#urlRelationList .listRow').filter({ hasText: "https://shared.example.com/*" }).locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
   await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
   await options.evaluate(async () => {
     const next = await window.QTS_STORAGE.getWorkspace();
-    const base = next.environments[0];
-    for (let index = 0; index < 3; index += 1) next.environments.push({ ...base, id: `env_picker_${index}`, name: `Preview ${index + 1}`, urlPatterns: [`https://preview-${index + 1}.example.invalid/*`], primaryUrl: "" });
+    for (let index = 0; index < 3; index += 1) next.environments.push({ id: `env_picker_${index}`, name: `Preview ${index + 1}`, color: "#5b21b6", active: true });
     await window.QTS_STORAGE.saveWorkspace(next);
   });
   await options.waitForFunction(() => document.querySelector("#environmentCount")?.textContent === "5");
-  await options.locator("#urlRelationComposer > summary").click();
+  await options.evaluate(() => { document.getElementById("urlRelationComposer").open = true; });
   await options.locator("#urlEnvironmentPicker .environmentMultiSelect > summary").click();
   await options.locator("[data-environment-search]").waitFor();
   if (await options.locator("[data-url-environment]").count()) throw new Error("URL environment picker did not switch to searchable multiselect above four environments");
   await options.locator("[data-environment-search]").fill("Beta");
   if (await options.locator('.multiSelectOptions [data-environment-option]:not([hidden])').count() !== 1) throw new Error("URL environment multiselect search did not filter environments");
-  await options.locator("#urlRelationComposer > summary").click();
+  await options.evaluate(() => { document.getElementById("urlRelationComposer").open = false; });
   trace("workspace relationships verified");
 
   await host.reload();
@@ -389,14 +401,12 @@ try {
   });
   if (compact.text.includes("Webapp Demo") || !compact.text.includes("Checkout") || !compact.text.includes("QA") || !compact.client.includes("Cliente Demo") || compact.badges !== 2) throw new Error(`Per-entity compact mode mismatch: ${JSON.stringify(compact)}`);
 
-  // Editing the environment uses the same canonical workspace and immediately changes registration.
+  // Editing a URL binding's pattern uses the same canonical workspace and immediately changes registration.
   await options.getByRole("button", { name: "Workspace" }).click();
-  await options.locator('[data-workspace-tab="environments"]').click();
-  await options.locator("#environmentList [data-action=edit]").first().click();
-  await options.locator("#environmentPatternChips [data-remove-environment-pattern]").first().click();
-  await options.locator("#environmentPatternDraft").fill("http://127.0.0.1:43117/app*");
-  await options.locator("#environmentPatternAdd").click();
-  await options.locator("#environmentForm button[type=submit]").click();
+  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator("#urlRelationList .listRow", { hasText: "http://127.0.0.1:43117/*" }).locator('[data-action="edit"]').click();
+  await options.locator("#urlPatternInput").fill("http://127.0.0.1:43117/app*");
+  await options.locator("#urlRelationForm button[type=submit]").click();
   await host.waitForTimeout(700);
   if (await host.locator("#qts-toolbar-host").count()) throw new Error("Toolbar remained on a URL removed from the environment");
 
@@ -417,14 +427,14 @@ try {
   // Extra settings categories persist and secure export strips local secrets.
   await options.getByRole("button", { name: "Dados de teste" }).click();
   await options.locator("#testAccountComposer summary").click();
-  await options.locator("#testAccountEnvironment").selectOption({ label: "Checkout · QA" });
+  await options.locator("#testAccountEnvironment").selectOption({ label: "QA" });
   await options.locator("#testAccountLabel").fill("Conta sandbox");
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
   await options.locator('[data-workspace-tab="payments"]').click();
   await options.locator("#paymentMethodComposer summary").click();
-  await options.locator("#paymentMethodEnvironment").selectOption({ label: "Checkout · QA" });
+  await options.locator("#paymentMethodEnvironment").selectOption({ label: "QA" });
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();

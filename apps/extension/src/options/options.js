@@ -108,6 +108,7 @@ const COLLECTION_UI = {
   projects: { listId: "projectList", prefix: "project" },
   products: { listId: "productList", prefix: "product" },
   environments: { listId: "environmentList", prefix: "environment" },
+  urlBindings: { listId: "urlRelationList", prefix: "urlRelation" },
   testAccounts: { listId: "testAccountList", prefix: "testAccount" },
   paymentMethods: { listId: "paymentMethodList", prefix: "paymentMethod" },
   inspectors: { listId: "inspectorList", prefix: "inspector" },
@@ -322,8 +323,15 @@ function findById(collection, id) {
 }
 
 function environmentDisplayName(environment) {
-  const product = findById("products", environment.productId);
-  return product ? `${product.name} · ${environment.name}` : environment.name;
+  return environment?.name || "";
+}
+
+// Which products/countries an environment is actually deployed to now lives on urlBindings
+// (Environment is a reusable tier — see storage.js's normalizeUrlBindings) — this derives a
+// short "AR, BO, PY" style summary for the environment list row and search.
+function environmentBoundProductNames(environmentId) {
+  const productIds = new Set((workspace.urlBindings || []).filter((binding) => binding.environmentIds.includes(environmentId)).map((binding) => binding.productId));
+  return [...productIds].map((productId) => findById("products", productId)?.name).filter(Boolean);
 }
 
 function matchesSearch(item) {
@@ -357,42 +365,7 @@ function renderSelect(selectId, items, placeholder) {
   if (items.some((item) => item.id === current)) select.value = current;
 }
 
-let environmentPatternsDraft = [];
 let urlSelectedEnvironmentIds = new Set();
-
-function renderEnvironmentPatternChips() {
-  const container = document.getElementById("environmentPatternChips");
-  document.getElementById("environmentPatterns").value = environmentPatternsDraft.join("\n");
-  container.innerHTML = environmentPatternsDraft.length
-    ? environmentPatternsDraft.map((pattern, index) => `<span class="chip"><span>${escapeHtml(pattern)}</span><button type="button" data-remove-environment-pattern="${index}" aria-label="${escapeHtml(t("Remover URL"))}">×</button></span>`).join("")
-    : `<span class="chipPlaceholder">${escapeHtml(t("Nenhuma URL adicionada."))}</span>`;
-}
-
-function setEnvironmentPatterns(patterns) {
-  environmentPatternsDraft = normalizeUrlPatterns(patterns);
-  renderEnvironmentPatternChips();
-}
-
-function addEnvironmentPatternDraft() {
-  const input = document.getElementById("environmentPatternDraft");
-  const additions = normalizeUrlPatterns(input.value);
-  if (!additions.length) return;
-  setEnvironmentPatterns([...environmentPatternsDraft, ...additions]);
-  input.value = "";
-  input.setCustomValidity("");
-  input.focus();
-}
-
-function deriveUrlRelations() {
-  const relations = new Map();
-  for (const environment of workspace.environments || []) {
-    for (const pattern of environment.urlPatterns || []) {
-      if (!relations.has(pattern)) relations.set(pattern, []);
-      relations.get(pattern).push(environment.id);
-    }
-  }
-  return [...relations.entries()].map(([pattern, environmentIds]) => ({ pattern, environmentIds }));
-}
 
 function renderUrlEnvironmentPicker() {
   const container = document.getElementById("urlEnvironmentPicker");
@@ -427,44 +400,49 @@ function renderUrlEnvironmentPicker() {
   });
 }
 
-function renderUrlRelations() {
-  const relations = deriveUrlRelations().filter((item) => !searchQuery || item.pattern.toLowerCase().includes(searchQuery) || item.environmentIds.some((id) => environmentDisplayName(findById("environments", id) || {}).toLowerCase().includes(searchQuery)));
-  const list = document.getElementById("urlRelationList");
-  document.getElementById("urlRelationCount").textContent = String(deriveUrlRelations().length);
-  list.innerHTML = relations.length ? relations.map((relation) => {
-    const badges = relation.environmentIds.map((id) => findById("environments", id)).filter(Boolean).map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
-    return `<div class="listRow relationRow"><div><b class="urlPattern">${escapeHtml(relation.pattern)}</b><small class="relationBadges">${badges}</small></div><div class="rowActions"><button type="button" data-url-action="edit" data-pattern="${escapeHtml(relation.pattern)}">${escapeHtml(t("Editar"))}</button><button type="button" data-url-action="remove" data-pattern="${escapeHtml(relation.pattern)}">${escapeHtml(t("Excluir"))}</button></div></div>`;
-  }).join("") : `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nenhuma URL cadastrada ainda."))}</div>`;
-  renderUrlEnvironmentPicker();
-}
-
 function renderWorkspace() {
-  for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {
+  for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
   }
   const badge = (entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 22 });
   renderRows("clients", (item) => `<b>${badge(item)}</b>`);
   renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "—")}</small>`);
   renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "—")}</small>`);
-  renderRows("environments", (item) => `<b style="color:${escapeHtml(item.color)}">● ${escapeHtml(item.name)}</b><small>${escapeHtml(findById("products", item.productId)?.name || "—")} · ${escapeHtml((item.urlPatterns || []).join(", "))}</small>`);
+  renderRows("environments", (item) => {
+    const products = environmentBoundProductNames(item.id);
+    return `<b style="color:${escapeHtml(item.color)}">● ${escapeHtml(item.name)}</b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
+  });
+  renderRows("urlBindings", (item) => {
+    const product = findById("products", item.productId);
+    const badges = item.environmentIds.map((environmentId) => findById("environments", environmentId)).filter(Boolean)
+      .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
+    return `<b class="urlPattern">${escapeHtml(item.pattern)}</b><small>${escapeHtml(product?.name || "—")}</small><small class="relationBadges">${badges}</small>`;
+  });
+  renderUrlEnvironmentPicker();
   renderRows("testAccounts", (item) => {
     const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "—";
     // The toolbar's own read-only drawer already renders this image (renderTestAccountsList in
     // toolbar.js) — this options-page list never did, so the same uploaded/URL icon that shows
     // up later was invisible here while managing the account.
     const typeImage = item.accountTypeImage ? `<img src="${escapeHtml(item.accountTypeImage)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : "";
-    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(environmentDisplayName(findById("environments", item.environmentId) || {}))} · ${escapeHtml(item.username || "—")} · ${password}</small>`;
+    const productName = findById("products", item.productId)?.name;
+    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(environmentDisplayName(findById("environments", item.environmentId) || {}))}${productName ? ` · ${escapeHtml(productName)}` : ""} · ${escapeHtml(item.username || "—")} · ${password}</small>`;
   }, { reveal: (item) => Boolean(item.password) });
-  renderRows("paymentMethods", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.environmentId ? environmentDisplayName(findById("environments", item.environmentId) || {}) : t("Todos os ambientes"))} · ${escapeHtml(item.notes || "")}</small>`);
+  renderRows("paymentMethods", (item) => {
+    const productName = findById("products", item.productId)?.name;
+    const environmentLabel = item.environmentId ? environmentDisplayName(findById("environments", item.environmentId) || {}) : t("Todos os ambientes");
+    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(environmentLabel)}${productName ? ` · ${escapeHtml(productName)}` : ""} · ${escapeHtml(item.notes || "")}</small>`;
+  });
   renderRows("inspectors", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml((item.patterns || []).join(", "))}</small>`);
   renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "—")} · ${escapeHtml(t(item.token ? "token local configurado" : "sem token"))}</small>`);
   renderRows("resources", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.url || "—")}</small>`);
-  renderUrlRelations();
   renderSelect("projectClient", workspace.clients, t("Selecione o cliente"));
   renderSelect("productProject", workspace.projects, t("Selecione o projeto"));
-  renderSelect("environmentProduct", workspace.products, t("Selecione o produto"));
+  renderSelect("urlRelationProduct", workspace.products, t("Selecione o produto"));
   renderSelect("testAccountEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Selecione o ambiente"));
+  renderSelect("testAccountProduct", workspace.products, t("Todos os produtos"));
   renderSelect("paymentMethodEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Todos os ambientes"));
+  renderSelect("paymentMethodProduct", workspace.products, t("Todos os produtos"));
   loadPreferenceUi();
   renderWorkspaceWizard();
   activateWorkspaceTab(activeWorkspaceTab);
@@ -482,7 +460,8 @@ function renderWorkspaceWizard() {
     { label: t("Cliente"), done: workspace.clients.length > 0, targetId: "clientName", tab: "structure", composer: "clientComposer" },
     { label: t("Projeto"), done: workspace.projects.length > 0, targetId: "projectClient", tab: "structure", composer: "projectComposer" },
     { label: t("Produto"), done: workspace.products.length > 0, targetId: "productProject", tab: "structure", composer: "productComposer" },
-    { label: t("Ambiente"), done: workspace.environments.length > 0, targetId: "environmentProduct", tab: "environments", composer: "environmentComposer" },
+    { label: t("Ambiente"), done: workspace.environments.length > 0, targetId: "environmentName", tab: "environments", composer: "environmentComposer" },
+    { label: t("URL"), done: workspace.urlBindings.length > 0, targetId: "urlRelationProduct", tab: "urls", composer: "urlRelationComposer" },
   ];
   const activeIndex = steps.findIndex((step) => !step.done);
   if (activeIndex === -1) {
@@ -536,7 +515,8 @@ function clearEdit(prefix) {
   document.getElementById(`${prefix}EditId`).value = "";
   form.querySelector(`[data-cancel="${prefix}"]`).hidden = true;
   const showLabel = document.getElementById(`${prefix}ShowLabel`); if (showLabel) showLabel.checked = true;
-  if (prefix === "environment") { document.getElementById("environmentColor").value = "#3a3a3a"; setEnvironmentPatterns([]); document.getElementById("environmentPatternDraft").value = ""; }
+  if (prefix === "environment") { document.getElementById("environmentColor").value = "#3a3a3a"; }
+  if (prefix === "urlRelation") { urlSelectedEnvironmentIds = new Set(); renderUrlEnvironmentPicker(); }
   form.querySelectorAll("[data-image-group]").forEach((group) => {
     group.dataset.mode = "url";
     group.querySelectorAll("[data-image-mode]").forEach((button) => button.classList.toggle("isActive", button.dataset.imageMode === "url"));
@@ -588,79 +568,42 @@ document.getElementById("testAccountAddField").addEventListener("click", () => {
   testAccountCustomFieldsDraft.push({ key: "", type: "string", value: "" });
   renderCustomFieldsEditor();
 });
-document.getElementById("environmentPatternAdd").addEventListener("click", addEnvironmentPatternDraft);
-document.getElementById("environmentPatternDraft").addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addEnvironmentPatternDraft(); } });
-document.getElementById("environmentPatternChips").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-remove-environment-pattern]");
-  if (!button) return;
-  environmentPatternsDraft.splice(Number(button.dataset.removeEnvironmentPattern), 1);
-  renderEnvironmentPatternChips();
-});
 document.querySelectorAll(".cancelEdit").forEach((button) => button.addEventListener("click", () => clearEdit(button.dataset.cancel)));
 
 document.getElementById("clientForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("clientEditId").value; upsert("clients", { id: editId || uid("client"), name: document.getElementById("clientName").value.trim(), ...appearance("client") }, editId); clearEdit("client"); await persistWorkspace(); });
 document.getElementById("projectForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("projectEditId").value; upsert("projects", { id: editId || uid("project"), clientId: document.getElementById("projectClient").value, name: document.getElementById("projectName").value.trim(), ...appearance("project") }, editId); clearEdit("project"); await persistWorkspace(); });
 document.getElementById("productForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("productEditId").value; upsert("products", { id: editId || uid("product"), projectId: document.getElementById("productProject").value, name: document.getElementById("productName").value.trim(), ...appearance("product") }, editId); clearEdit("product"); await persistWorkspace(); });
-document.getElementById("environmentForm").addEventListener("submit", async (event) => { event.preventDefault(); const input = document.getElementById("environmentPatternDraft"); const legacyPatterns = normalizeUrlPatterns(document.getElementById("environmentPatterns").value); const urlPatterns = normalizeUrlPatterns([...environmentPatternsDraft, ...legacyPatterns, ...normalizeUrlPatterns(input.value)]); if (!urlPatterns.length) { input.setCustomValidity(t("Adicione pelo menos uma URL ao ambiente.")); input.reportValidity(); input.focus(); return; } input.setCustomValidity(""); const editId = document.getElementById("environmentEditId").value; const productId = document.getElementById("environmentProduct").value; const product = findById("products", productId); const project = findById("projects", product?.projectId); upsert("environments", { id: editId || uid("env"), productId, projectId: project?.id, clientId: project?.clientId, name: document.getElementById("environmentName").value.trim(), color: document.getElementById("environmentColor").value, urlPatterns, primaryUrl: document.getElementById("environmentPrimaryUrl").value.trim(), active: true }, editId); clearEdit("environment"); await persistWorkspace(); });
+document.getElementById("environmentForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("environmentEditId").value; upsert("environments", { id: editId || uid("env"), name: document.getElementById("environmentName").value.trim(), color: document.getElementById("environmentColor").value, active: true }, editId); clearEdit("environment"); await persistWorkspace(); });
 
-document.getElementById("testAccountForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("testAccountEditId").value; const existing = findById("testAccounts", editId); const password = document.getElementById("testAccountPassword").value; upsert("testAccounts", { id: editId || uid("account"), environmentId: document.getElementById("testAccountEnvironment").value, label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId); clearEdit("testAccount"); await persistWorkspace(); });
-document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("paymentMethodEditId").value; const existing = findById("paymentMethods", editId); upsert("paymentMethods", { id: editId || uid("payment"), environmentId: document.getElementById("paymentMethodEnvironment").value || null, label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId); clearEdit("paymentMethod"); await persistWorkspace(); });
+document.getElementById("testAccountForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("testAccountEditId").value; const existing = findById("testAccounts", editId); const password = document.getElementById("testAccountPassword").value; upsert("testAccounts", { id: editId || uid("account"), environmentId: document.getElementById("testAccountEnvironment").value, productId: document.getElementById("testAccountProduct").value || null, label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId); clearEdit("testAccount"); await persistWorkspace(); });
+document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("paymentMethodEditId").value; const existing = findById("paymentMethods", editId); upsert("paymentMethods", { id: editId || uid("payment"), environmentId: document.getElementById("paymentMethodEnvironment").value || null, productId: document.getElementById("paymentMethodProduct").value || null, label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId); clearEdit("paymentMethod"); await persistWorkspace(); });
 document.getElementById("inspectorForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("inspectorEditId").value; upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId); clearEdit("inspector"); await persistWorkspace(); });
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
 document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), icon: document.getElementById("resourceIcon").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
 
-function clearUrlRelationEdit() {
-  document.getElementById("urlRelationForm").reset();
-  document.getElementById("urlEditOriginal").value = "";
-  document.getElementById("urlRelationCancel").hidden = true;
-  urlSelectedEnvironmentIds = new Set();
-  renderUrlEnvironmentPicker();
-  document.getElementById("urlRelationComposer").open = false;
-}
-
-document.getElementById("urlRelationCancel").addEventListener("click", clearUrlRelationEdit);
 document.getElementById("urlRelationForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const patternInput = document.getElementById("urlPatternInput");
   const pattern = normalizeUrlPatterns(patternInput.value)[0];
   if (!pattern) { patternInput.setCustomValidity(t("Informe uma URL ou padrão válido.")); patternInput.reportValidity(); return; }
-  patternInput.setCustomValidity("");
   if (!urlSelectedEnvironmentIds.size) { patternInput.setCustomValidity(t("Selecione pelo menos um ambiente.")); patternInput.reportValidity(); return; }
   patternInput.setCustomValidity("");
-  const original = document.getElementById("urlEditOriginal").value;
-  workspace.environments = workspace.environments.map((environment) => {
-    const patterns = (environment.urlPatterns || []).filter((item) => item !== original && item !== pattern);
-    if (urlSelectedEnvironmentIds.has(environment.id)) patterns.push(pattern);
-    const primaryUrl = original && environment.primaryUrl === original ? (urlSelectedEnvironmentIds.has(environment.id) ? pattern : "") : environment.primaryUrl;
-    return { ...environment, urlPatterns: normalizeUrlPatterns(patterns), primaryUrl };
-  });
-  clearUrlRelationEdit();
-  await persistWorkspace();
-});
-
-document.getElementById("urlRelationList").addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-url-action][data-pattern]");
-  if (!button) return;
-  const pattern = button.dataset.pattern;
-  if (button.dataset.urlAction === "edit") {
-    activateWorkspaceTab("urls", { syncNavigation: true });
-    document.getElementById("urlEditOriginal").value = pattern;
-    document.getElementById("urlPatternInput").value = pattern;
-    urlSelectedEnvironmentIds = new Set(deriveUrlRelations().find((item) => item.pattern === pattern)?.environmentIds || []);
-    document.getElementById("urlRelationCancel").hidden = false;
-    document.getElementById("urlRelationComposer").open = true;
-    renderUrlEnvironmentPicker();
-    document.getElementById("urlPatternInput").focus();
-    return;
-  }
-  if (!confirm(t("Remover esta URL de todos os ambientes?"))) return;
-  workspace.environments = workspace.environments.map((environment) => ({ ...environment, urlPatterns: (environment.urlPatterns || []).filter((item) => item !== pattern), primaryUrl: environment.primaryUrl === pattern ? "" : environment.primaryUrl }));
+  const editId = document.getElementById("urlRelationEditId").value;
+  upsert("urlBindings", {
+    id: editId || uid("binding"),
+    pattern,
+    productId: document.getElementById("urlRelationProduct").value,
+    environmentIds: [...urlSelectedEnvironmentIds],
+    primaryUrl: document.getElementById("urlRelationPrimaryUrl").value.trim(),
+    active: true,
+  }, editId);
+  clearEdit("urlRelation");
   await persistWorkspace();
 });
 
 function editItem(collection, item) {
   const prefix = COLLECTION_UI[collection].prefix;
-  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations" };
+  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations" };
   activateWorkspaceTab(workspaceTabs[collection] || "structure", { syncNavigation: true });
   const composer = document.getElementById(`${prefix}Composer`);
   if (composer) composer.open = true;
@@ -670,9 +613,10 @@ function editItem(collection, item) {
     clients: { clientName: item.name, clientLogoUrl: item.logoUrl, clientAbbreviation: item.abbreviation, clientShowLabel: item.showLabel !== false },
     projects: { projectClient: item.clientId, projectName: item.name, projectLogoUrl: item.logoUrl, projectAbbreviation: item.abbreviation, projectShowLabel: item.showLabel !== false },
     products: { productProject: item.projectId, productName: item.name, productLogoUrl: item.logoUrl, productAbbreviation: item.abbreviation, productShowLabel: item.showLabel !== false },
-    environments: { environmentProduct: item.productId, environmentName: item.name, environmentColor: item.color, environmentPatterns: (item.urlPatterns || []).join("\n"), environmentPrimaryUrl: item.primaryUrl },
-    testAccounts: { testAccountEnvironment: item.environmentId, testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
-    paymentMethods: { paymentMethodEnvironment: item.environmentId || "", paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
+    environments: { environmentName: item.name, environmentColor: item.color },
+    urlBindings: { urlRelationProduct: item.productId, urlPatternInput: item.pattern, urlRelationPrimaryUrl: item.primaryUrl },
+    testAccounts: { testAccountEnvironment: item.environmentId, testAccountProduct: item.productId || "", testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
+    paymentMethods: { paymentMethodEnvironment: item.environmentId || "", paymentMethodProduct: item.productId || "", paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
     apis: { apiLabel: item.label, apiBaseUrl: item.baseUrl, apiToken: "" },
     resources: { resourceLabel: item.label, resourceUrl: item.url, resourceCategory: item.category, resourceIcon: item.icon },
@@ -686,16 +630,42 @@ function editItem(collection, item) {
     testAccountCustomFieldsDraft = structuredClone(item.customFields || []);
     renderCustomFieldsEditor();
   }
-  if (collection === "environments") setEnvironmentPatterns(item.urlPatterns || []);
+  if (collection === "urlBindings") { urlSelectedEnvironmentIds = new Set(item.environmentIds || []); renderUrlEnvironmentPicker(); }
   document.getElementById(`${prefix}Form`).scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
+// Environments are reusable across products now (see storage.js's normalizeUrlBindings), so
+// removing a client/project/product no longer deletes environments — only the URL bindings and
+// product-scoped test accounts/payment methods that actually belong to the removed product(s).
+// An environment itself only goes away when removed directly from the "Ambientes" tab.
 function cascadeRemove(collection, removeId) {
   const removeSet = (key, predicate) => { workspace[key] = workspace[key].filter((item) => !predicate(item)); };
-  if (collection === "clients") { const projectIds = new Set(workspace.projects.filter((item) => item.clientId === removeId).map((item) => item.id)); const productIds = new Set(workspace.products.filter((item) => projectIds.has(item.projectId)).map((item) => item.id)); const envIds = new Set(workspace.environments.filter((item) => productIds.has(item.productId)).map((item) => item.id)); removeSet("projects", (item) => projectIds.has(item.id)); removeSet("products", (item) => productIds.has(item.id)); removeSet("environments", (item) => envIds.has(item.id)); removeSet("testAccounts", (item) => envIds.has(item.environmentId)); removeSet("paymentMethods", (item) => envIds.has(item.environmentId)); }
-  if (collection === "projects") { const productIds = new Set(workspace.products.filter((item) => item.projectId === removeId).map((item) => item.id)); const envIds = new Set(workspace.environments.filter((item) => productIds.has(item.productId)).map((item) => item.id)); removeSet("products", (item) => productIds.has(item.id)); removeSet("environments", (item) => envIds.has(item.id)); removeSet("testAccounts", (item) => envIds.has(item.environmentId)); removeSet("paymentMethods", (item) => envIds.has(item.environmentId)); }
-  if (collection === "products") { const envIds = new Set(workspace.environments.filter((item) => item.productId === removeId).map((item) => item.id)); removeSet("environments", (item) => envIds.has(item.id)); removeSet("testAccounts", (item) => envIds.has(item.environmentId)); removeSet("paymentMethods", (item) => envIds.has(item.environmentId)); }
-  if (collection === "environments") { removeSet("testAccounts", (item) => item.environmentId === removeId); removeSet("paymentMethods", (item) => item.environmentId === removeId); }
+  const dropProducts = (productIds) => {
+    removeSet("urlBindings", (item) => productIds.has(item.productId));
+    removeSet("testAccounts", (item) => item.productId && productIds.has(item.productId));
+    removeSet("paymentMethods", (item) => item.productId && productIds.has(item.productId));
+    removeSet("products", (item) => productIds.has(item.id));
+  };
+  if (collection === "clients") {
+    const projectIds = new Set(workspace.projects.filter((item) => item.clientId === removeId).map((item) => item.id));
+    const productIds = new Set(workspace.products.filter((item) => projectIds.has(item.projectId)).map((item) => item.id));
+    dropProducts(productIds);
+    removeSet("projects", (item) => projectIds.has(item.id));
+  }
+  if (collection === "projects") {
+    const productIds = new Set(workspace.products.filter((item) => item.projectId === removeId).map((item) => item.id));
+    dropProducts(productIds);
+  }
+  if (collection === "products") {
+    dropProducts(new Set([removeId]));
+  }
+  if (collection === "environments") {
+    workspace.urlBindings = workspace.urlBindings
+      .map((item) => ({ ...item, environmentIds: item.environmentIds.filter((environmentId) => environmentId !== removeId) }))
+      .filter((item) => item.environmentIds.length > 0);
+    removeSet("testAccounts", (item) => item.environmentId === removeId);
+    removeSet("paymentMethods", (item) => item.environmentId === removeId);
+  }
   removeSet(collection, (item) => item.id === removeId);
 }
 
@@ -764,7 +734,6 @@ document.getElementById("resetButton").addEventListener("click", async () => {
   await loadLocale();
   workspace = await getWorkspace();
   await loadScopeUi();
-  renderEnvironmentPatternChips();
   renderWorkspace();
   await loadAccess(true);
   onStorageChanged(async (changes) => {

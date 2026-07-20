@@ -10,7 +10,7 @@ export const STORAGE_KEYS = Object.freeze({
 });
 
 const COLLECTION_KEYS = [
-  "clients", "projects", "products", "environments", "testAccounts",
+  "clients", "projects", "products", "environments", "urlBindings", "testAccounts",
   "paymentMethods", "apis", "inspectors", "resources", "macros",
 ];
 
@@ -71,12 +71,22 @@ function normalizeCustomFields(input) {
   }).filter((field) => field.key);
 }
 
-function normalizeTestAccount(item, index, environments) {
+// Optional, unlike the required FKs above (environmentId, urlBinding.productId): an empty/absent
+// value here means "applies to every product using this environment", not "invalid data", so it
+// can't go through `id()` (which always fabricates a non-empty fallback id and would wrongly
+// treat that fabrication as a real match if a product happened to share that generated id).
+function normalizeOptionalProductId(rawValue, products) {
+  const value = text(rawValue, 120);
+  return value && products.some((product) => product.id === value) ? value : null;
+}
+
+function normalizeTestAccount(item, index, environments, products) {
   const environmentId = id(item?.environmentId, "env", 0);
   if (!environments.some((environment) => environment.id === environmentId)) return null;
   return {
     id: id(item?.id, "testAccount", index),
     environmentId,
+    productId: normalizeOptionalProductId(item?.productId ?? item?.product_id, products),
     label: text(item?.label, 120) || `Conta ${index + 1}`,
     accountType: text(item?.accountType, 60),
     accountTypeImage: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
@@ -112,11 +122,83 @@ export function normalizeUrlPatterns(input) {
   return normalized.slice(0, 100);
 }
 
+// Environments (DEV/QA/BETA/PROD) used to require exactly one Product, so a multi-country import
+// (4 tiers × N countries) created 4×N duplicated, country-suffixed environments instead of 4
+// reusable ones. The fix: a URL binding — not the environment — carries the Product association,
+// the same way the options page's "URLs" tab already lets one URL relate to N environments; this
+// just extends that pattern with a required Product per binding. `environmentIds` supports the
+// rare case of one physical URL genuinely serving more than one tier simultaneously (already
+// allowed today), while `productId` is single because a concrete URL belongs to exactly one
+// deployment/country.
+function normalizeUrlBinding(item, index, products, environments) {
+  const pattern = normalizeUrlPatterns([item?.pattern])[0];
+  if (!pattern) return null;
+  const productId = id(item?.productId ?? item?.product_id, "product", 0);
+  if (!products.some((product) => product.id === productId)) return null;
+  const environmentIds = [...new Set((Array.isArray(item?.environmentIds) ? item.environmentIds : []).map((value) => text(value, 120)))]
+    .filter((environmentId) => environments.some((environment) => environment.id === environmentId));
+  if (!environmentIds.length) return null;
+  return {
+    id: id(item?.id, "binding", index),
+    pattern, productId, environmentIds,
+    primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2_048)) ? text(item?.primaryUrl, 2_048) : "",
+    active: item?.active !== false,
+  };
+}
+
+// Migration for schemaVersion < 7: expands each legacy environment's own `urlPatterns` (it used
+// to own them directly, alongside a single `productId`) into binding rows, merging by exact
+// (pattern, productId) pair so re-normalizing an already-migrated workspace is idempotent. The
+// environment's old `primaryUrl` only carries over when it had exactly one pattern — with several,
+// there's no way to know which country/product URL it was meant for, so it's safer to leave it
+// unset than guess wrong.
+function migrateLegacyEnvironmentUrls(source, products, environments) {
+  const rows = [];
+  for (const rawEnvironment of Array.isArray(source.environments) ? source.environments : []) {
+    const legacyProductId = id(rawEnvironment?.productId ?? rawEnvironment?.product_id, "product", 0);
+    if (!products.some((product) => product.id === legacyProductId)) continue;
+    const legacyEnvironmentId = id(rawEnvironment?.id, "env", 0);
+    if (!environments.some((environment) => environment.id === legacyEnvironmentId)) continue;
+    const legacyPatterns = normalizeUrlPatterns(rawEnvironment?.urlPatterns ?? rawEnvironment?.urls ?? rawEnvironment?.domains ?? rawEnvironment?.url ?? rawEnvironment?.baseUrl);
+    const legacyPrimaryUrl = text(rawEnvironment?.primaryUrl, 2_048);
+    for (const pattern of legacyPatterns) {
+      rows.push({
+        pattern, productId: legacyProductId, environmentIds: [legacyEnvironmentId],
+        primaryUrl: legacyPatterns.length === 1 ? legacyPrimaryUrl : "",
+      });
+    }
+  }
+  return rows;
+}
+
+function normalizeUrlBindings(source, products, environments) {
+  const bindings = [];
+  const byKey = new Map();
+  const rawRows = [
+    ...(Array.isArray(source.urlBindings) ? source.urlBindings : []),
+    ...(Number(source.schemaVersion || 0) < 7 ? migrateLegacyEnvironmentUrls(source, products, environments) : []),
+  ];
+  for (const rawRow of rawRows) {
+    const binding = normalizeUrlBinding(rawRow, bindings.length, products, environments);
+    if (!binding) continue;
+    const key = `${binding.pattern} ${binding.productId}`;
+    const existing = byKey.get(key);
+    if (existing) {
+      for (const environmentId of binding.environmentIds) if (!existing.environmentIds.includes(environmentId)) existing.environmentIds.push(environmentId);
+      if (!existing.primaryUrl && binding.primaryUrl) existing.primaryUrl = binding.primaryUrl;
+      continue;
+    }
+    byKey.set(key, binding);
+    bindings.push(binding);
+  }
+  return bindings;
+}
+
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 6,
+    schemaVersion: 7,
     updatedAt: new Date().toISOString(),
-    clients: [], projects: [], products: [], environments: [], testAccounts: [],
+    clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [],
     preferences: {
       language: "pt-BR",
@@ -203,24 +285,17 @@ export function normalizeWorkspace(rawWorkspace) {
     id: id(item?.id, "product", index), projectId: id(item?.projectId ?? item?.project_id, "project", 0),
     name: text(item?.name ?? item?.label, 120) || `Produto ${index + 1}`, ...entityAppearance(item),
   })).filter((item) => projects.some((project) => project.id === item.projectId));
-  const environments = (Array.isArray(source.environments) ? source.environments : []).map((item, index) => {
-    const productId = id(item?.productId ?? item?.product_id, "product", 0);
-    const product = products.find((candidate) => candidate.id === productId);
-    const project = projects.find((candidate) => candidate.id === product?.projectId);
-    const patterns = normalizeUrlPatterns(item?.urlPatterns ?? item?.urls ?? item?.domains ?? item?.url ?? item?.baseUrl);
-    return {
-      id: id(item?.id, "env", index), productId,
-      projectId: project?.id ?? null, clientId: project?.clientId ?? null,
-      name: text(item?.name ?? item?.label ?? item?.environment, 80) || `Ambiente ${index + 1}`,
-      color: /^#[0-9a-f]{6}$/i.test(text(item?.color ?? item?.backgroundColor, 7)) ? text(item?.color ?? item?.backgroundColor, 7) : "#3a3a3a",
-      urlPatterns: patterns,
-      // Optional, explicit "click the breadcrumb to go here" target — urlPatterns are wildcard
-      // match rules (e.g. "*://*.example.com/*"), not necessarily a real navigable address, so
-      // this can't just reuse the first pattern without validating it's actually a plain URL.
-      primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2_048)) ? text(item?.primaryUrl, 2_048) : "",
-      active: item?.active !== false,
-    };
-  }).filter((item) => products.some((product) => product.id === item.productId));
+  // Reusable tiers only (name + color) — no product/project/client reference. Which
+  // product(s)/country(ies) an environment is actually deployed to lives entirely in
+  // `urlBindings` now, so the same "DEV" environment can serve every country without being
+  // duplicated per product (see `normalizeUrlBindings` below for why this changed).
+  const environments = (Array.isArray(source.environments) ? source.environments : []).map((item, index) => ({
+    id: id(item?.id, "env", index),
+    name: text(item?.name ?? item?.label ?? item?.environment, 80) || `Ambiente ${index + 1}`,
+    color: /^#[0-9a-f]{6}$/i.test(text(item?.color ?? item?.backgroundColor, 7)) ? text(item?.color ?? item?.backgroundColor, 7) : "#3a3a3a",
+    active: item?.active !== false,
+  }));
+  const urlBindings = normalizeUrlBindings(source, products, environments);
 
   const copyCollection = (key) => (Array.isArray(source[key]) ? source[key] : []).map((item, index) => ({
     ...item, id: id(item?.id, key.replace(/s$/, ""), index), active: item?.active !== false,
@@ -243,14 +318,15 @@ export function normalizeWorkspace(rawWorkspace) {
   }
   const workspace = {
     ...empty,
-    schemaVersion: 6,
+    schemaVersion: 7,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
-    clients, projects, products, environments,
+    clients, projects, products, environments, urlBindings,
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
-      .map((item, index) => normalizeTestAccount(item, index, environments)).filter(Boolean),
+      .map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
     paymentMethods: copyCollection("paymentMethods").map((item) => ({
       ...item,
       environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null,
+      productId: normalizeOptionalProductId(item?.productId ?? item?.product_id, products),
     })),
     apis: copyCollection("apis"),
     inspectors: copyCollection("inspectors"),

@@ -16,9 +16,9 @@ async function patternsForAuthorizedWorkspace() {
   const scope = await getSiteScope();
   if (scope.mode === "custom") return (scope.patterns || []).filter(isChromeMatchPattern);
   const workspace = await getWorkspace();
-  return [...new Set((workspace.environments || [])
-    .filter((environment) => environment.active !== false)
-    .flatMap((environment) => environment.urlPatterns || [])
+  return [...new Set((workspace.urlBindings || [])
+    .filter((binding) => binding.active !== false)
+    .map((binding) => binding.pattern)
     .filter(isChromeMatchPattern))];
 }
 
@@ -28,11 +28,11 @@ async function isAuthorizedContentSender(sender) {
   const matches = (patterns) => patterns.some((pattern) => {
     try { return patternToRegExp(pattern).test(sender.tab.url); } catch { return false; }
   });
-  const environmentPatterns = (workspace.environments || [])
-    .filter((environment) => environment.active !== false)
-    .flatMap((environment) => environment.urlPatterns || [])
+  const bindingPatterns = (workspace.urlBindings || [])
+    .filter((binding) => binding.active !== false)
+    .map((binding) => binding.pattern)
     .filter(isChromeMatchPattern);
-  return matches(registrationPatterns) && matches(environmentPatterns);
+  return matches(registrationPatterns) && matches(bindingPatterns);
 }
 
 function patternToRegExp(pattern) {

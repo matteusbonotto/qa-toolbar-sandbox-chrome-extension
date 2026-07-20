@@ -79,13 +79,33 @@ function matchesAnyPattern(patterns, href) {
   });
 }
 
-function findActiveEnvironment(workspace) {
-  const href = window.location.href;
-  return (workspace.environments || []).find((environment) => environment.active !== false && matchesAnyPattern(environment.urlPatterns, href)) ?? null;
-}
-
 function findById(collection, id) {
   return (collection || []).find((item) => item.id === id) ?? null;
+}
+
+// Environments no longer own a product/URL directly (see storage.js's normalizeUrlBindings for
+// why) — matching now goes through the binding that owns the concrete pattern, then resolves
+// product/project/client from *that* binding's productId. The returned object keeps the same
+// shape every existing consumer (buildBreadcrumb, resolveEnvironmentUrl, test account/payment
+// filters) already expects — id/name/color plus computed productId/projectId/clientId/
+// urlPatterns/primaryUrl — so only this function and the active-binding-aware filters below need
+// to change, not every place that reads `state.environment`.
+function findActiveEnvironment(workspace) {
+  const href = window.location.href;
+  const binding = (workspace.urlBindings || []).find((candidate) => candidate.active !== false && matchesAnyPattern([candidate.pattern], href));
+  if (!binding) return null;
+  const environment = findById(workspace.environments, binding.environmentIds[0]);
+  const product = findById(workspace.products, binding.productId);
+  if (!environment || environment.active === false || !product) return null;
+  const project = findById(workspace.projects, product.projectId);
+  return {
+    ...environment,
+    productId: product.id,
+    projectId: project?.id ?? null,
+    clientId: project?.clientId ?? null,
+    urlPatterns: [binding.pattern],
+    primaryUrl: binding.primaryUrl || "",
+  };
 }
 
 function contrastTextColor(hexColor) {
@@ -1999,7 +2019,7 @@ function renderTestAccountsList() {
     return;
   }
 
-  const allAccounts = (state.workspace.testAccounts || []).filter((account) => account.environmentId === state.environment.id);
+  const allAccounts = (state.workspace.testAccounts || []).filter((account) => account.environmentId === state.environment.id && (!account.productId || account.productId === state.environment.productId));
   if (!allAccounts.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(t.testAccountsEmptyForEnv)}</div>`;
     return;
@@ -2107,7 +2127,7 @@ function renderPaymentMethodsList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
-  const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id));
+  const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id) && (!method.productId || method.productId === state.environment?.productId));
   if (!allMethods.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(state.t.paymentMethodsEmptyForEnv)}</div>`;
     return;
