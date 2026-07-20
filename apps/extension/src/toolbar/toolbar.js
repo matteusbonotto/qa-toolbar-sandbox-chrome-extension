@@ -1144,7 +1144,7 @@ function drawerStyles() {
     .qts-icon-btn { width: 32px; height: 32px; padding: 0; border: 1px solid #333; border-radius: 8px; background: #1c1c1c; color: #fff; cursor: pointer; flex: 0 0 auto; }
     .qts-icon-btn:hover { border-color: #ffd700; }
     .qts-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-    .qts-filter-bar.isCollapsed, .qts-toolbar-search.isCollapsed { display: none; }
+    .qts-filter-bar.isCollapsed { display: none; }
     .qts-toggle-group { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #262626; border-radius: 8px; background: #131313; }
     .qts-toggle-group button { height: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #ccc; font-size: 11px; font-weight: 700; cursor: pointer; }
     .qts-toggle-group button.isSelected { background: #b20808; color: #fff; }
@@ -1341,7 +1341,7 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, wide = true, bodyHtml, onReady, view = "" }) {
+function openDrawer({ title, wide = false, bodyHtml, onReady, view = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -1755,7 +1755,7 @@ function renderInspectorsList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="${inspectorsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
     </div>
     <div class="qts-filter-bar ${inspectorsFilterState.collapsed ? "isCollapsed" : ""}" id="inspectorsFilterBar">
@@ -1860,7 +1860,7 @@ function renderErrorMonitorList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="errorMonitorSearch" value="${escapeHtml(errorMonitorFilterState.query)}" class="${errorMonitorFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="errorMonitorSearch" value="${escapeHtml(errorMonitorFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${errorMonitorFilterState.collapsed ? "isActive" : ""}" id="errorMonitorCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
       <button type="button" class="qts-icon-btn" id="errorMonitorClear" title="${escapeHtml(t.clearAll)}">${ICON("fail")}</button>
     </div>
@@ -1952,7 +1952,7 @@ function renderTestAccountsList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="${escapeHtml(t.testAccountsSearchPlaceholder)}" id="testAccountsSearch" value="${escapeHtml(testAccountsFilterState.query)}" class="${testAccountsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <input type="search" placeholder="${escapeHtml(t.testAccountsSearchPlaceholder)}" id="testAccountsSearch" value="${escapeHtml(testAccountsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${testAccountsFilterState.collapsed ? "isActive" : ""}" id="testAccountsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
     </div>
     <div class="qts-filter-bar ${testAccountsFilterState.collapsed ? "isCollapsed" : ""}" id="testAccountsFilterBar">
@@ -2087,7 +2087,7 @@ function renderResourcesList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="${escapeHtml(t.resourcesSearchPlaceholder)}" id="resourcesSearch" value="${escapeHtml(resourcesFilterState.query)}" class="${resourcesFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <input type="search" placeholder="${escapeHtml(t.resourcesSearchPlaceholder)}" id="resourcesSearch" value="${escapeHtml(resourcesFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${resourcesFilterState.collapsed ? "isActive" : ""}" id="resourcesCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
     </div>
     <div class="qts-filter-bar ${resourcesFilterState.collapsed ? "isCollapsed" : ""}" id="resourcesFilterBar">
@@ -2166,7 +2166,7 @@ const DEVICE_PRESETS = [
   { id: "iphone-se", label: "iPhone SE", width: 375, height: 667, kind: "phone" },
 ];
 
-const breakpointViewerState = { syncScroll: false, syncClick: false, resizeObserver: null, cleanupFns: [] };
+const breakpointViewerState = { syncScroll: false, syncClick: false, zoomMultiplier: 1, resizeObserver: null, cleanupFns: [] };
 
 function buildDeviceFrameHtml(pane, device) {
   const chrome = device.kind === "phone"
@@ -2193,6 +2193,11 @@ function breakpointStyles() {
     .qts-bp-topbar input[type="url"] { flex: 1 1 220px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #fff; }
     .qts-bp-topbar select { height: 34px; padding: 0 8px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #fff; }
     .qts-bp-toggle { height: 34px; padding: 0 12px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #ccc; cursor: pointer; font-weight: 700; }
+    .qts-bp-zoom { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; }
+    .qts-bp-zoom-btn { all: unset; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: #262626; color: #fff; cursor: pointer; font-weight: 900; }
+    .qts-bp-zoom-btn:hover { background: #333; }
+    .qts-bp-zoom input[type="range"] { width: 90px; }
+    #bpZoomLabel { min-width: 38px; text-align: center; color: #ccc; font-variant-numeric: tabular-nums; }
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
     .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
@@ -2221,6 +2226,7 @@ function cleanupBreakpointViewer() {
 function openBreakpointViewer() {
   const t = state.t;
   cleanupBreakpointViewer();
+  breakpointViewerState.zoomMultiplier = 1;
   const drawerHost = ensureDrawerHost();
   const initialUrl = /^https?:\/\//i.test(window.location.href) ? window.location.href : "https://example.com";
   drawerHost.innerHTML = `<style>${breakpointStyles()}</style>
@@ -2229,12 +2235,31 @@ function openBreakpointViewer() {
         <input type="url" id="bpUrl" value="${escapeHtml(initialUrl)}" placeholder="https://..." />
         <select id="bpDeviceA">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 0 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
         <select id="bpDeviceB">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 3 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
+        <div class="qts-bp-zoom">
+          <button type="button" class="qts-bp-zoom-btn" id="bpZoomOut" title="Reduzir zoom">−</button>
+          <input type="range" id="bpZoom" min="50" max="200" step="10" value="100" title="Zoom" />
+          <span id="bpZoomLabel">100%</span>
+          <button type="button" class="qts-bp-zoom-btn" id="bpZoomIn" title="Aumentar zoom">+</button>
+        </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
         <button type="button" class="qts-bp-close" id="bpClose">×</button>
       </div>
       <div class="qts-bp-stage" id="bpStage"></div>
     </div>`;
+
+  const zoomSlider = drawerHost.querySelector("#bpZoom");
+  const zoomLabel = drawerHost.querySelector("#bpZoomLabel");
+  const applyZoom = (percent) => {
+    const clamped = Math.min(200, Math.max(50, percent));
+    zoomSlider.value = String(clamped);
+    zoomLabel.textContent = `${clamped}%`;
+    breakpointViewerState.zoomMultiplier = clamped / 100;
+    fitAndLoad();
+  };
+  zoomSlider.addEventListener("input", () => applyZoom(Number(zoomSlider.value)));
+  drawerHost.querySelector("#bpZoomOut").addEventListener("click", () => applyZoom(Number(zoomSlider.value) - 10));
+  drawerHost.querySelector("#bpZoomIn").addEventListener("click", () => applyZoom(Number(zoomSlider.value) + 10));
 
   const close = () => { cleanupBreakpointViewer(); closeDrawer(); };
   drawerHost.querySelector("#bpClose").addEventListener("click", close);
@@ -2283,7 +2308,12 @@ function openBreakpointViewer() {
     const paneHeightBudget = stage.clientHeight - 70;
     const widestDevice = Math.max(deviceA.width, deviceB.width);
     const tallestDevice = Math.max(deviceA.height, deviceB.height);
-    const scale = Math.min(1, paneWidthBudget / widestDevice, paneHeightBudget / tallestDevice);
+    // The zoom control (breakpointViewerState.zoomMultiplier) is a separate, user-driven
+    // multiplier layered on top of the auto-fit base scale, applied identically to both panes —
+    // it's the only way to see a device above its real pixel size, which the auto-fit scale
+    // deliberately never does on its own (see the comment above).
+    const baseScale = Math.min(1, paneWidthBudget / widestDevice, paneHeightBudget / tallestDevice);
+    const scale = baseScale * breakpointViewerState.zoomMultiplier;
 
     stage.querySelectorAll("[data-pane]").forEach((frame) => {
       const device = frame.dataset.pane === "a" ? deviceA : deviceB;
@@ -2745,7 +2775,13 @@ function cancelElementSelection() {
   state.selectionCleanup = null;
 }
 
-function selectPageElement({ accepts = () => true, onSelected, instruction }) {
+// `resolve` maps the literal click target to the element the caller actually cares about, before
+// `accepts` even runs — e.g. Input Lab wants clicking anywhere on a floating-label wrapper (a
+// common real-world pattern where the visible "input box" is a padded container around a
+// smaller <input>) to still resolve to the real <input>, not reject it outright. Defaults to
+// identity so callers that already accept the raw target (Multiclick, Faker Fill's own
+// `.closest("form")` check) are unaffected.
+function selectPageElement({ accepts = () => true, resolve = (target) => target, onSelected, instruction }) {
   closeDrawer();
   cancelElementSelection();
   const style = document.createElement("style");
@@ -2753,11 +2789,19 @@ function selectPageElement({ accepts = () => true, onSelected, instruction }) {
   style.textContent = "html.qts-selecting,html.qts-selecting *{cursor:crosshair!important}.qts-selection-candidate{outline:3px solid #ffd700!important;outline-offset:2px!important}";
   document.documentElement.appendChild(style);
   document.documentElement.classList.add("qts-selecting");
+  // Reinforces that Esc cancels — the first toast (below) gets buried once a few "not
+  // compatible" rejection toasts stack up, which previously left the only cancel hint invisible.
+  const hint = document.createElement("div");
+  hint.className = "qts-floating-item";
+  hint.style.cssText = "position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:2147483647;background:#0b0b0b;color:#ffd700;border:1px solid #ffd700;border-radius:999px;padding:6px 14px;font:700 11px sans-serif;pointer-events:none";
+  hint.textContent = translateQaSurfaceText("Esc para cancelar a seleção");
+  document.body.appendChild(hint);
   let candidate = null;
   const cleanup = () => {
     candidate?.classList.remove("qts-selection-candidate");
     document.documentElement.classList.remove("qts-selecting");
     style.remove();
+    hint.remove();
     document.removeEventListener("mouseover", onOver, true);
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("keydown", onKey, true);
@@ -2765,14 +2809,16 @@ function selectPageElement({ accepts = () => true, onSelected, instruction }) {
   const onOver = (event) => {
     if (event.target.closest?.(`#${HOST_ID}`)) return;
     candidate?.classList.remove("qts-selection-candidate");
-    candidate = event.target;
+    // Falls back to the raw hover target so *something* highlights under the cursor generally —
+    // but only the resolved candidate (if any) is what onClick will actually accept/select.
+    candidate = resolve(event.target) || event.target;
     candidate.classList.add("qts-selection-candidate");
   };
   const onClick = (event) => {
     if (event.target.closest?.(`#${HOST_ID}`)) return;
     event.preventDefault(); event.stopImmediatePropagation();
-    const target = event.target;
-    if (!accepts(target)) { showQaToast("Selecione um elemento compatível.", "error"); return; }
+    const target = resolve(event.target);
+    if (!target || !accepts(target)) { showQaToast("Selecione um elemento compatível.", "error"); return; }
     cleanup(); state.selectionCleanup = null; onSelected(target);
   };
   const onKey = (event) => { if (event.key === "Escape") { cleanup(); state.selectionCleanup = null; showQaToast("Seleção cancelada."); } };
@@ -2781,6 +2827,17 @@ function selectPageElement({ accepts = () => true, onSelected, instruction }) {
   document.addEventListener("keydown", onKey, true);
   state.selectionCleanup = cleanup;
   showQaToast(instruction || "Clique no elemento da página. Esc cancela.");
+}
+
+// Clicking anywhere on a real input resolves to itself; clicking a wrapper/label around it
+// (floating-label patterns, custom-select containers) searches its descendants first — the
+// common real case, since the visible "box" is usually the wrapper, not the input — falling back
+// to ancestors for the rarer case of clicking a decorative child nested inside the input's own
+// wrapper alongside it.
+function resolveFormControlTarget(target) {
+  if (!(target instanceof Element)) return null;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return target;
+  return target.querySelector?.("input,textarea,select") || target.closest?.("input,textarea,select") || null;
 }
 
 function openMultiClick(selectedElement = null) {
@@ -2819,7 +2876,7 @@ function openInputLab(selectedElement = null) {
       <button class="action" id="inputSelect" type="button">Selecionar input na página</button>${infoHtml}
       ${info ? `<button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Rodar kit de validação</button><div id="inputResults"></div>` : ""}`,
     onReady(body) {
-      body.querySelector("#inputSelect").addEventListener("click", () => selectPageElement({ accepts: (element) => ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName), onSelected: (element) => openInputLab(element), instruction: "Clique no input que deseja validar." }));
+      body.querySelector("#inputSelect").addEventListener("click", () => selectPageElement({ resolve: resolveFormControlTarget, accepts: (element) => Boolean(element), onSelected: (element) => openInputLab(element), instruction: "Clique no input que deseja validar." }));
       body.querySelector("#inputRun")?.addEventListener("click", async (event) => {
         const runButton = event.currentTarget;
         runButton.disabled = true;

@@ -34,10 +34,19 @@
 
 ## Fase 2 — Input Lab, Breakpoint Viewer, busca/filtros, largura dos sidebars
 
-- [ ] 7. Input Lab: seleção de elemento não completa (wrapper/label) + dica de Esc persistente
-- [ ] 8. Breakpoint Viewer: controle de zoom de verdade
-- [ ] 9. Botão de recolher busca não deve esconder o campo de busca, só os filtros
-- [ ] 10. Sidebars: largura padrão volta a ser compacta, só os que precisam ficam largos
+- [x] 7. Input Lab: clicar num wrapper/label agora resolve pro input real dentro dele; dica de
+      Esc fica visível o tempo todo (não só no primeiro toast). Verificado ao vivo clicando fora
+      do input literal.
+- [x] 8. Breakpoint Viewer: slider de zoom + botões −/+ (50%-200%), aplicado igual nos dois
+      painéis. Verificado ao vivo: 200% dobrou a largura renderizada exatamente.
+- [x] 9. Botão de recolher busca agora só esconde os filtros — campo de busca nunca mais some.
+      Verificado ao vivo nos 4 drawers que usam o padrão (Inspectors/Error Monitor/Contas/Recursos).
+- [x] 10. Sidebars: praticamente já estava certo — só as chamadas sem `wide` explícito (Contas de
+      teste, Meios de pagamento, Recursos, Key View, Contador, Multiclick, Input Lab, Faker Fill)
+      precisavam do default mudar; Inspectors/Error Monitor/JSON Studio/Macro Studio já tinham
+      `wide:true` explícito desde antes.
+
+**Fase 2: smoke completo em Chrome real rodou limpo, 0 erros.**
 
 ## Fase 3 — Meios de pagamento, imagem de contas, Inspectors, breadcrumb
 
@@ -60,7 +69,11 @@
       Screenshot/Gravação) somem em telas estreitas e viram itens no menu Tools, sempre
       acessíveis. Confirmado ao vivo: breadcrumb voltou a aparecer, configurações ficou visível,
       e clicar em "Pass" pelo menu realmente ativa o modo de marcação.
-- [ ] Efeitos sonoros sumiram (reportado, ainda não investigado)
+- [ ] **Efeitos sonoros — não consegui reproduzir**: testei ao vivo (clicar em Pass) e o arquivo
+      `test-pass.mp3` carrega com 200 OK, sem erro nenhum no console, `web_accessible_resources`
+      configurado certo no manifest. Se ainda estiver mudo depois de testar: confira
+      Configurações → Barra e aparência → "Efeitos sonoros" (checkbox/switch) e o volume da aba
+      no Chrome (o Chrome lembra site mutado por aba/origem).
 - [ ] Reordenar cliente/projeto/produto (drag-and-drop e/ou setas) — Fase 6
 - [ ] Modo compacto por entidade (cliente/projeto/produto independentes) — Fase 6
 - [ ] Editor de imagem (zoom/recorte/ajuste/centralizar) pros logos — Fase 6
