@@ -1,0 +1,121 @@
+{
+  "schemaVersion": 5,
+  "updatedAt": "2026-07-20T00:00:00.000Z",
+  "clients": [
+    {
+      "id": "client-bankeiro",
+      "name": "Bankeiro",
+      "abbreviation": "BK",
+      "showLabel": true
+    }
+  ],
+  "projects": [
+    {
+      "id": "project-bullla",
+      "clientId": "client-bankeiro",
+      "name": "Bullla",
+      "abbreviation": "BUL",
+      "showLabel": true
+    }
+  ],
+  "products": [
+    {
+      "id": "product-ibk",
+      "projectId": "project-bullla",
+      "name": "IBK",
+      "showLabel": true
+    }
+  ],
+  "environments": [
+    {
+      "id": "env-stage",
+      "productId": "product-ibk",
+      "projectId": "project-bullla",
+      "clientId": "client-bankeiro",
+      "name": "Stage",
+      "color": "#eab308",
+      "urlPatterns": ["https://www.google.com/*"]
+    }
+  ],
+  "testAccounts": [
+    {
+      "id": "account-bankeiro-comum",
+      "environmentId": "env-stage",
+      "label": "Conta comum",
+      "accountType": "Comum",
+      "username": "qa.comum@bankeiro.test",
+      "password": "Sandbox@123",
+      "notes": "Conta de teste genérica — sem vínculo com dados reais de cliente.",
+      "customFields": [
+        { "key": "Saldo em conta", "type": "number", "value": 5000 },
+        { "key": "Conta verificada", "type": "boolean", "value": true },
+        { "key": "Nível", "type": "string", "value": "Prata" }
+      ]
+    },
+    {
+      "id": "account-bankeiro-premium",
+      "environmentId": "env-stage",
+      "label": "Conta premium",
+      "accountType": "Premium",
+      "username": "qa.premium@bankeiro.test",
+      "password": "Sandbox@123",
+      "notes": "Conta de teste com limites elevados — sem vínculo com dados reais de cliente.",
+      "customFields": [
+        { "key": "Saldo em conta", "type": "number", "value": 50000 },
+        { "key": "Conta verificada", "type": "boolean", "value": true },
+        { "key": "Nível", "type": "string", "value": "Platina" }
+      ]
+    }
+  ],
+  "paymentMethods": [
+    {
+      "id": "payment-bankeiro-visa",
+      "environmentId": "env-stage",
+      "label": "Visa aprovado",
+      "type": "card",
+      "value": "4111 1111 1111 1111",
+      "notes": "Cartão sandbox que sempre aprova — uso exclusivo em QA."
+    }
+  ],
+  "apis": [
+    {
+      "id": "api-bankeiro-ibk",
+      "label": "API IBK (sandbox)",
+      "baseUrl": "https://stage-api.bankeiro.test",
+      "token": "sandbox-token-demo"
+    }
+  ],
+  "inspectors": [
+    {
+      "id": "inspector-bankeiro-accounts",
+      "label": "Contas / Accounts",
+      "patterns": ["/api/accounts", "/api/balance"]
+    }
+  ],
+  "resources": [
+    {
+      "id": "resource-bankeiro-runbook",
+      "label": "Runbook de QA",
+      "url": "https://example.com/runbook-qa-bankeiro",
+      "category": "Documentação"
+    }
+  ],
+  "macros": [
+    {
+      "id": "macro-bankeiro-search",
+      "name": "Busca padrão",
+      "description": "Abre a busca e digita um termo de teste — fluxo de demonstração.",
+      "steps": [
+        { "action": "click", "selector": "textarea[name=q]" },
+        { "action": "wait", "ms": 300 },
+        { "action": "fill", "selector": "textarea[name=q]", "value": "bankeiro qa" }
+      ]
+    }
+  ],
+  "preferences": {
+    "language": "pt-BR",
+    "pushSiteContent": true,
+    "avatarShape": "square",
+    "pinnedTools": ["passFail", "screenshot", "notes"]
+  }
+}

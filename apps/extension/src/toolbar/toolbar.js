@@ -106,43 +106,65 @@ function setSpacerHeight() {
 }
 
 const HEADER_OFFSET_ATTR = "data-qts-header-offset";
+// Above this, a site header's own z-index is fighting our bar for the top stacking slot instead
+// of just sitting fixed at its natural position — matches tampermonkey.js's threshold
+// (qaCnkOffsetSiteFixedElements), which clamps anything this high back down.
+const HEADER_ZINDEX_CONTEST_THRESHOLD = 2_147_483_646;
 
 function clearSiteFixedHeaderOffsets() {
   document.querySelectorAll(`[${HEADER_OFFSET_ATTR}]`).forEach((element) => {
-    element.style.marginTop = element.getAttribute(`${HEADER_OFFSET_ATTR}-original`) || "";
+    element.style.setProperty("top", element.getAttribute(`${HEADER_OFFSET_ATTR}-original-top`) || "");
+    element.style.setProperty("z-index", element.getAttribute(`${HEADER_OFFSET_ATTR}-original-zindex`) || "");
     element.removeAttribute(HEADER_OFFSET_ATTR);
-    element.removeAttribute(`${HEADER_OFFSET_ATTR}-original`);
+    element.removeAttribute(`${HEADER_OFFSET_ATTR}-original-top`);
+    element.removeAttribute(`${HEADER_OFFSET_ATTR}-original-zindex`);
   });
 }
 
 /**
- * The spacer div pushes normal-flow content down, but a site's own position:fixed header
+ * The spacer div pushes normal-flow content down, but a site's own position:fixed/sticky header
  * (common on real QA targets) ignores document flow entirely and stays glued under our bar
- * instead of below it. Auto-detecting every fixed element on an arbitrary page is too fuzzy to
- * do safely (multiple headers, transformed stacking contexts, sticky sub-navs), so this stays
- * conservative: only elements actually painted inside our bar's own vertical band right now —
- * found via a few elementsFromPoint samples rather than a full DOM walk — get nudged down by
- * margin-top, and only while pushSiteContent is on.
+ * instead of below it. Ported from tampermonkey.js's proven `offsetSiteFixedElements` /
+ * `keepSiteFixedElementsBelowWindowsill` (the reference this extension is a rewrite of) after
+ * confirming it handles cases this port's original point-sampling approach missed: it walks
+ * every element under <body> (not just a few elementsFromPoint samples), matches `sticky` too
+ * (not just `fixed`), nudges the real `top` property instead of `margin-top` (which is a no-op
+ * for a fixed element that already declares its own `top`), and — separately, see
+ * installHeaderOffsetMonitor() — re-runs continuously instead of only on toolbar render.
  */
 function offsetSiteFixedHeaders() {
+  // The monitor below watches style/class mutations to catch a site header that moves or
+  // appears after our last render — but this function itself mutates style/class on matching
+  // elements, so without disconnecting first, applying an offset would immediately re-trigger
+  // the same observer and loop forever (confirmed live: an earlier version of this function hung
+  // the page solid).
+  state.headerOffsetObserver?.disconnect();
   clearSiteFixedHeaderOffsets();
   const height = getCurrentHeight();
-  if (!height || typeof document.elementsFromPoint !== "function") return;
+  if (!height) {
+    state.headerOffsetObserver?.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+    return;
+  }
   const host = document.getElementById(HOST_ID);
-  const sampleY = Math.max(1, height - 4);
-  const sampleXs = [8, Math.floor(window.innerWidth / 2), Math.max(8, window.innerWidth - 8)];
-  const candidates = new Set();
-  sampleXs.forEach((x) => document.elementsFromPoint(x, sampleY).forEach((element) => candidates.add(element)));
-  candidates.forEach((element) => {
-    if (element === host || host?.contains(element) || element === document.body || element === document.documentElement) return;
+  document.body?.querySelectorAll("*").forEach((element) => {
+    if (element === host || host?.contains(element)) return;
     if (element.id === SPACER_ID || element.hasAttribute(HEADER_OFFSET_ATTR)) return;
-    if (getComputedStyle(element).position !== "fixed") return;
+    const computed = getComputedStyle(element);
+    if (computed.position !== "fixed" && computed.position !== "sticky") return;
+    const currentTop = Number.parseFloat(computed.top);
+    if (!Number.isFinite(currentTop) || currentTop > height + 8) return;
     const rect = element.getBoundingClientRect();
-    if (rect.top >= height || rect.height === 0) return;
+    if (rect.height === 0) return;
     element.setAttribute(HEADER_OFFSET_ATTR, "true");
-    element.setAttribute(`${HEADER_OFFSET_ATTR}-original`, element.style.marginTop || "");
-    element.style.marginTop = `${height}px`;
+    element.setAttribute(`${HEADER_OFFSET_ATTR}-original-top`, element.style.top || "");
+    element.setAttribute(`${HEADER_OFFSET_ATTR}-original-zindex`, element.style.zIndex || "");
+    element.style.setProperty("top", `${currentTop + height}px`, "important");
+    const currentZIndex = Number.parseInt(computed.zIndex, 10);
+    if (Number.isFinite(currentZIndex) && currentZIndex >= HEADER_ZINDEX_CONTEST_THRESHOLD) {
+      element.style.setProperty("z-index", "2147483600", "important");
+    }
   });
+  state.headerOffsetObserver?.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
 }
 
 /**
@@ -385,6 +407,18 @@ function buildShadowHost() {
       #macroRecordingChip { background: #8f0909; color: #fff; border-color: #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
+      #mobileActionsMenu { display: none; }
+      /* On a real phone width, #right's pinned quick-action buttons (flex:0 0 auto, never
+         shrink) add up to wider than the whole bar, which squeezes #left (breadcrumb) down to
+         zero width — client/project/product don't just get cramped, they vanish entirely, and
+         buttons past the overflow (settings, sometimes even Tools) get pushed off-screen with no
+         way back. Below this width those pinned buttons hide and the same actions move into the
+         Tools menu instead (#mobileActionsMenu), which stays reachable regardless of width. */
+      @media (max-width: 560px) {
+        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #clearAllButton,
+        #screenshotButton, #recordToggleButton, #recordStopButton, #recordTimer { display: none !important; }
+        #mobileActionsMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
+      }
     </style>
     <div id="bar" role="toolbar" aria-label="Ferramentas de QA">
       <div id="left">
@@ -409,6 +443,15 @@ function buildShadowHost() {
         <div id="toolsWrapper">
           <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ${ICON("chevronDown")}</button>
           <div id="toolsMenu" role="menu">
+            <div id="mobileActionsMenu">
+              <button type="button" id="mobileTestStatusItem" role="menuitem">${escapeHtml(t.testStatus)}</button>
+              <button type="button" id="mobilePassItem" role="menuitem">${ICON("pass")} ${escapeHtml(t.pass)}</button>
+              <button type="button" id="mobileFailItem" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
+              <button type="button" id="mobileNoteItem" role="menuitem">${escapeHtml(t.note)}</button>
+              <button type="button" id="mobileShapeItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
+              <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
+              <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
+            </div>
             <div id="pinnedMacrosMenu"></div>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
             <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(t.characterCounterMenuLabel)}</button>
@@ -450,6 +493,16 @@ function buildShadowHost() {
   shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
   shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
   shadow.getElementById("macroRecordingChip").addEventListener("click", () => stopMacroRecording());
+
+  // Same handlers as the pinned bar buttons above — this is the narrow-viewport fallback path
+  // for them (see the #mobileActionsMenu media query), not a separate feature.
+  shadow.getElementById("mobileTestStatusItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
+  shadow.getElementById("mobilePassItem").addEventListener("click", (event) => { enablePlacementMode("pass", shadow.getElementById("passButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileFailItem").addEventListener("click", () => { enablePlacementMode("fail", shadow.getElementById("failButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileNoteItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
+  shadow.getElementById("mobileShapeItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileScreenshotItem").addEventListener("click", () => { captureScreenshot(); closeToolsMenu(); });
+  shadow.getElementById("mobileRecordItem").addEventListener("click", () => { handleRecordToggle(); closeToolsMenu(); });
 
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -564,6 +617,7 @@ function removeToolbar({ disableBridge = false } = {}) {
   state.integrityObserver = null;
   if (state.integrityInterval) window.clearInterval(state.integrityInterval);
   state.integrityInterval = null;
+  stopHeaderOffsetMonitor();
   document.getElementById(HOST_ID)?.remove();
   document.getElementById(SPACER_ID)?.remove();
   document.querySelectorAll(".qts-modal-backdrop,.qts-result-overlay,.qts-floating-item,.qts-shape-preview").forEach((element) => element.remove());
@@ -585,6 +639,48 @@ function syncToolbarForCurrentLocation() {
   else render();
   document.dispatchEvent(new CustomEvent("qts:pagebridge-active", { detail: { active: true } }));
   installIntegrityMonitor();
+  installHeaderOffsetMonitor();
+}
+
+/**
+ * Matches tampermonkey.js's keepSiteFixedElementsBelowWindowsill: a site's own fixed/sticky
+ * header can appear or move well after our last render() (a cookie-banner dismissal, a delayed
+ * SPA route render, a scroll-triggered header) — re-running offsetSiteFixedHeaders() only from
+ * render() misses those. MutationObserver + scroll + resize covers the common triggers; the
+ * interval is a deliberate belt-and-suspenders fallback for whatever those three don't catch.
+ */
+function installHeaderOffsetMonitor() {
+  if (state.headerOffsetObserver) return;
+  // Coalesces bursty triggers (a scroll fires many times a second, a MutationObserver batches
+  // but can still arrive frequently during a busy SPA render) into at most one walk per frame.
+  let scheduled = false;
+  const rerun = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      offsetSiteFixedHeaders();
+    });
+  };
+  const observer = new MutationObserver(rerun);
+  observer.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+  window.addEventListener("scroll", rerun, { passive: true });
+  window.addEventListener("resize", rerun);
+  state.headerOffsetObserver = observer;
+  state.headerOffsetScrollHandler = rerun;
+  state.headerOffsetInterval = window.setInterval(rerun, 1_000);
+}
+
+function stopHeaderOffsetMonitor() {
+  state.headerOffsetObserver?.disconnect();
+  state.headerOffsetObserver = null;
+  if (state.headerOffsetScrollHandler) {
+    window.removeEventListener("scroll", state.headerOffsetScrollHandler);
+    window.removeEventListener("resize", state.headerOffsetScrollHandler);
+  }
+  state.headerOffsetScrollHandler = null;
+  if (state.headerOffsetInterval) window.clearInterval(state.headerOffsetInterval);
+  state.headerOffsetInterval = null;
 }
 
 function scheduleRepair() {
@@ -728,11 +824,11 @@ function placeMarker(kind, clientX, clientY) {
   marker.innerHTML = `
     <div class="qts-marker-body ${kind === "fail" ? "isFail" : "isPass"}" data-drag-handle>${kind === "fail" ? ICON("fail") : ICON("pass")}</div>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
-    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}"></div>
+    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
   `;
   document.body.appendChild(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
-  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 28, minHeight: 28 });
+  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 28, minHeight: 28, lockAspectRatio: true });
   marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
   updateClearAllVisibility();
 }
@@ -752,7 +848,7 @@ function renderSavedNote(note, text, style) {
     <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
     <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">${ICON("edit")}</button>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
-    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(t.resize)}"></div>
+    <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(t.resize)}">${ICON("resize")}</div>
   `;
   const content = note.querySelector(".qts-note-content");
   content.style.setProperty("--qts-note-color", style.color);
@@ -863,7 +959,7 @@ function placeShape(left, top, width, height) {
     <div class="qts-shape-box" data-drag-handle></div>
     <button type="button" class="qts-edit-btn" title="${escapeHtml(state.t.edit)}">${ICON("edit")}</button>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
-    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}"></div>
+    <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
   `;
   document.body.appendChild(shape);
   makeDraggable(shape, shape.querySelector("[data-drag-handle]"));
@@ -913,7 +1009,10 @@ function makeDraggable(element, handle) {
   let offsetX = 0;
   let offsetY = 0;
   handle.addEventListener("mousedown", (event) => {
-    if (event.button !== 0 || event.target.closest("button")) return;
+    // Excludes anything interactive that can legitimately sit on top of/inside the drag handle
+    // (the shape style editor's inputs, in particular) — a mousedown that starts on a real
+    // control should never also start a drag.
+    if (event.button !== 0 || event.target.closest("button,input,textarea,select,label,[data-resize-handle]")) return;
     dragging = true;
     const rect = element.getBoundingClientRect();
     offsetX = event.clientX - rect.left;
@@ -930,7 +1029,7 @@ function makeDraggable(element, handle) {
 
 // Shared SE-corner drag-resize for markers/shapes/notes — one consistent resize gesture across
 // every annotation type instead of a different interaction per tool.
-function makeResizable(element, handle, { minWidth = 24, minHeight = 24, onResize } = {}) {
+function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAspectRatio = false, onResize } = {}) {
   let resizing = false;
   let startWidth = 0;
   let startHeight = 0;
@@ -949,8 +1048,16 @@ function makeResizable(element, handle, { minWidth = 24, minHeight = 24, onResiz
   });
   document.addEventListener("mousemove", (event) => {
     if (!resizing) return;
-    const width = Math.max(minWidth, startWidth + (event.clientX - startX));
-    const height = Math.max(minHeight, startHeight + (event.clientY - startY));
+    let width = Math.max(minWidth, startWidth + (event.clientX - startX));
+    let height = Math.max(minHeight, startHeight + (event.clientY - startY));
+    // Markers are circular (border-radius:999px on a possibly non-square box just renders a
+    // stadium/oval) — locking width===height here is what keeps the shape an actual circle
+    // instead of distorting as soon as a single SE-corner drag lets the two axes diverge.
+    if (lockAspectRatio) {
+      const size = Math.max(width, height);
+      width = size;
+      height = size;
+    }
     element.style.width = `${width}px`;
     element.style.height = `${height}px`;
     onResize?.(width, height);
