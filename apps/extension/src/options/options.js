@@ -171,9 +171,13 @@ async function loadAccess(force = false) {
   document.getElementById("signedOutState").hidden = active;
   document.getElementById("signedInState").hidden = !active;
   document.getElementById("deleteAccountCard").hidden = !active;
+  const paymentFailed = accessState?.billing?.status === "past_due" || accessState?.billing?.status === "unpaid";
+  document.getElementById("paymentFailedBanner").hidden = !paymentFailed;
   if (active) {
     document.getElementById("accountEmail").textContent = accessState.user?.email || "Conta autenticada";
     document.getElementById("accountPlan").textContent = accessState.plan?.name || "Acesso ativo";
+  } else if (paymentFailed) {
+    showMessage("authMessage", "Seu pagamento falhou e o acesso a recursos pagos foi bloqueado. Veja o aviso acima para regularizar.", "Error");
   } else if (accessState?.authenticated && accessState?.reason === "access_required") {
     showMessage("authMessage", "Sua conta está autenticada, mas ainda não possui acesso ativo.", "Error");
   } else if (accessState?.reason === "access_unavailable") {

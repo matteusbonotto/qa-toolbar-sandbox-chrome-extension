@@ -27,6 +27,10 @@
     <main class="content">
       <section data-panel="account" class="panel isActive">
         <header class="panelHead"><h1>Minha conta</h1><p>Entre para liberar suas configurações e a barra nos ambientes autorizados.</p></header>
+        <div class="card paymentBanner" id="paymentFailedBanner" hidden>
+          <strong>Pagamento pendente</strong>
+          <p>Sua última cobrança falhou e o acesso a recursos pagos foi bloqueado até a fatura ser regularizada. A Stripe já deve ter te avisado por e-mail com um link para atualizar o cartão; se precisar de ajuda, escreva para <a href="mailto:contato@matheusbonotto.com.br">contato@matheusbonotto.com.br</a>.</p>
+        </div>
         <div class="card accountCard">
           <div id="signedOutState">
             <form id="loginForm" class="loginForm">

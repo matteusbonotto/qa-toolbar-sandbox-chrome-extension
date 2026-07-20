@@ -35,6 +35,10 @@ button,input,select,textarea { font:inherit; color:inherit; }
 .formGrid2 label { display:grid; gap:5px; color:var(--muted); font-size:11px; font-weight:750; }
 .count { min-width:26px; padding:2px 8px; border-radius:999px; background:#252938; color:var(--muted); text-align:center; font-size:11px; }
 .accountCard { max-width:640px; }
+.paymentBanner { max-width:640px; border-color:rgba(255,112,120,.4); background:rgba(255,112,120,.08); }
+.paymentBanner strong { color:var(--danger); font-size:14px; }
+.paymentBanner p { margin:6px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
+.paymentBanner a { color:var(--danger); }
 .loginForm { display:grid; grid-template-columns:1fr 1fr auto; align-items:end; gap:10px; }
 .loginForm label,.searchBox { display:grid; gap:5px; color:var(--muted); font-size:11px; font-weight:750; }
 .accountSummary { display:flex; align-items:center; gap:12px; margin-bottom:15px; }

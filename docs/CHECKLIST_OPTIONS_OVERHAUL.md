@@ -133,9 +133,13 @@
       `requirePlanFeature` bloqueia silenciosamente com um toast em vez de abrir o drawer (não é
       um bug do produto, era só o mock de teste incompleto). Corrigido no script de verificação;
       confirmado ao vivo que as 5 drawers antes "wide" agora medem exatamente 400px.
-- [ ] **Notificação de pagamento falhado**: confirmado no código — o bloqueio de acesso já
-      funciona certinho (`access-status` exige `subscription.status === 'active'` + pagamento
-      confirmado; se falhar, vira `past_due` e todo recurso pago é bloqueado automaticamente).
-      O que falta: `stripe-webhook` não envia e-mail nenhum em `invoice.payment_failed`, e a
-      extensão não lê o campo `billing.status` que a `access-status` já devolve para mostrar um
-      aviso "pagamento falhou, atualize seu cartão" nas Configurações.
+- [x] **Notificação de pagamento falhado**: bloqueio de acesso já funcionava certinho antes desta
+      sessão (`access-status` exige `subscription.status === 'active'` + pagamento confirmado). O
+      que faltava, feito agora: `auth.js` (`getAccessState`) passa `billing.status` adiante e
+      atualiza o badge do ícone da extensão (`!` vermelho quando `past_due`/`unpaid`, some quando
+      normaliza); `options.js`/`options.html` ganharam um aviso destacado na aba "Minha conta"
+      (`#paymentFailedBanner`), independente do usuário ter ou não outro acesso ativo. **Decisão do
+      founder**: pular o e-mail por enquanto (nenhum provedor configurado no projeto) — documentado
+      em `docs/PENDENCIAS_USUARIO.md` #8 com passo a passo gratuito (Resend) para quando quiser
+      ativar. Verificado ao vivo: badge e aviso aparecem quando `billing.status` vira `past_due` e
+      somem ao normalizar, via Playwright real contra o bundle.
