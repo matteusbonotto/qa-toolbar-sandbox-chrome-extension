@@ -19,7 +19,7 @@ button,input,select,textarea { font:inherit; color:inherit; }
 .panel.isActive { display:block; }
 .panelHead h1 { margin:0 0 5px; font-size:24px; letter-spacing:-.025em; }
 .panelHead p { margin:0 0 22px; color:var(--muted); font-size:13px; max-width:68ch; }
-.grid2 { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:15px; }
+.grid2 { display:grid; grid-template-columns:1fr; gap:15px; }
 .cardFullWidth { grid-column:1/-1; }
 .card { padding:18px; border:1px solid var(--border); border-radius:15px; background:linear-gradient(145deg,rgba(26,29,39,.96),rgba(18,20,27,.96)); display:grid; align-content:start; gap:13px; box-shadow:0 16px 42px rgba(0,0,0,.16); }
 .cardHead { display:flex; align-items:center; justify-content:space-between; gap:12px; }
@@ -49,6 +49,7 @@ fieldset { margin:0; padding:12px; border:1px solid var(--border); border-radius
 legend { padding:0 6px; color:var(--muted); font-size:11px; font-weight:800; }
 .checkGrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; }
 .checkGrid label { display:flex; align-items:center; gap:8px; }
+.compactEntityGrid { grid-template-columns:repeat(3,minmax(0,1fr)); }
 textarea,input,select { width:100%; min-height:39px; padding:8px 10px; border:1px solid var(--border); border-radius:9px; background:#0c0e14; color:var(--text); outline:none; resize:vertical; }
 select { color-scheme:dark; }
 select option { background:#0c0e14; color:#f4f6fb; }
@@ -215,4 +216,4 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 
 @media (max-width:1180px) { .studioGrid3 { grid-template-columns:1fr; } }
 @media (max-width:1000px) { .grid2,.studioGrid { grid-template-columns:1fr; } .cardFullWidth,.entityCardWide { grid-column:auto; } .loginForm { grid-template-columns:1fr; } .studioHero { align-items:stretch; flex-direction:column; } .studioHero .searchBox { width:100%; max-width:none; } }
-@media (max-width:720px) { .shell { display:block; } .nav { position:static; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--border); } .nav nav { grid-template-columns:repeat(2,minmax(0,1fr)); } .brand { padding-bottom:10px; } .langSwitch { margin-top:8px; } .content { padding:22px 14px; } .checkGrid,.formGrid2,.imageEditorControls { grid-template-columns:1fr; } .workspacePane { padding:14px; } .workspaceTabs { padding:7px; } .paneIntro { align-items:flex-start; } .chipInputRow { flex-direction:column; } .rowActions { flex-wrap:wrap; justify-content:flex-end; } }
+@media (max-width:720px) { .shell { display:block; } .nav { position:static; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--border); } .nav nav { grid-template-columns:repeat(2,minmax(0,1fr)); } .brand { padding-bottom:10px; } .langSwitch { margin-top:8px; } .content { padding:22px 14px; } .checkGrid,.compactEntityGrid,.formGrid2,.imageEditorControls { grid-template-columns:1fr; } .workspacePane { padding:14px; } .workspaceTabs { padding:7px; } .paneIntro { align-items:flex-start; } .chipInputRow { flex-direction:column; } .rowActions { flex-wrap:wrap; justify-content:flex-end; } }
