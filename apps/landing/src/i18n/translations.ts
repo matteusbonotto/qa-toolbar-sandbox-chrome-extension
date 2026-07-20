@@ -438,7 +438,7 @@ const pt: Dictionary = {
       keyView: {
         title: "Key View",
         short: "Mostra na tela os atalhos de teclado e cliques do mouse em tempo real.",
-        details: "Exibe combinações de teclado (ex.: Ctrl+V) como teclas com efeito 3D que desaparecem sozinhas, um modo Typing que acumula o que foi digitado até você limpar, e um indicador visual de clique esquerdo/direito/meio e scroll — ideal para gravações e demonstrações onde a plateia precisa ver exatamente o que você está fazendo.",
+        details: "Exibe combinações de teclado (ex.: Ctrl+V) como teclas com efeito 3D que desaparecem sozinhas, um modo Typing que acumula o que foi digitado até você limpar, e um indicador visual de clique esquerdo/direito/meio e scroll — com tamanho independente para teclas e mouse (Pequeno, Médio ou Grande) — ideal para gravações e demonstrações onde a plateia precisa ver exatamente o que você está fazendo.",
       },
       elementCapture: {
         title: "Capturar Elementos",
@@ -842,7 +842,7 @@ const es: Dictionary = {
       keyView: {
         title: "Key View",
         short: "Muestra en pantalla los atajos de teclado y clics del mouse en tiempo real.",
-        details: "Muestra combinaciones de teclado (ej.: Ctrl+V) como teclas con efecto 3D que desaparecen solas, un modo Typing que acumula lo escrito hasta que lo limpies, y un indicador visual de clic izquierdo/derecho/central y scroll — ideal para grabaciones y demostraciones.",
+        details: "Muestra combinaciones de teclado (ej.: Ctrl+V) como teclas con efecto 3D que desaparecen solas, un modo Typing que acumula lo escrito hasta que lo limpies, y un indicador visual de clic izquierdo/derecho/central y scroll — con tamaño independiente para teclas y mouse (Pequeño, Mediano o Grande) — ideal para grabaciones y demostraciones.",
       },
       elementCapture: {
         title: "Capturar Elementos",
@@ -1246,7 +1246,7 @@ const en: Dictionary = {
       keyView: {
         title: "Key View",
         short: "Shows keyboard shortcuts and mouse clicks on screen, live.",
-        details: "Displays key combos (e.g. Ctrl+V) as 3D-styled keys that fade out on their own, a Typing mode that accumulates what you type until you clear it, and a visual indicator for left/right/middle click and scroll — ideal for recordings and demos where the audience needs to see exactly what you're doing.",
+        details: "Displays key combos (e.g. Ctrl+V) as 3D-styled keys that fade out on their own, a Typing mode that accumulates what you type until you clear it, and a visual indicator for left/right/middle click and scroll — with an independent size for keys and mouse (Small, Medium or Large) — ideal for recordings and demos where the audience needs to see exactly what you're doing.",
       },
       elementCapture: {
         title: "Capture Elements",
