@@ -41,15 +41,15 @@ sobrevive a reload e a navegar entre abas da mesma sessão do navegador, mas som
 aba/janela e continua expirando nos 60 minutos normais. Verificado ao vivo: login completo
 (senha + OTP) via Playwright contra o bundle real, reload da página, painel continuou logado.
 
-## 4. Chrome Web Store (pausado a pedido seu)
+## 4. [RESOLVIDO] Chrome Web Store recebeu a versão 1.1.3
 
-Confirmado com dados reais: o workflow de auto-publish falha desde 18/07, em 7 pushes seguidos,
-sem relação com nada desta sessão — provavelmente a revisão do Google ainda pendente/cancelada
-bloqueando o upload. Você pediu pra não investigar isso agora. Quando quiser retomar: abra a run
-mais recente de **Build Chrome Web Store package** → job **publish-to-store** → passo **"Upload to
-Chrome Web Store"** e cola aqui a mensagem de erro.
+O log mostrou a causa real das falhas anteriores: o pacote continuava em `1.1.2`, exatamente a
+mesma versão já publicada, e a Store exige número crescente. O manifest foi atualizado para
+`1.1.3`; na run `29759225436`, pacote, scanners, smoke em Chrome real, upload e solicitação de
+publicação terminaram com sucesso. O Google ainda pode manter a versão em análise antes de ela
+ficar pública na listagem — isso é estado da revisão, não falha do deploy.
 
-## 6. Nova migration: status da Chrome Web Store na LP (2026-07-20)
+## 5. Nova migration: status da Chrome Web Store na LP (2026-07-20)
 
 A LP agora mostra a versão do pacote e, se a Chrome Web Store estiver desatualizada, um aviso
 "em análise do Google" — mas isso lê de uma tabela nova que só existe depois que você aplicar a
@@ -62,7 +62,7 @@ migration.
       (`pending_review` / `live` / `rejected`). Isso é manual de propósito — automatizar exigiria
       um novo secret de CI com escrita no banco, que não criei sem sua aprovação.
 
-## 5. Teste ao vivo que ainda falta
+## 6. Teste ao vivo que ainda falta
 
 - [ ] Fluxo completo de "Esqueci minha senha" com e-mail real (pedir link → abrir e-mail →
       `/redefinir-senha` → trocar senha → logar com a nova).
@@ -70,11 +70,10 @@ migration.
       Capturar Elementos realmente somem do menu — a matriz real já foi verificada via API, mas
       esse teste visual ainda exige uma segunda conta/assinatura.
 
-## O que já está confirmado certo (verificado de novo em 2026-07-19, não é suposição)
+## O que já está confirmado certo (verificado de novo em 2026-07-20, não é suposição)
 
-Rodado agora, na `main` já com tudo mergeado: `security:repo`, `security:extension`,
-`test-extension-workspace.mjs`, `typecheck` (landing e admin), `test:chrome` (0 erros de console,
-0 erros de worker) — todos passando. Todos os PRs desta sessão (#43, #44, #45, #46) estão
-mergeados. Login de admin com senha + OTP funciona de ponta a ponta (você confirmou). Publicação
-da LP/admin/zip da extensão no GitHub Pages foi simulada localmente passo a passo, idêntica ao
-workflow real, sem erro.
+Rodado na versão final: `security:repo`, `security:extension`, testes unitários, `typecheck`
+(landing e admin), `test:pages` e `test:chrome` (0 erros de console e de worker) — todos passando.
+Os PRs funcionais #49 e #50 estão mergeados na `main`; Landing Page e Admin foram publicados e
+verificados no GitHub Pages. O workflow da Chrome Web Store aceitou o pacote `1.1.3` e a
+solicitação de publicação.

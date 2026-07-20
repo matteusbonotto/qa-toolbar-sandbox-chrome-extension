@@ -108,6 +108,9 @@
 - [x] LP mostra a versão e, quando a Store estiver desatualizada/pendente, o aviso "em análise do
       Google" ao lado. Verificado ao vivo nos dois cenários (em dia / defasada) com sessão e
       respostas do Supabase simuladas — build real, HTML renderizado real.
+- [x] Pacote `1.1.3` aceito pela Chrome Web Store na run `29759225436`: empacotamento, segurança,
+      smoke Chrome, upload e solicitação de publicação concluídos; eventual espera restante é a
+      revisão humana do Google.
 
 ## Fase 5 — Nova ferramenta "Capturar Elementos"
 
