@@ -361,7 +361,7 @@ try {
   await host.locator("#macroText").press("Tab");
   await host.locator("#qaPassword").fill("segredo-da-gravacao");
   await host.locator("#qaPassword").press("Tab");
-  await host.locator("#macroRecordingChip").click();
+  await host.locator("#macroRecDoneButton").click();
   await host.locator("#macroSave").click();
   await host.locator("#macroList .qts-card").first().waitFor();
   await host.locator('#macroList .qts-card').first().locator('[data-macro-action="pin"]').click();

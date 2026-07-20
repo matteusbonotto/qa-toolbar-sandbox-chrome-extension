@@ -104,9 +104,30 @@
 
 ## Itens novos, pedidos durante a sessão (fora do plano original, para depois da Fase 2)
 
-- [ ] **Macro Studio**: gravação de cliques/digitação gerando macro automaticamente (Vibe Code/
-      Coder), barra de controle da gravação (pausar, cancelar, desfazer última ação, histórico),
-      e no modo manual listar elementos da tela com label visível (sem obrigar a digitar seletor).
+- [x] **Macro Studio — gravação**: a barra de controle pedida existe agora (`#macroRecordingBar`
+      no shadow DOM do toolbar.js): pausar/retomar (some enquanto pausado, sem gerar passo "wait"
+      do intervalo pausado), desfazer última ação, cancelar (descarta tudo, não cria macro), e um
+      painel de histórico (clique no contador) listando cada ação gravada em texto, com um botão
+      "×" por linha para remover qualquer uma (não só a última). Ícone novo `undo` adicionado a
+      `icons-content.js` (path real do Bootstrap Icons, mesmo padrão dos demais).
+- [x] **Macro Studio — seletor sem digitar**: no editor (Vibe Code), toda etapa com campo de
+      seletor ganhou um botão "Selecionar elemento na página" (reaproveita o mesmo
+      `selectPageElement()` já usado por Multiclick/Faker Fill) — clica no elemento real da
+      página em vez de digitar CSS à mão; um toast confirma o que foi selecionado (tag + texto/
+      aria-label/placeholder). Como `selectPageElement` fecha o drawer para o clique na página,
+      o editor tira um "snapshot" do estado atual (nome, descrição, todas as etapas) antes de
+      abrir a seleção e reabre o editor inteiro já com o novo seletor mesclado — mesmo padrão que
+      Multiclick/Faker Fill já usavam para o próprio caso deles.
+- [x] Verificado ao vivo (Playwright real, 7 cenários numa única sessão de gravação): iniciar
+      mostra a barra; clique+preenchimento na página geram passos; pausar não grava novas ações e
+      retomar volta a gravar; desfazer remove exatamente 1 passo; painel de histórico lista todos
+      os passos e remover uma linha específica funciona; cancelar esconde a barra e descarta;
+      concluir abre o editor com as etapas, e o botão de seleção de elemento no editor atualiza o
+      seletor da etapa corretamente ao clicar num elemento real da página.
+- [ ] **Ainda não feito** (fora do escopo desta rodada): a UX de "modo manual listar elementos da
+      tela" ficou como um picker de clique-para-selecionar (consistente com o resto do app), não
+      uma lista/dropdown de todos os elementos visíveis — se depois disso não for suficiente,
+      revisar. O modo Coder (visualização de código Playwright) não foi alterado.
 - [ ] **Sino de notificações**: badge com contagem, lista ao clicar, clique na notificação navega
       até a origem (ex.: erro do Error Monitor), botão de limpar notificações.
 - [ ] **Inspectors**: revisar comportamento vs. `tampermonkey.js` — filtro "Todos" vs "Meus
