@@ -54,9 +54,19 @@
 
 ## Fase 4 — Formulários em modal
 
-- [ ] Todo `<details class="crudComposer">` vira `<dialog>` modal (mesmo padrão do editor de
-      imagem já existente).
-- [ ] Confirmação de exclusão vira modal em vez de `window.confirm(...)`.
+- [x] Todos os 10 `<details class="crudComposer">` viraram `<dialog>` modal (cliente, projeto,
+      produto, ambiente, URL, conta de teste, meio de pagamento, inspector, API, recurso) — mesmo
+      padrão do editor de imagem já existente, com botão "+ Adicionar X" abrindo cada um.
+- [x] Confirmação de exclusão agora é um `<dialog>` temático (`confirmDialog()`) em vez de
+      `window.confirm(...)`, usado tanto para excluir itens quanto para resetar o workspace local.
+- [x] **Ajuste de UX descoberto durante a verificação**: como `<dialog>` é modal de verdade
+      (bloqueia a página inteira, diferente do `<details>` antigo), o assistente de primeiro uso
+      não abre mais o diálogo sozinho ao avançar de etapa — isso travava a página inteira. Agora
+      ele só troca de aba e destaca o botão "+ Adicionar", deixando a founder abrir quando quiser;
+      clicar diretamente num passo do assistente ainda abre o diálogo (ação explícita do usuário).
+- [x] Verificado ao vivo: abrir/cancelar/enviar cada tipo de modal, exclusão com Cancelar (mantém)
+      e Excluir (remove) testados contra uma linha real, suite completa (`test:chrome`) rodou
+      limpa, 0 erros de console/worker.
 
 ## Fase 5 — Exclusão de conta (LGPD)
 

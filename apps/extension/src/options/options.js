@@ -549,18 +549,28 @@ function renderWorkspaceWizard() {
       <span>${escapeHtml(step.label)}</span>
     </li>
   `).join("");
+  // Explicitly clicking a step chip opens its dialog (the user asked to go there) — but since
+  // dialogs are real modals now (unlike the old inline <details>), auto-advancing the wizard
+  // reactively on every render must NOT force one open unprompted; it only switches tabs and
+  // draws attention to the "+ Adicionar" trigger, letting the founder open it when ready.
   const focusStep = (step) => {
     activateWorkspaceTab(step.tab, { syncNavigation: true });
     const composer = document.getElementById(step.composer);
-    if (composer) composer.open = true;
+    if (composer && !composer.open) composer.showModal();
     const target = document.getElementById(step.targetId);
     target?.scrollIntoView({ behavior: "smooth", block: "center" });
     target?.focus();
   };
+  const revealStep = (step) => {
+    activateWorkspaceTab(step.tab, { syncNavigation: true });
+    const trigger = document.querySelector(`[data-open-composer="${step.composer}"]`);
+    trigger?.scrollIntoView({ behavior: "smooth", block: "center" });
+    trigger?.focus();
+  };
   document.querySelectorAll("#wizardSteps [data-wizard-step]").forEach((item) => item.addEventListener("click", () => focusStep(steps[Number(item.dataset.wizardStep)])));
   if (activeIndex !== wizardLastActiveStep && accessState?.active && document.querySelector('[data-panel="workspace"]')?.classList.contains("isActive")) {
     wizardLastActiveStep = activeIndex;
-    focusStep(steps[activeIndex]);
+    revealStep(steps[activeIndex]);
   }
 }
 
@@ -597,7 +607,7 @@ function clearEdit(prefix) {
   });
   if (prefix === "testAccount") { testAccountCustomFieldsDraft = []; renderCustomFieldsEditor(); }
   const composer = document.getElementById(`${prefix}Composer`);
-  if (composer) composer.open = false;
+  if (composer?.open) composer.close();
 }
 
 // Test account custom fields: a small user-defined key/type/value schema (string/boolean/
@@ -643,6 +653,39 @@ document.getElementById("testAccountAddField").addEventListener("click", () => {
 });
 document.querySelectorAll(".cancelEdit").forEach((button) => button.addEventListener("click", () => clearEdit(button.dataset.cancel)));
 
+// Every create/edit form lives in a <dialog> now (centered modal) instead of an inline
+// <details> below its list — "+ Adicionar X" triggers open it, the × in the header (or Esc,
+// native to <dialog>) closes it without saving.
+document.querySelectorAll("[data-open-composer]").forEach((button) => button.addEventListener("click", () => {
+  const dialog = document.getElementById(button.dataset.openComposer);
+  if (dialog && !dialog.open) dialog.showModal();
+}));
+document.querySelectorAll("[data-close-composer]").forEach((button) => button.addEventListener("click", () => button.closest("dialog")?.close()));
+
+// Promise-based replacement for window.confirm(...) so deletion confirmation is a themed modal
+// (consistent with every other dialog) instead of the browser's native alert box.
+function confirmDialog(message) {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById("deleteConfirmDialog");
+    document.getElementById("deleteConfirmBody").textContent = message;
+    const accept = document.getElementById("deleteConfirmAccept");
+    const cancel = document.getElementById("deleteConfirmCancel");
+    const settle = (result) => {
+      accept.removeEventListener("click", onAccept);
+      cancel.removeEventListener("click", onCancel);
+      dialog.removeEventListener("close", onCancel);
+      if (dialog.open) dialog.close();
+      resolve(result);
+    };
+    const onAccept = () => settle(true);
+    const onCancel = () => settle(false);
+    accept.addEventListener("click", onAccept);
+    cancel.addEventListener("click", onCancel);
+    dialog.addEventListener("close", onCancel); // Esc key or clicking the × also cancels
+    dialog.showModal();
+  });
+}
+
 document.getElementById("clientForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("clientEditId").value; upsert("clients", { id: editId || uid("client"), name: document.getElementById("clientName").value.trim(), ...appearance("client") }, editId); clearEdit("client"); await persistWorkspace(); });
 document.getElementById("projectForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("projectEditId").value; upsert("projects", { id: editId || uid("project"), clientId: document.getElementById("projectClient").value, name: document.getElementById("projectName").value.trim(), ...appearance("project") }, editId); clearEdit("project"); await persistWorkspace(); });
 document.getElementById("productForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("productEditId").value; upsert("products", { id: editId || uid("product"), projectId: document.getElementById("productProject").value, name: document.getElementById("productName").value.trim(), ...appearance("product") }, editId); clearEdit("product"); await persistWorkspace(); });
@@ -679,7 +722,7 @@ function editItem(collection, item) {
   const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations" };
   activateWorkspaceTab(workspaceTabs[collection] || "structure", { syncNavigation: true });
   const composer = document.getElementById(`${prefix}Composer`);
-  if (composer) composer.open = true;
+  if (composer && !composer.open) composer.showModal();
   document.getElementById(`${prefix}EditId`).value = item.id;
   document.querySelector(`[data-cancel="${prefix}"]`).hidden = false;
   const values = {
@@ -761,7 +804,7 @@ document.addEventListener("click", async (event) => {
   if (action === "edit") { editItem(collection, item); return; }
   if (action === "duplicate") { workspace[collection].push({ ...structuredClone(item), id: uid(COLLECTION_UI[collection].prefix), name: item.name ? `${item.name} (${t("cópia")})` : undefined, label: item.label ? `${item.label} (${t("cópia")})` : undefined }); await persistWorkspace(); return; }
   if (action === "toggle") { item.active = item.active === false; await persistWorkspace(); return; }
-  if (action === "remove") { if (!confirm(t("Excluir este item? Itens dependentes também serão removidos."))) return; cascadeRemove(collection, id); await persistWorkspace(); }
+  if (action === "remove") { if (!(await confirmDialog(t("Excluir este item? Itens dependentes também serão removidos.")))) return; cascadeRemove(collection, id); await persistWorkspace(); }
 });
 
 async function sha256Hex(value) {
@@ -799,7 +842,7 @@ document.getElementById("importFile").addEventListener("change", async (event) =
   event.target.value = "";
 });
 document.getElementById("resetButton").addEventListener("click", async () => {
-  if (!confirm(t("Apagar somente o workspace local? Sua conta e assinatura não serão removidas."))) return;
+  if (!(await confirmDialog(t("Apagar somente o workspace local? Sua conta e assinatura não serão removidas.")))) return;
   workspace = window.QTS_STORAGE.createEmptyWorkspace(); await persistWorkspace(); document.getElementById("dataHint").textContent = t("Workspace local resetado.");
 });
 
