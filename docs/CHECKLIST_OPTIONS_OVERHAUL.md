@@ -18,20 +18,22 @@
       environmentIds[], primaryUrl, active}`); `environment` agora é só `{id, name, color,
       active}` — sem `productId`/`urlPatterns`/`primaryUrl` próprios. Migração automática
       (schemaVersion 6→7) expande environments antigos com padrão único-produto em bindings.
-- [ ] `background.js`: trocar `environment.urlPatterns` por `urlBindings` na lista de padrões
-      registrados/autorizados.
-- [ ] `toolbar.js`: `findActiveEnvironment` passa a casar contra `urlBindings`, resolvendo
-      produto/projeto/cliente do binding casado; contas de teste/meios de pagamento passam a
-      filtrar também por `productId` (opcional) além do `environmentId`.
-- [ ] `options.html`/`options.js`: formulário de Ambiente perde Produto/URLs (fica só nome+cor);
-      aba "URLs" ganha select de Produto obrigatório e vira uma coleção real (edit/duplicar/
-      pausar/excluir), não mais uma view derivada por string de padrão.
-- [ ] `scripts/test-extension-workspace.mjs`: caso de teste migrando um workspace legado
-      multi-produto/multi-ambiente e confirmando que os bindings mesclam sem duplicar ambientes.
-- [ ] Verificação ao vivo: importar fixture estilo Cinemark (4 níveis × 2+ países), confirmar
-      exatamente 4 ambientes (não 8), confirmar que cada país resolve cliente/projeto/produto
-      corretos, confirmar que editar/remover um binding não afeta os outros países do mesmo
-      ambiente.
+- [x] `background.js`: padrões registrados/autorizados agora vêm de `urlBindings`.
+- [x] `toolbar.js`: `findActiveEnvironment` casa contra `urlBindings`, resolvendo produto/projeto/
+      cliente do binding casado; contas de teste/meios de pagamento agora também filtram por
+      `productId` (opcional) além do `environmentId`.
+- [x] `options.html`/`options.js`: formulário de Ambiente virou só nome+cor; aba "URLs" ganhou
+      select de Produto obrigatório e virou uma coleção real (edit/duplicar/pausar/excluir) em vez
+      de uma view derivada por string de padrão. `cascadeRemove` reescrito: remover cliente/
+      projeto/produto não apaga mais ambientes (reutilizáveis), só bindings/registros com aquele
+      produto; remover ambiente só desvincula das bindings, sem apagar as outras.
+- [x] `scripts/test-extension-workspace.mjs`: casos novos cobrindo o bug relatado (import
+      multi-país migrando sem duplicar ambiente), migração legada preservando dados existentes
+      sem merge por nome, e idempotência ao renormalizar.
+- [x] Verificação ao vivo: fixture com 2 países × 1 ambiente ("DEV") confirmou exatamente 1
+      ambiente (não 2), cada país resolvendo cliente/projeto/produto corretos no breadcrumb real,
+      e remover o binding de um país deixou o outro e o ambiente compartilhado intactos.
+      Suite completa (`test:chrome`) rodou limpa, 0 erros de console/worker.
 
 ## Fase 3 — "Exibição": ordenação + prévia ao vivo da barra
 
