@@ -93,7 +93,12 @@
 
 ## Fase 6 — Sincronizar LP
 
-- [ ] Conferir copy da LP após as fases acima, se houver algo customer-facing para atualizar.
+- [x] Conferido: as fases 1-5 são melhorias internas de UX/correção (layout, modelo relacional,
+      modais, ordenação) sem impacto na página de marketing — nada a atualizar em pricing/features.
+- [x] A exclusão de conta (Fase 5) É customer-facing e tem peso legal: adicionada uma frase na
+      Política de Privacidade (seção "Conta e cobrança", pt/es/en) explicando que a conta pode ser
+      excluída a qualquer momento em Configurações → Minha conta, o que ela cancela/apaga, e que
+      registros financeiros ficam anonimizados por obrigação fiscal. Build de produção conferido.
 
 ---
 
