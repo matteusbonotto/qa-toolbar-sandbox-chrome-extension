@@ -209,6 +209,7 @@ export function createEmptyWorkspace() {
       pinnedTools: ["passFail", "screenshot", "notes", "record"],
       pinnedMacroIds: [],
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
+      toolsMenuOrder: [...DEFAULT_ENABLED_TOOLS],
       soundEffects: true,
       breadcrumbVisibility: { client: true, project: true, product: true, environment: true },
       breadcrumbOrder: ["client", "project", "product"],
@@ -233,6 +234,16 @@ function normalizeBreadcrumbOrder(value) {
   const seen = new Set();
   const order = (Array.isArray(value) ? value : []).filter((key) => BREADCRUMB_ORDER_KEYS.includes(key) && !seen.has(key) && seen.add(key));
   for (const key of BREADCRUMB_ORDER_KEYS) if (!order.includes(key)) order.push(key);
+  return order;
+}
+
+// Same idea for the Tools-menu item order — any tool missing/unknown/duplicated in a stored
+// preference falls back to appending it in the default (DEFAULT_ENABLED_TOOLS) order, so a
+// malformed or stale preference (e.g. from before a new tool shipped) never hides a menu item.
+function normalizeToolsMenuOrder(value) {
+  const seen = new Set();
+  const order = (Array.isArray(value) ? value : []).filter((key) => DEFAULT_ENABLED_TOOLS.includes(key) && !seen.has(key) && seen.add(key));
+  for (const key of DEFAULT_ENABLED_TOOLS) if (!order.includes(key)) order.push(key);
   return order;
 }
 
@@ -358,6 +369,7 @@ export function normalizeWorkspace(rawWorkspace) {
       pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools,
       pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
       enabledTools: normalizedEnabledTools,
+      toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),
       soundEffects: preferences.soundEffects !== false,
       breadcrumbVisibility: {
         client: preferences.breadcrumbVisibility?.client !== false,

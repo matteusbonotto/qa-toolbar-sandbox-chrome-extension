@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
+import { DEFAULT_ENABLED_TOOLS, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
 
 assert.deepEqual(normalizeUrlPatterns("https://example.com"), ["https://example.com/*"]);
 assert.deepEqual(normalizeUrlPatterns("example.com\nhttps://example.com/app"), ["*://example.com/*", "https://example.com/app*"]);
@@ -68,6 +68,15 @@ assert.deepEqual(normalizeWorkspace({}).preferences.breadcrumbOrder, ["client", 
 assert.deepEqual(normalizeWorkspace({ preferences: { breadcrumbOrder: ["product", "client", "project"] } }).preferences.breadcrumbOrder, ["product", "client", "project"]);
 assert.deepEqual(normalizeWorkspace({ preferences: { breadcrumbOrder: ["product", "product", "bogus"] } }).preferences.breadcrumbOrder, ["product", "client", "project"]);
 assert.deepEqual(normalizeWorkspace({ preferences: { breadcrumbOrder: "not-an-array" } }).preferences.breadcrumbOrder, ["client", "project", "product"]);
+
+// toolsMenuOrder: same idea, but against the full DEFAULT_ENABLED_TOOLS list — a custom order
+// with one tool moved to the front is preserved verbatim, and unknown/missing entries never drop
+// or duplicate a real tool.
+assert.deepEqual(normalizeWorkspace({}).preferences.toolsMenuOrder, DEFAULT_ENABLED_TOOLS);
+const reordered = ["elementCapture", ...DEFAULT_ENABLED_TOOLS.filter((tool) => tool !== "elementCapture")];
+assert.deepEqual(normalizeWorkspace({ preferences: { toolsMenuOrder: reordered } }).preferences.toolsMenuOrder, reordered);
+assert.deepEqual(normalizeWorkspace({ preferences: { toolsMenuOrder: ["bogus-tool", "keyView", "keyView"] } }).preferences.toolsMenuOrder[0], "keyView");
+assert.equal(normalizeWorkspace({ preferences: { toolsMenuOrder: ["bogus-tool", "keyView", "keyView"] } }).preferences.toolsMenuOrder.length, DEFAULT_ENABLED_TOOLS.length);
 
 // Environments no longer depend on a product at all (see normalizeUrlBindings in storage.js —
 // the fix for "DEV AR"/"DEV BO" duplication moves the product association onto the binding), so

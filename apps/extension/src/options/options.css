@@ -218,6 +218,7 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .barPreviewMain .previewSep { opacity:.55; margin:0 1px; }
 
 .breadcrumbOrderList { list-style:none; margin:0; padding:0; display:grid; gap:6px; }
+.toolsMenuOrderList { max-height:280px; overflow:auto; padding-right:4px; }
 .breadcrumbOrderItem { display:flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:9px; background:rgba(9,10,14,.28); cursor:grab; font-size:12px; font-weight:700; }
 .breadcrumbOrderItem.isDragging { opacity:.4; }
 .breadcrumbOrderItem .dragHandle { color:var(--muted); font-size:13px; letter-spacing:-2px; }

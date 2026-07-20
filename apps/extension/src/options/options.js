@@ -320,6 +320,8 @@ function loadPreferenceUi() {
   document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
   const enabledTools = new Set(preferences.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
   document.querySelectorAll("[data-tool]").forEach((checkbox) => { checkbox.checked = enabledTools.has(checkbox.dataset.tool); });
+  toolsMenuOrderDraft = normalizeToolsMenuOrderDraft(preferences.toolsMenuOrder);
+  renderToolsMenuOrderList();
   const breadcrumbVisibility = preferences.breadcrumbVisibility || {};
   document.querySelectorAll("[data-breadcrumb]").forEach((checkbox) => { checkbox.checked = breadcrumbVisibility[checkbox.dataset.breadcrumb] !== false; });
   breadcrumbOrderDraft = normalizeBreadcrumbOrderDraft(preferences.breadcrumbOrder);
@@ -395,6 +397,61 @@ function renderBarPreview() {
 }
 document.querySelectorAll("[data-breadcrumb],[data-compact-entity]").forEach((input) => input.addEventListener("change", renderBarPreview));
 
+// Tools-menu item order — same drag/arrow pattern as the breadcrumb order above, kept as its own
+// (slightly duplicated) implementation rather than a shared abstraction, since the breadcrumb
+// list is small/fixed (3 keys) and this one is long/dynamic (every known tool) with a different
+// label source (read straight from each checkbox's own <label> text, so it can never drift out of
+// sync with whatever that checkbox is actually called, in whatever language is active).
+let toolsMenuOrderDraft = [...window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS];
+let toolsMenuOrderDragKey = null;
+
+function normalizeToolsMenuOrderDraft(value) {
+  const known = window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS;
+  const order = (Array.isArray(value) ? value : []).filter((key) => known.includes(key));
+  for (const key of known) if (!order.includes(key)) order.push(key);
+  return [...new Set(order)];
+}
+
+function toolsMenuItemLabel(key) {
+  const checkbox = document.querySelector(`[data-tool="${key}"]`);
+  return checkbox?.parentElement?.textContent?.trim() || key;
+}
+
+function renderToolsMenuOrderList() {
+  const list = document.getElementById("toolsMenuOrderList");
+  list.innerHTML = toolsMenuOrderDraft.map((key, index) => `
+    <li class="breadcrumbOrderItem" draggable="true" data-order-key="${key}">
+      <span class="dragHandle">⠿</span><span>${escapeHtml(toolsMenuItemLabel(key))}</span>
+      <span class="orderArrows">
+        <button type="button" data-order-move="up" data-order-key="${key}" ${index === 0 ? "disabled" : ""} title="${escapeHtml(t("Mover para cima"))}">↑</button>
+        <button type="button" data-order-move="down" data-order-key="${key}" ${index === toolsMenuOrderDraft.length - 1 ? "disabled" : ""} title="${escapeHtml(t("Mover para baixo"))}">↓</button>
+      </span>
+    </li>`).join("");
+  list.querySelectorAll("[data-order-move]").forEach((button) => button.addEventListener("click", () => {
+    const key = button.dataset.orderKey;
+    const from = toolsMenuOrderDraft.indexOf(key);
+    const to = from + (button.dataset.orderMove === "up" ? -1 : 1);
+    if (to < 0 || to >= toolsMenuOrderDraft.length) return;
+    [toolsMenuOrderDraft[from], toolsMenuOrderDraft[to]] = [toolsMenuOrderDraft[to], toolsMenuOrderDraft[from]];
+    renderToolsMenuOrderList();
+  }));
+  list.querySelectorAll(".breadcrumbOrderItem").forEach((item) => {
+    item.addEventListener("dragstart", () => { toolsMenuOrderDragKey = item.dataset.orderKey; item.classList.add("isDragging"); });
+    item.addEventListener("dragend", () => { item.classList.remove("isDragging"); toolsMenuOrderDragKey = null; });
+    item.addEventListener("dragover", (event) => event.preventDefault());
+    item.addEventListener("drop", (event) => {
+      event.preventDefault();
+      const targetKey = item.dataset.orderKey;
+      if (!toolsMenuOrderDragKey || toolsMenuOrderDragKey === targetKey) return;
+      const from = toolsMenuOrderDraft.indexOf(toolsMenuOrderDragKey);
+      const to = toolsMenuOrderDraft.indexOf(targetKey);
+      toolsMenuOrderDraft.splice(from, 1);
+      toolsMenuOrderDraft.splice(to, 0, toolsMenuOrderDragKey);
+      renderToolsMenuOrderList();
+    });
+  });
+}
+
 document.getElementById("savePreferences").addEventListener("click", async () => {
   const compactEntities = Object.fromEntries([...document.querySelectorAll("[data-compact-entity]")].map((checkbox) => [checkbox.dataset.compactEntity, checkbox.checked]));
   workspace.preferences = {
@@ -417,6 +474,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
     breadcrumbVisibility: Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked])),
     breadcrumbOrder: [...breadcrumbOrderDraft],
+    toolsMenuOrder: [...toolsMenuOrderDraft],
   };
   await persistWorkspace();
   document.getElementById("preferencesSavedHint").textContent = t("Salvo — a barra já foi atualizada.");

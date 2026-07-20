@@ -120,8 +120,19 @@
       sem label); botão "Localizar elemento" por linha; sidebar cortado pela metade sem busca/
       filtros — corrigir; adicionar filtros por test-id/CSS/XPath; mostrar estado atual vs. setado
       ao clicar (like Click Spy).
-- [ ] **Tools menu**: permitir reordenar a lista de ferramentas.
-- [ ] **Sidebars**: unificar todos para 400px de largura — alguns ainda ocupam metade da tela.
+- [x] **Tools menu**: nova preferência `toolsMenuOrder` (drag-and-drop + setas ↑↓ em "Barra e
+      aparência", mesma ideia da ordenação do breadcrumb, implementação separada de propósito para
+      não arriscar mexer na já validada); `applyPinnedTools()` reordena o `#toolsMenu` real via
+      `appendChild` sequencial. Verificado ao vivo: mover "Capturar elementos" para o topo via seta
+      e salvar refletiu na ordem real do menu Tools na barra.
+- [x] **Sidebars**: parâmetro `wide` removido de `openDrawer` — todo drawer agora é
+      `width: min(400px, 92vw)` (Inspectors, Error Monitor, JSON Studio, Macro Studio, Capturar
+      Elementos incluídos). **Bug real achado durante a verificação**: o mock de teste devolvia
+      `features: {}` para `access-status`, e Macro Studio/Capturar Elementos são ferramentas
+      "gated" por plano (`PLAN_GATED_TOOLS` em `toolbar.js`) — sem a feature liberada,
+      `requirePlanFeature` bloqueia silenciosamente com um toast em vez de abrir o drawer (não é
+      um bug do produto, era só o mock de teste incompleto). Corrigido no script de verificação;
+      confirmado ao vivo que as 5 drawers antes "wide" agora medem exatamente 400px.
 - [ ] **Notificação de pagamento falhado**: confirmado no código — o bloqueio de acesso já
       funciona certinho (`access-status` exige `subscription.status === 'active'` + pagamento
       confirmado; se falhar, vira `past_due` e todo recurso pago é bloqueado automaticamente).

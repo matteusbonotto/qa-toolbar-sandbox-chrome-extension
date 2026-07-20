@@ -349,6 +349,13 @@ function applyPinnedTools() {
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
   }
+  // Re-append each menu item in the founder's chosen order (preferences.toolsMenuOrder) —
+  // appendChild on an already-attached node *moves* it, so iterating in order and re-appending
+  // sequentially reorders the whole menu without rebuilding it. #pinnedMacrosMenu (a separate,
+  // dynamically rendered list of pinned macros) is intentionally left alone at the top.
+  const menu = root.getElementById("toolsMenu");
+  const toolsMenuOrder = state.workspace?.preferences?.toolsMenuOrder || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS;
+  if (menu) for (const key of toolsMenuOrder) { const item = menuItems[key] && root.getElementById(menuItems[key]); if (item) menu.appendChild(item); }
   renderPinnedMacros();
 }
 
@@ -1187,10 +1194,9 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      width: min(440px, 92vw); height: 100%; background: #0b0b0b; color: #fff; border-left: 2px solid #b20808;
+      width: min(400px, 92vw); height: 100%; background: #0b0b0b; color: #fff; border-left: 2px solid #b20808;
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
     }
-    .qts-drawer.isWide { width: min(900px, 96vw); }
     .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #262626; }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
@@ -1416,7 +1422,7 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, wide = false, bodyHtml, onReady, view = "" }) {
+function openDrawer({ title, bodyHtml, onReady, view = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -1425,7 +1431,7 @@ function openDrawer({ title, wide = false, bodyHtml, onReady, view = "" }) {
   drawerHost.dataset.view = view;
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
     <div class="qts-drawer-backdrop" id="drawerBackdrop">
-      <div class="qts-drawer ${wide ? "isWide" : ""}">
+      <div class="qts-drawer">
         <div class="qts-drawer-head"><h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">×</button></div>
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
@@ -1747,7 +1753,6 @@ function openForceHttpDialog() {
   const t = state.t;
   openDrawer({
     title: t.forceHttpTitle,
-    wide: false,
     bodyHtml: `
       <p style="color:#999;margin-top:0">${escapeHtml(t.forceHttpDescription)}</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -1861,7 +1866,7 @@ function renderInspectorsList() {
 
   listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
-    openDrawer({ title: `${entry.method} ${entry.status}`, wide: true, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
 
   body.querySelector("#inspectorsSearch").addEventListener("input", (event) => {
@@ -1879,7 +1884,7 @@ function renderInspectorsList() {
 }
 
 function openInspectorsDrawer() {
-  openDrawer({ title: state.t.inspectorsTitle, wide: true, bodyHtml: "", view: "inspectors" });
+  openDrawer({ title: state.t.inspectorsTitle, bodyHtml: "", view: "inspectors" });
   renderInspectorsList();
 }
 
@@ -1976,7 +1981,7 @@ function renderErrorMonitorList() {
 }
 
 function openErrorMonitorDrawer() {
-  openDrawer({ title: state.t.errorMonitorTitle, wide: true, bodyHtml: "", view: "errorMonitor" });
+  openDrawer({ title: state.t.errorMonitorTitle, bodyHtml: "", view: "errorMonitor" });
   renderErrorMonitorList();
 }
 
@@ -2272,7 +2277,6 @@ function openJsonStudio() {
   const t = state.t;
   openDrawer({
     title: t.jsonStudioTitle,
-    wide: true,
     bodyHtml: `
       <textarea id="jsonInput" rows="16" placeholder="${escapeHtml(t.jsonStudioPlaceholder)}" style="font:12px ui-monospace,Consolas,monospace"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px">
@@ -2985,7 +2989,6 @@ function openElementCapture() {
   let rows = captureVisibleElements();
   openDrawer({
     title: "Capturar elementos",
-    wide: true,
     bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
       <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
       <div class="qts-status" id="elementCaptureStatus"></div>
@@ -3334,7 +3337,6 @@ function openMacroEditor(macro) {
   const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
   openDrawer({
     title: "Macro Studio",
-    wide: true,
     bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
       <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
       <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
@@ -3383,7 +3385,6 @@ function openMacroStudio() {
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
   openDrawer({
     title: "Macro Studio",
-    wide: true,
     bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
       <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
@@ -3477,7 +3478,7 @@ async function handleRecordToggle() {
 
 async function startEvidenceRecording() {
   if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
-    openDrawer({ title: state.t.recordingUnavailableTitle, wide: false, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
+    openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
     return;
   }
   let stream;
