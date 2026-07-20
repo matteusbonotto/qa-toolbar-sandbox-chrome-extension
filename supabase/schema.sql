@@ -324,6 +324,17 @@ create table if not exists public.app_versions (
   released_at timestamptz not null default now()
 );
 
+-- Single-row (id is always `true`) tracker for whether the Chrome Web Store listing has caught
+-- up with the latest package — the founder updates it by hand via the Supabase dashboard
+-- whenever they check the real Chrome Web Store Developer Dashboard; nothing here is automated.
+create table if not exists public.store_listing_status (
+  id boolean primary key default true check (id),
+  chrome_web_store_version text,
+  status text not null default 'pending_review' check (status in ('pending_review', 'live', 'rejected')),
+  updated_at timestamptz not null default now()
+);
+insert into public.store_listing_status (id) values (true) on conflict (id) do nothing;
+
 create table if not exists public.system_notices (
   id uuid primary key default gen_random_uuid(),
   severity text not null check (severity in ('info', 'warning', 'critical')),
@@ -998,6 +1009,7 @@ alter table public.referrals enable row level security;
 alter table public.referral_profiles enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.app_versions enable row level security;
+alter table public.store_listing_status enable row level security;
 alter table public.system_notices enable row level security;
 alter table public.feature_flags enable row level security;
 alter table public.api_rate_limits enable row level security;
@@ -1011,6 +1023,7 @@ create policy "plans are publicly readable" on public.plans for select using (is
 create policy "features are publicly readable" on public.features for select using (true);
 create policy "plan_features are publicly readable" on public.plan_features for select using (true);
 create policy "app_versions are publicly readable" on public.app_versions for select using (true);
+create policy "store_listing_status is publicly readable" on public.store_listing_status for select using (true);
 create policy "active system_notices are publicly readable" on public.system_notices for select using (is_active);
 create policy "feature_flags are publicly readable" on public.feature_flags for select using (true);
 create policy "active stripe_prices are publicly readable" on public.stripe_prices for select using (is_active);
@@ -1019,6 +1032,7 @@ create policy "founder manages plans" on public.plans for all using (public.is_f
 create policy "founder manages features" on public.features for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages plan_features" on public.plan_features for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages app_versions" on public.app_versions for all using (public.is_founder()) with check (public.is_founder());
+create policy "founder manages store_listing_status" on public.store_listing_status for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages system_notices" on public.system_notices for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages feature_flags" on public.feature_flags for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages stripe_prices" on public.stripe_prices for all using (public.is_founder()) with check (public.is_founder());
@@ -1119,7 +1133,8 @@ begin
   foreach table_name in array array[
     'plans','features','plan_features','stripe_prices','subscriptions','checkout_sessions',
     'vouchers','voucher_campaigns','entitlement_grants','entitlement_overrides',
-    'license_keys','license_activations','user_roles','app_versions','system_notices','feature_flags'
+    'license_keys','license_activations','user_roles','app_versions','system_notices','feature_flags',
+    'store_listing_status'
   ] loop
     execute format('drop trigger if exists trg_audit_founder_mutation on public.%I', table_name);
     execute format('create trigger trg_audit_founder_mutation after insert or update or delete on public.%I for each row execute function public.audit_founder_table_mutation()', table_name);
@@ -1259,6 +1274,24 @@ from (values
   ('release-manager', 'fakerFill.enabled', 'true'),
   ('release-manager', 'macroStudio.enabled', 'true'),
   ('release-manager', 'keyView.enabled', 'true')
+) as v(plan_key, feature_key, value)
+join public.plans p on p.key = v.plan_key
+join public.features f on f.key = v.feature_key
+on conflict (plan_id, feature_id) do update set value = excluded.value;
+
+-- "Capturar Elementos" tool: CSV export of interactive elements with CSS
+-- selector/XPath for the automation team. Same tier as Macro Studio.
+insert into public.features (key, value_type, description) values
+  ('elementCapture.enabled', 'boolean', 'Capturar Elementos: exports a CSV of interactive elements with CSS selector/XPath for automation')
+on conflict (key) do nothing;
+
+insert into public.plan_features (plan_id, feature_id, value)
+select p.id, f.id, v.value::jsonb
+from (values
+  ('smoke-test', 'elementCapture.enabled', 'false'),
+  ('regression-runner', 'elementCapture.enabled', 'false'),
+  ('root-cause-analyst', 'elementCapture.enabled', 'true'),
+  ('release-manager', 'elementCapture.enabled', 'true')
 ) as v(plan_key, feature_key, value)
 join public.plans p on p.key = v.plan_key
 join public.features f on f.key = v.feature_key

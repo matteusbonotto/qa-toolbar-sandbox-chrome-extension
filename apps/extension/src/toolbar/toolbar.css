@@ -47,11 +47,25 @@ body.qts-placement-mode, body.qts-placement-mode * {
   box-sizing: border-box !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
-.qts-modal-backdrop *, .qts-result-overlay *, .qts-floating-item *, .qts-shape-preview * {
+/* :not(svg, svg *) excludes icon SVGs and their internals from the reset entirely — `all:revert`
+   doesn't just affect paint properties like `fill`, it also resets the CSS `d`/`width`/`height`
+   geometry properties that modern browsers map from the `d`/`width`/`height` *attributes* on SVG
+   shape elements (the same attribute-vs-reverted-CSS-property precedence that bit `fill`) —
+   reverting those leaves an icon with zero width/height/path geometry, i.e. fully invisible,
+   regardless of color. Patching fill back alone (an earlier version of this fix) wasn't enough;
+   the icon subtree needs to never be touched by this reset in the first place. */
+/* `color: inherit` is re-asserted explicitly (not left to `revert`) because `revert` on `color`
+   resolves to the property's plain initial value (black) here rather than the parent's actual
+   color as CSS inheritance would normally give for free — without this, any element under one of
+   these resets (icon spans included) silently goes black regardless of what color its container
+   actually uses, which is exactly the "texto preto em fundo escuro" class of bug. */
+.qts-modal-backdrop *:where(:not(svg, svg *)), .qts-result-overlay *:where(:not(svg, svg *)), .qts-floating-item *:where(:not(svg, svg *)), .qts-shape-preview *:where(:not(svg, svg *)) {
   all: revert !important;
   box-sizing: border-box !important;
   font-family: inherit !important;
+  color: inherit !important;
 }
+.qts-clickspy-tooltip svg { fill: currentColor !important; }
 
 .qts-modal-backdrop {
   position: fixed !important; inset: 0 !important; z-index: 2147483646 !important;
@@ -117,10 +131,17 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-marker-body.isPass { background: #179153 !important; }
 .qts-marker-body.isFail { background: #c70e0e !important; }
 
+/* Sits immediately left of .qts-remove-btn (right:-8) — same slot pattern as .qts-edit-btn
+   (right:18). Markers only ever have remove+resize, so resize takes the right:18 slot directly;
+   shapes/notes also have an edit button in that slot, so .hasEditButton pushes resize one slot
+   further left (right:44) instead of overlapping it. */
 .qts-resize-handle {
-  position: absolute !important; width: 14px !important; height: 14px !important; right: -6px !important; bottom: -6px !important;
-  border-radius: 4px !important; background: #ffd700 !important; border: 2px solid #111 !important; cursor: nwse-resize !important; z-index: 2 !important;
+  position: absolute !important; top: -8px !important; right: 18px !important; width: 20px !important; height: 20px !important;
+  border: 0 !important; border-radius: 999px !important; background: #3a3a3a !important; color: #fff !important;
+  cursor: nwse-resize !important; z-index: 2 !important;
+  display: flex !important; align-items: center !important; justify-content: center !important; font-size: 11px !important;
 }
+.qts-resize-handle.hasEditButton { right: 44px !important; }
 
 .qts-note { width: 260px; }
 .qts-note.isSaved { height: auto; }
@@ -159,6 +180,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-note-style-row label { display: grid !important; gap: 3px !important; font-size: 10px !important; color: #999 !important; }
 .qts-note-style-row input[type="color"] { width: 100% !important; height: 26px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; padding: 2px !important; }
 .qts-note-style-row select { height: 26px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; color: #fff !important; font-size: 11px !important; }
+.qts-note-style-row select option { background: #000 !important; color: #fff !important; }
 
 .qts-clickspy-tooltip {
   all: initial;
@@ -167,7 +189,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
   border-radius: 12px !important; background: #0b0b0b !important; border: 1px solid #333 !important;
   box-shadow: 0 16px 34px rgba(0,0,0,.45) !important; color: #fff !important; font-size: 13px !important;
 }
-.qts-clickspy-tooltip * { all: revert !important; box-sizing: border-box !important; font-family: inherit !important; }
+.qts-clickspy-tooltip *:where(:not(svg, svg *)) { all: revert !important; box-sizing: border-box !important; font-family: inherit !important; color: inherit !important; }
 .qts-clickspy-head {
   display: flex !important; align-items: center !important; justify-content: space-between !important; gap: 8px !important;
   padding: 8px 10px !important; border-bottom: 1px solid #262626 !important;
@@ -211,6 +233,11 @@ body.qts-placement-mode, body.qts-placement-mode * {
   opacity: var(--qts-shape-opacity, 1) !important;
 }
 .qts-shape-editor {
+  /* .qts-shape-box (a sibling, appended before this) is position:absolute;inset:0 — an
+     absolutely-positioned box paints/hit-tests above a static sibling regardless of DOM order,
+     so without its own position+z-index here, clicks on these inputs were landing on the box's
+     drag handle instead of the input underneath it. */
+  position: relative !important; z-index: 2 !important;
   padding: 10px !important; display: grid !important; gap: 8px !important; background: #0f0f0f !important;
   border: 1px solid #2a2a2a !important; border-radius: 10px !important; margin-top: 6px !important; width: 220px !important;
 }

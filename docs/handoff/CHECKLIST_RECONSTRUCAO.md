@@ -295,9 +295,8 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       fica visível na própria tela). Provisionamento agora é só por script local com a
       service-role key (`supabase/bootstrap-admin-account.mjs`), e "esqueci minha senha" usa o
       fluxo padrão de reset do Supabase.
-- [ ] Rodar `supabase/bootstrap-admin-account.mjs` uma vez (cria a conta se não existir, ou só
-      redefine a senha se já existir) e fazer o primeiro login real em `/admin/` + validar o OTP
-      humano.
+- [x] Conta admin provisionada e primeiro login real em `/admin/` com senha + OTP humano validado;
+      a sessão MFA também foi confirmada após F5, respeitando a expiração de 60 minutos.
 
 ---
 

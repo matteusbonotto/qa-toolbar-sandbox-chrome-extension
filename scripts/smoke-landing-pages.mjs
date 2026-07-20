@@ -44,6 +44,14 @@ try {
   await waitForPreview();
   browser = await chromium.launch({ headless: true });
   const page = await browser.newPage();
+  // Store review status is backed by an optional migration that may not exist in every project
+  // used to build/test the static artifact. Mock only this row; pricing and auth continue hitting
+  // the official backend so the Pages smoke still detects real integration regressions.
+  await page.route("https://xhusvkylbouwtpcevgri.supabase.co/rest/v1/store_listing_status**", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify([{ chrome_web_store_version: "1.1.2", status: "live" }]),
+  }));
   const consoleErrors = [];
   const failedResources = [];
   page.on("console", (message) => {
@@ -101,7 +109,7 @@ try {
   if (!(await page.locator("body").innerText()).includes("matteusbonotto+admin@gmail.com")) {
     throw new Error("Admin login does not pin the authorized founder account.");
   }
-  if (consoleErrors.length) throw new Error(`Browser console errors: ${consoleErrors.join(" | ")}`);
+  if (consoleErrors.length) throw new Error(`Browser console errors: ${consoleErrors.join(" | ")} resources=${failedResources.join(" | ")}`);
   console.log("Browser smoke passed: backend pricing and embedded admin artifact.");
 } finally {
   await browser?.close();

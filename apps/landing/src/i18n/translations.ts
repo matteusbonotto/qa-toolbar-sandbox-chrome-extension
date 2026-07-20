@@ -157,6 +157,8 @@ export interface Dictionary {
     installExtension: string;
     downloadExtensionZip: string;
     downloadExtensionHint: string;
+    packageVersionLine: string;
+    storeReviewPendingNotice: string;
     paymentProcessing: string;
     paymentCanceled: string;
     checkoutFailed: string;
@@ -343,6 +345,10 @@ const pt: Dictionary = {
         title: "Key View",
         description: "Mostre na tela o que você está digitando e clicando, em tempo real.",
       },
+      elementCapture: {
+        title: "Capturar Elementos",
+        description: "Exporte um CSV com seletor CSS e XPath de cada elemento da página, para o time de automação.",
+      },
       sandboxData: {
         title: "Contas e dados sandbox",
         description: "Credenciais e cartões de teste ao alcance, nunca expostos por engano.",
@@ -434,6 +440,11 @@ const pt: Dictionary = {
         short: "Mostra na tela os atalhos de teclado e cliques do mouse em tempo real.",
         details: "Exibe combinações de teclado (ex.: Ctrl+V) como teclas com efeito 3D que desaparecem sozinhas, um modo Typing que acumula o que foi digitado até você limpar, e um indicador visual de clique esquerdo/direito/meio e scroll — ideal para gravações e demonstrações onde a plateia precisa ver exatamente o que você está fazendo.",
       },
+      elementCapture: {
+        title: "Capturar Elementos",
+        short: "Exporta um CSV com todos os elementos interativos da página, prontos para automação.",
+        details: "Escaneia a página atual e gera um CSV com tag, tipo, name, id, seletor CSS único, XPath, texto/label visível e placeholder de cada elemento interativo (links, botões, inputs, selects) — pronto para acelerar a criação de testes de automação. Nenhum valor digitado é exportado; campos sensíveis (senha, cartão, token) são marcados, nunca capturados.",
+      },
       testAccounts: {
         title: "Contas de teste",
         short: "Credenciais sandbox por ambiente, sempre mascaradas.",
@@ -498,6 +509,8 @@ const pt: Dictionary = {
     installExtension: "Instalar extensão oficial",
     downloadExtensionZip: "Baixar extensão (.zip)",
     downloadExtensionHint: "Não quer esperar a análise da Chrome Web Store? Baixe o pacote, abra chrome://extensions, ative o Modo do desenvolvedor e clique em \"Carregar sem compactação\".",
+    packageVersionLine: "Versão atual do pacote: v{version}",
+    storeReviewPendingNotice: "Em breve na Chrome Web Store — em análise do Google.",
     paymentProcessing: "Pagamento recebido. Estamos confirmando seu acesso.",
     paymentCanceled: "Checkout cancelado. Nenhuma liberação foi feita.",
     checkoutFailed: "Não foi possível concluir esta etapa. Revise os dados e tente novamente.",
@@ -541,6 +554,7 @@ const pt: Dictionary = {
           "Breakpoint Viewer em tela cheia",
           "Freeze Clock + Force HTTP",
           "Macro Studio (gravação, replay e exportação Playwright)",
+          "Capturar Elementos (CSV com CSS/XPath para automação)",
           "Importação/exportação de workspace em equipe",
           "Suporte prioritário",
         ],
@@ -735,6 +749,10 @@ const es: Dictionary = {
         title: "Key View",
         description: "Muestra en pantalla lo que estás escribiendo y clicando, en tiempo real.",
       },
+      elementCapture: {
+        title: "Capturar Elementos",
+        description: "Exporta un CSV con selector CSS y XPath de cada elemento de la página, para el equipo de automatización.",
+      },
       sandboxData: {
         title: "Cuentas y datos sandbox",
         description: "Credenciales y tarjetas de prueba a mano, nunca expuestas por error.",
@@ -826,6 +844,11 @@ const es: Dictionary = {
         short: "Muestra en pantalla los atajos de teclado y clics del mouse en tiempo real.",
         details: "Muestra combinaciones de teclado (ej.: Ctrl+V) como teclas con efecto 3D que desaparecen solas, un modo Typing que acumula lo escrito hasta que lo limpies, y un indicador visual de clic izquierdo/derecho/central y scroll — ideal para grabaciones y demostraciones.",
       },
+      elementCapture: {
+        title: "Capturar Elementos",
+        short: "Exporta un CSV con todos los elementos interactivos de la página, listos para automatización.",
+        details: "Escanea la página actual y genera un CSV con tag, tipo, name, id, selector CSS único, XPath, texto/label visible y placeholder de cada elemento interactivo (enlaces, botones, inputs, selects) — listo para acelerar la creación de pruebas de automatización. Ningún valor escrito se exporta; los campos sensibles (contraseña, tarjeta, token) se marcan, nunca se capturan.",
+      },
       testAccounts: {
         title: "Cuentas de prueba",
         short: "Credenciales sandbox por entorno, siempre enmascaradas.",
@@ -890,6 +913,8 @@ const es: Dictionary = {
     installExtension: "Instalar extensión oficial",
     downloadExtensionZip: "Descargar extensión (.zip)",
     downloadExtensionHint: "¿No quieres esperar la revisión de la Chrome Web Store? Descarga el paquete, abre chrome://extensions, activa el Modo de desarrollador y haz clic en \"Cargar descomprimida\".",
+    packageVersionLine: "Versión actual del paquete: v{version}",
+    storeReviewPendingNotice: "Próximamente en la Chrome Web Store — en revisión de Google.",
     paymentProcessing: "Pago recibido. Estamos confirmando tu acceso.",
     paymentCanceled: "Checkout cancelado. No se liberó ningún acceso.",
     checkoutFailed: "No fue posible completar esta etapa. Revisa los datos e inténtalo de nuevo.",
@@ -933,6 +958,7 @@ const es: Dictionary = {
           "Breakpoint Viewer a pantalla completa",
           "Freeze Clock + Force HTTP",
           "Macro Studio (grabación, repetición y exportación a Playwright)",
+          "Capturar Elementos (CSV con CSS/XPath para automatización)",
           "Importación/exportación de workspace en equipo",
           "Soporte prioritario",
         ],
@@ -1127,6 +1153,10 @@ const en: Dictionary = {
         title: "Key View",
         description: "Show what you're typing and clicking on screen, live.",
       },
+      elementCapture: {
+        title: "Capture Elements",
+        description: "Export a CSV with a CSS selector and XPath for every element on the page, for the automation team.",
+      },
       sandboxData: {
         title: "Sandbox accounts and data",
         description: "Test credentials and cards on hand, never exposed by accident.",
@@ -1218,6 +1248,11 @@ const en: Dictionary = {
         short: "Shows keyboard shortcuts and mouse clicks on screen, live.",
         details: "Displays key combos (e.g. Ctrl+V) as 3D-styled keys that fade out on their own, a Typing mode that accumulates what you type until you clear it, and a visual indicator for left/right/middle click and scroll — ideal for recordings and demos where the audience needs to see exactly what you're doing.",
       },
+      elementCapture: {
+        title: "Capture Elements",
+        short: "Exports a CSV with every interactive element on the page, ready for automation.",
+        details: "Scans the current page and generates a CSV with tag, type, name, id, unique CSS selector, XPath, visible text/label and placeholder for every interactive element (links, buttons, inputs, selects) — ready to speed up automation test authoring. No typed value is ever exported; sensitive fields (password, card, token) are flagged, never captured.",
+      },
       testAccounts: {
         title: "Test accounts",
         short: "Sandbox credentials per environment, always masked.",
@@ -1282,6 +1317,8 @@ const en: Dictionary = {
     installExtension: "Install official extension",
     downloadExtensionZip: "Download extension (.zip)",
     downloadExtensionHint: "Don't want to wait for Chrome Web Store review? Download the package, open chrome://extensions, enable Developer mode and click \"Load unpacked\".",
+    packageVersionLine: "Current package version: v{version}",
+    storeReviewPendingNotice: "Coming soon to the Chrome Web Store — pending Google review.",
     paymentProcessing: "Payment received. We are confirming your access.",
     paymentCanceled: "Checkout canceled. No access was granted.",
     checkoutFailed: "This step could not be completed. Review the details and try again.",
@@ -1325,6 +1362,7 @@ const en: Dictionary = {
           "Full-screen Breakpoint Viewer",
           "Freeze Clock + Force HTTP",
           "Macro Studio (record, replay and Playwright export)",
+          "Capture Elements (CSV with CSS/XPath for automation)",
           "Team workspace import/export",
           "Priority support",
         ],

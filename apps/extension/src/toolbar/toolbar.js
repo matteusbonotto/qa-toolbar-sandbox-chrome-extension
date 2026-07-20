@@ -15,6 +15,7 @@ const state = {
   clockFrozen: false,
   forceHttpActive: false,
   networkHistory: [],
+  inspectorsFilteredCount: 0,
   httpErrors: [],
   t: null,
   authorized: false,
@@ -106,43 +107,77 @@ function setSpacerHeight() {
 }
 
 const HEADER_OFFSET_ATTR = "data-qts-header-offset";
+// Above this, a site header's own z-index is fighting our bar for the top stacking slot instead
+// of just sitting fixed at its natural position — matches tampermonkey.js's threshold
+// (qaCnkOffsetSiteFixedElements), which clamps anything this high back down.
+const HEADER_ZINDEX_CONTEST_THRESHOLD = 2_147_483_646;
 
 function clearSiteFixedHeaderOffsets() {
   document.querySelectorAll(`[${HEADER_OFFSET_ATTR}]`).forEach((element) => {
-    element.style.marginTop = element.getAttribute(`${HEADER_OFFSET_ATTR}-original`) || "";
+    element.style.setProperty("top", element.getAttribute(`${HEADER_OFFSET_ATTR}-original-top`) || "");
+    element.style.setProperty("z-index", element.getAttribute(`${HEADER_OFFSET_ATTR}-original-zindex`) || "");
     element.removeAttribute(HEADER_OFFSET_ATTR);
-    element.removeAttribute(`${HEADER_OFFSET_ATTR}-original`);
+    element.removeAttribute(`${HEADER_OFFSET_ATTR}-original-top`);
+    element.removeAttribute(`${HEADER_OFFSET_ATTR}-original-zindex`);
   });
 }
 
 /**
- * The spacer div pushes normal-flow content down, but a site's own position:fixed header
+ * The spacer div pushes normal-flow content down, but a site's own position:fixed/sticky header
  * (common on real QA targets) ignores document flow entirely and stays glued under our bar
- * instead of below it. Auto-detecting every fixed element on an arbitrary page is too fuzzy to
- * do safely (multiple headers, transformed stacking contexts, sticky sub-navs), so this stays
- * conservative: only elements actually painted inside our bar's own vertical band right now —
- * found via a few elementsFromPoint samples rather than a full DOM walk — get nudged down by
- * margin-top, and only while pushSiteContent is on.
+ * instead of below it. Ported from tampermonkey.js's proven `offsetSiteFixedElements` /
+ * `keepSiteFixedElementsBelowWindowsill` (the reference this extension is a rewrite of) after
+ * confirming it handles cases this port's original point-sampling approach missed: it walks
+ * every element under <body> (not just a few elementsFromPoint samples), matches `sticky` too
+ * (not just `fixed`), nudges the real `top` property instead of `margin-top` (which is a no-op
+ * for a fixed element that already declares its own `top`), and — separately, see
+ * installHeaderOffsetMonitor() — re-runs continuously instead of only on toolbar render.
  */
 function offsetSiteFixedHeaders() {
+  // The monitor below watches style/class mutations to catch a site header that moves or
+  // appears after our last render — but this function itself mutates style/class on matching
+  // elements, so without disconnecting first, applying an offset would immediately re-trigger
+  // the same observer and loop forever (confirmed live: an earlier version of this function hung
+  // the page solid).
+  state.headerOffsetObserver?.disconnect();
   clearSiteFixedHeaderOffsets();
   const height = getCurrentHeight();
-  if (!height || typeof document.elementsFromPoint !== "function") return;
+  if (!height) {
+    state.headerOffsetObserver?.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+    return;
+  }
   const host = document.getElementById(HOST_ID);
-  const sampleY = Math.max(1, height - 4);
-  const sampleXs = [8, Math.floor(window.innerWidth / 2), Math.max(8, window.innerWidth - 8)];
-  const candidates = new Set();
-  sampleXs.forEach((x) => document.elementsFromPoint(x, sampleY).forEach((element) => candidates.add(element)));
-  candidates.forEach((element) => {
-    if (element === host || host?.contains(element) || element === document.body || element === document.documentElement) return;
+  document.body?.querySelectorAll("*").forEach((element) => {
+    if (element === host || host?.contains(element)) return;
     if (element.id === SPACER_ID || element.hasAttribute(HEADER_OFFSET_ATTR)) return;
-    if (getComputedStyle(element).position !== "fixed") return;
+    const computed = getComputedStyle(element);
+    if (computed.position !== "fixed" && computed.position !== "sticky") return;
+    const currentTop = Number.parseFloat(computed.top);
+    if (!Number.isFinite(currentTop) || currentTop > height + 8) return;
     const rect = element.getBoundingClientRect();
-    if (rect.top >= height || rect.height === 0) return;
+    if (rect.height === 0) return;
     element.setAttribute(HEADER_OFFSET_ATTR, "true");
-    element.setAttribute(`${HEADER_OFFSET_ATTR}-original`, element.style.marginTop || "");
-    element.style.marginTop = `${height}px`;
+    element.setAttribute(`${HEADER_OFFSET_ATTR}-original-top`, element.style.top || "");
+    element.setAttribute(`${HEADER_OFFSET_ATTR}-original-zindex`, element.style.zIndex || "");
+    element.style.setProperty("top", `${currentTop + height}px`, "important");
+    const currentZIndex = Number.parseInt(computed.zIndex, 10);
+    if (Number.isFinite(currentZIndex) && currentZIndex >= HEADER_ZINDEX_CONTEST_THRESHOLD) {
+      element.style.setProperty("z-index", "2147483600", "important");
+    }
   });
+  state.headerOffsetObserver?.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+}
+
+// Wildcard urlPatterns (e.g. "https://*.example.com/*") aren't real navigable addresses — this
+// only resolves the common single-trailing-wildcard case (strip it, use the rest verbatim) so
+// simple environments are clickable without requiring the explicit primaryUrl field; anything
+// with an embedded wildcard just fails URL parsing and stays non-clickable, which is the correct
+// fallback (primaryUrl exists precisely for that case).
+function resolveEnvironmentUrl(environment) {
+  if (environment?.primaryUrl) return environment.primaryUrl;
+  const pattern = (environment?.urlPatterns || []).find((value) => typeof value === "string" && value.length);
+  if (!pattern) return null;
+  try { return new URL(pattern.replace(/\*+$/, "")).href; } catch { return null; }
 }
 
 /**
@@ -151,7 +186,10 @@ function offsetSiteFixedHeaders() {
  * form the main sequence, each entity rendering as a logo image, or — when no
  * logo is set — an auto-generated colored initials badge, so a brand-new
  * client/project/product is never a blank space. Per-entity `showLabel`
- * controls whether the name is spelled out next to the badge.
+ * controls whether the name is spelled out next to the badge. Each visible tier is
+ * independently toggleable via preferences.breadcrumbVisibility, and (when the environment
+ * resolves to a real URL) clickable to jump back to it — wired via event delegation in
+ * buildShadowHost(), since this only ever returns markup, not listeners.
  */
 function buildBreadcrumb(workspace, environment) {
   if (!environment) {
@@ -161,13 +199,25 @@ function buildBreadcrumb(workspace, environment) {
   const project = findById(workspace.projects, environment.projectId);
   const product = findById(workspace.products, environment.productId);
   const color = environment.color || "#ef3340";
+  const visibility = workspace.preferences?.breadcrumbVisibility || {};
+  const navUrl = resolveEnvironmentUrl(environment);
 
-  const compact = workspace.preferences?.compactMode === true;
-  const clientHtml = client ? window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: true }, { size: 14, maxChars: 18 }) : "";
-  const segments = [project, product]
-    .filter(Boolean)
-    .map((entity) => window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compact ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 }));
-  segments.push(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`);
+  const wrapCrumb = (html) => (navUrl
+    ? `<button type="button" class="qts-crumb-link" data-crumb-nav="${escapeHtml(navUrl)}">${html}</button>`
+    : html);
+
+  const legacyCompact = workspace.preferences?.compactMode === true;
+  const compactEntities = workspace.preferences?.compactEntities || { project: legacyCompact, product: legacyCompact };
+  const clientHtml = client && visibility.client !== false
+    ? wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: compactEntities.client === true ? false : client.showLabel !== false }, { size: 14, maxChars: 18 }))
+    : "";
+  const segments = [
+    visibility.project !== false ? { entity: project, key: "project" } : null,
+    visibility.product !== false ? { entity: product, key: "product" } : null,
+  ]
+    .filter((item) => item?.entity)
+    .map(({ entity, key }) => wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compactEntities[key] === true ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 })));
+  if (visibility.environment !== false) segments.push(wrapCrumb(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`));
 
   return {
     clientHtml,
@@ -229,6 +279,7 @@ const PLAN_GATED_TOOLS = {
   inputLab: "inputLab.enabled",
   fakerFill: "fakerFill.enabled",
   keyView: "keyView.enabled",
+  elementCapture: "elementCapture.enabled",
 };
 
 function hasPlanFeature(toolKey) {
@@ -264,6 +315,7 @@ function applyPinnedTools() {
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
     characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
     inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
+    elementCapture: "elementCaptureMenuItem",
   };
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
@@ -325,6 +377,8 @@ function buildShadowHost() {
       #textStack { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
+      .qts-crumb-link { all: unset; cursor: pointer; display: inline-flex; align-items: center; }
+      .qts-crumb-link:hover { opacity: .8; text-decoration: underline; }
       .qts-client-label {
         display: inline-flex; align-items: center; gap: 4px; width: max-content; max-width: 220px;
         font-size: 9px; line-height: 14px; font-weight: 700; opacity: .74; overflow: hidden;
@@ -385,6 +439,18 @@ function buildShadowHost() {
       #macroRecordingChip { background: #8f0909; color: #fff; border-color: #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
+      #mobileActionsMenu { display: none; }
+      /* On a real phone width, #right's pinned quick-action buttons (flex:0 0 auto, never
+         shrink) add up to wider than the whole bar, which squeezes #left (breadcrumb) down to
+         zero width — client/project/product don't just get cramped, they vanish entirely, and
+         buttons past the overflow (settings, sometimes even Tools) get pushed off-screen with no
+         way back. Below this width those pinned buttons hide and the same actions move into the
+         Tools menu instead (#mobileActionsMenu), which stays reachable regardless of width. */
+      @media (max-width: 560px) {
+        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #clearAllButton,
+        #screenshotButton, #recordToggleButton, #recordStopButton, #recordTimer { display: none !important; }
+        #mobileActionsMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
+      }
     </style>
     <div id="bar" role="toolbar" aria-label="Ferramentas de QA">
       <div id="left">
@@ -409,6 +475,15 @@ function buildShadowHost() {
         <div id="toolsWrapper">
           <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ${ICON("chevronDown")}</button>
           <div id="toolsMenu" role="menu">
+            <div id="mobileActionsMenu">
+              <button type="button" id="mobileTestStatusItem" role="menuitem">${escapeHtml(t.testStatus)}</button>
+              <button type="button" id="mobilePassItem" role="menuitem">${ICON("pass")} ${escapeHtml(t.pass)}</button>
+              <button type="button" id="mobileFailItem" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
+              <button type="button" id="mobileNoteItem" role="menuitem">${escapeHtml(t.note)}</button>
+              <button type="button" id="mobileShapeItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
+              <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
+              <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
+            </div>
             <div id="pinnedMacrosMenu"></div>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
             <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(t.characterCounterMenuLabel)}</button>
@@ -426,6 +501,7 @@ function buildShadowHost() {
             <button type="button" id="testAccountsMenuItem" role="menuitem">${ICON("key")} ${escapeHtml(t.testAccountsMenuLabel)}</button>
             <button type="button" id="paymentMethodsMenuItem" role="menuitem">${ICON("paymentMethods")} ${escapeHtml(t.paymentMethodsMenuLabel)}</button>
             <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(t.resourcesMenuLabel)}</button>
+            <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}</button>
@@ -437,6 +513,13 @@ function buildShadowHost() {
 
   shadow.getElementById("settingsButton").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "qts:open-options" });
+  });
+  // Delegated on #left (stable across renders) rather than #clientLabel/#breadcrumb directly,
+  // since render() replaces those two elements' innerHTML every time — a listener attached
+  // straight to a breadcrumb segment would be destroyed along with it on the next render.
+  shadow.getElementById("left").addEventListener("click", (event) => {
+    const link = event.target.closest("[data-crumb-nav]");
+    if (link) window.location.href = link.dataset.crumbNav;
   });
   shadow.getElementById("minimizeButton").addEventListener("click", () => setMinimized(true));
   shadow.getElementById("restoreButton").addEventListener("click", () => setMinimized(false));
@@ -450,6 +533,16 @@ function buildShadowHost() {
   shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
   shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
   shadow.getElementById("macroRecordingChip").addEventListener("click", () => stopMacroRecording());
+
+  // Same handlers as the pinned bar buttons above — this is the narrow-viewport fallback path
+  // for them (see the #mobileActionsMenu media query), not a separate feature.
+  shadow.getElementById("mobileTestStatusItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
+  shadow.getElementById("mobilePassItem").addEventListener("click", (event) => { enablePlacementMode("pass", shadow.getElementById("passButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileFailItem").addEventListener("click", () => { enablePlacementMode("fail", shadow.getElementById("failButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileNoteItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
+  shadow.getElementById("mobileShapeItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileScreenshotItem").addEventListener("click", () => { captureScreenshot(); closeToolsMenu(); });
+  shadow.getElementById("mobileRecordItem").addEventListener("click", () => { handleRecordToggle(); closeToolsMenu(); });
 
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -468,6 +561,7 @@ function buildShadowHost() {
   shadow.getElementById("testAccountsMenuItem").addEventListener("click", () => { openTestAccountsDrawer(); closeToolsMenu(); });
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
+  shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
@@ -564,6 +658,7 @@ function removeToolbar({ disableBridge = false } = {}) {
   state.integrityObserver = null;
   if (state.integrityInterval) window.clearInterval(state.integrityInterval);
   state.integrityInterval = null;
+  stopHeaderOffsetMonitor();
   document.getElementById(HOST_ID)?.remove();
   document.getElementById(SPACER_ID)?.remove();
   document.querySelectorAll(".qts-modal-backdrop,.qts-result-overlay,.qts-floating-item,.qts-shape-preview").forEach((element) => element.remove());
@@ -585,6 +680,48 @@ function syncToolbarForCurrentLocation() {
   else render();
   document.dispatchEvent(new CustomEvent("qts:pagebridge-active", { detail: { active: true } }));
   installIntegrityMonitor();
+  installHeaderOffsetMonitor();
+}
+
+/**
+ * Matches tampermonkey.js's keepSiteFixedElementsBelowWindowsill: a site's own fixed/sticky
+ * header can appear or move well after our last render() (a cookie-banner dismissal, a delayed
+ * SPA route render, a scroll-triggered header) — re-running offsetSiteFixedHeaders() only from
+ * render() misses those. MutationObserver + scroll + resize covers the common triggers; the
+ * interval is a deliberate belt-and-suspenders fallback for whatever those three don't catch.
+ */
+function installHeaderOffsetMonitor() {
+  if (state.headerOffsetObserver) return;
+  // Coalesces bursty triggers (a scroll fires many times a second, a MutationObserver batches
+  // but can still arrive frequently during a busy SPA render) into at most one walk per frame.
+  let scheduled = false;
+  const rerun = () => {
+    if (scheduled) return;
+    scheduled = true;
+    requestAnimationFrame(() => {
+      scheduled = false;
+      offsetSiteFixedHeaders();
+    });
+  };
+  const observer = new MutationObserver(rerun);
+  observer.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
+  window.addEventListener("scroll", rerun, { passive: true });
+  window.addEventListener("resize", rerun);
+  state.headerOffsetObserver = observer;
+  state.headerOffsetScrollHandler = rerun;
+  state.headerOffsetInterval = window.setInterval(rerun, 1_000);
+}
+
+function stopHeaderOffsetMonitor() {
+  state.headerOffsetObserver?.disconnect();
+  state.headerOffsetObserver = null;
+  if (state.headerOffsetScrollHandler) {
+    window.removeEventListener("scroll", state.headerOffsetScrollHandler);
+    window.removeEventListener("resize", state.headerOffsetScrollHandler);
+  }
+  state.headerOffsetScrollHandler = null;
+  if (state.headerOffsetInterval) window.clearInterval(state.headerOffsetInterval);
+  state.headerOffsetInterval = null;
 }
 
 function scheduleRepair() {
@@ -728,11 +865,11 @@ function placeMarker(kind, clientX, clientY) {
   marker.innerHTML = `
     <div class="qts-marker-body ${kind === "fail" ? "isFail" : "isPass"}" data-drag-handle>${kind === "fail" ? ICON("fail") : ICON("pass")}</div>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
-    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}"></div>
+    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
   `;
   document.body.appendChild(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
-  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 28, minHeight: 28 });
+  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 28, minHeight: 28, lockAspectRatio: true });
   marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
   updateClearAllVisibility();
 }
@@ -752,7 +889,7 @@ function renderSavedNote(note, text, style) {
     <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
     <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">${ICON("edit")}</button>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
-    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(t.resize)}"></div>
+    <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(t.resize)}">${ICON("resize")}</div>
   `;
   const content = note.querySelector(".qts-note-content");
   content.style.setProperty("--qts-note-color", style.color);
@@ -863,7 +1000,7 @@ function placeShape(left, top, width, height) {
     <div class="qts-shape-box" data-drag-handle></div>
     <button type="button" class="qts-edit-btn" title="${escapeHtml(state.t.edit)}">${ICON("edit")}</button>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
-    <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}"></div>
+    <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
   `;
   document.body.appendChild(shape);
   makeDraggable(shape, shape.querySelector("[data-drag-handle]"));
@@ -913,7 +1050,10 @@ function makeDraggable(element, handle) {
   let offsetX = 0;
   let offsetY = 0;
   handle.addEventListener("mousedown", (event) => {
-    if (event.button !== 0 || event.target.closest("button")) return;
+    // Excludes anything interactive that can legitimately sit on top of/inside the drag handle
+    // (the shape style editor's inputs, in particular) — a mousedown that starts on a real
+    // control should never also start a drag.
+    if (event.button !== 0 || event.target.closest("button,input,textarea,select,label,[data-resize-handle]")) return;
     dragging = true;
     const rect = element.getBoundingClientRect();
     offsetX = event.clientX - rect.left;
@@ -930,7 +1070,7 @@ function makeDraggable(element, handle) {
 
 // Shared SE-corner drag-resize for markers/shapes/notes — one consistent resize gesture across
 // every annotation type instead of a different interaction per tool.
-function makeResizable(element, handle, { minWidth = 24, minHeight = 24, onResize } = {}) {
+function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAspectRatio = false, onResize } = {}) {
   let resizing = false;
   let startWidth = 0;
   let startHeight = 0;
@@ -949,8 +1089,16 @@ function makeResizable(element, handle, { minWidth = 24, minHeight = 24, onResiz
   });
   document.addEventListener("mousemove", (event) => {
     if (!resizing) return;
-    const width = Math.max(minWidth, startWidth + (event.clientX - startX));
-    const height = Math.max(minHeight, startHeight + (event.clientY - startY));
+    let width = Math.max(minWidth, startWidth + (event.clientX - startX));
+    let height = Math.max(minHeight, startHeight + (event.clientY - startY));
+    // Markers are circular (border-radius:999px on a possibly non-square box just renders a
+    // stadium/oval) — locking width===height here is what keeps the shape an actual circle
+    // instead of distorting as soon as a single SE-corner drag lets the two axes diverge.
+    if (lockAspectRatio) {
+      const size = Math.max(width, height);
+      width = size;
+      height = size;
+    }
     element.style.width = `${width}px`;
     element.style.height = `${height}px`;
     onResize?.(width, height);
@@ -1037,7 +1185,7 @@ function drawerStyles() {
     .qts-icon-btn { width: 32px; height: 32px; padding: 0; border: 1px solid #333; border-radius: 8px; background: #1c1c1c; color: #fff; cursor: pointer; flex: 0 0 auto; }
     .qts-icon-btn:hover { border-color: #ffd700; }
     .qts-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
-    .qts-filter-bar.isCollapsed, .qts-toolbar-search.isCollapsed { display: none; }
+    .qts-filter-bar.isCollapsed { display: none; }
     .qts-toggle-group { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #262626; border-radius: 8px; background: #131313; }
     .qts-toggle-group button { height: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #ccc; font-size: 11px; font-weight: 700; cursor: pointer; }
     .qts-toggle-group button.isSelected { background: #b20808; color: #fff; }
@@ -1160,6 +1308,8 @@ function translateQaSurfaceText(value) {
   if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)");
   if (state.t.locale === "en") translated = translated.replace(/^Executando /, "Running ").replace(/^Macro concluída:/, "Macro completed:").replace(/^Macro interrompida:/, "Macro stopped:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "The macro could not be started safely.");
   if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
+  if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns — check the routes/endpoints you registered.");
+  if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 solicitud(es) capturada(s) no coincidieron con ningún patrón configurado en Inspectors — revisa las rutas/endpoints registrados.");
   return `${leading}${translated}${trailing}`;
 }
 
@@ -1234,7 +1384,7 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, wide = true, bodyHtml, onReady, view = "" }) {
+function openDrawer({ title, wide = false, bodyHtml, onReady, view = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -1597,7 +1747,15 @@ function handleNetworkCaptured(entry) {
     const candidate = String(pattern || "").trim();
     if (!candidate) return false;
     try { return candidate.includes("*") ? wildcardToRegExp(candidate).test(String(entry?.url || "")) : String(entry?.url || "").toLowerCase().includes(candidate.toLowerCase()); } catch { return false; }
-  }))) return;
+  }))) {
+    // Every configured inspector pattern requires a match — a typo'd/wrong-environment pattern
+    // silently dropped 100% of captures here with zero indication, reading as "Inspectors is
+    // just broken" instead of "your pattern doesn't match anything." This counter is surfaced in
+    // renderInspectorsList()'s empty state so a config mismatch reads as a config problem.
+    state.inspectorsFilteredCount = (state.inspectorsFilteredCount || 0) + 1;
+    if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
+    return;
+  }
   state.networkHistory.unshift(entry);
   if (state.networkHistory.length > 150) state.networkHistory.length = 150;
   if (Number(entry?.status) >= 400) playSound("httpError");
@@ -1648,7 +1806,7 @@ function renderInspectorsList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="${inspectorsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
     </div>
     <div class="qts-filter-bar ${inspectorsFilterState.collapsed ? "isCollapsed" : ""}" id="inspectorsFilterBar">
@@ -1658,13 +1816,16 @@ function renderInspectorsList() {
   `;
 
   const listBody = body.querySelector("#inspectorsListBody");
+  const mismatchHint = !state.networkHistory.length && state.inspectorsFilteredCount
+    ? `<div class="qts-empty">${escapeHtml(t.noResponsesYet)}<br><small style="color:#ffb020">${escapeHtml(translateQaSurfaceText(`${state.inspectorsFilteredCount} requisição(ões) capturada(s) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas/endpoints cadastrados.`))}</small></div>`
+    : null;
   listBody.innerHTML = filtered.length
     ? filtered.map((entry) => `
         <div class="qts-net-item" data-id="${escapeHtml(entry.id)}">
           <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
         </div>
       `).join("")
-    : `<div class="qts-empty">${state.networkHistory.length ? t.noFilterResults : t.noResponsesYet}</div>`;
+    : mismatchHint || `<div class="qts-empty">${state.networkHistory.length ? t.noFilterResults : t.noResponsesYet}</div>`;
 
   listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
@@ -1753,7 +1914,7 @@ function renderErrorMonitorList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="errorMonitorSearch" value="${escapeHtml(errorMonitorFilterState.query)}" class="${errorMonitorFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="errorMonitorSearch" value="${escapeHtml(errorMonitorFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${errorMonitorFilterState.collapsed ? "isActive" : ""}" id="errorMonitorCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
       <button type="button" class="qts-icon-btn" id="errorMonitorClear" title="${escapeHtml(t.clearAll)}">${ICON("fail")}</button>
     </div>
@@ -1845,7 +2006,7 @@ function renderTestAccountsList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="${escapeHtml(t.testAccountsSearchPlaceholder)}" id="testAccountsSearch" value="${escapeHtml(testAccountsFilterState.query)}" class="${testAccountsFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <input type="search" placeholder="${escapeHtml(t.testAccountsSearchPlaceholder)}" id="testAccountsSearch" value="${escapeHtml(testAccountsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${testAccountsFilterState.collapsed ? "isActive" : ""}" id="testAccountsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
     </div>
     <div class="qts-filter-bar ${testAccountsFilterState.collapsed ? "isCollapsed" : ""}" id="testAccountsFilterBar">
@@ -1918,33 +2079,98 @@ function maskedPaymentValue(value) {
   return `${"•".repeat(Math.max(4, Math.min(12, compact.length - suffix.length)))}${suffix}`;
 }
 
+async function copyToClipboardWithFeedback(button, text) {
+  await navigator.clipboard.writeText(text).catch(() => {});
+  const original = button.innerHTML;
+  button.innerHTML = ICON("pass");
+  window.setTimeout(() => { if (button.isConnected) button.innerHTML = original; }, 1200);
+}
+
+const paymentMethodsFilterState = { query: "", type: new Set(), collapsed: false };
+
+function matchesPaymentMethodFilters(method) {
+  const query = paymentMethodsFilterState.query.trim().toLowerCase();
+  if (query && !`${method.label} ${method.holder || ""} ${method.notes || ""}`.toLowerCase().includes(query)) return false;
+  if (paymentMethodsFilterState.type.size && !paymentMethodsFilterState.type.has(method.type || "other")) return false;
+  return true;
+}
+
+function formatPaymentMethodForCopy(method) {
+  const lines = [[state.t.paymentMethodFallback, method.label], ["Tipo", method.type], ["Número/token", method.value], ["Titular", method.holder], ["Validade", method.expiry], ["CVV", method.cvv]];
+  return lines.filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`).join("\n");
+}
+
 function renderPaymentMethodsList() {
+  const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
-  const methods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id));
-  if (!methods.length) {
+  const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id));
+  if (!allMethods.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(state.t.paymentMethodsEmptyForEnv)}</div>`;
     return;
   }
-  body.innerHTML = `<div style="display:grid;gap:10px">${methods.map((method) => {
+  const types = [...new Set(allMethods.map((method) => method.type || "other"))].sort();
+  const fields = [{ key: "type", label: "Tipo", options: types.map((value) => ({ value, label: value })) }];
+  const methods = allMethods.filter(matchesPaymentMethodFilters);
+
+  body.innerHTML = `
+    <div class="qts-toolbar-row">
+      <input type="search" placeholder="Buscar meio de pagamento..." id="paymentMethodsSearch" value="${escapeHtml(paymentMethodsFilterState.query)}" class="qts-toolbar-search" />
+      <button type="button" class="qts-icon-btn ${paymentMethodsFilterState.collapsed ? "isActive" : ""}" id="paymentMethodsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
+    </div>
+    <div class="qts-filter-bar ${paymentMethodsFilterState.collapsed ? "isCollapsed" : ""}" id="paymentMethodsFilterBar">
+      ${fields.map((field) => renderSmartFilter(field, paymentMethodsFilterState[field.key], null)).join("")}
+    </div>
+    <div style="display:grid;gap:10px">${methods.length ? methods.map((method) => {
     const revealed = revealedPaymentMethodIds.has(method.id);
-    const value = revealed ? escapeHtml(method.value || "—") : escapeHtml(maskedPaymentValue(method.value));
+    const fieldRow = (fieldLabel, rawValue, dataAttr) => {
+      if (!rawValue) return "";
+      const displayValue = revealed ? escapeHtml(rawValue) : escapeHtml(dataAttr === "value" ? maskedPaymentValue(rawValue) : "•".repeat(Math.min(8, rawValue.length)));
+      return `<div style="display:flex;align-items:center;gap:6px"><small style="color:#888;min-width:56px">${escapeHtml(fieldLabel)}</small><small>${displayValue}</small><button type="button" class="qts-icon-btn" data-copy-payment-field="${escapeHtml(method.id)}" data-field="${dataAttr}" style="width:22px;height:22px" title="Copiar">${ICON("copy")}</button></div>`;
+    };
     return `<div class="qts-net-item" style="cursor:default">
-      <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:#ffd700">${escapeHtml(method.type || "other")}</span>
-      <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><small>${value}</small>
-      ${method.value ? `<button type="button" class="action" data-reveal-payment="${escapeHtml(method.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")}</button>` : ""}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${method.icon ? `<img src="${escapeHtml(method.icon)}" alt="" style="width:18px;height:18px;border-radius:4px;object-fit:cover" />` : ""}
+        <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:#ffd700">${escapeHtml(method.type || "other")}</span>
+      </div>
+      <div style="margin-top:6px;display:grid;gap:4px">
+        ${fieldRow("Número", method.value, "value")}
+        ${fieldRow("Titular", method.holder, "holder")}
+        ${fieldRow("Validade", method.expiry, "expiry")}
+        ${fieldRow("CVV", method.cvv, "cvv")}
+      </div>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        ${method.value ? `<button type="button" class="action" data-reveal-payment="${escapeHtml(method.id)}" style="height:24px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")} ${revealed ? "Ocultar" : "Revelar"}</button>` : ""}
+        <button type="button" class="action" data-copy-payment-all="${escapeHtml(method.id)}" style="height:24px;padding:0 8px;font-size:10px">${ICON("copy")} Copiar tudo</button>
+      </div>
       ${method.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(method.notes)}</small>` : ""}
     </div>`;
-  }).join("")}</div>`;
+  }).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
+  `;
+  body.querySelector("#paymentMethodsSearch").addEventListener("input", (event) => { paymentMethodsFilterState.query = event.target.value; renderPaymentMethodsList(); });
+  body.querySelector("#paymentMethodsCollapseToggle").addEventListener("click", () => { paymentMethodsFilterState.collapsed = !paymentMethodsFilterState.collapsed; renderPaymentMethodsList(); });
+  wireSmartFilter(body.querySelector("#paymentMethodsFilterBar"), (key, value, isSelected) => {
+    if (isSelected) paymentMethodsFilterState[key].add(value); else paymentMethodsFilterState[key].delete(value);
+    renderPaymentMethodsList();
+  });
   body.querySelectorAll("[data-reveal-payment]").forEach((button) => button.addEventListener("click", () => {
     const id = button.dataset.revealPayment;
     if (revealedPaymentMethodIds.has(id)) revealedPaymentMethodIds.delete(id); else revealedPaymentMethodIds.add(id);
     renderPaymentMethodsList();
   }));
+  body.querySelectorAll("[data-copy-payment-field]").forEach((button) => button.addEventListener("click", () => {
+    const method = methods.find((item) => item.id === button.dataset.copyPaymentField);
+    const value = method?.[button.dataset.field];
+    if (value) copyToClipboardWithFeedback(button, value);
+  }));
+  body.querySelectorAll("[data-copy-payment-all]").forEach((button) => button.addEventListener("click", () => {
+    const method = methods.find((item) => item.id === button.dataset.copyPaymentAll);
+    if (method) copyToClipboardWithFeedback(button, formatPaymentMethodForCopy(method));
+  }));
 }
 
 function openPaymentMethodsDrawer() {
-  openDrawer({ title: state.t.paymentMethodsDrawerTitle, bodyHtml: "" });
+  openDrawer({ title: state.t.paymentMethodsDrawerTitle, bodyHtml: "", view: "paymentMethods" });
   renderPaymentMethodsList();
 }
 
@@ -1980,7 +2206,7 @@ function renderResourcesList() {
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
-      <input type="search" placeholder="${escapeHtml(t.resourcesSearchPlaceholder)}" id="resourcesSearch" value="${escapeHtml(resourcesFilterState.query)}" class="${resourcesFilterState.collapsed ? "qts-toolbar-search isCollapsed" : "qts-toolbar-search"}" />
+      <input type="search" placeholder="${escapeHtml(t.resourcesSearchPlaceholder)}" id="resourcesSearch" value="${escapeHtml(resourcesFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${resourcesFilterState.collapsed ? "isActive" : ""}" id="resourcesCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
     </div>
     <div class="qts-filter-bar ${resourcesFilterState.collapsed ? "isCollapsed" : ""}" id="resourcesFilterBar">
@@ -1988,7 +2214,7 @@ function renderResourcesList() {
     </div>
     <div style="display:grid;gap:10px">${resources.length ? resources.map((resource) => `
       <a class="qts-net-item" href="${escapeHtml(resource.safeUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;color:#fff;text-decoration:none">
-        <b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:#ffd700">${escapeHtml(resource.category)}</span>` : ""}
+        ${resource.icon ? `<img src="${escapeHtml(resource.icon)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : ""}<b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:#ffd700">${escapeHtml(resource.category)}</span>` : ""}
         <small style="display:block;margin-top:4px;color:#888">${escapeHtml(resource.safeUrl)}</small>
       </a>
     `).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
@@ -2059,7 +2285,7 @@ const DEVICE_PRESETS = [
   { id: "iphone-se", label: "iPhone SE", width: 375, height: 667, kind: "phone" },
 ];
 
-const breakpointViewerState = { syncScroll: false, syncClick: false, resizeObserver: null, cleanupFns: [] };
+const breakpointViewerState = { syncScroll: false, syncClick: false, zoomMultiplier: 1, resizeObserver: null, cleanupFns: [] };
 
 function buildDeviceFrameHtml(pane, device) {
   const chrome = device.kind === "phone"
@@ -2086,6 +2312,11 @@ function breakpointStyles() {
     .qts-bp-topbar input[type="url"] { flex: 1 1 220px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #fff; }
     .qts-bp-topbar select { height: 34px; padding: 0 8px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #fff; }
     .qts-bp-toggle { height: 34px; padding: 0 12px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #ccc; cursor: pointer; font-weight: 700; }
+    .qts-bp-zoom { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; }
+    .qts-bp-zoom-btn { all: unset; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: #262626; color: #fff; cursor: pointer; font-weight: 900; }
+    .qts-bp-zoom-btn:hover { background: #333; }
+    .qts-bp-zoom input[type="range"] { width: 90px; }
+    #bpZoomLabel { min-width: 38px; text-align: center; color: #ccc; font-variant-numeric: tabular-nums; }
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
     .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
@@ -2114,6 +2345,7 @@ function cleanupBreakpointViewer() {
 function openBreakpointViewer() {
   const t = state.t;
   cleanupBreakpointViewer();
+  breakpointViewerState.zoomMultiplier = 1;
   const drawerHost = ensureDrawerHost();
   const initialUrl = /^https?:\/\//i.test(window.location.href) ? window.location.href : "https://example.com";
   drawerHost.innerHTML = `<style>${breakpointStyles()}</style>
@@ -2122,12 +2354,31 @@ function openBreakpointViewer() {
         <input type="url" id="bpUrl" value="${escapeHtml(initialUrl)}" placeholder="https://..." />
         <select id="bpDeviceA">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 0 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
         <select id="bpDeviceB">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 3 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
+        <div class="qts-bp-zoom">
+          <button type="button" class="qts-bp-zoom-btn" id="bpZoomOut" title="Reduzir zoom">−</button>
+          <input type="range" id="bpZoom" min="50" max="200" step="10" value="100" title="Zoom" />
+          <span id="bpZoomLabel">100%</span>
+          <button type="button" class="qts-bp-zoom-btn" id="bpZoomIn" title="Aumentar zoom">+</button>
+        </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
         <button type="button" class="qts-bp-close" id="bpClose">×</button>
       </div>
       <div class="qts-bp-stage" id="bpStage"></div>
     </div>`;
+
+  const zoomSlider = drawerHost.querySelector("#bpZoom");
+  const zoomLabel = drawerHost.querySelector("#bpZoomLabel");
+  const applyZoom = (percent) => {
+    const clamped = Math.min(200, Math.max(50, percent));
+    zoomSlider.value = String(clamped);
+    zoomLabel.textContent = `${clamped}%`;
+    breakpointViewerState.zoomMultiplier = clamped / 100;
+    fitAndLoad();
+  };
+  zoomSlider.addEventListener("input", () => applyZoom(Number(zoomSlider.value)));
+  drawerHost.querySelector("#bpZoomOut").addEventListener("click", () => applyZoom(Number(zoomSlider.value) - 10));
+  drawerHost.querySelector("#bpZoomIn").addEventListener("click", () => applyZoom(Number(zoomSlider.value) + 10));
 
   const close = () => { cleanupBreakpointViewer(); closeDrawer(); };
   drawerHost.querySelector("#bpClose").addEventListener("click", close);
@@ -2176,7 +2427,12 @@ function openBreakpointViewer() {
     const paneHeightBudget = stage.clientHeight - 70;
     const widestDevice = Math.max(deviceA.width, deviceB.width);
     const tallestDevice = Math.max(deviceA.height, deviceB.height);
-    const scale = Math.min(1, paneWidthBudget / widestDevice, paneHeightBudget / tallestDevice);
+    // The zoom control (breakpointViewerState.zoomMultiplier) is a separate, user-driven
+    // multiplier layered on top of the auto-fit base scale, applied identically to both panes —
+    // it's the only way to see a device above its real pixel size, which the auto-fit scale
+    // deliberately never does on its own (see the comment above).
+    const baseScale = Math.min(1, paneWidthBudget / widestDevice, paneHeightBudget / tallestDevice);
+    const scale = baseScale * breakpointViewerState.zoomMultiplier;
 
     stage.querySelectorAll("[data-pane]").forEach((frame) => {
       const device = frame.dataset.pane === "a" ? deviceA : deviceB;
@@ -2595,6 +2851,105 @@ function downloadMacroJson(macros) {
   window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
 }
 
+function xpathLiteral(value) {
+  const text = String(value ?? "");
+  if (!text.includes('"')) return `"${text}"`;
+  if (!text.includes("'")) return `'${text}'`;
+  return `concat(${text.split('"').map((part, index) => `${index ? `, '\"', ` : ""}"${part}"`).join("")})`;
+}
+
+// ID-shortcut when available (short, stable); otherwise a positional path from <html> down,
+// counting only same-tag siblings so it stays valid even when siblings are added/removed.
+function buildXPath(element) {
+  if (!(element instanceof Element)) return "";
+  if (element.id) return `//*[@id=${xpathLiteral(element.id)}]`;
+  const segments = [];
+  let node = element;
+  while (node instanceof Element && node !== document.documentElement) {
+    let index = 1;
+    let sibling = node.previousElementSibling;
+    while (sibling) {
+      if (sibling.tagName === node.tagName) index += 1;
+      sibling = sibling.previousElementSibling;
+    }
+    segments.unshift(`${node.tagName.toLowerCase()}[${index}]`);
+    node = node.parentElement;
+  }
+  return `/html/${segments.join("/")}`;
+}
+
+// Reuses CLICK_SPY_SELECTOR's definition of "interactive element" rather than inventing a second
+// one. Never captures `.value` for any field (privacy) — only structural/locator data for the
+// automation team, with a `sensitive` flag (reusing the same detection Macro Studio/Key View use)
+// so they know which fields to handle carefully.
+function captureVisibleElements() {
+  return [...document.querySelectorAll(CLICK_SPY_SELECTOR)]
+    .filter((element) => !isInsideToolbarUi(element))
+    .map((element) => ({
+      tag: element.tagName.toLowerCase(),
+      type: element.getAttribute("type") || "",
+      name: element.getAttribute("name") || "",
+      id: element.id || "",
+      cssSelector: window.QTS_QA_TOOLS.uniqueSelector(element),
+      xpath: buildXPath(element),
+      text: String(element.getAttribute("aria-label") || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120),
+      placeholder: element.getAttribute("placeholder") || "",
+      sensitive: window.QTS_QA_TOOLS.isSensitiveElement(element),
+    }));
+}
+
+function toCsvCell(value) {
+  // Prevent spreadsheet formula injection when a site-controlled label/id begins with a
+  // formula marker. The apostrophe is how Excel/Sheets explicitly represent literal text.
+  const raw = String(value ?? "");
+  const text = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
+  return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+function downloadElementCaptureCsv(rows) {
+  const headers = ["tag", "type", "name", "id", "css_selector", "xpath", "text", "placeholder", "sensitive"];
+  const csvKeys = ["tag", "type", "name", "id", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
+  const lines = [headers.join(","), ...rows.map((row) => csvKeys.map((key) => toCsvCell(row[key])).join(","))];
+  // Leading BOM keeps accented pt-BR text readable when the CSV is opened directly in Excel.
+  const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `qa-element-capture-${new Date().toISOString().slice(0, 10)}.csv`;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
+}
+
+function openElementCapture() {
+  if (!requirePlanFeature("elementCapture")) return;
+  let rows = captureVisibleElements();
+  openDrawer({
+    title: "Capturar elementos",
+    wide: true,
+    bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
+      <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
+      <div class="qts-status" id="elementCaptureStatus"></div>
+      <div style="display:grid;gap:8px;max-height:360px;overflow:auto" id="elementCapturePreview"></div>`,
+    onReady(body) {
+      const status = body.querySelector("#elementCaptureStatus");
+      const preview = body.querySelector("#elementCapturePreview");
+      const exportButton = body.querySelector("#elementCaptureExport");
+      const renderPreview = () => {
+        status.textContent = `${rows.length} elemento(s) encontrado(s) na página atual.`;
+        exportButton.disabled = rows.length === 0;
+        preview.innerHTML = rows.length
+          ? rows.slice(0, 50).map((row) => `<div class="qts-net-item" style="cursor:default"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b>${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}<small>${escapeHtml(row.cssSelector)}</small></div>`).join("")
+          : `<div class="qts-empty">Nenhum elemento interativo encontrado nesta página.</div>`;
+      };
+      body.querySelector("#elementCaptureRescan").addEventListener("click", () => { rows = captureVisibleElements(); renderPreview(); });
+      exportButton.addEventListener("click", () => {
+        downloadElementCaptureCsv(rows);
+        showQaToast(`CSV exportado com ${rows.length} elemento(s).`);
+      });
+      renderPreview();
+    },
+  });
+}
+
 function renderPinnedMacros() {
   const container = state.shadowRoot?.getElementById("pinnedMacrosMenu");
   if (!container) return;
@@ -2638,7 +2993,13 @@ function cancelElementSelection() {
   state.selectionCleanup = null;
 }
 
-function selectPageElement({ accepts = () => true, onSelected, instruction }) {
+// `resolve` maps the literal click target to the element the caller actually cares about, before
+// `accepts` even runs — e.g. Input Lab wants clicking anywhere on a floating-label wrapper (a
+// common real-world pattern where the visible "input box" is a padded container around a
+// smaller <input>) to still resolve to the real <input>, not reject it outright. Defaults to
+// identity so callers that already accept the raw target (Multiclick, Faker Fill's own
+// `.closest("form")` check) are unaffected.
+function selectPageElement({ accepts = () => true, resolve = (target) => target, onSelected, instruction }) {
   closeDrawer();
   cancelElementSelection();
   const style = document.createElement("style");
@@ -2646,11 +3007,19 @@ function selectPageElement({ accepts = () => true, onSelected, instruction }) {
   style.textContent = "html.qts-selecting,html.qts-selecting *{cursor:crosshair!important}.qts-selection-candidate{outline:3px solid #ffd700!important;outline-offset:2px!important}";
   document.documentElement.appendChild(style);
   document.documentElement.classList.add("qts-selecting");
+  // Reinforces that Esc cancels — the first toast (below) gets buried once a few "not
+  // compatible" rejection toasts stack up, which previously left the only cancel hint invisible.
+  const hint = document.createElement("div");
+  hint.className = "qts-floating-item";
+  hint.style.cssText = "position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:2147483647;background:#0b0b0b;color:#ffd700;border:1px solid #ffd700;border-radius:999px;padding:6px 14px;font:700 11px sans-serif;pointer-events:none";
+  hint.textContent = translateQaSurfaceText("Esc para cancelar a seleção");
+  document.body.appendChild(hint);
   let candidate = null;
   const cleanup = () => {
     candidate?.classList.remove("qts-selection-candidate");
     document.documentElement.classList.remove("qts-selecting");
     style.remove();
+    hint.remove();
     document.removeEventListener("mouseover", onOver, true);
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("keydown", onKey, true);
@@ -2658,14 +3027,16 @@ function selectPageElement({ accepts = () => true, onSelected, instruction }) {
   const onOver = (event) => {
     if (event.target.closest?.(`#${HOST_ID}`)) return;
     candidate?.classList.remove("qts-selection-candidate");
-    candidate = event.target;
+    // Falls back to the raw hover target so *something* highlights under the cursor generally —
+    // but only the resolved candidate (if any) is what onClick will actually accept/select.
+    candidate = resolve(event.target) || event.target;
     candidate.classList.add("qts-selection-candidate");
   };
   const onClick = (event) => {
     if (event.target.closest?.(`#${HOST_ID}`)) return;
     event.preventDefault(); event.stopImmediatePropagation();
-    const target = event.target;
-    if (!accepts(target)) { showQaToast("Selecione um elemento compatível.", "error"); return; }
+    const target = resolve(event.target);
+    if (!target || !accepts(target)) { showQaToast("Selecione um elemento compatível.", "error"); return; }
     cleanup(); state.selectionCleanup = null; onSelected(target);
   };
   const onKey = (event) => { if (event.key === "Escape") { cleanup(); state.selectionCleanup = null; showQaToast("Seleção cancelada."); } };
@@ -2674,6 +3045,17 @@ function selectPageElement({ accepts = () => true, onSelected, instruction }) {
   document.addEventListener("keydown", onKey, true);
   state.selectionCleanup = cleanup;
   showQaToast(instruction || "Clique no elemento da página. Esc cancela.");
+}
+
+// Clicking anywhere on a real input resolves to itself; clicking a wrapper/label around it
+// (floating-label patterns, custom-select containers) searches its descendants first — the
+// common real case, since the visible "box" is usually the wrapper, not the input — falling back
+// to ancestors for the rarer case of clicking a decorative child nested inside the input's own
+// wrapper alongside it.
+function resolveFormControlTarget(target) {
+  if (!(target instanceof Element)) return null;
+  if (["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName)) return target;
+  return target.querySelector?.("input,textarea,select") || target.closest?.("input,textarea,select") || null;
 }
 
 function openMultiClick(selectedElement = null) {
@@ -2712,7 +3094,7 @@ function openInputLab(selectedElement = null) {
       <button class="action" id="inputSelect" type="button">Selecionar input na página</button>${infoHtml}
       ${info ? `<button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Rodar kit de validação</button><div id="inputResults"></div>` : ""}`,
     onReady(body) {
-      body.querySelector("#inputSelect").addEventListener("click", () => selectPageElement({ accepts: (element) => ["INPUT", "TEXTAREA", "SELECT"].includes(element.tagName), onSelected: (element) => openInputLab(element), instruction: "Clique no input que deseja validar." }));
+      body.querySelector("#inputSelect").addEventListener("click", () => selectPageElement({ resolve: resolveFormControlTarget, accepts: (element) => Boolean(element), onSelected: (element) => openInputLab(element), instruction: "Clique no input que deseja validar." }));
       body.querySelector("#inputRun")?.addEventListener("click", async (event) => {
         const runButton = event.currentTarget;
         runButton.disabled = true;

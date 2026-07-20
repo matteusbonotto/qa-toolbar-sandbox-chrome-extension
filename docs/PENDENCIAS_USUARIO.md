@@ -6,21 +6,21 @@
 > lista antiga. Nenhum destes itens pode ser feito por mim — todos exigem login, senha, service
 > role key, OTP ou uma tela que só você tem acesso.
 
-## 1. Aplicar a migration de feature flags no banco real (BLOQUEIA os planos)
+## 1. [RESOLVIDO] Feature flags aplicadas no banco real
 
-Sem isso, `characterCounter`, `multiClick`, `inputLab`, `fakerFill`, `macroStudio` e `keyView`
-continuam ausentes da tabela **Feature flags** do admin e bloqueados pra todo mundo, inclusive
-Release Manager.
+`characterCounter`, `multiClick`, `inputLab`, `fakerFill`, `macroStudio`, `keyView` e
+`elementCapture` foram aplicadas em produção pela API em 2026-07-20, sem Supabase CLI nem acesso
+de administrador do Windows. A leitura anterior mostrou somente `elementCapture.enabled` ausente;
+depois do upsert idempotente, a verificação confirmou as 28 células plano × ferramenta.
 
-- [ ] Rode localmente, com sua service-role key:
+- [x] Aplicado com a service-role key local:
   ```
   SUPABASE_URL=https://xhusvkylbouwtpcevgri.supabase.co SUPABASE_SERVICE_ROLE_KEY=<sua chave> node scripts/apply-plan-features-migration.mjs
   ```
-  Ele mesmo confirma no final ("Done. All 6 tools are now correctly gated...").
-- [ ] Se der qualquer erro, roda `node scripts/verify-plan-features.mjs` (mesmas variáveis) e
-      cola aqui o que ele imprimir.
-- [ ] Depois de rodar, atualiza `/admin/` → **Feature flags** e confirma que as 6 linhas novas
-      aparecem com a coluna Release Manager marcada.
+  Ele mesmo confirma no final ("Done. All 7 tools are now correctly gated...").
+- [x] `node scripts/verify-plan-features.mjs` executado depois da escrita: nenhuma divergência.
+- [x] A API confirmou as 7 flags e Release Manager marcado em todas; não depende de conferência
+      visual no admin para considerar a matriz aplicada.
 
 ## 2. Redeploy das Edge Functions (a correção do login de admin só entra em vigor depois disso)
 
@@ -49,13 +49,26 @@ bloqueando o upload. Você pediu pra não investigar isso agora. Quando quiser r
 mais recente de **Build Chrome Web Store package** → job **publish-to-store** → passo **"Upload to
 Chrome Web Store"** e cola aqui a mensagem de erro.
 
+## 6. Nova migration: status da Chrome Web Store na LP (2026-07-20)
+
+A LP agora mostra a versão do pacote e, se a Chrome Web Store estiver desatualizada, um aviso
+"em análise do Google" — mas isso lê de uma tabela nova que só existe depois que você aplicar a
+migration.
+
+- [ ] Aplique `supabase/migrations/20260720010000_store_listing_status.sql` (cole no SQL Editor
+      do Supabase, ou rode via CLI — é idempotente).
+- [ ] Sempre que checar o painel real da Chrome Web Store, atualize a linha única da tabela
+      `store_listing_status` (Table Editor do Supabase) com a versão publicada e o status
+      (`pending_review` / `live` / `rejected`). Isso é manual de propósito — automatizar exigiria
+      um novo secret de CI com escrita no banco, que não criei sem sua aprovação.
+
 ## 5. Teste ao vivo que ainda falta
 
 - [ ] Fluxo completo de "Esqueci minha senha" com e-mail real (pedir link → abrir e-mail →
       `/redefinir-senha` → trocar senha → logar com a nova).
-- [ ] Depois que o item 1 acima estiver resolvido: conferir com uma conta real de plano baixo
-      (ex. Smoke Test) que Macro Studio e Key View realmente somem do menu — hoje só está
-      validado com plano mockado no smoke automatizado.
+- [ ] Conferir com uma conta real de plano baixo (ex. Smoke Test) que Macro Studio, Key View e
+      Capturar Elementos realmente somem do menu — a matriz real já foi verificada via API, mas
+      esse teste visual ainda exige uma segunda conta/assinatura.
 
 ## O que já está confirmado certo (verificado de novo em 2026-07-19, não é suposição)
 

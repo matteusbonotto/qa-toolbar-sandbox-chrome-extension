@@ -58,6 +58,11 @@ export const featureGroups: FeatureGroup[] = [
     items: [{ key: "keyView", icon: "keyboard" }],
   },
   {
+    key: "elementCapture",
+    icon: "crosshair",
+    items: [{ key: "elementCapture", icon: "crosshair" }],
+  },
+  {
     key: "sandboxData",
     icon: "key",
     items: [

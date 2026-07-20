@@ -1,6 +1,48 @@
 const { getWorkspace, saveWorkspace, getSiteScope, saveSiteScope, normalizeWorkspace, normalizeUrlPatterns, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 const ICON = window.QTS_ICONS.svg;
 
+let imageEditorTarget = null;
+let imageEditorImage = null;
+
+function drawImageEditorPreview() {
+  const canvas = document.getElementById("imageEditorCanvas");
+  const context = canvas.getContext("2d");
+  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.fillStyle = "#0c0e14";
+  context.fillRect(0, 0, canvas.width, canvas.height);
+  if (!imageEditorImage?.naturalWidth) return;
+  const zoom = Number(document.getElementById("imageEditorZoom").value) || 1;
+  const baseScale = Math.max(canvas.width / imageEditorImage.naturalWidth, canvas.height / imageEditorImage.naturalHeight);
+  const width = imageEditorImage.naturalWidth * baseScale * zoom;
+  const height = imageEditorImage.naturalHeight * baseScale * zoom;
+  const xRange = Math.max(0, (width - canvas.width) / 2);
+  const yRange = Math.max(0, (height - canvas.height) / 2);
+  const x = (canvas.width - width) / 2 + xRange * (Number(document.getElementById("imageEditorX").value) / 100);
+  const y = (canvas.height - height) / 2 + yRange * (Number(document.getElementById("imageEditorY").value) / 100);
+  context.drawImage(imageEditorImage, x, y, width, height);
+}
+
+function openImageEditor(target) {
+  const source = target.value.trim();
+  if (!source) return;
+  const dialog = document.getElementById("imageEditorDialog");
+  const hint = document.getElementById("imageEditorHint");
+  imageEditorTarget = target;
+  imageEditorImage = new Image();
+  if (/^https?:/i.test(source)) imageEditorImage.crossOrigin = "anonymous";
+  hint.textContent = t("Carregando imagem…");
+  document.getElementById("imageEditorApply").disabled = true;
+  imageEditorImage.onload = () => {
+    hint.textContent = t("A prévia já representa o recorte final usado na barra.");
+    document.getElementById("imageEditorApply").disabled = false;
+    drawImageEditorPreview();
+  };
+  imageEditorImage.onerror = () => { hint.textContent = t("Não foi possível editar esta URL. Use upload ou uma imagem que permita acesso CORS."); };
+  imageEditorImage.src = source;
+  ["imageEditorZoom", "imageEditorX", "imageEditorY"].forEach((id) => { document.getElementById(id).value = id === "imageEditorZoom" ? "1" : "0"; });
+  dialog.showModal();
+}
+
 // URL-vs-upload toggle for logo/image fields: both modes write into the same underlying
 // [data-image-url] input, so every existing reader of that field's .value (appearance(), the
 // test-account form) keeps working unchanged regardless of which mode produced the value.
@@ -8,6 +50,12 @@ function wireImageUpload(group) {
   const urlInput = group.querySelector("[data-image-url]");
   const fileInput = group.querySelector("[data-image-file]");
   const modeButtons = group.querySelectorAll("[data-image-mode]");
+  const editButton = document.createElement("button");
+  editButton.type = "button";
+  editButton.className = "button imageEditButton";
+  editButton.textContent = "Ajustar";
+  editButton.disabled = !urlInput.value;
+  group.appendChild(editButton);
   const setMode = (mode) => {
     group.dataset.mode = mode;
     modeButtons.forEach((button) => button.classList.toggle("isActive", button.dataset.imageMode === mode));
@@ -18,16 +66,37 @@ function wireImageUpload(group) {
     const file = fileInput.files?.[0];
     if (!file) { setMode("url"); return; }
     const reader = new FileReader();
-    reader.onload = () => { urlInput.value = String(reader.result || ""); };
+    reader.onload = () => { urlInput.value = String(reader.result || ""); editButton.disabled = !urlInput.value; };
     reader.readAsDataURL(file);
   });
+  urlInput.addEventListener("input", () => { editButton.disabled = !urlInput.value.trim(); });
+  editButton.addEventListener("click", () => openImageEditor(urlInput));
 }
 document.querySelectorAll("[data-image-group]").forEach(wireImageUpload);
+
+document.querySelectorAll("#imageEditorZoom,#imageEditorX,#imageEditorY").forEach((input) => input.addEventListener("input", drawImageEditorPreview));
+document.getElementById("imageEditorReset").addEventListener("click", () => {
+  document.getElementById("imageEditorZoom").value = "1";
+  document.getElementById("imageEditorX").value = "0";
+  document.getElementById("imageEditorY").value = "0";
+  drawImageEditorPreview();
+});
+document.getElementById("imageEditorClose").addEventListener("click", () => document.getElementById("imageEditorDialog").close());
+document.getElementById("imageEditorApply").addEventListener("click", () => {
+  try {
+    imageEditorTarget.value = document.getElementById("imageEditorCanvas").toDataURL("image/webp", 0.9);
+    imageEditorTarget.dispatchEvent(new Event("input", { bubbles: true }));
+    document.getElementById("imageEditorDialog").close();
+  } catch {
+    document.getElementById("imageEditorHint").textContent = t("O navegador bloqueou o recorte desta URL. Baixe a imagem e use Upload.");
+  }
+});
 
 let workspace = null;
 let accessState = null;
 let currentLocale = "pt-BR";
 let searchQuery = "";
+let activeWorkspaceTab = "structure";
 const revealedAccountIds = new Set();
 
 function t(message, replacements) {
@@ -58,10 +127,27 @@ function runtimeMessage(message) {
   return new Promise((resolve) => chrome.runtime.sendMessage(message, (response) => resolve(response ?? {})));
 }
 
+const NAV_WORKSPACE_ROUTES = Object.freeze({ workspace: "structure", "test-data": "accounts", integrations: "integrations" });
+
+function activateWorkspaceTab(tabName, { syncNavigation = false } = {}) {
+  const target = document.querySelector(`[data-workspace-pane="${tabName}"]`) ? tabName : "structure";
+  activeWorkspaceTab = target;
+  document.querySelectorAll(".workspaceTab").forEach((item) => {
+    const active = item.dataset.workspaceTab === target;
+    item.classList.toggle("isActive", active);
+    item.setAttribute("aria-selected", String(active));
+  });
+  document.querySelectorAll(".workspacePane").forEach((pane) => pane.classList.toggle("isActive", pane.dataset.workspacePane === target));
+  if (syncNavigation) document.querySelectorAll(".navItem").forEach((item) => item.classList.toggle("isActive", item.dataset.tab === "workspace"));
+}
+
 function switchTab(tabName) {
   if (tabName !== "account" && !accessState?.active) tabName = "account";
   document.querySelectorAll(".navItem").forEach((item) => item.classList.toggle("isActive", item.dataset.tab === tabName));
-  document.querySelectorAll(".panel").forEach((panel) => panel.classList.toggle("isActive", panel.dataset.panel === tabName));
+  const workspaceRoute = NAV_WORKSPACE_ROUTES[tabName];
+  const panelName = workspaceRoute ? "workspace" : tabName;
+  document.querySelectorAll(".panel").forEach((panel) => panel.classList.toggle("isActive", panel.dataset.panel === panelName));
+  if (workspaceRoute) activateWorkspaceTab(workspaceRoute);
 }
 
 function showMessage(elementId, message, kind = "") {
@@ -97,6 +183,7 @@ async function loadAccess(force = false) {
 }
 
 document.querySelectorAll(".navItem").forEach((item) => item.addEventListener("click", () => switchTab(item.dataset.tab)));
+document.querySelectorAll(".workspaceTab").forEach((item) => item.addEventListener("click", () => activateWorkspaceTab(item.dataset.workspaceTab, { syncNavigation: true })));
 document.querySelectorAll("#langSwitch button").forEach((button) => button.addEventListener("click", async () => {
   await window.QTS_I18N.setLocale(button.dataset.locale); await loadLocale(); renderWorkspace();
 }));
@@ -176,6 +263,8 @@ function hasKeyViewPlanAccess() {
 function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
   document.getElementById("compactMode").checked = preferences.compactMode === true;
+  const compactEntities = preferences.compactEntities || { project: preferences.compactMode === true, product: preferences.compactMode === true };
+  document.querySelectorAll("[data-compact-entity]").forEach((checkbox) => { checkbox.checked = compactEntities[checkbox.dataset.compactEntity] === true; });
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
   document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
@@ -197,11 +286,15 @@ function loadPreferenceUi() {
   document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
   const enabledTools = new Set(preferences.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
   document.querySelectorAll("[data-tool]").forEach((checkbox) => { checkbox.checked = enabledTools.has(checkbox.dataset.tool); });
+  const breadcrumbVisibility = preferences.breadcrumbVisibility || {};
+  document.querySelectorAll("[data-breadcrumb]").forEach((checkbox) => { checkbox.checked = breadcrumbVisibility[checkbox.dataset.breadcrumb] !== false; });
 }
 document.getElementById("savePreferences").addEventListener("click", async () => {
+  const compactEntities = Object.fromEntries([...document.querySelectorAll("[data-compact-entity]")].map((checkbox) => [checkbox.dataset.compactEntity, checkbox.checked]));
   workspace.preferences = {
     ...(workspace.preferences || {}),
-    compactMode: document.getElementById("compactMode").checked,
+    compactMode: compactEntities.project === true && compactEntities.product === true,
+    compactEntities,
     pushSiteContent: document.getElementById("pushSiteContent").checked,
     soundEffects: document.getElementById("soundEffects").checked,
     avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
@@ -214,6 +307,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     },
     pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
+    breadcrumbVisibility: Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked])),
   };
   await persistWorkspace();
   document.getElementById("preferencesSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
@@ -234,8 +328,10 @@ function matchesSearch(item) {
 }
 
 function rowActions(collection, item, { reveal = false } = {}) {
+  const reorderable = ["clients", "projects", "products"].includes(collection) && (workspace[collection] || []).length > 1;
   return `<div class="rowActions">
     ${reveal ? `<button type="button" data-action="reveal" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mostrar/ocultar senha"))}">${escapeHtml(t(revealedAccountIds.has(item.id) ? "Ocultar" : "Ver"))}</button>` : ""}
+    ${reorderable ? `<button type="button" data-action="move-up" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para cima"))}">↑</button><button type="button" data-action="move-down" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para baixo"))}">↓</button>` : ""}
     <button type="button" data-action="edit" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Editar"))}">${escapeHtml(t("Editar"))}</button>
     <button type="button" data-action="duplicate" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Duplicar"))}">${escapeHtml(t("Duplicar"))}</button>
     <button type="button" data-action="toggle" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Ativar/desativar"))}">${escapeHtml(t(item.active === false ? "Ativar" : "Pausar"))}</button>
@@ -257,6 +353,87 @@ function renderSelect(selectId, items, placeholder) {
   if (items.some((item) => item.id === current)) select.value = current;
 }
 
+let environmentPatternsDraft = [];
+let urlSelectedEnvironmentIds = new Set();
+
+function renderEnvironmentPatternChips() {
+  const container = document.getElementById("environmentPatternChips");
+  document.getElementById("environmentPatterns").value = environmentPatternsDraft.join("\n");
+  container.innerHTML = environmentPatternsDraft.length
+    ? environmentPatternsDraft.map((pattern, index) => `<span class="chip"><span>${escapeHtml(pattern)}</span><button type="button" data-remove-environment-pattern="${index}" aria-label="${escapeHtml(t("Remover URL"))}">×</button></span>`).join("")
+    : `<span class="chipPlaceholder">${escapeHtml(t("Nenhuma URL adicionada."))}</span>`;
+}
+
+function setEnvironmentPatterns(patterns) {
+  environmentPatternsDraft = normalizeUrlPatterns(patterns);
+  renderEnvironmentPatternChips();
+}
+
+function addEnvironmentPatternDraft() {
+  const input = document.getElementById("environmentPatternDraft");
+  const additions = normalizeUrlPatterns(input.value);
+  if (!additions.length) return;
+  setEnvironmentPatterns([...environmentPatternsDraft, ...additions]);
+  input.value = "";
+  input.setCustomValidity("");
+  input.focus();
+}
+
+function deriveUrlRelations() {
+  const relations = new Map();
+  for (const environment of workspace.environments || []) {
+    for (const pattern of environment.urlPatterns || []) {
+      if (!relations.has(pattern)) relations.set(pattern, []);
+      relations.get(pattern).push(environment.id);
+    }
+  }
+  return [...relations.entries()].map(([pattern, environmentIds]) => ({ pattern, environmentIds }));
+}
+
+function renderUrlEnvironmentPicker() {
+  const container = document.getElementById("urlEnvironmentPicker");
+  const environments = workspace.environments || [];
+  if (!environments.length) {
+    container.innerHTML = `<div class="listEmpty">${escapeHtml(t("Crie um ambiente antes de associar URLs."))}</div>`;
+    return;
+  }
+  if (environments.length <= 4) {
+    container.innerHTML = `<div class="environmentToggles">${environments.map((environment) => {
+      const selected = urlSelectedEnvironmentIds.has(environment.id);
+      return `<button type="button" class="environmentToggle${selected ? " isSelected" : ""}" data-url-environment="${escapeHtml(environment.id)}" aria-pressed="${selected}"><span style="--environment-color:${escapeHtml(environment.color)}"></span>${escapeHtml(environmentDisplayName(environment))}</button>`;
+    }).join("")}</div>`;
+    container.querySelectorAll("[data-url-environment]").forEach((button) => button.addEventListener("click", () => {
+      const id = button.dataset.urlEnvironment;
+      urlSelectedEnvironmentIds.has(id) ? urlSelectedEnvironmentIds.delete(id) : urlSelectedEnvironmentIds.add(id);
+      renderUrlEnvironmentPicker();
+    }));
+    return;
+  }
+  const selectedLabel = t("{count} ambiente(s) selecionado(s)", { count: urlSelectedEnvironmentIds.size });
+  container.innerHTML = `<details class="environmentMultiSelect"><summary>${escapeHtml(selectedLabel)}</summary><div class="multiSelectPanel"><div class="multiSelectTools"><input type="search" data-environment-search placeholder="${escapeHtml(t("Buscar ambiente"))}" /><button type="button" data-clear-environments>${escapeHtml(t("Limpar seleção"))}</button></div><div class="multiSelectOptions">${environments.map((environment) => `<label data-environment-option="${escapeHtml(environmentDisplayName(environment).toLowerCase())}"><input type="checkbox" value="${escapeHtml(environment.id)}" ${urlSelectedEnvironmentIds.has(environment.id) ? "checked" : ""} /> <span style="--environment-color:${escapeHtml(environment.color)}"></span>${escapeHtml(environmentDisplayName(environment))}</label>`).join("")}</div></div></details>`;
+  container.querySelectorAll('.multiSelectOptions input[type="checkbox"]').forEach((input) => input.addEventListener("change", () => {
+    input.checked ? urlSelectedEnvironmentIds.add(input.value) : urlSelectedEnvironmentIds.delete(input.value);
+    renderUrlEnvironmentPicker();
+    container.querySelector("details")?.setAttribute("open", "");
+  }));
+  container.querySelector("[data-clear-environments]").addEventListener("click", () => { urlSelectedEnvironmentIds.clear(); renderUrlEnvironmentPicker(); });
+  container.querySelector("[data-environment-search]").addEventListener("input", (event) => {
+    const query = event.target.value.trim().toLowerCase();
+    container.querySelectorAll("[data-environment-option]").forEach((option) => { option.hidden = !option.dataset.environmentOption.includes(query); });
+  });
+}
+
+function renderUrlRelations() {
+  const relations = deriveUrlRelations().filter((item) => !searchQuery || item.pattern.toLowerCase().includes(searchQuery) || item.environmentIds.some((id) => environmentDisplayName(findById("environments", id) || {}).toLowerCase().includes(searchQuery)));
+  const list = document.getElementById("urlRelationList");
+  document.getElementById("urlRelationCount").textContent = String(deriveUrlRelations().length);
+  list.innerHTML = relations.length ? relations.map((relation) => {
+    const badges = relation.environmentIds.map((id) => findById("environments", id)).filter(Boolean).map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
+    return `<div class="listRow relationRow"><div><b class="urlPattern">${escapeHtml(relation.pattern)}</b><small class="relationBadges">${badges}</small></div><div class="rowActions"><button type="button" data-url-action="edit" data-pattern="${escapeHtml(relation.pattern)}">${escapeHtml(t("Editar"))}</button><button type="button" data-url-action="remove" data-pattern="${escapeHtml(relation.pattern)}">${escapeHtml(t("Excluir"))}</button></div></div>`;
+  }).join("") : `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nenhuma URL cadastrada ainda."))}</div>`;
+  renderUrlEnvironmentPicker();
+}
+
 function renderWorkspace() {
   for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
@@ -268,12 +445,17 @@ function renderWorkspace() {
   renderRows("environments", (item) => `<b style="color:${escapeHtml(item.color)}">● ${escapeHtml(item.name)}</b><small>${escapeHtml(findById("products", item.productId)?.name || "—")} · ${escapeHtml((item.urlPatterns || []).join(", "))}</small>`);
   renderRows("testAccounts", (item) => {
     const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "—";
-    return `<b>${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(environmentDisplayName(findById("environments", item.environmentId) || {}))} · ${escapeHtml(item.username || "—")} · ${password}</small>`;
+    // The toolbar's own read-only drawer already renders this image (renderTestAccountsList in
+    // toolbar.js) — this options-page list never did, so the same uploaded/URL icon that shows
+    // up later was invisible here while managing the account.
+    const typeImage = item.accountTypeImage ? `<img src="${escapeHtml(item.accountTypeImage)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : "";
+    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(environmentDisplayName(findById("environments", item.environmentId) || {}))} · ${escapeHtml(item.username || "—")} · ${password}</small>`;
   }, { reveal: (item) => Boolean(item.password) });
   renderRows("paymentMethods", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.environmentId ? environmentDisplayName(findById("environments", item.environmentId) || {}) : t("Todos os ambientes"))} · ${escapeHtml(item.notes || "")}</small>`);
   renderRows("inspectors", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml((item.patterns || []).join(", "))}</small>`);
   renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "—")} · ${escapeHtml(t(item.token ? "token local configurado" : "sem token"))}</small>`);
   renderRows("resources", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.url || "—")}</small>`);
+  renderUrlRelations();
   renderSelect("projectClient", workspace.clients, t("Selecione o cliente"));
   renderSelect("productProject", workspace.projects, t("Selecione o projeto"));
   renderSelect("environmentProduct", workspace.products, t("Selecione o produto"));
@@ -281,6 +463,7 @@ function renderWorkspace() {
   renderSelect("paymentMethodEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Todos os ambientes"));
   loadPreferenceUi();
   renderWorkspaceWizard();
+  activateWorkspaceTab(activeWorkspaceTab);
   window.QTS_OPTIONS_I18N.apply(currentLocale);
 }
 
@@ -292,10 +475,10 @@ let wizardLastActiveStep = -1;
 function renderWorkspaceWizard() {
   const wizard = document.getElementById("workspaceWizard");
   const steps = [
-    { label: t("Cliente"), done: workspace.clients.length > 0, targetId: "clientName" },
-    { label: t("Projeto"), done: workspace.projects.length > 0, targetId: "projectClient" },
-    { label: t("Produto"), done: workspace.products.length > 0, targetId: "productProject" },
-    { label: t("Ambiente"), done: workspace.environments.length > 0, targetId: "environmentProduct" },
+    { label: t("Cliente"), done: workspace.clients.length > 0, targetId: "clientName", tab: "structure", composer: "clientComposer" },
+    { label: t("Projeto"), done: workspace.projects.length > 0, targetId: "projectClient", tab: "structure", composer: "projectComposer" },
+    { label: t("Produto"), done: workspace.products.length > 0, targetId: "productProject", tab: "structure", composer: "productComposer" },
+    { label: t("Ambiente"), done: workspace.environments.length > 0, targetId: "environmentProduct", tab: "environments", composer: "environmentComposer" },
   ];
   const activeIndex = steps.findIndex((step) => !step.done);
   if (activeIndex === -1) {
@@ -310,16 +493,18 @@ function renderWorkspaceWizard() {
       <span>${escapeHtml(step.label)}</span>
     </li>
   `).join("");
-  document.querySelectorAll("#wizardSteps [data-wizard-step]").forEach((item) => item.addEventListener("click", () => {
-    const target = document.getElementById(steps[Number(item.dataset.wizardStep)].targetId);
+  const focusStep = (step) => {
+    activateWorkspaceTab(step.tab, { syncNavigation: true });
+    const composer = document.getElementById(step.composer);
+    if (composer) composer.open = true;
+    const target = document.getElementById(step.targetId);
     target?.scrollIntoView({ behavior: "smooth", block: "center" });
     target?.focus();
-  }));
-  if (activeIndex !== wizardLastActiveStep) {
+  };
+  document.querySelectorAll("#wizardSteps [data-wizard-step]").forEach((item) => item.addEventListener("click", () => focusStep(steps[Number(item.dataset.wizardStep)])));
+  if (activeIndex !== wizardLastActiveStep && accessState?.active && document.querySelector('[data-panel="workspace"]')?.classList.contains("isActive")) {
     wizardLastActiveStep = activeIndex;
-    const target = document.getElementById(steps[activeIndex].targetId);
-    target?.scrollIntoView({ behavior: "smooth", block: "center" });
-    target?.focus();
+    focusStep(steps[activeIndex]);
   }
 }
 
@@ -347,12 +532,15 @@ function clearEdit(prefix) {
   document.getElementById(`${prefix}EditId`).value = "";
   form.querySelector(`[data-cancel="${prefix}"]`).hidden = true;
   const showLabel = document.getElementById(`${prefix}ShowLabel`); if (showLabel) showLabel.checked = true;
-  if (prefix === "environment") document.getElementById("environmentColor").value = "#3a3a3a";
+  if (prefix === "environment") { document.getElementById("environmentColor").value = "#3a3a3a"; setEnvironmentPatterns([]); document.getElementById("environmentPatternDraft").value = ""; }
   form.querySelectorAll("[data-image-group]").forEach((group) => {
     group.dataset.mode = "url";
     group.querySelectorAll("[data-image-mode]").forEach((button) => button.classList.toggle("isActive", button.dataset.imageMode === "url"));
+    group.querySelector("[data-image-url]")?.dispatchEvent(new Event("input", { bubbles: true }));
   });
   if (prefix === "testAccount") { testAccountCustomFieldsDraft = []; renderCustomFieldsEditor(); }
+  const composer = document.getElementById(`${prefix}Composer`);
+  if (composer) composer.open = false;
 }
 
 // Test account custom fields: a small user-defined key/type/value schema (string/boolean/
@@ -396,42 +584,105 @@ document.getElementById("testAccountAddField").addEventListener("click", () => {
   testAccountCustomFieldsDraft.push({ key: "", type: "string", value: "" });
   renderCustomFieldsEditor();
 });
+document.getElementById("environmentPatternAdd").addEventListener("click", addEnvironmentPatternDraft);
+document.getElementById("environmentPatternDraft").addEventListener("keydown", (event) => { if (event.key === "Enter" || event.key === ",") { event.preventDefault(); addEnvironmentPatternDraft(); } });
+document.getElementById("environmentPatternChips").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-environment-pattern]");
+  if (!button) return;
+  environmentPatternsDraft.splice(Number(button.dataset.removeEnvironmentPattern), 1);
+  renderEnvironmentPatternChips();
+});
 document.querySelectorAll(".cancelEdit").forEach((button) => button.addEventListener("click", () => clearEdit(button.dataset.cancel)));
 
 document.getElementById("clientForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("clientEditId").value; upsert("clients", { id: editId || uid("client"), name: document.getElementById("clientName").value.trim(), ...appearance("client") }, editId); clearEdit("client"); await persistWorkspace(); });
 document.getElementById("projectForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("projectEditId").value; upsert("projects", { id: editId || uid("project"), clientId: document.getElementById("projectClient").value, name: document.getElementById("projectName").value.trim(), ...appearance("project") }, editId); clearEdit("project"); await persistWorkspace(); });
 document.getElementById("productForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("productEditId").value; upsert("products", { id: editId || uid("product"), projectId: document.getElementById("productProject").value, name: document.getElementById("productName").value.trim(), ...appearance("product") }, editId); clearEdit("product"); await persistWorkspace(); });
-document.getElementById("environmentForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("environmentEditId").value; const productId = document.getElementById("environmentProduct").value; const product = findById("products", productId); const project = findById("projects", product?.projectId); upsert("environments", { id: editId || uid("env"), productId, projectId: project?.id, clientId: project?.clientId, name: document.getElementById("environmentName").value.trim(), color: document.getElementById("environmentColor").value, urlPatterns: normalizeUrlPatterns(document.getElementById("environmentPatterns").value), active: true }, editId); clearEdit("environment"); await persistWorkspace(); });
+document.getElementById("environmentForm").addEventListener("submit", async (event) => { event.preventDefault(); const input = document.getElementById("environmentPatternDraft"); const legacyPatterns = normalizeUrlPatterns(document.getElementById("environmentPatterns").value); const urlPatterns = normalizeUrlPatterns([...environmentPatternsDraft, ...legacyPatterns, ...normalizeUrlPatterns(input.value)]); if (!urlPatterns.length) { input.setCustomValidity(t("Adicione pelo menos uma URL ao ambiente.")); input.reportValidity(); input.focus(); return; } input.setCustomValidity(""); const editId = document.getElementById("environmentEditId").value; const productId = document.getElementById("environmentProduct").value; const product = findById("products", productId); const project = findById("projects", product?.projectId); upsert("environments", { id: editId || uid("env"), productId, projectId: project?.id, clientId: project?.clientId, name: document.getElementById("environmentName").value.trim(), color: document.getElementById("environmentColor").value, urlPatterns, primaryUrl: document.getElementById("environmentPrimaryUrl").value.trim(), active: true }, editId); clearEdit("environment"); await persistWorkspace(); });
 
 document.getElementById("testAccountForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("testAccountEditId").value; const existing = findById("testAccounts", editId); const password = document.getElementById("testAccountPassword").value; upsert("testAccounts", { id: editId || uid("account"), environmentId: document.getElementById("testAccountEnvironment").value, label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId); clearEdit("testAccount"); await persistWorkspace(); });
-document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("paymentMethodEditId").value; const existing = findById("paymentMethods", editId); upsert("paymentMethods", { id: editId || uid("payment"), environmentId: document.getElementById("paymentMethodEnvironment").value || null, label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId); clearEdit("paymentMethod"); await persistWorkspace(); });
+document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("paymentMethodEditId").value; const existing = findById("paymentMethods", editId); upsert("paymentMethods", { id: editId || uid("payment"), environmentId: document.getElementById("paymentMethodEnvironment").value || null, label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId); clearEdit("paymentMethod"); await persistWorkspace(); });
 document.getElementById("inspectorForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("inspectorEditId").value; upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId); clearEdit("inspector"); await persistWorkspace(); });
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
-document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
+document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), icon: document.getElementById("resourceIcon").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
+
+function clearUrlRelationEdit() {
+  document.getElementById("urlRelationForm").reset();
+  document.getElementById("urlEditOriginal").value = "";
+  document.getElementById("urlRelationCancel").hidden = true;
+  urlSelectedEnvironmentIds = new Set();
+  renderUrlEnvironmentPicker();
+  document.getElementById("urlRelationComposer").open = false;
+}
+
+document.getElementById("urlRelationCancel").addEventListener("click", clearUrlRelationEdit);
+document.getElementById("urlRelationForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const patternInput = document.getElementById("urlPatternInput");
+  const pattern = normalizeUrlPatterns(patternInput.value)[0];
+  if (!pattern) { patternInput.setCustomValidity(t("Informe uma URL ou padrão válido.")); patternInput.reportValidity(); return; }
+  patternInput.setCustomValidity("");
+  if (!urlSelectedEnvironmentIds.size) { patternInput.setCustomValidity(t("Selecione pelo menos um ambiente.")); patternInput.reportValidity(); return; }
+  patternInput.setCustomValidity("");
+  const original = document.getElementById("urlEditOriginal").value;
+  workspace.environments = workspace.environments.map((environment) => {
+    const patterns = (environment.urlPatterns || []).filter((item) => item !== original && item !== pattern);
+    if (urlSelectedEnvironmentIds.has(environment.id)) patterns.push(pattern);
+    const primaryUrl = original && environment.primaryUrl === original ? (urlSelectedEnvironmentIds.has(environment.id) ? pattern : "") : environment.primaryUrl;
+    return { ...environment, urlPatterns: normalizeUrlPatterns(patterns), primaryUrl };
+  });
+  clearUrlRelationEdit();
+  await persistWorkspace();
+});
+
+document.getElementById("urlRelationList").addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-url-action][data-pattern]");
+  if (!button) return;
+  const pattern = button.dataset.pattern;
+  if (button.dataset.urlAction === "edit") {
+    activateWorkspaceTab("urls", { syncNavigation: true });
+    document.getElementById("urlEditOriginal").value = pattern;
+    document.getElementById("urlPatternInput").value = pattern;
+    urlSelectedEnvironmentIds = new Set(deriveUrlRelations().find((item) => item.pattern === pattern)?.environmentIds || []);
+    document.getElementById("urlRelationCancel").hidden = false;
+    document.getElementById("urlRelationComposer").open = true;
+    renderUrlEnvironmentPicker();
+    document.getElementById("urlPatternInput").focus();
+    return;
+  }
+  if (!confirm(t("Remover esta URL de todos os ambientes?"))) return;
+  workspace.environments = workspace.environments.map((environment) => ({ ...environment, urlPatterns: (environment.urlPatterns || []).filter((item) => item !== pattern), primaryUrl: environment.primaryUrl === pattern ? "" : environment.primaryUrl }));
+  await persistWorkspace();
+});
 
 function editItem(collection, item) {
   const prefix = COLLECTION_UI[collection].prefix;
+  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations" };
+  activateWorkspaceTab(workspaceTabs[collection] || "structure", { syncNavigation: true });
+  const composer = document.getElementById(`${prefix}Composer`);
+  if (composer) composer.open = true;
   document.getElementById(`${prefix}EditId`).value = item.id;
   document.querySelector(`[data-cancel="${prefix}"]`).hidden = false;
   const values = {
     clients: { clientName: item.name, clientLogoUrl: item.logoUrl, clientAbbreviation: item.abbreviation, clientShowLabel: item.showLabel !== false },
     projects: { projectClient: item.clientId, projectName: item.name, projectLogoUrl: item.logoUrl, projectAbbreviation: item.abbreviation, projectShowLabel: item.showLabel !== false },
     products: { productProject: item.projectId, productName: item.name, productLogoUrl: item.logoUrl, productAbbreviation: item.abbreviation, productShowLabel: item.showLabel !== false },
-    environments: { environmentProduct: item.productId, environmentName: item.name, environmentColor: item.color, environmentPatterns: (item.urlPatterns || []).join("\n") },
+    environments: { environmentProduct: item.productId, environmentName: item.name, environmentColor: item.color, environmentPatterns: (item.urlPatterns || []).join("\n"), environmentPrimaryUrl: item.primaryUrl },
     testAccounts: { testAccountEnvironment: item.environmentId, testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
-    paymentMethods: { paymentMethodEnvironment: item.environmentId || "", paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodValue: "", paymentMethodNotes: item.notes },
+    paymentMethods: { paymentMethodEnvironment: item.environmentId || "", paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
     apis: { apiLabel: item.label, apiBaseUrl: item.baseUrl, apiToken: "" },
-    resources: { resourceLabel: item.label, resourceUrl: item.url, resourceCategory: item.category },
+    resources: { resourceLabel: item.label, resourceUrl: item.url, resourceCategory: item.category, resourceIcon: item.icon },
   }[collection];
   for (const [elementId, value] of Object.entries(values || {})) {
     const element = document.getElementById(elementId);
     if (element.type === "checkbox") element.checked = Boolean(value); else element.value = value ?? "";
+    if (element.matches("[data-image-url]")) element.dispatchEvent(new Event("input", { bubbles: true }));
   }
   if (collection === "testAccounts") {
     testAccountCustomFieldsDraft = structuredClone(item.customFields || []);
     renderCustomFieldsEditor();
   }
+  if (collection === "environments") setEnvironmentPatterns(item.urlPatterns || []);
   document.getElementById(`${prefix}Form`).scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -451,6 +702,15 @@ document.addEventListener("click", async (event) => {
   const item = findById(collection, id);
   if (!item) return;
   if (action === "reveal") { revealedAccountIds.has(id) ? revealedAccountIds.delete(id) : revealedAccountIds.add(id); renderWorkspace(); return; }
+  if (action === "move-up" || action === "move-down") {
+    const items = workspace[collection];
+    const from = items.findIndex((candidate) => candidate.id === id);
+    const to = from + (action === "move-up" ? -1 : 1);
+    if (from < 0 || to < 0 || to >= items.length) return;
+    [items[from], items[to]] = [items[to], items[from]];
+    await persistWorkspace();
+    return;
+  }
   if (action === "edit") { editItem(collection, item); return; }
   if (action === "duplicate") { workspace[collection].push({ ...structuredClone(item), id: uid(COLLECTION_UI[collection].prefix), name: item.name ? `${item.name} (${t("cópia")})` : undefined, label: item.label ? `${item.label} (${t("cópia")})` : undefined }); await persistWorkspace(); return; }
   if (action === "toggle") { item.active = item.active === false; await persistWorkspace(); return; }
@@ -500,6 +760,7 @@ document.getElementById("resetButton").addEventListener("click", async () => {
   await loadLocale();
   workspace = await getWorkspace();
   await loadScopeUi();
+  renderEnvironmentPatternChips();
   renderWorkspace();
   await loadAccess(true);
   onStorageChanged(async (changes) => {

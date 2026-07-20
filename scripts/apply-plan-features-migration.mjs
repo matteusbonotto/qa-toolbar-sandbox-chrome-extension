@@ -36,6 +36,7 @@ const FEATURES = [
   { key: "fakerFill.enabled", value_type: "boolean", description: "Faker Fill: local synthetic data autofill" },
   { key: "macroStudio.enabled", value_type: "boolean", description: "Macro Studio: record/replay, Vibe Code, Playwright export" },
   { key: "keyView.enabled", value_type: "boolean", description: "Key View: on-screen keystroke/typing/mouse visualizer" },
+  { key: "elementCapture.enabled", value_type: "boolean", description: "Capturar Elementos: exports a CSV of interactive elements with CSS selector/XPath for automation" },
 ];
 
 // Same tiered distribution as the migration and docs/GUIA_FERRAMENTAS_QA.md.
@@ -46,6 +47,7 @@ const MATRIX = {
   "fakerFill.enabled": { "smoke-test": false, "regression-runner": true, "root-cause-analyst": true, "release-manager": true },
   "macroStudio.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
   "keyView.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": false, "release-manager": true },
+  "elementCapture.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
 };
 
 async function main() {
@@ -95,7 +97,7 @@ async function main() {
     for (const problem of problems) console.error(`  - ${problem}`);
     process.exit(1);
   }
-  console.log("\nDone. All 6 tools are now correctly gated for every plan — Release Manager has all 6 enabled.");
+  console.log(`\nDone. All ${FEATURES.length} tools are now correctly gated for every plan — Release Manager has all ${FEATURES.length} enabled.`);
 }
 
 main().catch((err) => {

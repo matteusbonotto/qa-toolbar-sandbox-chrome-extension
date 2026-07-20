@@ -39,6 +39,7 @@ const EXPECTED = {
   "fakerFill.enabled": { "smoke-test": false, "regression-runner": true, "root-cause-analyst": true, "release-manager": true },
   "macroStudio.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
   "keyView.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": false, "release-manager": true },
+  "elementCapture.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
 };
 
 async function main() {
