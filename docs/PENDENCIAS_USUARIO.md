@@ -62,6 +62,61 @@ migration.
       (`pending_review` / `live` / `rejected`). Isso é manual de propósito — automatizar exigiria
       um novo secret de CI com escrita no banco, que não criei sem sua aprovação.
 
+## 7. Exclusão de conta (LGPD) — nova edge function + migration (2026-07-20)
+
+Nova tela "Excluir minha conta" (aba Minha conta): cancela a assinatura Stripe ativa na hora,
+apaga os dados pessoais, mantém registros financeiros anonimizados. Verificado ao vivo com
+respostas simuladas (senha errada, pagamento pendente, sucesso) — mas a função ainda não existe
+em produção até você fazer os dois passos abaixo.
+
+- [ ] Aplique `supabase/migrations/20260720030000_payment_events_user_delete_set_null.sql` (SQL
+      Editor do Supabase ou CLI — idempotente). Sem isso, excluir a conta de qualquer usuário com
+      histórico de pagamento falha (a constraint antiga bloqueia, em vez de anonimizar).
+- [ ] Deploy da nova edge function `account-delete`:
+  ```
+  npx supabase@latest functions deploy account-delete --project-ref xhusvkylbouwtpcevgri --use-api
+  ```
+- [ ] Teste ao vivo com uma conta de teste real (sem assinatura ativa) para confirmar a exclusão
+      de ponta a ponta antes de anunciar a funcionalidade.
+
+## 8. Notificação de pagamento falhado — feito só o lado sem custo, e-mail fica pra você decidir (2026-07-20)
+
+Pedido: quando o pagamento falha, bloquear recursos pagos automaticamente (**já funcionava antes
+desta sessão** — `access-status` já exigia `subscription.status === 'active'`) e notificar o
+usuário. Como não existe nenhum provedor de e-mail configurado no projeto (nem Resend, nem
+SendGrid, nem SMTP), implementei só o que não depende de conta/custo externo:
+
+- [x] Extensão: quando `billing.status` vem `past_due`/`unpaid` do `access-status`, aparece um
+      badge vermelho "!" no ícone da extensão (`chrome.action.setBadgeText`) e um aviso destacado
+      na aba "Minha conta" explicando o que aconteceu — some sozinho assim que o pagamento é
+      regularizado. Verificado ao vivo com Playwright (badge aparece/some, aviso aparece/some).
+- [ ] **E-mail continua pendente** — depende de você escolher/criar uma conta em um provedor. Não
+      deixei nenhum código pela metade esperando isso (nada de stub/TODO no meio do webhook); quando
+      você tiver a chave, é uma implementação pequena e direta em
+      `supabase/functions/stripe-webhook/index.ts`, no bloco
+      `if (["invoice.paid", "invoice.payment_failed"].includes(event.type))` — o `userId` e a
+      assinatura já estão resolvidos ali, só falta buscar o e-mail (`admin.auth.admin.getUserById`)
+      e chamar a API do provedor escolhido.
+
+**Como fazer de graça (passo a passo, Resend — o mais simples pra Edge Functions em Deno):**
+
+1. Crie uma conta grátis em resend.com (não pede cartão). O plano free dá 100 e-mails/dia e 3.000
+   por mês, o suficiente para avisos de cobrança de um produto começando.
+2. Sem verificar domínio, você já pode enviar usando o remetente de teste deles
+   (`onboarding@resend.dev`) — funciona para começar a testar, mas o Gmail/Outlook do destinatário
+   pode marcar como suspeito por não ser o seu domínio.
+3. Para enviar como você (ex. `contato@matheusbonotto.com.br` ou o domínio da LP), verifique um
+   domínio grátis: Resend → Domains → Add Domain → ele te dá 3 registros DNS (SPF, DKIM, um
+   opcional de rastreio) para colar onde seu domínio está hospedado (Cloudflare, Registro.br, etc,
+   todos com DNS grátis). Leva de alguns minutos a algumas horas para propagar.
+4. Gere uma API key em Resend → API Keys → Create API Key.
+5. Salve a chave como secret da Supabase (nunca no código):
+   ```
+   npx supabase@latest secrets set RESEND_API_KEY=re_xxx --project-ref xhusvkylbouwtpcevgri
+   ```
+6. Me avise quando tiver feito isso — aí eu escrevo a chamada `fetch("https://api.resend.com/emails", ...)`
+   dentro do `stripe-webhook` e faço o redeploy da função.
+
 ## 6. Teste ao vivo que ainda falta
 
 - [ ] Fluxo completo de "Esqueci minha senha" com e-mail real (pedir link → abrir e-mail →

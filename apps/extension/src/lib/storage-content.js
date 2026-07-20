@@ -30,11 +30,13 @@
       return { key, type, value };
     }).filter((field) => field.key);
   }
-  function normalizeTestAccount(item, index, environments) {
+  const normalizeOptionalProductId = (rawValue, products) => { const value = text(rawValue, 120); return value && products.some((product) => product.id === value) ? value : null; };
+  function normalizeTestAccount(item, index, environments, products) {
     const environmentId = id(item?.environmentId, "env", 0);
     if (!environments.some((environment) => environment.id === environmentId)) return null;
     return {
       id: id(item?.id, "testAccount", index), environmentId,
+      productId: normalizeOptionalProductId(item?.productId ?? item?.product_id, products),
       label: text(item?.label, 120) || `Conta ${index + 1}`,
       accountType: text(item?.accountType, 60),
       accountTypeImage: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
@@ -60,7 +62,58 @@
     return output.slice(0, 100);
   }
   function createEmptyWorkspace() {
-    return { schemaVersion: 6, updatedAt: new Date().toISOString(), clients: [], projects: [], products: [], environments: [], testAccounts: [], paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], preferences: { language: "pt-BR", pushSiteContent: true, compactMode: false, compactEntities: { client: false, project: false, product: false }, avatarShape: "square", pinnedTools: ["passFail", "screenshot", "notes", "record"], pinnedMacroIds: [], enabledTools: [...DEFAULT_ENABLED_TOOLS], soundEffects: true, breadcrumbVisibility: { client: true, project: true, product: true, environment: true }, keyView: { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" } } };
+    return { schemaVersion: 7, updatedAt: new Date().toISOString(), clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [], paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], preferences: { language: "pt-BR", pushSiteContent: true, compactMode: false, compactEntities: { client: false, project: false, product: false }, avatarShape: "square", pinnedTools: ["passFail", "screenshot", "notes", "record"], pinnedMacroIds: [], enabledTools: [...DEFAULT_ENABLED_TOOLS], toolsMenuOrder: [...DEFAULT_ENABLED_TOOLS], soundEffects: true, breadcrumbVisibility: { client: true, project: true, product: true, environment: true }, breadcrumbOrder: ["client", "project", "product"], keyView: { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" } } };
+  }
+  // Environment used to require exactly one Product (name+color+urlPatterns+productId), so a
+  // multi-country import created "DEV AR", "DEV BO"... instead of one reusable "DEV". Now the
+  // Product association lives on each URL binding instead (see normalizeUrlBindings below).
+  function normalizeUrlBinding(item, index, products, environments) {
+    const pattern = normalizeUrlPatterns([item?.pattern])[0];
+    if (!pattern) return null;
+    const productId = id(item?.productId ?? item?.product_id, "product", 0);
+    if (!products.some((product) => product.id === productId)) return null;
+    const environmentIds = [...new Set((Array.isArray(item?.environmentIds) ? item.environmentIds : []).map((value) => text(value, 120)))].filter((environmentId) => environments.some((environment) => environment.id === environmentId));
+    if (!environmentIds.length) return null;
+    return { id: id(item?.id, "binding", index), pattern, productId, environmentIds, primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2048)) ? text(item?.primaryUrl, 2048) : "", active: item?.active !== false };
+  }
+  function migrateLegacyEnvironmentUrls(source, products, environments) {
+    const rows = [];
+    for (const rawEnvironment of Array.isArray(source.environments) ? source.environments : []) {
+      const legacyProductId = id(rawEnvironment?.productId ?? rawEnvironment?.product_id, "product", 0);
+      if (!products.some((product) => product.id === legacyProductId)) continue;
+      const legacyEnvironmentId = id(rawEnvironment?.id, "env", 0);
+      if (!environments.some((environment) => environment.id === legacyEnvironmentId)) continue;
+      const legacyPatterns = normalizeUrlPatterns(rawEnvironment?.urlPatterns ?? rawEnvironment?.urls ?? rawEnvironment?.domains ?? rawEnvironment?.url ?? rawEnvironment?.baseUrl);
+      const legacyPrimaryUrl = text(rawEnvironment?.primaryUrl, 2048);
+      for (const pattern of legacyPatterns) rows.push({ pattern, productId: legacyProductId, environmentIds: [legacyEnvironmentId], primaryUrl: legacyPatterns.length === 1 ? legacyPrimaryUrl : "" });
+    }
+    return rows;
+  }
+  function normalizeUrlBindings(source, products, environments) {
+    const bindings = []; const byKey = new Map();
+    const rawRows = [...(Array.isArray(source.urlBindings) ? source.urlBindings : []), ...(Number(source.schemaVersion || 0) < 7 ? migrateLegacyEnvironmentUrls(source, products, environments) : [])];
+    for (const rawRow of rawRows) {
+      const binding = normalizeUrlBinding(rawRow, bindings.length, products, environments);
+      if (!binding) continue;
+      const key = `${binding.pattern} ${binding.productId}`;
+      const existing = byKey.get(key);
+      if (existing) { for (const environmentId of binding.environmentIds) if (!existing.environmentIds.includes(environmentId)) existing.environmentIds.push(environmentId); if (!existing.primaryUrl && binding.primaryUrl) existing.primaryUrl = binding.primaryUrl; continue; }
+      byKey.set(key, binding); bindings.push(binding);
+    }
+    return bindings;
+  }
+  const BREADCRUMB_ORDER_KEYS = ["client", "project", "product"];
+  function normalizeBreadcrumbOrder(value) {
+    const seen = new Set();
+    const order = (Array.isArray(value) ? value : []).filter((key) => BREADCRUMB_ORDER_KEYS.includes(key) && !seen.has(key) && seen.add(key));
+    for (const key of BREADCRUMB_ORDER_KEYS) if (!order.includes(key)) order.push(key);
+    return order;
+  }
+  function normalizeToolsMenuOrder(value) {
+    const seen = new Set();
+    const order = (Array.isArray(value) ? value : []).filter((key) => DEFAULT_ENABLED_TOOLS.includes(key) && !seen.has(key) && seen.add(key));
+    for (const key of DEFAULT_ENABLED_TOOLS) if (!order.includes(key)) order.push(key);
+    return order;
   }
   function normalizeKeyView(value) {
     const source = value && typeof value === "object" ? value : {};
@@ -88,12 +141,10 @@
     const projects = (Array.isArray(source.projects) ? source.projects : []).map((item, index) => ({ id: id(item?.id, "project", index), clientId: id(item?.clientId ?? item?.client_id, "client", 0), name: text(item?.name ?? item?.label, 120) || `Projeto ${index + 1}`, ...appearance(item) })).filter((item) => clients.some((client) => client.id === item.clientId));
     const products = (Array.isArray(source.products) ? source.products : []).map((item, index) => ({ id: id(item?.id, "product", index), projectId: id(item?.projectId ?? item?.project_id, "project", 0), name: text(item?.name ?? item?.label, 120) || `Produto ${index + 1}`, ...appearance(item) })).filter((item) => projects.some((project) => project.id === item.projectId));
     const environments = (Array.isArray(source.environments) ? source.environments : []).map((item, index) => {
-      const productId = id(item?.productId ?? item?.product_id, "product", 0);
-      const product = products.find((candidate) => candidate.id === productId);
-      const project = projects.find((candidate) => candidate.id === product?.projectId);
       const rawColor = text(item?.color ?? item?.backgroundColor, 7);
-      return { id: id(item?.id, "env", index), productId, projectId: project?.id ?? null, clientId: project?.clientId ?? null, name: text(item?.name ?? item?.label ?? item?.environment, 80) || `Ambiente ${index + 1}`, color: /^#[0-9a-f]{6}$/i.test(rawColor) ? rawColor : "#3a3a3a", urlPatterns: normalizeUrlPatterns(item?.urlPatterns ?? item?.urls ?? item?.domains ?? item?.url ?? item?.baseUrl), primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2048)) ? text(item?.primaryUrl, 2048) : "", active: item?.active !== false };
-    }).filter((item) => products.some((product) => product.id === item.productId));
+      return { id: id(item?.id, "env", index), name: text(item?.name ?? item?.label ?? item?.environment, 80) || `Ambiente ${index + 1}`, color: /^#[0-9a-f]{6}$/i.test(rawColor) ? rawColor : "#3a3a3a", active: item?.active !== false };
+    });
+    const urlBindings = normalizeUrlBindings(source, products, environments);
     const copy = (key) => (Array.isArray(source[key]) ? source[key] : []).map((item, index) => ({ ...item, id: id(item?.id, key.replace(/s$/, ""), index), active: item?.active !== false }));
     const preferences = source.preferences && typeof source.preferences === "object" ? source.preferences : {};
     const normalizedEnabledTools = Array.isArray(preferences.enabledTools) ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value)) : [...empty.preferences.enabledTools];
@@ -101,7 +152,7 @@
     if (Number(source.schemaVersion || 0) < 4) for (const tool of SCHEMA_4_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 5) for (const tool of SCHEMA_5_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 6) for (const tool of SCHEMA_6_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
-    return { ...empty, schemaVersion: 6, updatedAt: text(source.updatedAt, 40) || empty.updatedAt, clients, projects, products, environments, testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : []).map((item, index) => normalizeTestAccount(item, index, environments)).filter(Boolean), paymentMethods: copy("paymentMethods").map((item) => ({ ...item, environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null })), apis: copy("apis"), inspectors: copy("inspectors"), resources: copy("resources").map((item) => ({ ...item, category: text(item?.category, 60) })), macros: normalizeMacros(source.macros), preferences: { ...empty.preferences, ...preferences, compactMode: preferences.compactMode === true, compactEntities: { client: preferences.compactEntities?.client === true, project: preferences.compactEntities?.project === true || (!preferences.compactEntities && preferences.compactMode === true), product: preferences.compactEntities?.product === true || (!preferences.compactEntities && preferences.compactMode === true) }, pushSiteContent: preferences.pushSiteContent !== false, avatarShape: preferences.avatarShape === "round" ? "round" : "square", pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools, pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [], enabledTools: normalizedEnabledTools, soundEffects: preferences.soundEffects !== false, breadcrumbVisibility: { client: preferences.breadcrumbVisibility?.client !== false, project: preferences.breadcrumbVisibility?.project !== false, product: preferences.breadcrumbVisibility?.product !== false, environment: preferences.breadcrumbVisibility?.environment !== false }, keyView: normalizeKeyView(preferences.keyView) } };
+    return { ...empty, schemaVersion: 7, updatedAt: text(source.updatedAt, 40) || empty.updatedAt, clients, projects, products, environments, urlBindings, testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : []).map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean), paymentMethods: copy("paymentMethods").map((item) => ({ ...item, environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null, productId: normalizeOptionalProductId(item?.productId ?? item?.product_id, products) })), apis: copy("apis"), inspectors: copy("inspectors"), resources: copy("resources").map((item) => ({ ...item, category: text(item?.category, 60) })), macros: normalizeMacros(source.macros), preferences: { ...empty.preferences, ...preferences, compactMode: preferences.compactMode === true, compactEntities: { client: preferences.compactEntities?.client === true, project: preferences.compactEntities?.project === true || (!preferences.compactEntities && preferences.compactMode === true), product: preferences.compactEntities?.product === true || (!preferences.compactEntities && preferences.compactMode === true) }, pushSiteContent: preferences.pushSiteContent !== false, avatarShape: preferences.avatarShape === "round" ? "round" : "square", pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools, pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [], enabledTools: normalizedEnabledTools, toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder), soundEffects: preferences.soundEffects !== false, breadcrumbVisibility: { client: preferences.breadcrumbVisibility?.client !== false, project: preferences.breadcrumbVisibility?.project !== false, product: preferences.breadcrumbVisibility?.product !== false, environment: preferences.breadcrumbVisibility?.environment !== false }, breadcrumbOrder: normalizeBreadcrumbOrder(preferences.breadcrumbOrder), keyView: normalizeKeyView(preferences.keyView) } };
   }
   const createDefaultSiteScope = () => ({ mode: "environments", patterns: [] });
   async function getWorkspace() { const stored = await chrome.storage.local.get(STORAGE_KEYS.workspace); return normalizeWorkspace(stored[STORAGE_KEYS.workspace]); }

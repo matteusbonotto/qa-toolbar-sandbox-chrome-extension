@@ -7,6 +7,20 @@ function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
 }
 
+// Failed-payment notification: the only signal available without a chosen email provider (see
+// docs/PENDENCIAS_USUARIO.md) is this icon badge, kept in sync with every access-status check.
+function updateBadge(access) {
+  const pastDue = access?.billing?.status === "past_due" || access?.billing?.status === "unpaid";
+  chrome.action.setBadgeText({ text: pastDue ? "!" : "" });
+  if (pastDue) chrome.action.setBadgeBackgroundColor({ color: "#c70e0e" });
+  chrome.action.setTitle({ title: pastDue ? "QA Toolbar Sandbox — pagamento pendente, acesso pago bloqueado" : "QA Toolbar Sandbox — abrir configurações" });
+}
+
+function sanitizeBilling(value) {
+  if (!isRecord(value) || typeof value.status !== "string" || value.status.length > 40) return null;
+  return { status: value.status, cancelAtPeriodEnd: value.cancelAtPeriodEnd === true, paymentConfirmed: value.paymentConfirmed === true };
+}
+
 function sanitizeFeatures(value) {
   const result = {};
   if (!isRecord(value)) return result;
@@ -71,6 +85,17 @@ export async function acceptSessionHandoff(session) {
 
 export async function signOut() {
   await chrome.storage.local.remove([STORAGE_KEYS.authSession, STORAGE_KEYS.accessStatus]);
+  updateBadge(null);
+}
+
+// LGPD self-service deletion: the edge function (supabase/functions/account-delete) re-verifies
+// the password server-side, cancels any active Stripe subscription, and hard-deletes personal
+// data — this just makes that call and clears the local session on success.
+export async function deleteAccount(password) {
+  const session = await getSession();
+  if (!session) throw new Error("authentication_required");
+  await post("account-delete", { password: String(password ?? "") }, session.accessToken);
+  await signOut();
 }
 
 export async function getSession() {
@@ -97,6 +122,7 @@ export async function getAccessState({ force = false } = {}) {
     const stored = await chrome.storage.local.get(STORAGE_KEYS.accessStatus);
     const cached = stored[STORAGE_KEYS.accessStatus];
     if (isRecord(cached) && Number(cached.cachedAt) > Date.now() - ACCESS_CACHE_MS) {
+      updateBadge(cached);
       return { ...cached, authenticated: true };
     }
   }
@@ -109,6 +135,7 @@ export async function getAccessState({ force = false } = {}) {
       plan: isRecord(status?.plan) ? { key: String(status.plan.key ?? ""), name: String(status.plan.name ?? "") } : null,
       source: typeof status?.source === "string" ? status.source : null,
       expiresAt: typeof status?.expiresAt === "string" ? status.expiresAt : null,
+      billing: sanitizeBilling(status?.billing),
       features: sanitizeFeatures(status?.features),
       user: { id: session.user.id, email: typeof session.user.email === "string" ? session.user.email : "" },
       checkedAt: typeof status?.checkedAt === "string" ? status.checkedAt : new Date().toISOString(),
@@ -116,6 +143,7 @@ export async function getAccessState({ force = false } = {}) {
       reason: status?.active === true ? null : "access_required",
     };
     await chrome.storage.local.set({ [STORAGE_KEYS.accessStatus]: next });
+    updateBadge(next);
     return next;
   } catch (error) {
     if (error?.status === 401) await signOut();

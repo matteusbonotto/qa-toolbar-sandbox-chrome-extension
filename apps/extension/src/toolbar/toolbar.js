@@ -79,13 +79,33 @@ function matchesAnyPattern(patterns, href) {
   });
 }
 
-function findActiveEnvironment(workspace) {
-  const href = window.location.href;
-  return (workspace.environments || []).find((environment) => environment.active !== false && matchesAnyPattern(environment.urlPatterns, href)) ?? null;
-}
-
 function findById(collection, id) {
   return (collection || []).find((item) => item.id === id) ?? null;
+}
+
+// Environments no longer own a product/URL directly (see storage.js's normalizeUrlBindings for
+// why) — matching now goes through the binding that owns the concrete pattern, then resolves
+// product/project/client from *that* binding's productId. The returned object keeps the same
+// shape every existing consumer (buildBreadcrumb, resolveEnvironmentUrl, test account/payment
+// filters) already expects — id/name/color plus computed productId/projectId/clientId/
+// urlPatterns/primaryUrl — so only this function and the active-binding-aware filters below need
+// to change, not every place that reads `state.environment`.
+function findActiveEnvironment(workspace) {
+  const href = window.location.href;
+  const binding = (workspace.urlBindings || []).find((candidate) => candidate.active !== false && matchesAnyPattern([candidate.pattern], href));
+  if (!binding) return null;
+  const environment = findById(workspace.environments, binding.environmentIds[0]);
+  const product = findById(workspace.products, binding.productId);
+  if (!environment || environment.active === false || !product) return null;
+  const project = findById(workspace.projects, product.projectId);
+  return {
+    ...environment,
+    productId: product.id,
+    projectId: project?.id ?? null,
+    clientId: project?.clientId ?? null,
+    urlPatterns: [binding.pattern],
+    primaryUrl: binding.primaryUrl || "",
+  };
 }
 
 function contrastTextColor(hexColor) {
@@ -181,11 +201,12 @@ function resolveEnvironmentUrl(environment) {
 }
 
 /**
- * White-label breadcrumb: Client renders as a small, de-emphasized corner
+ * White-label breadcrumb: by default Client renders as a small, de-emphasized corner
  * label (logo/initials only by default), while Project → Product → Environment
- * form the main sequence, each entity rendering as a logo image, or — when no
- * logo is set — an auto-generated colored initials badge, so a brand-new
- * client/project/product is never a blank space. Per-entity `showLabel`
+ * form the main sequence — but preferences.breadcrumbOrder can move Client into the main
+ * sequence too (it only stays in the corner slot when it's first in that order), each entity
+ * rendering as a logo image, or — when no logo is set — an auto-generated colored initials
+ * badge, so a brand-new client/project/product is never a blank space. Per-entity `showLabel`
  * controls whether the name is spelled out next to the badge. Each visible tier is
  * independently toggleable via preferences.breadcrumbVisibility, and (when the environment
  * resolves to a real URL) clickable to jump back to it — wired via event delegation in
@@ -195,9 +216,11 @@ function buildBreadcrumb(workspace, environment) {
   if (!environment) {
     return { clientHtml: "", mainHtml: "", color: "#3a3a3a", text: "#ffffff" };
   }
-  const client = findById(workspace.clients, environment.clientId);
-  const project = findById(workspace.projects, environment.projectId);
-  const product = findById(workspace.products, environment.productId);
+  const entityFor = {
+    client: findById(workspace.clients, environment.clientId),
+    project: findById(workspace.projects, environment.projectId),
+    product: findById(workspace.products, environment.productId),
+  };
   const color = environment.color || "#ef3340";
   const visibility = workspace.preferences?.breadcrumbVisibility || {};
   const navUrl = resolveEnvironmentUrl(environment);
@@ -208,16 +231,22 @@ function buildBreadcrumb(workspace, environment) {
 
   const legacyCompact = workspace.preferences?.compactMode === true;
   const compactEntities = workspace.preferences?.compactEntities || { project: legacyCompact, product: legacyCompact };
-  const clientHtml = client && visibility.client !== false
-    ? wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: compactEntities.client === true ? false : client.showLabel !== false }, { size: 14, maxChars: 18 }))
-    : "";
-  const segments = [
-    visibility.project !== false ? { entity: project, key: "project" } : null,
-    visibility.product !== false ? { entity: product, key: "product" } : null,
-  ]
-    .filter((item) => item?.entity)
-    .map(({ entity, key }) => wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compactEntities[key] === true ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 })));
-  if (visibility.environment !== false) segments.push(wrapCrumb(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`));
+  const badge = (key, size, maxChars) => {
+    if (key === "environment") return wrapCrumb(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`);
+    const entity = entityFor[key];
+    if (!entity) return "";
+    return wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compactEntities[key] === true ? false : entity.showLabel !== false }, { size, maxChars }));
+  };
+
+  const order = workspace.preferences?.breadcrumbOrder || ["client", "project", "product"];
+  const clientIsFirst = order[0] === "client";
+  const clientHtml = clientIsFirst && visibility.client !== false ? badge("client", 14, 18) : "";
+  const mainKeys = clientIsFirst ? order.slice(1) : order;
+  const segments = mainKeys
+    .filter((key) => visibility[key] !== false)
+    .map((key) => badge(key, 18, 16))
+    .filter(Boolean);
+  if (visibility.environment !== false) segments.push(badge("environment"));
 
   return {
     clientHtml,
@@ -320,6 +349,13 @@ function applyPinnedTools() {
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
   }
+  // Re-append each menu item in the founder's chosen order (preferences.toolsMenuOrder) —
+  // appendChild on an already-attached node *moves* it, so iterating in order and re-appending
+  // sequentially reorders the whole menu without rebuilding it. #pinnedMacrosMenu (a separate,
+  // dynamically rendered list of pinned macros) is intentionally left alone at the top.
+  const menu = root.getElementById("toolsMenu");
+  const toolsMenuOrder = state.workspace?.preferences?.toolsMenuOrder || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS;
+  if (menu) for (const key of toolsMenuOrder) { const item = menuItems[key] && root.getElementById(menuItems[key]); if (item) menu.appendChild(item); }
   renderPinnedMacros();
 }
 
@@ -436,7 +472,13 @@ function buildShadowHost() {
       #toolsMenu button:hover { background: #232323; border-color: #ffd700; }
       #toolsMenu button.isActive { background: #ffd700 !important; color: #111 !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; }
-      #macroRecordingChip { background: #8f0909; color: #fff; border-color: #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
+      #macroRecordingBar { position: relative; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 9px; background: #8f0909; border: 1px solid #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
+      #macroRecordingBar.isPaused { background: #7a5b00; animation: none; }
+      #macroRecHistoryPanel { position: absolute; top: 30px; right: 0; width: 260px; max-height: 260px; overflow: auto; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; }
+      .qts-macro-hist-row { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 6px; background: #171717; font-size: 11px; color: #fff; }
+      .qts-macro-hist-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+      .qts-macro-hist-row button { all: unset; cursor: pointer; color: #ff7078; font-weight: 800; padding: 0 4px; }
+      .qts-macro-hist-empty { padding: 8px; color: #999; font-size: 11px; text-align: center; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
@@ -471,7 +513,14 @@ function buildShadowHost() {
         <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
         <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">${ICON("recordStop")}</button>
         <span id="recordTimer" class="isHidden">00:00</span>
-        <button id="macroRecordingChip" class="isHidden" type="button">${ICON("dot")} Macro <span id="macroStepCount">0</span> · parar</button>
+        <div id="macroRecordingBar" class="isHidden">
+          <button id="macroRecHistoryButton" type="button" title="Ver ações gravadas">${ICON("dot")} <span id="macroStepCount">0</span></button>
+          <button id="macroRecPauseButton" class="iconOnly" type="button" title="Pausar gravação">${ICON("pause")}</button>
+          <button id="macroRecUndoButton" class="iconOnly" type="button" title="Desfazer última ação">${ICON("undo")}</button>
+          <button id="macroRecCancelButton" class="iconOnly" type="button" title="Cancelar gravação">${ICON("fail")}</button>
+          <button id="macroRecDoneButton" class="iconOnly" type="button" title="Concluir e editar">${ICON("pass")}</button>
+          <div id="macroRecHistoryPanel" class="isHidden"></div>
+        </div>
         <div id="toolsWrapper">
           <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ${ICON("chevronDown")}</button>
           <div id="toolsMenu" role="menu">
@@ -532,7 +581,11 @@ function buildShadowHost() {
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
   shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
   shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
-  shadow.getElementById("macroRecordingChip").addEventListener("click", () => stopMacroRecording());
+  shadow.getElementById("macroRecHistoryButton").addEventListener("click", () => toggleMacroHistoryPanel());
+  shadow.getElementById("macroRecPauseButton").addEventListener("click", () => toggleMacroRecordingPause());
+  shadow.getElementById("macroRecUndoButton").addEventListener("click", () => undoLastMacroStep());
+  shadow.getElementById("macroRecCancelButton").addEventListener("click", () => cancelMacroRecording());
+  shadow.getElementById("macroRecDoneButton").addEventListener("click", () => stopMacroRecording());
 
   // Same handlers as the pinned bar buttons above — this is the narrow-viewport fallback path
   // for them (see the #mobileActionsMenu media query), not a separate feature.
@@ -1158,10 +1211,9 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      width: min(440px, 92vw); height: 100%; background: #0b0b0b; color: #fff; border-left: 2px solid #b20808;
+      width: min(400px, 92vw); height: 100%; background: #0b0b0b; color: #fff; border-left: 2px solid #b20808;
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
     }
-    .qts-drawer.isWide { width: min(900px, 96vw); }
     .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #262626; }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
@@ -1387,7 +1439,7 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, wide = false, bodyHtml, onReady, view = "" }) {
+function openDrawer({ title, bodyHtml, onReady, view = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -1396,7 +1448,7 @@ function openDrawer({ title, wide = false, bodyHtml, onReady, view = "" }) {
   drawerHost.dataset.view = view;
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
     <div class="qts-drawer-backdrop" id="drawerBackdrop">
-      <div class="qts-drawer ${wide ? "isWide" : ""}">
+      <div class="qts-drawer">
         <div class="qts-drawer-head"><h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">×</button></div>
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
@@ -1718,7 +1770,6 @@ function openForceHttpDialog() {
   const t = state.t;
   openDrawer({
     title: t.forceHttpTitle,
-    wide: false,
     bodyHtml: `
       <p style="color:#999;margin-top:0">${escapeHtml(t.forceHttpDescription)}</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -1832,7 +1883,7 @@ function renderInspectorsList() {
 
   listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
-    openDrawer({ title: `${entry.method} ${entry.status}`, wide: true, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
 
   body.querySelector("#inspectorsSearch").addEventListener("input", (event) => {
@@ -1850,7 +1901,7 @@ function renderInspectorsList() {
 }
 
 function openInspectorsDrawer() {
-  openDrawer({ title: state.t.inspectorsTitle, wide: true, bodyHtml: "", view: "inspectors" });
+  openDrawer({ title: state.t.inspectorsTitle, bodyHtml: "", view: "inspectors" });
   renderInspectorsList();
 }
 
@@ -1947,7 +1998,7 @@ function renderErrorMonitorList() {
 }
 
 function openErrorMonitorDrawer() {
-  openDrawer({ title: state.t.errorMonitorTitle, wide: true, bodyHtml: "", view: "errorMonitor" });
+  openDrawer({ title: state.t.errorMonitorTitle, bodyHtml: "", view: "errorMonitor" });
   renderErrorMonitorList();
 }
 
@@ -1999,7 +2050,7 @@ function renderTestAccountsList() {
     return;
   }
 
-  const allAccounts = (state.workspace.testAccounts || []).filter((account) => account.environmentId === state.environment.id);
+  const allAccounts = (state.workspace.testAccounts || []).filter((account) => account.environmentId === state.environment.id && (!account.productId || account.productId === state.environment.productId));
   if (!allAccounts.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(t.testAccountsEmptyForEnv)}</div>`;
     return;
@@ -2107,7 +2158,7 @@ function renderPaymentMethodsList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
-  const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id));
+  const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id) && (!method.productId || method.productId === state.environment?.productId));
   if (!allMethods.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(state.t.paymentMethodsEmptyForEnv)}</div>`;
     return;
@@ -2243,7 +2294,6 @@ function openJsonStudio() {
   const t = state.t;
   openDrawer({
     title: t.jsonStudioTitle,
-    wide: true,
     bodyHtml: `
       <textarea id="jsonInput" rows="16" placeholder="${escapeHtml(t.jsonStudioPlaceholder)}" style="font:12px ui-monospace,Consolas,monospace"></textarea>
       <div style="display:flex;gap:8px;margin-top:10px">
@@ -2956,7 +3006,6 @@ function openElementCapture() {
   let rows = captureVisibleElements();
   openDrawer({
     title: "Capturar elementos",
-    wide: true,
     bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
       <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
       <div class="qts-status" id="elementCaptureStatus"></div>
@@ -3090,6 +3139,16 @@ function resolveFormControlTarget(target) {
   return target.querySelector?.("input,textarea,select") || target.closest?.("input,textarea,select") || null;
 }
 
+// Short human-readable confirmation of what a page-picked element actually is, shown in a toast
+// right after picking — the closest thing to a "visible label" without persisting a new field on
+// the macro step schema just for display.
+function describeElementForMacro(element) {
+  const tag = element.tagName.toLowerCase();
+  const label = element.getAttribute("aria-label") || element.getAttribute("placeholder") || element.getAttribute("name")
+    || (element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 40) || element.getAttribute("alt") || "";
+  return label ? `${tag} "${label}"` : tag;
+}
+
 function openMultiClick(selectedElement = null) {
   if (!requirePlanFeature("multiClick")) return;
   const selector = selectedElement ? window.QTS_QA_TOOLS.uniqueSelector(selectedElement) : "";
@@ -3160,15 +3219,91 @@ function openFakerFill(selectedRoot = null) {
 
 function appendRecordedStep(step) {
   const recording = state.macroRecording;
-  if (!recording || recording.steps.length >= 200) return;
+  if (!recording || recording.paused || recording.steps.length >= 200) return;
   const elapsed = Date.now() - recording.lastAt;
   if (recording.steps.length && elapsed > 700) recording.steps.push({ action: "wait", ms: Math.min(3_000, elapsed) });
   const previous = recording.steps.at(-1);
   if (previous && previous.action === step.action && previous.selector === step.selector && ["fill", "select", "check"].includes(step.action)) recording.steps[recording.steps.length - 1] = step;
   else recording.steps.push(step);
   recording.lastAt = Date.now();
-  const count = state.shadowRoot?.getElementById("macroStepCount");
+  updateMacroRecordingUi();
+}
+
+// One-line human description for the recording history panel — mirrors the same action set
+// `defaultMacroStep`/`macroStepFields` already know about, just rendered as prose instead of form
+// fields.
+function macroStepLabel(step) {
+  if (step.action === "click") return `Clique em ${step.selector}`;
+  if (step.action === "fill") return `Escrever “${step.value}” em ${step.selector}`;
+  if (step.action === "select") return `Selecionar “${step.value}” em ${step.selector}`;
+  if (step.action === "check") return `${step.checked === false ? "Desmarcar" : "Marcar"} ${step.selector}`;
+  if (step.action === "press") return `Tecla ${step.value} em ${step.selector}`;
+  if (step.action === "wait") return `Esperar ${step.ms}ms`;
+  return step.action;
+}
+
+function renderMacroHistoryPanel() {
+  const panel = state.shadowRoot?.getElementById("macroRecHistoryPanel");
+  if (!panel) return;
+  const steps = state.macroRecording?.steps || [];
+  panel.innerHTML = steps.length
+    ? steps.map((step, index) => `<div class="qts-macro-hist-row"><span>${index + 1}. ${escapeHtml(macroStepLabel(step))}</span><button type="button" data-remove-history-step="${index}" title="Remover esta ação">×</button></div>`).join("")
+    : `<div class="qts-macro-hist-empty">Nenhuma ação gravada ainda.</div>`;
+  panel.querySelectorAll("[data-remove-history-step]").forEach((button) => {
+    button.addEventListener("click", () => {
+      state.macroRecording?.steps.splice(Number(button.dataset.removeHistoryStep), 1);
+      updateMacroRecordingUi();
+    });
+  });
+}
+
+function updateMacroRecordingUi() {
+  const root = state.shadowRoot;
+  if (!root) return;
+  const recording = state.macroRecording;
+  const bar = root.getElementById("macroRecordingBar");
+  bar?.classList.toggle("isHidden", !recording);
+  if (!recording) { root.getElementById("macroRecHistoryPanel")?.classList.add("isHidden"); return; }
+  bar.classList.toggle("isPaused", recording.paused);
+  const count = root.getElementById("macroStepCount");
   if (count) count.textContent = recording.steps.length;
+  const pauseButton = root.getElementById("macroRecPauseButton");
+  if (pauseButton) { pauseButton.innerHTML = recording.paused ? ICON("play") : ICON("pause"); pauseButton.title = recording.paused ? "Retomar gravação" : "Pausar gravação"; }
+  if (!root.getElementById("macroRecHistoryPanel")?.classList.contains("isHidden")) renderMacroHistoryPanel();
+}
+
+function toggleMacroRecordingPause() {
+  const recording = state.macroRecording;
+  if (!recording) return;
+  recording.paused = !recording.paused;
+  // Resuming starts a fresh interval so the paused gap itself is never recorded as a "wait" step.
+  if (!recording.paused) recording.lastAt = Date.now();
+  updateMacroRecordingUi();
+  showQaToast(recording.paused ? "Gravação pausada." : "Gravação retomada.");
+}
+
+function undoLastMacroStep() {
+  const recording = state.macroRecording;
+  if (!recording?.steps.length) return;
+  recording.steps.pop();
+  updateMacroRecordingUi();
+}
+
+function cancelMacroRecording() {
+  const recording = state.macroRecording;
+  if (!recording) return;
+  recording.cleanup();
+  state.macroRecording = null;
+  updateMacroRecordingUi();
+  showQaToast("Gravação cancelada.");
+}
+
+function toggleMacroHistoryPanel() {
+  const panel = state.shadowRoot?.getElementById("macroRecHistoryPanel");
+  if (!panel) return;
+  const willShow = panel.classList.contains("isHidden");
+  panel.classList.toggle("isHidden", !willShow);
+  if (willShow) renderMacroHistoryPanel();
 }
 
 function startMacroRecording() {
@@ -3198,8 +3333,8 @@ function startMacroRecording() {
   document.addEventListener("click", click, true);
   document.addEventListener("change", change, true);
   document.addEventListener("keydown", keydown, true);
-  state.macroRecording = { steps: [], lastAt: Date.now(), cleanup: () => { document.removeEventListener("click", click, true); document.removeEventListener("change", change, true); document.removeEventListener("keydown", keydown, true); } };
-  state.shadowRoot?.getElementById("macroRecordingChip")?.classList.remove("isHidden");
+  state.macroRecording = { steps: [], lastAt: Date.now(), paused: false, cleanup: () => { document.removeEventListener("click", click, true); document.removeEventListener("change", change, true); document.removeEventListener("keydown", keydown, true); } };
+  updateMacroRecordingUi();
   showQaToast("Gravação iniciada. Senhas e dados sensíveis não serão capturados.");
 }
 
@@ -3208,7 +3343,7 @@ function stopMacroRecording() {
   if (!recording) return;
   recording.cleanup();
   state.macroRecording = null;
-  state.shadowRoot?.getElementById("macroRecordingChip")?.classList.add("isHidden");
+  updateMacroRecordingUi();
   openMacroEditor({ id: crypto.randomUUID(), name: `Macro ${new Date().toLocaleTimeString().slice(0, 5)}`, description: "", steps: recording.steps.filter((step, index, all) => !(step.action === "wait" && index === all.length - 1)) });
 }
 
@@ -3259,7 +3394,7 @@ function macroStepFields(step) {
   if (step.action === "wait") return `<input data-field="ms" type="number" min="0" max="30000" value="${Number(step.ms) || 500}" aria-label="Espera em milissegundos" />`;
   if (step.action === "scroll") return `<input data-field="y" type="number" value="${Number(step.y) || 0}" aria-label="Posição vertical" />`;
   if (step.action === "fakerFill") return `<select data-field="scope"><option value="page" ${step.scope !== "form" ? "selected" : ""}>Página</option><option value="form" ${step.scope === "form" ? "selected" : ""}>Primeiro formulário</option></select>`;
-  const selector = `<input data-field="selector" value="${escapeHtml(step.selector || "")}" placeholder="Seletor CSS" aria-label="Seletor CSS" />`;
+  const selector = `<span style="display:flex;gap:5px;align-items:center"><input data-field="selector" value="${escapeHtml(step.selector || "")}" placeholder="Seletor CSS" aria-label="Seletor CSS" style="flex:1;min-width:0" /><button type="button" class="qts-icon-btn" data-pick-selector style="width:28px;height:28px" title="Selecionar elemento na página">${ICON("cursor")}</button></span>`;
   if (step.action === "check") return `${selector}<select data-field="checked"><option value="true" ${step.checked !== false ? "selected" : ""}>Marcar</option><option value="false" ${step.checked === false ? "selected" : ""}>Desmarcar</option></select>`;
   if (step.action === "multiClick") return `${selector}<span style="display:flex;gap:5px"><input data-field="count" type="number" min="2" max="100" value="${Number(step.count) || 2}" aria-label="Quantidade" /><input data-field="interval" type="number" min="0" max="5000" value="${Number(step.interval) || 100}" aria-label="Intervalo" /></span>`;
   if (["fill", "select", "press"].includes(step.action)) return `${selector}<input data-field="value" value="${escapeHtml(step.value || "")}" placeholder="Valor" aria-label="Valor" />`;
@@ -3305,7 +3440,6 @@ function openMacroEditor(macro) {
   const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
   openDrawer({
     title: "Macro Studio",
-    wide: true,
     bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
       <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
       <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
@@ -3322,6 +3456,27 @@ function openMacroEditor(macro) {
       });
       flow.addEventListener("dragover", (event) => event.preventDefault());
       flow.addEventListener("drop", (event) => { const action = event.dataTransfer.getData("text/qts-new-action"); if (action) { event.preventDefault(); steps.push(defaultMacroStep(action)); renderMacroFlow(flow, steps, refreshCode); refreshCode(); } });
+      // "Selecionar elemento na página": reuses the same click-to-pick pattern as Multiclick/Faker
+      // Fill instead of forcing a hand-typed CSS selector. selectPageElement() closes this drawer
+      // to let the user click the live page, so the in-progress edits (this row's other fields,
+      // any unsaved name/description) are snapshotted via `current()` *before* that happens, then
+      // the whole editor reopens fresh with the picked selector merged in.
+      flow.addEventListener("click", (event) => {
+        const pickButton = event.target.closest("[data-pick-selector]");
+        if (!pickButton) return;
+        const index = Number(pickButton.closest("[data-step-index]").dataset.stepIndex);
+        const snapshot = current();
+        selectPageElement({
+          instruction: "Clique no elemento que esta etapa deve usar. Esc cancela.",
+          onSelected: (element) => {
+            const selector = window.QTS_QA_TOOLS.uniqueSelector(element);
+            if (!selector) { showQaToast("Não foi possível gerar um seletor único para esse elemento.", "error"); return; }
+            snapshot.steps[index].selector = selector;
+            openMacroEditor(snapshot);
+            showQaToast(`Selecionado: ${describeElementForMacro(element)}`);
+          },
+        });
+      });
       body.querySelectorAll("[data-macro-mode]").forEach((button) => button.addEventListener("click", () => { body.querySelectorAll("[data-macro-mode]").forEach((item) => item.classList.toggle("isSelected", item === button)); body.querySelector("#vibeMode").hidden = button.dataset.macroMode !== "vibe"; body.querySelector("#coderMode").hidden = button.dataset.macroMode !== "coder"; refreshCode(); }));
       body.querySelector("#macroName").addEventListener("input", refreshCode);
       body.querySelector("#macroBack").addEventListener("click", openMacroStudio);
@@ -3354,7 +3509,6 @@ function openMacroStudio() {
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
   openDrawer({
     title: "Macro Studio",
-    wide: true,
     bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
       <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
@@ -3448,7 +3602,7 @@ async function handleRecordToggle() {
 
 async function startEvidenceRecording() {
   if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
-    openDrawer({ title: state.t.recordingUnavailableTitle, wide: false, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
+    openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
     return;
   }
   let stream;
