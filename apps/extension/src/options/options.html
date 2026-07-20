@@ -44,6 +44,11 @@
           </div>
           <p class="formMessage" id="authMessage" role="status"></p>
         </div>
+        <div class="card" id="deleteAccountCard" hidden>
+          <div class="cardHead"><h2>Excluir minha conta</h2></div>
+          <p class="cardLead">Cancela sua assinatura imediatamente e apaga seus dados pessoais. Registros financeiros são mantidos, anonimizados, apenas pela obrigação fiscal. Esta ação não pode ser desfeita.</p>
+          <div class="actions"><button type="button" class="button danger" id="deleteAccountButton">Excluir minha conta</button></div>
+        </div>
       </section>
 
       <section data-panel="general" class="panel protectedPanel">
@@ -244,6 +249,15 @@
     <form class="inlineForm" id="resourceForm"><input type="hidden" id="resourceEditId" /><input id="resourceLabel" placeholder="Nome" required /><input id="resourceUrl" type="url" placeholder="https://..." required /><input id="resourceCategory" placeholder="Categoria (opcional)" /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone (opcional)" id="resourceIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><div class="formActions"><button type="submit" class="button primary">Salvar</button><button type="button" class="button cancelEdit" data-cancel="resource" hidden>Cancelar</button></div></form>
   </dialog>
 
+  <dialog class="formDialog" id="deleteAccountDialog" aria-labelledby="deleteAccountDialogTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Excluir conta</span><h2 id="deleteAccountDialogTitle">Tem certeza?</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <p class="cardLead">Isso cancela sua assinatura ativa imediatamente e apaga seu perfil, workspace e dados pessoais. Não é possível desfazer. Digite sua senha para confirmar.</p>
+    <form id="deleteAccountForm" class="inlineForm">
+      <label>Senha<input id="deleteAccountPassword" type="password" autocomplete="current-password" minlength="8" required /></label>
+      <p class="formMessage" id="deleteAccountMessage" role="status"></p>
+      <div class="formActions"><button type="button" class="button" data-close-composer>Cancelar</button><button type="submit" class="button danger">Excluir permanentemente</button></div>
+    </form>
+  </dialog>
   <dialog class="formDialog" id="deleteConfirmDialog" aria-labelledby="deleteConfirmTitle">
     <div class="formDialogHead"><div><span class="eyebrow">Excluir</span><h2 id="deleteConfirmTitle">Confirmar exclusão</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
     <p class="cardLead" id="deleteConfirmBody"></p>

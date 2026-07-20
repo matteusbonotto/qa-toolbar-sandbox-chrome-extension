@@ -1,5 +1,5 @@
 import { getSiteScope, getWorkspace, onStorageChanged, STORAGE_KEYS } from "../lib/storage.js";
-import { acceptSessionHandoff, getAccessState, requestPasswordReset, signIn, signOut } from "./auth.js";
+import { acceptSessionHandoff, deleteAccount, getAccessState, requestPasswordReset, signIn, signOut } from "./auth.js";
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
 const PAGEBRIDGE_SCRIPT_ID = "qts-pagebridge";
@@ -147,6 +147,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
   if (message.type === "qts:auth-sign-out" && isOwnOptionsPage(sender)) {
     signOut().then(async () => { await unregisterContentScripts(); await removeToolbarFromOpenTabs(); sendResponse({ ok: true }); });
+    return true;
+  }
+  if (message.type === "qts:account-delete" && isOwnOptionsPage(sender)) {
+    deleteAccount(message.password)
+      .then(async () => { await unregisterContentScripts(); await removeToolbarFromOpenTabs(); sendResponse({ ok: true }); })
+      .catch((error) => sendResponse({ ok: false, error: String(error?.message || "account_delete_failed"), status: error?.status }));
     return true;
   }
   if (message.type === "qts:capture-visible-tab") {

@@ -199,7 +199,9 @@ create table if not exists public.webhook_events (
 create table if not exists public.payment_events (
   id bigint generated always as identity primary key,
   webhook_event_id uuid not null references public.webhook_events(id),
-  user_id uuid references auth.users(id),
+  -- ON DELETE SET NULL (not CASCADE): account self-deletion (LGPD) must not erase financial/audit
+  -- history required for fiscal retention — the row survives, anonymized, per Art. 16.
+  user_id uuid references auth.users(id) on delete set null,
   provider_customer_id text,
   provider_subscription_id text,
   event_type text not null,

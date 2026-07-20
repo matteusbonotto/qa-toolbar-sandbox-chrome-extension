@@ -70,10 +70,26 @@
 
 ## Fase 5 — Exclusão de conta (LGPD)
 
-- [ ] Nova edge function `account-delete`: cancela assinatura Stripe ativa na hora, apaga dados
-      pessoais, mantém registros financeiros anonimizados (`payment_events.user_id` → null).
-- [ ] Nova migration: `payment_events.user_id` com `on delete set null` (hoje bloqueia exclusão).
-- [ ] Botão "Excluir minha conta" na aba Minha conta, com modal de confirmação + senha.
+- [x] Nova edge function `account-delete`: reautentica com a senha, bloqueia se a assinatura
+      estiver `past_due`/`unpaid`, cancela a assinatura Stripe ativa na hora, apaga a conta via
+      `auth.admin.deleteUser`. Passou no `deno check`.
+- [x] Nova migration `20260720030000_payment_events_user_delete_set_null.sql`: FK de
+      `payment_events.user_id` passa a `on delete set null` (antes bloqueava a exclusão de
+      qualquer usuário com histórico de pagamento) — registro financeiro sobrevive, anonimizado.
+      `schema.sql` sincronizado.
+- [x] Botão "Excluir minha conta" na aba Minha conta, com modal de confirmação + senha
+      (`deleteAccountDialog`), mensagens específicas para senha errada / pagamento pendente /
+      falha ao cancelar / limite de tentativas.
+- [x] **Bug real achado e corrigido durante a verificação**: `[hidden]` (atributo nativo) perde
+      para qualquer regra do autor com a mesma especificidade que define `display` — `.card {
+      display:grid }` já fazia isso silenciosamente para qualquer card escondido via `hidden`, só
+      nunca havia sido exercitado antes. Corrigido com `[hidden] { display:none !important }`
+      global — resolve para todos os `.card` existentes e futuros, não só o novo.
+- [x] Verificado ao vivo (respostas simuladas): senha errada mantém o modal aberto com a
+      mensagem certa e não desloga; pagamento pendente mostra aviso específico; sucesso fecha o
+      modal e volta ao estado deslogado. Suite completa (`test:chrome`) rodou limpa.
+- [ ] **Pendência do founder** (`docs/PENDENCIAS_USUARIO.md` #7): aplicar a migration e fazer o
+      deploy da função antes de anunciar — nada disso existe em produção ainda.
 
 ## Fase 6 — Sincronizar LP
 

@@ -170,6 +170,7 @@ async function loadAccess(force = false) {
   document.querySelectorAll(".protectedNav").forEach((button) => { button.disabled = !active; });
   document.getElementById("signedOutState").hidden = active;
   document.getElementById("signedInState").hidden = !active;
+  document.getElementById("deleteAccountCard").hidden = !active;
   if (active) {
     document.getElementById("accountEmail").textContent = accessState.user?.email || "Conta autenticada";
     document.getElementById("accountPlan").textContent = accessState.plan?.name || "Acesso ativo";
@@ -237,6 +238,36 @@ document.getElementById("signOutButton").addEventListener("click", async () => {
   accessState = null;
   await loadAccess();
   showMessage("authMessage", "Você saiu. Seus dados locais foram preservados.", "Success");
+});
+
+document.getElementById("deleteAccountButton").addEventListener("click", () => {
+  document.getElementById("deleteAccountForm").reset();
+  showMessage("deleteAccountMessage", "");
+  document.getElementById("deleteAccountDialog").showModal();
+});
+document.getElementById("deleteAccountForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.submitter;
+  const password = document.getElementById("deleteAccountPassword").value;
+  button.disabled = true;
+  showMessage("deleteAccountMessage", "Confirmando e excluindo sua conta…");
+  const response = await runtimeMessage({ type: "qts:account-delete", password });
+  button.disabled = false;
+  if (!response.ok) {
+    const messages = {
+      invalid_password: "Senha incorreta.",
+      payment_past_due: "Seu pagamento está pendente. Regularize a fatura antes de excluir a conta.",
+      subscription_cancel_failed: "Não foi possível cancelar sua assinatura agora. Tente novamente em instantes.",
+      rate_limit_exceeded: "Muitas tentativas. Aguarde alguns minutos.",
+      authentication_required: "Sessão expirada. Entre novamente para excluir a conta.",
+    };
+    showMessage("deleteAccountMessage", messages[response.error] || "Não foi possível excluir a conta agora. Tente novamente.", "Error");
+    return;
+  }
+  document.getElementById("deleteAccountDialog").close();
+  accessState = null;
+  await loadAccess();
+  showMessage("authMessage", "Sua conta foi excluída.", "Success");
 });
 
 // Scope and toolbar preferences

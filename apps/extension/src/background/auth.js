@@ -73,6 +73,16 @@ export async function signOut() {
   await chrome.storage.local.remove([STORAGE_KEYS.authSession, STORAGE_KEYS.accessStatus]);
 }
 
+// LGPD self-service deletion: the edge function (supabase/functions/account-delete) re-verifies
+// the password server-side, cancels any active Stripe subscription, and hard-deletes personal
+// data — this just makes that call and clears the local session on success.
+export async function deleteAccount(password) {
+  const session = await getSession();
+  if (!session) throw new Error("authentication_required");
+  await post("account-delete", { password: String(password ?? "") }, session.accessToken);
+  await signOut();
+}
+
 export async function getSession() {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.authSession);
   const session = stored[STORAGE_KEYS.authSession];

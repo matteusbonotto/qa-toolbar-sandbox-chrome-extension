@@ -62,6 +62,23 @@ migration.
       (`pending_review` / `live` / `rejected`). Isso é manual de propósito — automatizar exigiria
       um novo secret de CI com escrita no banco, que não criei sem sua aprovação.
 
+## 7. Exclusão de conta (LGPD) — nova edge function + migration (2026-07-20)
+
+Nova tela "Excluir minha conta" (aba Minha conta): cancela a assinatura Stripe ativa na hora,
+apaga os dados pessoais, mantém registros financeiros anonimizados. Verificado ao vivo com
+respostas simuladas (senha errada, pagamento pendente, sucesso) — mas a função ainda não existe
+em produção até você fazer os dois passos abaixo.
+
+- [ ] Aplique `supabase/migrations/20260720030000_payment_events_user_delete_set_null.sql` (SQL
+      Editor do Supabase ou CLI — idempotente). Sem isso, excluir a conta de qualquer usuário com
+      histórico de pagamento falha (a constraint antiga bloqueia, em vez de anonimizar).
+- [ ] Deploy da nova edge function `account-delete`:
+  ```
+  npx supabase@latest functions deploy account-delete --project-ref xhusvkylbouwtpcevgri --use-api
+  ```
+- [ ] Teste ao vivo com uma conta de teste real (sem assinatura ativa) para confirmar a exclusão
+      de ponta a ponta antes de anunciar a funcionalidade.
+
 ## 6. Teste ao vivo que ainda falta
 
 - [ ] Fluxo completo de "Esqueci minha senha" com e-mail real (pedir link → abrir e-mail →
