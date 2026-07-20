@@ -60,7 +60,24 @@ export function PricingSection() {
   });
   const [statusError, setStatusError] = useState(false);
   const [access, setAccess] = useState<AccessStatus | null>(null);
+  const [storeListingStatus, setStoreListingStatus] = useState<{ chrome_web_store_version: string | null; status: string } | null>(null);
   const checkoutReturn = new URLSearchParams(window.location.search).get("checkout");
+
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase
+      .from("store_listing_status")
+      .select("chrome_web_store_version,status")
+      .eq("id", true)
+      .maybeSingle()
+      .then(({ data }) => { if (data) setStoreListingStatus(data); }, () => {});
+  }, []);
+  // The Store lags the package the moment its recorded version differs from what's actually
+  // shipping, OR the founder hasn't marked it "live" yet — comparing status alone isn't enough,
+  // since a stale "live" row from a previous version would otherwise read as caught up.
+  const storeIsBehind = storeListingStatus
+    ? storeListingStatus.status !== "live" || storeListingStatus.chrome_web_store_version !== __EXTENSION_PACKAGE_VERSION__
+    : true;
 
   useEffect(() => {
     const openFromNavigation = () => {
@@ -422,6 +439,12 @@ export function PricingSection() {
           </div>
         ) : null}
         {access?.active ? <p className="qts-manual-install-hint">{t.pricing.downloadExtensionHint}</p> : null}
+        {access?.active ? (
+          <p className="qts-version-line">
+            {t.pricing.packageVersionLine.replace("{version}", __EXTENSION_PACKAGE_VERSION__)}
+            {storeIsBehind ? <span className="qts-version-pending"> · {t.pricing.storeReviewPendingNotice}</span> : null}
+          </p>
+        ) : null}
         {statusMessage ? <p className={`qts-checkout-message${statusError ? " is-error" : ""}`} role="status">{statusMessage}</p> : null}
         {pricingError ? <p className="qts-checkout-message is-error" role="alert">{pricingError}</p> : null}
 

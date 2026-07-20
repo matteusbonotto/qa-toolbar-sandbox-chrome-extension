@@ -1001,6 +1001,17 @@
   font-size: 0.82rem;
 }
 
+.qts-version-line {
+  margin: calc(var(--qts-space-5) * -1) 0 var(--qts-space-5);
+  color: var(--qts-text-muted);
+  font-size: 0.78rem;
+  font-variant-numeric: tabular-nums;
+}
+.qts-version-pending {
+  color: var(--qts-accent, #ffb020);
+  font-weight: 600;
+}
+
 .qts-account-panel p,
 .qts-access-panel span {
   color: var(--qts-text-muted);

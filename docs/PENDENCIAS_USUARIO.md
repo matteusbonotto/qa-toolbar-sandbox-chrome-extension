@@ -49,6 +49,19 @@ bloqueando o upload. Você pediu pra não investigar isso agora. Quando quiser r
 mais recente de **Build Chrome Web Store package** → job **publish-to-store** → passo **"Upload to
 Chrome Web Store"** e cola aqui a mensagem de erro.
 
+## 6. Nova migration: status da Chrome Web Store na LP (2026-07-20)
+
+A LP agora mostra a versão do pacote e, se a Chrome Web Store estiver desatualizada, um aviso
+"em análise do Google" — mas isso lê de uma tabela nova que só existe depois que você aplicar a
+migration.
+
+- [ ] Aplique `supabase/migrations/20260720010000_store_listing_status.sql` (cole no SQL Editor
+      do Supabase, ou rode via CLI — é idempotente).
+- [ ] Sempre que checar o painel real da Chrome Web Store, atualize a linha única da tabela
+      `store_listing_status` (Table Editor do Supabase) com a versão publicada e o status
+      (`pending_review` / `live` / `rejected`). Isso é manual de propósito — automatizar exigiria
+      um novo secret de CI com escrita no banco, que não criei sem sua aprovação.
+
 ## 5. Teste ao vivo que ainda falta
 
 - [ ] Fluxo completo de "Esqueci minha senha" com e-mail real (pedir link → abrir e-mail →

@@ -92,9 +92,18 @@
 
 ## Fase 4 — Landing page: versão atual + aviso de revisão pendente
 
-- [ ] Mostrar versão do pacote/zip na LP
-- [ ] Mostrar (e comparar) a versão realmente publicada na Chrome Web Store
-- [ ] Aviso "em análise do Google" quando a Store estiver defasada
+- [x] Versão do pacote extraída de `manifest.json` no build da LP (`vite.config.ts`), sem
+      duplicar o número à mão.
+- [x] Nova tabela `store_listing_status` (migration
+      `20260720010000_store_listing_status.sql`) — linha única, pública pra leitura, só o founder
+      escreve. **Pendência sua**: aplicar essa migration (mesmo motivo de sempre — nada aplica
+      migration automaticamente) e, quando quiser atualizar o status da Store, editar essa linha
+      direto no Table Editor do Supabase (não automatizei a leitura da API real da Chrome Web
+      Store — precisaria de um novo secret de CI com acesso de escrita no banco, o que não quis
+      fazer sem sua aprovação explícita).
+- [x] LP mostra a versão e, quando a Store estiver desatualizada/pendente, o aviso "em análise do
+      Google" ao lado. Verificado ao vivo nos dois cenários (em dia / defasada) com sessão e
+      respostas do Supabase simuladas — build real, HTML renderizado real.
 
 ## Fase 5 — Nova ferramenta "Capturar Elementos"
 

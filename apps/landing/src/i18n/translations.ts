@@ -157,6 +157,8 @@ export interface Dictionary {
     installExtension: string;
     downloadExtensionZip: string;
     downloadExtensionHint: string;
+    packageVersionLine: string;
+    storeReviewPendingNotice: string;
     paymentProcessing: string;
     paymentCanceled: string;
     checkoutFailed: string;
@@ -498,6 +500,8 @@ const pt: Dictionary = {
     installExtension: "Instalar extensão oficial",
     downloadExtensionZip: "Baixar extensão (.zip)",
     downloadExtensionHint: "Não quer esperar a análise da Chrome Web Store? Baixe o pacote, abra chrome://extensions, ative o Modo do desenvolvedor e clique em \"Carregar sem compactação\".",
+    packageVersionLine: "Versão atual do pacote: v{version}",
+    storeReviewPendingNotice: "Em breve na Chrome Web Store — em análise do Google.",
     paymentProcessing: "Pagamento recebido. Estamos confirmando seu acesso.",
     paymentCanceled: "Checkout cancelado. Nenhuma liberação foi feita.",
     checkoutFailed: "Não foi possível concluir esta etapa. Revise os dados e tente novamente.",
@@ -890,6 +894,8 @@ const es: Dictionary = {
     installExtension: "Instalar extensión oficial",
     downloadExtensionZip: "Descargar extensión (.zip)",
     downloadExtensionHint: "¿No quieres esperar la revisión de la Chrome Web Store? Descarga el paquete, abre chrome://extensions, activa el Modo de desarrollador y haz clic en \"Cargar descomprimida\".",
+    packageVersionLine: "Versión actual del paquete: v{version}",
+    storeReviewPendingNotice: "Próximamente en la Chrome Web Store — en revisión de Google.",
     paymentProcessing: "Pago recibido. Estamos confirmando tu acceso.",
     paymentCanceled: "Checkout cancelado. No se liberó ningún acceso.",
     checkoutFailed: "No fue posible completar esta etapa. Revisa los datos e inténtalo de nuevo.",
@@ -1282,6 +1288,8 @@ const en: Dictionary = {
     installExtension: "Install official extension",
     downloadExtensionZip: "Download extension (.zip)",
     downloadExtensionHint: "Don't want to wait for Chrome Web Store review? Download the package, open chrome://extensions, enable Developer mode and click \"Load unpacked\".",
+    packageVersionLine: "Current package version: v{version}",
+    storeReviewPendingNotice: "Coming soon to the Chrome Web Store — pending Google review.",
     paymentProcessing: "Payment received. We are confirming your access.",
     paymentCanceled: "Checkout canceled. No access was granted.",
     checkoutFailed: "This step could not be completed. Review the details and try again.",
