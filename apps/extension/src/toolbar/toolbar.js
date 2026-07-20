@@ -15,6 +15,7 @@ const state = {
   clockFrozen: false,
   forceHttpActive: false,
   networkHistory: [],
+  inspectorsFilteredCount: 0,
   httpErrors: [],
   t: null,
   authorized: false,
@@ -167,13 +168,28 @@ function offsetSiteFixedHeaders() {
   state.headerOffsetObserver?.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
 }
 
+// Wildcard urlPatterns (e.g. "https://*.example.com/*") aren't real navigable addresses — this
+// only resolves the common single-trailing-wildcard case (strip it, use the rest verbatim) so
+// simple environments are clickable without requiring the explicit primaryUrl field; anything
+// with an embedded wildcard just fails URL parsing and stays non-clickable, which is the correct
+// fallback (primaryUrl exists precisely for that case).
+function resolveEnvironmentUrl(environment) {
+  if (environment?.primaryUrl) return environment.primaryUrl;
+  const pattern = (environment?.urlPatterns || []).find((value) => typeof value === "string" && value.length);
+  if (!pattern) return null;
+  try { return new URL(pattern.replace(/\*+$/, "")).href; } catch { return null; }
+}
+
 /**
  * White-label breadcrumb: Client renders as a small, de-emphasized corner
  * label (logo/initials only by default), while Project → Product → Environment
  * form the main sequence, each entity rendering as a logo image, or — when no
  * logo is set — an auto-generated colored initials badge, so a brand-new
  * client/project/product is never a blank space. Per-entity `showLabel`
- * controls whether the name is spelled out next to the badge.
+ * controls whether the name is spelled out next to the badge. Each visible tier is
+ * independently toggleable via preferences.breadcrumbVisibility, and (when the environment
+ * resolves to a real URL) clickable to jump back to it — wired via event delegation in
+ * buildShadowHost(), since this only ever returns markup, not listeners.
  */
 function buildBreadcrumb(workspace, environment) {
   if (!environment) {
@@ -183,13 +199,24 @@ function buildBreadcrumb(workspace, environment) {
   const project = findById(workspace.projects, environment.projectId);
   const product = findById(workspace.products, environment.productId);
   const color = environment.color || "#ef3340";
+  const visibility = workspace.preferences?.breadcrumbVisibility || {};
+  const navUrl = resolveEnvironmentUrl(environment);
+
+  const wrapCrumb = (html) => (navUrl
+    ? `<button type="button" class="qts-crumb-link" data-crumb-nav="${escapeHtml(navUrl)}">${html}</button>`
+    : html);
 
   const compact = workspace.preferences?.compactMode === true;
-  const clientHtml = client ? window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: true }, { size: 14, maxChars: 18 }) : "";
-  const segments = [project, product]
+  const clientHtml = client && visibility.client !== false
+    ? wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...client, showLabel: true }, { size: 14, maxChars: 18 }))
+    : "";
+  const segments = [
+    visibility.project !== false ? project : null,
+    visibility.product !== false ? product : null,
+  ]
     .filter(Boolean)
-    .map((entity) => window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compact ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 }));
-  segments.push(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`);
+    .map((entity) => wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compact ? false : entity.showLabel !== false }, { size: 18, maxChars: 16 })));
+  if (visibility.environment !== false) segments.push(wrapCrumb(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`));
 
   return {
     clientHtml,
@@ -347,6 +374,8 @@ function buildShadowHost() {
       #textStack { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
+      .qts-crumb-link { all: unset; cursor: pointer; display: inline-flex; align-items: center; }
+      .qts-crumb-link:hover { opacity: .8; text-decoration: underline; }
       .qts-client-label {
         display: inline-flex; align-items: center; gap: 4px; width: max-content; max-width: 220px;
         font-size: 9px; line-height: 14px; font-weight: 700; opacity: .74; overflow: hidden;
@@ -480,6 +509,13 @@ function buildShadowHost() {
 
   shadow.getElementById("settingsButton").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "qts:open-options" });
+  });
+  // Delegated on #left (stable across renders) rather than #clientLabel/#breadcrumb directly,
+  // since render() replaces those two elements' innerHTML every time — a listener attached
+  // straight to a breadcrumb segment would be destroyed along with it on the next render.
+  shadow.getElementById("left").addEventListener("click", (event) => {
+    const link = event.target.closest("[data-crumb-nav]");
+    if (link) window.location.href = link.dataset.crumbNav;
   });
   shadow.getElementById("minimizeButton").addEventListener("click", () => setMinimized(true));
   shadow.getElementById("restoreButton").addEventListener("click", () => setMinimized(false));
@@ -1267,6 +1303,8 @@ function translateQaSurfaceText(value) {
   if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)");
   if (state.t.locale === "en") translated = translated.replace(/^Executando /, "Running ").replace(/^Macro concluída:/, "Macro completed:").replace(/^Macro interrompida:/, "Macro stopped:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "The macro could not be started safely.");
   if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
+  if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns — check the routes/endpoints you registered.");
+  if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 solicitud(es) capturada(s) no coincidieron con ningún patrón configurado en Inspectors — revisa las rutas/endpoints registrados.");
   return `${leading}${translated}${trailing}`;
 }
 
@@ -1704,7 +1742,15 @@ function handleNetworkCaptured(entry) {
     const candidate = String(pattern || "").trim();
     if (!candidate) return false;
     try { return candidate.includes("*") ? wildcardToRegExp(candidate).test(String(entry?.url || "")) : String(entry?.url || "").toLowerCase().includes(candidate.toLowerCase()); } catch { return false; }
-  }))) return;
+  }))) {
+    // Every configured inspector pattern requires a match — a typo'd/wrong-environment pattern
+    // silently dropped 100% of captures here with zero indication, reading as "Inspectors is
+    // just broken" instead of "your pattern doesn't match anything." This counter is surfaced in
+    // renderInspectorsList()'s empty state so a config mismatch reads as a config problem.
+    state.inspectorsFilteredCount = (state.inspectorsFilteredCount || 0) + 1;
+    if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
+    return;
+  }
   state.networkHistory.unshift(entry);
   if (state.networkHistory.length > 150) state.networkHistory.length = 150;
   if (Number(entry?.status) >= 400) playSound("httpError");
@@ -1765,13 +1811,16 @@ function renderInspectorsList() {
   `;
 
   const listBody = body.querySelector("#inspectorsListBody");
+  const mismatchHint = !state.networkHistory.length && state.inspectorsFilteredCount
+    ? `<div class="qts-empty">${escapeHtml(t.noResponsesYet)}<br><small style="color:#ffb020">${escapeHtml(translateQaSurfaceText(`${state.inspectorsFilteredCount} requisição(ões) capturada(s) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas/endpoints cadastrados.`))}</small></div>`
+    : null;
   listBody.innerHTML = filtered.length
     ? filtered.map((entry) => `
         <div class="qts-net-item" data-id="${escapeHtml(entry.id)}">
           <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
         </div>
       `).join("")
-    : `<div class="qts-empty">${state.networkHistory.length ? t.noFilterResults : t.noResponsesYet}</div>`;
+    : mismatchHint || `<div class="qts-empty">${state.networkHistory.length ? t.noFilterResults : t.noResponsesYet}</div>`;
 
   listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
@@ -2025,33 +2074,98 @@ function maskedPaymentValue(value) {
   return `${"•".repeat(Math.max(4, Math.min(12, compact.length - suffix.length)))}${suffix}`;
 }
 
+async function copyToClipboardWithFeedback(button, text) {
+  await navigator.clipboard.writeText(text).catch(() => {});
+  const original = button.innerHTML;
+  button.innerHTML = ICON("pass");
+  window.setTimeout(() => { if (button.isConnected) button.innerHTML = original; }, 1200);
+}
+
+const paymentMethodsFilterState = { query: "", type: new Set(), collapsed: false };
+
+function matchesPaymentMethodFilters(method) {
+  const query = paymentMethodsFilterState.query.trim().toLowerCase();
+  if (query && !`${method.label} ${method.holder || ""} ${method.notes || ""}`.toLowerCase().includes(query)) return false;
+  if (paymentMethodsFilterState.type.size && !paymentMethodsFilterState.type.has(method.type || "other")) return false;
+  return true;
+}
+
+function formatPaymentMethodForCopy(method) {
+  const lines = [[state.t.paymentMethodFallback, method.label], ["Tipo", method.type], ["Número/token", method.value], ["Titular", method.holder], ["Validade", method.expiry], ["CVV", method.cvv]];
+  return lines.filter(([, value]) => value).map(([label, value]) => `${label}: ${value}`).join("\n");
+}
+
 function renderPaymentMethodsList() {
+  const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
-  const methods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id));
-  if (!methods.length) {
+  const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id));
+  if (!allMethods.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(state.t.paymentMethodsEmptyForEnv)}</div>`;
     return;
   }
-  body.innerHTML = `<div style="display:grid;gap:10px">${methods.map((method) => {
+  const types = [...new Set(allMethods.map((method) => method.type || "other"))].sort();
+  const fields = [{ key: "type", label: "Tipo", options: types.map((value) => ({ value, label: value })) }];
+  const methods = allMethods.filter(matchesPaymentMethodFilters);
+
+  body.innerHTML = `
+    <div class="qts-toolbar-row">
+      <input type="search" placeholder="Buscar meio de pagamento..." id="paymentMethodsSearch" value="${escapeHtml(paymentMethodsFilterState.query)}" class="qts-toolbar-search" />
+      <button type="button" class="qts-icon-btn ${paymentMethodsFilterState.collapsed ? "isActive" : ""}" id="paymentMethodsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
+    </div>
+    <div class="qts-filter-bar ${paymentMethodsFilterState.collapsed ? "isCollapsed" : ""}" id="paymentMethodsFilterBar">
+      ${fields.map((field) => renderSmartFilter(field, paymentMethodsFilterState[field.key], null)).join("")}
+    </div>
+    <div style="display:grid;gap:10px">${methods.length ? methods.map((method) => {
     const revealed = revealedPaymentMethodIds.has(method.id);
-    const value = revealed ? escapeHtml(method.value || "—") : escapeHtml(maskedPaymentValue(method.value));
+    const fieldRow = (fieldLabel, rawValue, dataAttr) => {
+      if (!rawValue) return "";
+      const displayValue = revealed ? escapeHtml(rawValue) : escapeHtml(dataAttr === "value" ? maskedPaymentValue(rawValue) : "•".repeat(Math.min(8, rawValue.length)));
+      return `<div style="display:flex;align-items:center;gap:6px"><small style="color:#888;min-width:56px">${escapeHtml(fieldLabel)}</small><small>${displayValue}</small><button type="button" class="qts-icon-btn" data-copy-payment-field="${escapeHtml(method.id)}" data-field="${dataAttr}" style="width:22px;height:22px" title="Copiar">${ICON("copy")}</button></div>`;
+    };
     return `<div class="qts-net-item" style="cursor:default">
-      <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:#ffd700">${escapeHtml(method.type || "other")}</span>
-      <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap"><small>${value}</small>
-      ${method.value ? `<button type="button" class="action" data-reveal-payment="${escapeHtml(method.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")}</button>` : ""}</div>
+      <div style="display:flex;align-items:center;gap:6px">
+        ${method.icon ? `<img src="${escapeHtml(method.icon)}" alt="" style="width:18px;height:18px;border-radius:4px;object-fit:cover" />` : ""}
+        <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:#ffd700">${escapeHtml(method.type || "other")}</span>
+      </div>
+      <div style="margin-top:6px;display:grid;gap:4px">
+        ${fieldRow("Número", method.value, "value")}
+        ${fieldRow("Titular", method.holder, "holder")}
+        ${fieldRow("Validade", method.expiry, "expiry")}
+        ${fieldRow("CVV", method.cvv, "cvv")}
+      </div>
+      <div style="margin-top:6px;display:flex;gap:6px;flex-wrap:wrap">
+        ${method.value ? `<button type="button" class="action" data-reveal-payment="${escapeHtml(method.id)}" style="height:24px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")} ${revealed ? "Ocultar" : "Revelar"}</button>` : ""}
+        <button type="button" class="action" data-copy-payment-all="${escapeHtml(method.id)}" style="height:24px;padding:0 8px;font-size:10px">${ICON("copy")} Copiar tudo</button>
+      </div>
       ${method.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(method.notes)}</small>` : ""}
     </div>`;
-  }).join("")}</div>`;
+  }).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
+  `;
+  body.querySelector("#paymentMethodsSearch").addEventListener("input", (event) => { paymentMethodsFilterState.query = event.target.value; renderPaymentMethodsList(); });
+  body.querySelector("#paymentMethodsCollapseToggle").addEventListener("click", () => { paymentMethodsFilterState.collapsed = !paymentMethodsFilterState.collapsed; renderPaymentMethodsList(); });
+  wireSmartFilter(body.querySelector("#paymentMethodsFilterBar"), (key, value, isSelected) => {
+    if (isSelected) paymentMethodsFilterState[key].add(value); else paymentMethodsFilterState[key].delete(value);
+    renderPaymentMethodsList();
+  });
   body.querySelectorAll("[data-reveal-payment]").forEach((button) => button.addEventListener("click", () => {
     const id = button.dataset.revealPayment;
     if (revealedPaymentMethodIds.has(id)) revealedPaymentMethodIds.delete(id); else revealedPaymentMethodIds.add(id);
     renderPaymentMethodsList();
   }));
+  body.querySelectorAll("[data-copy-payment-field]").forEach((button) => button.addEventListener("click", () => {
+    const method = methods.find((item) => item.id === button.dataset.copyPaymentField);
+    const value = method?.[button.dataset.field];
+    if (value) copyToClipboardWithFeedback(button, value);
+  }));
+  body.querySelectorAll("[data-copy-payment-all]").forEach((button) => button.addEventListener("click", () => {
+    const method = methods.find((item) => item.id === button.dataset.copyPaymentAll);
+    if (method) copyToClipboardWithFeedback(button, formatPaymentMethodForCopy(method));
+  }));
 }
 
 function openPaymentMethodsDrawer() {
-  openDrawer({ title: state.t.paymentMethodsDrawerTitle, bodyHtml: "" });
+  openDrawer({ title: state.t.paymentMethodsDrawerTitle, bodyHtml: "", view: "paymentMethods" });
   renderPaymentMethodsList();
 }
 
@@ -2095,7 +2209,7 @@ function renderResourcesList() {
     </div>
     <div style="display:grid;gap:10px">${resources.length ? resources.map((resource) => `
       <a class="qts-net-item" href="${escapeHtml(resource.safeUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;color:#fff;text-decoration:none">
-        <b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:#ffd700">${escapeHtml(resource.category)}</span>` : ""}
+        ${resource.icon ? `<img src="${escapeHtml(resource.icon)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : ""}<b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:#ffd700">${escapeHtml(resource.category)}</span>` : ""}
         <small style="display:block;margin-top:4px;color:#888">${escapeHtml(resource.safeUrl)}</small>
       </a>
     `).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>

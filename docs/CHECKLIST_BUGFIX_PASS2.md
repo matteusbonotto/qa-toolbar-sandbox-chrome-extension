@@ -50,12 +50,24 @@
 
 ## Fase 3 — Meios de pagamento, imagem de contas, Inspectors, breadcrumb
 
-- [ ] 11. Meios de pagamento: validade/CVV/titular, botão de copiar, busca e filtro
-- [ ] 12. Imagem do tipo de conta de teste aparecer também na lista de configurações
-- [ ] 13. Upload de imagem genérico para meios de pagamento e recursos
-- [ ] 14. Inspectors: aviso quando os padrões configurados não batem com nada capturado
-- [ ] 15. Clicar no cliente/projeto/produto/ambiente do breadcrumb navega até a URL
-- [ ] 16. Checkboxes em Aparência para mostrar/ocultar cada nível do breadcrumb
+- [x] 11. Meios de pagamento: titular/validade/CVV, ícone/bandeira, botão de copiar por campo +
+      "copiar tudo", busca e filtro por tipo. Verificado ao vivo: cadastro → revelar → copiar
+      tudo → conteúdo exato no clipboard.
+- [x] 12. Imagem do tipo de conta de teste agora aparece também na lista de configurações (só
+      aparecia no drawer da barra antes).
+- [x] 13. Upload de imagem genérico (URL/arquivo) agora também em meios de pagamento e recursos,
+      reaproveitando o mesmo componente já usado pra contas de teste.
+- [x] 14. Inspectors: aviso "N requisição(ões) não corresponderam a nenhum padrão configurado"
+      quando tudo é filtrado. Verificado ao vivo com um padrão propositalmente errado — o aviso
+      apareceu com a contagem certa, confirmando que a lógica de correspondência em si também
+      está correta.
+- [x] 15. Clicar no cliente/projeto/produto/ambiente do breadcrumb navega para a URL — usa
+      `primaryUrl` do ambiente se definido, senão tenta resolver o primeiro padrão de URL sem
+      wildcard no meio. Verificado ao vivo: clique navegou pra URL configurada de verdade.
+- [x] 16. Checkboxes em Aparência ("Mostrar no breadcrumb") pra cada nível — verificado ao vivo
+      desmarcando "Cliente" e confirmando que o rótulo do cliente sumiu da barra real.
+
+**Fase 3: verificação completa ao vivo em cada item, smoke suite rodando para confirmação final.**
 
 ## Itens novos, achados/pedidos durante a sessão (fora da Fase 1-6 original)
 

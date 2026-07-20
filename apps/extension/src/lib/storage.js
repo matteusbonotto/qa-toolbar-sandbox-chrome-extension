@@ -125,6 +125,7 @@ export function createEmptyWorkspace() {
       pinnedMacroIds: [],
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
       soundEffects: true,
+      breadcrumbVisibility: { client: true, project: true, product: true, environment: true },
       keyView: {
         enabled: false,
         typingMode: false,
@@ -205,7 +206,12 @@ export function normalizeWorkspace(rawWorkspace) {
       projectId: project?.id ?? null, clientId: project?.clientId ?? null,
       name: text(item?.name ?? item?.label ?? item?.environment, 80) || `Ambiente ${index + 1}`,
       color: /^#[0-9a-f]{6}$/i.test(text(item?.color ?? item?.backgroundColor, 7)) ? text(item?.color ?? item?.backgroundColor, 7) : "#3a3a3a",
-      urlPatterns: patterns, active: item?.active !== false,
+      urlPatterns: patterns,
+      // Optional, explicit "click the breadcrumb to go here" target — urlPatterns are wildcard
+      // match rules (e.g. "*://*.example.com/*"), not necessarily a real navigable address, so
+      // this can't just reuse the first pattern without validating it's actually a plain URL.
+      primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2_048)) ? text(item?.primaryUrl, 2_048) : "",
+      active: item?.active !== false,
     };
   }).filter((item) => products.some((product) => product.id === item.productId));
 
@@ -250,6 +256,12 @@ export function normalizeWorkspace(rawWorkspace) {
       pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
       enabledTools: normalizedEnabledTools,
       soundEffects: preferences.soundEffects !== false,
+      breadcrumbVisibility: {
+        client: preferences.breadcrumbVisibility?.client !== false,
+        project: preferences.breadcrumbVisibility?.project !== false,
+        product: preferences.breadcrumbVisibility?.product !== false,
+        environment: preferences.breadcrumbVisibility?.environment !== false,
+      },
       keyView: normalizeKeyViewPreferences(preferences.keyView),
     },
   };
