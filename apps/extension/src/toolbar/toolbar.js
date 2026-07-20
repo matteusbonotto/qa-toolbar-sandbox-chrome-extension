@@ -1249,6 +1249,7 @@ function drawerStyles() {
     .qts-position-grid { width: 132px; display: grid; grid-template-columns: repeat(3, 40px); gap: 6px; }
     .qts-position-grid button { width: 40px; height: 36px; border: 1px solid #393939; border-radius: 8px; background: #171717; color: #aaa; cursor: pointer; font-size: 16px; }
     .qts-position-grid button.isSelected { border-color: #ffd700; background: #b20808; color: #fff; box-shadow: 0 0 0 2px rgba(255,215,0,.18); }
+    .qts-key-view-size-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
     .qts-key-view-preview { min-height: 82px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; border: 1px dashed #3b3b3b; border-radius: 12px; background: #080808; color: #aaa; }
     .qts-key-view-preview .qts-keycap { flex: 0 0 auto; overflow: visible; }
     .qts-key-view-preview .qts-keycap-shadow { fill: #000; }
@@ -1261,7 +1262,7 @@ function drawerStyles() {
     .qts-key-view-preview[data-theme="light"] .qts-keycap-shine { stroke: rgba(255,255,255,.9); }
     .qts-key-view-preview[data-theme="light"] .qts-keycap text { fill: #111; }
     .qts-privacy-note p { margin: 5px 0 0; color: #aaa; }
-    @media (max-width: 680px) { .qts-macro-layout { grid-template-columns: 1fr; } .qts-palette { grid-template-columns: repeat(2,minmax(0,1fr)); } .qts-step { grid-template-columns: 28px 95px minmax(0,1fr) 32px; } }
+    @media (max-width: 680px) { .qts-macro-layout, .qts-key-view-size-grid { grid-template-columns: 1fr; } .qts-palette { grid-template-columns: repeat(2,minmax(0,1fr)); } .qts-step { grid-template-columns: 28px 95px minmax(0,1fr) 32px; } }
   `;
 }
 
@@ -1280,6 +1281,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Modo Typing": "Modo escritura", "Mantém o texto digitado na tela até você clicar em Limpar.": "Mantiene el texto escrito en pantalla hasta que hagas clic en Limpiar.",
   "Visualizar mouse": "Visualizar ratón", "Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.": "Resalta los clics izquierdo, derecho y central, y la dirección del desplazamiento junto al puntero.",
   "Aparência das teclas": "Apariencia de las teclas", "Tecla preta · texto branco": "Tecla negra · texto blanco", "Tecla branca · texto preto": "Tecla blanca · texto negro",
+  "Tamanho das teclas": "Tamaño de las teclas", "Tamanho do mouse": "Tamaño del ratón", "Pequeno": "Pequeño", "Médio": "Mediano", "Grande": "Grande",
   "Posição na tela": "Posición en pantalla", "Privacidade local": "Privacidad local", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "El texto no se guarda ni se envía. Nunca se capturan campos de contraseña, tarjeta, CVV, token o secreto.",
   "Salvar configurações": "Guardar configuración", "Limpar texto": "Limpiar texto", "Configurações salvas.": "Configuración guardada.", "Texto limpo.": "Texto borrado.",
 });
@@ -1289,6 +1291,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Modo Typing": "Typing mode", "Mantém o texto digitado na tela até você clicar em Limpar.": "Keeps typed text on screen until you click Clear.",
   "Visualizar mouse": "Show mouse", "Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.": "Highlights left, right, and middle clicks, plus scroll direction beside the pointer.",
   "Aparência das teclas": "Key appearance", "Tecla preta · texto branco": "Black key · white text", "Tecla branca · texto preto": "White key · black text",
+  "Tamanho das teclas": "Key size", "Tamanho do mouse": "Mouse size", "Pequeno": "Small", "Médio": "Medium", "Grande": "Large",
   "Posição na tela": "Screen position", "Privacidade local": "Local privacy", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "Text is neither saved nor sent. Password, card, CVV, token, and secret fields are never captured.",
   "Salvar configurações": "Save settings", "Limpar texto": "Clear text", "Configurações salvas.": "Settings saved.", "Texto limpo.": "Text cleared.",
 });
@@ -2526,11 +2529,12 @@ const KEY_VIEW_POSITIONS = [
   ["middle-left", "←", "Centro esquerdo"], ["middle-center", "•", "Centro"], ["middle-right", "→", "Centro direito"],
   ["bottom-left", "↙", "Inferior esquerdo"], ["bottom-center", "↓", "Inferior centro"], ["bottom-right", "↘", "Inferior direito"],
 ];
+const KEY_VIEW_SIZE_SCALE = Object.freeze({ small: 0.78, medium: 1, large: 1.3 });
 const KEY_VIEW_SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
 const KEY_VIEW_MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta", "AltGraph"]);
 
 function getKeyViewPreferences() {
-  return state.workspace?.preferences?.keyView || { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true };
+  return state.workspace?.preferences?.keyView || { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" };
 }
 
 function isKeyViewOwnSurface(event) {
@@ -2570,13 +2574,16 @@ function shortcutLabels(event) {
   return labels;
 }
 
-function keycapSvg(label) {
-  const width = Math.min(142, Math.max(46, 22 + Array.from(label).length * 9));
-  return `<svg class="qts-keycap" viewBox="0 0 ${width} 54" width="${width}" height="54" role="img" aria-label="${escapeHtml(label)}">
-    <rect class="qts-keycap-shadow" x="3" y="8" width="${width - 6}" height="42" rx="9" />
-    <rect class="qts-keycap-face" x="3" y="3" width="${width - 6}" height="42" rx="9" />
-    <path class="qts-keycap-shine" d="M11 7h${Math.max(10, width - 22)}a5 5 0 0 1 5 5" />
-    <text x="${width / 2}" y="29" text-anchor="middle">${escapeHtml(label)}</text>
+function keycapSvg(label, size = "medium") {
+  const baseWidth = Math.min(142, Math.max(46, 22 + Array.from(label).length * 9));
+  const scale = KEY_VIEW_SIZE_SCALE[size] || KEY_VIEW_SIZE_SCALE.medium;
+  const renderedWidth = Number((baseWidth * scale).toFixed(1));
+  const renderedHeight = Number((54 * scale).toFixed(1));
+  return `<svg class="qts-keycap" viewBox="0 0 ${baseWidth} 54" width="${renderedWidth}" height="${renderedHeight}" role="img" aria-label="${escapeHtml(label)}">
+    <rect class="qts-keycap-shadow" x="3" y="8" width="${baseWidth - 6}" height="42" rx="9" />
+    <rect class="qts-keycap-face" x="3" y="3" width="${baseWidth - 6}" height="42" rx="9" />
+    <path class="qts-keycap-shine" d="M11 7h${Math.max(10, baseWidth - 22)}a5 5 0 0 1 5 5" />
+    <text x="${baseWidth / 2}" y="29" text-anchor="middle">${escapeHtml(label)}</text>
   </svg>`;
 }
 
@@ -2585,6 +2592,7 @@ function updateKeyViewOverlayAppearance(overlay) {
   const preferences = getKeyViewPreferences();
   overlay.dataset.theme = preferences.theme;
   overlay.dataset.position = preferences.position;
+  overlay.dataset.keySize = preferences.keySize;
 }
 
 function ensureKeyViewOverlay() {
@@ -2616,7 +2624,8 @@ function showKeyViewShortcut(labels) {
   if (!labels.length) return;
   const overlay = ensureKeyViewOverlay();
   const shortcut = overlay.querySelector("[data-key-view-shortcut]");
-  shortcut.innerHTML = labels.map(keycapSvg).join('<span class="qts-key-plus">+</span>');
+  const preferences = getKeyViewPreferences();
+  shortcut.innerHTML = labels.map((label) => keycapSvg(label, preferences.keySize)).join('<span class="qts-key-plus">+</span>');
   shortcut.hidden = false;
   shortcut.classList.remove("isFading");
   void shortcut.offsetWidth;
@@ -2659,8 +2668,8 @@ function clearKeyViewTyping() {
 }
 
 function positionMouseView(overlay) {
-  const width = 52;
-  const height = 68;
+  const width = overlay.offsetWidth || 52;
+  const height = overlay.offsetHeight || 68;
   let left = state.keyView.pointerX - width - 12;
   let top = state.keyView.pointerY + 16;
   if (left < 8) left = Math.min(window.innerWidth - width - 8, state.keyView.pointerX + 18);
@@ -2671,7 +2680,10 @@ function positionMouseView(overlay) {
 
 function ensureMouseViewOverlay() {
   let overlay = document.getElementById("qts-mouse-view-overlay");
-  if (overlay) return overlay;
+  if (overlay) {
+    updateMouseViewOverlayAppearance(overlay);
+    return overlay;
+  }
   overlay = document.createElement("div");
   overlay.id = "qts-mouse-view-overlay";
   overlay.innerHTML = `<svg viewBox="0 0 52 68" role="img" aria-label="Ação do mouse">
@@ -2685,14 +2697,22 @@ function ensureMouseViewOverlay() {
     <path class="qts-mouse-arrow qts-mouse-arrow-down" d="m26 24 3-4h-6Z" />
   </svg>`;
   document.documentElement.appendChild(overlay);
+  updateMouseViewOverlayAppearance(overlay);
   return overlay;
+}
+
+function updateMouseViewOverlayAppearance(overlay) {
+  if (!overlay) return;
+  const preferences = getKeyViewPreferences();
+  overlay.dataset.theme = preferences.theme;
+  overlay.dataset.mouseSize = preferences.mouseSize;
 }
 
 function showMouseView(action, duration = 650) {
   if (!getKeyViewPreferences().enabled || !getKeyViewPreferences().mouseEffects) return;
   const overlay = ensureMouseViewOverlay();
   overlay.dataset.action = action;
-  overlay.dataset.theme = getKeyViewPreferences().theme;
+  updateMouseViewOverlayAppearance(overlay);
   positionMouseView(overlay);
   overlay.classList.add("isVisible");
   window.clearTimeout(state.keyView.mouseTimer);
@@ -2781,7 +2801,7 @@ function syncKeyView() {
     if (!preferences.typingMode && state.keyView.typingText) clearKeyViewTyping();
     startKeyView();
     const mouseOverlay = document.getElementById("qts-mouse-view-overlay");
-    if (mouseOverlay) mouseOverlay.dataset.theme = preferences.theme;
+    updateMouseViewOverlayAppearance(mouseOverlay);
   } else if (state.keyView.listening || document.getElementById("qts-key-view-overlay")) stopKeyView();
 }
 
@@ -2801,14 +2821,26 @@ function openKeyView() {
       <label class="qts-switch-row"><input id="keyViewTyping" type="checkbox" ${preferences.typingMode ? "checked" : ""} /><span><b>Modo Typing</b><small>Mantém o texto digitado na tela até você clicar em Limpar.</small></span></label>
       <label class="qts-switch-row"><input id="keyViewMouse" type="checkbox" ${preferences.mouseEffects ? "checked" : ""} /><span><b>Visualizar mouse</b><small>Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.</small></span></label>
       <label class="qts-field-label">Aparência das teclas<select id="keyViewTheme"><option value="dark" ${preferences.theme === "dark" ? "selected" : ""}>Tecla preta · texto branco</option><option value="light" ${preferences.theme === "light" ? "selected" : ""}>Tecla branca · texto preto</option></select></label>
+      <div class="qts-key-view-size-grid">
+        <label class="qts-field-label">Tamanho das teclas<select id="keyViewKeySize"><option value="small" ${preferences.keySize === "small" ? "selected" : ""}>Pequeno</option><option value="medium" ${preferences.keySize === "medium" ? "selected" : ""}>Médio</option><option value="large" ${preferences.keySize === "large" ? "selected" : ""}>Grande</option></select></label>
+        <label class="qts-field-label">Tamanho do mouse<select id="keyViewMouseSize"><option value="small" ${preferences.mouseSize === "small" ? "selected" : ""}>Pequeno</option><option value="medium" ${preferences.mouseSize === "medium" ? "selected" : ""}>Médio</option><option value="large" ${preferences.mouseSize === "large" ? "selected" : ""}>Grande</option></select></label>
+      </div>
       <div class="qts-field-label"><span>Posição na tela</span><div class="qts-position-grid">${KEY_VIEW_POSITIONS.map(([value, icon, label]) => `<button class="${value === preferences.position ? "isSelected" : ""}" type="button" data-key-view-position="${value}" title="${label}" aria-label="${label}">${icon}</button>`).join("")}</div></div>
-      <div class="qts-key-view-preview" data-theme="${preferences.theme}" id="keyViewPreview">${keycapSvg("Ctrl")}<span>+</span>${keycapSvg("V")}</div>
+      <div class="qts-key-view-preview" data-theme="${preferences.theme}" data-key-size="${preferences.keySize}" id="keyViewPreview">${keycapSvg("Ctrl", preferences.keySize)}<span>+</span>${keycapSvg("V", preferences.keySize)}</div>
       <div class="qts-card qts-privacy-note"><b>Privacidade local</b><p>O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.</p></div>
       <div class="qts-card-actions"><button class="action primary" id="keyViewSave" type="button">Salvar configurações</button><button class="action" id="keyViewClear" type="button">Limpar texto</button></div><div class="qts-status" id="keyViewStatus"></div>`,
     onReady(body) {
       const theme = body.querySelector("#keyViewTheme");
+      const keySize = body.querySelector("#keyViewKeySize");
+      const mouseSize = body.querySelector("#keyViewMouseSize");
       const preview = body.querySelector("#keyViewPreview");
-      theme.addEventListener("change", () => { preview.dataset.theme = theme.value; });
+      const renderPreview = () => {
+        preview.dataset.theme = theme.value;
+        preview.dataset.keySize = keySize.value;
+        preview.innerHTML = `${keycapSvg("Ctrl", keySize.value)}<span>+</span>${keycapSvg("V", keySize.value)}`;
+      };
+      theme.addEventListener("change", renderPreview);
+      keySize.addEventListener("change", renderPreview);
       body.querySelectorAll("[data-key-view-position]").forEach((button) => button.addEventListener("click", () => {
         selectedPosition = button.dataset.keyViewPosition;
         body.querySelectorAll("[data-key-view-position]").forEach((candidate) => candidate.classList.toggle("isSelected", candidate === button));
@@ -2818,7 +2850,7 @@ function openKeyView() {
         openKeyView();
       });
       body.querySelector("#keyViewSave").addEventListener("click", async () => {
-        await saveKeyViewPreferences({ typingMode: body.querySelector("#keyViewTyping").checked, mouseEffects: body.querySelector("#keyViewMouse").checked, theme: theme.value, position: selectedPosition });
+        await saveKeyViewPreferences({ typingMode: body.querySelector("#keyViewTyping").checked, mouseEffects: body.querySelector("#keyViewMouse").checked, theme: theme.value, position: selectedPosition, keySize: keySize.value, mouseSize: mouseSize.value });
         body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");
       });
       body.querySelector("#keyViewClear").addEventListener("click", () => { clearKeyViewTyping(); body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Texto limpo."); });

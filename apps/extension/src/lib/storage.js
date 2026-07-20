@@ -28,6 +28,7 @@ const KEY_VIEW_POSITIONS = new Set([
   "middle-left", "middle-center", "middle-right",
   "bottom-left", "bottom-center", "bottom-right",
 ]);
+const KEY_VIEW_SIZES = new Set(["small", "medium", "large"]);
 
 const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
 const SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
@@ -134,6 +135,8 @@ export function createEmptyWorkspace() {
         theme: "dark",
         position: "bottom-center",
         mouseEffects: true,
+        keySize: "medium",
+        mouseSize: "medium",
       },
     },
   };
@@ -147,6 +150,8 @@ function normalizeKeyViewPreferences(value) {
     theme: source.theme === "light" ? "light" : "dark",
     position: KEY_VIEW_POSITIONS.has(source.position) ? source.position : "bottom-center",
     mouseEffects: source.mouseEffects !== false,
+    keySize: KEY_VIEW_SIZES.has(source.keySize) ? source.keySize : "medium",
+    mouseSize: KEY_VIEW_SIZES.has(source.mouseSize) ? source.mouseSize : "medium",
   };
 }
 
