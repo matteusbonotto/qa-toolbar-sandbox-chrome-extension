@@ -22,7 +22,7 @@ assert.equal(workspace.preferences.enabledTools.includes("paymentMethods"), true
 assert.equal(workspace.preferences.enabledTools.includes("macroStudio"), true);
 assert.equal(workspace.preferences.enabledTools.includes("keyView"), true);
 assert.equal(workspace.preferences.enabledTools.includes("elementCapture"), true);
-assert.deepEqual(workspace.preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true });
+assert.deepEqual(workspace.preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" });
 
 const macroWorkspace = normalizeWorkspace({
   macros: [{
@@ -53,8 +53,10 @@ assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "charact
 
 const schemaThreeUpgrade = normalizeWorkspace({ schemaVersion: 3, preferences: { enabledTools: ["inspectors"], keyView: { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false } } });
 assert.deepEqual(schemaThreeUpgrade.preferences.enabledTools, ["inspectors", "keyView", "errorMonitor", "elementCapture"]);
-assert.deepEqual(schemaThreeUpgrade.preferences.keyView, { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false });
+assert.deepEqual(schemaThreeUpgrade.preferences.keyView, { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false, keySize: "medium", mouseSize: "medium" });
 assert.equal(normalizeWorkspace({ schemaVersion: 4, preferences: { keyView: { position: "outside", theme: "pink" } } }).preferences.keyView.position, "bottom-center");
+assert.deepEqual(normalizeWorkspace({ preferences: { keyView: { keySize: "large", mouseSize: "small" } } }).preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "large", mouseSize: "small" });
+assert.deepEqual(normalizeWorkspace({ preferences: { keyView: { keySize: "huge", mouseSize: "tiny" } } }).preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" });
 assert.deepEqual(normalizeWorkspace({ preferences: { compactMode: true, compactEntities: { client: true, project: false, product: true } } }).preferences.compactEntities, { client: true, project: false, product: true });
 
 const orphaned = normalizeWorkspace({ clients: [], projects: [], products: [], environments: [{ id: "bad", productId: "missing", name: "Bad", url: "https://bad.example.com" }] });

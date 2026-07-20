@@ -274,11 +274,13 @@ function loadPreferenceUi() {
   document.getElementById("keyViewMouseEffects").checked = keyView.mouseEffects !== false;
   document.getElementById("keyViewTheme").value = keyView.theme === "light" ? "light" : "dark";
   document.getElementById("keyViewPosition").value = keyView.position || "bottom-center";
+  document.getElementById("keyViewKeySize").value = keyView.keySize || "medium";
+  document.getElementById("keyViewMouseSize").value = keyView.mouseSize || "medium";
   // Toggling these while the plan doesn't include Key View would save cleanly but never take
   // visible effect on the bar (hasPlanFeature() in toolbar.js gates it) — disabling here instead
   // of letting the user "turn it on" and then wondering why nothing happened.
   const keyViewGated = !hasKeyViewPlanAccess();
-  ["keyViewEnabled", "keyViewTypingMode", "keyViewMouseEffects", "keyViewTheme", "keyViewPosition"].forEach((id) => {
+  ["keyViewEnabled", "keyViewTypingMode", "keyViewMouseEffects", "keyViewTheme", "keyViewPosition", "keyViewKeySize", "keyViewMouseSize"].forEach((id) => {
     document.getElementById(id).disabled = keyViewGated;
   });
   document.getElementById("keyViewPlanHint").hidden = !keyViewGated;
@@ -304,6 +306,8 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
       mouseEffects: document.getElementById("keyViewMouseEffects").checked,
       theme: document.getElementById("keyViewTheme").value,
       position: document.getElementById("keyViewPosition").value,
+      keySize: document.getElementById("keyViewKeySize").value,
+      mouseSize: document.getElementById("keyViewMouseSize").value,
     },
     pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),

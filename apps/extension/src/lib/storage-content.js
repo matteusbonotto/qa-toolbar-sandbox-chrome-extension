@@ -7,6 +7,7 @@
   const SCHEMA_5_TOOLS = ["errorMonitor"];
   const SCHEMA_6_TOOLS = ["elementCapture"];
   const KEY_VIEW_POSITIONS = new Set(["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"]);
+  const KEY_VIEW_SIZES = new Set(["small", "medium", "large"]);
   const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
   const SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
   const text = (value, maximum = 500) => String(value ?? "").trim().slice(0, maximum);
@@ -59,11 +60,11 @@
     return output.slice(0, 100);
   }
   function createEmptyWorkspace() {
-    return { schemaVersion: 6, updatedAt: new Date().toISOString(), clients: [], projects: [], products: [], environments: [], testAccounts: [], paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], preferences: { language: "pt-BR", pushSiteContent: true, compactMode: false, compactEntities: { client: false, project: false, product: false }, avatarShape: "square", pinnedTools: ["passFail", "screenshot", "notes", "record"], pinnedMacroIds: [], enabledTools: [...DEFAULT_ENABLED_TOOLS], soundEffects: true, breadcrumbVisibility: { client: true, project: true, product: true, environment: true }, keyView: { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true } } };
+    return { schemaVersion: 6, updatedAt: new Date().toISOString(), clients: [], projects: [], products: [], environments: [], testAccounts: [], paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], preferences: { language: "pt-BR", pushSiteContent: true, compactMode: false, compactEntities: { client: false, project: false, product: false }, avatarShape: "square", pinnedTools: ["passFail", "screenshot", "notes", "record"], pinnedMacroIds: [], enabledTools: [...DEFAULT_ENABLED_TOOLS], soundEffects: true, breadcrumbVisibility: { client: true, project: true, product: true, environment: true }, keyView: { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" } } };
   }
   function normalizeKeyView(value) {
     const source = value && typeof value === "object" ? value : {};
-    return { enabled: source.enabled === true, typingMode: source.typingMode === true, theme: source.theme === "light" ? "light" : "dark", position: KEY_VIEW_POSITIONS.has(source.position) ? source.position : "bottom-center", mouseEffects: source.mouseEffects !== false };
+    return { enabled: source.enabled === true, typingMode: source.typingMode === true, theme: source.theme === "light" ? "light" : "dark", position: KEY_VIEW_POSITIONS.has(source.position) ? source.position : "bottom-center", mouseEffects: source.mouseEffects !== false, keySize: KEY_VIEW_SIZES.has(source.keySize) ? source.keySize : "medium", mouseSize: KEY_VIEW_SIZES.has(source.mouseSize) ? source.mouseSize : "medium" };
   }
   function normalizeStep(item) {
     if (!item || typeof item !== "object" || !MACRO_ACTIONS.has(item.action)) return null;

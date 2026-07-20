@@ -38,6 +38,7 @@ Abra **Tools → Key View** para ativar e personalizar o visualizador usado em d
 - A posição pode ser qualquer ponto de uma grade 3 × 3: esquerda, centro e direita nas faixas superior, central e inferior.
 - **Modo Typing** mantém o texto digitado na tela até clicar em **Limpar**. O buffer tem no máximo 2.000 caracteres e existe somente na memória da página.
 - **Visualizar mouse** desenha o mouse próximo ao ponteiro e destaca clique esquerdo, direito, meio e scroll para cima/baixo sem bloquear a interação original.
+- **Tamanhos independentes** permitem exibir teclas e mouse em Pequeno, Médio ou Grande; instalações existentes continuam em Médio.
 
 As mesmas preferências ficam disponíveis em **Configurações → Barra e aparência → Key View**.
 

@@ -268,6 +268,10 @@ body.qts-placement-mode, body.qts-placement-mode * {
   all: initial; display: flex !important; align-items: center !important; justify-content: center !important; gap: 7px !important;
   max-width: 100% !important; filter: drop-shadow(0 12px 16px rgba(0,0,0,.34)) !important;
 }
+#qts-key-view-overlay[data-key-size="small"] .qts-key-view-shortcut { gap: 5px !important; }
+#qts-key-view-overlay[data-key-size="small"] .qts-key-plus { font-size: 14px !important; }
+#qts-key-view-overlay[data-key-size="large"] .qts-key-view-shortcut { gap: 9px !important; }
+#qts-key-view-overlay[data-key-size="large"] .qts-key-plus { font-size: 23px !important; }
 .qts-key-view-shortcut.isFading { animation: qts-key-view-linger 3s ease forwards !important; }
 @keyframes qts-key-view-linger { 0%,78% { opacity: 1; transform: translateY(0) scale(1); } 100% { opacity: 0; transform: translateY(5px) scale(.98); } }
 .qts-key-plus { all: initial; color: #fff !important; font: 900 18px/1 sans-serif !important; text-shadow: 0 2px 6px #000 !important; }
@@ -302,8 +306,10 @@ body.qts-placement-mode, body.qts-placement-mode * {
   opacity: 0 !important; transform: scale(.88) !important; transform-origin: top right !important; transition: opacity 90ms ease, transform 120ms ease !important;
   pointer-events: none !important; filter: drop-shadow(0 9px 10px rgba(0,0,0,.38)) !important;
 }
+#qts-mouse-view-overlay[data-mouse-size="small"] { width: 40px !important; height: 52px !important; }
+#qts-mouse-view-overlay[data-mouse-size="large"] { width: 68px !important; height: 89px !important; }
 #qts-mouse-view-overlay.isVisible { opacity: 1 !important; transform: scale(1) !important; }
-#qts-mouse-view-overlay svg { width: 52px !important; height: 68px !important; overflow: visible !important; }
+#qts-mouse-view-overlay svg { width: 100% !important; height: 100% !important; overflow: visible !important; }
 .qts-mouse-shadow { fill: rgba(0,0,0,.48) !important; }
 .qts-mouse-body, .qts-mouse-left, .qts-mouse-right { fill: #1d2028 !important; stroke: #f2f2f2 !important; stroke-width: 1.5 !important; }
 .qts-mouse-divider { fill: none !important; stroke: #f2f2f2 !important; stroke-width: 1.4 !important; }
