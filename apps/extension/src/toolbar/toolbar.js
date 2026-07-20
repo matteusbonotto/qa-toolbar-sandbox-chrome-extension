@@ -766,6 +766,16 @@ function renderSavedNote(note, text, style) {
 
 function renderEditingNote(note, currentText, currentStyle) {
   const t = state.t;
+  const safeColor = /^#(?:[0-9a-fA-F]{3}){1,2}$/.test(String(currentStyle.color || "").trim())
+    ? String(currentStyle.color).trim()
+    : DEFAULT_NOTE_STYLE.color;
+  const parsedFontSize = Number(currentStyle.fontSize);
+  const safeFontSize = Number.isFinite(parsedFontSize)
+    ? Math.min(28, Math.max(11, parsedFontSize))
+    : DEFAULT_NOTE_STYLE.fontSize;
+  const safeBackground = ["translucent", "solid", "none"].includes(currentStyle.background)
+    ? currentStyle.background
+    : DEFAULT_NOTE_STYLE.background;
   note.className = "qts-floating-item qts-note isEditing";
   note.style.height = "";
   note.innerHTML = `
@@ -773,12 +783,12 @@ function renderEditingNote(note, currentText, currentStyle) {
     <div class="qts-editor-body">
       <textarea placeholder="${escapeHtml(t.notePlaceholder)}">${escapeHtml(currentText)}</textarea>
       <div class="qts-note-style-row">
-        <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color value="${currentStyle.color}" /></label>
-        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" value="${currentStyle.fontSize}" data-note-size /></label>
+        <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color value="${safeColor}" /></label>
+        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" value="${safeFontSize}" data-note-size /></label>
         <label>${escapeHtml(t.noteBackground)}<select data-note-bg>
-          <option value="translucent" ${currentStyle.background === "translucent" ? "selected" : ""}>${escapeHtml(t.noteBackgroundTranslucent)}</option>
-          <option value="solid" ${currentStyle.background === "solid" ? "selected" : ""}>${escapeHtml(t.noteBackgroundSolid)}</option>
-          <option value="none" ${currentStyle.background === "none" ? "selected" : ""}>${escapeHtml(t.noteBackgroundNone)}</option>
+          <option value="translucent" ${safeBackground === "translucent" ? "selected" : ""}>${escapeHtml(t.noteBackgroundTranslucent)}</option>
+          <option value="solid" ${safeBackground === "solid" ? "selected" : ""}>${escapeHtml(t.noteBackgroundSolid)}</option>
+          <option value="none" ${safeBackground === "none" ? "selected" : ""}>${escapeHtml(t.noteBackgroundNone)}</option>
         </select></label>
       </div>
       <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
