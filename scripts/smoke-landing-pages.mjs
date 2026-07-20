@@ -9,6 +9,7 @@ const landingDirectory = path.join(workspace, "apps", "landing");
 const landingDist = path.join(landingDirectory, "dist");
 const adminDist = path.join(workspace, "apps", "admin", "dist");
 const adminTarget = path.join(landingDist, "admin");
+const extensionVersion = JSON.parse(fs.readFileSync(path.join(workspace, "apps", "extension", "manifest.json"), "utf8")).version;
 const basePath = "/qa-toolbar-sandbox-chrome-extension/";
 const origin = "http://127.0.0.1:4173";
 
@@ -50,7 +51,7 @@ try {
   await page.route("https://xhusvkylbouwtpcevgri.supabase.co/rest/v1/store_listing_status**", (route) => route.fulfill({
     status: 200,
     contentType: "application/json",
-    body: JSON.stringify([{ chrome_web_store_version: "1.1.2", status: "live" }]),
+    body: JSON.stringify([{ chrome_web_store_version: extensionVersion, status: "live" }]),
   }));
   const consoleErrors = [];
   const failedResources = [];
