@@ -12,9 +12,11 @@
 import { createWriteStream } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import { createRequire } from "node:module";
-
-const archiver = createRequire(import.meta.url)("archiver");
+// archiver@8 is a full rewrite: CommonJS support is gone (package.json is now `"type": "module"`
+// with a plain `"exports"` map, no `"main"`), and the old `archiver("zip", opts)` factory function
+// is gone too — replaced by a `ZipArchive` class you construct directly. Everything else
+// (.pipe/.append/.directory/.finalize/.pointer()) kept the same API.
+import { ZipArchive } from "archiver";
 
 const SIDELOAD_MANIFEST_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqEIIMro27Dtb7Z7rrDe/ug6rEExXrkTFY+nO4ZjYc3xqe6vbQ01PyJv3jeBmEc8lkF//yKz6bSbiDVwVVTp+VrSoJfcrJvAelsV6jT2nMo0TaAcnDZjAs1ECFZsdrQBZPgIC3TuQkaAW6xOBO+eVaOrUViSxUdYjM6pYQ4YS8R3QddeAaSBprFlkttBLX/XbdAQea8k5L46gMoDh6bHDdhEmHSdyMnmTXJ8Cl/8KEXD1Ir2zLRlwmy4ahY2sVj40VGFkoU19iCSva0jaCE9T1cb40p7U+sE+VkcgdZ9Dbqt+zSaZwNwYFHjWO9BZmyFlb0cgtGztF6MK3E93ml8c1wIDAQAB";
 
@@ -29,7 +31,7 @@ const outputPath = resolve(root, outputArg);
 await mkdir(dirname(outputPath), { recursive: true });
 
 const output = createWriteStream(outputPath);
-const archive = archiver("zip", { zlib: { level: 9 } });
+const archive = new ZipArchive({ zlib: { level: 9 } });
 const done = new Promise((resolvePromise, rejectPromise) => {
   output.on("close", resolvePromise);
   archive.on("error", rejectPromise);
