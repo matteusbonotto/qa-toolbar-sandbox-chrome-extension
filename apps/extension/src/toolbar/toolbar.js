@@ -382,11 +382,7 @@ function render() {
   syncKeyView();
   setSpacerHeight();
   offsetSiteFixedHeaders();
-  const errorBadge = root.getElementById("errorMonitorBadge");
-  if (errorBadge) {
-    errorBadge.textContent = String(state.httpErrors.length);
-    errorBadge.style.display = state.httpErrors.length ? "inline-flex" : "none";
-  }
+  updateHttpErrorSurfaces();
 }
 
 function buildShadowHost() {
@@ -478,7 +474,20 @@ function buildShadowHost() {
       .qts-macro-hist-row { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 6px; background: #171717; font-size: 11px; color: #fff; }
       .qts-macro-hist-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .qts-macro-hist-row button { all: unset; cursor: pointer; color: #ff7078; font-weight: 800; padding: 0 4px; }
-      .qts-macro-hist-empty { padding: 8px; color: #999; font-size: 11px; text-align: center; }
+      .qts-mini-empty { padding: 8px; color: #999; font-size: 11px; text-align: center; }
+      #notificationBellWrapper { position: relative; }
+      #notificationBellButton { position: relative; }
+      .qts-bell-badge { position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; font-weight: 800; display: none; align-items: center; justify-content: center; line-height: 1; }
+      .qts-bell-badge.isVisible { display: flex; }
+      #notificationBellPanel { position: absolute; top: 30px; right: 0; width: 300px; max-height: 320px; overflow: auto; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
+      .qts-bell-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 6px; border-bottom: 1px solid #292929; margin-bottom: 2px; }
+      .qts-bell-head b { font-size: 12px; }
+      .qts-bell-head button { all: unset; cursor: pointer; color: #ffb0b0; font-size: 11px; font-weight: 700; }
+      .qts-bell-head button:disabled { color: #555; cursor: default; }
+      .qts-bell-row { all: unset; display: block; box-sizing: border-box; width: 100%; padding: 7px; border-radius: 7px; background: #171717; cursor: pointer; font-size: 11px; }
+      .qts-bell-row:hover { background: #232323; }
+      .qts-bell-row span { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; }
+      .qts-bell-row small { display: block; margin-top: 2px; color: #777; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
@@ -520,6 +529,10 @@ function buildShadowHost() {
           <button id="macroRecCancelButton" class="iconOnly" type="button" title="Cancelar gravação">${ICON("fail")}</button>
           <button id="macroRecDoneButton" class="iconOnly" type="button" title="Concluir e editar">${ICON("pass")}</button>
           <div id="macroRecHistoryPanel" class="isHidden"></div>
+        </div>
+        <div id="notificationBellWrapper">
+          <button id="notificationBellButton" class="iconOnly" type="button" title="Notificações">${ICON("bell")}<span id="notificationBellBadge" class="qts-bell-badge">0</span></button>
+          <div id="notificationBellPanel" class="isHidden"></div>
         </div>
         <div id="toolsWrapper">
           <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ${ICON("chevronDown")}</button>
@@ -601,8 +614,13 @@ function buildShadowHost() {
     event.stopPropagation();
     shadow.getElementById("toolsMenu").classList.toggle("isOpen");
   });
-  shadow.addEventListener("click", () => shadow.getElementById("toolsMenu").classList.remove("isOpen"));
+  shadow.getElementById("notificationBellButton").addEventListener("click", (event) => { event.stopPropagation(); toggleNotificationBellPanel(); });
+  shadow.addEventListener("click", () => {
+    shadow.getElementById("toolsMenu").classList.remove("isOpen");
+    shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
+  });
   shadow.getElementById("toolsMenu").addEventListener("click", (event) => event.stopPropagation());
+  shadow.getElementById("notificationBellPanel").addEventListener("click", (event) => event.stopPropagation());
 
   shadow.getElementById("clickSpyMenuItem").addEventListener("click", () => { toggleClickSpy(); closeToolsMenu(); });
   shadow.getElementById("freezeClockMenuItem").addEventListener("click", () => { toggleFreezeClock(); closeToolsMenu(); });
@@ -1928,16 +1946,61 @@ function persistHttpErrors() {
   try { window.sessionStorage.setItem(HTTP_ERRORS_SESSION_KEY, JSON.stringify(state.httpErrors)); } catch {}
 }
 
+// Single place that keeps every HTTP-error surface in sync — the Tools-menu badge, the
+// standalone notification bell (badge + its own dropdown list), and the Error Monitor drawer if
+// it happens to be open — so none of them can drift out of sync with `state.httpErrors`.
+function updateHttpErrorSurfaces() {
+  const root = state.shadowRoot;
+  if (!root) return;
+  const count = state.httpErrors.length;
+  const menuBadge = root.getElementById("errorMonitorBadge");
+  if (menuBadge) { menuBadge.textContent = String(count); menuBadge.style.display = count ? "inline-flex" : "none"; }
+  const bellBadge = root.getElementById("notificationBellBadge");
+  if (bellBadge) { bellBadge.textContent = count > 99 ? "99+" : String(count); bellBadge.classList.toggle("isVisible", count > 0); }
+  if (!root.getElementById("notificationBellPanel")?.classList.contains("isHidden")) renderNotificationBellPanel();
+  if (root.getElementById("drawerHost")?.dataset.view === "errorMonitor") renderErrorMonitorList();
+}
+
+function clearHttpErrors() {
+  state.httpErrors = [];
+  persistHttpErrors();
+  updateHttpErrorSurfaces();
+}
+
 function handleHttpErrorCaptured(entry) {
   state.httpErrors.unshift(entry);
   if (state.httpErrors.length > 150) state.httpErrors.length = 150;
   persistHttpErrors();
-  const badge = state.shadowRoot?.getElementById("errorMonitorBadge");
-  if (badge) {
-    badge.textContent = String(state.httpErrors.length);
-    badge.style.display = state.httpErrors.length ? "inline-flex" : "none";
-  }
-  if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "errorMonitor") renderErrorMonitorList();
+  updateHttpErrorSurfaces();
+}
+
+function renderNotificationBellPanel() {
+  const panel = state.shadowRoot?.getElementById("notificationBellPanel");
+  if (!panel) return;
+  const entries = state.httpErrors.slice(0, 20);
+  panel.innerHTML = `
+    <div class="qts-bell-head"><b>Notificações</b><button type="button" id="notificationBellClear" ${state.httpErrors.length ? "" : "disabled"}>Limpar</button></div>
+    ${entries.length ? entries.map((entry) => `
+      <button type="button" class="qts-bell-row" data-open-notification>
+        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)}
+        <span>${escapeHtml(entry.url)}</span>
+        <small>${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
+      </button>
+    `).join("") : `<div class="qts-mini-empty">Nenhuma notificação.</div>`}
+  `;
+  panel.querySelector("#notificationBellClear")?.addEventListener("click", () => clearHttpErrors());
+  panel.querySelectorAll("[data-open-notification]").forEach((row) => row.addEventListener("click", () => {
+    toggleNotificationBellPanel(false);
+    openErrorMonitorDrawer();
+  }));
+}
+
+function toggleNotificationBellPanel(force) {
+  const panel = state.shadowRoot?.getElementById("notificationBellPanel");
+  if (!panel) return;
+  const willShow = force !== undefined ? force : panel.classList.contains("isHidden");
+  panel.classList.toggle("isHidden", !willShow);
+  if (willShow) renderNotificationBellPanel();
 }
 
 const errorMonitorFilterState = { query: "", status: new Set(), source: new Set(), collapsed: false };
@@ -1984,13 +2047,7 @@ function renderErrorMonitorList() {
   `;
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
-  body.querySelector("#errorMonitorClear").addEventListener("click", () => {
-    state.httpErrors = [];
-    persistHttpErrors();
-    const badge = state.shadowRoot?.getElementById("errorMonitorBadge");
-    if (badge) badge.style.display = "none";
-    renderErrorMonitorList();
-  });
+  body.querySelector("#errorMonitorClear").addEventListener("click", () => clearHttpErrors());
   wireSmartFilter(body.querySelector("#errorMonitorFilterBar"), (key, value, isSelected) => {
     if (isSelected) errorMonitorFilterState[key].add(value); else errorMonitorFilterState[key].delete(value);
     renderErrorMonitorList();
