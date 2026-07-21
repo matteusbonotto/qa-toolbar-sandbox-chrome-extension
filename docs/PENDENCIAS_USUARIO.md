@@ -79,43 +79,40 @@ em produção até você fazer os dois passos abaixo.
 - [ ] Teste ao vivo com uma conta de teste real (sem assinatura ativa) para confirmar a exclusão
       de ponta a ponta antes de anunciar a funcionalidade.
 
-## 8. Notificação de pagamento falhado — feito só o lado sem custo, e-mail fica pra você decidir (2026-07-20)
+## 8. [RESOLVIDO] Notificação de pagamento falhado (e-mail) + e-mail de redefinição de senha (2026-07-21)
 
-Pedido: quando o pagamento falha, bloquear recursos pagos automaticamente (**já funcionava antes
-desta sessão** — `access-status` já exigia `subscription.status === 'active'`) e notificar o
-usuário. Como não existe nenhum provedor de e-mail configurado no projeto (nem Resend, nem
-SendGrid, nem SMTP), implementei só o que não depende de conta/custo externo:
+Founder criou a conta no Resend e gerou a API key. A partir disso:
 
-- [x] Extensão: quando `billing.status` vem `past_due`/`unpaid` do `access-status`, aparece um
-      badge vermelho "!" no ícone da extensão (`chrome.action.setBadgeText`) e um aviso destacado
-      na aba "Minha conta" explicando o que aconteceu — some sozinho assim que o pagamento é
-      regularizado. Verificado ao vivo com Playwright (badge aparece/some, aviso aparece/some).
-- [ ] **E-mail continua pendente** — depende de você escolher/criar uma conta em um provedor. Não
-      deixei nenhum código pela metade esperando isso (nada de stub/TODO no meio do webhook); quando
-      você tiver a chave, é uma implementação pequena e direta em
-      `supabase/functions/stripe-webhook/index.ts`, no bloco
-      `if (["invoice.paid", "invoice.payment_failed"].includes(event.type))` — o `userId` e a
-      assinatura já estão resolvidos ali, só falta buscar o e-mail (`admin.auth.admin.getUserById`)
-      e chamar a API do provedor escolhido.
+- [x] `supabase/functions/_shared/email.ts`: `sendPaymentFailedEmail()`, chamada de dentro do
+      `stripe-webhook` no bloco `invoice.payment_failed` — busca o e-mail do usuário e envia via
+      Resend. É "melhor esforço": se o Resend falhar, só loga o erro e não derruba o processamento
+      do webhook (Stripe reenviaria pra sempre se a função retornasse erro).
+- [x] `supabase/config.toml` ganhou `[auth.email.smtp]` apontando pro Resend — isso faz TODOS os
+      e-mails do Supabase Auth (não só recuperação de senha) passarem pelo Resend em vez do mailer
+      padrão do Supabase (que tem limite de taxa bem baixo). A senha do SMTP vem da variável de
+      ambiente `RESEND_API_KEY` via `env()` do próprio config.toml — nunca fica em texto puro no
+      arquivo commitado.
+- [x] `supabase/templates/recovery.html`: template HTML bonito (compatível com cliente de e-mail,
+      tabela + estilo inline) pro e-mail de "redefinir senha", aplicado via `[auth.email.template.recovery]`.
+- [x] Aplicado ao vivo: `supabase functions deploy stripe-webhook` + `supabase config push`
+      (confirmado: `"auth":"updated"`, senha SMTP guardada como hash). `deno check` e o scan de
+      segurança do repo passaram antes do commit.
+- [ ] **Pendência real que sobra**: sem domínio verificado no Resend, o remetente é
+      `onboarding@resend.dev`, que só entrega pro **próprio e-mail cadastrado na conta Resend** —
+      não pra usuários reais quaisquer. Pra funcionar pra qualquer cliente, verifique um domínio
+      grátis (Resend → Domains → Add Domain → colar os registros DNS onde seu domínio está
+      hospedado). Depois disso, é só eu trocar o `admin_email`/`FROM_ADDRESS` pro seu domínio
+      verificado nos dois lugares (`email.ts` e `config.toml`) e reaplicar.
+- [ ] **Teste ao vivo do e-mail de redefinição de senha**: o founder preferiu testar manualmente
+      (extensão → Minha conta → Esqueci minha senha → abrir o e-mail de verdade → `/redefinir-senha`
+      → nova senha → logar de novo).
 
-**Como fazer de graça (passo a passo, Resend — o mais simples pra Edge Functions em Deno):**
-
-1. Crie uma conta grátis em resend.com (não pede cartão). O plano free dá 100 e-mails/dia e 3.000
-   por mês, o suficiente para avisos de cobrança de um produto começando.
-2. Sem verificar domínio, você já pode enviar usando o remetente de teste deles
-   (`onboarding@resend.dev`) — funciona para começar a testar, mas o Gmail/Outlook do destinatário
-   pode marcar como suspeito por não ser o seu domínio.
-3. Para enviar como você (ex. `contato@matheusbonotto.com.br` ou o domínio da LP), verifique um
-   domínio grátis: Resend → Domains → Add Domain → ele te dá 3 registros DNS (SPF, DKIM, um
-   opcional de rastreio) para colar onde seu domínio está hospedado (Cloudflare, Registro.br, etc,
-   todos com DNS grátis). Leva de alguns minutos a algumas horas para propagar.
-4. Gere uma API key em Resend → API Keys → Create API Key.
-5. Salve a chave como secret da Supabase (nunca no código):
-   ```
-   npx supabase@latest secrets set RESEND_API_KEY=re_xxx --project-ref xhusvkylbouwtpcevgri
-   ```
-6. Me avise quando tiver feito isso — aí eu escrevo a chamada `fetch("https://api.resend.com/emails", ...)`
-   dentro do `stripe-webhook` e faço o redeploy da função.
+**Achado durante essa sessão, sem relação direta**: o `.env` tinha um `PROJECT_ID` desatualizado
+(`rvkgwhosnjrgyeztugtg`, um projeto Supabase antigo que não existe mais na conta) — isso explicava
+por que o painel de Webhooks do Stripe mostrava um segundo endpoint com 100% de erro. Corrigi o
+`.env` pro ref correto (`xhusvkylbouwtpcevgri`); falta só você apagar aquele webhook órfão no
+Stripe Dashboard (Developers → Webhooks → o endpoint `rvkgwhosnjrgyeztugtg` → excluir) quando
+quiser — não mexi no Stripe sozinho.
 
 ## 6. Teste ao vivo que ainda falta
 
