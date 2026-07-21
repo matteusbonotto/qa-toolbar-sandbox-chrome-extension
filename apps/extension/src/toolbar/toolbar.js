@@ -522,6 +522,7 @@ function buildShadowHost() {
         <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
         <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
         <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
+        <button id="hideAllButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.hideAllTitle)}">${ICON("eye")}</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">${ICON("camera")}</button>
         <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
         <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">${ICON("recordStop")}</button>
@@ -604,6 +605,7 @@ function buildShadowHost() {
   shadow.getElementById("noteButton").addEventListener("click", () => addFloatingTextNote());
   shadow.getElementById("shapeButton").addEventListener("click", (event) => enablePlacementMode("shape", event.currentTarget));
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
+  shadow.getElementById("hideAllButton").addEventListener("click", () => toggleAllFloatingItemsVisibility());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
   shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
   shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
@@ -962,6 +964,9 @@ function wireVisibilityControls(item) {
     const hidden = item.classList.toggle("isContentHidden");
     hideBtn.innerHTML = ICON(hidden ? "eye" : "eyeSlash");
     hideBtn.title = hidden ? t.showElement : t.hideElement;
+    // Keeps the "hide/show all" master button's own icon (eye vs eyeSlash) truthful even when
+    // items are toggled one at a time instead of all at once.
+    updateClearAllVisibility();
   });
 }
 
@@ -1228,10 +1233,37 @@ function clearAllFloatingItems() {
   updateClearAllVisibility();
 }
 
+// Founder feedback: the per-item eye toggle (which reveals edit/remove/resize/hide-content on one
+// marker/note/shape at a time) was welcome, but there was no quick way to blank every annotation's
+// content at once before a screenshot — this mirrors "Limpar" (remove all) with a non-destructive
+// "hide/show all" sibling, toggling every item's own isContentHidden class in one click.
+function toggleAllFloatingItemsVisibility() {
+  const items = [...document.querySelectorAll(".qts-floating-item")];
+  if (!items.length) return;
+  const shouldHide = items.some((item) => !item.classList.contains("isContentHidden"));
+  for (const item of items) {
+    item.classList.toggle("isContentHidden", shouldHide);
+    const hideButton = item.querySelector("[data-hide-content-toggle]");
+    if (hideButton) {
+      hideButton.innerHTML = ICON(shouldHide ? "eye" : "eyeSlash");
+      hideButton.title = shouldHide ? state.t.showElement : state.t.hideElement;
+    }
+  }
+  updateClearAllVisibility();
+}
+
 function updateClearAllVisibility() {
-  const hasItems = document.querySelectorAll(".qts-floating-item").length > 0;
+  const items = document.querySelectorAll(".qts-floating-item");
+  const hasItems = items.length > 0;
   const notesPinned = (state.workspace?.preferences?.pinnedTools || []).includes("notes");
   state.shadowRoot?.getElementById("clearAllButton")?.classList.toggle("isHidden", !hasItems || !notesPinned);
+  const hideAllButton = state.shadowRoot?.getElementById("hideAllButton");
+  if (hideAllButton) {
+    hideAllButton.classList.toggle("isHidden", !hasItems || !notesPinned);
+    const allHidden = hasItems && [...items].every((item) => item.classList.contains("isContentHidden"));
+    hideAllButton.innerHTML = ICON(allHidden ? "eyeSlash" : "eye");
+    hideAllButton.title = allHidden ? state.t.showAllTitle : state.t.hideAllTitle;
+  }
 }
 
 // ---------------------------------------------------------------------------

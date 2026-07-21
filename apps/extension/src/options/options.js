@@ -622,6 +622,12 @@ function renderUrlRelationRow(item) {
   return `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${productBadge}${escapeHtml(product?.name || "—")}</small><small class="relationBadges">${badges}</small></div>${rowActions("urlBindings", item)}</div>`;
 }
 
+// Remembers which environment accordions the founder has manually collapsed — renderWorkspace()
+// re-renders this list after every unrelated save anywhere on the page (a new test account, a
+// language switch, etc.), so without this every collapse would silently snap back open the next
+// time anything else changed.
+const collapsedUrlAccordionIds = new Set();
+
 function renderUrlRelationList() {
   const element = document.getElementById(COLLECTION_UI.urlBindings.listId);
   const environments = workspace.environments || [];
@@ -634,13 +640,18 @@ function renderUrlRelationList() {
     ...(orphans.length ? [{ environment: null, items: orphans }] : []),
   ];
   element.innerHTML = sections.map(({ environment, items }) => {
+    const key = environment ? environment.id : "__none__";
     const name = environment ? environmentDisplayName(environment) : t("Sem ambiente");
     const color = environment ? environment.color : "#5b6172";
-    return `<details class="environmentAccordion" open>
+    return `<details class="environmentAccordion" data-accordion-key="${escapeHtml(key)}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}>
       <summary><span class="environmentDot" style="--environment-color:${escapeHtml(color)}"></span><b>${escapeHtml(name)}</b><span class="count">${items.length}</span></summary>
       <div class="list listComfortable">${items.length ? items.map(renderUrlRelationRow).join("") : `<div class="listEmpty">${escapeHtml(t("Nenhuma URL cadastrada neste ambiente."))}</div>`}</div>
     </details>`;
   }).join("");
+  element.querySelectorAll("details.environmentAccordion").forEach((details) => details.addEventListener("toggle", () => {
+    const key = details.dataset.accordionKey;
+    details.open ? collapsedUrlAccordionIds.delete(key) : collapsedUrlAccordionIds.add(key);
+  }));
 }
 
 // Shared badge summary for anything with environmentIds[]/productIds[] (test accounts, payment
@@ -663,30 +674,45 @@ function productIdsForEnvironment(environmentId) {
   return ids;
 }
 
-// Cascading Client -> Project -> Environment -> Product multi-select combobox shared by the Test
-// Account and Payment Method composers (see options.html's <details data-scope-picker>). Only
+// Cascading Client -> Project -> Environment -> Product multi-select shared by the Test Account
+// and Payment Method composers (see options.html's #testAccountScopePicker/#paymentMethodScopePicker
+// containers). Only
 // environmentIds/productIds are ever persisted — Client/Project checkboxes exist purely to narrow
 // the options below them (a test account/payment method has no direct client/project field of its
-// own, since that's already implied by whichever product(s) it's scoped to). Search is applied as
-// a plain hidden-toggle over already-rendered rows (not a re-render) so typing never steals focus
-// from the search input — same technique as renderUrlEnvironmentPicker's search above.
+// own, since that's already implied by whichever product(s) it's scoped to).
+//
+// Rendered as four independent floating comboboxes (one per facet) rather than one big
+// always-expanded 4-column grid — founder feedback: the grid version pushed the whole dialog open
+// and was unreadable, nothing like a real combobox. Each facet now behaves like a normal <select>:
+// closed by default, opens ITS OWN small floating panel (search + Todos/Limpar + a scrollable
+// checkbox list) positioned over the rest of the form instead of shoving it downward, and closes
+// on outside click, Escape, or picking a different facet.
 const scopePickerStates = {
-  testAccount: { clientIds: new Set(), projectIds: new Set(), environmentIds: new Set(), productIds: new Set(), search: "" },
-  paymentMethod: { clientIds: new Set(), projectIds: new Set(), environmentIds: new Set(), productIds: new Set(), search: "" },
+  testAccount: null,
+  paymentMethod: null,
 };
 
-function resetScopePickerState(key, { environmentIds = [], productIds = [] } = {}) {
-  scopePickerStates[key] = { clientIds: new Set(), projectIds: new Set(), environmentIds: new Set(environmentIds), productIds: new Set(productIds), search: "" };
+function freshScopePickerState(environmentIds = [], productIds = []) {
+  return {
+    clientIds: new Set(), projectIds: new Set(),
+    environmentIds: new Set(environmentIds), productIds: new Set(productIds),
+    search: { clientIds: "", projectIds: "", environmentIds: "", productIds: "" },
+    openFacet: null,
+  };
 }
 
-function applyScopePickerSearch(container, query) {
-  container.querySelectorAll("[data-scope-option]").forEach((label) => { label.hidden = !label.dataset.scopeOption.includes(query); });
+function resetScopePickerState(key, { environmentIds = [], productIds = [] } = {}) {
+  scopePickerStates[key] = freshScopePickerState(environmentIds, productIds);
+}
+
+function scopePickerContainerId(key) {
+  return key === "testAccount" ? "testAccountScopePicker" : "paymentMethodScopePicker";
 }
 
 function renderScopePicker(key, { requireEnvironment }) {
-  const containerId = key === "testAccount" ? "testAccountScopePicker" : "paymentMethodScopePicker";
-  const container = document.getElementById(containerId);
+  const container = document.getElementById(scopePickerContainerId(key));
   if (!container) return;
+  if (!scopePickerStates[key]) scopePickerStates[key] = freshScopePickerState();
   const state = scopePickerStates[key];
 
   const clientScoped = Boolean(state.clientIds.size || state.projectIds.size);
@@ -713,54 +739,111 @@ function renderScopePicker(key, { requireEnvironment }) {
     return [...state.environmentIds].some((environmentId) => productEnvironmentIds.has(environmentId));
   });
 
-  const checkbox = (field, itemId, labelHtml, optionText) => `<label data-scope-option="${escapeHtml(optionText.toLowerCase())}"><input type="checkbox" data-scope-field="${field}" value="${escapeHtml(itemId)}" ${state[field].has(itemId) ? "checked" : ""} /> ${labelHtml}</label>`;
-  const column = (title, field, items, labeler, required) => `
-    <div class="scopePickerColumn">
-      <b>${escapeHtml(title)}${required ? ' <span class="scopeRequired">*</span>' : ""}</b>
-      <div class="scopePickerOptions">${items.length ? items.map((item) => checkbox(field, item.id, labeler(item), item.name || environmentDisplayName(item))).join("") : `<span class="scopePickerEmpty">${escapeHtml(t("Nada encontrado."))}</span>`}</div>
-    </div>`;
-
-  const summaryParts = [
-    state.environmentIds.size ? t("{count} ambiente(s)", { count: state.environmentIds.size }) : (requireEnvironment ? t("Selecione ao menos um ambiente") : t("Todos os ambientes")),
-    state.productIds.size ? t("{count} produto(s)", { count: state.productIds.size }) : t("Todos os produtos"),
+  const facets = [
+    { field: "clientIds", title: t("Clientes"), items: workspace.clients, labeler: (item) => escapeHtml(item.name), optionText: (item) => item.name },
+    { field: "projectIds", title: t("Projetos"), items: visibleProjects, labeler: (item) => escapeHtml(item.name), optionText: (item) => item.name },
+    { field: "environmentIds", title: t("Ambientes"), items: visibleEnvironments, labeler: (item) => `<span class="scopeDot" style="--environment-color:${escapeHtml(item.color)}"></span>${escapeHtml(environmentDisplayName(item))}`, optionText: (item) => environmentDisplayName(item), required: requireEnvironment },
+    { field: "productIds", title: t("Produtos"), items: visibleProducts, labeler: (item) => escapeHtml(item.name), optionText: (item) => item.name },
   ];
 
-  container.innerHTML = `
-    <summary>${escapeHtml(summaryParts.join(" · "))}</summary>
-    <div class="scopePickerPanel">
-      <div class="multiSelectTools">
-        <input type="search" data-scope-search value="${escapeHtml(state.search)}" placeholder="${escapeHtml(t("Buscar cliente, projeto, ambiente ou produto"))}" />
-        <button type="button" data-scope-clear>${escapeHtml(t("Limpar seleção"))}</button>
-      </div>
-      <div class="scopePickerColumns">
-        ${column(t("Clientes"), "clientIds", workspace.clients, (item) => escapeHtml(item.name))}
-        ${column(t("Projetos"), "projectIds", visibleProjects, (item) => escapeHtml(item.name))}
-        ${column(t("Ambientes"), "environmentIds", visibleEnvironments, (item) => `<span class="scopeDot" style="--environment-color:${escapeHtml(item.color)}"></span>${escapeHtml(environmentDisplayName(item))}`, requireEnvironment)}
-        ${column(t("Produtos"), "productIds", visibleProducts, (item) => escapeHtml(item.name))}
-      </div>
-    </div>`;
+  const facetHtml = (facet, index) => {
+    const selected = state[facet.field];
+    const query = state.search[facet.field].trim().toLowerCase();
+    const visibleItems = facet.items.filter((item) => !query || facet.optionText(item).toLowerCase().includes(query));
+    const isOpen = state.openFacet === facet.field;
+    const isEmpty = !selected.size;
+    const emptyLabel = facet.required
+      ? t("Selecione ao menos um ambiente")
+      : t("Todos");
+    return `
+      <div class="scopeFacet${index === facets.length - 1 ? " alignRight" : ""}" data-facet="${facet.field}">
+        <button type="button" class="scopeFacetTrigger${isOpen ? " isOpen" : ""}${facet.required && isEmpty ? " isRequiredEmpty" : ""}" data-facet-trigger="${facet.field}" aria-expanded="${isOpen}" aria-haspopup="listbox">
+          <span>${escapeHtml(facet.title)}</span>
+          ${selected.size ? `<span class="scopeFacetCount">${selected.size}</span>` : `<span class="scopeFacetPlaceholder">${escapeHtml(emptyLabel)}</span>`}
+          <span class="scopeFacetCaret">${ICON("chevronDown")}</span>
+        </button>
+        <div class="scopeFacetPanel" ${isOpen ? "" : "hidden"} data-facet-panel="${facet.field}">
+          <input type="search" class="scopeFacetSearch" data-facet-search="${facet.field}" value="${escapeHtml(state.search[facet.field])}" placeholder="${escapeHtml(t("Buscar {facet}", { facet: facet.title.toLowerCase() }))}" />
+          <div class="scopeFacetActions">
+            <button type="button" data-facet-all="${facet.field}">${escapeHtml(t("Todos"))}</button>
+            <button type="button" data-facet-clear="${facet.field}">${escapeHtml(t("Limpar"))}</button>
+          </div>
+          <div class="scopeFacetOptions" data-facet-options="${facet.field}">${facet.items.map((item) => `<label data-option-text="${escapeHtml(facet.optionText(item).toLowerCase())}" ${visibleItems.includes(item) ? "" : "hidden"}><input type="checkbox" data-scope-field="${facet.field}" value="${escapeHtml(item.id)}" ${selected.has(item.id) ? "checked" : ""} /> ${facet.labeler(item)}</label>`).join("")}<span class="scopeFacetEmpty" data-facet-empty ${visibleItems.length ? "hidden" : ""}>${escapeHtml(t("Nada encontrado."))}</span></div>
+        </div>
+      </div>`;
+  };
 
-  applyScopePickerSearch(container, state.search.trim().toLowerCase());
+  container.innerHTML = facets.map(facetHtml).join("");
+
+  container.querySelectorAll("[data-facet-trigger]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const field = button.dataset.facetTrigger;
+    state.openFacet = state.openFacet === field ? null : field;
+    renderScopePicker(key, { requireEnvironment });
+  }));
   container.querySelectorAll("[data-scope-field]").forEach((input) => input.addEventListener("change", () => {
     const field = input.dataset.scopeField;
     input.checked ? state[field].add(input.value) : state[field].delete(input.value);
     renderScopePicker(key, { requireEnvironment });
-    container.setAttribute("open", "");
   }));
-  container.querySelector("[data-scope-clear]").addEventListener("click", () => {
-    state.clientIds.clear(); state.projectIds.clear(); state.environmentIds.clear(); state.productIds.clear();
+  // Filtering-as-you-type toggles `hidden` on the already-rendered <label> rows instead of calling
+  // renderScopePicker() again — a full re-render on every keystroke would blow away and recreate
+  // this very <input>, kicking focus out of it after the first character typed.
+  container.querySelectorAll("[data-facet-search]").forEach((input) => input.addEventListener("input", (event) => {
+    const field = input.dataset.facetSearch;
+    state.search[field] = event.target.value;
+    const query = event.target.value.trim().toLowerCase();
+    const optionsBox = container.querySelector(`[data-facet-options="${field}"]`);
+    let visibleCount = 0;
+    optionsBox.querySelectorAll("label[data-option-text]").forEach((label) => {
+      const matches = !query || label.dataset.optionText.includes(query);
+      label.hidden = !matches;
+      if (matches) visibleCount += 1;
+    });
+    const emptyMessage = optionsBox.querySelector("[data-facet-empty]");
+    if (emptyMessage) emptyMessage.hidden = visibleCount > 0;
+  }));
+  container.querySelectorAll("[data-facet-all]").forEach((button) => button.addEventListener("click", () => {
+    const facet = facets.find((candidate) => candidate.field === button.dataset.facetAll);
+    const query = state.search[facet.field].trim().toLowerCase();
+    for (const item of facet.items) if (!query || facet.optionText(item).toLowerCase().includes(query)) state[facet.field].add(item.id);
     renderScopePicker(key, { requireEnvironment });
-    container.setAttribute("open", "");
-  });
-  container.querySelector("[data-scope-search]").addEventListener("input", (event) => {
-    state.search = event.target.value;
-    applyScopePickerSearch(container, state.search.trim().toLowerCase());
-  });
+  }));
+  container.querySelectorAll("[data-facet-clear]").forEach((button) => button.addEventListener("click", () => {
+    state[button.dataset.facetClear].clear();
+    renderScopePicker(key, { requireEnvironment });
+  }));
   if (requireEnvironment && state.environmentIds.size) {
     const error = document.getElementById("testAccountScopeError");
     if (error) error.hidden = true;
   }
 }
+
+// One shared listener (bound once, never per-render) closes whichever facet panel is open when
+// the user clicks anywhere outside the scope picker that owns it, or presses Escape — the normal
+// way any floating combobox/dropdown is expected to behave.
+function closeOpenScopeFacet(key) {
+  const state = scopePickerStates[key];
+  if (!state?.openFacet) return;
+  state.openFacet = null;
+  renderScopePicker(key, { requireEnvironment: key === "testAccount" });
+}
+document.addEventListener("click", (event) => {
+  // composedPath() (the click's path at dispatch time) rather than container.contains(event.target):
+  // checking/unchecking an option re-renders the panel from inside its own "change" handler, which
+  // replaces the checkbox with a new node mid-bubble — by the time this listener runs on document,
+  // `event.target` may already be detached, so `contains()` would (wrongly) call that an outside
+  // click and slam the panel shut on every single selection.
+  const path = event.composedPath();
+  for (const key of Object.keys(scopePickerStates)) {
+    const container = document.getElementById(scopePickerContainerId(key));
+    if (container && !path.includes(container)) closeOpenScopeFacet(key);
+  }
+});
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape") return;
+  for (const key of Object.keys(scopePickerStates)) closeOpenScopeFacet(key);
+});
 
 function renderWorkspace() {
   for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {

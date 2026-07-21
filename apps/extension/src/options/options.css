@@ -212,22 +212,46 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 /* Test account / payment method "scope" combobox: replaces two plain <select> elements with a
    cascading multi-select — clients/projects narrow which environments/products even show up,
    environments further narrow products, and only environmentIds/productIds are actually stored
-   (client/project checkboxes are pure filters, re-derivable from the chosen products on edit). */
-.scopePicker { position:relative; }
-.scopePicker > summary { min-height:39px; padding:9px 34px 9px 11px; border:1px solid var(--border); border-radius:9px; background:#0c0e14; color:var(--text); list-style:none; cursor:pointer; font-size:11px; }
-.scopePicker > summary::-webkit-details-marker { display:none; }
-.scopePicker > summary::after { content:"⌄"; position:absolute; right:12px; top:9px; }
-.scopePickerPanel { margin-top:7px; padding:11px; border:1px solid var(--border); border-radius:10px; background:#0c0e14; box-shadow:0 18px 35px rgba(0,0,0,.35); }
-.scopePickerColumns { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:9px; }
-.scopePickerColumn b { display:block; margin-bottom:6px; color:var(--muted); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
-.scopeRequired { color:var(--danger); }
-.scopePickerOptions { display:grid; gap:2px; max-height:170px; overflow:auto; }
-.scopePickerOptions label { display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:7px; color:var(--muted); cursor:pointer; font-size:11px; }
-.scopePickerOptions label:hover { background:var(--surface-2); color:#fff; }
-.scopePickerOptions input { width:auto; min-height:0; accent-color:var(--accent); }
-.scopePickerEmpty { display:block; padding:5px 6px; color:var(--muted); font-size:10px; }
+   (client/project checkboxes are pure filters, re-derivable from the chosen products on edit).
+   Rendered as 4 independent floating comboboxes (like a normal <select>: closed by default, opens
+   its OWN small panel over the rest of the form) rather than one big always-expanded 4-column
+   grid — the grid version pushed the whole dialog open and read as an unreadable "campo minado". */
+.scopePicker { display:flex; flex-wrap:wrap; gap:8px; position:relative; }
+.scopeFacet { position:relative; flex:1 1 130px; min-width:110px; }
+.scopeFacetTrigger {
+  width:100%; display:flex; align-items:center; justify-content:space-between; gap:6px;
+  min-height:39px; padding:0 10px; border:1px solid var(--border); border-radius:9px;
+  background:#0c0e14; color:var(--text); font-size:11px; font-weight:750; cursor:pointer; text-align:left;
+}
+.scopeFacetTrigger > span:first-child { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.scopeFacetTrigger:hover { border-color:#4a5267; }
+.scopeFacetTrigger.isOpen { border-color:var(--accent); box-shadow:0 0 0 3px rgba(118,87,255,.16); }
+.scopeFacetTrigger.isRequiredEmpty { border-color:rgba(255,112,120,.55); }
+.scopeFacetCount {
+  flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; min-width:17px; height:17px;
+  padding:0 5px; border-radius:999px; background:var(--accent); color:#fff; font-size:9px; font-weight:800;
+}
+.scopeFacetPlaceholder { flex:0 0 auto; color:var(--muted); font-size:10px; font-weight:650; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:80px; }
+.scopeFacetCaret { flex:0 0 auto; display:inline-flex; color:var(--muted); transition:transform .15s ease; }
+.scopeFacetCaret svg { width:11px; height:11px; }
+.scopeFacetTrigger.isOpen .scopeFacetCaret { transform:rotate(180deg); }
+.scopeFacetPanel {
+  position:absolute; top:calc(100% + 6px); left:0; z-index:60; width:max(100%,220px);
+  padding:9px; border:1px solid var(--border); border-radius:10px; background:#0c0e14;
+  box-shadow:0 18px 40px rgba(0,0,0,.45);
+}
+.scopeFacet.alignRight .scopeFacetPanel { left:auto; right:0; }
+.scopeFacetSearch { width:100%; margin-bottom:7px; }
+.scopeFacetActions { display:flex; gap:6px; margin-bottom:7px; }
+.scopeFacetActions button { flex:1; border:0; border-radius:7px; padding:6px 0; background:var(--surface-2); color:var(--muted); font-size:10px; font-weight:800; cursor:pointer; }
+.scopeFacetActions button:hover { color:#fff; }
+.scopeFacetOptions { display:grid; gap:2px; max-height:220px; overflow:auto; }
+.scopeFacetOptions label { display:flex; align-items:center; gap:7px; padding:6px 7px; border-radius:7px; color:var(--muted); cursor:pointer; font-size:11px; }
+.scopeFacetOptions label:hover { background:var(--surface-2); color:#fff; }
+.scopeFacetOptions input { width:auto; min-height:0; accent-color:var(--accent); flex:0 0 auto; }
+.scopeFacetEmpty { display:block; padding:6px 7px; color:var(--muted); font-size:10px; }
 .scopeDot { width:8px; height:8px; border-radius:50%; background:var(--environment-color); flex:0 0 auto; }
-@media (max-width:720px) { .scopePickerColumns { grid-template-columns:1fr 1fr; } }
+@media (max-width:720px) { .scopeFacet { flex:1 1 100%; } .scopeFacet.alignRight .scopeFacetPanel { left:0; right:auto; } }
 .hint.isError { color:var(--danger); }
 .relationRow { align-items:flex-start; }
 .fieldHint { margin:7px 2px 0; color:var(--muted); font-size:10.5px; line-height:1.4; }
@@ -247,6 +271,12 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .environmentAccordion > summary:hover { background:var(--surface-2); }
 .environmentDot { width:9px; height:9px; border-radius:50%; background:var(--environment-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--environment-color) 20%,transparent); flex:0 0 auto; }
 .environmentAccordion .list { margin:0 13px 13px; max-height:none; overflow:visible; }
+/* #urlRelationList (id, wins over .list/.listComfortable regardless of source order) now holds
+   self-managing accordions, one per environment, instead of one flat scrollable list — capping
+   ITS OWN height at 360px trapped every accordion's rows behind a second, easy-to-miss inner
+   scrollbar (found live: every group rendered as if it only had one URL). The outer wrapper now
+   grows with its content; the page itself scrolls, same as every other tab. */
+#urlRelationList.listComfortable { max-height:none; overflow:visible; }
 .imageEditorDialog { width:min(620px,calc(100vw - 28px)); padding:18px; border:1px solid #343a4c; border-radius:18px; background:#12141b; color:var(--text); box-shadow:0 30px 100px rgba(0,0,0,.65); }
 .imageEditorDialog::backdrop { background:rgba(4,5,8,.78); backdrop-filter:blur(5px); }
 .imageEditorHead { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }
