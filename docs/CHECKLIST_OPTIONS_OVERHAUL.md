@@ -279,8 +279,31 @@
       ao vivo: Macro Studio e o editor abrem como modal largo/centralizado; um drawer não
       relacionado (Error Monitor) continua exatamente 400px, confirmando que a mudança é
       isolada só ao Macro Studio.
-- [ ] **6. Capturar elementos "ainda tá porco"**: mesmo item já listado abaixo (Element Capture
-      UX) — não iniciado ainda.
+- [x] **6. Capturar elementos "ainda tá porco"** (= item "Element Capture UX" da lista original):
+      achei um bug bobo mas real — `row.text` (aria-label/texto visível) já era **capturado**, mas
+      nunca era **exibido** na linha (só mostrava tag + seletor CSS), daí "não da pra saber oq é o
+      elemento" mesmo com o dado já disponível. Reescrito:
+  - Label de cada linha agora usa `text || placeholder || name || testId || id`, com fallback pra
+    uma miniatura de imagem (`<img>` do próprio elemento ou de um `<img>` filho, útil pra botões só
+    com ícone) + "(sem texto)" quando não há NADA identificável.
+  - Novo campo `testId` (`data-testid`) — não existia antes; agora aparece como badge na linha e
+    entra no CSV exportado (`test_id`).
+  - Busca (`elementCaptureSearch`) filtrando por tag/nome/id/test-id/seletor CSS/XPath/texto — isso
+    também resolve o pedido de "filtro por test-id, CSS, XPath" (um campo de busca único, mesmo
+    padrão já usado em Inspectors/Error Monitor, em vez de 3 widgets separados).
+  - Botão "Localizar elemento" por linha — `locateElementBySelector()`, reaproveita o seletor CSS
+    já capturado (mais preciso que a busca por texto exato do `locateValueOnPage` usado em JSON).
+  - Botão "Ver estado atual" por linha — expande mostrando Visível/Habilitado/Marcado (ou
+    Preenchido/Opção selecionada conforme o tipo), reconsultando o elemento AO VIVO no momento do
+    clique (não o snapshot da captura). Cobre o pedido "estado atual... tipo a função de spy click"
+    de forma segura/escopada, sem duplicar o motor de clique-e-observação do Click Spy em si.
+  - O "sidebar cortado na metade" do print parece ter sido a falta de busca/filtros deixando um
+    espaço vazio, não um bug de CSS de verdade — não achei clipping real ao investigar; resolvido
+    na prática ao preencher esse espaço com a busca.
+  - Verificado ao vivo: label real aparece para um botão com texto; um botão com test-id usa o
+    test-id como label; um botão sem NADA identificável cai pro preview de imagem + "(sem texto)";
+    busca filtra a lista; Localizar destaca o elemento real na página; Ver estado mostra
+    Visível/Habilitado e reflete corretamente Marcado: Não → Sim ao marcar um checkbox real.
 - [x] **7. Layout quebrado em "Minha conta"**: reproduzido e confirmado ao vivo (print batia
       exatamente com o do founder) — o card "Excluir minha conta" não tinha `max-width`, então
       ficava bem mais largo (1048px) que o card de conta logo acima (640px, com `.accountCard`),

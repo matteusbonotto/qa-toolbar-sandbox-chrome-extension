@@ -3250,12 +3250,46 @@ function captureVisibleElements() {
       type: element.getAttribute("type") || "",
       name: element.getAttribute("name") || "",
       id: element.id || "",
+      testId: element.getAttribute("data-testid") || "",
       cssSelector: window.QTS_QA_TOOLS.uniqueSelector(element),
       xpath: buildXPath(element),
       text: String(element.getAttribute("aria-label") || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120),
       placeholder: element.getAttribute("placeholder") || "",
+      // Icon-only buttons/links have no text at all — the closest thing to a "visible label" for
+      // those is whatever image they contain (or, if the element itself is one, its own src).
+      imagePreview: element.tagName === "IMG" ? element.getAttribute("src") || "" : element.querySelector("img")?.getAttribute("src") || "",
       sensitive: window.QTS_QA_TOOLS.isSensitiveElement(element),
     }));
+}
+
+// Element Capture's own "Localizar" — unlike locateValueOnPage's exact-text search (built for
+// JSON leaf values), this has an actual CSS selector captured at scan time, which is a far more
+// precise and reliable way to re-find the same element on the live page.
+function locateElementBySelector(selector) {
+  let match = null;
+  try { match = selector ? document.querySelector(selector) : null; } catch { match = null; }
+  if (!match) { showQaToast(state.t.inspectorsLocateNotFound, "error"); return; }
+  match.scrollIntoView({ behavior: "smooth", block: "center" });
+  match.classList.add("qts-locate-highlight");
+  window.setTimeout(() => match.classList.remove("qts-locate-highlight"), 2200);
+}
+
+// "Estado atual" for a captured row: re-queries the live element (not the stale snapshot taken at
+// scan time) so this always reflects what's true on the page right now, in the spirit of the
+// founder's "like Click Spy" request without duplicating Click Spy's own click-and-observe engine.
+function describeElementCurrentState(selector) {
+  let element = null;
+  try { element = selector ? document.querySelector(selector) : null; } catch { element = null; }
+  if (!element) return null;
+  const style = window.getComputedStyle(element);
+  const parts = [
+    ["Visível", style.display !== "none" && style.visibility !== "hidden" && element.offsetParent !== null ? "Sim" : "Não"],
+    ["Habilitado", !element.disabled ? "Sim" : "Não"],
+  ];
+  if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) parts.push(["Marcado", element.checked ? "Sim" : "Não"]);
+  else if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) parts.push(["Preenchido", element.value ? "Sim" : "Não"]);
+  else if (element instanceof HTMLSelectElement) parts.push(["Opção selecionada", element.options[element.selectedIndex]?.text || "—"]);
+  return parts;
 }
 
 function toCsvCell(value) {
@@ -3267,8 +3301,8 @@ function toCsvCell(value) {
 }
 
 function downloadElementCaptureCsv(rows) {
-  const headers = ["tag", "type", "name", "id", "css_selector", "xpath", "text", "placeholder", "sensitive"];
-  const csvKeys = ["tag", "type", "name", "id", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
+  const headers = ["tag", "type", "name", "id", "test_id", "css_selector", "xpath", "text", "placeholder", "sensitive"];
+  const csvKeys = ["tag", "type", "name", "id", "testId", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
   const lines = [headers.join(","), ...rows.map((row) => csvKeys.map((key) => toCsvCell(row[key])).join(","))];
   // Leading BOM keeps accented pt-BR text readable when the CSV is opened directly in Excel.
   const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
@@ -3279,27 +3313,83 @@ function downloadElementCaptureCsv(rows) {
   window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
 }
 
+function elementCaptureLabel(row) {
+  return row.text || row.placeholder || row.name || row.testId || row.id || "";
+}
+
 function openElementCapture() {
   if (!requirePlanFeature("elementCapture")) return;
   let rows = captureVisibleElements();
+  let query = "";
   openDrawer({
     title: "Capturar elementos",
     bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
       <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
+      <div class="qts-toolbar-row"><input type="search" id="elementCaptureSearch" class="qts-toolbar-search" placeholder="Buscar por texto, tag, test-id, CSS ou XPath..." /></div>
       <div class="qts-status" id="elementCaptureStatus"></div>
       <div style="display:grid;gap:8px;max-height:360px;overflow:auto" id="elementCapturePreview"></div>`,
     onReady(body) {
       const status = body.querySelector("#elementCaptureStatus");
       const preview = body.querySelector("#elementCapturePreview");
       const exportButton = body.querySelector("#elementCaptureExport");
+      const searchInput = body.querySelector("#elementCaptureSearch");
+      const matchesQuery = (row) => {
+        if (!query) return true;
+        const haystack = `${row.tag} ${row.type} ${row.name} ${row.id} ${row.testId} ${row.cssSelector} ${row.xpath} ${row.text} ${row.placeholder}`.toLowerCase();
+        return haystack.includes(query);
+      };
       const renderPreview = () => {
-        status.textContent = `${rows.length} elemento(s) encontrado(s) na página atual.`;
+        const decorated = rows.map((row, index) => ({ ...row, _index: index }));
+        const filtered = decorated.filter(matchesQuery);
+        const capped = filtered.slice(0, 80);
+        status.textContent = query
+          ? `${filtered.length} de ${rows.length} elemento(s) (filtrado).`
+          : `${rows.length} elemento(s) encontrado(s) na página atual.`;
         exportButton.disabled = rows.length === 0;
-        preview.innerHTML = rows.length
-          ? rows.slice(0, 50).map((row) => `<div class="qts-net-item" style="cursor:default"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b>${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}<small>${escapeHtml(row.cssSelector)}</small></div>`).join("")
-          : `<div class="qts-empty">Nenhum elemento interativo encontrado nesta página.</div>`;
+        preview.innerHTML = filtered.length
+          ? capped.map((row) => {
+              const label = elementCaptureLabel(row);
+              const labelHtml = label
+                ? escapeHtml(label)
+                : row.imagePreview
+                  ? `<img src="${escapeHtml(row.imagePreview)}" alt="" style="width:16px;height:16px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:4px" />(sem texto)`
+                  : `<span style="color:#888">(sem texto)</span>`;
+              return `
+                <div class="qts-net-item" style="cursor:default" data-row-index="${row._index}">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <div style="min-width:0"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b> ${labelHtml}${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}${row.testId ? ` <span style="color:#42d5c2">test-id</span>` : ""}</div>
+                    <div style="display:flex;gap:4px;flex:0 0 auto">
+                      <button type="button" class="qts-icon-btn" data-locate-row title="Localizar elemento" style="width:26px;height:26px">${ICON("cursor")}</button>
+                      <button type="button" class="qts-icon-btn" data-state-row title="Ver estado atual" style="width:26px;height:26px">${ICON("eye")}</button>
+                    </div>
+                  </div>
+                  <small>${escapeHtml(row.cssSelector)}</small>
+                  <div data-state-body hidden style="margin-top:4px"></div>
+                </div>
+              `;
+            }).join("") + (filtered.length > capped.length ? `<p class="qts-tool-lead">Mostrando 80 de ${filtered.length} — refine a busca para ver outros.</p>` : "")
+          : `<div class="qts-empty">${rows.length ? "Nenhum elemento corresponde à busca." : "Nenhum elemento interativo encontrado nesta página."}</div>`;
+
+        preview.querySelectorAll("[data-locate-row]").forEach((button) => button.addEventListener("click", (event) => {
+          const rowEl = event.target.closest("[data-row-index]");
+          locateElementBySelector(rows[Number(rowEl.dataset.rowIndex)]?.cssSelector);
+        }));
+        preview.querySelectorAll("[data-state-row]").forEach((button) => button.addEventListener("click", (event) => {
+          const rowEl = event.target.closest("[data-row-index]");
+          const row = rows[Number(rowEl.dataset.rowIndex)];
+          const stateBody = rowEl.querySelector("[data-state-body]");
+          const willShow = stateBody.hidden;
+          stateBody.hidden = !willShow;
+          if (willShow) {
+            const parts = describeElementCurrentState(row?.cssSelector);
+            stateBody.innerHTML = parts
+              ? parts.map(([label, value]) => `<small style="display:block">${escapeHtml(label)}: <b>${escapeHtml(value)}</b></small>`).join("")
+              : `<small style="color:#ff6767">Elemento não encontrado mais na página (pode ter mudado desde a captura).</small>`;
+          }
+        }));
       };
       body.querySelector("#elementCaptureRescan").addEventListener("click", () => { rows = captureVisibleElements(); renderPreview(); });
+      searchInput.addEventListener("input", (event) => { query = event.target.value.trim().toLowerCase(); renderPreview(); });
       exportButton.addEventListener("click", () => {
         downloadElementCaptureCsv(rows);
         showQaToast(`CSV exportado com ${rows.length} elemento(s).`);
