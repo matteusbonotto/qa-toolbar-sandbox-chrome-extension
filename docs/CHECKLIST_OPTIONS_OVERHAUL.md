@@ -254,9 +254,20 @@
       salvo é lido automaticamente no novo formato (sem precisar de nova migração). Verificado ao
       vivo: 3 padrões adicionados, todos reaparecem como pills ao editar (o bug relatado), remover
       um e salvar, e o fluxo aninhado de criar ambiente funcionando de ponta a ponta.
-- [ ] **3. Inspectors não se comporta como no tampermonkey**: pendente — precisa listar os
-      inspectors configurados (não só a lista de capturas), com aviso simples + retry quando o
-      endpoint não carregou, e abrir para ver o retorno quando carregar.
+- [x] **3. Inspectors não se comporta como no tampermonkey**: comparado com o `qaCnkApiInspectorState`
+      do original (drawers de API por endpoint, com espera + retry) — a ideia geral fazia sentido,
+      mas o original é hardcoded por endpoint específico da Cinemark (movies/showtimes/members),
+      o que contraria o design genérico deste produto de propósito ("Fully generic/declarative"
+      já documentado no código). Portei a UX, não o hardcode: "Meus Inspectors" agora é um
+      dashboard por Inspector configurado (`renderInspectorDashboard`), não mais uma lista de
+      capturas filtrada — cada Inspector cadastrado vira uma linha própria mostrando "Aguardando
+      resposta..." + botão "Tentar novamente" (só re-renderiza com o que já foi capturado, não
+      força uma nova requisição — mesma semântica do `retry` original) quando nada bateu ainda, ou
+      um resumo (método/status/hora) da captura mais recente + clique abre o JSON, quando já
+      carregou. "Todos" continua sendo a lista de capturas de antes, com os filtros normais.
+      Verificado ao vivo: 2 inspectors configurados aparecem como "aguardando"; capturar uma
+      resposta que bate com um deles atualiza para "carregado" mantendo o outro em espera; clicar
+      no carregado abre o JSON com o payload certo.
 - [ ] **5. Macro Studio precisa ser um modal, não uma sidebar**: pendente.
 - [ ] **6. Capturar elementos "ainda tá porco"**: mesmo item já listado abaixo (Element Capture
       UX) — não iniciado ainda.

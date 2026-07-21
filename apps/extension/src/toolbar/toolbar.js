@@ -1904,13 +1904,14 @@ function buildInspectorFilterFields() {
   return fields;
 }
 
+// Only ever called for the "Todos" scope now — "Meus Inspectors" is a per-inspector dashboard
+// (renderInspectorDashboard) rather than a filtered slice of this same capture list.
 function matchesInspectorFilters(entry) {
   const query = inspectorsFilterState.query.trim().toLowerCase();
   if (query) {
     const haystack = `${entry.url} ${entry.method} ${entry.status} ${JSON.stringify(entry.payload)}`.toLowerCase();
     if (!haystack.includes(query)) return false;
   }
-  if (inspectorsEffectiveScope() === "mine" && !(entry.matchedInspectorIds || []).length) return false;
   if (inspectorsFilterState.inspector.size && !(entry.matchedInspectorIds || []).some((id) => inspectorsFilterState.inspector.has(id))) return false;
   if (inspectorsFilterState.method.size && !inspectorsFilterState.method.has(entry.method)) return false;
   if (inspectorsFilterState.status.size && !inspectorsFilterState.status.has(statusBucket(entry.status))) return false;
@@ -1918,19 +1919,60 @@ function matchesInspectorFilters(entry) {
   return true;
 }
 
+// "Meus Inspectors" is a per-inspector status dashboard (one row per *configured* inspector, most
+// recent matching capture or a waiting state), not a filtered capture list — this is what the
+// founder compared against the tampermonkey.js reference's own API Inspector drawers: list the
+// endpoints you care about, show a plain "still waiting" state with a retry when nothing matched
+// yet, and open straight to the response once something did. Retrying doesn't (and can't safely)
+// force a new request — it just re-checks whatever's already in state.networkHistory, the same
+// non-reloading semantics the reference's own retry had.
+function renderInspectorDashboard(listBody) {
+  const configured = configuredInspectors();
+  if (!configured.length) {
+    listBody.innerHTML = `<div class="qts-empty">${escapeHtml(translateQaSurfaceText("Nenhum Inspector configurado ainda. Marque uma resposta capturada em \"Todos\" ou cadastre um em Configurações."))}</div>`;
+    return;
+  }
+  listBody.innerHTML = configured.map((inspector) => {
+    const entry = state.networkHistory.find((item) => (item.matchedInspectorIds || []).includes(inspector.id));
+    return `
+      <div class="qts-net-item" data-inspector-id="${escapeHtml(inspector.id)}" style="cursor:${entry ? "pointer" : "default"}">
+        <b>${escapeHtml(inspector.label || inspector.id)}</b>
+        <small>${escapeHtml((inspector.patterns || []).join(", "))}</small>
+        ${entry
+          ? `<small style="display:block;margin-top:3px;color:#42d5c2">✓ ${escapeHtml(entry.method)} ${entry.status || "—"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>`
+          : `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+              <small style="color:#ffb020">Aguardando resposta...</small>
+              <button type="button" class="qts-icon-btn" data-retry-inspector="${escapeHtml(inspector.id)}" title="Tentar novamente">${ICON("undo")}</button>
+            </div>`}
+      </div>
+    `;
+  }).join("");
+  listBody.querySelectorAll("[data-inspector-id]").forEach((row) => row.addEventListener("click", (event) => {
+    if (event.target.closest("[data-retry-inspector]")) return;
+    const entry = state.networkHistory.find((item) => (item.matchedInspectorIds || []).includes(row.dataset.inspectorId));
+    if (!entry) return;
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+  }));
+  listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    renderInspectorsList();
+  }));
+}
+
 function renderInspectorsList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
-  const fields = buildInspectorFilterFields();
-  const filtered = state.networkHistory.filter(matchesInspectorFilters);
   const scope = inspectorsEffectiveScope();
+  const fields = scope === "mine" ? [] : buildInspectorFilterFields();
+  const filtered = scope === "mine" ? [] : state.networkHistory.filter(matchesInspectorFilters);
 
   body.innerHTML = `
     <div class="qts-tabs">
       <button type="button" class="${scope === "all" ? "isSelected" : ""}" data-inspector-scope="all">Todos</button>
       <button type="button" class="${scope === "mine" ? "isSelected" : ""}" data-inspector-scope="mine">Meus Inspectors</button>
     </div>
+    ${scope === "mine" ? "" : `
     <div class="qts-toolbar-row">
       <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
@@ -1938,15 +1980,20 @@ function renderInspectorsList() {
     <div class="qts-filter-bar ${inspectorsFilterState.collapsed ? "isCollapsed" : ""}" id="inspectorsFilterBar">
       ${fields.map((field) => renderSmartFilter(field, inspectorsFilterState[field.key], null)).join("")}
     </div>
+    `}
     <div id="inspectorsListBody"></div>
   `;
 
   const listBody = body.querySelector("#inspectorsListBody");
-  const emptyMessage = !state.networkHistory.length
-    ? t.noResponsesYet
-    : scope === "mine" && !state.networkHistory.some((entry) => entry.matchedInspectorIds?.length)
-      ? translateQaSurfaceText("Nenhuma resposta corresponde aos seus Inspectors configurados ainda. Veja em \"Todos\" e marque um endpoint como seu Inspector, ou ajuste os padrões em Configurações.")
-      : t.noFilterResults;
+  if (scope === "mine") {
+    renderInspectorDashboard(listBody);
+    body.querySelectorAll("[data-inspector-scope]").forEach((button) => button.addEventListener("click", () => {
+      inspectorsFilterState.scope = button.dataset.inspectorScope;
+      renderInspectorsList();
+    }));
+    return;
+  }
+  const emptyMessage = !state.networkHistory.length ? t.noResponsesYet : t.noFilterResults;
   listBody.innerHTML = filtered.length
     ? filtered.map((entry) => `
         <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
