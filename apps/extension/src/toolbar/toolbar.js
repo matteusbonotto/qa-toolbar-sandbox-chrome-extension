@@ -2408,18 +2408,75 @@ function openResourcesDrawer() {
 // JSON Studio: format/compact/copy any pasted JSON.
 // ---------------------------------------------------------------------------
 
+// Recursive structural diff between two parsed JSON values — the original spec (see
+// docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md's jsonDiff.enabled capability) called for real
+// comparison, not just reformatting; this is the founder-facing shipment of that, kept dependency-
+// free (no bundled JSON-diff/schema library) to match this content script's zero-runtime-deps
+// convention. Object/array structural mismatches (e.g. a field that was an object and became an
+// array) fall through to the final branch and report as a single "changed" at that path.
+function diffJsonValues(a, b, path = "") {
+  const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const diffs = [];
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const nextPath = path ? `${path}.${key}` : key;
+      if (!(key in a)) diffs.push({ path: nextPath, type: "added", after: b[key] });
+      else if (!(key in b)) diffs.push({ path: nextPath, type: "removed", before: a[key] });
+      else diffs.push(...diffJsonValues(a[key], b[key], nextPath));
+    }
+    return diffs;
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    const diffs = [];
+    for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+      const nextPath = `${path}[${index}]`;
+      if (index >= a.length) diffs.push({ path: nextPath, type: "added", after: b[index] });
+      else if (index >= b.length) diffs.push({ path: nextPath, type: "removed", before: a[index] });
+      else diffs.push(...diffJsonValues(a[index], b[index], nextPath));
+    }
+    return diffs;
+  }
+  return JSON.stringify(a) === JSON.stringify(b) ? [] : [{ path: path || "(raiz)", type: "changed", before: a, after: b }];
+}
+
+function renderJsonDiff(diffs) {
+  if (!diffs.length) return `<div class="qts-empty">Nenhuma diferença — os dois JSONs são equivalentes.</div>`;
+  const label = { added: "+ adicionado", removed: "− removido", changed: "~ alterado" };
+  const color = { added: "#42d5c2", removed: "#ff6767", changed: "#ffb020" };
+  const rows = diffs.slice(0, 300).map((diff) => `
+    <div class="qts-net-item" style="cursor:default">
+      <b style="color:${color[diff.type]}">${label[diff.type]}</b> <small>${escapeHtml(diff.path)}</small>
+      ${diff.type !== "added" ? `<small style="display:block;color:#888">antes: ${escapeHtml(JSON.stringify(diff.before))}</small>` : ""}
+      ${diff.type !== "removed" ? `<small style="display:block;color:#ccc">depois: ${escapeHtml(JSON.stringify(diff.after))}</small>` : ""}
+    </div>
+  `).join("");
+  const truncatedNote = diffs.length > 300 ? `<p class="qts-tool-lead">Mostrando as primeiras 300 diferenças de ${diffs.length}.</p>` : "";
+  return rows + truncatedNote;
+}
+
 function openJsonStudio() {
   const t = state.t;
   openDrawer({
     title: t.jsonStudioTitle,
     bodyHtml: `
-      <textarea id="jsonInput" rows="16" placeholder="${escapeHtml(t.jsonStudioPlaceholder)}" style="font:12px ui-monospace,Consolas,monospace"></textarea>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button type="button" class="action primary" id="jsonFormat">${escapeHtml(t.jsonStudioFormat)}</button>
-        <button type="button" class="action" id="jsonCompact">${escapeHtml(t.jsonStudioCompact)}</button>
-        <button type="button" class="action" id="jsonCopy">${escapeHtml(t.jsonStudioCopy)}</button>
-      </div>
-      <p id="jsonError" style="color:#ff6b6b"></p>
+      <div class="qts-tabs"><button type="button" class="isSelected" data-json-mode="format">Formatar</button><button type="button" data-json-mode="diff">Comparar</button></div>
+      <section id="jsonFormatMode">
+        <textarea id="jsonInput" rows="14" placeholder="${escapeHtml(t.jsonStudioPlaceholder)}" style="font:12px ui-monospace,Consolas,monospace"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button type="button" class="action primary" id="jsonFormat">${escapeHtml(t.jsonStudioFormat)}</button>
+          <button type="button" class="action" id="jsonCompact">${escapeHtml(t.jsonStudioCompact)}</button>
+          <button type="button" class="action" id="jsonCopy">${escapeHtml(t.jsonStudioCopy)}</button>
+        </div>
+        <p id="jsonError" style="color:#ff6b6b"></p>
+      </section>
+      <section id="jsonDiffMode" hidden>
+        <p class="qts-tool-lead">Cole dois JSONs (ex.: resposta esperada vs. real) para ver o que mudou entre eles.</p>
+        <label class="qts-field-label">JSON A<textarea id="jsonDiffA" rows="6" style="font:12px ui-monospace,Consolas,monospace"></textarea></label>
+        <label class="qts-field-label">JSON B<textarea id="jsonDiffB" rows="6" style="font:12px ui-monospace,Consolas,monospace"></textarea></label>
+        <button type="button" class="action primary" id="jsonDiffRun">Comparar</button>
+        <p id="jsonDiffError" style="color:#ff6b6b"></p>
+        <div id="jsonDiffResult"></div>
+      </section>
     `,
     onReady: (body) => {
       const input = body.querySelector("#jsonInput");
@@ -2436,6 +2493,26 @@ function openJsonStudio() {
       body.querySelector("#jsonFormat").addEventListener("click", () => run((parsed) => JSON.stringify(parsed, null, 2)));
       body.querySelector("#jsonCompact").addEventListener("click", () => run((parsed) => JSON.stringify(parsed)));
       body.querySelector("#jsonCopy").addEventListener("click", () => navigator.clipboard.writeText(input.value).catch(() => {}));
+
+      body.querySelectorAll("[data-json-mode]").forEach((button) => button.addEventListener("click", () => {
+        body.querySelectorAll("[data-json-mode]").forEach((item) => item.classList.toggle("isSelected", item === button));
+        body.querySelector("#jsonFormatMode").hidden = button.dataset.jsonMode !== "format";
+        body.querySelector("#jsonDiffMode").hidden = button.dataset.jsonMode !== "diff";
+      }));
+
+      body.querySelector("#jsonDiffRun").addEventListener("click", () => {
+        const diffErrorEl = body.querySelector("#jsonDiffError");
+        const resultEl = body.querySelector("#jsonDiffResult");
+        try {
+          const a = JSON.parse(body.querySelector("#jsonDiffA").value);
+          const b = JSON.parse(body.querySelector("#jsonDiffB").value);
+          diffErrorEl.textContent = "";
+          resultEl.innerHTML = renderJsonDiff(diffJsonValues(a, b));
+        } catch (error) {
+          diffErrorEl.textContent = t.jsonStudioInvalid(error.message);
+          resultEl.innerHTML = "";
+        }
+      });
     },
   });
 }

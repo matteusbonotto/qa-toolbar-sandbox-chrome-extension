@@ -173,8 +173,21 @@
 - [x] Verificado ao vivo: badge aparece ao selecionar um campo real, contagem atualiza ao digitar
       (“Hello world” → 11), badge acompanha a posição do campo, fechar pelo × remove, e selecionar
       o mesmo campo de novo reanexa um badge novo.
-- [ ] **JSON Studio**: pouco claro qual o propósito atual (só textarea + 3 botões) — investigar a
-      intenção original e reforçar a ferramenta.
+- [x] **JSON Studio**: achei a intenção original — `docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md`
+      linha 145 lista `jsonDiff.enabled` e `schemaValidation.enabled` no inventário de capacidades
+      planejadas, mas nenhuma das duas foi implementada; só sobrou o formatador (textarea + 3
+      botões), daí a confusão de "não entendi pra que serve". Adicionei a aba "Comparar" (mesmo
+      padrão `.qts-tabs` do resto do app): cola dois JSONs (ex. resposta esperada vs. real) e vê um
+      diff estrutural recursivo — chaves adicionadas/removidas/alteradas, com valor antes/depois,
+      cor por tipo. Sem depender de biblioteca externa (esta content script não empacota nenhuma
+      dependência de runtime hoje; um validador de JSON Schema de verdade — a outra metade do
+      `schemaValidation.enabled` original — ficaria pesado demais pra esse formato; se depois for
+      importante, é um pedido separado). Aba "Formatar" original (format/compact/copiar) mantida
+      sem alteração.
+- [x] Verificado ao vivo: alternar para "Comparar" mostra a aba certa; diff detecta campo alterado,
+      item adicionado a um array e chave nova; dois JSONs idênticos mostram "nenhuma diferença";
+      JSON inválido em qualquer um dos dois lados mostra erro sem travar; modo "Formatar" original
+      continua funcionando.
 - [ ] **Capturar Elementos**: nomear cada linha pela label visível (ou prévia, ex. imagem, quando
       sem label); botão "Localizar elemento" por linha; sidebar cortado pela metade sem busca/
       filtros — corrigir; adicionar filtros por test-id/CSS/XPath; mostrar estado atual vs. setado
