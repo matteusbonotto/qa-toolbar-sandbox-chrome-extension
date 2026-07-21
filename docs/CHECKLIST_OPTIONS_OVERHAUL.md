@@ -268,7 +268,17 @@
       Verificado ao vivo: 2 inspectors configurados aparecem como "aguardando"; capturar uma
       resposta que bate com um deles atualiza para "carregado" mantendo o outro em espera; clicar
       no carregado abre o JSON com o payload certo.
-- [ ] **5. Macro Studio precisa ser um modal, não uma sidebar**: pendente.
+- [x] **5. Macro Studio precisa ser um modal, não uma sidebar**: `openDrawer()` ganhou um parâmetro
+      `variant: "modal"` — muda só a classe do backdrop (`.isModal`), reaproveitando 100% do resto
+      da infraestrutura de drawer (abrir/fechar, `#drawerBody`, todos os handlers já existentes).
+      Macro Studio e o editor de macro (Vibe Code/Coder) agora abrem centralizados,
+      `width: min(920px, 94vw)` e `height: min(760px, 90vh)`, cantos arredondados — não mais
+      grudado na borda direita como sidebar. **Isso substitui a decisão anterior desta sessão de
+      unificar todos os drawers em 400px** — Macro Studio agora é a exceção deliberada, pedida
+      explicitamente pelo founder por ter conteúdo mais rico (paleta + fluxo + código). Verificado
+      ao vivo: Macro Studio e o editor abrem como modal largo/centralizado; um drawer não
+      relacionado (Error Monitor) continua exatamente 400px, confirmando que a mudança é
+      isolada só ao Macro Studio.
 - [ ] **6. Capturar elementos "ainda tá porco"**: mesmo item já listado abaixo (Element Capture
       UX) — não iniciado ainda.
 - [ ] **7. Layout quebrado em "Minha conta"**: pendente investigar ao vivo (print fornecido não

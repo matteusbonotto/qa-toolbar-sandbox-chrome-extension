@@ -1240,6 +1240,14 @@ function drawerStyles() {
       width: min(400px, 92vw); height: 100%; background: #0b0b0b; color: #fff; border-left: 2px solid #b20808;
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
     }
+    /* Macro Studio's founder feedback: a right-edge sidebar felt cramped/ugly for something with
+       a palette + flow builder + code view — this variant centers the same #drawerBody markup in
+       a proper modal instead, reusing every existing style/handler inside it unchanged. */
+    .qts-drawer-backdrop.isModal { justify-content: center; align-items: center; padding: 16px; }
+    .qts-drawer-backdrop.isModal .qts-drawer {
+      width: min(920px, 94vw); height: min(760px, 90vh); border-left: 0; border-radius: 16px;
+      border: 1px solid #292929; box-shadow: 0 30px 80px rgba(0,0,0,.55);
+    }
     .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #262626; }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
@@ -1465,7 +1473,7 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, bodyHtml, onReady, view = "" }) {
+function openDrawer({ title, bodyHtml, onReady, view = "", variant = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -1473,7 +1481,7 @@ function openDrawer({ title, bodyHtml, onReady, view = "" }) {
   // switching to a different panel made Inspectors content silently overwrite other drawers.
   drawerHost.dataset.view = view;
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
-    <div class="qts-drawer-backdrop" id="drawerBackdrop">
+    <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop">
       <div class="qts-drawer">
         <div class="qts-drawer-head"><h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">×</button></div>
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
@@ -3751,6 +3759,7 @@ function openMacroEditor(macro) {
   const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
   openDrawer({
     title: "Macro Studio",
+    variant: "modal",
     bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
       <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
       <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
@@ -3820,6 +3829,7 @@ function openMacroStudio() {
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
   openDrawer({
     title: "Macro Studio",
+    variant: "modal",
     bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
       <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
