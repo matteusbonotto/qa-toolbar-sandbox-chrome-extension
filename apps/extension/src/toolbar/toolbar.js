@@ -3163,6 +3163,38 @@ function renderPinnedMacros() {
   }));
 }
 
+// Live badge anchored to a real page input/textarea, so a founder can watch a character limit
+// (e.g. a bio field) update as they type without switching back and forth to the drawer. Tracked
+// by a 200ms poll rather than scroll/resize listeners — matches this file's existing polling
+// pattern (state.locationInterval) and means a badge cleans itself up for free whenever its
+// target disappears (SPA re-render) or clearAllFloatingItems() sweeps every `.qts-floating-item`,
+// without needing to hook into that sweep separately.
+const characterCounterOverlays = new Map();
+
+function attachCharacterCounterBadge(element) {
+  const existingCleanup = characterCounterOverlays.get(element);
+  if (existingCleanup) { existingCleanup(); characterCounterOverlays.delete(element); return; }
+  const badge = document.createElement("div");
+  badge.className = "qts-floating-item qts-char-counter-badge";
+  badge.innerHTML = `<span data-count>0</span> car.<button type="button" class="qts-remove-btn" data-close aria-label="Remover">×</button>`;
+  document.body.appendChild(badge);
+  const reposition = () => {
+    const rect = element.getBoundingClientRect();
+    badge.style.left = `${Math.max(4, rect.left)}px`;
+    badge.style.top = `${Math.max(4, rect.top - 30)}px`;
+    const metrics = window.QTS_QA_TOOLS.countCharacters(element.value ?? "");
+    badge.querySelector("[data-count]").textContent = String(metrics.withSpaces);
+  };
+  const timer = window.setInterval(() => {
+    if (!badge.isConnected || !element.isConnected) { window.clearInterval(timer); characterCounterOverlays.delete(element); return; }
+    reposition();
+  }, 200);
+  const cleanup = () => { badge.remove(); window.clearInterval(timer); };
+  badge.querySelector("[data-close]").addEventListener("click", () => { cleanup(); characterCounterOverlays.delete(element); });
+  characterCounterOverlays.set(element, cleanup);
+  reposition();
+}
+
 function openCharacterCounter() {
   if (!requirePlanFeature("characterCounter")) return;
   const selected = String(document.getSelection()?.toString() || "");
@@ -3170,7 +3202,7 @@ function openCharacterCounter() {
     title: "Contador de caracteres",
     bodyHtml: `<p class="qts-tool-lead">Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.</p>
       <textarea id="characterCounterInput" rows="9" placeholder="Digite ou cole seu texto...">${escapeHtml(selected)}</textarea>
-      <div class="qts-card-actions"><button class="action" id="useSelection" type="button">Usar seleção da página</button><button class="action" id="clearCounter" type="button">Limpar</button></div>
+      <div class="qts-card-actions"><button class="action" id="useSelection" type="button">Usar seleção da página</button><button class="action" id="clearCounter" type="button">Limpar</button><button class="action" id="pickCounterField" type="button">Acompanhar campo da página</button></div>
       <div class="qts-tool-grid" id="characterMetrics"></div>`,
     onReady(body) {
       const input = body.querySelector("#characterCounterInput");
@@ -3182,6 +3214,15 @@ function openCharacterCounter() {
       input.addEventListener("input", update);
       body.querySelector("#useSelection").addEventListener("click", () => { input.value = String(document.getSelection()?.toString() || ""); update(); });
       body.querySelector("#clearCounter").addEventListener("click", () => { input.value = ""; update(); input.focus(); });
+      body.querySelector("#pickCounterField").addEventListener("click", () => selectPageElement({
+        resolve: resolveFormControlTarget,
+        accepts: (element) => (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) && !window.QTS_QA_TOOLS.isSensitiveElement(element),
+        instruction: "Clique num campo de texto da página para acompanhar a contagem ao lado dele.",
+        onSelected: (element) => {
+          attachCharacterCounterBadge(element);
+          showQaToast("Contador anexado ao campo. Clique no × do badge para remover.");
+        },
+      }));
       update();
     },
   });

@@ -161,8 +161,18 @@
 - [x] Verificado ao vivo: sem inspectors configurados, padrão é "Todos" e mostra as 2 respostas
       simuladas; marcar uma como inspector e trocar para "Meus Inspectors" mostra só ela; o chip
       de filtro por inspector específico também isola a mesma entrada.
-- [ ] **Contador de caracteres**: opção de clicar em um input da página e ver a contagem revelada
-      no próprio input (além do textarea manual atual).
+- [x] **Contador de caracteres**: novo botão "Acompanhar campo da página" no drawer (reaproveita
+      `selectPageElement`, mesmo padrão de clique-para-selecionar do Multiclick/Faker Fill/Macro
+      Studio) — clica num input/textarea real da página e um badge flutuante (`.qts-char-counter-
+      badge`, reaproveitando `.qts-floating-item`/`.qts-remove-btn` já existentes) aparece
+      ancorado logo acima do campo, com a contagem ao vivo (atualiza a cada 200ms, mesmo padrão de
+      polling já usado pelo `state.locationInterval` — evita precisar de scroll/resize listeners
+      e limpa sozinho se o campo sumir da página ou se "Limpar" varrer os floating items). Campos
+      sensíveis (senha etc.) são recusados pelo picker. O textarea manual (colar/selecionar texto)
+      continua existindo, sem alteração — isso é um modo adicional, não substituição.
+- [x] Verificado ao vivo: badge aparece ao selecionar um campo real, contagem atualiza ao digitar
+      (“Hello world” → 11), badge acompanha a posição do campo, fechar pelo × remove, e selecionar
+      o mesmo campo de novo reanexa um badge novo.
 - [ ] **JSON Studio**: pouco claro qual o propósito atual (só textarea + 3 botões) — investigar a
       intenção original e reforçar a ferramenta.
 - [ ] **Capturar Elementos**: nomear cada linha pela label visível (ou prévia, ex. imagem, quando
