@@ -113,6 +113,11 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .imageModeToggle button { border:0; background:transparent; color:var(--muted); font-size:10px; font-weight:800; padding:6px 8px; cursor:pointer; }
 .imageModeToggle button.isActive { background:var(--accent); color:#111; }
 .imageEditButton { min-height:32px; padding:0 10px; font-size:10px; }
+.fieldSuggestions:empty { display:none; }
+.fieldSuggestions > small { display:block; margin-bottom:6px; color:var(--muted); font-size:10px; font-weight:750; }
+.fieldSuggestionRow { display:flex; flex-wrap:wrap; gap:6px; }
+.fieldSuggestionChip { display:inline-flex; align-items:center; min-height:28px; padding:0 10px; border:1px dashed var(--border); border-radius:999px; background:transparent; color:var(--accent-2); font-size:11px; font-weight:750; cursor:pointer; }
+.fieldSuggestionChip:hover { border-color:var(--accent-2); border-style:solid; color:#fff; background:rgba(66,213,194,.1); }
 .customFieldsEditor { flex-basis:100%; display:grid; gap:6px; }
 .customFieldsEditor:empty { display:none; }
 .customFieldRow { display:flex; gap:6px; align-items:center; }
@@ -204,6 +209,26 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .multiSelectOptions label { display:flex; align-items:center; gap:8px; padding:7px; border-radius:7px; color:var(--muted); cursor:pointer; font-size:11px; }
 .multiSelectOptions label:hover { background:var(--surface-2); color:#fff; }
 .multiSelectOptions input { width:auto; min-height:0; accent-color:var(--accent); }
+/* Test account / payment method "scope" combobox: replaces two plain <select> elements with a
+   cascading multi-select — clients/projects narrow which environments/products even show up,
+   environments further narrow products, and only environmentIds/productIds are actually stored
+   (client/project checkboxes are pure filters, re-derivable from the chosen products on edit). */
+.scopePicker { position:relative; }
+.scopePicker > summary { min-height:39px; padding:9px 34px 9px 11px; border:1px solid var(--border); border-radius:9px; background:#0c0e14; color:var(--text); list-style:none; cursor:pointer; font-size:11px; }
+.scopePicker > summary::-webkit-details-marker { display:none; }
+.scopePicker > summary::after { content:"⌄"; position:absolute; right:12px; top:9px; }
+.scopePickerPanel { margin-top:7px; padding:11px; border:1px solid var(--border); border-radius:10px; background:#0c0e14; box-shadow:0 18px 35px rgba(0,0,0,.35); }
+.scopePickerColumns { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-top:9px; }
+.scopePickerColumn b { display:block; margin-bottom:6px; color:var(--muted); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.03em; }
+.scopeRequired { color:var(--danger); }
+.scopePickerOptions { display:grid; gap:2px; max-height:170px; overflow:auto; }
+.scopePickerOptions label { display:flex; align-items:center; gap:7px; padding:5px 6px; border-radius:7px; color:var(--muted); cursor:pointer; font-size:11px; }
+.scopePickerOptions label:hover { background:var(--surface-2); color:#fff; }
+.scopePickerOptions input { width:auto; min-height:0; accent-color:var(--accent); }
+.scopePickerEmpty { display:block; padding:5px 6px; color:var(--muted); font-size:10px; }
+.scopeDot { width:8px; height:8px; border-radius:50%; background:var(--environment-color); flex:0 0 auto; }
+@media (max-width:720px) { .scopePickerColumns { grid-template-columns:1fr 1fr; } }
+.hint.isError { color:var(--danger); }
 .relationRow { align-items:flex-start; }
 .fieldHint { margin:7px 2px 0; color:var(--muted); font-size:10.5px; line-height:1.4; }
 .urlGroupHeading { display:flex; align-items:center; gap:8px; margin:14px 0 6px; padding:0 2px; color:#d9dcff; font-size:11px; font-weight:800; text-transform:uppercase; letter-spacing:.04em; }
@@ -212,6 +237,16 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .urlPattern { display:inline-block; max-width:760px; color:#d9dcff; font:700 11px/1.4 ui-monospace,SFMono-Regular,Consolas,monospace; overflow-wrap:anywhere; }
 .relationBadges { display:flex!important; flex-wrap:wrap; gap:5px; margin-top:7px!important; }
 .relationBadge { display:inline-flex; align-items:center; gap:6px; padding:3px 7px; border:1px solid var(--border); border-radius:999px; background:#161923; color:var(--muted); font-size:9px; font-weight:750; }
+.environmentAccordion { border:1px solid var(--border); border-radius:12px; background:rgba(9,10,14,.22); overflow:hidden; }
+.environmentAccordion + .environmentAccordion { margin-top:8px; }
+.environmentAccordion > summary { display:flex; align-items:center; gap:9px; padding:11px 13px; cursor:pointer; list-style:none; font-size:12px; }
+.environmentAccordion > summary::-webkit-details-marker { display:none; }
+.environmentAccordion > summary::before { content:"⌄"; color:var(--muted); font-size:12px; transition:transform .16s ease; flex:0 0 auto; }
+.environmentAccordion:not([open]) > summary::before { transform:rotate(-90deg); }
+.environmentAccordion > summary b { flex:1; font-size:12px; }
+.environmentAccordion > summary:hover { background:var(--surface-2); }
+.environmentDot { width:9px; height:9px; border-radius:50%; background:var(--environment-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--environment-color) 20%,transparent); flex:0 0 auto; }
+.environmentAccordion .list { margin:0 13px 13px; max-height:none; overflow:visible; }
 .imageEditorDialog { width:min(620px,calc(100vw - 28px)); padding:18px; border:1px solid #343a4c; border-radius:18px; background:#12141b; color:var(--text); box-shadow:0 30px 100px rgba(0,0,0,.65); }
 .imageEditorDialog::backdrop { background:rgba(4,5,8,.78); backdrop-filter:blur(5px); }
 .imageEditorHead { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; }

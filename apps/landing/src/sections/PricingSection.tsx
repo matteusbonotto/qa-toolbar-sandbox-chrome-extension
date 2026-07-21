@@ -130,7 +130,14 @@ export function PricingSection() {
     }
     let stopped = false;
     let timer: number | undefined;
-    let attempts = checkoutReturn === "success" ? 5 : 1;
+    // Only a genuine Stripe-redirect-back (`?checkout=success`) is a "step" the visitor is
+    // actively waiting on — this same effect also fires for any already-logged-in visitor who
+    // just opens the pricing page normally, to keep `access` fresh in the background. That
+    // routine refresh was wrongly surfacing the checkout-failure banner on a transient/backend
+    // hiccup even though the visitor never started a checkout, which is what made the page look
+    // broken in prod. Only the actual checkout-return flow gets to touch the status banner now.
+    const isCheckoutReturn = checkoutReturn === "success";
+    let attempts = isCheckoutReturn ? 5 : 1;
 
     const refresh = async () => {
       try {
@@ -139,12 +146,14 @@ export function PricingSection() {
         setAccess(nextAccess);
         if (nextAccess.active) {
           void handoffSessionToExtension(session);
-          setStatusError(false);
-          setStatusMessage(t.pricing.accessActive);
+          if (isCheckoutReturn) {
+            setStatusError(false);
+            setStatusMessage(t.pricing.accessActive);
+          }
           return;
         }
       } catch {
-        if (!stopped) {
+        if (!stopped && isCheckoutReturn) {
           setStatusError(true);
           setStatusMessage(t.pricing.checkoutFailed);
         }
@@ -153,7 +162,7 @@ export function PricingSection() {
       attempts -= 1;
       if (attempts > 0 && !stopped) {
         timer = window.setTimeout(() => void refresh(), 2_000);
-      } else if (checkoutReturn === "success" && !stopped) {
+      } else if (isCheckoutReturn && !stopped) {
         setStatusError(false);
         setStatusMessage(t.pricing.paymentProcessing);
       }

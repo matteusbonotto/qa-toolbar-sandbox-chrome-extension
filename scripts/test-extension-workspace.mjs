@@ -12,7 +12,7 @@ const workspace = normalizeWorkspace({
   preferences: { compactMode: true },
 });
 
-assert.equal(workspace.schemaVersion, 7);
+assert.equal(workspace.schemaVersion, 8);
 assert.equal(workspace.environments[0].name, "QA");
 assert.equal(workspace.environments[0].productId, undefined);
 assert.equal(workspace.urlBindings.length, 1);
@@ -177,5 +177,45 @@ const legacySingularPattern = normalizeWorkspace({
   urlBindings: [{ pattern: "https://qa.example.com", productId: "product-a", environmentIds: ["env-a"] }],
 });
 assert.deepEqual(legacySingularPattern.urlBindings[0].patterns, ["https://qa.example.com/*"]);
+
+// Test accounts/payment methods used to carry exactly one environmentId and one optional
+// productId, so a credential valid in more than one environment/product had to be registered
+// once per combination. They now hold environmentIds[]/productIds[] instead — a still-singular
+// legacy environmentId/productId (any workspace saved before this change) must keep reading
+// correctly, forever, the same way urlBindings' pattern/patterns dual-shape reader does above.
+const scopeWorkspace = normalizeWorkspace({
+  clients: [{ id: "client-a", name: "Cinemark" }],
+  projects: [{ id: "project-a", clientId: "client-a", name: "Cinemas" }],
+  products: [
+    { id: "product-ar", projectId: "project-a", name: "AR" },
+    { id: "product-bo", projectId: "project-a", name: "BO" },
+  ],
+  environments: [
+    { id: "env-dev", name: "DEV" },
+    { id: "env-qa", name: "QA" },
+  ],
+  testAccounts: [
+    { id: "account-legacy", environmentId: "env-dev", productId: "product-ar", label: "Legado" },
+    { id: "account-multi", environmentIds: ["env-dev", "env-qa"], productIds: ["product-ar", "product-bo"], label: "Multi" },
+    { id: "account-orphan", environmentId: "missing-env", label: "Sem ambiente válido" },
+  ],
+  paymentMethods: [
+    { id: "payment-legacy", environmentId: "env-dev", productId: "product-ar", label: "Legado" },
+    { id: "payment-unscoped", label: "Todos os ambientes/produtos" },
+  ],
+});
+const legacyAccount = scopeWorkspace.testAccounts.find((account) => account.id === "account-legacy");
+assert.deepEqual(legacyAccount.environmentIds, ["env-dev"], "legacy singular environmentId reads into environmentIds[]");
+assert.deepEqual(legacyAccount.productIds, ["product-ar"], "legacy singular productId reads into productIds[]");
+const multiAccount = scopeWorkspace.testAccounts.find((account) => account.id === "account-multi");
+assert.deepEqual(multiAccount.environmentIds.sort(), ["env-dev", "env-qa"]);
+assert.deepEqual(multiAccount.productIds.sort(), ["product-ar", "product-bo"]);
+assert.equal(scopeWorkspace.testAccounts.some((account) => account.id === "account-orphan"), false, "a test account with zero valid environments is dropped, since environmentIds is required");
+const legacyPayment = scopeWorkspace.paymentMethods.find((method) => method.id === "payment-legacy");
+assert.deepEqual(legacyPayment.environmentIds, ["env-dev"]);
+assert.deepEqual(legacyPayment.productIds, ["product-ar"]);
+const unscopedPayment = scopeWorkspace.paymentMethods.find((method) => method.id === "payment-unscoped");
+assert.deepEqual(unscopedPayment.environmentIds, [], "empty environmentIds means \"all environments\" for payment methods, unlike test accounts");
+assert.deepEqual(unscopedPayment.productIds, []);
 
 console.log("Extension workspace normalization tests passed.");
