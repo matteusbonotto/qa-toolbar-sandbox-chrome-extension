@@ -71,22 +71,25 @@ function normalizeCustomFields(input) {
   }).filter((field) => field.key);
 }
 
-// Optional, unlike the required FKs above (environmentId, urlBinding.productId): an empty/absent
-// value here means "applies to every product using this environment", not "invalid data", so it
-// can't go through `id()` (which always fabricates a non-empty fallback id and would wrongly
-// treat that fabrication as a real match if a product happened to share that generated id).
-function normalizeOptionalProductId(rawValue, products) {
-  const value = text(rawValue, 120);
-  return value && products.some((product) => product.id === value) ? value : null;
+// Test accounts/payment methods used to carry exactly one environmentId and one optional
+// productId, so a credential valid in both DEV and QA (or for both AR and BO) had to be
+// registered twice. This reads either the current array shape or the legacy singular field
+// (environmentId/productId), dedupes, and drops anything that no longer points at a real
+// environment/product — permanently dual-shape, like normalizeUrlBinding's patterns/pattern
+// reader, so an older export always imports cleanly without a version-gated migration step.
+function normalizeIdArray(rawArray, rawSingular, validEntities) {
+  const source = Array.isArray(rawArray) ? rawArray : (rawSingular != null ? [rawSingular] : []);
+  const validIds = new Set(validEntities.map((entity) => entity.id));
+  return [...new Set(source.map((value) => text(value, 120)))].filter((value) => validIds.has(value));
 }
 
 function normalizeTestAccount(item, index, environments, products) {
-  const environmentId = id(item?.environmentId, "env", 0);
-  if (!environments.some((environment) => environment.id === environmentId)) return null;
+  const environmentIds = normalizeIdArray(item?.environmentIds, item?.environmentId, environments);
+  if (!environmentIds.length) return null;
   return {
     id: id(item?.id, "testAccount", index),
-    environmentId,
-    productId: normalizeOptionalProductId(item?.productId ?? item?.product_id, products),
+    environmentIds,
+    productIds: normalizeIdArray(item?.productIds, item?.productId ?? item?.product_id, products),
     label: text(item?.label, 120) || `Conta ${index + 1}`,
     accountType: text(item?.accountType, 60),
     accountTypeImage: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
@@ -204,7 +207,7 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 7,
+    schemaVersion: 8,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [],
@@ -349,16 +352,19 @@ export function normalizeWorkspace(rawWorkspace) {
   }
   const workspace = {
     ...empty,
-    schemaVersion: 7,
+    schemaVersion: 8,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
       .map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
-    paymentMethods: copyCollection("paymentMethods").map((item) => ({
-      ...item,
-      environmentId: environments.some((environment) => environment.id === item.environmentId) ? item.environmentId : null,
-      productId: normalizeOptionalProductId(item?.productId ?? item?.product_id, products),
-    })),
+    paymentMethods: copyCollection("paymentMethods").map((item) => {
+      const { environmentId, productId, product_id, ...rest } = item;
+      return {
+        ...rest,
+        environmentIds: normalizeIdArray(item?.environmentIds, environmentId, environments),
+        productIds: normalizeIdArray(item?.productIds, productId ?? product_id, products),
+      };
+    }),
     apis: copyCollection("apis"),
     inspectors: copyCollection("inspectors"),
     resources: copyCollection("resources").map((item) => ({ ...item, category: text(item?.category, 60) })),

@@ -124,6 +124,22 @@
     return { filled, protectedCount };
   }
 
+  // Single-field counterpart to fillWithFakeData, used by the right-click "Preencher com dado
+  // fake" context menu action, which targets exactly the element the user clicked rather than an
+  // entire form/page.
+  function fillSingleField(element) {
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) return { filled: 0, protectedCount: 0 };
+    if (isSensitiveElement(element)) return { filled: 0, protectedCount: 1 };
+    if (element.readOnly || element.disabled) return { filled: 0, protectedCount: 0 };
+    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) {
+      if (!element.checked) element.click();
+      return { filled: 1, protectedCount: 0 };
+    }
+    const value = fakeValueFor(element);
+    if (value !== "") setNativeValue(element, value);
+    return { filled: 1, protectedCount: 0 };
+  }
+
   function inspectInput(element) {
     if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) return null;
     return {
@@ -230,5 +246,5 @@
     return lines.join("\n");
   }
 
-  window.QTS_QA_TOOLS = Object.freeze({ countCharacters, isSensitiveElement, isSensitiveSelector, uniqueSelector, inspectInput, runInputValidation, fillWithFakeData, executeStep, executeMacro, generatePlaywrightCode, delay });
+  window.QTS_QA_TOOLS = Object.freeze({ countCharacters, isSensitiveElement, isSensitiveSelector, uniqueSelector, inspectInput, runInputValidation, fillWithFakeData, fillSingleField, executeStep, executeMacro, generatePlaywrightCode, delay });
 })();

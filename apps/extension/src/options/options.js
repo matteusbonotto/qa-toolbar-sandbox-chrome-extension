@@ -500,9 +500,25 @@ function environmentBoundProductNames(environmentId) {
   return [...productIds].map((productId) => findById("products", productId)?.name).filter(Boolean);
 }
 
+// founder feedback: search used to JSON.stringify() the whole item, which drags in every base64
+// image field (logos, account-type icons, payment icons — up to 300k chars each) on every single
+// keystroke across every collection. None of that is human-searchable text, so this instead builds
+// a small haystack from just the fields a person would actually search by.
+const SEARCH_IGNORED_KEYS = new Set(["id", "logoUrl", "accountTypeImage", "icon", "active", "showLabel", "color"]);
 function matchesSearch(item) {
   if (!searchQuery) return true;
-  return JSON.stringify(item).toLowerCase().includes(searchQuery);
+  const parts = [];
+  for (const [key, value] of Object.entries(item)) {
+    if (SEARCH_IGNORED_KEYS.has(key) || value == null) continue;
+    if (typeof value === "string" || typeof value === "number") parts.push(String(value));
+    else if (Array.isArray(value)) {
+      for (const entry of value) {
+        if (typeof entry === "string" || typeof entry === "number") parts.push(String(entry));
+        else if (entry && typeof entry === "object" && "key" in entry) parts.push(`${entry.key} ${entry.value ?? ""}`);
+      }
+    }
+  }
+  return parts.join(" ").toLowerCase().includes(searchQuery);
 }
 
 function rowActions(collection, item, { reveal = false } = {}) {
@@ -593,39 +609,157 @@ function renderUrlEnvironmentPicker() {
   });
 }
 
-// Founder feedback: grouping this list by Product made every environment's URL show up as its
-// own "AR" row (one per env, since a binding's patterns can't be shared across environments that
-// use different domains) — reading as "AR, AR, AR, AR, BO, BO, BO, BO…" with no way to tell which
-// row was which tier at a glance. Grouping by Environment instead (matching the composer's own
-// field order above) reads as "DEV: AR, BO, CL…" / "BETA: AR, BO, CL…", one heading per tier. A
-// binding with more than one environmentId (the genuinely-shared-URL case) simply appears again
-// under each of its environments' headings.
-function renderUrlBindingsList() {
+// URLs are grouped by environment into collapsible accordions (rather than one flat list) so a
+// workspace with many countries/products per environment stays scannable — each section shows its
+// own URL count and can be collapsed once reviewed. A binding can belong to several environments
+// at once (see the environment picker above), so it's rendered once per environment it's tied to;
+// bindings with no environment yet land in a trailing "Sem ambiente" group instead of vanishing.
+function renderUrlRelationRow(item) {
+  const product = findById("products", item.productId);
+  const productBadge = product ? window.QTS_AVATAR.buildEntityHtml(product, { size: 18 }) : "";
+  const badges = item.environmentIds.map((environmentId) => findById("environments", environmentId)).filter(Boolean)
+    .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
+  return `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${productBadge}${escapeHtml(product?.name || "—")}</small><small class="relationBadges">${badges}</small></div>${rowActions("urlBindings", item)}</div>`;
+}
+
+function renderUrlRelationList() {
   const element = document.getElementById(COLLECTION_UI.urlBindings.listId);
-  const items = (workspace.urlBindings || []).filter(matchesSearch);
-  if (!items.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
-  const NO_ENV = "__none__";
-  const groups = new Map();
-  for (const item of items) {
-    for (const environmentId of item.environmentIds?.length ? item.environmentIds : [NO_ENV]) {
-      if (!groups.has(environmentId)) groups.set(environmentId, []);
-      groups.get(environmentId).push(item);
-    }
-  }
-  const orderedEnvironmentIds = [...(workspace.environments || []).map((environment) => environment.id), NO_ENV].filter((environmentId) => groups.has(environmentId));
-  element.innerHTML = orderedEnvironmentIds.map((environmentId) => {
-    const environment = environmentId === NO_ENV ? null : findById("environments", environmentId);
-    const heading = `<div class="urlGroupHeading"${environment ? ` style="--environment-color:${escapeHtml(environment.color)}"` : ""}><i></i>${escapeHtml(environment ? environmentDisplayName(environment) : t("Sem ambiente"))}</div>`;
-    const rows = groups.get(environmentId).map((item) => {
-      const product = findById("products", item.productId);
-      const otherEnvironments = (item.environmentIds || []).filter((id) => id !== environmentId).map((id) => findById("environments", id)).filter(Boolean);
-      const otherEnvironmentsHint = otherEnvironments.length
-        ? `<small class="relationBadges">${escapeHtml(t("também em"))}: ${otherEnvironments.map((env) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(env.color)}"></i>${escapeHtml(environmentDisplayName(env))}</span>`).join("")}</small>`
-        : "";
-      return `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${escapeHtml(product?.name || "—")}</small>${otherEnvironmentsHint}</div>${rowActions("urlBindings", item)}</div>`;
-    }).join("");
-    return heading + rows;
+  const environments = workspace.environments || [];
+  const bindings = (workspace.urlBindings || []).filter(matchesSearch);
+  if (!bindings.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
+  if (!environments.length) { element.innerHTML = bindings.map(renderUrlRelationRow).join(""); return; }
+  const orphans = bindings.filter((item) => !(item.environmentIds || []).length);
+  const sections = [
+    ...environments.map((environment) => ({ environment, items: bindings.filter((item) => (item.environmentIds || []).includes(environment.id)) })),
+    ...(orphans.length ? [{ environment: null, items: orphans }] : []),
+  ];
+  element.innerHTML = sections.map(({ environment, items }) => {
+    const name = environment ? environmentDisplayName(environment) : t("Sem ambiente");
+    const color = environment ? environment.color : "#5b6172";
+    return `<details class="environmentAccordion" open>
+      <summary><span class="environmentDot" style="--environment-color:${escapeHtml(color)}"></span><b>${escapeHtml(name)}</b><span class="count">${items.length}</span></summary>
+      <div class="list listComfortable">${items.length ? items.map(renderUrlRelationRow).join("") : `<div class="listEmpty">${escapeHtml(t("Nenhuma URL cadastrada neste ambiente."))}</div>`}</div>
+    </details>`;
   }).join("");
+}
+
+// Shared badge summary for anything with environmentIds[]/productIds[] (test accounts, payment
+// methods) — empty productIds means "all products", empty environmentIds only happens for
+// payment methods (test accounts always require at least one).
+function scopeBadgesHtml(item) {
+  const environmentBadges = (item.environmentIds || []).map((environmentId) => findById("environments", environmentId)).filter(Boolean)
+    .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
+  const productNames = (item.productIds || []).map((productId) => findById("products", productId)?.name).filter(Boolean);
+  const productBadge = `<span class="relationBadge">${escapeHtml(productNames.length ? productNames.join(", ") : t("Todos os produtos"))}</span>`;
+  return `${environmentBadges || `<span class="relationBadge">${escapeHtml(t("Todos os ambientes"))}</span>`}${productBadge}`;
+}
+
+// Every product bound to `environmentId` via any urlBinding — the reverse of
+// environmentBoundProductNames above, used to gate the scope picker's Product column once an
+// Environment checkbox is checked.
+function productIdsForEnvironment(environmentId) {
+  const ids = new Set();
+  for (const binding of workspace.urlBindings || []) if ((binding.environmentIds || []).includes(environmentId)) ids.add(binding.productId);
+  return ids;
+}
+
+// Cascading Client -> Project -> Environment -> Product multi-select combobox shared by the Test
+// Account and Payment Method composers (see options.html's <details data-scope-picker>). Only
+// environmentIds/productIds are ever persisted — Client/Project checkboxes exist purely to narrow
+// the options below them (a test account/payment method has no direct client/project field of its
+// own, since that's already implied by whichever product(s) it's scoped to). Search is applied as
+// a plain hidden-toggle over already-rendered rows (not a re-render) so typing never steals focus
+// from the search input — same technique as renderUrlEnvironmentPicker's search above.
+const scopePickerStates = {
+  testAccount: { clientIds: new Set(), projectIds: new Set(), environmentIds: new Set(), productIds: new Set(), search: "" },
+  paymentMethod: { clientIds: new Set(), projectIds: new Set(), environmentIds: new Set(), productIds: new Set(), search: "" },
+};
+
+function resetScopePickerState(key, { environmentIds = [], productIds = [] } = {}) {
+  scopePickerStates[key] = { clientIds: new Set(), projectIds: new Set(), environmentIds: new Set(environmentIds), productIds: new Set(productIds), search: "" };
+}
+
+function applyScopePickerSearch(container, query) {
+  container.querySelectorAll("[data-scope-option]").forEach((label) => { label.hidden = !label.dataset.scopeOption.includes(query); });
+}
+
+function renderScopePicker(key, { requireEnvironment }) {
+  const containerId = key === "testAccount" ? "testAccountScopePicker" : "paymentMethodScopePicker";
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  const state = scopePickerStates[key];
+
+  const clientScoped = Boolean(state.clientIds.size || state.projectIds.size);
+  const productClientProjectMatch = (product) => {
+    const project = findById("projects", product.projectId);
+    const clientOk = !state.clientIds.size || state.clientIds.has(project?.clientId);
+    const projectOk = !state.projectIds.size || state.projectIds.has(product.projectId);
+    return clientOk && projectOk;
+  };
+  const scopedProductIds = new Set(workspace.products.filter(productClientProjectMatch).map((product) => product.id));
+
+  const visibleProjects = workspace.projects.filter((project) => !state.clientIds.size || state.clientIds.has(project.clientId) || state.projectIds.has(project.id));
+  const visibleEnvironments = workspace.environments.filter((environment) => {
+    if (!clientScoped) return true;
+    if (state.environmentIds.has(environment.id)) return true;
+    return [...scopedProductIds].some((productId) => productIdsForEnvironment(environment.id).has(productId));
+  });
+  const visibleProducts = workspace.products.filter((product) => {
+    if (state.productIds.has(product.id)) return true;
+    if (!productClientProjectMatch(product)) return false;
+    if (!state.environmentIds.size) return true;
+    const productEnvironmentIds = new Set();
+    for (const binding of workspace.urlBindings || []) if (binding.productId === product.id) for (const environmentId of binding.environmentIds || []) productEnvironmentIds.add(environmentId);
+    return [...state.environmentIds].some((environmentId) => productEnvironmentIds.has(environmentId));
+  });
+
+  const checkbox = (field, itemId, labelHtml, optionText) => `<label data-scope-option="${escapeHtml(optionText.toLowerCase())}"><input type="checkbox" data-scope-field="${field}" value="${escapeHtml(itemId)}" ${state[field].has(itemId) ? "checked" : ""} /> ${labelHtml}</label>`;
+  const column = (title, field, items, labeler, required) => `
+    <div class="scopePickerColumn">
+      <b>${escapeHtml(title)}${required ? ' <span class="scopeRequired">*</span>' : ""}</b>
+      <div class="scopePickerOptions">${items.length ? items.map((item) => checkbox(field, item.id, labeler(item), item.name || environmentDisplayName(item))).join("") : `<span class="scopePickerEmpty">${escapeHtml(t("Nada encontrado."))}</span>`}</div>
+    </div>`;
+
+  const summaryParts = [
+    state.environmentIds.size ? t("{count} ambiente(s)", { count: state.environmentIds.size }) : (requireEnvironment ? t("Selecione ao menos um ambiente") : t("Todos os ambientes")),
+    state.productIds.size ? t("{count} produto(s)", { count: state.productIds.size }) : t("Todos os produtos"),
+  ];
+
+  container.innerHTML = `
+    <summary>${escapeHtml(summaryParts.join(" · "))}</summary>
+    <div class="scopePickerPanel">
+      <div class="multiSelectTools">
+        <input type="search" data-scope-search value="${escapeHtml(state.search)}" placeholder="${escapeHtml(t("Buscar cliente, projeto, ambiente ou produto"))}" />
+        <button type="button" data-scope-clear>${escapeHtml(t("Limpar seleção"))}</button>
+      </div>
+      <div class="scopePickerColumns">
+        ${column(t("Clientes"), "clientIds", workspace.clients, (item) => escapeHtml(item.name))}
+        ${column(t("Projetos"), "projectIds", visibleProjects, (item) => escapeHtml(item.name))}
+        ${column(t("Ambientes"), "environmentIds", visibleEnvironments, (item) => `<span class="scopeDot" style="--environment-color:${escapeHtml(item.color)}"></span>${escapeHtml(environmentDisplayName(item))}`, requireEnvironment)}
+        ${column(t("Produtos"), "productIds", visibleProducts, (item) => escapeHtml(item.name))}
+      </div>
+    </div>`;
+
+  applyScopePickerSearch(container, state.search.trim().toLowerCase());
+  container.querySelectorAll("[data-scope-field]").forEach((input) => input.addEventListener("change", () => {
+    const field = input.dataset.scopeField;
+    input.checked ? state[field].add(input.value) : state[field].delete(input.value);
+    renderScopePicker(key, { requireEnvironment });
+    container.setAttribute("open", "");
+  }));
+  container.querySelector("[data-scope-clear]").addEventListener("click", () => {
+    state.clientIds.clear(); state.projectIds.clear(); state.environmentIds.clear(); state.productIds.clear();
+    renderScopePicker(key, { requireEnvironment });
+    container.setAttribute("open", "");
+  });
+  container.querySelector("[data-scope-search]").addEventListener("input", (event) => {
+    state.search = event.target.value;
+    applyScopePickerSearch(container, state.search.trim().toLowerCase());
+  });
+  if (requireEnvironment && state.environmentIds.size) {
+    const error = document.getElementById("testAccountScopeError");
+    if (error) error.hidden = true;
+  }
 }
 
 function renderWorkspace() {
@@ -640,7 +774,7 @@ function renderWorkspace() {
     const products = environmentBoundProductNames(item.id);
     return `<b style="color:${escapeHtml(item.color)}">● ${escapeHtml(item.name)}</b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
   });
-  renderUrlBindingsList();
+  renderUrlRelationList();
   renderUrlEnvironmentPicker();
   renderUrlPatternsPicker();
   renderRows("testAccounts", (item) => {
@@ -649,13 +783,11 @@ function renderWorkspace() {
     // toolbar.js) — this options-page list never did, so the same uploaded/URL icon that shows
     // up later was invisible here while managing the account.
     const typeImage = item.accountTypeImage ? `<img src="${escapeHtml(item.accountTypeImage)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : "";
-    const productName = findById("products", item.productId)?.name;
-    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(environmentDisplayName(findById("environments", item.environmentId) || {}))}${productName ? ` · ${escapeHtml(productName)}` : ""} · ${escapeHtml(item.username || "—")} · ${password}</small>`;
+    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(item.username || "—")} · ${password}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
   }, { reveal: (item) => Boolean(item.password) });
+  renderCustomFieldSuggestions();
   renderRows("paymentMethods", (item) => {
-    const productName = findById("products", item.productId)?.name;
-    const environmentLabel = item.environmentId ? environmentDisplayName(findById("environments", item.environmentId) || {}) : t("Todos os ambientes");
-    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(environmentLabel)}${productName ? ` · ${escapeHtml(productName)}` : ""} · ${escapeHtml(item.notes || "")}</small>`;
+    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
   });
   renderRows("inspectors", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml((item.patterns || []).join(", "))}</small>`);
   renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "—")} · ${escapeHtml(t(item.token ? "token local configurado" : "sem token"))}</small>`);
@@ -663,10 +795,8 @@ function renderWorkspace() {
   renderSelect("projectClient", workspace.clients, t("Selecione o cliente"));
   renderSelect("productProject", workspace.projects, t("Selecione o projeto"));
   renderSelect("urlRelationProduct", workspace.products, t("Selecione o produto"));
-  renderSelect("testAccountEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Selecione o ambiente"));
-  renderSelect("testAccountProduct", workspace.products, t("Todos os produtos"));
-  renderSelect("paymentMethodEnvironment", workspace.environments.map((item) => ({ id: item.id, name: environmentDisplayName(item) })), t("Todos os ambientes"));
-  renderSelect("paymentMethodProduct", workspace.products, t("Todos os produtos"));
+  renderScopePicker("testAccount", { requireEnvironment: true });
+  renderScopePicker("paymentMethod", { requireEnvironment: false });
   loadPreferenceUi();
   renderWorkspaceWizard();
   activateWorkspaceTab(activeWorkspaceTab);
@@ -725,12 +855,24 @@ function renderWorkspaceWizard() {
   }
 }
 
+// Founder feedback: with enough clients/products/accounts registered (especially ones carrying
+// base64 logos/icons), saving felt sluggish because the UI waited for the full chrome.storage.local
+// write to finish before showing anything. `workspace` is already the up-to-date in-memory object
+// (upsert/cascadeRemove mutate it directly) — rendering it immediately makes every edit feel
+// instant, and the storage round-trip (plus a second render, in case normalization changed
+// anything) still happens right after, same as before.
 async function persistWorkspace() {
+  renderWorkspace();
   workspace = await saveWorkspace(workspace);
   renderWorkspace();
 }
 
-document.getElementById("workspaceSearch").addEventListener("input", (event) => { searchQuery = event.target.value.trim().toLowerCase(); renderWorkspace(); });
+let workspaceSearchDebounce = null;
+document.getElementById("workspaceSearch").addEventListener("input", (event) => {
+  const value = event.target.value.trim().toLowerCase();
+  window.clearTimeout(workspaceSearchDebounce);
+  workspaceSearchDebounce = window.setTimeout(() => { searchQuery = value; renderWorkspace(); }, 150);
+});
 
 function appearance(prefix) {
   const logoUrl = document.getElementById(`${prefix}LogoUrl`).value.trim();
@@ -756,7 +898,18 @@ function clearEdit(prefix) {
     group.querySelectorAll("[data-image-mode]").forEach((button) => button.classList.toggle("isActive", button.dataset.imageMode === "url"));
     group.querySelector("[data-image-url]")?.dispatchEvent(new Event("input", { bubbles: true }));
   });
-  if (prefix === "testAccount") { testAccountCustomFieldsDraft = []; renderCustomFieldsEditor(); }
+  if (prefix === "testAccount") {
+    testAccountCustomFieldsDraft = [];
+    renderCustomFieldsEditor();
+    resetScopePickerState("testAccount");
+    renderScopePicker("testAccount", { requireEnvironment: true });
+    const scopeError = document.getElementById("testAccountScopeError");
+    if (scopeError) scopeError.hidden = true;
+  }
+  if (prefix === "paymentMethod") {
+    resetScopePickerState("paymentMethod");
+    renderScopePicker("paymentMethod", { requireEnvironment: false });
+  }
   const composer = document.getElementById(`${prefix}Composer`);
   if (composer?.open) composer.close();
 }
@@ -797,6 +950,36 @@ function renderCustomFieldsEditor() {
     });
     row.querySelector("[data-field-remove]").addEventListener("click", () => { testAccountCustomFieldsDraft.splice(index, 1); renderCustomFieldsEditor(); });
   });
+  renderCustomFieldSuggestions();
+}
+
+// Field *definitions* (name + type) used on any test account are remembered and offered when
+// adding/editing any other account — founder feedback: a field created on one account wasn't
+// available on the next, forcing it to be retyped every time. Only the schema is shared here;
+// each account's own value is never suggested, since values are account-specific.
+function knownCustomFieldTemplates() {
+  const seen = new Map();
+  for (const account of workspace.testAccounts || []) {
+    for (const field of account.customFields || []) {
+      const key = String(field.key || "").trim();
+      if (!key) continue;
+      seen.set(key.toLowerCase(), { key, type: field.type || "string" });
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.key.localeCompare(b.key));
+}
+
+function renderCustomFieldSuggestions() {
+  const container = document.getElementById("testAccountFieldSuggestions");
+  if (!container) return;
+  const usedKeys = new Set(testAccountCustomFieldsDraft.map((field) => String(field.key || "").trim().toLowerCase()));
+  const suggestions = knownCustomFieldTemplates().filter((template) => !usedKeys.has(template.key.toLowerCase()));
+  if (!suggestions.length) { container.innerHTML = ""; return; }
+  container.innerHTML = `<small>${escapeHtml(t("Campos já usados em outras contas:"))}</small><div class="fieldSuggestionRow">${suggestions.map((template) => `<button type="button" class="fieldSuggestionChip" data-add-known-field="${escapeHtml(template.key)}" data-known-field-type="${escapeHtml(template.type)}">+ ${escapeHtml(template.key)}</button>`).join("")}</div>`;
+  container.querySelectorAll("[data-add-known-field]").forEach((button) => button.addEventListener("click", () => {
+    testAccountCustomFieldsDraft.push({ key: button.dataset.addKnownField, type: button.dataset.knownFieldType, value: button.dataset.knownFieldType === "boolean" ? false : "" });
+    renderCustomFieldsEditor();
+  }));
 }
 document.getElementById("testAccountAddField").addEventListener("click", () => {
   testAccountCustomFieldsDraft.push({ key: "", type: "string", value: "" });
@@ -860,8 +1043,26 @@ document.getElementById("environmentForm").addEventListener("submit", async (eve
   await persistWorkspace();
 });
 
-document.getElementById("testAccountForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("testAccountEditId").value; const existing = findById("testAccounts", editId); const password = document.getElementById("testAccountPassword").value; upsert("testAccounts", { id: editId || uid("account"), environmentId: document.getElementById("testAccountEnvironment").value, productId: document.getElementById("testAccountProduct").value || null, label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId); clearEdit("testAccount"); await persistWorkspace(); });
-document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("paymentMethodEditId").value; const existing = findById("paymentMethods", editId); upsert("paymentMethods", { id: editId || uid("payment"), environmentId: document.getElementById("paymentMethodEnvironment").value || null, productId: document.getElementById("paymentMethodProduct").value || null, label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId); clearEdit("paymentMethod"); await persistWorkspace(); });
+document.getElementById("testAccountForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const scope = scopePickerStates.testAccount;
+  if (!scope.environmentIds.size) { document.getElementById("testAccountScopeError").hidden = false; return; }
+  const editId = document.getElementById("testAccountEditId").value;
+  const existing = findById("testAccounts", editId);
+  const password = document.getElementById("testAccountPassword").value;
+  upsert("testAccounts", { id: editId || uid("account"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId);
+  clearEdit("testAccount");
+  await persistWorkspace();
+});
+document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const scope = scopePickerStates.paymentMethod;
+  const editId = document.getElementById("paymentMethodEditId").value;
+  const existing = findById("paymentMethods", editId);
+  upsert("paymentMethods", { id: editId || uid("payment"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId);
+  clearEdit("paymentMethod");
+  await persistWorkspace();
+});
 document.getElementById("inspectorForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("inspectorEditId").value; upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId); clearEdit("inspector"); await persistWorkspace(); });
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
 document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), icon: document.getElementById("resourceIcon").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
@@ -920,8 +1121,8 @@ function editItem(collection, item) {
     products: { productProject: item.projectId, productName: item.name, productLogoUrl: item.logoUrl, productAbbreviation: item.abbreviation, productShowLabel: item.showLabel !== false },
     environments: { environmentName: item.name, environmentColor: item.color },
     urlBindings: { urlRelationProduct: item.productId, urlPatternInput: "" },
-    testAccounts: { testAccountEnvironment: item.environmentId, testAccountProduct: item.productId || "", testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
-    paymentMethods: { paymentMethodEnvironment: item.environmentId || "", paymentMethodProduct: item.productId || "", paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
+    testAccounts: { testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
+    paymentMethods: { paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
     apis: { apiLabel: item.label, apiBaseUrl: item.baseUrl, apiToken: "" },
     resources: { resourceLabel: item.label, resourceUrl: item.url, resourceCategory: item.category, resourceIcon: item.icon },
@@ -934,6 +1135,12 @@ function editItem(collection, item) {
   if (collection === "testAccounts") {
     testAccountCustomFieldsDraft = structuredClone(item.customFields || []);
     renderCustomFieldsEditor();
+    resetScopePickerState("testAccount", { environmentIds: item.environmentIds || [], productIds: item.productIds || [] });
+    renderScopePicker("testAccount", { requireEnvironment: true });
+  }
+  if (collection === "paymentMethods") {
+    resetScopePickerState("paymentMethod", { environmentIds: item.environmentIds || [], productIds: item.productIds || [] });
+    renderScopePicker("paymentMethod", { requireEnvironment: false });
   }
   if (collection === "urlBindings") {
     urlSelectedEnvironmentIds = new Set(item.environmentIds || []);
@@ -948,12 +1155,27 @@ function editItem(collection, item) {
 // removing a client/project/product no longer deletes environments — only the URL bindings and
 // product-scoped test accounts/payment methods that actually belong to the removed product(s).
 // An environment itself only goes away when removed directly from the "Ambientes" tab.
+// Test accounts/payment methods can be scoped to several environments/products at once, so
+// removing just one of those no longer has to delete the whole item — only when pruning the
+// removed id(s) out of a REQUIRED-non-empty field (or out of an already-scoped optional one)
+// would leave it with zero left does the item disappear entirely. An item whose field was already
+// empty (payment methods' "applies to every environment/product") is untouched either way.
+function pruneScopedCollection(items, field, removeIds) {
+  return items
+    .map((item) => {
+      if (!item[field] || !item[field].length) return item;
+      const next = item[field].filter((value) => !removeIds.has(value));
+      return next.length ? { ...item, [field]: next } : null;
+    })
+    .filter(Boolean);
+}
+
 function cascadeRemove(collection, removeId) {
   const removeSet = (key, predicate) => { workspace[key] = workspace[key].filter((item) => !predicate(item)); };
   const dropProducts = (productIds) => {
     removeSet("urlBindings", (item) => productIds.has(item.productId));
-    removeSet("testAccounts", (item) => item.productId && productIds.has(item.productId));
-    removeSet("paymentMethods", (item) => item.productId && productIds.has(item.productId));
+    workspace.testAccounts = pruneScopedCollection(workspace.testAccounts, "productIds", productIds);
+    workspace.paymentMethods = pruneScopedCollection(workspace.paymentMethods, "productIds", productIds);
     removeSet("products", (item) => productIds.has(item.id));
   };
   if (collection === "clients") {
@@ -973,8 +1195,9 @@ function cascadeRemove(collection, removeId) {
     workspace.urlBindings = workspace.urlBindings
       .map((item) => ({ ...item, environmentIds: item.environmentIds.filter((environmentId) => environmentId !== removeId) }))
       .filter((item) => item.environmentIds.length > 0);
-    removeSet("testAccounts", (item) => item.environmentId === removeId);
-    removeSet("paymentMethods", (item) => item.environmentId === removeId);
+    const removeIdSet = new Set([removeId]);
+    workspace.testAccounts = pruneScopedCollection(workspace.testAccounts, "environmentIds", removeIdSet);
+    workspace.paymentMethods = pruneScopedCollection(workspace.paymentMethods, "environmentIds", removeIdSet);
   }
   removeSet(collection, (item) => item.id === removeId);
 }
@@ -1012,7 +1235,7 @@ async function sha256Hex(value) {
 async function buildExportEnvelope(workspaceData, filenamePrefix) {
   const exportable = structuredClone(workspaceData);
   exportable.testAccounts = exportable.testAccounts.map(({ password, ...item }) => item);
-  exportable.paymentMethods = exportable.paymentMethods.map(({ value, ...item }) => item);
+  exportable.paymentMethods = exportable.paymentMethods.map(({ value, cvv, ...item }) => item);
   exportable.apis = exportable.apis.map(({ token, ...item }) => item);
   const checksum = `sha256:${await sha256Hex(JSON.stringify(exportable))}`;
   const blob = new Blob([JSON.stringify({ format: "qts-workspace", version: 2, exportedAt: new Date().toISOString(), checksum, workspace: exportable }, null, 2)], { type: "application/json" });
@@ -1026,15 +1249,36 @@ async function buildExportEnvelope(workspaceData, filenamePrefix) {
 
 document.getElementById("exportButton").addEventListener("click", () => buildExportEnvelope(workspace, "qa-toolbar-workspace"));
 document.getElementById("downloadTemplateButton").addEventListener("click", () => {
-  // A minimal, generic (no real customer name) one-of-everything workspace — normalized the same
-  // way an import would be, so this is guaranteed to be a file that imports cleanly and shows the
-  // founder the expected shape without needing to read the schema themselves.
+  // A minimal, generic (no real customer name) one-of-*everything* workspace — normalized the
+  // same way an import would be, so this is guaranteed to be a file that imports cleanly. Founder
+  // feedback: the old template only had structure/URL examples, so a hand-edited copy that also
+  // needed test accounts or payment methods had no shape to copy from and came out wrong (most
+  // often the old singular environmentId/productId instead of the current environmentIds[]/
+  // productIds[] arrays). Every importable collection gets a real example now.
   const template = normalizeWorkspace({
     clients: [{ id: "client-exemplo", name: "Cliente Exemplo" }],
     projects: [{ id: "project-exemplo", clientId: "client-exemplo", name: "Projeto Exemplo" }],
     products: [{ id: "product-exemplo", projectId: "project-exemplo", name: "Produto Exemplo" }],
     environments: [{ id: "env-exemplo", name: "QA", color: "#7657ff" }],
     urlBindings: [{ id: "binding-exemplo", patterns: ["https://app.exemplo.com/*"], productId: "product-exemplo", environmentIds: ["env-exemplo"] }],
+    // password/value/cvv are omitted here on purpose (not just left blank): buildExportEnvelope
+    // strips them from every export anyway, real or template, so a placeholder here would never
+    // actually reach the downloaded file — and a fake-looking secret string in source is exactly
+    // what a credential scanner should (correctly) refuse to let through.
+    testAccounts: [{
+      id: "account-exemplo", environmentIds: ["env-exemplo"], productIds: ["product-exemplo"],
+      label: "Conta Exemplo", accountType: "Padrão", username: "qa.teste@exemplo.com",
+      notes: "Uso exclusivo sandbox.", customFields: [{ key: "Plano", type: "string", value: "Gold" }],
+    }],
+    paymentMethods: [{
+      id: "payment-exemplo", environmentIds: ["env-exemplo"], productIds: [],
+      label: "Cartão Exemplo", type: "card", holder: "Sandbox QA",
+      expiry: "12/2030", notes: "Somente sandbox.",
+    }],
+    apis: [{ id: "api-exemplo", label: "API Exemplo", baseUrl: "https://api.exemplo.com", token: "" }],
+    inspectors: [{ id: "inspector-exemplo", label: "Inspector Exemplo", patterns: ["*/api/*"] }],
+    resources: [{ id: "resource-exemplo", label: "Recurso Exemplo", url: "https://exemplo.com/docs", category: "Documentação" }],
+    macros: [{ id: "macro-exemplo", name: "Macro Exemplo", description: "Exemplo de macro gravada.", steps: [{ action: "click", selector: "#exemplo-botao" }] }],
   });
   void buildExportEnvelope(template, "qa-toolbar-template");
 });

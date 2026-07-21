@@ -91,8 +91,36 @@ async function injectIntoOpenTabs(matches) {
   }));
 }
 
-chrome.runtime.onInstalled.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); });
-chrome.runtime.onStartup.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); });
+// Right-click "QA Sandbox" menu: a fixed set of items visible everywhere (Chrome's contextMenus
+// API has no way to gate visibility on our own dynamic authorization/registration state), each
+// just relaying its action to the content script for the clicked tab. If the toolbar isn't
+// injected there (unauthorized page, or the workspace has no URL binding for it) the message
+// simply has no listener and is dropped — same graceful no-op as every other tab message here.
+const CONTEXT_MENU_PARENT_ID = "qts-sandbox";
+const CONTEXT_MENU_ACTIONS = [
+  { id: "qts-char-counter", action: "char-counter", title: "Contar caracteres" },
+  { id: "qts-reveal-locators", action: "reveal-locators", title: "Revelar test-id, seletor e XPath" },
+  { id: "qts-fill-fake-data", action: "fill-fake-data", title: "Preencher com dado fake" },
+  { id: "qts-check-limits", action: "check-limits", title: "Conferir limites do campo" },
+];
+
+function setupContextMenus() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({ id: CONTEXT_MENU_PARENT_ID, title: "QA Sandbox", contexts: ["all"] });
+    for (const item of CONTEXT_MENU_ACTIONS) {
+      chrome.contextMenus.create({ id: item.id, parentId: CONTEXT_MENU_PARENT_ID, title: item.title, contexts: ["all"] });
+    }
+  });
+}
+
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+  const item = CONTEXT_MENU_ACTIONS.find((candidate) => candidate.id === info.menuItemId);
+  if (!item || !tab?.id) return;
+  chrome.tabs.sendMessage(tab.id, { type: "qts:context-action", action: item.action }).catch(() => {});
+});
+
+chrome.runtime.onInstalled.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); setupContextMenus(); });
+chrome.runtime.onStartup.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); setupContextMenus(); });
 
 onStorageChanged((changes) => {
   if (changes[STORAGE_KEYS.workspace] || changes[STORAGE_KEYS.siteScope]) void applyContentScriptRegistration();

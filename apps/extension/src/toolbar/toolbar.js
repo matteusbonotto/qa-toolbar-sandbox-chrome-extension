@@ -1,7 +1,12 @@
 const { getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 const ICON = window.QTS_ICONS.svg;
 
-const TOOLBAR_HEIGHT = 48;
+// 24px of tallest inner content (buttons, #currentUrl) plus a tight 2px top/bottom — founder
+// feedback: the old fixed 48px box centered that same content with ~11px of empty space above and
+// below it, reading as unnecessarily thick. Every consumer of this constant (spacer height, marker
+// placement floor, header-offset math) shares it, so this single number is the actual rendered bar
+// height everywhere, not just in the CSS below.
+const TOOLBAR_HEIGHT = 28;
 const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
 
@@ -397,8 +402,8 @@ function buildShadowHost() {
       * { box-sizing: border-box; }
       #bar {
         position: fixed; top: 0; left: 0; right: 0; z-index: 2147483647;
-        height: ${TOOLBAR_HEIGHT}px; display: flex; align-items: center; justify-content: space-between;
-        gap: 10px; padding: 0 12px; background: var(--qts-bg, #ef3340); color: var(--qts-text, #fff);
+        min-height: ${TOOLBAR_HEIGHT}px; display: flex; align-items: center; justify-content: space-between;
+        gap: 10px; padding: 2px 12px; background: var(--qts-bg, #ef3340); color: var(--qts-text, #fff);
         font: 700 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         box-shadow: 0 2px 10px rgba(0,0,0,.25); transition: transform 160ms ease;
       }
@@ -933,6 +938,33 @@ function handlePlacementClick(event) {
   cancelPlacementMode();
 }
 
+// Founder feedback (requested earlier, never shipped): edit/remove/resize used to sit exposed on
+// every marker/note/shape at all times, cluttering the page and getting in the way of screenshots.
+// Now only this small eye toggle is always visible; it reveals the rest of the controls — plus a
+// "hide element" button that blanks the annotation's own content (not the controls) so a clean
+// screenshot can be taken without deleting the annotation — on demand.
+function visibilityControlsHtml() {
+  const t = state.t;
+  return `<button type="button" class="qts-visibility-btn" data-visibility-toggle title="${escapeHtml(t.showControls)}">${ICON("eye")}</button>
+    <button type="button" class="qts-hide-content-btn" data-hide-content-toggle title="${escapeHtml(t.hideElement)}">${ICON("eyeSlash")}</button>`;
+}
+
+function wireVisibilityControls(item) {
+  const t = state.t;
+  const visibilityBtn = item.querySelector("[data-visibility-toggle]");
+  const hideBtn = item.querySelector("[data-hide-content-toggle]");
+  visibilityBtn.addEventListener("click", () => {
+    const visible = item.classList.toggle("isControlsVisible");
+    visibilityBtn.innerHTML = ICON(visible ? "eyeSlash" : "eye");
+    visibilityBtn.title = visible ? t.hideControls : t.showControls;
+  });
+  hideBtn.addEventListener("click", () => {
+    const hidden = item.classList.toggle("isContentHidden");
+    hideBtn.innerHTML = ICON(hidden ? "eye" : "eyeSlash");
+    hideBtn.title = hidden ? t.showElement : t.hideElement;
+  });
+}
+
 function placeMarker(kind, clientX, clientY) {
   const size = 52;
   const marker = document.createElement("div");
@@ -943,10 +975,12 @@ function placeMarker(kind, clientX, clientY) {
   marker.style.height = `${size}px`;
   marker.innerHTML = `
     <div class="qts-marker-body ${kind === "fail" ? "isFail" : "isPass"}" data-drag-handle>${kind === "fail" ? ICON("fail") : ICON("pass")}</div>
+    ${visibilityControlsHtml()}
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
     <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
   `;
   document.body.appendChild(marker);
+  wireVisibilityControls(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
   makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 28, minHeight: 28, lockAspectRatio: true });
   marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
@@ -966,6 +1000,7 @@ function renderSavedNote(note, text, style) {
   note.className = "qts-floating-item qts-note isSaved";
   note.innerHTML = `
     <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
+    ${visibilityControlsHtml()}
     <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">${ICON("edit")}</button>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
     <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(t.resize)}">${ICON("resize")}</div>
@@ -974,6 +1009,7 @@ function renderSavedNote(note, text, style) {
   content.style.setProperty("--qts-note-color", style.color);
   content.style.setProperty("--qts-note-font-size", `${style.fontSize}px`);
   content.style.setProperty("--qts-note-bg", noteBackgroundValue(style.background));
+  wireVisibilityControls(note);
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   makeResizable(note, note.querySelector("[data-resize-handle]"), { minWidth: 100, minHeight: 40 });
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
@@ -1077,11 +1113,13 @@ function placeShape(left, top, width, height) {
   shape.style.height = `${height}px`;
   shape.innerHTML = `
     <div class="qts-shape-box" data-drag-handle></div>
+    ${visibilityControlsHtml()}
     <button type="button" class="qts-edit-btn" title="${escapeHtml(state.t.edit)}">${ICON("edit")}</button>
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
     <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
   `;
   document.body.appendChild(shape);
+  wireVisibilityControls(shape);
   makeDraggable(shape, shape.querySelector("[data-drag-handle]"));
   makeResizable(shape, shape.querySelector("[data-resize-handle]"), { minWidth: 30, minHeight: 30 });
   shape.querySelector(".qts-remove-btn").addEventListener("click", () => { shape.remove(); updateClearAllVisibility(); });
@@ -2241,6 +2279,21 @@ function renderCustomFieldChips(customFields) {
   }).join("")}</div>`;
 }
 
+// Founder feedback: payment methods already had a one-click "Copiar tudo" per row (every visible
+// field, formatted as text) — test accounts only ever copied the username. This brings accounts up
+// to the same parity.
+function formatTestAccountForCopy(account) {
+  const lines = [
+    [state.t.testAccountsDrawerTitle, account.label],
+    ["Tipo", account.accountType],
+    ["Usuário", account.username],
+    ["Senha", account.password],
+    ["Notas", account.notes],
+  ];
+  for (const field of account.customFields || []) lines.push([field.key, field.type === "boolean" ? (field.value ? "Sim" : "Não") : field.value]);
+  return lines.filter(([, value]) => value !== undefined && value !== null && value !== "").map(([label, value]) => `${label}: ${value}`).join("\n");
+}
+
 function renderTestAccountsList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
@@ -2251,7 +2304,7 @@ function renderTestAccountsList() {
     return;
   }
 
-  const allAccounts = (state.workspace.testAccounts || []).filter((account) => account.environmentId === state.environment.id && (!account.productId || account.productId === state.environment.productId));
+  const allAccounts = (state.workspace.testAccounts || []).filter((account) => (account.environmentIds || []).includes(state.environment.id) && (!account.productIds?.length || account.productIds.includes(state.environment.productId)));
   if (!allAccounts.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(t.testAccountsEmptyForEnv)}</div>`;
     return;
@@ -2280,7 +2333,8 @@ function renderTestAccountsList() {
             <small>${escapeHtml(account.username || "—")}</small>
             <small>${passwordDisplay}</small>
             ${account.password ? `<button type="button" class="action" data-reveal-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")}</button>` : ""}
-            ${account.username ? `<button type="button" class="action" data-copy-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${ICON("copy")}</button>` : ""}
+            ${account.username ? `<button type="button" class="action" data-copy-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px" title="Copiar usuário">${ICON("copy")}</button>` : ""}
+            <button type="button" class="action" data-copy-account-all="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${ICON("copy")} Copiar tudo</button>
           </div>
           ${renderCustomFieldChips(account.customFields)}
           ${account.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(account.notes)}</small>` : ""}
@@ -2313,6 +2367,10 @@ function renderTestAccountsList() {
     const original = button.innerHTML;
     button.innerHTML = ICON("pass");
     window.setTimeout(() => { button.innerHTML = original; }, 1200);
+  }));
+  body.querySelectorAll("[data-copy-account-all]").forEach((button) => button.addEventListener("click", () => {
+    const account = accounts.find((item) => item.id === button.dataset.copyAccountAll);
+    if (account) copyToClipboardWithFeedback(button, formatTestAccountForCopy(account));
   }));
 }
 
@@ -2359,7 +2417,7 @@ function renderPaymentMethodsList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
-  const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentId || method.environmentId === state.environment?.id) && (!method.productId || method.productId === state.environment?.productId));
+  const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentIds?.length || method.environmentIds.includes(state.environment?.id)) && (!method.productIds?.length || method.productIds.includes(state.environment?.productId)));
   if (!allMethods.length) {
     body.innerHTML = `<div class="qts-empty">${escapeHtml(state.t.paymentMethodsEmptyForEnv)}</div>`;
     return;
@@ -3445,9 +3503,9 @@ function attachCharacterCounterBadge(element) {
   reposition();
 }
 
-function openCharacterCounter() {
+function openCharacterCounter(initialText = null) {
   if (!requirePlanFeature("characterCounter")) return;
-  const selected = String(document.getSelection()?.toString() || "");
+  const selected = initialText ?? String(document.getSelection()?.toString() || "");
   openDrawer({
     title: "Contador de caracteres",
     bodyHtml: `<p class="qts-tool-lead">Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.</p>
@@ -3624,6 +3682,91 @@ function openFakerFill(selectedRoot = null) {
       });
     },
   });
+}
+
+// ---------------------------------------------------------------------------
+// QA Sandbox right-click menu: background.js relays a chosen action here for
+// whichever tab the user right-clicked in. Chrome's contextMenus API hands back
+// no DOM reference for the click, so the actual element is captured by this
+// content script's own `contextmenu` listener the instant before the native
+// menu opens, then read back once the background script's click message
+// arrives with the chosen action.
+// ---------------------------------------------------------------------------
+let lastContextMenuTarget = null;
+let lastContextMenuPoint = { x: 16, y: 16 };
+
+document.addEventListener("contextmenu", (event) => {
+  lastContextMenuTarget = event.target instanceof Element ? event.target : null;
+  lastContextMenuPoint = { x: event.clientX, y: event.clientY };
+}, true);
+
+function elementLocatorRows(element) {
+  const testId = element.getAttribute("data-testid") || element.getAttribute("data-test") || element.getAttribute("data-qa") || "";
+  return [
+    ["Tag", element.tagName.toLowerCase()],
+    ["ID", element.id || "—"],
+    ["Test ID", testId || "—"],
+    ["Name", element.getAttribute("name") || "—"],
+    ["Seletor CSS", window.QTS_QA_TOOLS.uniqueSelector(element)],
+    ["XPath", buildXPath(element)],
+  ];
+}
+
+function showLocatorReveal(element, clientX, clientY) {
+  document.querySelectorAll(".qts-locator-reveal").forEach((node) => node.remove());
+  const panel = document.createElement("div");
+  panel.className = "qts-floating-item qts-locator-reveal";
+  panel.style.left = `${Math.max(4, Math.min(clientX, window.innerWidth - 336))}px`;
+  panel.style.top = `${Math.max(getCurrentHeight() + 4, clientY)}px`;
+  const sensitive = window.QTS_QA_TOOLS.isSensitiveElement(element);
+  panel.innerHTML = `
+    <div class="qts-locator-head"><span>Locators</span><button type="button" class="qts-remove-btn" data-close title="${escapeHtml(state.t.remove)}">×</button></div>
+    <div class="qts-locator-body">
+      ${sensitive ? `<p class="qts-locator-warning">${ICON("warning")} Campo sensível — valor não exibido.</p>` : ""}
+      ${elementLocatorRows(element).map(([label, value]) => `<div class="qts-locator-row"><small>${escapeHtml(label)}</small><div class="qts-locator-value"><code>${escapeHtml(String(value))}</code><button type="button" class="qts-locator-copy" data-copy="${escapeHtml(String(value))}" title="Copiar">${ICON("copy")}</button></div></div>`).join("")}
+    </div>`;
+  document.body.appendChild(panel);
+  panel.querySelector("[data-close]").addEventListener("click", () => panel.remove());
+  panel.querySelectorAll("[data-copy]").forEach((button) => button.addEventListener("click", () => {
+    navigator.clipboard?.writeText(button.dataset.copy || "").then(() => showQaToast("Copiado para a área de transferência."));
+  }));
+}
+
+function handleContextAction(action) {
+  const target = lastContextMenuTarget;
+  const { x, y } = lastContextMenuPoint;
+  if (action === "char-counter") {
+    const field = resolveFormControlTarget(target);
+    if (field && !window.QTS_QA_TOOLS.isSensitiveElement(field)) {
+      if (!requirePlanFeature("characterCounter")) return;
+      attachCharacterCounterBadge(field);
+      showQaToast("Contador anexado ao campo. Clique no × do badge para remover.");
+      return;
+    }
+    openCharacterCounter(String(target?.innerText || target?.textContent || "").trim());
+    return;
+  }
+  if (action === "reveal-locators") {
+    if (!target) { showQaToast("Nenhum elemento selecionado.", "error"); return; }
+    if (!requirePlanFeature("elementCapture")) return;
+    showLocatorReveal(target, x, y);
+    return;
+  }
+  if (action === "fill-fake-data") {
+    if (!requirePlanFeature("fakerFill")) return;
+    if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
+      const result = window.QTS_QA_TOOLS.fillSingleField(target);
+      showQaToast(result.filled ? "Campo preenchido com dado fake." : "Campo sensível, somente leitura ou desabilitado — não preenchido.", result.filled ? "info" : "error");
+      return;
+    }
+    const scope = target?.closest?.("form") || document;
+    const result = window.QTS_QA_TOOLS.fillWithFakeData(scope);
+    showQaToast(`${result.filled} campo(s) preenchido(s); ${result.protectedCount} sensível(is) protegido(s).`);
+    return;
+  }
+  if (action === "check-limits") {
+    openInputLab(resolveFormControlTarget(target));
+  }
 }
 
 function appendRecordedStep(step) {
@@ -4156,6 +4299,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "qts:sync-toolbar") {
     refreshAuthorization(true).then((active) => sendResponse({ present: true, active }));
     return true;
+  }
+  if (message?.type === "qts:context-action") {
+    if (state.authorized) handleContextAction(message.action);
+    sendResponse({ handled: state.authorized === true });
+    return undefined;
   }
   return undefined;
 });
