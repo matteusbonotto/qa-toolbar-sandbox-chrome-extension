@@ -108,7 +108,7 @@ try {
   await options.locator("#productAbbreviation").fill("CHK");
   await options.locator("#productForm button[type=submit]").click();
   await options.locator('[data-workspace-tab="environments"]').click();
-  await options.locator('[data-open-composer="environmentComposer"]').click();
+  await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#5b21b6");
   await options.locator("#environmentForm button[type=submit]").click();
@@ -124,7 +124,7 @@ try {
   // Environments are reusable tiers (no product of their own); the product association — and one
   // pattern belonging to multiple environments — lives entirely on the URL binding.
   await options.locator('[data-workspace-tab="environments"]').click();
-  await options.locator('[data-open-composer="environmentComposer"]').click();
+  await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("Beta");
   await options.locator("#environmentColor").fill("#0f766e");
   await options.locator("#environmentForm button[type=submit]").click();
@@ -142,9 +142,9 @@ try {
   await options.locator("#urlRelationForm button[type=submit]").click();
   const urlBindings = await options.evaluate(async () => {
     const stored = await chrome.storage.local.get("qtsWorkspaceV1");
-    return stored.qtsWorkspaceV1.urlBindings.map((binding) => ({ pattern: binding.pattern, environmentIds: binding.environmentIds }));
+    return stored.qtsWorkspaceV1.urlBindings.map((binding) => ({ patterns: binding.patterns, environmentIds: binding.environmentIds }));
   });
-  const sharedBinding = urlBindings.find((binding) => binding.pattern === "https://shared.example.com/*");
+  const sharedBinding = urlBindings.find((binding) => binding.patterns.includes("https://shared.example.com/*"));
   if (!sharedBinding || sharedBinding.environmentIds.length !== 2) throw new Error(`Relational URL association failed: ${JSON.stringify(urlBindings)}`);
   if (await options.locator('#urlRelationList .listRow').filter({ hasText: "https://shared.example.com/*" }).locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
   await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
@@ -420,6 +420,9 @@ try {
   await options.getByRole("button", { name: "Workspace" }).click();
   await options.locator('[data-workspace-tab="urls"]').click();
   await options.locator("#urlRelationList .listRow", { hasText: "http://127.0.0.1:43117/*" }).locator('[data-action="edit"]').click();
+  // Editing now prefills every existing pattern as a removable pill (not just one) — remove the
+  // old one before adding the new one, to actually replace it rather than adding a second pattern.
+  await options.locator(".patternPill", { hasText: "http://127.0.0.1:43117/*" }).locator("[data-remove-pattern]").click();
   await options.locator("#urlPatternInput").fill("http://127.0.0.1:43117/app*");
   await options.locator("#urlRelationForm button[type=submit]").click();
   await host.waitForTimeout(700);

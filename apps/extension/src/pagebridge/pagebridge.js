@@ -55,12 +55,22 @@
     });
   }
 
-  // Status-only, body-format-agnostic — unlike captureJsonPayload above, this doesn't need (or
-  // try to parse) the response body, so it catches plain-text/HTML error pages too, not just
-  // JSON APIs. Deliberately excludes Force HTTP's forced responses: those are a QA tester
-  // deliberately simulating a status, not a real page error worth surfacing here.
-  function publishHttpError({ url, method, status, source }) {
+  // Body-format-agnostic at its core — unlike captureJsonPayload above, this fires even when the
+  // body isn't JSON (plain-text/HTML error pages), so `payload` is optional: callers pass it when
+  // they already have a parsed body (so Error Monitor can show the actual error message/raw JSON,
+  // not just a bare status/URL), and omit it otherwise. Deliberately excludes Force HTTP's forced
+  // responses: those are a QA tester deliberately simulating a status, not a real page error.
+  function publishHttpError({ url, method, status, source, payload }) {
     if (!enabled || !(Number(status) >= 400)) return;
+    let safePayload = null;
+    let truncated = false;
+    if (payload !== undefined && payload !== null) {
+      const preview = safeStringifyPreview(payload);
+      if (preview !== null) {
+        truncated = preview.endsWith("…");
+        try { safePayload = JSON.parse(truncated ? preview.slice(0, -1) : preview); } catch { safePayload = null; }
+      }
+    }
     document.dispatchEvent(new CustomEvent(HTTP_ERROR_EVENT, {
       detail: {
         id: `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
@@ -69,6 +79,8 @@
         status: Number(status),
         source,
         capturedAt: Date.now(),
+        payload: safePayload,
+        truncated,
       },
     }));
   }
@@ -97,10 +109,12 @@
 
       const result = originalFetch.apply(this, args);
       result.then((response) => {
-        publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch" });
         response.clone().json()
-          .then((payload) => captureJsonPayload({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload }))
-          .catch(() => {});
+          .then((payload) => {
+            captureJsonPayload({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload });
+            publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload });
+          })
+          .catch(() => publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch" }));
       }).catch(() => {});
       return result;
     };
@@ -120,16 +134,44 @@
     };
     XhrProto.send = function (...args) {
       if (!enabled) return originalSend.apply(this, args);
+      // Force HTTP previously only ever armed window.fetch — on any site whose HTTP client uses
+      // XMLHttpRequest under the hood (Angular's HttpClient by default, many jQuery/legacy stacks),
+      // the button visibly did nothing. This mirrors the fetch branch above: consume the armed
+      // status, never call the real send(), and simulate the XHR completion lifecycle instead.
+      if (window.__qtsForcedStatus) {
+        const forcedStatus = Number(window.__qtsForcedStatus);
+        window.__qtsForcedStatus = null;
+        document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: false } }));
+        const forcedPayload = { forced: true, status: forcedStatus, requestUrl: String(this.__qtsUrl || "") };
+        const forcedBody = JSON.stringify(forcedPayload);
+        const defineOwn = (name, value) => Object.defineProperty(this, name, { value, configurable: true });
+        defineOwn("readyState", 4);
+        defineOwn("status", forcedStatus);
+        defineOwn("statusText", "Forced by QA Toolbar Sandbox");
+        defineOwn("response", forcedBody);
+        defineOwn("responseText", forcedBody);
+        defineOwn("responseURL", String(this.__qtsUrl || ""));
+        this.getAllResponseHeaders = () => "content-type: application/json\r\nx-qts-forced: true\r\n";
+        this.getResponseHeader = (name) => (String(name || "").toLowerCase() === "content-type" ? "application/json" : null);
+        captureJsonPayload({ url: this.__qtsUrl, method: this.__qtsMethod, status: forcedStatus, source: "forced", payload: forcedPayload });
+        window.setTimeout(() => {
+          this.dispatchEvent(new Event("readystatechange"));
+          this.dispatchEvent(new Event("load"));
+          this.dispatchEvent(new Event("loadend"));
+        }, 0);
+        return undefined;
+      }
       this.addEventListener("load", () => {
-        publishHttpError({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr" });
+        let payload = null;
         try {
-          const payload = typeof this.response === "object" && this.response !== null
+          payload = typeof this.response === "object" && this.response !== null
             ? this.response
             : JSON.parse(this.responseText || "null");
-          if (payload !== null) captureJsonPayload({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload });
         } catch {
           // Non-JSON response bodies are not inspector material — ignored, not an error.
         }
+        publishHttpError({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload: payload ?? undefined });
+        if (payload !== null) captureJsonPayload({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload });
       }, { once: true });
       return originalSend.apply(this, args);
     };

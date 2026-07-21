@@ -1,5 +1,6 @@
 import { adminClient } from "../_shared/auth.ts";
 import { billingConfig } from "../_shared/config.ts";
+import { sendPaymentFailedEmail } from "../_shared/email.ts";
 import { jsonResponse, preflight } from "../_shared/http.ts";
 import { Stripe, stripeClient } from "../_shared/stripe.ts";
 
@@ -123,6 +124,18 @@ Deno.serve(async (request) => {
     if (subscription) userId = await synchronizeSubscription(subscription, event.created);
     if (event.type === "invoice.paid" && userId && Number(object.amount_paid ?? 0) > 0) {
       await admin.rpc("reward_referral", { referred_user_id_input: userId });
+    }
+    if (event.type === "invoice.payment_failed" && userId) {
+      // Best-effort — a Resend outage or a missing/misconfigured secret must never fail the whole
+      // webhook: Stripe retries a non-2xx response indefinitely, which would re-run subscription
+      // sync repeatedly for what's really just a notification problem.
+      try {
+        const { data: userRecord } = await admin.auth.admin.getUserById(userId);
+        const email = userRecord?.user?.email;
+        if (email) await sendPaymentFailedEmail(email);
+      } catch (error) {
+        console.error("payment-failed email not sent:", error instanceof Error ? error.message : error);
+      }
     }
     if (event.type === "charge.dispute.created" && userId) {
       await admin.from("entitlement_grants").update({ revoked_at: new Date().toISOString() })

@@ -532,6 +532,33 @@ function renderSelect(selectId, items, placeholder) {
 }
 
 let urlSelectedEnvironmentIds = new Set();
+let urlPatternsDraft = [];
+
+// Founder feedback: the old single-value "URL ou padrão" field only ever showed (and saved) one
+// pattern, so registering several country/domain URLs for the same product+environments meant
+// repeating the whole modal per URL, and re-opening it to edit only ever showed the last one.
+// Mirrors the environment picker's own pill styling below it.
+function renderUrlPatternsPicker() {
+  const container = document.getElementById("urlPatternsPicker");
+  container.innerHTML = urlPatternsDraft.length
+    ? urlPatternsDraft.map((pattern, index) => `<span class="patternPill">${escapeHtml(pattern)}<button type="button" data-remove-pattern="${index}" aria-label="${escapeHtml(t("Remover"))}">×</button></span>`).join("")
+    : `<div class="listEmpty">${escapeHtml(t("Adicione ao menos uma URL ou padrão."))}</div>`;
+  container.querySelectorAll("[data-remove-pattern]").forEach((button) => button.addEventListener("click", () => {
+    urlPatternsDraft.splice(Number(button.dataset.removePattern), 1);
+    renderUrlPatternsPicker();
+  }));
+}
+
+function addUrlPatternDraft() {
+  const input = document.getElementById("urlPatternInput");
+  const [normalized] = normalizeUrlPatterns(input.value);
+  if (!normalized) { input.setCustomValidity(t("Informe uma URL ou padrão válido.")); input.reportValidity(); return; }
+  input.setCustomValidity("");
+  if (!urlPatternsDraft.includes(normalized)) urlPatternsDraft.push(normalized);
+  input.value = "";
+  renderUrlPatternsPicker();
+  input.focus();
+}
 
 function renderUrlEnvironmentPicker() {
   const container = document.getElementById("urlEnvironmentPicker");
@@ -566,6 +593,41 @@ function renderUrlEnvironmentPicker() {
   });
 }
 
+// Founder feedback: grouping this list by Product made every environment's URL show up as its
+// own "AR" row (one per env, since a binding's patterns can't be shared across environments that
+// use different domains) — reading as "AR, AR, AR, AR, BO, BO, BO, BO…" with no way to tell which
+// row was which tier at a glance. Grouping by Environment instead (matching the composer's own
+// field order above) reads as "DEV: AR, BO, CL…" / "BETA: AR, BO, CL…", one heading per tier. A
+// binding with more than one environmentId (the genuinely-shared-URL case) simply appears again
+// under each of its environments' headings.
+function renderUrlBindingsList() {
+  const element = document.getElementById(COLLECTION_UI.urlBindings.listId);
+  const items = (workspace.urlBindings || []).filter(matchesSearch);
+  if (!items.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
+  const NO_ENV = "__none__";
+  const groups = new Map();
+  for (const item of items) {
+    for (const environmentId of item.environmentIds?.length ? item.environmentIds : [NO_ENV]) {
+      if (!groups.has(environmentId)) groups.set(environmentId, []);
+      groups.get(environmentId).push(item);
+    }
+  }
+  const orderedEnvironmentIds = [...(workspace.environments || []).map((environment) => environment.id), NO_ENV].filter((environmentId) => groups.has(environmentId));
+  element.innerHTML = orderedEnvironmentIds.map((environmentId) => {
+    const environment = environmentId === NO_ENV ? null : findById("environments", environmentId);
+    const heading = `<div class="urlGroupHeading"${environment ? ` style="--environment-color:${escapeHtml(environment.color)}"` : ""}><i></i>${escapeHtml(environment ? environmentDisplayName(environment) : t("Sem ambiente"))}</div>`;
+    const rows = groups.get(environmentId).map((item) => {
+      const product = findById("products", item.productId);
+      const otherEnvironments = (item.environmentIds || []).filter((id) => id !== environmentId).map((id) => findById("environments", id)).filter(Boolean);
+      const otherEnvironmentsHint = otherEnvironments.length
+        ? `<small class="relationBadges">${escapeHtml(t("também em"))}: ${otherEnvironments.map((env) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(env.color)}"></i>${escapeHtml(environmentDisplayName(env))}</span>`).join("")}</small>`
+        : "";
+      return `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${escapeHtml(product?.name || "—")}</small>${otherEnvironmentsHint}</div>${rowActions("urlBindings", item)}</div>`;
+    }).join("");
+    return heading + rows;
+  }).join("");
+}
+
 function renderWorkspace() {
   for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
@@ -578,13 +640,9 @@ function renderWorkspace() {
     const products = environmentBoundProductNames(item.id);
     return `<b style="color:${escapeHtml(item.color)}">● ${escapeHtml(item.name)}</b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
   });
-  renderRows("urlBindings", (item) => {
-    const product = findById("products", item.productId);
-    const badges = item.environmentIds.map((environmentId) => findById("environments", environmentId)).filter(Boolean)
-      .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
-    return `<b class="urlPattern">${escapeHtml(item.pattern)}</b><small>${escapeHtml(product?.name || "—")}</small><small class="relationBadges">${badges}</small>`;
-  });
+  renderUrlBindingsList();
   renderUrlEnvironmentPicker();
+  renderUrlPatternsPicker();
   renderRows("testAccounts", (item) => {
     const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "—";
     // The toolbar's own read-only drawer already renders this image (renderTestAccountsList in
@@ -692,7 +750,7 @@ function clearEdit(prefix) {
   form.querySelector(`[data-cancel="${prefix}"]`).hidden = true;
   const showLabel = document.getElementById(`${prefix}ShowLabel`); if (showLabel) showLabel.checked = true;
   if (prefix === "environment") { document.getElementById("environmentColor").value = "#3a3a3a"; }
-  if (prefix === "urlRelation") { urlSelectedEnvironmentIds = new Set(); renderUrlEnvironmentPicker(); }
+  if (prefix === "urlRelation") { urlSelectedEnvironmentIds = new Set(); renderUrlEnvironmentPicker(); urlPatternsDraft = []; renderUrlPatternsPicker(); }
   form.querySelectorAll("[data-image-group]").forEach((group) => {
     group.dataset.mode = "url";
     group.querySelectorAll("[data-image-mode]").forEach((button) => button.classList.toggle("isActive", button.dataset.imageMode === "url"));
@@ -782,7 +840,25 @@ function confirmDialog(message) {
 document.getElementById("clientForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("clientEditId").value; upsert("clients", { id: editId || uid("client"), name: document.getElementById("clientName").value.trim(), ...appearance("client") }, editId); clearEdit("client"); await persistWorkspace(); });
 document.getElementById("projectForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("projectEditId").value; upsert("projects", { id: editId || uid("project"), clientId: document.getElementById("projectClient").value, name: document.getElementById("projectName").value.trim(), ...appearance("project") }, editId); clearEdit("project"); await persistWorkspace(); });
 document.getElementById("productForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("productEditId").value; upsert("products", { id: editId || uid("product"), projectId: document.getElementById("productProject").value, name: document.getElementById("productName").value.trim(), ...appearance("product") }, editId); clearEdit("product"); await persistWorkspace(); });
-document.getElementById("environmentForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("environmentEditId").value; upsert("environments", { id: editId || uid("env"), name: document.getElementById("environmentName").value.trim(), color: document.getElementById("environmentColor").value, active: true }, editId); clearEdit("environment"); await persistWorkspace(); });
+// "+ Novo ambiente" inside the URL relation modal opens this same dialog nested on top of it
+// (stacked <dialog>s, standard behavior) — when that's how it was opened, the freshly created
+// environment should land pre-selected back in the URL modal's picker instead of the founder
+// having to find and toggle it themselves right after.
+let pendingUrlEnvironmentAutoSelect = false;
+document.getElementById("urlRelationAddEnvironment").addEventListener("click", () => { pendingUrlEnvironmentAutoSelect = true; });
+// Cancelling (Esc or ×) instead of saving must not leave the flag armed for the next time the
+// environment composer is opened normally (e.g. from the Environments tab).
+document.getElementById("environmentComposer").addEventListener("close", () => { pendingUrlEnvironmentAutoSelect = false; });
+document.getElementById("environmentForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("environmentEditId").value;
+  const newId = editId || uid("env");
+  upsert("environments", { id: newId, name: document.getElementById("environmentName").value.trim(), color: document.getElementById("environmentColor").value, active: true }, editId);
+  if (pendingUrlEnvironmentAutoSelect && !editId) { urlSelectedEnvironmentIds.add(newId); renderUrlEnvironmentPicker(); }
+  pendingUrlEnvironmentAutoSelect = false;
+  clearEdit("environment");
+  await persistWorkspace();
+});
 
 document.getElementById("testAccountForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("testAccountEditId").value; const existing = findById("testAccounts", editId); const password = document.getElementById("testAccountPassword").value; upsert("testAccounts", { id: editId || uid("account"), environmentId: document.getElementById("testAccountEnvironment").value, productId: document.getElementById("testAccountProduct").value || null, label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId); clearEdit("testAccount"); await persistWorkspace(); });
 document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("paymentMethodEditId").value; const existing = findById("paymentMethods", editId); upsert("paymentMethods", { id: editId || uid("payment"), environmentId: document.getElementById("paymentMethodEnvironment").value || null, productId: document.getElementById("paymentMethodProduct").value || null, label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId); clearEdit("paymentMethod"); await persistWorkspace(); });
@@ -790,20 +866,40 @@ document.getElementById("inspectorForm").addEventListener("submit", async (event
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
 document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), icon: document.getElementById("resourceIcon").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
 
+document.getElementById("urlPatternAdd").addEventListener("click", () => addUrlPatternDraft());
+document.getElementById("urlPatternInput").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter") return;
+  event.preventDefault();
+  addUrlPatternDraft();
+});
+
+// The founder's own request: drop the manual "URL principal" field entirely — the first pattern
+// added is almost always the concrete, no-wildcard entry point anyway, so just derive it instead
+// of asking for it twice. Trailing wildcard(s) are stripped so it opens as a real URL, not
+// literally "…/*"; anything that still isn't a plain http(s) URL after that (e.g. `*://host/*`)
+// is left blank, same as storage.js's own normalizeUrlBinding would do with a bad value.
+function derivePrimaryUrl(pattern) {
+  const stripped = String(pattern || "").replace(/\*+$/, "");
+  return /^https?:\/\//i.test(stripped) ? stripped : "";
+}
+
 document.getElementById("urlRelationForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const patternInput = document.getElementById("urlPatternInput");
-  const pattern = normalizeUrlPatterns(patternInput.value)[0];
-  if (!pattern) { patternInput.setCustomValidity(t("Informe uma URL ou padrão válido.")); patternInput.reportValidity(); return; }
+  // A URL still sitting in the input (typed but not explicitly added) counts too — otherwise
+  // submitting silently drops it, which is exactly the confusing "só salva o que já virou pill"
+  // trap this rework is meant to fix.
+  if (patternInput.value.trim()) addUrlPatternDraft();
   if (!urlSelectedEnvironmentIds.size) { patternInput.setCustomValidity(t("Selecione pelo menos um ambiente.")); patternInput.reportValidity(); return; }
+  if (!urlPatternsDraft.length) { patternInput.setCustomValidity(t("Informe ao menos uma URL ou padrão válido.")); patternInput.reportValidity(); return; }
   patternInput.setCustomValidity("");
   const editId = document.getElementById("urlRelationEditId").value;
   upsert("urlBindings", {
     id: editId || uid("binding"),
-    pattern,
+    patterns: [...urlPatternsDraft],
     productId: document.getElementById("urlRelationProduct").value,
     environmentIds: [...urlSelectedEnvironmentIds],
-    primaryUrl: document.getElementById("urlRelationPrimaryUrl").value.trim(),
+    primaryUrl: derivePrimaryUrl(urlPatternsDraft[0]),
     active: true,
   }, editId);
   clearEdit("urlRelation");
@@ -823,7 +919,7 @@ function editItem(collection, item) {
     projects: { projectClient: item.clientId, projectName: item.name, projectLogoUrl: item.logoUrl, projectAbbreviation: item.abbreviation, projectShowLabel: item.showLabel !== false },
     products: { productProject: item.projectId, productName: item.name, productLogoUrl: item.logoUrl, productAbbreviation: item.abbreviation, productShowLabel: item.showLabel !== false },
     environments: { environmentName: item.name, environmentColor: item.color },
-    urlBindings: { urlRelationProduct: item.productId, urlPatternInput: item.pattern, urlRelationPrimaryUrl: item.primaryUrl },
+    urlBindings: { urlRelationProduct: item.productId, urlPatternInput: "" },
     testAccounts: { testAccountEnvironment: item.environmentId, testAccountProduct: item.productId || "", testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
     paymentMethods: { paymentMethodEnvironment: item.environmentId || "", paymentMethodProduct: item.productId || "", paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
@@ -839,7 +935,12 @@ function editItem(collection, item) {
     testAccountCustomFieldsDraft = structuredClone(item.customFields || []);
     renderCustomFieldsEditor();
   }
-  if (collection === "urlBindings") { urlSelectedEnvironmentIds = new Set(item.environmentIds || []); renderUrlEnvironmentPicker(); }
+  if (collection === "urlBindings") {
+    urlSelectedEnvironmentIds = new Set(item.environmentIds || []);
+    renderUrlEnvironmentPicker();
+    urlPatternsDraft = [...(item.patterns || [])];
+    renderUrlPatternsPicker();
+  }
   document.getElementById(`${prefix}Form`).scrollIntoView({ behavior: "smooth", block: "center" });
 }
 
@@ -905,15 +1006,56 @@ async function sha256Hex(value) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-document.getElementById("exportButton").addEventListener("click", async () => {
-  const exportable = structuredClone(workspace);
+// Shared by the real export button and the "download template" button below — both need the same
+// {format, version, checksum} envelope so a template downloaded today always matches whatever this
+// build's schema/checksum rules currently are, instead of a hand-written static file going stale.
+async function buildExportEnvelope(workspaceData, filenamePrefix) {
+  const exportable = structuredClone(workspaceData);
   exportable.testAccounts = exportable.testAccounts.map(({ password, ...item }) => item);
   exportable.paymentMethods = exportable.paymentMethods.map(({ value, ...item }) => item);
   exportable.apis = exportable.apis.map(({ token, ...item }) => item);
   const checksum = `sha256:${await sha256Hex(JSON.stringify(exportable))}`;
   const blob = new Blob([JSON.stringify({ format: "qts-workspace", version: 2, exportedAt: new Date().toISOString(), checksum, workspace: exportable }, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `qa-toolbar-workspace-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
+}
+
+document.getElementById("exportButton").addEventListener("click", () => buildExportEnvelope(workspace, "qa-toolbar-workspace"));
+document.getElementById("downloadTemplateButton").addEventListener("click", () => {
+  // A minimal, generic (no real customer name) one-of-everything workspace — normalized the same
+  // way an import would be, so this is guaranteed to be a file that imports cleanly and shows the
+  // founder the expected shape without needing to read the schema themselves.
+  const template = normalizeWorkspace({
+    clients: [{ id: "client-exemplo", name: "Cliente Exemplo" }],
+    projects: [{ id: "project-exemplo", clientId: "client-exemplo", name: "Projeto Exemplo" }],
+    products: [{ id: "product-exemplo", projectId: "project-exemplo", name: "Produto Exemplo" }],
+    environments: [{ id: "env-exemplo", name: "QA", color: "#7657ff" }],
+    urlBindings: [{ id: "binding-exemplo", patterns: ["https://app.exemplo.com/*"], productId: "product-exemplo", environmentIds: ["env-exemplo"] }],
+  });
+  void buildExportEnvelope(template, "qa-toolbar-template");
 });
+// normalizeWorkspace() is deliberately forgiving (it has to be — it's also what reads whatever's
+// already in local storage across schema versions, and silently healing a slightly-off value
+// there is the right call). An imported *file* is different: a junk entry here almost always
+// means the file itself is wrong (hand-edited badly, wrong file picked, truncated download), and
+// silently turning `"a string"` or `null` into a fake "Cliente 2" with zero indication is exactly
+// the "imported with errors" the founder ran into. So the import path validates the raw shape
+// first and refuses the whole file rather than normalizing garbage into phantom records.
+const IMPORTABLE_COLLECTIONS = ["clients", "projects", "products", "environments", "urlBindings", "testAccounts", "paymentMethods", "apis", "inspectors", "resources", "macros"];
+function validateImportShape(candidate) {
+  for (const key of IMPORTABLE_COLLECTIONS) {
+    const value = candidate[key];
+    if (value === undefined) continue;
+    if (!Array.isArray(value)) throw new Error(`"${key}" deveria ser uma lista`);
+    const badIndex = value.findIndex((item) => item === null || typeof item !== "object" || Array.isArray(item));
+    if (badIndex !== -1) throw new Error(`"${key}" tem um registro inválido na posição ${badIndex + 1}`);
+  }
+}
+
 document.getElementById("importButton").addEventListener("click", () => document.getElementById("importFile").click());
 document.getElementById("importFile").addEventListener("change", async (event) => {
   const file = event.target.files?.[0]; if (!file) return;
@@ -928,6 +1070,7 @@ document.getElementById("importFile").addEventListener("change", async (event) =
       const actualChecksum = `sha256:${await sha256Hex(JSON.stringify(candidate))}`;
       if (actualChecksum !== String(parsed.checksum).toLowerCase()) throw new Error("checksum não confere; o arquivo pode ter sido alterado");
     }
+    validateImportShape(candidate);
     workspace = normalizeWorkspace(candidate);
     await persistWorkspace();
     document.getElementById("dataHint").textContent = t("Importado: {clients} cliente(s), {environments} ambiente(s). URLs e vínculos foram normalizados.", { clients: workspace.clients.length, environments: workspace.environments.length });
