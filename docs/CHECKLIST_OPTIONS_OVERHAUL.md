@@ -128,8 +128,21 @@
       tela" ficou como um picker de clique-para-selecionar (consistente com o resto do app), não
       uma lista/dropdown de todos os elementos visíveis — se depois disso não for suficiente,
       revisar. O modo Coder (visualização de código Playwright) não foi alterado.
-- [ ] **Sino de notificações**: badge com contagem, lista ao clicar, clique na notificação navega
-      até a origem (ex.: erro do Error Monitor), botão de limpar notificações.
+- [x] **Sino de notificações**: novo ícone `#notificationBellButton` na barra principal (ao lado
+      do menu Tools, sempre visível mesmo em telas estreitas), com badge vermelho mostrando a
+      contagem (`99+` acima disso). Clicar abre `#notificationBellPanel` listando as últimas 20
+      notificações (hoje, só erros HTTP do Error Monitor — é a única fonte de "notificação" real
+      que existe no app; um sistema genérico de múltiplas fontes seria especulativo). Clicar numa
+      notificação fecha o painel e abre o Error Monitor (mesma lista, já ordenada mais recente
+      primeiro). Botão "Limpar" no painel e dentro do próprio Error Monitor agora chamam a mesma
+      função `clearHttpErrors()` — antes cada um atualizava o badge separadamente (risco de
+      dessincronia); unifiquei em `updateHttpErrorSurfaces()`, chamada também a cada `render()`,
+      então bell badge / badge do menu Tools / painel / drawer nunca ficam dessincronizados.
+      Ícone `bell` novo em `icons-content.js` (path real do Bootstrap Icons).
+- [x] Verificado ao vivo: badge começa escondido, aparece com contagem certa após 2 erros
+      simulados, painel lista as 2 notificações, clicar fora fecha o painel, clicar numa
+      notificação abre o Error Monitor com as mesmas 2 entradas, e limpar pelo Error Monitor
+      também esconde o badge do sino.
 - [ ] **Inspectors**: revisar comportamento vs. `tampermonkey.js` — filtro "Todos" vs "Meus
       Inspectors", marcar qualquer endpoint capturado como "meu inspector", cada inspector
       configurado também funciona como filtro.
