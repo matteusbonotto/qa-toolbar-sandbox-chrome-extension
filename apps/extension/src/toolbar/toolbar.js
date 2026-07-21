@@ -15,7 +15,6 @@ const state = {
   clockFrozen: false,
   forceHttpActive: false,
   networkHistory: [],
-  inspectorsFilteredCount: 0,
   httpErrors: [],
   t: null,
   authorized: false,
@@ -92,7 +91,7 @@ function findById(collection, id) {
 // to change, not every place that reads `state.environment`.
 function findActiveEnvironment(workspace) {
   const href = window.location.href;
-  const binding = (workspace.urlBindings || []).find((candidate) => candidate.active !== false && matchesAnyPattern([candidate.pattern], href));
+  const binding = (workspace.urlBindings || []).find((candidate) => candidate.active !== false && matchesAnyPattern(candidate.patterns || [], href));
   if (!binding) return null;
   const environment = findById(workspace.environments, binding.environmentIds[0]);
   const product = findById(workspace.products, binding.productId);
@@ -103,7 +102,7 @@ function findActiveEnvironment(workspace) {
     productId: product.id,
     projectId: project?.id ?? null,
     clientId: project?.clientId ?? null,
-    urlPatterns: [binding.pattern],
+    urlPatterns: binding.patterns || [],
     primaryUrl: binding.primaryUrl || "",
   };
 }
@@ -382,11 +381,7 @@ function render() {
   syncKeyView();
   setSpacerHeight();
   offsetSiteFixedHeaders();
-  const errorBadge = root.getElementById("errorMonitorBadge");
-  if (errorBadge) {
-    errorBadge.textContent = String(state.httpErrors.length);
-    errorBadge.style.display = state.httpErrors.length ? "inline-flex" : "none";
-  }
+  updateHttpErrorSurfaces();
 }
 
 function buildShadowHost() {
@@ -478,7 +473,20 @@ function buildShadowHost() {
       .qts-macro-hist-row { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 6px; background: #171717; font-size: 11px; color: #fff; }
       .qts-macro-hist-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .qts-macro-hist-row button { all: unset; cursor: pointer; color: #ff7078; font-weight: 800; padding: 0 4px; }
-      .qts-macro-hist-empty { padding: 8px; color: #999; font-size: 11px; text-align: center; }
+      .qts-mini-empty { padding: 8px; color: #999; font-size: 11px; text-align: center; }
+      #notificationBellWrapper { position: relative; }
+      #notificationBellButton { position: relative; }
+      .qts-bell-badge { position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; font-weight: 800; display: none; align-items: center; justify-content: center; line-height: 1; }
+      .qts-bell-badge.isVisible { display: flex; }
+      #notificationBellPanel { position: absolute; top: 30px; right: 0; width: 300px; max-height: 320px; overflow: auto; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
+      .qts-bell-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 6px; border-bottom: 1px solid #292929; margin-bottom: 2px; }
+      .qts-bell-head b { font-size: 12px; }
+      .qts-bell-head button { all: unset; cursor: pointer; color: #ffb0b0; font-size: 11px; font-weight: 700; }
+      .qts-bell-head button:disabled { color: #555; cursor: default; }
+      .qts-bell-row { all: unset; display: block; box-sizing: border-box; width: 100%; padding: 7px; border-radius: 7px; background: #171717; cursor: pointer; font-size: 11px; }
+      .qts-bell-row:hover { background: #232323; }
+      .qts-bell-row span { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; }
+      .qts-bell-row small { display: block; margin-top: 2px; color: #777; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
@@ -521,6 +529,10 @@ function buildShadowHost() {
           <button id="macroRecDoneButton" class="iconOnly" type="button" title="Concluir e editar">${ICON("pass")}</button>
           <div id="macroRecHistoryPanel" class="isHidden"></div>
         </div>
+        <div id="notificationBellWrapper">
+          <button id="notificationBellButton" class="iconOnly" type="button" title="Notificações">${ICON("bell")}<span id="notificationBellBadge" class="qts-bell-badge">0</span></button>
+          <div id="notificationBellPanel" class="isHidden"></div>
+        </div>
         <div id="toolsWrapper">
           <button id="toolsButton" type="button" title="${escapeHtml(t.tools)}">${escapeHtml(t.tools)} ${ICON("chevronDown")}</button>
           <div id="toolsMenu" role="menu">
@@ -560,6 +572,15 @@ function buildShadowHost() {
     <button id="restoreButton" type="button" title="${escapeHtml(t.restore)}">${ICON("chevronDown")}</button>
   `;
 
+  // A plain mousedown on any element outside the current text selection collapses it by
+  // browser default (the same reason rich-text-editor toolbars preventDefault their own
+  // buttons' mousedown) — without this, clicking Tools → a menu item → "Usar seleção da
+  // página" always saw an empty selection, because the first click (on the Tools button
+  // itself) had already destroyed it. Scoped to <button> only so real drawer inputs/textareas
+  // keep normal focus/caret behavior.
+  shadow.addEventListener("mousedown", (event) => {
+    if (event.target.closest("button")) event.preventDefault();
+  });
   shadow.getElementById("settingsButton").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "qts:open-options" });
   });
@@ -601,8 +622,13 @@ function buildShadowHost() {
     event.stopPropagation();
     shadow.getElementById("toolsMenu").classList.toggle("isOpen");
   });
-  shadow.addEventListener("click", () => shadow.getElementById("toolsMenu").classList.remove("isOpen"));
+  shadow.getElementById("notificationBellButton").addEventListener("click", (event) => { event.stopPropagation(); toggleNotificationBellPanel(); });
+  shadow.addEventListener("click", () => {
+    shadow.getElementById("toolsMenu").classList.remove("isOpen");
+    shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
+  });
   shadow.getElementById("toolsMenu").addEventListener("click", (event) => event.stopPropagation());
+  shadow.getElementById("notificationBellPanel").addEventListener("click", (event) => event.stopPropagation());
 
   shadow.getElementById("clickSpyMenuItem").addEventListener("click", () => { toggleClickSpy(); closeToolsMenu(); });
   shadow.getElementById("freezeClockMenuItem").addEventListener("click", () => { toggleFreezeClock(); closeToolsMenu(); });
@@ -1214,6 +1240,14 @@ function drawerStyles() {
       width: min(400px, 92vw); height: 100%; background: #0b0b0b; color: #fff; border-left: 2px solid #b20808;
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
     }
+    /* Macro Studio's founder feedback: a right-edge sidebar felt cramped/ugly for something with
+       a palette + flow builder + code view — this variant centers the same #drawerBody markup in
+       a proper modal instead, reusing every existing style/handler inside it unchanged. */
+    .qts-drawer-backdrop.isModal { justify-content: center; align-items: center; padding: 16px; }
+    .qts-drawer-backdrop.isModal .qts-drawer {
+      width: min(920px, 94vw); height: min(760px, 90vh); border-left: 0; border-radius: 16px;
+      border: 1px solid #292929; box-shadow: 0 30px 80px rgba(0,0,0,.55);
+    }
     .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #262626; }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
@@ -1439,7 +1473,7 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, bodyHtml, onReady, view = "" }) {
+function openDrawer({ title, bodyHtml, onReady, view = "", variant = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -1447,7 +1481,7 @@ function openDrawer({ title, bodyHtml, onReady, view = "" }) {
   // switching to a different panel made Inspectors content silently overwrite other drawers.
   drawerHost.dataset.view = view;
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
-    <div class="qts-drawer-backdrop" id="drawerBackdrop">
+    <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop">
       <div class="qts-drawer">
         <div class="qts-drawer-head"><h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">×</button></div>
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
@@ -1795,21 +1829,24 @@ function openForceHttpDialog() {
 // Fully generic/declarative — no product-specific endpoint names hardcoded.
 // ---------------------------------------------------------------------------
 
-function handleNetworkCaptured(entry) {
-  const configured = (state.workspace.inspectors || []).filter((inspector) => inspector.active !== false && Array.isArray(inspector.patterns) && inspector.patterns.length);
-  if (configured.length && !configured.some((inspector) => inspector.patterns.some((pattern) => {
+function inspectorMatchesUrl(inspector, url) {
+  return (inspector.patterns || []).some((pattern) => {
     const candidate = String(pattern || "").trim();
     if (!candidate) return false;
-    try { return candidate.includes("*") ? wildcardToRegExp(candidate).test(String(entry?.url || "")) : String(entry?.url || "").toLowerCase().includes(candidate.toLowerCase()); } catch { return false; }
-  }))) {
-    // Every configured inspector pattern requires a match — a typo'd/wrong-environment pattern
-    // silently dropped 100% of captures here with zero indication, reading as "Inspectors is
-    // just broken" instead of "your pattern doesn't match anything." This counter is surfaced in
-    // renderInspectorsList()'s empty state so a config mismatch reads as a config problem.
-    state.inspectorsFilteredCount = (state.inspectorsFilteredCount || 0) + 1;
-    if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
-    return;
-  }
+    try { return candidate.includes("*") ? wildcardToRegExp(candidate).test(String(url || "")) : String(url || "").toLowerCase().includes(candidate.toLowerCase()); } catch { return false; }
+  });
+}
+
+function configuredInspectors() {
+  return (state.workspace.inspectors || []).filter((inspector) => inspector.active !== false && Array.isArray(inspector.patterns) && inspector.patterns.length);
+}
+
+// Everything captured is always kept now (previously a non-matching entry was dropped before it
+// ever reached state.networkHistory, which made "see everything" impossible even for founders who
+// just wanted a quick look — the "Todos"/"Meus Inspectors" toggle in renderInspectorsList() is a
+// soft filter over matchedInspectorIds instead of a hard capture-time drop).
+function handleNetworkCaptured(entry) {
+  entry.matchedInspectorIds = configuredInspectors().filter((inspector) => inspectorMatchesUrl(inspector, entry?.url)).map((inspector) => inspector.id);
   state.networkHistory.unshift(entry);
   if (state.networkHistory.length > 150) state.networkHistory.length = 150;
   if (Number(entry?.status) >= 400) playSound("httpError");
@@ -1821,7 +1858,38 @@ function handleNetworkCaptured(entry) {
   if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
 }
 
-const inspectorsFilterState = { query: "", method: new Set(), status: new Set(), source: new Set(), collapsed: false };
+// "auto" means "not yet manually chosen" — resolved once per drawer session by
+// inspectorsEffectiveScope() (mine if the founder already has configured inspectors, since that
+// preserves the pre-existing filtered experience; all otherwise, since there'd be nothing to see).
+const inspectorsFilterState = { query: "", method: new Set(), status: new Set(), source: new Set(), inspector: new Set(), collapsed: false, scope: "auto" };
+
+function inspectorsEffectiveScope() {
+  if (inspectorsFilterState.scope !== "auto") return inspectorsFilterState.scope;
+  return configuredInspectors().length ? "mine" : "all";
+}
+
+async function markEntryAsInspector(entry) {
+  let pattern = entry.url;
+  try { pattern = new URL(entry.url).pathname || entry.url; } catch { /* relative/unparseable URL: fall back to the raw string */ }
+  if (!state.workspace.inspectors) state.workspace.inspectors = [];
+  const inspectors = state.workspace.inspectors;
+  if (inspectors.some((inspector) => (inspector.patterns || []).includes(pattern))) {
+    showQaToast("Esse endpoint já está entre seus Inspectors.");
+    return;
+  }
+  const inspector = { id: crypto.randomUUID(), label: pattern.length > 40 ? `${pattern.slice(0, 40)}…` : pattern, patterns: [pattern], active: true };
+  inspectors.push(inspector);
+  await persistWorkspaceState();
+  // Re-tag already-captured entries immediately — otherwise "Meus Inspectors" would stay empty
+  // for this exact endpoint until the next real network call re-runs handleNetworkCaptured.
+  for (const item of state.networkHistory) {
+    if (inspectorMatchesUrl(inspector, item.url) && !(item.matchedInspectorIds || []).includes(inspector.id)) {
+      item.matchedInspectorIds = [...(item.matchedInspectorIds || []), inspector.id];
+    }
+  }
+  renderInspectorsList();
+  showQaToast(`Adicionado aos Inspectors: ${inspector.label}`);
+}
 
 function statusBucket(status) {
   if (!status) return "—";
@@ -1832,33 +1900,87 @@ function buildInspectorFilterFields() {
   const methods = [...new Set(state.networkHistory.map((entry) => entry.method))].sort();
   const statuses = [...new Set(state.networkHistory.map((entry) => statusBucket(entry.status)))].sort();
   const sources = [...new Set(state.networkHistory.map((entry) => entry.source))].sort();
-  return [
+  const fields = [
     { key: "method", label: state.t.filterMethod, options: methods.map((value) => ({ value, label: value })) },
     { key: "status", label: state.t.filterStatus, options: statuses.map((value) => ({ value, label: value })) },
     { key: "source", label: state.t.filterSource, options: sources.map((value) => ({ value, label: value })) },
   ];
+  const configured = configuredInspectors();
+  // Each configured inspector is also its own filter chip — lets the founder narrow down to
+  // "just what Inspector X caught" regardless of whether they're viewing Todos or Meus Inspectors.
+  if (configured.length) fields.push({ key: "inspector", label: "Inspector", options: configured.map((inspector) => ({ value: inspector.id, label: inspector.label || inspector.id })) });
+  return fields;
 }
 
+// Only ever called for the "Todos" scope now — "Meus Inspectors" is a per-inspector dashboard
+// (renderInspectorDashboard) rather than a filtered slice of this same capture list.
 function matchesInspectorFilters(entry) {
   const query = inspectorsFilterState.query.trim().toLowerCase();
   if (query) {
     const haystack = `${entry.url} ${entry.method} ${entry.status} ${JSON.stringify(entry.payload)}`.toLowerCase();
     if (!haystack.includes(query)) return false;
   }
+  if (inspectorsFilterState.inspector.size && !(entry.matchedInspectorIds || []).some((id) => inspectorsFilterState.inspector.has(id))) return false;
   if (inspectorsFilterState.method.size && !inspectorsFilterState.method.has(entry.method)) return false;
   if (inspectorsFilterState.status.size && !inspectorsFilterState.status.has(statusBucket(entry.status))) return false;
   if (inspectorsFilterState.source.size && !inspectorsFilterState.source.has(entry.source)) return false;
   return true;
 }
 
+// "Meus Inspectors" is a per-inspector status dashboard (one row per *configured* inspector, most
+// recent matching capture or a waiting state), not a filtered capture list — this is what the
+// founder compared against the tampermonkey.js reference's own API Inspector drawers: list the
+// endpoints you care about, show a plain "still waiting" state with a retry when nothing matched
+// yet, and open straight to the response once something did. Retrying doesn't (and can't safely)
+// force a new request — it just re-checks whatever's already in state.networkHistory, the same
+// non-reloading semantics the reference's own retry had.
+function renderInspectorDashboard(listBody) {
+  const configured = configuredInspectors();
+  if (!configured.length) {
+    listBody.innerHTML = `<div class="qts-empty">${escapeHtml(translateQaSurfaceText("Nenhum Inspector configurado ainda. Marque uma resposta capturada em \"Todos\" ou cadastre um em Configurações."))}</div>`;
+    return;
+  }
+  listBody.innerHTML = configured.map((inspector) => {
+    const entry = state.networkHistory.find((item) => (item.matchedInspectorIds || []).includes(inspector.id));
+    return `
+      <div class="qts-net-item" data-inspector-id="${escapeHtml(inspector.id)}" style="cursor:${entry ? "pointer" : "default"}">
+        <b>${escapeHtml(inspector.label || inspector.id)}</b>
+        <small>${escapeHtml((inspector.patterns || []).join(", "))}</small>
+        ${entry
+          ? `<small style="display:block;margin-top:3px;color:#42d5c2">✓ ${escapeHtml(entry.method)} ${entry.status || "—"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>`
+          : `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
+              <small style="color:#ffb020">Aguardando resposta...</small>
+              <button type="button" class="qts-icon-btn" data-retry-inspector="${escapeHtml(inspector.id)}" title="Tentar novamente">${ICON("undo")}</button>
+            </div>`}
+      </div>
+    `;
+  }).join("");
+  listBody.querySelectorAll("[data-inspector-id]").forEach((row) => row.addEventListener("click", (event) => {
+    if (event.target.closest("[data-retry-inspector]")) return;
+    const entry = state.networkHistory.find((item) => (item.matchedInspectorIds || []).includes(row.dataset.inspectorId));
+    if (!entry) return;
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+  }));
+  listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    renderInspectorsList();
+  }));
+}
+
 function renderInspectorsList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
   if (!body) return;
-  const fields = buildInspectorFilterFields();
-  const filtered = state.networkHistory.filter(matchesInspectorFilters);
+  const scope = inspectorsEffectiveScope();
+  const fields = scope === "mine" ? [] : buildInspectorFilterFields();
+  const filtered = scope === "mine" ? [] : state.networkHistory.filter(matchesInspectorFilters);
 
   body.innerHTML = `
+    <div class="qts-tabs">
+      <button type="button" class="${scope === "all" ? "isSelected" : ""}" data-inspector-scope="all">Todos</button>
+      <button type="button" class="${scope === "mine" ? "isSelected" : ""}" data-inspector-scope="mine">Meus Inspectors</button>
+    </div>
+    ${scope === "mine" ? "" : `
     <div class="qts-toolbar-row">
       <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
@@ -1866,26 +1988,47 @@ function renderInspectorsList() {
     <div class="qts-filter-bar ${inspectorsFilterState.collapsed ? "isCollapsed" : ""}" id="inspectorsFilterBar">
       ${fields.map((field) => renderSmartFilter(field, inspectorsFilterState[field.key], null)).join("")}
     </div>
+    `}
     <div id="inspectorsListBody"></div>
   `;
 
   const listBody = body.querySelector("#inspectorsListBody");
-  const mismatchHint = !state.networkHistory.length && state.inspectorsFilteredCount
-    ? `<div class="qts-empty">${escapeHtml(t.noResponsesYet)}<br><small style="color:#ffb020">${escapeHtml(translateQaSurfaceText(`${state.inspectorsFilteredCount} requisição(ões) capturada(s) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas/endpoints cadastrados.`))}</small></div>`
-    : null;
+  if (scope === "mine") {
+    renderInspectorDashboard(listBody);
+    body.querySelectorAll("[data-inspector-scope]").forEach((button) => button.addEventListener("click", () => {
+      inspectorsFilterState.scope = button.dataset.inspectorScope;
+      renderInspectorsList();
+    }));
+    return;
+  }
+  const emptyMessage = !state.networkHistory.length ? t.noResponsesYet : t.noFilterResults;
   listBody.innerHTML = filtered.length
     ? filtered.map((entry) => `
-        <div class="qts-net-item" data-id="${escapeHtml(entry.id)}">
-          <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+        <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+          <div style="min-width:0;flex:1">
+            <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+            ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">★ ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
+          </div>
+          <button type="button" class="qts-icon-btn" data-mark-inspector="${escapeHtml(entry.id)}" title="Marcar como meu inspector" style="width:26px;height:26px;flex:0 0 auto">${ICON("pin")}</button>
         </div>
       `).join("")
-    : mismatchHint || `<div class="qts-empty">${state.networkHistory.length ? t.noFilterResults : t.noResponsesYet}</div>`;
+    : `<div class="qts-empty">${escapeHtml(emptyMessage)}</div>`;
 
-  listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
+  listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", (event) => {
+    if (event.target.closest("[data-mark-inspector]")) return;
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
     openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
+  listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const entry = state.networkHistory.find((item) => item.id === button.dataset.markInspector);
+    if (entry) void markEntryAsInspector(entry);
+  }));
 
+  body.querySelectorAll("[data-inspector-scope]").forEach((button) => button.addEventListener("click", () => {
+    inspectorsFilterState.scope = button.dataset.inspectorScope;
+    renderInspectorsList();
+  }));
   body.querySelector("#inspectorsSearch").addEventListener("input", (event) => {
     inspectorsFilterState.query = event.target.value;
     renderInspectorsList();
@@ -1928,16 +2071,61 @@ function persistHttpErrors() {
   try { window.sessionStorage.setItem(HTTP_ERRORS_SESSION_KEY, JSON.stringify(state.httpErrors)); } catch {}
 }
 
+// Single place that keeps every HTTP-error surface in sync — the Tools-menu badge, the
+// standalone notification bell (badge + its own dropdown list), and the Error Monitor drawer if
+// it happens to be open — so none of them can drift out of sync with `state.httpErrors`.
+function updateHttpErrorSurfaces() {
+  const root = state.shadowRoot;
+  if (!root) return;
+  const count = state.httpErrors.length;
+  const menuBadge = root.getElementById("errorMonitorBadge");
+  if (menuBadge) { menuBadge.textContent = String(count); menuBadge.style.display = count ? "inline-flex" : "none"; }
+  const bellBadge = root.getElementById("notificationBellBadge");
+  if (bellBadge) { bellBadge.textContent = count > 99 ? "99+" : String(count); bellBadge.classList.toggle("isVisible", count > 0); }
+  if (!root.getElementById("notificationBellPanel")?.classList.contains("isHidden")) renderNotificationBellPanel();
+  if (root.getElementById("drawerHost")?.dataset.view === "errorMonitor") renderErrorMonitorList();
+}
+
+function clearHttpErrors() {
+  state.httpErrors = [];
+  persistHttpErrors();
+  updateHttpErrorSurfaces();
+}
+
 function handleHttpErrorCaptured(entry) {
   state.httpErrors.unshift(entry);
   if (state.httpErrors.length > 150) state.httpErrors.length = 150;
   persistHttpErrors();
-  const badge = state.shadowRoot?.getElementById("errorMonitorBadge");
-  if (badge) {
-    badge.textContent = String(state.httpErrors.length);
-    badge.style.display = state.httpErrors.length ? "inline-flex" : "none";
-  }
-  if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "errorMonitor") renderErrorMonitorList();
+  updateHttpErrorSurfaces();
+}
+
+function renderNotificationBellPanel() {
+  const panel = state.shadowRoot?.getElementById("notificationBellPanel");
+  if (!panel) return;
+  const entries = state.httpErrors.slice(0, 20);
+  panel.innerHTML = `
+    <div class="qts-bell-head"><b>Notificações</b><button type="button" id="notificationBellClear" ${state.httpErrors.length ? "" : "disabled"}>Limpar</button></div>
+    ${entries.length ? entries.map((entry) => `
+      <button type="button" class="qts-bell-row" data-open-notification>
+        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)}
+        <span>${escapeHtml(entry.url)}</span>
+        <small>${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
+      </button>
+    `).join("") : `<div class="qts-mini-empty">Nenhuma notificação.</div>`}
+  `;
+  panel.querySelector("#notificationBellClear")?.addEventListener("click", () => clearHttpErrors());
+  panel.querySelectorAll("[data-open-notification]").forEach((row) => row.addEventListener("click", () => {
+    toggleNotificationBellPanel(false);
+    openErrorMonitorDrawer();
+  }));
+}
+
+function toggleNotificationBellPanel(force) {
+  const panel = state.shadowRoot?.getElementById("notificationBellPanel");
+  if (!panel) return;
+  const willShow = force !== undefined ? force : panel.classList.contains("isHidden");
+  panel.classList.toggle("isHidden", !willShow);
+  if (willShow) renderNotificationBellPanel();
 }
 
 const errorMonitorFilterState = { query: "", status: new Set(), source: new Set(), collapsed: false };
@@ -1959,6 +2147,16 @@ function matchesErrorMonitorFilters(entry) {
   return true;
 }
 
+// Same message-extraction fallback chain the tampermonkey.js reference used — a plain status
+// code told a QA tester almost nothing; the actual message (when the API returns one) is what
+// makes a captured error useful at a glance, before ever opening the raw JSON.
+function errorMonitorMessageFor(entry) {
+  const payload = entry.payload;
+  if (!payload || typeof payload !== "object") return null;
+  const candidate = payload.message || payload.error?.message || payload.error || payload.title;
+  return typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 300) : null;
+}
+
 function renderErrorMonitorList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
@@ -1975,22 +2173,25 @@ function renderErrorMonitorList() {
     <div class="qts-filter-bar ${errorMonitorFilterState.collapsed ? "isCollapsed" : ""}" id="errorMonitorFilterBar">
       ${fields.map((field) => renderSmartFilter(field, errorMonitorFilterState[field.key], null)).join("")}
     </div>
-    <div>${filtered.length ? filtered.map((entry) => `
-      <div class="qts-net-item" style="cursor:default">
+    <div>${filtered.length ? filtered.map((entry) => {
+      const message = errorMonitorMessageFor(entry);
+      return `
+      <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="${entry.payload ? "" : "cursor:default"}">
         <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+        ${message ? `<small style="display:block;margin-top:3px;color:#ddd">${escapeHtml(message)}</small>` : ""}
         <small style="display:block;margin-top:2px;color:#666">${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
       </div>
-    `).join("") : `<div class="qts-empty">${state.httpErrors.length ? t.noFilterResults : t.errorMonitorEmpty}</div>`}</div>
+    `;
+    }).join("") : `<div class="qts-empty">${state.httpErrors.length ? t.noFilterResults : t.errorMonitorEmpty}</div>`}</div>
   `;
+  body.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
+    const entry = state.httpErrors.find((item) => item.id === row.dataset.id);
+    if (!entry?.payload) return;
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+  }));
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
-  body.querySelector("#errorMonitorClear").addEventListener("click", () => {
-    state.httpErrors = [];
-    persistHttpErrors();
-    const badge = state.shadowRoot?.getElementById("errorMonitorBadge");
-    if (badge) badge.style.display = "none";
-    renderErrorMonitorList();
-  });
+  body.querySelector("#errorMonitorClear").addEventListener("click", () => clearHttpErrors());
   wireSmartFilter(body.querySelector("#errorMonitorFilterBar"), (key, value, isSelected) => {
     if (isSelected) errorMonitorFilterState[key].add(value); else errorMonitorFilterState[key].delete(value);
     renderErrorMonitorList();
@@ -2290,18 +2491,75 @@ function openResourcesDrawer() {
 // JSON Studio: format/compact/copy any pasted JSON.
 // ---------------------------------------------------------------------------
 
+// Recursive structural diff between two parsed JSON values — the original spec (see
+// docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md's jsonDiff.enabled capability) called for real
+// comparison, not just reformatting; this is the founder-facing shipment of that, kept dependency-
+// free (no bundled JSON-diff/schema library) to match this content script's zero-runtime-deps
+// convention. Object/array structural mismatches (e.g. a field that was an object and became an
+// array) fall through to the final branch and report as a single "changed" at that path.
+function diffJsonValues(a, b, path = "") {
+  const isPlainObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+  if (isPlainObject(a) && isPlainObject(b)) {
+    const diffs = [];
+    for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
+      const nextPath = path ? `${path}.${key}` : key;
+      if (!(key in a)) diffs.push({ path: nextPath, type: "added", after: b[key] });
+      else if (!(key in b)) diffs.push({ path: nextPath, type: "removed", before: a[key] });
+      else diffs.push(...diffJsonValues(a[key], b[key], nextPath));
+    }
+    return diffs;
+  }
+  if (Array.isArray(a) && Array.isArray(b)) {
+    const diffs = [];
+    for (let index = 0; index < Math.max(a.length, b.length); index += 1) {
+      const nextPath = `${path}[${index}]`;
+      if (index >= a.length) diffs.push({ path: nextPath, type: "added", after: b[index] });
+      else if (index >= b.length) diffs.push({ path: nextPath, type: "removed", before: a[index] });
+      else diffs.push(...diffJsonValues(a[index], b[index], nextPath));
+    }
+    return diffs;
+  }
+  return JSON.stringify(a) === JSON.stringify(b) ? [] : [{ path: path || "(raiz)", type: "changed", before: a, after: b }];
+}
+
+function renderJsonDiff(diffs) {
+  if (!diffs.length) return `<div class="qts-empty">Nenhuma diferença — os dois JSONs são equivalentes.</div>`;
+  const label = { added: "+ adicionado", removed: "− removido", changed: "~ alterado" };
+  const color = { added: "#42d5c2", removed: "#ff6767", changed: "#ffb020" };
+  const rows = diffs.slice(0, 300).map((diff) => `
+    <div class="qts-net-item" style="cursor:default">
+      <b style="color:${color[diff.type]}">${label[diff.type]}</b> <small>${escapeHtml(diff.path)}</small>
+      ${diff.type !== "added" ? `<small style="display:block;color:#888">antes: ${escapeHtml(JSON.stringify(diff.before))}</small>` : ""}
+      ${diff.type !== "removed" ? `<small style="display:block;color:#ccc">depois: ${escapeHtml(JSON.stringify(diff.after))}</small>` : ""}
+    </div>
+  `).join("");
+  const truncatedNote = diffs.length > 300 ? `<p class="qts-tool-lead">Mostrando as primeiras 300 diferenças de ${diffs.length}.</p>` : "";
+  return rows + truncatedNote;
+}
+
 function openJsonStudio() {
   const t = state.t;
   openDrawer({
     title: t.jsonStudioTitle,
     bodyHtml: `
-      <textarea id="jsonInput" rows="16" placeholder="${escapeHtml(t.jsonStudioPlaceholder)}" style="font:12px ui-monospace,Consolas,monospace"></textarea>
-      <div style="display:flex;gap:8px;margin-top:10px">
-        <button type="button" class="action primary" id="jsonFormat">${escapeHtml(t.jsonStudioFormat)}</button>
-        <button type="button" class="action" id="jsonCompact">${escapeHtml(t.jsonStudioCompact)}</button>
-        <button type="button" class="action" id="jsonCopy">${escapeHtml(t.jsonStudioCopy)}</button>
-      </div>
-      <p id="jsonError" style="color:#ff6b6b"></p>
+      <div class="qts-tabs"><button type="button" class="isSelected" data-json-mode="format">Formatar</button><button type="button" data-json-mode="diff">Comparar</button></div>
+      <section id="jsonFormatMode">
+        <textarea id="jsonInput" rows="14" placeholder="${escapeHtml(t.jsonStudioPlaceholder)}" style="font:12px ui-monospace,Consolas,monospace"></textarea>
+        <div style="display:flex;gap:8px;margin-top:10px">
+          <button type="button" class="action primary" id="jsonFormat">${escapeHtml(t.jsonStudioFormat)}</button>
+          <button type="button" class="action" id="jsonCompact">${escapeHtml(t.jsonStudioCompact)}</button>
+          <button type="button" class="action" id="jsonCopy">${escapeHtml(t.jsonStudioCopy)}</button>
+        </div>
+        <p id="jsonError" style="color:#ff6b6b"></p>
+      </section>
+      <section id="jsonDiffMode" hidden>
+        <p class="qts-tool-lead">Cole dois JSONs (ex.: resposta esperada vs. real) para ver o que mudou entre eles.</p>
+        <label class="qts-field-label">JSON A<textarea id="jsonDiffA" rows="6" style="font:12px ui-monospace,Consolas,monospace"></textarea></label>
+        <label class="qts-field-label">JSON B<textarea id="jsonDiffB" rows="6" style="font:12px ui-monospace,Consolas,monospace"></textarea></label>
+        <button type="button" class="action primary" id="jsonDiffRun">Comparar</button>
+        <p id="jsonDiffError" style="color:#ff6b6b"></p>
+        <div id="jsonDiffResult"></div>
+      </section>
     `,
     onReady: (body) => {
       const input = body.querySelector("#jsonInput");
@@ -2318,6 +2576,26 @@ function openJsonStudio() {
       body.querySelector("#jsonFormat").addEventListener("click", () => run((parsed) => JSON.stringify(parsed, null, 2)));
       body.querySelector("#jsonCompact").addEventListener("click", () => run((parsed) => JSON.stringify(parsed)));
       body.querySelector("#jsonCopy").addEventListener("click", () => navigator.clipboard.writeText(input.value).catch(() => {}));
+
+      body.querySelectorAll("[data-json-mode]").forEach((button) => button.addEventListener("click", () => {
+        body.querySelectorAll("[data-json-mode]").forEach((item) => item.classList.toggle("isSelected", item === button));
+        body.querySelector("#jsonFormatMode").hidden = button.dataset.jsonMode !== "format";
+        body.querySelector("#jsonDiffMode").hidden = button.dataset.jsonMode !== "diff";
+      }));
+
+      body.querySelector("#jsonDiffRun").addEventListener("click", () => {
+        const diffErrorEl = body.querySelector("#jsonDiffError");
+        const resultEl = body.querySelector("#jsonDiffResult");
+        try {
+          const a = JSON.parse(body.querySelector("#jsonDiffA").value);
+          const b = JSON.parse(body.querySelector("#jsonDiffB").value);
+          diffErrorEl.textContent = "";
+          resultEl.innerHTML = renderJsonDiff(diffJsonValues(a, b));
+        } catch (error) {
+          diffErrorEl.textContent = t.jsonStudioInvalid(error.message);
+          resultEl.innerHTML = "";
+        }
+      });
     },
   });
 }
@@ -2972,12 +3250,46 @@ function captureVisibleElements() {
       type: element.getAttribute("type") || "",
       name: element.getAttribute("name") || "",
       id: element.id || "",
+      testId: element.getAttribute("data-testid") || "",
       cssSelector: window.QTS_QA_TOOLS.uniqueSelector(element),
       xpath: buildXPath(element),
       text: String(element.getAttribute("aria-label") || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120),
       placeholder: element.getAttribute("placeholder") || "",
+      // Icon-only buttons/links have no text at all — the closest thing to a "visible label" for
+      // those is whatever image they contain (or, if the element itself is one, its own src).
+      imagePreview: element.tagName === "IMG" ? element.getAttribute("src") || "" : element.querySelector("img")?.getAttribute("src") || "",
       sensitive: window.QTS_QA_TOOLS.isSensitiveElement(element),
     }));
+}
+
+// Element Capture's own "Localizar" — unlike locateValueOnPage's exact-text search (built for
+// JSON leaf values), this has an actual CSS selector captured at scan time, which is a far more
+// precise and reliable way to re-find the same element on the live page.
+function locateElementBySelector(selector) {
+  let match = null;
+  try { match = selector ? document.querySelector(selector) : null; } catch { match = null; }
+  if (!match) { showQaToast(state.t.inspectorsLocateNotFound, "error"); return; }
+  match.scrollIntoView({ behavior: "smooth", block: "center" });
+  match.classList.add("qts-locate-highlight");
+  window.setTimeout(() => match.classList.remove("qts-locate-highlight"), 2200);
+}
+
+// "Estado atual" for a captured row: re-queries the live element (not the stale snapshot taken at
+// scan time) so this always reflects what's true on the page right now, in the spirit of the
+// founder's "like Click Spy" request without duplicating Click Spy's own click-and-observe engine.
+function describeElementCurrentState(selector) {
+  let element = null;
+  try { element = selector ? document.querySelector(selector) : null; } catch { element = null; }
+  if (!element) return null;
+  const style = window.getComputedStyle(element);
+  const parts = [
+    ["Visível", style.display !== "none" && style.visibility !== "hidden" && element.offsetParent !== null ? "Sim" : "Não"],
+    ["Habilitado", !element.disabled ? "Sim" : "Não"],
+  ];
+  if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) parts.push(["Marcado", element.checked ? "Sim" : "Não"]);
+  else if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) parts.push(["Preenchido", element.value ? "Sim" : "Não"]);
+  else if (element instanceof HTMLSelectElement) parts.push(["Opção selecionada", element.options[element.selectedIndex]?.text || "—"]);
+  return parts;
 }
 
 function toCsvCell(value) {
@@ -2989,8 +3301,8 @@ function toCsvCell(value) {
 }
 
 function downloadElementCaptureCsv(rows) {
-  const headers = ["tag", "type", "name", "id", "css_selector", "xpath", "text", "placeholder", "sensitive"];
-  const csvKeys = ["tag", "type", "name", "id", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
+  const headers = ["tag", "type", "name", "id", "test_id", "css_selector", "xpath", "text", "placeholder", "sensitive"];
+  const csvKeys = ["tag", "type", "name", "id", "testId", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
   const lines = [headers.join(","), ...rows.map((row) => csvKeys.map((key) => toCsvCell(row[key])).join(","))];
   // Leading BOM keeps accented pt-BR text readable when the CSV is opened directly in Excel.
   const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
@@ -3001,27 +3313,83 @@ function downloadElementCaptureCsv(rows) {
   window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
 }
 
+function elementCaptureLabel(row) {
+  return row.text || row.placeholder || row.name || row.testId || row.id || "";
+}
+
 function openElementCapture() {
   if (!requirePlanFeature("elementCapture")) return;
   let rows = captureVisibleElements();
+  let query = "";
   openDrawer({
     title: "Capturar elementos",
     bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
       <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
+      <div class="qts-toolbar-row"><input type="search" id="elementCaptureSearch" class="qts-toolbar-search" placeholder="Buscar por texto, tag, test-id, CSS ou XPath..." /></div>
       <div class="qts-status" id="elementCaptureStatus"></div>
       <div style="display:grid;gap:8px;max-height:360px;overflow:auto" id="elementCapturePreview"></div>`,
     onReady(body) {
       const status = body.querySelector("#elementCaptureStatus");
       const preview = body.querySelector("#elementCapturePreview");
       const exportButton = body.querySelector("#elementCaptureExport");
+      const searchInput = body.querySelector("#elementCaptureSearch");
+      const matchesQuery = (row) => {
+        if (!query) return true;
+        const haystack = `${row.tag} ${row.type} ${row.name} ${row.id} ${row.testId} ${row.cssSelector} ${row.xpath} ${row.text} ${row.placeholder}`.toLowerCase();
+        return haystack.includes(query);
+      };
       const renderPreview = () => {
-        status.textContent = `${rows.length} elemento(s) encontrado(s) na página atual.`;
+        const decorated = rows.map((row, index) => ({ ...row, _index: index }));
+        const filtered = decorated.filter(matchesQuery);
+        const capped = filtered.slice(0, 80);
+        status.textContent = query
+          ? `${filtered.length} de ${rows.length} elemento(s) (filtrado).`
+          : `${rows.length} elemento(s) encontrado(s) na página atual.`;
         exportButton.disabled = rows.length === 0;
-        preview.innerHTML = rows.length
-          ? rows.slice(0, 50).map((row) => `<div class="qts-net-item" style="cursor:default"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b>${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}<small>${escapeHtml(row.cssSelector)}</small></div>`).join("")
-          : `<div class="qts-empty">Nenhum elemento interativo encontrado nesta página.</div>`;
+        preview.innerHTML = filtered.length
+          ? capped.map((row) => {
+              const label = elementCaptureLabel(row);
+              const labelHtml = label
+                ? escapeHtml(label)
+                : row.imagePreview
+                  ? `<img src="${escapeHtml(row.imagePreview)}" alt="" style="width:16px;height:16px;object-fit:cover;border-radius:3px;vertical-align:middle;margin-right:4px" />(sem texto)`
+                  : `<span style="color:#888">(sem texto)</span>`;
+              return `
+                <div class="qts-net-item" style="cursor:default" data-row-index="${row._index}">
+                  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
+                    <div style="min-width:0"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b> ${labelHtml}${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}${row.testId ? ` <span style="color:#42d5c2">test-id</span>` : ""}</div>
+                    <div style="display:flex;gap:4px;flex:0 0 auto">
+                      <button type="button" class="qts-icon-btn" data-locate-row title="Localizar elemento" style="width:26px;height:26px">${ICON("cursor")}</button>
+                      <button type="button" class="qts-icon-btn" data-state-row title="Ver estado atual" style="width:26px;height:26px">${ICON("eye")}</button>
+                    </div>
+                  </div>
+                  <small>${escapeHtml(row.cssSelector)}</small>
+                  <div data-state-body hidden style="margin-top:4px"></div>
+                </div>
+              `;
+            }).join("") + (filtered.length > capped.length ? `<p class="qts-tool-lead">Mostrando 80 de ${filtered.length} — refine a busca para ver outros.</p>` : "")
+          : `<div class="qts-empty">${rows.length ? "Nenhum elemento corresponde à busca." : "Nenhum elemento interativo encontrado nesta página."}</div>`;
+
+        preview.querySelectorAll("[data-locate-row]").forEach((button) => button.addEventListener("click", (event) => {
+          const rowEl = event.target.closest("[data-row-index]");
+          locateElementBySelector(rows[Number(rowEl.dataset.rowIndex)]?.cssSelector);
+        }));
+        preview.querySelectorAll("[data-state-row]").forEach((button) => button.addEventListener("click", (event) => {
+          const rowEl = event.target.closest("[data-row-index]");
+          const row = rows[Number(rowEl.dataset.rowIndex)];
+          const stateBody = rowEl.querySelector("[data-state-body]");
+          const willShow = stateBody.hidden;
+          stateBody.hidden = !willShow;
+          if (willShow) {
+            const parts = describeElementCurrentState(row?.cssSelector);
+            stateBody.innerHTML = parts
+              ? parts.map(([label, value]) => `<small style="display:block">${escapeHtml(label)}: <b>${escapeHtml(value)}</b></small>`).join("")
+              : `<small style="color:#ff6767">Elemento não encontrado mais na página (pode ter mudado desde a captura).</small>`;
+          }
+        }));
       };
       body.querySelector("#elementCaptureRescan").addEventListener("click", () => { rows = captureVisibleElements(); renderPreview(); });
+      searchInput.addEventListener("input", (event) => { query = event.target.value.trim().toLowerCase(); renderPreview(); });
       exportButton.addEventListener("click", () => {
         downloadElementCaptureCsv(rows);
         showQaToast(`CSV exportado com ${rows.length} elemento(s).`);
@@ -3045,6 +3413,38 @@ function renderPinnedMacros() {
   }));
 }
 
+// Live badge anchored to a real page input/textarea, so a founder can watch a character limit
+// (e.g. a bio field) update as they type without switching back and forth to the drawer. Tracked
+// by a 200ms poll rather than scroll/resize listeners — matches this file's existing polling
+// pattern (state.locationInterval) and means a badge cleans itself up for free whenever its
+// target disappears (SPA re-render) or clearAllFloatingItems() sweeps every `.qts-floating-item`,
+// without needing to hook into that sweep separately.
+const characterCounterOverlays = new Map();
+
+function attachCharacterCounterBadge(element) {
+  const existingCleanup = characterCounterOverlays.get(element);
+  if (existingCleanup) { existingCleanup(); characterCounterOverlays.delete(element); return; }
+  const badge = document.createElement("div");
+  badge.className = "qts-floating-item qts-char-counter-badge";
+  badge.innerHTML = `<span data-count>0</span> car.<button type="button" class="qts-remove-btn" data-close aria-label="Remover">×</button>`;
+  document.body.appendChild(badge);
+  const reposition = () => {
+    const rect = element.getBoundingClientRect();
+    badge.style.left = `${Math.max(4, rect.left)}px`;
+    badge.style.top = `${Math.max(4, rect.top - 30)}px`;
+    const metrics = window.QTS_QA_TOOLS.countCharacters(element.value ?? "");
+    badge.querySelector("[data-count]").textContent = String(metrics.withSpaces);
+  };
+  const timer = window.setInterval(() => {
+    if (!badge.isConnected || !element.isConnected) { window.clearInterval(timer); characterCounterOverlays.delete(element); return; }
+    reposition();
+  }, 200);
+  const cleanup = () => { badge.remove(); window.clearInterval(timer); };
+  badge.querySelector("[data-close]").addEventListener("click", () => { cleanup(); characterCounterOverlays.delete(element); });
+  characterCounterOverlays.set(element, cleanup);
+  reposition();
+}
+
 function openCharacterCounter() {
   if (!requirePlanFeature("characterCounter")) return;
   const selected = String(document.getSelection()?.toString() || "");
@@ -3052,7 +3452,7 @@ function openCharacterCounter() {
     title: "Contador de caracteres",
     bodyHtml: `<p class="qts-tool-lead">Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.</p>
       <textarea id="characterCounterInput" rows="9" placeholder="Digite ou cole seu texto...">${escapeHtml(selected)}</textarea>
-      <div class="qts-card-actions"><button class="action" id="useSelection" type="button">Usar seleção da página</button><button class="action" id="clearCounter" type="button">Limpar</button></div>
+      <div class="qts-card-actions"><button class="action" id="useSelection" type="button">Usar seleção da página</button><button class="action" id="clearCounter" type="button">Limpar</button><button class="action" id="pickCounterField" type="button">Acompanhar campo da página</button></div>
       <div class="qts-tool-grid" id="characterMetrics"></div>`,
     onReady(body) {
       const input = body.querySelector("#characterCounterInput");
@@ -3064,6 +3464,15 @@ function openCharacterCounter() {
       input.addEventListener("input", update);
       body.querySelector("#useSelection").addEventListener("click", () => { input.value = String(document.getSelection()?.toString() || ""); update(); });
       body.querySelector("#clearCounter").addEventListener("click", () => { input.value = ""; update(); input.focus(); });
+      body.querySelector("#pickCounterField").addEventListener("click", () => selectPageElement({
+        resolve: resolveFormControlTarget,
+        accepts: (element) => (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) && !window.QTS_QA_TOOLS.isSensitiveElement(element),
+        instruction: "Clique num campo de texto da página para acompanhar a contagem ao lado dele.",
+        onSelected: (element) => {
+          attachCharacterCounterBadge(element);
+          showQaToast("Contador anexado ao campo. Clique no × do badge para remover.");
+        },
+      }));
       update();
     },
   });
@@ -3440,6 +3849,7 @@ function openMacroEditor(macro) {
   const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
   openDrawer({
     title: "Macro Studio",
+    variant: "modal",
     bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
       <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
       <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
@@ -3509,6 +3919,7 @@ function openMacroStudio() {
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
   openDrawer({
     title: "Macro Studio",
+    variant: "modal",
     bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
       <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,

@@ -130,9 +130,12 @@ export function normalizeUrlPatterns(input) {
 // rare case of one physical URL genuinely serving more than one tier simultaneously (already
 // allowed today), while `productId` is single because a concrete URL belongs to exactly one
 // deployment/country.
+// `patterns` accepts either the current array shape or a legacy singular `pattern` string (any
+// already-saved schemaVersion-7 workspace before this field became an array) — this reader is
+// permanently dual-shape, not a one-time migration, so no schemaVersion bump was needed for it.
 function normalizeUrlBinding(item, index, products, environments) {
-  const pattern = normalizeUrlPatterns([item?.pattern])[0];
-  if (!pattern) return null;
+  const patterns = normalizeUrlPatterns(Array.isArray(item?.patterns) ? item.patterns : (item?.pattern != null ? [item.pattern] : []));
+  if (!patterns.length) return null;
   const productId = id(item?.productId ?? item?.product_id, "product", 0);
   if (!products.some((product) => product.id === productId)) return null;
   const environmentIds = [...new Set((Array.isArray(item?.environmentIds) ? item.environmentIds : []).map((value) => text(value, 120)))]
@@ -140,15 +143,16 @@ function normalizeUrlBinding(item, index, products, environments) {
   if (!environmentIds.length) return null;
   return {
     id: id(item?.id, "binding", index),
-    pattern, productId, environmentIds,
+    patterns, productId, environmentIds,
     primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2_048)) ? text(item?.primaryUrl, 2_048) : "",
     active: item?.active !== false,
   };
 }
 
 // Migration for schemaVersion < 7: expands each legacy environment's own `urlPatterns` (it used
-// to own them directly, alongside a single `productId`) into binding rows, merging by exact
-// (pattern, productId) pair so re-normalizing an already-migrated workspace is idempotent. The
+// to own them directly, alongside a single `productId`) into one binding row per (product,
+// environment) pair, carrying the *entire* patterns array over — merged in normalizeUrlBindings
+// below by that same pair, so re-normalizing an already-migrated workspace is idempotent. The
 // environment's old `primaryUrl` only carries over when it had exactly one pattern — with several,
 // there's no way to know which country/product URL it was meant for, so it's safer to leave it
 // unset than guess wrong.
@@ -160,17 +164,21 @@ function migrateLegacyEnvironmentUrls(source, products, environments) {
     const legacyEnvironmentId = id(rawEnvironment?.id, "env", 0);
     if (!environments.some((environment) => environment.id === legacyEnvironmentId)) continue;
     const legacyPatterns = normalizeUrlPatterns(rawEnvironment?.urlPatterns ?? rawEnvironment?.urls ?? rawEnvironment?.domains ?? rawEnvironment?.url ?? rawEnvironment?.baseUrl);
+    if (!legacyPatterns.length) continue;
     const legacyPrimaryUrl = text(rawEnvironment?.primaryUrl, 2_048);
-    for (const pattern of legacyPatterns) {
-      rows.push({
-        pattern, productId: legacyProductId, environmentIds: [legacyEnvironmentId],
-        primaryUrl: legacyPatterns.length === 1 ? legacyPrimaryUrl : "",
-      });
-    }
+    rows.push({
+      patterns: legacyPatterns, productId: legacyProductId, environmentIds: [legacyEnvironmentId],
+      primaryUrl: legacyPatterns.length === 1 ? legacyPrimaryUrl : "",
+    });
   }
   return rows;
 }
 
+// Bindings merge when they share the same product AND the same exact set of environments — that's
+// the real identity of "one relationship" now that a binding can hold several patterns; two
+// separate submissions for the same product+environments (or two legacy urlPatterns entries for
+// the same environment) should accumulate into one binding's patterns array, not create sibling
+// rows a founder would have to hunt across to find "all the URLs for WebApp in DEV."
 function normalizeUrlBindings(source, products, environments) {
   const bindings = [];
   const byKey = new Map();
@@ -181,10 +189,10 @@ function normalizeUrlBindings(source, products, environments) {
   for (const rawRow of rawRows) {
     const binding = normalizeUrlBinding(rawRow, bindings.length, products, environments);
     if (!binding) continue;
-    const key = `${binding.pattern} ${binding.productId}`;
+    const key = `${binding.productId}|${[...binding.environmentIds].sort().join(",")}`;
     const existing = byKey.get(key);
     if (existing) {
-      for (const environmentId of binding.environmentIds) if (!existing.environmentIds.includes(environmentId)) existing.environmentIds.push(environmentId);
+      for (const pattern of binding.patterns) if (!existing.patterns.includes(pattern)) existing.patterns.push(pattern);
       if (!existing.primaryUrl && binding.primaryUrl) existing.primaryUrl = binding.primaryUrl;
       continue;
     }

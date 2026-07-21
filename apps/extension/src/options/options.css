@@ -188,6 +188,12 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .environmentToggle > span,.multiSelectOptions label > span,.relationBadge i { width:8px; height:8px; border-radius:50%; background:var(--environment-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--environment-color) 20%,transparent); }
 .environmentToggle:hover { border-color:#4a5267; color:#fff; }
 .environmentToggle.isSelected { border-color:var(--accent); background:rgba(118,87,255,.18); color:#fff; }
+.legendWithAction { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; }
+.legendWithAction .linkButton { font-size:10px; }
+.patternPill { display:inline-flex; align-items:center; gap:7px; min-height:36px; padding:0 12px; border:1px solid var(--border); border-radius:999px; background:#11131a; color:#fff; font-size:11px; font-weight:750; }
+.patternPill button { all:unset; cursor:pointer; margin-left:2px; color:var(--danger); font-weight:900; }
+.patternAddRow { display:flex; gap:8px; margin-top:8px; }
+.patternAddRow input { flex:1; }
 .environmentMultiSelect { position:relative; }
 .environmentMultiSelect > summary { min-height:39px; padding:9px 34px 9px 11px; border:1px solid var(--border); border-radius:9px; background:#0c0e14; color:var(--text); list-style:none; cursor:pointer; font-size:11px; }
 .environmentMultiSelect > summary::after { content:"⌄"; position:absolute; right:12px; }

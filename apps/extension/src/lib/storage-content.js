@@ -68,13 +68,13 @@
   // multi-country import created "DEV AR", "DEV BO"... instead of one reusable "DEV". Now the
   // Product association lives on each URL binding instead (see normalizeUrlBindings below).
   function normalizeUrlBinding(item, index, products, environments) {
-    const pattern = normalizeUrlPatterns([item?.pattern])[0];
-    if (!pattern) return null;
+    const patterns = normalizeUrlPatterns(Array.isArray(item?.patterns) ? item.patterns : (item?.pattern != null ? [item.pattern] : []));
+    if (!patterns.length) return null;
     const productId = id(item?.productId ?? item?.product_id, "product", 0);
     if (!products.some((product) => product.id === productId)) return null;
     const environmentIds = [...new Set((Array.isArray(item?.environmentIds) ? item.environmentIds : []).map((value) => text(value, 120)))].filter((environmentId) => environments.some((environment) => environment.id === environmentId));
     if (!environmentIds.length) return null;
-    return { id: id(item?.id, "binding", index), pattern, productId, environmentIds, primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2048)) ? text(item?.primaryUrl, 2048) : "", active: item?.active !== false };
+    return { id: id(item?.id, "binding", index), patterns, productId, environmentIds, primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2048)) ? text(item?.primaryUrl, 2048) : "", active: item?.active !== false };
   }
   function migrateLegacyEnvironmentUrls(source, products, environments) {
     const rows = [];
@@ -84,8 +84,9 @@
       const legacyEnvironmentId = id(rawEnvironment?.id, "env", 0);
       if (!environments.some((environment) => environment.id === legacyEnvironmentId)) continue;
       const legacyPatterns = normalizeUrlPatterns(rawEnvironment?.urlPatterns ?? rawEnvironment?.urls ?? rawEnvironment?.domains ?? rawEnvironment?.url ?? rawEnvironment?.baseUrl);
+      if (!legacyPatterns.length) continue;
       const legacyPrimaryUrl = text(rawEnvironment?.primaryUrl, 2048);
-      for (const pattern of legacyPatterns) rows.push({ pattern, productId: legacyProductId, environmentIds: [legacyEnvironmentId], primaryUrl: legacyPatterns.length === 1 ? legacyPrimaryUrl : "" });
+      rows.push({ patterns: legacyPatterns, productId: legacyProductId, environmentIds: [legacyEnvironmentId], primaryUrl: legacyPatterns.length === 1 ? legacyPrimaryUrl : "" });
     }
     return rows;
   }
@@ -95,9 +96,9 @@
     for (const rawRow of rawRows) {
       const binding = normalizeUrlBinding(rawRow, bindings.length, products, environments);
       if (!binding) continue;
-      const key = `${binding.pattern} ${binding.productId}`;
+      const key = `${binding.productId}|${[...binding.environmentIds].sort().join(",")}`;
       const existing = byKey.get(key);
-      if (existing) { for (const environmentId of binding.environmentIds) if (!existing.environmentIds.includes(environmentId)) existing.environmentIds.push(environmentId); if (!existing.primaryUrl && binding.primaryUrl) existing.primaryUrl = binding.primaryUrl; continue; }
+      if (existing) { for (const pattern of binding.patterns) if (!existing.patterns.includes(pattern)) existing.patterns.push(pattern); if (!existing.primaryUrl && binding.primaryUrl) existing.primaryUrl = binding.primaryUrl; continue; }
       byKey.set(key, binding); bindings.push(binding);
     }
     return bindings;

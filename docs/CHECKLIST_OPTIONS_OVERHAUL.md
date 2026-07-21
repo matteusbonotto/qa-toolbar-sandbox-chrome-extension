@@ -128,19 +128,68 @@
       tela" ficou como um picker de clique-para-selecionar (consistente com o resto do app), não
       uma lista/dropdown de todos os elementos visíveis — se depois disso não for suficiente,
       revisar. O modo Coder (visualização de código Playwright) não foi alterado.
-- [ ] **Sino de notificações**: badge com contagem, lista ao clicar, clique na notificação navega
-      até a origem (ex.: erro do Error Monitor), botão de limpar notificações.
-- [ ] **Inspectors**: revisar comportamento vs. `tampermonkey.js` — filtro "Todos" vs "Meus
-      Inspectors", marcar qualquer endpoint capturado como "meu inspector", cada inspector
-      configurado também funciona como filtro.
-- [ ] **Contador de caracteres**: opção de clicar em um input da página e ver a contagem revelada
-      no próprio input (além do textarea manual atual).
-- [ ] **JSON Studio**: pouco claro qual o propósito atual (só textarea + 3 botões) — investigar a
-      intenção original e reforçar a ferramenta.
-- [ ] **Capturar Elementos**: nomear cada linha pela label visível (ou prévia, ex. imagem, quando
-      sem label); botão "Localizar elemento" por linha; sidebar cortado pela metade sem busca/
-      filtros — corrigir; adicionar filtros por test-id/CSS/XPath; mostrar estado atual vs. setado
-      ao clicar (like Click Spy).
+- [x] **Sino de notificações**: novo ícone `#notificationBellButton` na barra principal (ao lado
+      do menu Tools, sempre visível mesmo em telas estreitas), com badge vermelho mostrando a
+      contagem (`99+` acima disso). Clicar abre `#notificationBellPanel` listando as últimas 20
+      notificações (hoje, só erros HTTP do Error Monitor — é a única fonte de "notificação" real
+      que existe no app; um sistema genérico de múltiplas fontes seria especulativo). Clicar numa
+      notificação fecha o painel e abre o Error Monitor (mesma lista, já ordenada mais recente
+      primeiro). Botão "Limpar" no painel e dentro do próprio Error Monitor agora chamam a mesma
+      função `clearHttpErrors()` — antes cada um atualizava o badge separadamente (risco de
+      dessincronia); unifiquei em `updateHttpErrorSurfaces()`, chamada também a cada `render()`,
+      então bell badge / badge do menu Tools / painel / drawer nunca ficam dessincronizados.
+      Ícone `bell` novo em `icons-content.js` (path real do Bootstrap Icons).
+- [x] Verificado ao vivo: badge começa escondido, aparece com contagem certa após 2 erros
+      simulados, painel lista as 2 notificações, clicar fora fecha o painel, clicar numa
+      notificação abre o Error Monitor com as mesmas 2 entradas, e limpar pelo Error Monitor
+      também esconde o badge do sino.
+- [x] **Inspectors**: mudança de fundo — antes, qualquer resposta que não batesse com nenhum
+      padrão de Inspector configurado era **descartada na captura**, então "ver tudo" era
+      impossível mesmo clicando em algo. Agora toda resposta JSON é sempre guardada em
+      `state.networkHistory` com `matchedInspectorIds` calculado; o filtro virou algo que se
+      aplica depois, não antes.
+  - Aba "Todos" vs "Meus Inspectors" (`.qts-tabs` no topo do drawer, mesmo padrão do Macro
+    Studio). Padrão automático: "Meus Inspectors" se já existem inspectors configurados
+    (preserva o comportamento antigo por padrão), "Todos" se não existe nenhum configurado ainda
+    (não faria sentido logo de cara — verificado ao vivo).
+  - Botão de pin (📌) em cada linha capturada: "Marcar como meu inspector" cria um inspector novo
+    com padrão = pathname da URL, sem precisar abrir Configurações; re-marca retroativamente as
+    entradas já capturadas que batem com o novo padrão (não precisa esperar uma requisição nova).
+  - Cada inspector configurado agora também aparece como um chip de filtro próprio
+    (`buildInspectorFilterFields` ganhou o grupo "inspector"), funcionando em conjunto com
+    Todos/Meus e os filtros existentes (método/status/origem).
+- [x] Verificado ao vivo: sem inspectors configurados, padrão é "Todos" e mostra as 2 respostas
+      simuladas; marcar uma como inspector e trocar para "Meus Inspectors" mostra só ela; o chip
+      de filtro por inspector específico também isola a mesma entrada.
+- [x] **Contador de caracteres**: novo botão "Acompanhar campo da página" no drawer (reaproveita
+      `selectPageElement`, mesmo padrão de clique-para-selecionar do Multiclick/Faker Fill/Macro
+      Studio) — clica num input/textarea real da página e um badge flutuante (`.qts-char-counter-
+      badge`, reaproveitando `.qts-floating-item`/`.qts-remove-btn` já existentes) aparece
+      ancorado logo acima do campo, com a contagem ao vivo (atualiza a cada 200ms, mesmo padrão de
+      polling já usado pelo `state.locationInterval` — evita precisar de scroll/resize listeners
+      e limpa sozinho se o campo sumir da página ou se "Limpar" varrer os floating items). Campos
+      sensíveis (senha etc.) são recusados pelo picker. O textarea manual (colar/selecionar texto)
+      continua existindo, sem alteração — isso é um modo adicional, não substituição.
+- [x] Verificado ao vivo: badge aparece ao selecionar um campo real, contagem atualiza ao digitar
+      (“Hello world” → 11), badge acompanha a posição do campo, fechar pelo × remove, e selecionar
+      o mesmo campo de novo reanexa um badge novo.
+- [x] **JSON Studio**: achei a intenção original — `docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md`
+      linha 145 lista `jsonDiff.enabled` e `schemaValidation.enabled` no inventário de capacidades
+      planejadas, mas nenhuma das duas foi implementada; só sobrou o formatador (textarea + 3
+      botões), daí a confusão de "não entendi pra que serve". Adicionei a aba "Comparar" (mesmo
+      padrão `.qts-tabs` do resto do app): cola dois JSONs (ex. resposta esperada vs. real) e vê um
+      diff estrutural recursivo — chaves adicionadas/removidas/alteradas, com valor antes/depois,
+      cor por tipo. Sem depender de biblioteca externa (esta content script não empacota nenhuma
+      dependência de runtime hoje; um validador de JSON Schema de verdade — a outra metade do
+      `schemaValidation.enabled` original — ficaria pesado demais pra esse formato; se depois for
+      importante, é um pedido separado). Aba "Formatar" original (format/compact/copiar) mantida
+      sem alteração.
+- [x] Verificado ao vivo: alternar para "Comparar" mostra a aba certa; diff detecta campo alterado,
+      item adicionado a um array e chave nova; dois JSONs idênticos mostram "nenhuma diferença";
+      JSON inválido em qualquer um dos dois lados mostra erro sem travar; modo "Formatar" original
+      continua funcionando.
+- [x] **Capturar Elementos**: feito — ver item "6." na seção "Segunda rodada de feedback ao vivo"
+      mais abaixo (mesmo pedido, reaparecido com print na segunda rodada).
 - [x] **Tools menu**: nova preferência `toolsMenuOrder` (drag-and-drop + setas ↑↓ em "Barra e
       aparência", mesma ideia da ordenação do breadcrumb, implementação separada de propósito para
       não arriscar mexer na já validada); `applyPinnedTools()` reordena o `#toolsMenu` real via
@@ -164,3 +213,117 @@
       em `docs/PENDENCIAS_USUARIO.md` #8 com passo a passo gratuito (Resend) para quando quiser
       ativar. Verificado ao vivo: badge e aviso aparecem quando `billing.status` vira `past_due` e
       somem ao normalizar, via Playwright real contra o bundle.
+
+## Segunda rodada de feedback ao vivo, real, com prints (2026-07-20 — 10 itens reportados juntos)
+
+> Founder testou a versão publicada com dados reais (Cinemark) e reportou 10 problemas de uma vez,
+> vários com prints. Tratando cada um nesta seção, mais criteriosa que a lista antiga acima porque
+> agora há evidência real (prints) e comparação direta com `tampermonkey.js` (script de referência,
+> local, fora do git — `.gitignore` linha 29).
+
+- [x] **1. Error Monitor "muito ruim"**: comparado com `tampermonkey.js` linha ~8918 — o original
+      mostrava mensagem de erro extraída do payload + JSON bruto expansível; o nosso só tinha
+      status/método/URL porque **nunca capturava o corpo da resposta** (bug real, não só falta de
+      polish). `publishHttpError` em `pagebridge.js` agora recebe o payload (fetch e XHR),
+      `errorMonitorMessageFor()` extrai a mensagem com a mesma cadeia de fallback do original
+      (`message`/`error.message`/`error`/`title`), e qualquer entrada com payload agora abre o
+      mesmo visualizador JSON que os Inspectors já usam. Verificado ao vivo.
+- [x] **2. Force HTTP "não muda nada"**: bug real confirmado — só `window.fetch` era interceptado
+      para status forçado; `XMLHttpRequest` (usado por padrão pelo `HttpClient` do Angular e por
+      muitas stacks legadas) nunca respeitava o status forçado, nem no `tampermonkey.js` original
+      (mesma limitação lá). Adicionado suporte a XHR (simula o ciclo de vida completo: readyState/
+      status/response/headers como propriedades próprias, evento `load` sintético). Texto da
+      descrição atualizado (não dizia mais "(fetch)" sozinho). Verificado ao vivo forçando 500 em
+      fetch E em XHR.
+- [x] **4. "Usar seleção da página" no Contador de caracteres não funciona**: causa raiz real —
+      clicar em QUALQUER botão da barra (Tools → item do menu → botão) colapsa a seleção de texto
+      da página pelo comportamento padrão do navegador no `mousedown`, antes do clique nem
+      executar. Corrigido com a técnica padrão de editores de texto rico: `preventDefault()` no
+      `mousedown` para botões da barra (inputs/textareas de dentro dos drawers não são afetados).
+      Verificado ao vivo: selecionar texto real da página, navegar até o Contador de Caracteres,
+      clicar "Usar seleção" — texto correto capturado.
+- [x] **10. Modal "Adicionar URL"**: o campo "URL ou padrão" era um único texto (só 1 padrão por
+      binding); editar um binding existente só mostrava/permitia 1 URL, sem botão "+" para
+      adicionar outra, e sem "+" para criar um novo ambiente sem sair do modal. Reescrito:
+      `urlBindings[].pattern` (string) virou `.patterns` (array), com editor de pills (adicionar
+      via botão/Enter, remover pelo × de cada pill) que mostra TODAS as URLs já salvas ao editar; e
+      um botão "+ Novo ambiente" que abre o composer de Ambiente aninhado (dialog empilhado) e
+      seleciona automaticamente o novo ambiente de volta no formulário de URL. Dado antigo já
+      salvo é lido automaticamente no novo formato (sem precisar de nova migração). Verificado ao
+      vivo: 3 padrões adicionados, todos reaparecem como pills ao editar (o bug relatado), remover
+      um e salvar, e o fluxo aninhado de criar ambiente funcionando de ponta a ponta.
+- [x] **3. Inspectors não se comporta como no tampermonkey**: comparado com o `qaCnkApiInspectorState`
+      do original (drawers de API por endpoint, com espera + retry) — a ideia geral fazia sentido,
+      mas o original é hardcoded por endpoint específico da Cinemark (movies/showtimes/members),
+      o que contraria o design genérico deste produto de propósito ("Fully generic/declarative"
+      já documentado no código). Portei a UX, não o hardcode: "Meus Inspectors" agora é um
+      dashboard por Inspector configurado (`renderInspectorDashboard`), não mais uma lista de
+      capturas filtrada — cada Inspector cadastrado vira uma linha própria mostrando "Aguardando
+      resposta..." + botão "Tentar novamente" (só re-renderiza com o que já foi capturado, não
+      força uma nova requisição — mesma semântica do `retry` original) quando nada bateu ainda, ou
+      um resumo (método/status/hora) da captura mais recente + clique abre o JSON, quando já
+      carregou. "Todos" continua sendo a lista de capturas de antes, com os filtros normais.
+      Verificado ao vivo: 2 inspectors configurados aparecem como "aguardando"; capturar uma
+      resposta que bate com um deles atualiza para "carregado" mantendo o outro em espera; clicar
+      no carregado abre o JSON com o payload certo.
+- [x] **5. Macro Studio precisa ser um modal, não uma sidebar**: `openDrawer()` ganhou um parâmetro
+      `variant: "modal"` — muda só a classe do backdrop (`.isModal`), reaproveitando 100% do resto
+      da infraestrutura de drawer (abrir/fechar, `#drawerBody`, todos os handlers já existentes).
+      Macro Studio e o editor de macro (Vibe Code/Coder) agora abrem centralizados,
+      `width: min(920px, 94vw)` e `height: min(760px, 90vh)`, cantos arredondados — não mais
+      grudado na borda direita como sidebar. **Isso substitui a decisão anterior desta sessão de
+      unificar todos os drawers em 400px** — Macro Studio agora é a exceção deliberada, pedida
+      explicitamente pelo founder por ter conteúdo mais rico (paleta + fluxo + código). Verificado
+      ao vivo: Macro Studio e o editor abrem como modal largo/centralizado; um drawer não
+      relacionado (Error Monitor) continua exatamente 400px, confirmando que a mudança é
+      isolada só ao Macro Studio.
+- [x] **6. Capturar elementos "ainda tá porco"** (= item "Element Capture UX" da lista original):
+      achei um bug bobo mas real — `row.text` (aria-label/texto visível) já era **capturado**, mas
+      nunca era **exibido** na linha (só mostrava tag + seletor CSS), daí "não da pra saber oq é o
+      elemento" mesmo com o dado já disponível. Reescrito:
+  - Label de cada linha agora usa `text || placeholder || name || testId || id`, com fallback pra
+    uma miniatura de imagem (`<img>` do próprio elemento ou de um `<img>` filho, útil pra botões só
+    com ícone) + "(sem texto)" quando não há NADA identificável.
+  - Novo campo `testId` (`data-testid`) — não existia antes; agora aparece como badge na linha e
+    entra no CSV exportado (`test_id`).
+  - Busca (`elementCaptureSearch`) filtrando por tag/nome/id/test-id/seletor CSS/XPath/texto — isso
+    também resolve o pedido de "filtro por test-id, CSS, XPath" (um campo de busca único, mesmo
+    padrão já usado em Inspectors/Error Monitor, em vez de 3 widgets separados).
+  - Botão "Localizar elemento" por linha — `locateElementBySelector()`, reaproveita o seletor CSS
+    já capturado (mais preciso que a busca por texto exato do `locateValueOnPage` usado em JSON).
+  - Botão "Ver estado atual" por linha — expande mostrando Visível/Habilitado/Marcado (ou
+    Preenchido/Opção selecionada conforme o tipo), reconsultando o elemento AO VIVO no momento do
+    clique (não o snapshot da captura). Cobre o pedido "estado atual... tipo a função de spy click"
+    de forma segura/escopada, sem duplicar o motor de clique-e-observação do Click Spy em si.
+  - O "sidebar cortado na metade" do print parece ter sido a falta de busca/filtros deixando um
+    espaço vazio, não um bug de CSS de verdade — não achei clipping real ao investigar; resolvido
+    na prática ao preencher esse espaço com a busca.
+  - Verificado ao vivo: label real aparece para um botão com texto; um botão com test-id usa o
+    test-id como label; um botão sem NADA identificável cai pro preview de imagem + "(sem texto)";
+    busca filtra a lista; Localizar destaca o elemento real na página; Ver estado mostra
+    Visível/Habilitado e reflete corretamente Marcado: Não → Sim ao marcar um checkbox real.
+- [x] **7. Layout quebrado em "Minha conta"**: reproduzido e confirmado ao vivo (print batia
+      exatamente com o do founder) — o card "Excluir minha conta" não tinha `max-width`, então
+      ficava bem mais largo (1048px) que o card de conta logo acima (640px, com `.accountCard`),
+      quebrando o alinhamento visual entre os dois cards empilhados. Corrigido adicionando a
+      classe `.accountCard` também no `#deleteAccountCard` (reaproveita a regra já existente, não
+      criou CSS novo). Verificado ao vivo em 1400px/900px/500px: os dois cards agora sempre
+      alinham na mesma largura.
+- [x] **8. Botão de baixar template em Importar/Exportar**: novo botão "Baixar template" gera um
+      workspace mínimo genérico (1 cliente/projeto/produto/ambiente/URL, sem nome de cliente real)
+      passado pelo mesmo `normalizeWorkspace()` e pela mesma função de exportar (`buildExportEnvelope`,
+      extraída do botão de exportar já existente para reaproveitar checksum/formato) — garante que
+      o template baixado sempre bate com o schema/checksum atual, em vez de um arquivo estático que
+      ficaria desatualizado. Verificado ao vivo: o template baixado foi reimportado com sucesso
+      (prova de que é válido de ponta a ponta).
+- [x] **9. Validação de arquivo de importação**: achei um bug real investigando — um array como
+      `clients: ["texto", 123, null, {id:"ok",...}]` importava **com sucesso**, virando "4
+      cliente(s)" (3 registros fantasma tipo "Cliente 1"/"Cliente 2" misturados com o real, sem
+      nenhum aviso). Causa: `normalizeWorkspace()` é propositalmente tolerante (também é usada pra
+      ler o que já está salvo localmente entre versões de schema, onde "curar" um valor ruim é o
+      comportamento certo) — mas um arquivo de IMPORTAÇÃO é diferente: um registro inválido quase
+      sempre significa que o arquivo em si está errado. Adicionei `validateImportShape()` que roda
+      antes de normalizar e recusa o arquivo inteiro (preservando o workspace anterior) se qualquer
+      coleção tiver um item que não seja um objeto de verdade. Verificado ao vivo: arquivo com lixo
+      é recusado com mensagem clara e não muda o workspace; arquivo genuinamente válido continua
+      importando normalmente (sem falso positivo).
