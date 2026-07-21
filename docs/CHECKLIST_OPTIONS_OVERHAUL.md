@@ -215,3 +215,52 @@
       em `docs/PENDENCIAS_USUARIO.md` #8 com passo a passo gratuito (Resend) para quando quiser
       ativar. Verificado ao vivo: badge e aviso aparecem quando `billing.status` vira `past_due` e
       somem ao normalizar, via Playwright real contra o bundle.
+
+## Segunda rodada de feedback ao vivo, real, com prints (2026-07-20 — 10 itens reportados juntos)
+
+> Founder testou a versão publicada com dados reais (Cinemark) e reportou 10 problemas de uma vez,
+> vários com prints. Tratando cada um nesta seção, mais criteriosa que a lista antiga acima porque
+> agora há evidência real (prints) e comparação direta com `tampermonkey.js` (script de referência,
+> local, fora do git — `.gitignore` linha 29).
+
+- [x] **1. Error Monitor "muito ruim"**: comparado com `tampermonkey.js` linha ~8918 — o original
+      mostrava mensagem de erro extraída do payload + JSON bruto expansível; o nosso só tinha
+      status/método/URL porque **nunca capturava o corpo da resposta** (bug real, não só falta de
+      polish). `publishHttpError` em `pagebridge.js` agora recebe o payload (fetch e XHR),
+      `errorMonitorMessageFor()` extrai a mensagem com a mesma cadeia de fallback do original
+      (`message`/`error.message`/`error`/`title`), e qualquer entrada com payload agora abre o
+      mesmo visualizador JSON que os Inspectors já usam. Verificado ao vivo.
+- [x] **2. Force HTTP "não muda nada"**: bug real confirmado — só `window.fetch` era interceptado
+      para status forçado; `XMLHttpRequest` (usado por padrão pelo `HttpClient` do Angular e por
+      muitas stacks legadas) nunca respeitava o status forçado, nem no `tampermonkey.js` original
+      (mesma limitação lá). Adicionado suporte a XHR (simula o ciclo de vida completo: readyState/
+      status/response/headers como propriedades próprias, evento `load` sintético). Texto da
+      descrição atualizado (não dizia mais "(fetch)" sozinho). Verificado ao vivo forçando 500 em
+      fetch E em XHR.
+- [x] **4. "Usar seleção da página" no Contador de caracteres não funciona**: causa raiz real —
+      clicar em QUALQUER botão da barra (Tools → item do menu → botão) colapsa a seleção de texto
+      da página pelo comportamento padrão do navegador no `mousedown`, antes do clique nem
+      executar. Corrigido com a técnica padrão de editores de texto rico: `preventDefault()` no
+      `mousedown` para botões da barra (inputs/textareas de dentro dos drawers não são afetados).
+      Verificado ao vivo: selecionar texto real da página, navegar até o Contador de Caracteres,
+      clicar "Usar seleção" — texto correto capturado.
+- [x] **10. Modal "Adicionar URL"**: o campo "URL ou padrão" era um único texto (só 1 padrão por
+      binding); editar um binding existente só mostrava/permitia 1 URL, sem botão "+" para
+      adicionar outra, e sem "+" para criar um novo ambiente sem sair do modal. Reescrito:
+      `urlBindings[].pattern` (string) virou `.patterns` (array), com editor de pills (adicionar
+      via botão/Enter, remover pelo × de cada pill) que mostra TODAS as URLs já salvas ao editar; e
+      um botão "+ Novo ambiente" que abre o composer de Ambiente aninhado (dialog empilhado) e
+      seleciona automaticamente o novo ambiente de volta no formulário de URL. Dado antigo já
+      salvo é lido automaticamente no novo formato (sem precisar de nova migração). Verificado ao
+      vivo: 3 padrões adicionados, todos reaparecem como pills ao editar (o bug relatado), remover
+      um e salvar, e o fluxo aninhado de criar ambiente funcionando de ponta a ponta.
+- [ ] **3. Inspectors não se comporta como no tampermonkey**: pendente — precisa listar os
+      inspectors configurados (não só a lista de capturas), com aviso simples + retry quando o
+      endpoint não carregou, e abrir para ver o retorno quando carregar.
+- [ ] **5. Macro Studio precisa ser um modal, não uma sidebar**: pendente.
+- [ ] **6. Capturar elementos "ainda tá porco"**: mesmo item já listado abaixo (Element Capture
+      UX) — não iniciado ainda.
+- [ ] **7. Layout quebrado em "Minha conta"**: pendente investigar ao vivo (print fornecido não
+      deixou claro qual quebra específica — vou reproduzir e comparar).
+- [ ] **8. Botão de baixar template em Importar/Exportar**: pendente.
+- [ ] **9. Validação de arquivo de importação**: pendente.
