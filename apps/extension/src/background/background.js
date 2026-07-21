@@ -1,5 +1,5 @@
 import { getSiteScope, getWorkspace, onStorageChanged, STORAGE_KEYS } from "../lib/storage.js";
-import { acceptSessionHandoff, deleteAccount, getAccessState, requestPasswordReset, signIn, signOut } from "./auth.js";
+import { acceptSessionHandoff, deleteAccount, getAccessState, redeemVoucher, requestPasswordReset, signIn, signOut } from "./auth.js";
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
 const PAGEBRIDGE_SCRIPT_ID = "qts-pagebridge";
@@ -199,6 +199,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     requestPasswordReset(message.email)
       .then(() => sendResponse({ ok: true }))
       .catch((error) => sendResponse({ ok: false, error: String(error?.message || "recover_failed") }));
+    return true;
+  }
+  if (message.type === "qts:voucher-redeem" && isOwnOptionsPage(sender)) {
+    redeemVoucher(message.code)
+      .then(() => getAccessState({ force: true }))
+      .then(async (access) => { if (access.active) await applyContentScriptRegistration(); sendResponse({ ok: true, access }); })
+      .catch((error) => sendResponse({ ok: false, error: String(error?.message || "voucher_redeem_failed"), status: error?.status }));
     return true;
   }
   if (message.type === "qts:auth-sign-out" && isOwnOptionsPage(sender)) {

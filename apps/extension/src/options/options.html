@@ -45,6 +45,11 @@
           <div id="signedInState" hidden>
             <div class="accountSummary"><img src="../../icons/icon-48.png" alt="" /><div><strong id="accountEmail"></strong><span id="accountPlan"></span></div></div>
             <div class="actions"><button class="button" id="refreshAccess" type="button">Atualizar acesso</button><button class="button danger" id="signOutButton" type="button">Sair</button></div>
+            <form id="voucherForm" class="loginForm">
+              <label>Código do voucher<input id="voucherCodeInput" type="text" maxlength="64" placeholder="Ex.: BEMVINDO30" /></label>
+              <button class="button" type="submit">Aplicar voucher</button>
+            </form>
+            <p class="formMessage" id="voucherMessage" role="status"></p>
           </div>
           <p class="formMessage" id="authMessage" role="status"></p>
         </div>

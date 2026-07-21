@@ -237,6 +237,32 @@ document.getElementById("refreshAccess").addEventListener("click", async () => {
   showMessage("authMessage", active ? "Acesso atualizado." : "O acesso não está ativo.", active ? "Success" : "Error");
 });
 
+document.getElementById("voucherForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const button = event.submitter;
+  const input = document.getElementById("voucherCodeInput");
+  const code = input.value.trim().toUpperCase();
+  if (!code) return;
+  button.disabled = true;
+  showMessage("voucherMessage", "Aplicando voucher…");
+  const response = await runtimeMessage({ type: "qts:voucher-redeem", code });
+  button.disabled = false;
+  if (!response.ok) {
+    const messages = {
+      voucher_unavailable: "Voucher inválido, expirado ou já utilizado.",
+      voucher_already_redeemed: "Você já resgatou este voucher.",
+      voucher_requires_checkout: "Este é um voucher de desconto — aplique-o na tela de checkout do site.",
+      rate_limit_exceeded: "Muitas tentativas. Aguarde alguns minutos.",
+    };
+    showMessage("voucherMessage", messages[response.error] || "Não foi possível aplicar o voucher agora.", "Error");
+    return;
+  }
+  input.value = "";
+  accessState = response.access;
+  await loadAccess();
+  showMessage("voucherMessage", "Voucher aplicado! Acesso atualizado.", "Success");
+});
+
 document.getElementById("signOutButton").addEventListener("click", async () => {
   await runtimeMessage({ type: "qts:auth-sign-out" });
   accessState = null;
