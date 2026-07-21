@@ -78,6 +78,14 @@ export async function requestPasswordReset(email) {
   await post("auth-recover-password", { email: String(email ?? "").trim() });
 }
 
+export async function redeemVoucher(code) {
+  const session = await getSession();
+  if (!session) throw new Error("authentication_required");
+  const result = await post("voucher-redeem", { code: String(code ?? "").trim() }, session.accessToken);
+  await chrome.storage.local.remove(STORAGE_KEYS.accessStatus);
+  return result;
+}
+
 export async function acceptSessionHandoff(session) {
   await chrome.storage.local.remove(STORAGE_KEYS.accessStatus);
   return storeSession(session);

@@ -4318,7 +4318,11 @@ async function boot() {
     state.lastHref = window.location.href;
     syncToolbarForCurrentLocation();
   }, 200);
-  state.accessInterval = window.setInterval(() => { void refreshAuthorization(true); }, 60_000);
+  // force:false here so this periodic poll reuses the background script's shared 30s
+  // access-status cache (see auth.js ACCESS_CACHE_MS) instead of every open tab hitting the
+  // edge function independently every 5 minutes — with several tabs open that multiplier alone
+  // blew through access-status' rate limit (enforceRateLimit in access-status/index.ts).
+  state.accessInterval = window.setInterval(() => { void refreshAuthorization(false); }, 5 * 60_000);
   const pendingRun = await macroRunRequest("get");
   if (pendingRun?.ok && pendingRun.run) void continueMacroRun(pendingRun.run, { announce: true });
 }
