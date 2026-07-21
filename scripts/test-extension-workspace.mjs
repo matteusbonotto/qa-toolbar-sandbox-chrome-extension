@@ -18,7 +18,7 @@ assert.equal(workspace.environments[0].productId, undefined);
 assert.equal(workspace.urlBindings.length, 1);
 assert.equal(workspace.urlBindings[0].productId, "product-a");
 assert.deepEqual(workspace.urlBindings[0].environmentIds, ["env-a"]);
-assert.equal(workspace.urlBindings[0].pattern, "https://qa.example.com/*");
+assert.deepEqual(workspace.urlBindings[0].patterns, ["https://qa.example.com/*"]);
 assert.equal(workspace.preferences.compactMode, true);
 assert.deepEqual(workspace.preferences.compactEntities, { client: false, project: true, product: true });
 assert.equal(workspace.preferences.enabledTools.includes("paymentMethods"), true);
@@ -82,7 +82,7 @@ assert.equal(normalizeWorkspace({ preferences: { toolsMenuOrder: ["bogus-tool", 
 // the fix for "DEV AR"/"DEV BO" duplication moves the product association onto the binding), so
 // an environment with no product/URL relationship yet still survives; only a binding referencing
 // a missing product gets dropped.
-const orphaned = normalizeWorkspace({ clients: [], projects: [], products: [], environments: [{ id: "bad", name: "Bad" }], urlBindings: [{ pattern: "https://bad.example.com", productId: "missing", environmentIds: ["bad"] }] });
+const orphaned = normalizeWorkspace({ clients: [], projects: [], products: [], environments: [{ id: "bad", name: "Bad" }], urlBindings: [{ patterns: ["https://bad.example.com"], productId: "missing", environmentIds: ["bad"] }] });
 assert.equal(orphaned.environments.length, 1);
 assert.equal(orphaned.urlBindings.length, 0);
 
@@ -98,8 +98,8 @@ const multiCountry = normalizeWorkspace({
   ],
   environments: [{ id: "env-dev", name: "DEV" }],
   urlBindings: [
-    { pattern: "https://ar-dev.cinemark.com.ar", productId: "product-ar", environmentIds: ["env-dev"] },
-    { pattern: "https://bo-dev.cinemark.com.bo", productId: "product-bo", environmentIds: ["env-dev"] },
+    { patterns: ["https://ar-dev.cinemark.com.ar"], productId: "product-ar", environmentIds: ["env-dev"] },
+    { patterns: ["https://bo-dev.cinemark.com.bo"], productId: "product-bo", environmentIds: ["env-dev"] },
   ],
 });
 assert.equal(multiCountry.environments.length, 1, "one reusable DEV environment, not one per country");
@@ -137,5 +137,45 @@ assert.equal(boBinding.primaryUrl, "", "no primaryUrl was set on the legacy BO e
 // duplicate bindings from re-running the legacy migration pass.
 const reNormalized = normalizeWorkspace(legacyMigration);
 assert.equal(reNormalized.urlBindings.length, 2);
+
+// Founder feedback: the "Adicionar URL" modal only ever handled one URL pattern per binding, so
+// registering several domains for the same product+environments meant repeatedly re-opening the
+// modal, and editing one only ever showed the last pattern saved. Bindings now hold a `patterns`
+// array — both reading several at once and merging repeat submissions for the same
+// product+environments (by key, see normalizeUrlBindings) must accumulate them, not overwrite.
+const multiPattern = normalizeWorkspace({
+  clients: [{ id: "client-a", name: "Cliente" }],
+  projects: [{ id: "project-a", clientId: "client-a", name: "Projeto" }],
+  products: [{ id: "product-a", projectId: "project-a", name: "WebApp" }],
+  environments: [{ id: "env-dev", name: "DEV" }],
+  urlBindings: [
+    { patterns: ["https://ar-dev.example.com/*", "https://bo-dev.example.com/*"], productId: "product-a", environmentIds: ["env-dev"] },
+    { patterns: ["https://cl-dev.example.com/*"], productId: "product-a", environmentIds: ["env-dev"] },
+  ],
+});
+assert.equal(multiPattern.urlBindings.length, 1, "same product+environments merges into one binding, not sibling rows");
+assert.deepEqual(multiPattern.urlBindings[0].patterns.sort(), ["https://ar-dev.example.com/*", "https://bo-dev.example.com/*", "https://cl-dev.example.com/*"].sort());
+
+// Legacy migration also merges a multi-pattern environment into one binding with all patterns,
+// not one binding row per pattern (the pre-fix shape).
+const legacyMultiPattern = normalizeWorkspace({
+  schemaVersion: 6,
+  clients: [{ id: "client-a", name: "Cinemark" }],
+  projects: [{ id: "project-a", clientId: "client-a", name: "Cinemas" }],
+  products: [{ id: "product-ar", projectId: "project-a", name: "AR" }],
+  environments: [{ id: "env-dev-ar", productId: "product-ar", name: "DEV AR", urlPatterns: ["https://ar-dev.cinemark.com.ar/*", "https://ar-dev-alt.cinemark.com.ar/*"] }],
+});
+assert.equal(legacyMultiPattern.urlBindings.length, 1, "a multi-pattern legacy environment migrates into one binding, not one row per pattern");
+assert.deepEqual(legacyMultiPattern.urlBindings[0].patterns.sort(), ["https://ar-dev-alt.cinemark.com.ar/*", "https://ar-dev.cinemark.com.ar/*"].sort());
+
+// Backward-compat: a still-singular legacy `pattern` field (pre-array shape) reads correctly too.
+const legacySingularPattern = normalizeWorkspace({
+  clients: [{ id: "client-a", name: "Cliente" }],
+  projects: [{ id: "project-a", clientId: "client-a", name: "Projeto" }],
+  products: [{ id: "product-a", projectId: "project-a", name: "Produto" }],
+  environments: [{ id: "env-a", name: "QA" }],
+  urlBindings: [{ pattern: "https://qa.example.com", productId: "product-a", environmentIds: ["env-a"] }],
+});
+assert.deepEqual(legacySingularPattern.urlBindings[0].patterns, ["https://qa.example.com/*"]);
 
 console.log("Extension workspace normalization tests passed.");

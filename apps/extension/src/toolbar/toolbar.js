@@ -91,7 +91,7 @@ function findById(collection, id) {
 // to change, not every place that reads `state.environment`.
 function findActiveEnvironment(workspace) {
   const href = window.location.href;
-  const binding = (workspace.urlBindings || []).find((candidate) => candidate.active !== false && matchesAnyPattern([candidate.pattern], href));
+  const binding = (workspace.urlBindings || []).find((candidate) => candidate.active !== false && matchesAnyPattern(candidate.patterns || [], href));
   if (!binding) return null;
   const environment = findById(workspace.environments, binding.environmentIds[0]);
   const product = findById(workspace.products, binding.productId);
@@ -102,7 +102,7 @@ function findActiveEnvironment(workspace) {
     productId: product.id,
     projectId: project?.id ?? null,
     clientId: project?.clientId ?? null,
-    urlPatterns: [binding.pattern],
+    urlPatterns: binding.patterns || [],
     primaryUrl: binding.primaryUrl || "",
   };
 }
