@@ -32,6 +32,7 @@ export const featureGroups: FeatureGroup[] = [
       { key: "inspectors", icon: "braces" },
       { key: "jsonStudio", icon: "codeSlash" },
       { key: "forceHttp", icon: "exclamationTriangle" },
+      { key: "errorMonitor", icon: "bug" },
       { key: "freezeClock", icon: "pauseCircle" },
       { key: "clickSpy", icon: "mouse2" },
       { key: "breakpointViewer", icon: "aspectRatio" },

@@ -110,6 +110,16 @@ Deno.serve(async (request) => {
         .eq("provider_session_id", session.id);
       const subscriptionId = typeof session.subscription === "string" ? session.subscription : session.subscription?.id;
       if (subscriptionId) subscription = await stripe.subscriptions.retrieve(subscriptionId);
+      if (session.metadata?.voucher_request_id) {
+        await admin.rpc("finalize_voucher_reservation", { request_id_input: session.metadata.voucher_request_id });
+      }
+    } else if (event.type === "checkout.session.expired") {
+      const session = event.data.object as Stripe.Checkout.Session;
+      await admin.from("checkout_sessions").update({ status: "expired" })
+        .eq("provider_session_id", session.id);
+      if (session.metadata?.voucher_request_id) {
+        await admin.rpc("release_voucher_reservation", { request_id_input: session.metadata.voucher_request_id });
+      }
     } else if ([
       "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted",
     ].includes(event.type)) {
@@ -156,7 +166,7 @@ Deno.serve(async (request) => {
       currency: typeof object.currency === "string" ? object.currency.toLowerCase() : null,
     });
     const handled = Boolean(subscription) || [
-      "checkout.session.completed", "invoice.paid", "invoice.payment_failed",
+      "checkout.session.completed", "checkout.session.expired", "invoice.paid", "invoice.payment_failed",
       "charge.refunded", "charge.dispute.created", "charge.dispute.closed",
     ].includes(event.type);
     await admin.from("webhook_events").update({

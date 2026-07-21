@@ -6,6 +6,7 @@ import {
   loadAccessStatus,
   handoffSessionToExtension,
   loadPriceCatalog,
+  previewVoucher,
   sendPasswordReset,
   sendSignInLink,
   signIn,
@@ -16,6 +17,7 @@ import {
   type BillingCycle,
   type DisplayPrice,
   type PriceCatalog,
+  type VoucherPreview,
 } from "../services/checkout";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
 import { useI18n } from "../i18n/I18nProvider";
@@ -40,6 +42,8 @@ export function PricingSection() {
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<string | null>(null);
+  const [voucherPreview, setVoucherPreview] = useState<VoucherPreview | null>(null);
+  const [voucherChecking, setVoucherChecking] = useState(false);
   const [voucherError, setVoucherError] = useState<string | null>(null);
   const [pendingPlanId, setPendingPlanId] = useState<PlanId | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -177,6 +181,8 @@ export function PricingSection() {
   function messageForError(error: unknown): string {
     const code = error instanceof Error ? error.message : "";
     if (code === "voucher_unavailable") return t.pricing.voucherErrorInvalid;
+    if (code === "voucher_already_redeemed") return t.pricing.voucherAlreadyRedeemed;
+    if (code === "voucher_plan_mismatch") return t.pricing.voucherPlanMismatch;
     if (code === "authentication_required" || code === "invalid_session") return t.pricing.authRequired;
     if (code === "backend_not_configured") return t.pricing.configUnavailable;
     if (code === "subscription_already_exists") return t.pricing.alreadySubscribed;
@@ -293,20 +299,39 @@ export function PricingSection() {
     }
   }
 
-  function handleApplyVoucher() {
+  async function handleApplyVoucher() {
     const code = voucherInput.trim().toUpperCase();
     if (!code) {
       setVoucherError(t.pricing.voucherErrorEmpty);
       setAppliedVoucher(null);
+      setVoucherPreview(null);
       return;
     }
     if (!voucherPattern.test(code)) {
       setVoucherError(t.pricing.voucherErrorInvalid);
       setAppliedVoucher(null);
+      setVoucherPreview(null);
       return;
     }
     setVoucherError(null);
-    setAppliedVoucher(code);
+    setVoucherChecking(true);
+    try {
+      const preview = await previewVoucher(code);
+      if (!preview.valid) {
+        setVoucherError(t.pricing.voucherErrorInvalid);
+        setAppliedVoucher(null);
+        setVoucherPreview(null);
+        return;
+      }
+      setAppliedVoucher(code);
+      setVoucherPreview(preview);
+    } catch {
+      setVoucherError(t.pricing.voucherErrorInvalid);
+      setAppliedVoucher(null);
+      setVoucherPreview(null);
+    } finally {
+      setVoucherChecking(false);
+    }
   }
 
   async function completePlanSelection(planId: PlanId) {
@@ -323,6 +348,7 @@ export function PricingSection() {
         const nextAccess = await loadAccessStatus();
         setAccess(nextAccess);
         setAppliedVoucher(null);
+        setVoucherPreview(null);
         setVoucherInput("");
         setStatusMessage(t.pricing.accessActive);
       }
@@ -477,17 +503,37 @@ export function PricingSection() {
             value={voucherInput}
             onChange={(event) => {
               setVoucherInput(event.target.value);
-              if (appliedVoucher) setAppliedVoucher(null);
+              if (appliedVoucher) { setAppliedVoucher(null); setVoucherPreview(null); }
             }}
           />
-          <button type="button" className="qts-btn qts-btn-ghost" onClick={handleApplyVoucher}>
-            {t.pricing.voucherApply}
+          <button type="button" className="qts-btn qts-btn-ghost" onClick={() => void handleApplyVoucher()} disabled={voucherChecking}>
+            {voucherChecking ? t.pricing.working : t.pricing.voucherApply}
           </button>
-          {appliedVoucher ? (
+          {appliedVoucher && !voucherPreview ? (
             <span className="qts-voucher-applied">{appliedVoucher} {t.pricing.voucherQueued}</span>
           ) : null}
           {voucherError ? <span className="qts-voucher-error">{voucherError}</span> : null}
         </div>
+
+        {voucherPreview?.valid ? (
+          <div className="qts-voucher-preview" role="status">
+            <span className="qts-voucher-preview-badge">{t.pricing.voucherPreviewBadge}</span>
+            <strong>{voucherPreview.label}</strong>
+            <p>
+              {voucherPreview.kind === "lifetime"
+                ? t.pricing.voucherPreviewLifetime.replace("{plan}", voucherPreview.plan?.name ?? "")
+                : voucherPreview.kind === "days"
+                  ? t.pricing.voucherPreviewDays
+                      .replace("{days}", String(voucherPreview.grantDays ?? ""))
+                      .replace("{plan}", voucherPreview.plan?.name ?? "")
+                  : t.pricing.voucherPreviewDiscount
+                      .replace("{value}", voucherPreview.discountPercentOff
+                        ? `${voucherPreview.discountPercentOff}%`
+                        : formatPrice({ amountMinor: voucherPreview.discountAmountOffMinor ?? 0, currency: "brl" }, locale, ""))
+                      .replace("{plan}", voucherPreview.plan?.name ?? t.pricing.voucherPreviewAnyPlan)}
+            </p>
+          </div>
+        ) : null}
 
         <div className="qts-pricing-grid">
           {pricingPlans.map((plan) => {
@@ -502,8 +548,10 @@ export function PricingSection() {
             const hasBlockingSubscription = access?.billing != null;
             const isCurrentPlan = hasBlockingSubscription && access?.plan?.key === plan.id;
             const isBlockedByOtherPlan = hasBlockingSubscription && access?.plan?.key !== plan.id;
+            const voucherTargetsPlan = Boolean(voucherPreview?.valid)
+              && (voucherPreview?.plan == null || voucherPreview.plan.key === plan.id);
             return (
-              <div key={plan.id} className={`qts-plan-card${plan.recommended ? " is-recommended" : ""}${isCurrentPlan ? " is-current-plan" : ""}`}>
+              <div key={plan.id} className={`qts-plan-card${plan.recommended ? " is-recommended" : ""}${isCurrentPlan ? " is-current-plan" : ""}${voucherTargetsPlan ? " is-voucher-highlight" : ""}`}>
                 {plan.recommended ? <span className="qts-plan-badge">{t.pricing.recommendedBadge}</span> : null}
                 {isCurrentPlan ? <span className="qts-plan-badge qts-plan-badge-current">{t.pricing.currentPlanBadge}</span> : null}
                 <h3>{planText.name}</h3>
@@ -528,7 +576,13 @@ export function PricingSection() {
                       ? t.pricing.currentPlanCta
                       : isBlockedByOtherPlan
                         ? t.pricing.unavailableWhileSubscribed
-                        : plan.isFree ? t.pricing.ctaFree : t.pricing.ctaPaid}
+                        : voucherTargetsPlan && voucherPreview?.kind === "lifetime"
+                          ? t.pricing.ctaLifetime
+                          : voucherTargetsPlan && voucherPreview?.kind === "days"
+                            ? t.pricing.ctaDaysVoucher.replace("{days}", String(voucherPreview.grantDays ?? ""))
+                            : voucherTargetsPlan && voucherPreview?.kind === "discount"
+                              ? t.pricing.ctaDiscount
+                              : plan.isFree ? t.pricing.ctaFree : t.pricing.ctaPaid}
                 </button>
               </div>
             );

@@ -1282,6 +1282,34 @@
   font-weight: 600;
 }
 
+.qts-voucher-preview {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--qts-bg-card);
+  border: 1px solid var(--qts-accent);
+  box-shadow: var(--qts-shadow-glow);
+  border-radius: var(--qts-radius-lg);
+  padding: var(--qts-space-4) var(--qts-space-5);
+  margin-bottom: var(--qts-space-6);
+}
+
+.qts-voucher-preview-badge {
+  align-self: flex-start;
+  background: var(--qts-gradient-brand);
+  color: #0a0a0f;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: var(--qts-radius-pill);
+}
+
+.qts-voucher-preview p {
+  margin: 0;
+  color: var(--qts-text-muted);
+  font-size: 0.9rem;
+}
+
 .qts-pricing-grid {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
@@ -1305,6 +1333,11 @@
 
 .qts-plan-card.is-current-plan {
   border-color: #17b978;
+}
+
+.qts-plan-card.is-voucher-highlight {
+  border-color: var(--qts-accent);
+  box-shadow: var(--qts-shadow-glow);
 }
 
 .qts-plan-badge {

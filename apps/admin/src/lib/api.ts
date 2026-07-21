@@ -17,6 +17,7 @@ import type {
   UserRole,
   Voucher,
   VoucherCampaign,
+  VoucherKind,
 } from "./types";
 
 function requireClient() {
@@ -90,13 +91,33 @@ export async function listVouchers(): Promise<Voucher[]> {
   return data ?? [];
 }
 
-export async function createVoucher(input: { code: string; label: string; planId: string; grantDays: number | null; expiresAt: string | null }) {
+export interface VoucherInput {
+  label: string;
+  kind: VoucherKind;
+  planId: string | null;
+  grantDays: number | null;
+  discountPercentOff: number | null;
+  discountAmountOffMinor: number | null;
+  expiresAt: string | null;
+}
+
+function voucherKindFields(input: VoucherInput) {
+  return {
+    kind: input.kind,
+    plan_id: input.planId,
+    grant_days: input.grantDays,
+    discount_percent_off: input.discountPercentOff,
+    discount_amount_off_minor: input.discountAmountOffMinor,
+    discount_currency: input.discountPercentOff || input.discountAmountOffMinor ? "brl" : null,
+  };
+}
+
+export async function createVoucher(input: VoucherInput & { code: string }) {
   const codeHash = await sha256Hex(input.code);
   const { error } = await requireClient().from("vouchers").insert({
     code_hash: codeHash,
     label: input.label,
-    plan_id: input.planId,
-    grant_days: input.grantDays,
+    ...voucherKindFields(input),
     expires_at: input.expiresAt,
     status: "available",
   });
@@ -108,8 +129,10 @@ export async function setVoucherStatus(id: string, status: "available" | "disabl
   if (error) throw error;
 }
 
-export async function updateVoucher(id: string, input: { label: string; planId: string; grantDays: number | null; expiresAt: string | null }) {
-  const { error } = await requireClient().from("vouchers").update({ label: input.label, plan_id: input.planId, grant_days: input.grantDays, expires_at: input.expiresAt }).eq("id", id).neq("status", "used");
+export async function updateVoucher(id: string, input: VoucherInput) {
+  const { error } = await requireClient().from("vouchers")
+    .update({ label: input.label, ...voucherKindFields(input), expires_at: input.expiresAt })
+    .eq("id", id).neq("status", "used");
   if (error) throw error;
 }
 
@@ -125,20 +148,34 @@ export async function listVoucherCampaigns(): Promise<VoucherCampaign[]> {
   return data ?? [];
 }
 
-export async function createVoucherCampaign(input: {
-  code: string;
+export interface VoucherCampaignInput {
   label: string;
-  planId: string;
-  grantDays: number;
+  kind: VoucherKind;
+  planId: string | null;
+  grantDays: number | null;
+  discountPercentOff: number | null;
+  discountAmountOffMinor: number | null;
   maximumRedemptions: number | null;
   expiresAt: string | null;
-}) {
+}
+
+function campaignKindFields(input: VoucherCampaignInput) {
+  return {
+    kind: input.kind,
+    plan_id: input.planId,
+    grant_days: input.grantDays,
+    discount_percent_off: input.discountPercentOff,
+    discount_amount_off_minor: input.discountAmountOffMinor,
+    discount_currency: input.discountPercentOff || input.discountAmountOffMinor ? "brl" : null,
+  };
+}
+
+export async function createVoucherCampaign(input: VoucherCampaignInput & { code: string }) {
   const codeHash = await sha256Hex(input.code);
   const { error } = await requireClient().from("voucher_campaigns").insert({
     code_hash: codeHash,
     label: input.label,
-    plan_id: input.planId,
-    grant_days: input.grantDays,
+    ...campaignKindFields(input),
     maximum_redemptions: input.maximumRedemptions,
     expires_at: input.expiresAt,
     enabled: true,
@@ -151,8 +188,10 @@ export async function setVoucherCampaignEnabled(id: string, enabled: boolean) {
   if (error) throw error;
 }
 
-export async function updateVoucherCampaign(id: string, input: { label: string; planId: string; grantDays: number; maximumRedemptions: number | null; expiresAt: string | null }) {
-  const { error } = await requireClient().from("voucher_campaigns").update({ label: input.label, plan_id: input.planId, grant_days: input.grantDays, maximum_redemptions: input.maximumRedemptions, expires_at: input.expiresAt }).eq("id", id);
+export async function updateVoucherCampaign(id: string, input: VoucherCampaignInput) {
+  const { error } = await requireClient().from("voucher_campaigns")
+    .update({ label: input.label, ...campaignKindFields(input), maximum_redemptions: input.maximumRedemptions, expires_at: input.expiresAt })
+    .eq("id", id);
   if (error) throw error;
 }
 

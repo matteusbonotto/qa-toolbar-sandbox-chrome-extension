@@ -28,6 +28,17 @@ export interface CheckoutResult {
   label?: string;
 }
 
+export interface VoucherPreview {
+  valid: boolean;
+  reason?: string;
+  kind?: "discount" | "days" | "lifetime";
+  label?: string;
+  plan?: { key: PlanId; name: string } | null;
+  grantDays?: number | null;
+  discountPercentOff?: number | null;
+  discountAmountOffMinor?: number | null;
+}
+
 function requireClient() {
   if (!isSupabaseConfigured || !supabase) throw new Error("backend_not_configured");
   return supabase;
@@ -146,6 +157,13 @@ export async function sendPasswordReset(email: string): Promise<void> {
 export async function updatePassword(newPassword: string): Promise<void> {
   const { error } = await requireClient().auth.updateUser({ password: newPassword });
   if (error) throw new Error("password_update_failed");
+}
+
+export async function previewVoucher(code: string): Promise<VoucherPreview> {
+  const client = requireClient();
+  const { data, error } = await client.functions.invoke("voucher-preview", { body: { code } });
+  if (error) return { valid: false, reason: await functionErrorCode(error) };
+  return data as VoucherPreview;
 }
 
 export async function startCheckout(input: {
