@@ -18,6 +18,26 @@ max_frequency = "1m"
 otp_length = 8
 otp_expiry = 3600
 
+# Routes every Supabase Auth email (recovery, confirmations, etc.) through Resend instead of
+# Supabase's own default mailer — lifts its very low built-in rate limit and lets the template
+# below actually control how these emails look. `pass` is read from the RESEND_API_KEY
+# environment variable at `supabase config push` time (see .env) — never hardcoded here, since
+# this file is committed to git. Sender stays on Resend's shared onboarding@resend.dev domain
+# until a real domain is verified in the Resend dashboard; until then, Resend only delivers to
+# the account's own registered email address, not to arbitrary real users.
+[auth.email.smtp]
+enabled = true
+host = "smtp.resend.com"
+port = 465
+user = "resend"
+pass = "env(RESEND_API_KEY)"
+admin_email = "onboarding@resend.dev"
+sender_name = "QA Toolbar Sandbox"
+
+[auth.email.template.recovery]
+subject = "Redefina sua senha — QA Toolbar Sandbox"
+content_path = "./supabase/templates/recovery.html"
+
 [auth.mfa.totp]
 enroll_enabled = true
 verify_enabled = true
