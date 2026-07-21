@@ -281,7 +281,12 @@
       isolada só ao Macro Studio.
 - [ ] **6. Capturar elementos "ainda tá porco"**: mesmo item já listado abaixo (Element Capture
       UX) — não iniciado ainda.
-- [ ] **7. Layout quebrado em "Minha conta"**: pendente investigar ao vivo (print fornecido não
-      deixou claro qual quebra específica — vou reproduzir e comparar).
+- [x] **7. Layout quebrado em "Minha conta"**: reproduzido e confirmado ao vivo (print batia
+      exatamente com o do founder) — o card "Excluir minha conta" não tinha `max-width`, então
+      ficava bem mais largo (1048px) que o card de conta logo acima (640px, com `.accountCard`),
+      quebrando o alinhamento visual entre os dois cards empilhados. Corrigido adicionando a
+      classe `.accountCard` também no `#deleteAccountCard` (reaproveita a regra já existente, não
+      criou CSS novo). Verificado ao vivo em 1400px/900px/500px: os dois cards agora sempre
+      alinham na mesma largura.
 - [ ] **8. Botão de baixar template em Importar/Exportar**: pendente.
 - [ ] **9. Validação de arquivo de importação**: pendente.
