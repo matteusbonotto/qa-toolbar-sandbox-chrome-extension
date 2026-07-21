@@ -188,10 +188,8 @@
       item adicionado a um array e chave nova; dois JSONs idênticos mostram "nenhuma diferença";
       JSON inválido em qualquer um dos dois lados mostra erro sem travar; modo "Formatar" original
       continua funcionando.
-- [ ] **Capturar Elementos**: nomear cada linha pela label visível (ou prévia, ex. imagem, quando
-      sem label); botão "Localizar elemento" por linha; sidebar cortado pela metade sem busca/
-      filtros — corrigir; adicionar filtros por test-id/CSS/XPath; mostrar estado atual vs. setado
-      ao clicar (like Click Spy).
+- [x] **Capturar Elementos**: feito — ver item "6." na seção "Segunda rodada de feedback ao vivo"
+      mais abaixo (mesmo pedido, reaparecido com print na segunda rodada).
 - [x] **Tools menu**: nova preferência `toolsMenuOrder` (drag-and-drop + setas ↑↓ em "Barra e
       aparência", mesma ideia da ordenação do breadcrumb, implementação separada de propósito para
       não arriscar mexer na já validada); `applyPinnedTools()` reordena o `#toolsMenu` real via
