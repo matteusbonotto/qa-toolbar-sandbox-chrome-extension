@@ -593,6 +593,41 @@ function renderUrlEnvironmentPicker() {
   });
 }
 
+// Founder feedback: grouping this list by Product made every environment's URL show up as its
+// own "AR" row (one per env, since a binding's patterns can't be shared across environments that
+// use different domains) — reading as "AR, AR, AR, AR, BO, BO, BO, BO…" with no way to tell which
+// row was which tier at a glance. Grouping by Environment instead (matching the composer's own
+// field order above) reads as "DEV: AR, BO, CL…" / "BETA: AR, BO, CL…", one heading per tier. A
+// binding with more than one environmentId (the genuinely-shared-URL case) simply appears again
+// under each of its environments' headings.
+function renderUrlBindingsList() {
+  const element = document.getElementById(COLLECTION_UI.urlBindings.listId);
+  const items = (workspace.urlBindings || []).filter(matchesSearch);
+  if (!items.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
+  const NO_ENV = "__none__";
+  const groups = new Map();
+  for (const item of items) {
+    for (const environmentId of item.environmentIds?.length ? item.environmentIds : [NO_ENV]) {
+      if (!groups.has(environmentId)) groups.set(environmentId, []);
+      groups.get(environmentId).push(item);
+    }
+  }
+  const orderedEnvironmentIds = [...(workspace.environments || []).map((environment) => environment.id), NO_ENV].filter((environmentId) => groups.has(environmentId));
+  element.innerHTML = orderedEnvironmentIds.map((environmentId) => {
+    const environment = environmentId === NO_ENV ? null : findById("environments", environmentId);
+    const heading = `<div class="urlGroupHeading"${environment ? ` style="--environment-color:${escapeHtml(environment.color)}"` : ""}><i></i>${escapeHtml(environment ? environmentDisplayName(environment) : t("Sem ambiente"))}</div>`;
+    const rows = groups.get(environmentId).map((item) => {
+      const product = findById("products", item.productId);
+      const otherEnvironments = (item.environmentIds || []).filter((id) => id !== environmentId).map((id) => findById("environments", id)).filter(Boolean);
+      const otherEnvironmentsHint = otherEnvironments.length
+        ? `<small class="relationBadges">${escapeHtml(t("também em"))}: ${otherEnvironments.map((env) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(env.color)}"></i>${escapeHtml(environmentDisplayName(env))}</span>`).join("")}</small>`
+        : "";
+      return `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${escapeHtml(product?.name || "—")}</small>${otherEnvironmentsHint}</div>${rowActions("urlBindings", item)}</div>`;
+    }).join("");
+    return heading + rows;
+  }).join("");
+}
+
 function renderWorkspace() {
   for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
@@ -605,12 +640,7 @@ function renderWorkspace() {
     const products = environmentBoundProductNames(item.id);
     return `<b style="color:${escapeHtml(item.color)}">● ${escapeHtml(item.name)}</b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
   });
-  renderRows("urlBindings", (item) => {
-    const product = findById("products", item.productId);
-    const badges = item.environmentIds.map((environmentId) => findById("environments", environmentId)).filter(Boolean)
-      .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
-    return `<b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${escapeHtml(product?.name || "—")}</small><small class="relationBadges">${badges}</small>`;
-  });
+  renderUrlBindingsList();
   renderUrlEnvironmentPicker();
   renderUrlPatternsPicker();
   renderRows("testAccounts", (item) => {
@@ -843,6 +873,16 @@ document.getElementById("urlPatternInput").addEventListener("keydown", (event) =
   addUrlPatternDraft();
 });
 
+// The founder's own request: drop the manual "URL principal" field entirely — the first pattern
+// added is almost always the concrete, no-wildcard entry point anyway, so just derive it instead
+// of asking for it twice. Trailing wildcard(s) are stripped so it opens as a real URL, not
+// literally "…/*"; anything that still isn't a plain http(s) URL after that (e.g. `*://host/*`)
+// is left blank, same as storage.js's own normalizeUrlBinding would do with a bad value.
+function derivePrimaryUrl(pattern) {
+  const stripped = String(pattern || "").replace(/\*+$/, "");
+  return /^https?:\/\//i.test(stripped) ? stripped : "";
+}
+
 document.getElementById("urlRelationForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const patternInput = document.getElementById("urlPatternInput");
@@ -850,8 +890,8 @@ document.getElementById("urlRelationForm").addEventListener("submit", async (eve
   // submitting silently drops it, which is exactly the confusing "só salva o que já virou pill"
   // trap this rework is meant to fix.
   if (patternInput.value.trim()) addUrlPatternDraft();
-  if (!urlPatternsDraft.length) { patternInput.setCustomValidity(t("Informe ao menos uma URL ou padrão válido.")); patternInput.reportValidity(); return; }
   if (!urlSelectedEnvironmentIds.size) { patternInput.setCustomValidity(t("Selecione pelo menos um ambiente.")); patternInput.reportValidity(); return; }
+  if (!urlPatternsDraft.length) { patternInput.setCustomValidity(t("Informe ao menos uma URL ou padrão válido.")); patternInput.reportValidity(); return; }
   patternInput.setCustomValidity("");
   const editId = document.getElementById("urlRelationEditId").value;
   upsert("urlBindings", {
@@ -859,7 +899,7 @@ document.getElementById("urlRelationForm").addEventListener("submit", async (eve
     patterns: [...urlPatternsDraft],
     productId: document.getElementById("urlRelationProduct").value,
     environmentIds: [...urlSelectedEnvironmentIds],
-    primaryUrl: document.getElementById("urlRelationPrimaryUrl").value.trim(),
+    primaryUrl: derivePrimaryUrl(urlPatternsDraft[0]),
     active: true,
   }, editId);
   clearEdit("urlRelation");
@@ -879,7 +919,7 @@ function editItem(collection, item) {
     projects: { projectClient: item.clientId, projectName: item.name, projectLogoUrl: item.logoUrl, projectAbbreviation: item.abbreviation, projectShowLabel: item.showLabel !== false },
     products: { productProject: item.projectId, productName: item.name, productLogoUrl: item.logoUrl, productAbbreviation: item.abbreviation, productShowLabel: item.showLabel !== false },
     environments: { environmentName: item.name, environmentColor: item.color },
-    urlBindings: { urlRelationProduct: item.productId, urlPatternInput: "", urlRelationPrimaryUrl: item.primaryUrl },
+    urlBindings: { urlRelationProduct: item.productId, urlPatternInput: "" },
     testAccounts: { testAccountEnvironment: item.environmentId, testAccountProduct: item.productId || "", testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
     paymentMethods: { paymentMethodEnvironment: item.environmentId || "", paymentMethodProduct: item.productId || "", paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
