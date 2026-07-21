@@ -10,10 +10,12 @@ import { createWriteStream } from "node:fs";
 import { mkdir, readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, resolve } from "node:path";
-import { createRequire } from "node:module";
 import { verifyExtensionSource } from "./check-extension-bundle.mjs";
-
-const archiver = createRequire(import.meta.url)("archiver");
+// archiver@8 is a full rewrite: CommonJS support is gone (package.json is now `"type": "module"`
+// with a plain `"exports"` map, no `"main"`), and the old `archiver("zip", opts)` factory function
+// is gone too — replaced by a `ZipArchive` class you construct directly. Everything else
+// (.pipe/.append/.directory/.finalize/.pointer()) kept the same API.
+import { ZipArchive } from "archiver";
 
 const root = resolve(import.meta.dirname, "..");
 const extensionDir = resolve(root, "apps/extension");
@@ -28,7 +30,7 @@ const outputPath = outputArg
 await mkdir(dirname(outputPath), { recursive: true });
 
 const output = createWriteStream(outputPath);
-const archive = archiver("zip", { zlib: { level: 9 } });
+const archive = new ZipArchive({ zlib: { level: 9 } });
 
 const done = new Promise((resolvePromise, rejectPromise) => {
   output.on("close", resolvePromise);
