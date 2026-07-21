@@ -572,6 +572,15 @@ function buildShadowHost() {
     <button id="restoreButton" type="button" title="${escapeHtml(t.restore)}">${ICON("chevronDown")}</button>
   `;
 
+  // A plain mousedown on any element outside the current text selection collapses it by
+  // browser default (the same reason rich-text-editor toolbars preventDefault their own
+  // buttons' mousedown) — without this, clicking Tools → a menu item → "Usar seleção da
+  // página" always saw an empty selection, because the first click (on the Tools button
+  // itself) had already destroyed it. Scoped to <button> only so real drawer inputs/textareas
+  // keep normal focus/caret behavior.
+  shadow.addEventListener("mousedown", (event) => {
+    if (event.target.closest("button")) event.preventDefault();
+  });
   shadow.getElementById("settingsButton").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "qts:open-options" });
   });
@@ -2083,6 +2092,16 @@ function matchesErrorMonitorFilters(entry) {
   return true;
 }
 
+// Same message-extraction fallback chain the tampermonkey.js reference used — a plain status
+// code told a QA tester almost nothing; the actual message (when the API returns one) is what
+// makes a captured error useful at a glance, before ever opening the raw JSON.
+function errorMonitorMessageFor(entry) {
+  const payload = entry.payload;
+  if (!payload || typeof payload !== "object") return null;
+  const candidate = payload.message || payload.error?.message || payload.error || payload.title;
+  return typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 300) : null;
+}
+
 function renderErrorMonitorList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
@@ -2099,13 +2118,22 @@ function renderErrorMonitorList() {
     <div class="qts-filter-bar ${errorMonitorFilterState.collapsed ? "isCollapsed" : ""}" id="errorMonitorFilterBar">
       ${fields.map((field) => renderSmartFilter(field, errorMonitorFilterState[field.key], null)).join("")}
     </div>
-    <div>${filtered.length ? filtered.map((entry) => `
-      <div class="qts-net-item" style="cursor:default">
+    <div>${filtered.length ? filtered.map((entry) => {
+      const message = errorMonitorMessageFor(entry);
+      return `
+      <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="${entry.payload ? "" : "cursor:default"}">
         <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+        ${message ? `<small style="display:block;margin-top:3px;color:#ddd">${escapeHtml(message)}</small>` : ""}
         <small style="display:block;margin-top:2px;color:#666">${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
       </div>
-    `).join("") : `<div class="qts-empty">${state.httpErrors.length ? t.noFilterResults : t.errorMonitorEmpty}</div>`}</div>
+    `;
+    }).join("") : `<div class="qts-empty">${state.httpErrors.length ? t.noFilterResults : t.errorMonitorEmpty}</div>`}</div>
   `;
+  body.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
+    const entry = state.httpErrors.find((item) => item.id === row.dataset.id);
+    if (!entry?.payload) return;
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+  }));
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorClear").addEventListener("click", () => clearHttpErrors());
