@@ -288,5 +288,21 @@
       classe `.accountCard` também no `#deleteAccountCard` (reaproveita a regra já existente, não
       criou CSS novo). Verificado ao vivo em 1400px/900px/500px: os dois cards agora sempre
       alinham na mesma largura.
-- [ ] **8. Botão de baixar template em Importar/Exportar**: pendente.
-- [ ] **9. Validação de arquivo de importação**: pendente.
+- [x] **8. Botão de baixar template em Importar/Exportar**: novo botão "Baixar template" gera um
+      workspace mínimo genérico (1 cliente/projeto/produto/ambiente/URL, sem nome de cliente real)
+      passado pelo mesmo `normalizeWorkspace()` e pela mesma função de exportar (`buildExportEnvelope`,
+      extraída do botão de exportar já existente para reaproveitar checksum/formato) — garante que
+      o template baixado sempre bate com o schema/checksum atual, em vez de um arquivo estático que
+      ficaria desatualizado. Verificado ao vivo: o template baixado foi reimportado com sucesso
+      (prova de que é válido de ponta a ponta).
+- [x] **9. Validação de arquivo de importação**: achei um bug real investigando — um array como
+      `clients: ["texto", 123, null, {id:"ok",...}]` importava **com sucesso**, virando "4
+      cliente(s)" (3 registros fantasma tipo "Cliente 1"/"Cliente 2" misturados com o real, sem
+      nenhum aviso). Causa: `normalizeWorkspace()` é propositalmente tolerante (também é usada pra
+      ler o que já está salvo localmente entre versões de schema, onde "curar" um valor ruim é o
+      comportamento certo) — mas um arquivo de IMPORTAÇÃO é diferente: um registro inválido quase
+      sempre significa que o arquivo em si está errado. Adicionei `validateImportShape()` que roda
+      antes de normalizar e recusa o arquivo inteiro (preservando o workspace anterior) se qualquer
+      coleção tiver um item que não seja um objeto de verdade. Verificado ao vivo: arquivo com lixo
+      é recusado com mensagem clara e não muda o workspace; arquivo genuinamente válido continua
+      importando normalmente (sem falso positivo).

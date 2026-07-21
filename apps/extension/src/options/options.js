@@ -966,15 +966,56 @@ async function sha256Hex(value) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-document.getElementById("exportButton").addEventListener("click", async () => {
-  const exportable = structuredClone(workspace);
+// Shared by the real export button and the "download template" button below — both need the same
+// {format, version, checksum} envelope so a template downloaded today always matches whatever this
+// build's schema/checksum rules currently are, instead of a hand-written static file going stale.
+async function buildExportEnvelope(workspaceData, filenamePrefix) {
+  const exportable = structuredClone(workspaceData);
   exportable.testAccounts = exportable.testAccounts.map(({ password, ...item }) => item);
   exportable.paymentMethods = exportable.paymentMethods.map(({ value, ...item }) => item);
   exportable.apis = exportable.apis.map(({ token, ...item }) => item);
   const checksum = `sha256:${await sha256Hex(JSON.stringify(exportable))}`;
   const blob = new Blob([JSON.stringify({ format: "qts-workspace", version: 2, exportedAt: new Date().toISOString(), checksum, workspace: exportable }, null, 2)], { type: "application/json" });
-  const url = URL.createObjectURL(blob); const anchor = document.createElement("a"); anchor.href = url; anchor.download = `qa-toolbar-workspace-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `${filenamePrefix}-${new Date().toISOString().slice(0, 10)}.json`;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
+}
+
+document.getElementById("exportButton").addEventListener("click", () => buildExportEnvelope(workspace, "qa-toolbar-workspace"));
+document.getElementById("downloadTemplateButton").addEventListener("click", () => {
+  // A minimal, generic (no real customer name) one-of-everything workspace — normalized the same
+  // way an import would be, so this is guaranteed to be a file that imports cleanly and shows the
+  // founder the expected shape without needing to read the schema themselves.
+  const template = normalizeWorkspace({
+    clients: [{ id: "client-exemplo", name: "Cliente Exemplo" }],
+    projects: [{ id: "project-exemplo", clientId: "client-exemplo", name: "Projeto Exemplo" }],
+    products: [{ id: "product-exemplo", projectId: "project-exemplo", name: "Produto Exemplo" }],
+    environments: [{ id: "env-exemplo", name: "QA", color: "#7657ff" }],
+    urlBindings: [{ id: "binding-exemplo", patterns: ["https://app.exemplo.com/*"], productId: "product-exemplo", environmentIds: ["env-exemplo"] }],
+  });
+  void buildExportEnvelope(template, "qa-toolbar-template");
 });
+// normalizeWorkspace() is deliberately forgiving (it has to be — it's also what reads whatever's
+// already in local storage across schema versions, and silently healing a slightly-off value
+// there is the right call). An imported *file* is different: a junk entry here almost always
+// means the file itself is wrong (hand-edited badly, wrong file picked, truncated download), and
+// silently turning `"a string"` or `null` into a fake "Cliente 2" with zero indication is exactly
+// the "imported with errors" the founder ran into. So the import path validates the raw shape
+// first and refuses the whole file rather than normalizing garbage into phantom records.
+const IMPORTABLE_COLLECTIONS = ["clients", "projects", "products", "environments", "urlBindings", "testAccounts", "paymentMethods", "apis", "inspectors", "resources", "macros"];
+function validateImportShape(candidate) {
+  for (const key of IMPORTABLE_COLLECTIONS) {
+    const value = candidate[key];
+    if (value === undefined) continue;
+    if (!Array.isArray(value)) throw new Error(`"${key}" deveria ser uma lista`);
+    const badIndex = value.findIndex((item) => item === null || typeof item !== "object" || Array.isArray(item));
+    if (badIndex !== -1) throw new Error(`"${key}" tem um registro inválido na posição ${badIndex + 1}`);
+  }
+}
+
 document.getElementById("importButton").addEventListener("click", () => document.getElementById("importFile").click());
 document.getElementById("importFile").addEventListener("change", async (event) => {
   const file = event.target.files?.[0]; if (!file) return;
@@ -989,6 +1030,7 @@ document.getElementById("importFile").addEventListener("change", async (event) =
       const actualChecksum = `sha256:${await sha256Hex(JSON.stringify(candidate))}`;
       if (actualChecksum !== String(parsed.checksum).toLowerCase()) throw new Error("checksum não confere; o arquivo pode ter sido alterado");
     }
+    validateImportShape(candidate);
     workspace = normalizeWorkspace(candidate);
     await persistWorkspace();
     document.getElementById("dataHint").textContent = t("Importado: {clients} cliente(s), {environments} ambiente(s). URLs e vínculos foram normalizados.", { clients: workspace.clients.length, environments: workspace.environments.length });
