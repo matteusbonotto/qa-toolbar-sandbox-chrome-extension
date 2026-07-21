@@ -239,32 +239,62 @@ create table if not exists public.license_activations (
 -- 6. Vouchers (single-use codes + multi-redemption campaigns)
 -- ============================================================================
 
+-- `kind` drives which fields are meaningful (enforced by *_kind_fields_check below):
+--   'days'/'lifetime' -> plan_id required, grant_days set (null = lifetime), no discount fields.
+--   'discount'        -> plan_id optional (null = applies to whatever plan the buyer picks at
+--                         checkout), grant_days null, exactly one of discount_percent_off /
+--                         discount_amount_off_minor set. Never grants instant access -- it drives
+--                         a real Stripe Checkout Session (see reserve_voucher_discount below).
 create table if not exists public.vouchers (
   id uuid primary key default gen_random_uuid(),
   code_hash text not null unique check (code_hash ~ '^[a-f0-9]{64}$'),
   label text not null check (char_length(label) between 3 and 100),
-  plan_id uuid not null references public.plans(id),
+  kind text not null check (kind in ('discount', 'days', 'lifetime')),
+  plan_id uuid references public.plans(id),
   grant_days integer check (grant_days between 1 and 3650),
+  discount_percent_off integer check (discount_percent_off is null or discount_percent_off between 1 and 100),
+  discount_amount_off_minor bigint check (discount_amount_off_minor is null or discount_amount_off_minor > 0),
+  discount_currency text check (discount_currency is null or discount_currency ~ '^[a-z]{3}$'),
   status text not null default 'available' check (status in ('available', 'used', 'disabled')),
   expires_at timestamptz,
   redeemed_by uuid references auth.users(id),
   redeemed_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint vouchers_kind_fields_check check (
+    (kind = 'days' and grant_days is not null and plan_id is not null
+      and discount_percent_off is null and discount_amount_off_minor is null)
+    or (kind = 'lifetime' and grant_days is null and plan_id is not null
+      and discount_percent_off is null and discount_amount_off_minor is null)
+    or (kind = 'discount' and grant_days is null
+      and (discount_percent_off is not null) <> (discount_amount_off_minor is not null))
+  )
 );
 
 create table if not exists public.voucher_campaigns (
   id uuid primary key default gen_random_uuid(),
   code_hash text not null unique check (code_hash ~ '^[a-f0-9]{64}$'),
   label text not null check (char_length(label) between 3 and 100),
-  plan_id uuid not null references public.plans(id),
-  grant_days integer not null check (grant_days between 1 and 36500), -- up to ~100y for "lifetime"
+  kind text not null check (kind in ('discount', 'days', 'lifetime')),
+  plan_id uuid references public.plans(id),
+  grant_days integer check (grant_days is null or grant_days between 1 and 36500), -- null = real lifetime; up to ~100y was the old "lifetime" convention
+  discount_percent_off integer check (discount_percent_off is null or discount_percent_off between 1 and 100),
+  discount_amount_off_minor bigint check (discount_amount_off_minor is null or discount_amount_off_minor > 0),
+  discount_currency text check (discount_currency is null or discount_currency ~ '^[a-z]{3}$'),
   maximum_redemptions integer check (maximum_redemptions is null or maximum_redemptions > 0),
   redemption_count integer not null default 0 check (redemption_count >= 0),
   enabled boolean not null default true,
   expires_at timestamptz,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint voucher_campaigns_kind_fields_check check (
+    (kind = 'days' and grant_days is not null and plan_id is not null
+      and discount_percent_off is null and discount_amount_off_minor is null)
+    or (kind = 'lifetime' and grant_days is null and plan_id is not null
+      and discount_percent_off is null and discount_amount_off_minor is null)
+    or (kind = 'discount' and grant_days is null
+      and (discount_percent_off is not null) <> (discount_amount_off_minor is not null))
+  )
 );
 
 create table if not exists public.voucher_campaign_redemptions (
@@ -274,6 +304,25 @@ create table if not exists public.voucher_campaign_redemptions (
   entitlement_grant_id uuid not null references public.entitlement_grants(id),
   redeemed_at timestamptz not null default now(),
   unique (campaign_id, user_id) -- one redemption per user per campaign
+);
+
+-- Backs the anti-double-discount guarantee for kind='discount' vouchers: keyed by (user_id,
+-- request_id), the same request_id uuid the front end generates before ever calling Stripe, so we
+-- can reserve the voucher BEFORE creating the Checkout Session (whose own id only exists after).
+-- See reserve_voucher_discount / release_voucher_reservation / finalize_voucher_reservation.
+create table if not exists public.voucher_reservations (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references auth.users(id) on delete cascade,
+  request_id uuid not null,
+  voucher_id uuid references public.vouchers(id) on delete cascade,
+  campaign_id uuid references public.voucher_campaigns(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'completed', 'released')),
+  reserved_at timestamptz not null default now(),
+  expires_at timestamptz not null,
+  completed_at timestamptz,
+  released_at timestamptz,
+  check ((voucher_id is not null) <> (campaign_id is not null)),
+  unique (user_id, request_id)
 );
 
 -- ============================================================================
@@ -403,6 +452,13 @@ create index if not exists idx_subscriptions_status on public.subscriptions(stat
 create index if not exists idx_checkout_sessions_user on public.checkout_sessions(user_id, created_at desc);
 create index if not exists idx_vouchers_status on public.vouchers(status);
 create index if not exists idx_voucher_campaigns_enabled on public.voucher_campaigns(enabled);
+-- The real guarantee against a race is these unique indexes, not the plpgsql checks in the RPCs.
+create unique index if not exists idx_voucher_reservations_voucher_pending
+  on public.voucher_reservations(voucher_id) where status = 'pending';
+create unique index if not exists idx_voucher_reservations_campaign_user_active
+  on public.voucher_reservations(campaign_id, user_id) where status in ('pending', 'completed');
+create index if not exists idx_voucher_reservations_campaign_pending
+  on public.voucher_reservations(campaign_id) where status = 'pending';
 create index if not exists idx_license_activations_license on public.license_activations(license_key_id) where revoked_at is null;
 create index if not exists idx_installations_user on public.installations(user_id);
 create index if not exists idx_referrals_referrer on public.referrals(referrer_user_id);
@@ -759,7 +815,7 @@ begin
   end if;
 
   select * into campaign from public.voucher_campaigns
-  where code_hash = voucher_hash and enabled and (expires_at is null or expires_at > now())
+  where code_hash = voucher_hash and kind in ('days', 'lifetime') and enabled and (expires_at is null or expires_at > now())
   for update;
   if campaign.id is not null then
     if campaign.maximum_redemptions is not null and campaign.redemption_count >= campaign.maximum_redemptions then
@@ -768,7 +824,7 @@ begin
     if exists (select 1 from public.voucher_campaign_redemptions where campaign_id = campaign.id and user_id = target_user_id) then
       raise exception 'voucher_already_redeemed';
     end if;
-    ending := now() + make_interval(days => campaign.grant_days);
+    ending := case when campaign.grant_days is null then null else now() + make_interval(days => campaign.grant_days) end;
     insert into public.entitlement_grants (user_id, plan_id, source, starts_at, expires_at)
     values (target_user_id, campaign.plan_id, 'voucher', now(), ending)
     returning id into created_grant_id;
@@ -782,7 +838,7 @@ begin
   end if;
 
   select * into selected from public.vouchers
-  where code_hash = voucher_hash and status = 'available' and (expires_at is null or expires_at > now())
+  where code_hash = voucher_hash and kind in ('days', 'lifetime') and status = 'available' and (expires_at is null or expires_at > now())
   for update skip locked;
   if selected.id is null then raise exception 'voucher_unavailable'; end if;
   ending := case when selected.grant_days is null then null else now() + make_interval(days => selected.grant_days) end;
@@ -796,6 +852,127 @@ end;
 $$;
 revoke all on function public.redeem_voucher(uuid, text) from public, anon, authenticated;
 grant execute on function public.redeem_voucher(uuid, text) to service_role;
+
+-- Reserve a discount voucher before creating a Stripe Checkout Session -- idempotent per
+-- (user_id, request_id), so a retry with the same request_id hands back the same reservation
+-- instead of double-reserving. Capacity checks count active 'pending' reservations alongside
+-- redemption_count so concurrent in-flight checkouts can't oversell a limited campaign.
+create or replace function public.reserve_voucher_discount(
+  target_user_id uuid, voucher_hash text, request_id_input uuid, reservation_ttl_minutes integer default 35
+)
+returns table(
+  kind text, label text, target_plan_id uuid,
+  percent_off integer, amount_off_minor bigint, discount_currency text
+)
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  campaign public.voucher_campaigns%rowtype;
+  selected public.vouchers%rowtype;
+  existing public.voucher_reservations%rowtype;
+  active_count integer;
+begin
+  if voucher_hash !~ '^[a-f0-9]{64}$' or request_id_input is null then raise exception 'voucher_unavailable'; end if;
+
+  select * into existing from public.voucher_reservations
+  where user_id = target_user_id and request_id = request_id_input and status = 'pending';
+  if existing.id is not null then
+    if existing.campaign_id is not null then
+      select * into campaign from public.voucher_campaigns where id = existing.campaign_id;
+      return query select campaign.kind, campaign.label, campaign.plan_id, campaign.discount_percent_off, campaign.discount_amount_off_minor, campaign.discount_currency;
+      return;
+    else
+      select * into selected from public.vouchers where id = existing.voucher_id;
+      return query select selected.kind, selected.label, selected.plan_id, selected.discount_percent_off, selected.discount_amount_off_minor, selected.discount_currency;
+      return;
+    end if;
+  end if;
+
+  select * into campaign from public.voucher_campaigns
+  where code_hash = voucher_hash and kind = 'discount' and enabled and (expires_at is null or expires_at > now())
+  for update;
+  if campaign.id is not null then
+    update public.voucher_reservations set status = 'released', released_at = now()
+    where campaign_id = campaign.id and status = 'pending' and expires_at < now();
+    if exists (select 1 from public.voucher_reservations where campaign_id = campaign.id and user_id = target_user_id and status in ('pending', 'completed')) then
+      raise exception 'voucher_already_redeemed';
+    end if;
+    select count(*) into active_count from public.voucher_reservations where campaign_id = campaign.id and status = 'pending';
+    if campaign.maximum_redemptions is not null and (campaign.redemption_count + active_count) >= campaign.maximum_redemptions then
+      raise exception 'voucher_unavailable';
+    end if;
+    insert into public.voucher_reservations (user_id, request_id, campaign_id, expires_at)
+    values (target_user_id, request_id_input, campaign.id, now() + make_interval(mins => reservation_ttl_minutes));
+    return query select campaign.kind, campaign.label, campaign.plan_id, campaign.discount_percent_off, campaign.discount_amount_off_minor, campaign.discount_currency;
+    return;
+  end if;
+
+  select * into selected from public.vouchers
+  where code_hash = voucher_hash and kind = 'discount' and status = 'available' and (expires_at is null or expires_at > now())
+  for update skip locked;
+  if selected.id is null then raise exception 'voucher_unavailable'; end if;
+  update public.voucher_reservations set status = 'released', released_at = now()
+  where voucher_id = selected.id and status = 'pending' and expires_at < now();
+  if exists (select 1 from public.voucher_reservations where voucher_id = selected.id and status = 'pending') then
+    raise exception 'voucher_unavailable';
+  end if;
+  insert into public.voucher_reservations (user_id, request_id, voucher_id, expires_at)
+  values (target_user_id, request_id_input, selected.id, now() + make_interval(mins => reservation_ttl_minutes));
+  return query select selected.kind, selected.label, selected.plan_id, selected.discount_percent_off, selected.discount_amount_off_minor, selected.discount_currency;
+end;
+$$;
+revoke all on function public.reserve_voucher_discount(uuid, text, uuid, integer) from public, anon, authenticated;
+grant execute on function public.reserve_voucher_discount(uuid, text, uuid, integer) to service_role;
+
+-- Called by the Stripe webhook on checkout.session.expired (or right after a reservation if
+-- session creation itself then fails) so an abandoned discount voucher isn't stuck reserved.
+create or replace function public.release_voucher_reservation(request_id_input uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  update public.voucher_reservations set status = 'released', released_at = now()
+  where request_id = request_id_input and status = 'pending';
+  return found;
+end;
+$$;
+revoke all on function public.release_voucher_reservation(uuid) from public, anon, authenticated;
+grant execute on function public.release_voucher_reservation(uuid) to service_role;
+
+-- Called by the Stripe webhook on checkout.session.completed, after the subscription itself has
+-- been synchronized -- this is the only place a discount voucher actually gets consumed.
+create or replace function public.finalize_voucher_reservation(request_id_input uuid)
+returns boolean
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare reservation public.voucher_reservations%rowtype;
+begin
+  select * into reservation from public.voucher_reservations where request_id = request_id_input and status = 'pending' for update;
+  if reservation.id is null then return false; end if;
+  if reservation.voucher_id is not null then
+    update public.vouchers set status = 'used', redeemed_by = reservation.user_id, redeemed_at = now()
+    where id = reservation.voucher_id and status <> 'used';
+  end if;
+  if reservation.campaign_id is not null then
+    update public.voucher_campaigns set redemption_count = redemption_count + 1 where id = reservation.campaign_id;
+  end if;
+  update public.voucher_reservations set status = 'completed', completed_at = now() where id = reservation.id;
+  insert into public.audit_logs (actor_id, action, target_type, target_id, reason, metadata)
+  values (reservation.user_id, 'voucher.discount_finalized',
+    case when reservation.voucher_id is not null then 'voucher' else 'voucher_campaign' end,
+    coalesce(reservation.voucher_id, reservation.campaign_id)::text,
+    'Stripe checkout completed with discount voucher', jsonb_build_object('request_id', request_id_input));
+  return true;
+end;
+$$;
+revoke all on function public.finalize_voucher_reservation(uuid) from public, anon, authenticated;
+grant execute on function public.finalize_voucher_reservation(uuid) to service_role;
 
 create or replace function public.activate_free_trial(target_user_id uuid)
 returns timestamptz
@@ -1007,6 +1184,7 @@ alter table public.license_activations enable row level security;
 alter table public.vouchers enable row level security;
 alter table public.voucher_campaigns enable row level security;
 alter table public.voucher_campaign_redemptions enable row level security;
+alter table public.voucher_reservations enable row level security;
 alter table public.referrals enable row level security;
 alter table public.referral_profiles enable row level security;
 alter table public.audit_logs enable row level security;
@@ -1089,6 +1267,9 @@ create policy "founder manages vouchers" on public.vouchers for all using (publi
 create policy "founder manages voucher_campaigns" on public.voucher_campaigns for all using (public.is_founder()) with check (public.is_founder());
 create policy "user reads own redemptions" on public.voucher_campaign_redemptions for select using (auth.uid() = user_id or public.is_founder());
 create policy "founder reads all redemptions" on public.voucher_campaign_redemptions for all using (public.is_founder()) with check (public.is_founder());
+-- No insert/update policy for authenticated/anon: only the security-definer RPCs write here.
+create policy "founder reads voucher_reservations" on public.voucher_reservations for select using (public.is_founder());
+create policy "user reads own voucher_reservations" on public.voucher_reservations for select using (auth.uid() = user_id or public.is_founder());
 
 -- referrals: user sees rows where they're the referrer or the referred
 create policy "user reads own referrals" on public.referrals for select using (auth.uid() = referrer_user_id or auth.uid() = referred_user_id or public.is_founder());

@@ -146,7 +146,12 @@ try {
   });
   const sharedBinding = urlBindings.find((binding) => binding.patterns.includes("https://shared.example.com/*"));
   if (!sharedBinding || sharedBinding.environmentIds.length !== 2) throw new Error(`Relational URL association failed: ${JSON.stringify(urlBindings)}`);
-  if (await options.locator('#urlRelationList .listRow').filter({ hasText: "https://shared.example.com/*" }).locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
+  // The URLs tab now groups bindings into one accordion per environment (see
+  // renderUrlRelationList), so a binding shared across two environments (like this one) renders
+  // once under EACH — two .listRow matches, not one — each still showing both environment badges.
+  const sharedBindingRows = options.locator('#urlRelationList .listRow').filter({ hasText: "https://shared.example.com/*" });
+  if (await sharedBindingRows.count() !== 2) throw new Error("Shared URL binding did not render once per linked environment accordion");
+  if (await sharedBindingRows.first().locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
   await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
   await options.evaluate(async () => {
     const next = await window.QTS_STORAGE.getWorkspace();
@@ -197,7 +202,10 @@ try {
   if (!hierarchy.clientText.includes("Cliente Demo")) throw new Error(`Client row is missing: ${JSON.stringify(hierarchy)}`);
   for (const expected of ["Webapp Demo", "Checkout", "QA"]) if (!hierarchy.contextText.includes(expected)) throw new Error(`Context is missing ${expected}: ${JSON.stringify(hierarchy)}`);
   if (!hierarchy.url.includes("http://127.0.0.1:43117/")) throw new Error(`Current URL pill is missing: ${JSON.stringify(hierarchy)}`);
-  if (hierarchy.height !== 48 || hierarchy.background !== "rgb(91, 33, 182)") throw new Error(`Toolbar layout/color mismatch: ${JSON.stringify(hierarchy)}`);
+  // Founder feedback made the bar hug its content (min-height + 2px top/bottom padding) instead
+  // of a fixed 48px box with a lot of empty space around the buttons — 37px is that new real
+  // rendered height with the actual toolbar content, not a regression.
+  if (hierarchy.height !== 37 || hierarchy.background !== "rgb(91, 33, 182)") throw new Error(`Toolbar layout/color mismatch: ${JSON.stringify(hierarchy)}`);
   await host.screenshot({ path: resolve(evidencePath, "extension-toolbar-hierarchy-url.png"), fullPage: false });
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
   await host.locator("#testStatusButton").click();
@@ -445,14 +453,21 @@ try {
   // Extra settings categories persist and secure export strips local secrets.
   await options.getByRole("button", { name: "Dados de teste" }).click();
   await options.locator('[data-open-composer="testAccountComposer"]').click();
-  await options.locator("#testAccountEnvironment").selectOption({ label: "QA" });
+  // Environment/product are now a floating multi-select combobox (four independent facets,
+  // see options.js's renderScopePicker) instead of a plain <select> — open the Ambientes facet,
+  // tick "QA", close it back.
+  await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
+  await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).locator("input").check();
+  await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#testAccountLabel").fill("Conta sandbox");
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
   await options.locator('[data-workspace-tab="payments"]').click();
   await options.locator('[data-open-composer="paymentMethodComposer"]').click();
-  await options.locator("#paymentMethodEnvironment").selectOption({ label: "QA" });
+  await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
+  await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).locator("input").check();
+  await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();

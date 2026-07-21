@@ -22,7 +22,7 @@ const extensionOrigins = (env.ALLOWED_EXTENSION_IDS ?? "").split(",").map((value
 const allowedOrigins = [...webOrigins, ...extensionOrigins];
 if (!allowedOrigins.length) throw new Error("ALLOWED_ORIGINS / ALLOWED_EXTENSION_IDS are empty");
 
-const functions = ["checkout-create-session", "stripe-webhook", "voucher-redeem", "referral-track", "keep-alive", "access-status", "auth-sign-in", "auth-refresh", "auth-recover-password", "admin-email-otp"];
+const functions = ["checkout-create-session", "stripe-webhook", "voucher-redeem", "voucher-preview", "referral-track", "keep-alive", "access-status", "auth-sign-in", "auth-refresh", "auth-recover-password", "admin-email-otp"];
 let assertions = 0;
 for (const functionName of functions) {
   const endpoint = `${baseUrl}/functions/v1/${functionName}`;

@@ -18,12 +18,18 @@ max_frequency = "1m"
 otp_length = 8
 otp_expiry = 3600
 
+# Supabase's project-wide email send cap has a fixed 1-hour window (not configurable) — this
+# raises how many emails fit in that hour so QA testing (repeated signups/OTP requests) stops
+# tripping "over_email_send_rate_limit" like it did on 2026-07-21.
+[auth.rate_limit]
+email_sent = 100
+
 # Routes every Supabase Auth email (recovery, confirmations, etc.) through Resend instead of
 # Supabase's own default mailer — lifts its very low built-in rate limit and lets the template
 # below actually control how these emails look. `pass` is read from the RESEND_API_KEY
 # environment variable at `supabase config push` time (see .env) — never hardcoded here, since
-# this file is committed to git. Sender stays on Resend's shared onboarding@resend.dev domain
-# until a real domain is verified in the Resend dashboard; until then, Resend only delivers to
+# this file is committed to git. Sender uses the matheusbonotto.com.br domain verified in the
+# Resend dashboard — until that verification finishes, Resend falls back to delivering only to
 # the account's own registered email address, not to arbitrary real users.
 [auth.email.smtp]
 enabled = true
@@ -31,7 +37,7 @@ host = "smtp.resend.com"
 port = 465
 user = "resend"
 pass = "env(RESEND_API_KEY)"
-admin_email = "onboarding@resend.dev"
+admin_email = "no-reply@matheusbonotto.com.br"
 sender_name = "QA Toolbar Sandbox"
 
 [auth.email.template.recovery]
@@ -52,6 +58,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.voucher-redeem]
+verify_jwt = false
+
+[functions.voucher-preview]
 verify_jwt = false
 
 [functions.referral-track]

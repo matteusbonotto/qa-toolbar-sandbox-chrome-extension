@@ -20,7 +20,7 @@ function relation<T>(value: T | T[] | null | undefined): T | null {
 serve(async (request) => {
   requirePost(request);
   const user = await authenticatedUser(request);
-  await enforceRateLimit(user.id, "access-status", 120, 3_600);
+  await enforceRateLimit(user.id, "access-status", 300, 3_600);
 
   const admin = adminClient();
   const now = new Date().toISOString();

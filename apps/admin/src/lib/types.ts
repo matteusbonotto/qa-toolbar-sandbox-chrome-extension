@@ -62,12 +62,18 @@ export interface EntitlementGrant {
 
 export type VoucherStatus = "available" | "used" | "disabled";
 
+export type VoucherKind = "discount" | "days" | "lifetime";
+
 export interface Voucher {
   id: string;
   code_hash: string;
   label: string;
-  plan_id: string;
+  kind: VoucherKind;
+  plan_id: string | null;
   grant_days: number | null;
+  discount_percent_off: number | null;
+  discount_amount_off_minor: number | null;
+  discount_currency: string | null;
   status: VoucherStatus;
   expires_at: string | null;
   redeemed_by: string | null;
@@ -80,8 +86,12 @@ export interface VoucherCampaign {
   id: string;
   code_hash: string;
   label: string;
-  plan_id: string;
-  grant_days: number;
+  kind: VoucherKind;
+  plan_id: string | null;
+  grant_days: number | null;
+  discount_percent_off: number | null;
+  discount_amount_off_minor: number | null;
+  discount_currency: string | null;
   maximum_redemptions: number | null;
   redemption_count: number;
   enabled: boolean;

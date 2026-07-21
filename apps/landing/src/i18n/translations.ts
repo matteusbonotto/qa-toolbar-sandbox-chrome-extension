@@ -119,6 +119,13 @@ export interface Dictionary {
     voucherAppliedSuffix: string;
     voucherErrorEmpty: string;
     voucherErrorInvalid: string;
+    voucherAlreadyRedeemed: string;
+    voucherPlanMismatch: string;
+    voucherPreviewBadge: string;
+    voucherPreviewLifetime: string;
+    voucherPreviewDays: string;
+    voucherPreviewDiscount: string;
+    voucherPreviewAnyPlan: string;
     recommendedBadge: string;
     perMonth: string;
     perYear: string;
@@ -129,6 +136,9 @@ export interface Dictionary {
     freeNote: string;
     ctaFree: string;
     ctaPaid: string;
+    ctaLifetime: string;
+    ctaDaysVoucher: string;
+    ctaDiscount: string;
     checkoutPending: string;
     accountTitle: string;
     accountLead: string;
@@ -227,23 +237,23 @@ const pt: Dictionary = {
     home: "Início",
     about: "Sobre",
     simulator: "Simulador",
-    semiauto: "Sabor automático",
+    semiauto: "Sabooor automático",
     features: "Ferramentas",
     pricing: "Planos",
     support: "Suporte",
     install: "Entrar",
   },
   hero: {
-    eyebrow: "QA Toolbar Sandbox",
+    eyebrow: "De QA para QA, ou melhor: para qualquer um",
     titleLine1: "Teste manual de verdade,",
     titleGradient: "sem se perder entre ambientes e projetos",
-    lead: "O QA Toolbar Sandbox roda direto na página que você já está testando: mostra sempre onde você está, registra evidências num clique e cuida do trabalho repetitivo — pra sua atenção sobrar pro que só um humano faz bem, que é pensar como testador.",
+    lead: "O QA Toolbar Sandbox roda direto na página que você já está testando: mostra sempre onde você está, registra evidências num clique e cuida do trabalho repetitivo, pra sua atenção sobrar pro que só um humano faz bem, que é pensar como testador.",
     ctaPricing: "Ver planos",
     ctaSimulate: "Simular agora",
   },
   simulator: {
-    hint: "Simule a troca de contexto e use as ferramentas de teste — tudo funciona de verdade aqui dentro.",
-    illustrationBadge: "Ilustração interativa — não é a extensão real instalada",
+    hint: "Simule a troca de contexto e use as ferramentas de teste: tudo funciona de verdade aqui dentro.",
+    illustrationBadge: "Ilustração interativa: não é a extensão real instalada",
     client: "Cliente",
     project: "Projeto",
     product: "Produto",
@@ -284,7 +294,7 @@ const pt: Dictionary = {
   toast: {
     screenshotCaptured: "Screenshot capturada.",
     recorded: (elapsed) => `Evidência gravada (${elapsed}).`,
-    clickSpyOn: "Click Spy ativo — passe o mouse pelos elementos da página.",
+    clickSpyOn: "Click Spy ativo: passe o mouse pelos elementos da página.",
     clickSpyOff: "Click Spy desativado.",
     freezeOn: "Relógio congelado no horário atual.",
     freezeOff: "Relógio retomado.",
@@ -292,17 +302,17 @@ const pt: Dictionary = {
     requestCaptured: "Requisição JSON capturada pelos Inspectors.",
     statusRecorded: (label) => `Status registrado: ${label}`,
     inspectorsCount: (count) => `${count} requisição(ões) capturada(s) até agora.`,
-    inspectorsEmpty: 'Nenhuma requisição capturada ainda — clique em "Simular requisição".',
+    inspectorsEmpty: 'Nenhuma requisição capturada ainda. Clique em "Simular requisição".',
     jsonStudio: "JSON Studio: disponível na extensão completa.",
     breakpointViewer: "Breakpoint Viewer em tela cheia: disponível na extensão completa.",
   },
   about: {
     eyebrow: "O que é",
     title: "Uma barra de QA que mora dentro da sua página",
-    lead: "O QA Toolbar Sandbox é uma extensão de navegador que injeta uma barra de contexto e um kit de ferramentas de teste em qualquer site: marque o cliente, projeto, produto e ambiente que você está testando, registre evidências (screenshots, gravações, marcadores visuais), inspecione requisições de rede, congele o relógio, force respostas HTTP e emule breakpoints — tudo sem sair da aba.",
+    lead: "O QA Toolbar Sandbox é uma extensão de navegador que injeta uma barra de contexto e um kit de ferramentas de teste em qualquer site: marque o cliente, projeto, produto e ambiente que você está testando, registre evidências (screenshots, gravações, marcadores visuais), inspecione requisições de rede, congele o relógio, force respostas HTTP e emule breakpoints, tudo sem sair da aba.",
     mission: {
       title: "Missão",
-      body: "Dar a cada pessoa que testa software uma barra de contexto sempre à mão — sem depender de planilhas, abas extras ou memória para saber onde e o que está sendo validado.",
+      body: "Dar a cada pessoa que testa software uma barra de contexto sempre à mão, sem depender de planilhas, abas extras ou memória para saber onde e o que está sendo validado.",
     },
     vision: {
       title: "Visão",
@@ -310,20 +320,20 @@ const pt: Dictionary = {
     },
     values: {
       title: "Valores",
-      body: "Transparência nas evidências, respeito pelo julgamento humano, e automação que acelera — nunca substitui — o senso crítico de quem testa.",
+      body: "Transparência nas evidências, respeito pelo julgamento humano, e automação que acelera, nunca substitui, o senso crítico de quem testa.",
     },
   },
   semiauto: {
     eyebrow: "Teste Semi-automático",
     titleLine1: "Testes manuais com",
-    titleGradient: "sabor automático",
-    body: "A gente não tira o humano da jogada — só acelera ele. O QA Toolbar Sandbox cuida do trabalho repetitivo (contexto, evidências, captura de rede, timers) enquanto você mantém o olhar crítico que nenhuma automação substitui. É teste manual, com sabor automático.",
-    gifAlt: "Sabor energético, sabor automático",
+    titleGradient: "sabooor automático",
+    body: "A gente não tira o humano da jogada, só acelera ele. O QA Toolbar Sandbox cuida do trabalho repetitivo (contexto, evidências, captura de rede, timers) enquanto você mantém o olhar crítico que nenhuma automação substitui. É teste manual, com sabooor automático.",
+    gifAlt: "Sabor energético, sabooor automático",
   },
   features: {
     eyebrow: "Ferramentas",
     title: "O que muda no seu dia de testes",
-    lead: "O ganho real não é a quantidade de recursos — é nunca mais se perder entre abas de ambientes e projetos diferentes enquanto testa manualmente. Cada grupo abaixo é o que está de verdade no menu Tools da extensão; clique para abrir e ver como funciona.",
+    lead: "O ganho real não é a quantidade de recursos, é nunca mais se perder entre abas de ambientes e projetos diferentes enquanto testa manualmente. Cada grupo abaixo é o que está de verdade no menu Tools da extensão; clique para abrir e ver como funciona.",
     groups: {
       evidence: {
         title: "Evidências e resultado do teste",
@@ -339,7 +349,7 @@ const pt: Dictionary = {
       },
       macroStudio: {
         title: "Automação declarativa",
-        description: "Grave uma vez, reproduza sempre — sem escrever uma linha de código.",
+        description: "Grave uma vez, reproduza sempre, sem escrever uma linha de código.",
       },
       keyView: {
         title: "Key View",
@@ -358,17 +368,17 @@ const pt: Dictionary = {
       testStatus: {
         title: "Test Status",
         short: "Marca Pass, Fail, Blocked ou Limitation em um clique.",
-        details: "Um menu com quatro status (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) registra o resultado do caso de teste direto na página, com a URL e o horário — sem precisar copiar isso à mão para uma planilha ou ferramenta externa enquanto o contexto ainda está fresco na tela.",
+        details: "Um menu com quatro status (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) registra o resultado do caso de teste direto na página, com a URL e o horário, sem precisar copiar isso à mão para uma planilha ou ferramenta externa enquanto o contexto ainda está fresco na tela.",
       },
       passFail: {
         title: "Marcadores Pass/Fail",
         short: "Aponte exatamente onde um elemento passou ou falhou.",
-        details: "Clique em qualquer ponto da página para deixar um marcador visual de ✓ ou ✕ ali mesmo — ótimo para apontar precisamente qual botão, campo ou seção falhou antes de tirar o screenshot de evidência, sem precisar desenhar isso depois numa ferramenta de imagem.",
+        details: "Clique em qualquer ponto da página para deixar um marcador visual de ✓ ou ✕ ali mesmo, ótimo para apontar precisamente qual botão, campo ou seção falhou antes de tirar o screenshot de evidência, sem precisar desenhar isso depois numa ferramenta de imagem.",
       },
       notesShapes: {
         title: "Notas e formas",
         short: "Anotações de texto e destaques desenhados sobre a página.",
-        details: "Notas de texto arrastáveis e formas de destaque ficam sobrepostas à página real, permitindo documentar um bug com contexto visual completo — sem precisar de outra aba pra escrever a descrição do problema.",
+        details: "Notas de texto arrastáveis e formas de destaque ficam sobrepostas à página real, permitindo documentar um bug com contexto visual completo, sem precisar de outra aba pra escrever a descrição do problema.",
       },
       screenshot: {
         title: "Screenshot",
@@ -378,22 +388,27 @@ const pt: Dictionary = {
       recording: {
         title: "Gravação de evidências",
         short: "Grava a tela em vídeo enquanto você testa.",
-        details: "Inicia e para a gravação de vídeo (MP4/GIF conforme o plano) direto da barra, sem precisar de um software de gravação de tela separado rodando em paralelo — a evidência sai pronta pra anexar.",
+        details: "Inicia e para a gravação de vídeo (MP4/GIF conforme o plano) direto da barra, sem precisar de um software de gravação de tela separado rodando em paralelo, a evidência sai pronta pra anexar.",
       },
       inspectors: {
         title: "Inspectors",
         short: "Lista ao vivo das respostas de API relevantes para o seu teste.",
-        details: "Captura chamadas de rede que batem com padrões de URL que você configura por ambiente — só o que importa para o seu teste aparece, filtrável por método, status e origem, sem o ruído de uma aba de Network genérica do navegador.",
+        details: "Captura chamadas de rede que batem com padrões de URL que você configura por ambiente, só o que importa para o seu teste aparece, filtrável por método, status e origem, sem o ruído de uma aba de Network genérica do navegador.",
       },
       jsonStudio: {
         title: "JSON Studio",
         short: "Formata, comprime e copia payloads JSON.",
-        details: "Abre qualquer resposta capturada já formatada e legível, com atalho para compactar ou copiar — sem precisar colar o JSON cru em um site externo de formatação toda vez que precisar ler uma resposta de API.",
+        details: "Abre qualquer resposta capturada já formatada e legível, com atalho para compactar ou copiar, sem precisar colar o JSON cru em um site externo de formatação toda vez que precisar ler uma resposta de API.",
       },
       forceHttp: {
         title: "Force HTTP",
         short: "Simula respostas de erro (400, 404, 500...) sob demanda.",
         details: "Força a próxima resposta de rede a simular um status de erro específico, pra testar como a tela se comporta em cenários de falha sem precisar derrubar o backend ou esperar um erro acontecer de verdade.",
+      },
+      errorMonitor: {
+        title: "Error Monitor",
+        short: "Registra automaticamente os erros HTTP que acontecerem na página.",
+        details: "Mostra em tempo real, com contador na barra, toda resposta de rede com status de erro que a página realmente disparar, sem precisar configurar nada, filtrável por status e origem, pra você notar uma falha silenciosa antes que ela vire bug reportado por outra pessoa.",
       },
       freezeClock: {
         title: "Freeze Clock",
@@ -413,42 +428,42 @@ const pt: Dictionary = {
       characterCounter: {
         title: "Contador de caracteres",
         short: "Conta caracteres, palavras, linhas e bytes UTF-8.",
-        details: "Mede o texto selecionado na página (ou qualquer texto colado) com e sem espaços — direto na barra, sem abrir uma calculadora de caracteres em outra aba pra validar limite de campo.",
+        details: "Mede o texto selecionado na página (ou qualquer texto colado) com e sem espaços, direto na barra, sem abrir uma calculadora de caracteres em outra aba pra validar limite de campo.",
       },
       multiClick: {
         title: "Multiclick",
         short: "Clica no mesmo elemento várias vezes, no intervalo que você definir.",
-        details: "Selecione visualmente um elemento, escolha de 2 a 100 cliques e o intervalo entre eles — útil pra testar debounce, double-submit e comportamento sob cliques repetidos sem ficar clicando manualmente.",
+        details: "Selecione visualmente um elemento, escolha de 2 a 100 cliques e o intervalo entre eles, útil pra testar debounce, double-submit e comportamento sob cliques repetidos sem ficar clicando manualmente.",
       },
       inputLab: {
         title: "Input Lab",
         short: "Testa um campo com texto, número, Unicode e excesso de caracteres.",
-        details: "Roda um kit de validação (vazio, texto, número, caracteres especiais, Unicode, limite excedido) num input selecionado, sem enviar o formulário, e restaura o valor original ao final — cobre casos de borda que normalmente exigiriam digitar cada um manualmente.",
+        details: "Roda um kit de validação (vazio, texto, número, caracteres especiais, Unicode, limite excedido) num input selecionado, sem enviar o formulário, e restaura o valor original ao final, cobre casos de borda que normalmente exigiriam digitar cada um manualmente.",
       },
       fakerFill: {
         title: "Faker Fill",
         short: "Preenche a página ou um formulário com dados sintéticos realistas.",
-        details: "Preenche automaticamente nome, e-mail, endereço e outros campos comuns com dados fictícios plausíveis, pulando sempre senha, cartão, CVV, token e segredo — acelera o preenchimento repetitivo sem tocar em dado sensível.",
+        details: "Preenche automaticamente nome, e-mail, endereço e outros campos comuns com dados fictícios plausíveis, pulando sempre senha, cartão, CVV, token e segredo, acelera o preenchimento repetitivo sem tocar em dado sensível.",
       },
       macroStudio: {
         title: "Macro Studio",
         short: "Grava uma sequência de ações e reproduz depois, quando quiser.",
-        details: "Grava clique, digitação, seleção, checkbox e tecla enquanto você navega normalmente; revise o fluxo no modo Vibe Code (arrastar e soltar), salve, fixe no menu para reexecutar em um clique, e use o Coder para copiar a mesma sequência como um teste Playwright real — sem escrever nenhuma linha de código para gravar e reproduzir.",
+        details: "Grava clique, digitação, seleção, checkbox e tecla enquanto você navega normalmente; revise o fluxo no modo Vibe Code (arrastar e soltar), salve, fixe no menu para reexecutar em um clique, e use o Coder para copiar a mesma sequência como um teste Playwright real, sem escrever nenhuma linha de código para gravar e reproduzir.",
       },
       keyView: {
         title: "Key View",
         short: "Mostra na tela os atalhos de teclado e cliques do mouse em tempo real.",
-        details: "Exibe combinações de teclado (ex.: Ctrl+V) como teclas com efeito 3D que desaparecem sozinhas, um modo Typing que acumula o que foi digitado até você limpar, e um indicador visual de clique esquerdo/direito/meio e scroll — ideal para gravações e demonstrações onde a plateia precisa ver exatamente o que você está fazendo.",
+        details: "Exibe combinações de teclado (ex.: Ctrl+V) como teclas com efeito 3D que desaparecem sozinhas, um modo Typing que acumula o que foi digitado até você limpar, e um indicador visual de clique esquerdo/direito/meio e scroll, ideal para gravações e demonstrações onde a plateia precisa ver exatamente o que você está fazendo.",
       },
       elementCapture: {
         title: "Capturar Elementos",
         short: "Exporta um CSV com todos os elementos interativos da página, prontos para automação.",
-        details: "Escaneia a página atual e gera um CSV com tag, tipo, name, id, seletor CSS único, XPath, texto/label visível e placeholder de cada elemento interativo (links, botões, inputs, selects) — pronto para acelerar a criação de testes de automação. Nenhum valor digitado é exportado; campos sensíveis (senha, cartão, token) são marcados, nunca capturados.",
+        details: "Escaneia a página atual e gera um CSV com tag, tipo, name, id, seletor CSS único, XPath, texto/label visível e placeholder de cada elemento interativo (links, botões, inputs, selects), pronto para acelerar a criação de testes de automação. Nenhum valor digitado é exportado; campos sensíveis (senha, cartão, token) são marcados, nunca capturados.",
       },
       testAccounts: {
         title: "Contas de teste",
         short: "Credenciais sandbox por ambiente, sempre mascaradas.",
-        details: "Guarda usuário e senha de teste vinculados ao ambiente ativo, mascarados na barra e nunca incluídos na exportação — acaba com a busca por credencial de teste perdida numa nota ou planilha compartilhada.",
+        details: "Guarda usuário e senha de teste vinculados ao ambiente ativo, mascarados na barra e nunca incluídos na exportação, acaba com a busca por credencial de teste perdida numa nota ou planilha compartilhada.",
       },
       paymentMethods: {
         title: "Meios de pagamento",
@@ -458,7 +473,7 @@ const pt: Dictionary = {
       resources: {
         title: "Recursos e links",
         short: "Atalhos para documentação e ferramentas do projeto, direto no menu.",
-        details: "Guarda links úteis (documentação, board, ambiente de staging) associados ao ambiente ativo, com URL validada antes de abrir — menos abas fixadas manualmente no navegador para lembrar onde estava cada coisa.",
+        details: "Guarda links úteis (documentação, board, ambiente de staging) associados ao ambiente ativo, com URL validada antes de abrir, menos abas fixadas manualmente no navegador para lembrar onde estava cada coisa.",
       },
     },
   },
@@ -471,6 +486,13 @@ const pt: Dictionary = {
     voucherAppliedSuffix: "aplicado",
     voucherErrorEmpty: "Digite um código de voucher.",
     voucherErrorInvalid: "Voucher inválido ou expirado.",
+    voucherAlreadyRedeemed: "Você já resgatou este voucher.",
+    voucherPlanMismatch: "Esse voucher é para outro plano. Escolha o plano indicado abaixo.",
+    voucherPreviewBadge: "Voucher aplicado",
+    voucherPreviewLifetime: "Acesso vitalício ao plano {plan}.",
+    voucherPreviewDays: "{days} dias grátis no plano {plan}.",
+    voucherPreviewDiscount: "{value} de desconto no plano {plan}.",
+    voucherPreviewAnyPlan: "que você escolher",
     recommendedBadge: "Melhor custo-benefício",
     perMonth: "por mês",
     perYear: "por ano",
@@ -481,6 +503,9 @@ const pt: Dictionary = {
     freeNote: "Grátis por 30 dias, depois escolha um plano",
     ctaFree: "Começar grátis",
     ctaPaid: "Assinar",
+    ctaLifetime: "Ativar acesso vitalício",
+    ctaDaysVoucher: "{days} dias grátis",
+    ctaDiscount: "Assinar com desconto",
     checkoutPending: "Pagamento recebido. Estamos confirmando seu acesso.",
     accountTitle: "Sua conta",
     accountLead: "Acesse seus planos, vouchers e a extensão com o mesmo e-mail.",
@@ -510,7 +535,7 @@ const pt: Dictionary = {
     downloadExtensionZip: "Baixar extensão (.zip)",
     downloadExtensionHint: "Não quer esperar a análise da Chrome Web Store? Baixe o pacote, abra chrome://extensions, ative o Modo do desenvolvedor e clique em \"Carregar sem compactação\".",
     packageVersionLine: "Versão atual do pacote: v{version}",
-    storeReviewPendingNotice: "Em breve na Chrome Web Store — em análise do Google.",
+    storeReviewPendingNotice: "Em breve na Chrome Web Store: em análise do Google.",
     paymentProcessing: "Pagamento recebido. Estamos confirmando seu acesso.",
     paymentCanceled: "Checkout cancelado. Nenhuma liberação foi feita.",
     checkoutFailed: "Não foi possível concluir esta etapa. Revise os dados e tente novamente.",
@@ -522,7 +547,7 @@ const pt: Dictionary = {
     alreadySubscribed: "Você já tem uma assinatura ativa. Para trocar de plano, fale com o suporte.",
     currentPlanBadge: "Seu plano atual",
     currentPlanCta: "Plano atual",
-    unavailableWhileSubscribed: "Indisponível — assinatura ativa",
+    unavailableWhileSubscribed: "Indisponível: assinatura ativa",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -575,11 +600,11 @@ const pt: Dictionary = {
   support: {
     eyebrow1: "Suporte & sugestões",
     title1: "Achou um bug ou tem uma ideia?",
-    body1: "Toda sugestão vira roadmap. Escreva para contato@matheusbonotto.com.br com o máximo de contexto possível — print, passos, e o que você esperava ver.",
+    body1: "Toda sugestão vira roadmap. Escreva para contato@matheusbonotto.com.br com o máximo de contexto possível: print, passos, e o que você esperava ver.",
     cta1: "Enviar mensagem",
     eyebrow2: "Projeto personalizado",
     title2: "Precisa de algo sob medida?",
-    body2: "Integrações, workspaces corporativos, SSO, relatórios customizados — conte o que seu time precisa e construímos uma proposta específica.",
+    body2: "Integrações, workspaces corporativos, SSO, relatórios customizados: conte o que seu time precisa e construímos uma proposta específica.",
     cta2: "Falar sobre meu projeto",
   },
   footer: {
@@ -599,12 +624,12 @@ const pt: Dictionary = {
       { name: "storage", reason: "Guardar seu workspace (clientes, projetos, produtos, ambientes) localmente no navegador, sem enviar para servidores externos." },
       { name: "scripting", reason: "Injetar a barra de QA e as ferramentas de teste na página que você está visitando, sob seu comando." },
       { name: "activeTab / tabs", reason: "Saber em qual aba a barra deve aparecer e capturar screenshots da aba ativa quando você aciona o botão de evidência." },
-      { name: "host_permissions (todos os sites)", reason: "Permitir que você use a extensão em qualquer site por padrão — você pode restringir isso nas configurações da extensão." },
+      { name: "host_permissions (todos os sites)", reason: "Permitir que você use a extensão em qualquer site por padrão. Você pode restringir isso nas configurações da extensão." },
     ],
     dataTitle: "Onde ficam seus dados",
     dataBody: "Clientes, projetos, produtos, ambientes e evidências que você cria ficam armazenados localmente no seu navegador (chrome.storage.local), atrelados ao seu perfil de usuário do Chrome. Não coletamos nem transmitimos o conteúdo do seu workspace para nossos servidores.",
     accountTitle: "Conta e cobrança",
-    accountBody: "Ao criar uma conta — seja pela landing page ou pela extensão — coletamos seu e-mail e informações de pagamento processadas diretamente pelo Stripe (nunca armazenamos dados de cartão em nossos servidores). Ao continuar, você consente com esta política e com os termos de uso. Você pode excluir sua conta a qualquer momento em Configurações → Minha conta: isso cancela imediatamente uma assinatura ativa e apaga seus dados pessoais; registros financeiros são mantidos apenas de forma anonimizada, pelo tempo exigido por obrigação fiscal.",
+    accountBody: "Ao criar uma conta (seja pela landing page ou pela extensão), coletamos seu e-mail e informações de pagamento processadas diretamente pelo Stripe (nunca armazenamos dados de cartão em nossos servidores). Ao continuar, você consente com esta política e com os termos de uso. Você pode excluir sua conta a qualquer momento em Configurações → Minha conta: isso cancela imediatamente uma assinatura ativa e apaga seus dados pessoais; registros financeiros são mantidos apenas de forma anonimizada, pelo tempo exigido por obrigação fiscal.",
     contactTitle: "Contato",
     contactBody: "Dúvidas sobre privacidade? Escreva para contato@matheusbonotto.com.br.",
   },
@@ -638,16 +663,16 @@ const es: Dictionary = {
     install: "Entrar",
   },
   hero: {
-    eyebrow: "QA Toolbar Sandbox",
+    eyebrow: "De QA para QA, o mejor dicho: para cualquier persona",
     titleLine1: "Pruebas manuales de verdad,",
     titleGradient: "sin perderte entre entornos y proyectos",
-    lead: "QA Toolbar Sandbox corre directo en la página que ya estás probando: siempre muestra dónde estás, registra evidencias con un clic y se encarga del trabajo repetitivo — para que tu atención quede libre para lo que solo un humano hace bien: pensar como tester.",
+    lead: "QA Toolbar Sandbox corre directo en la página que ya estás probando: siempre muestra dónde estás, registra evidencias con un clic y se encarga del trabajo repetitivo, para que tu atención quede libre para lo que solo un humano hace bien: pensar como tester.",
     ctaPricing: "Ver planes",
     ctaSimulate: "Simular ahora",
   },
   simulator: {
-    hint: "Simula el cambio de contexto y usa las herramientas de prueba — todo funciona de verdad aquí dentro.",
-    illustrationBadge: "Ilustración interactiva — no es la extensión real instalada",
+    hint: "Simula el cambio de contexto y usa las herramientas de prueba: todo funciona de verdad aquí dentro.",
+    illustrationBadge: "Ilustración interactiva: no es la extensión real instalada",
     client: "Cliente",
     project: "Proyecto",
     product: "Producto",
@@ -688,7 +713,7 @@ const es: Dictionary = {
   toast: {
     screenshotCaptured: "Captura de pantalla realizada.",
     recorded: (elapsed) => `Evidencia grabada (${elapsed}).`,
-    clickSpyOn: "Click Spy activo — pasa el mouse por los elementos de la página.",
+    clickSpyOn: "Click Spy activo: pasa el mouse por los elementos de la página.",
     clickSpyOff: "Click Spy desactivado.",
     freezeOn: "Reloj congelado en la hora actual.",
     freezeOff: "Reloj reanudado.",
@@ -696,17 +721,17 @@ const es: Dictionary = {
     requestCaptured: "Solicitud JSON capturada por los Inspectors.",
     statusRecorded: (label) => `Estado registrado: ${label}`,
     inspectorsCount: (count) => `${count} solicitud(es) capturada(s) hasta ahora.`,
-    inspectorsEmpty: 'Ninguna solicitud capturada todavía — haz clic en "Simular solicitud".',
+    inspectorsEmpty: 'Ninguna solicitud capturada todavía. Haz clic en "Simular solicitud".',
     jsonStudio: "JSON Studio: disponible en la extensión completa.",
     breakpointViewer: "Breakpoint Viewer a pantalla completa: disponible en la extensión completa.",
   },
   about: {
     eyebrow: "Qué es",
     title: "Una barra de QA que vive dentro de tu página",
-    lead: "QA Toolbar Sandbox es una extensión de navegador que inyecta una barra de contexto y un kit de herramientas de prueba en cualquier sitio: marca el cliente, proyecto, producto y entorno que estás probando, registra evidencias (capturas, grabaciones, marcadores visuales), inspecciona solicitudes de red, congela el reloj, fuerza respuestas HTTP y emula breakpoints — todo sin salir de la pestaña.",
+    lead: "QA Toolbar Sandbox es una extensión de navegador que inyecta una barra de contexto y un kit de herramientas de prueba en cualquier sitio: marca el cliente, proyecto, producto y entorno que estás probando, registra evidencias (capturas, grabaciones, marcadores visuales), inspecciona solicitudes de red, congela el reloj, fuerza respuestas HTTP y emula breakpoints, todo sin salir de la pestaña.",
     mission: {
       title: "Misión",
-      body: "Dar a cada persona que prueba software una barra de contexto siempre a mano — sin depender de hojas de cálculo, pestañas extra o memoria para saber qué se está validando.",
+      body: "Dar a cada persona que prueba software una barra de contexto siempre a mano, sin depender de hojas de cálculo, pestañas extra o memoria para saber qué se está validando.",
     },
     vision: {
       title: "Visión",
@@ -714,20 +739,20 @@ const es: Dictionary = {
     },
     values: {
       title: "Valores",
-      body: "Transparencia en las evidencias, respeto por el juicio humano, y automatización que acelera — nunca sustituye — el sentido crítico de quien prueba.",
+      body: "Transparencia en las evidencias, respeto por el juicio humano, y automatización que acelera, nunca sustituye, el sentido crítico de quien prueba.",
     },
   },
   semiauto: {
     eyebrow: "Prueba Semi-automática",
     titleLine1: "Pruebas manuales con",
     titleGradient: "sabor automático",
-    body: "No sacamos al humano de la jugada — solo lo aceleramos. QA Toolbar Sandbox se encarga del trabajo repetitivo (contexto, evidencias, captura de red, temporizadores) mientras tú mantienes la mirada crítica que ninguna automatización sustituye. Es prueba manual, con sabor automático.",
+    body: "No sacamos al humano de la jugada, solo lo aceleramos. QA Toolbar Sandbox se encarga del trabajo repetitivo (contexto, evidencias, captura de red, temporizadores) mientras tú mantienes la mirada crítica que ninguna automatización sustituye. Es prueba manual, con sabor automático.",
     gifAlt: "Sabor energético, sabor automático",
   },
   features: {
     eyebrow: "Herramientas",
     title: "Lo que cambia en tu día de pruebas",
-    lead: "La ganancia real no es la cantidad de funciones — es no volver a perderte entre pestañas de distintos entornos y proyectos mientras pruebas manualmente. Cada grupo de abajo es lo que realmente está en el menú Tools de la extensión; haz clic para ver cómo funciona.",
+    lead: "La ganancia real no es la cantidad de funciones, es no volver a perderte entre pestañas de distintos entornos y proyectos mientras pruebas manualmente. Cada grupo de abajo es lo que realmente está en el menú Tools de la extensión; haz clic para ver cómo funciona.",
     groups: {
       evidence: {
         title: "Evidencias y resultado de la prueba",
@@ -743,7 +768,7 @@ const es: Dictionary = {
       },
       macroStudio: {
         title: "Automatización declarativa",
-        description: "Graba una vez, reproduce siempre — sin escribir una línea de código.",
+        description: "Graba una vez, reproduce siempre, sin escribir una línea de código.",
       },
       keyView: {
         title: "Key View",
@@ -762,17 +787,17 @@ const es: Dictionary = {
       testStatus: {
         title: "Test Status",
         short: "Marca Pass, Fail, Blocked o Limitation con un clic.",
-        details: "Un menú con cuatro estados (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) registra el resultado del caso de prueba directo en la página, con la URL y la hora — sin copiarlo a mano a una hoja de cálculo mientras el contexto sigue fresco en pantalla.",
+        details: "Un menú con cuatro estados (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) registra el resultado del caso de prueba directo en la página, con la URL y la hora, sin copiarlo a mano a una hoja de cálculo mientras el contexto sigue fresco en pantalla.",
       },
       passFail: {
         title: "Marcadores Pass/Fail",
         short: "Señala exactamente dónde un elemento pasó o falló.",
-        details: "Haz clic en cualquier punto de la página para dejar un marcador visual de ✓ o ✕ ahí mismo — ideal para apuntar con precisión qué botón, campo o sección falló antes de tomar la captura de evidencia.",
+        details: "Haz clic en cualquier punto de la página para dejar un marcador visual de ✓ o ✕ ahí mismo, ideal para apuntar con precisión qué botón, campo o sección falló antes de tomar la captura de evidencia.",
       },
       notesShapes: {
         title: "Notas y formas",
         short: "Anotaciones de texto y resaltados dibujados sobre la página.",
-        details: "Notas de texto arrastrables y formas de resaltado se superponen a la página real, permitiendo documentar un bug con contexto visual completo — sin necesitar otra pestaña para escribir la descripción del problema.",
+        details: "Notas de texto arrastrables y formas de resaltado se superponen a la página real, permitiendo documentar un bug con contexto visual completo, sin necesitar otra pestaña para escribir la descripción del problema.",
       },
       screenshot: {
         title: "Captura de pantalla",
@@ -782,22 +807,27 @@ const es: Dictionary = {
       recording: {
         title: "Grabación de evidencias",
         short: "Graba la pantalla en video mientras pruebas.",
-        details: "Inicia y detiene la grabación de video (MP4/GIF según el plan) directo desde la barra, sin necesitar un software de grabación aparte — la evidencia queda lista para adjuntar.",
+        details: "Inicia y detiene la grabación de video (MP4/GIF según el plan) directo desde la barra, sin necesitar un software de grabación aparte, la evidencia queda lista para adjuntar.",
       },
       inspectors: {
         title: "Inspectors",
         short: "Lista en vivo de las respuestas de API relevantes para tu prueba.",
-        details: "Captura llamadas de red que coinciden con patrones de URL configurados por entorno — solo lo que importa para tu prueba aparece, filtrable por método, estado y origen, sin el ruido de una pestaña de Network genérica del navegador.",
+        details: "Captura llamadas de red que coinciden con patrones de URL configurados por entorno, solo lo que importa para tu prueba aparece, filtrable por método, estado y origen, sin el ruido de una pestaña de Network genérica del navegador.",
       },
       jsonStudio: {
         title: "JSON Studio",
         short: "Formatea, comprime y copia payloads JSON.",
-        details: "Abre cualquier respuesta capturada ya formateada y legible, con acceso directo para compactar o copiar — sin pegar el JSON crudo en un sitio externo cada vez que necesitas leer una respuesta de API.",
+        details: "Abre cualquier respuesta capturada ya formateada y legible, con acceso directo para compactar o copiar, sin pegar el JSON crudo en un sitio externo cada vez que necesitas leer una respuesta de API.",
       },
       forceHttp: {
         title: "Force HTTP",
         short: "Simula respuestas de error (400, 404, 500...) bajo demanda.",
         details: "Fuerza la próxima respuesta de red a simular un estado de error específico, para probar cómo se comporta la pantalla en escenarios de fallo sin tumbar el backend ni esperar a que ocurra un error real.",
+      },
+      errorMonitor: {
+        title: "Error Monitor",
+        short: "Registra automáticamente los errores HTTP que ocurran en la página.",
+        details: "Muestra en tiempo real, con un contador en la barra, cada respuesta de red con estado de error que la página realmente dispare, sin configurar nada, filtrable por estado y origen, para que notes una falla silenciosa antes de que se convierta en un bug reportado por otra persona.",
       },
       freezeClock: {
         title: "Freeze Clock",
@@ -817,12 +847,12 @@ const es: Dictionary = {
       characterCounter: {
         title: "Contador de caracteres",
         short: "Cuenta caracteres, palabras, líneas y bytes UTF-8.",
-        details: "Mide el texto seleccionado en la página (o cualquier texto pegado) con y sin espacios — directo en la barra, sin abrir una calculadora de caracteres en otra pestaña.",
+        details: "Mide el texto seleccionado en la página (o cualquier texto pegado) con y sin espacios, directo en la barra, sin abrir una calculadora de caracteres en otra pestaña.",
       },
       multiClick: {
         title: "Multiclick",
         short: "Clica el mismo elemento varias veces, en el intervalo que definas.",
-        details: "Selecciona visualmente un elemento, elige de 2 a 100 clics y el intervalo entre ellos — útil para probar debounce, doble envío y comportamiento bajo clics repetidos sin clicar manualmente.",
+        details: "Selecciona visualmente un elemento, elige de 2 a 100 clics y el intervalo entre ellos, útil para probar debounce, doble envío y comportamiento bajo clics repetidos sin clicar manualmente.",
       },
       inputLab: {
         title: "Input Lab",
@@ -842,12 +872,12 @@ const es: Dictionary = {
       keyView: {
         title: "Key View",
         short: "Muestra en pantalla los atajos de teclado y clics del mouse en tiempo real.",
-        details: "Muestra combinaciones de teclado (ej.: Ctrl+V) como teclas con efecto 3D que desaparecen solas, un modo Typing que acumula lo escrito hasta que lo limpies, y un indicador visual de clic izquierdo/derecho/central y scroll — ideal para grabaciones y demostraciones.",
+        details: "Muestra combinaciones de teclado (ej.: Ctrl+V) como teclas con efecto 3D que desaparecen solas, un modo Typing que acumula lo escrito hasta que lo limpies, y un indicador visual de clic izquierdo/derecho/central y scroll, ideal para grabaciones y demostraciones.",
       },
       elementCapture: {
         title: "Capturar Elementos",
         short: "Exporta un CSV con todos los elementos interactivos de la página, listos para automatización.",
-        details: "Escanea la página actual y genera un CSV con tag, tipo, name, id, selector CSS único, XPath, texto/label visible y placeholder de cada elemento interactivo (enlaces, botones, inputs, selects) — listo para acelerar la creación de pruebas de automatización. Ningún valor escrito se exporta; los campos sensibles (contraseña, tarjeta, token) se marcan, nunca se capturan.",
+        details: "Escanea la página actual y genera un CSV con tag, tipo, name, id, selector CSS único, XPath, texto/label visible y placeholder de cada elemento interactivo (enlaces, botones, inputs, selects), listo para acelerar la creación de pruebas de automatización. Ningún valor escrito se exporta; los campos sensibles (contraseña, tarjeta, token) se marcan, nunca se capturan.",
       },
       testAccounts: {
         title: "Cuentas de prueba",
@@ -875,6 +905,13 @@ const es: Dictionary = {
     voucherAppliedSuffix: "aplicado",
     voucherErrorEmpty: "Escribe un código de voucher.",
     voucherErrorInvalid: "Voucher inválido o expirado.",
+    voucherAlreadyRedeemed: "Ya canjeaste este voucher.",
+    voucherPlanMismatch: "Este voucher es para otro plan. Elige el plan indicado abajo.",
+    voucherPreviewBadge: "Voucher aplicado",
+    voucherPreviewLifetime: "Acceso vitalicio al plan {plan}.",
+    voucherPreviewDays: "{days} días gratis en el plan {plan}.",
+    voucherPreviewDiscount: "{value} de descuento en el plan {plan}.",
+    voucherPreviewAnyPlan: "que elijas",
     recommendedBadge: "Mejor relación calidad-precio",
     perMonth: "por mes",
     perYear: "por año",
@@ -885,6 +922,9 @@ const es: Dictionary = {
     freeNote: "Gratis por 30 días, luego elige un plan",
     ctaFree: "Empezar gratis",
     ctaPaid: "Suscribirse",
+    ctaLifetime: "Activar acceso vitalicio",
+    ctaDaysVoucher: "{days} días gratis",
+    ctaDiscount: "Suscribirse con descuento",
     checkoutPending: "Pago recibido. Estamos confirmando tu acceso.",
     accountTitle: "Tu cuenta",
     accountLead: "Accede a tus planes, vouchers y extensión con el mismo correo.",
@@ -914,7 +954,7 @@ const es: Dictionary = {
     downloadExtensionZip: "Descargar extensión (.zip)",
     downloadExtensionHint: "¿No quieres esperar la revisión de la Chrome Web Store? Descarga el paquete, abre chrome://extensions, activa el Modo de desarrollador y haz clic en \"Cargar descomprimida\".",
     packageVersionLine: "Versión actual del paquete: v{version}",
-    storeReviewPendingNotice: "Próximamente en la Chrome Web Store — en revisión de Google.",
+    storeReviewPendingNotice: "Próximamente en la Chrome Web Store: en revisión de Google.",
     paymentProcessing: "Pago recibido. Estamos confirmando tu acceso.",
     paymentCanceled: "Checkout cancelado. No se liberó ningún acceso.",
     checkoutFailed: "No fue posible completar esta etapa. Revisa los datos e inténtalo de nuevo.",
@@ -926,7 +966,7 @@ const es: Dictionary = {
     alreadySubscribed: "Ya tienes una suscripción activa. Para cambiar de plan, contacta con soporte.",
     currentPlanBadge: "Tu plan actual",
     currentPlanCta: "Plan actual",
-    unavailableWhileSubscribed: "No disponible — suscripción activa",
+    unavailableWhileSubscribed: "No disponible: suscripción activa",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -979,11 +1019,11 @@ const es: Dictionary = {
   support: {
     eyebrow1: "Soporte y sugerencias",
     title1: "¿Encontraste un error o tienes una idea?",
-    body1: "Toda sugerencia se convierte en roadmap. Escribe a contato@matheusbonotto.com.br con el máximo de contexto posible — captura, pasos, y qué esperabas ver.",
+    body1: "Toda sugerencia se convierte en roadmap. Escribe a contato@matheusbonotto.com.br con el máximo de contexto posible: captura, pasos, y qué esperabas ver.",
     cta1: "Enviar mensaje",
     eyebrow2: "Proyecto personalizado",
     title2: "¿Necesitas algo a medida?",
-    body2: "Integraciones, workspaces corporativos, SSO, informes personalizados — cuéntanos qué necesita tu equipo y construimos una propuesta específica.",
+    body2: "Integraciones, workspaces corporativos, SSO, informes personalizados: cuéntanos qué necesita tu equipo y construimos una propuesta específica.",
     cta2: "Hablar sobre mi proyecto",
   },
   footer: {
@@ -1003,12 +1043,12 @@ const es: Dictionary = {
       { name: "storage", reason: "Guardar tu workspace (clientes, proyectos, productos, entornos) localmente en el navegador, sin enviarlo a servidores externos." },
       { name: "scripting", reason: "Inyectar la barra de QA y las herramientas de prueba en la página que estás visitando, bajo tu orden." },
       { name: "activeTab / tabs", reason: "Saber en qué pestaña debe aparecer la barra y capturar capturas de pantalla de la pestaña activa cuando activas el botón de evidencia." },
-      { name: "host_permissions (todos los sitios)", reason: "Permitir que uses la extensión en cualquier sitio por defecto — puedes restringir esto en la configuración de la extensión." },
+      { name: "host_permissions (todos los sitios)", reason: "Permitir que uses la extensión en cualquier sitio por defecto. Puedes restringir esto en la configuración de la extensión." },
     ],
     dataTitle: "Dónde están tus datos",
     dataBody: "Clientes, proyectos, productos, entornos y evidencias que creas se almacenan localmente en tu navegador (chrome.storage.local), vinculados a tu perfil de usuario de Chrome. No recopilamos ni transmitimos el contenido de tu workspace a nuestros servidores.",
     accountTitle: "Cuenta y facturación",
-    accountBody: "Al crear una cuenta — sea desde la landing page o desde la extensión — recopilamos tu correo e información de pago procesada directamente por Stripe (nunca almacenamos datos de tarjetas en nuestros servidores). Al continuar, aceptas esta política y los términos de uso. Puedes eliminar tu cuenta en cualquier momento en Configuración → Mi cuenta: esto cancela de inmediato una suscripción activa y borra tus datos personales; los registros financieros se conservan solo de forma anonimizada, por el tiempo exigido por obligación fiscal.",
+    accountBody: "Al crear una cuenta (sea desde la landing page o desde la extensión), recopilamos tu correo e información de pago procesada directamente por Stripe (nunca almacenamos datos de tarjetas en nuestros servidores). Al continuar, aceptas esta política y los términos de uso. Puedes eliminar tu cuenta en cualquier momento en Configuración → Mi cuenta: esto cancela de inmediato una suscripción activa y borra tus datos personales; los registros financieros se conservan solo de forma anonimizada, por el tiempo exigido por obligación fiscal.",
     contactTitle: "Contacto",
     contactBody: "¿Dudas sobre privacidad? Escribe a contato@matheusbonotto.com.br.",
   },
@@ -1042,16 +1082,16 @@ const en: Dictionary = {
     install: "Sign in",
   },
   hero: {
-    eyebrow: "QA Toolbar Sandbox",
-    titleLine1: "Manual testing, done right —",
+    eyebrow: "By QA, for QA, or rather: for anyone",
+    titleLine1: "Manual testing, done right,",
     titleGradient: "without losing yourself across environments and projects",
-    lead: "QA Toolbar Sandbox runs right inside the page you're already testing: it always shows where you are, logs evidence in one click, and handles the repetitive grind — so your attention stays free for the one thing only a human does well: thinking like a tester.",
+    lead: "QA Toolbar Sandbox runs right inside the page you're already testing: it always shows where you are, logs evidence in one click, and handles the repetitive grind, so your attention stays free for the one thing only a human does well: thinking like a tester.",
     ctaPricing: "See pricing",
     ctaSimulate: "Try the simulator",
   },
   simulator: {
-    hint: "Switch context and use the testing tools — everything here actually works.",
-    illustrationBadge: "Interactive illustration — not the real installed extension",
+    hint: "Switch context and use the testing tools: everything here actually works.",
+    illustrationBadge: "Interactive illustration: not the real installed extension",
     client: "Client",
     project: "Project",
     product: "Product",
@@ -1092,7 +1132,7 @@ const en: Dictionary = {
   toast: {
     screenshotCaptured: "Screenshot captured.",
     recorded: (elapsed) => `Evidence recorded (${elapsed}).`,
-    clickSpyOn: "Click Spy active — hover elements on the page.",
+    clickSpyOn: "Click Spy active: hover elements on the page.",
     clickSpyOff: "Click Spy turned off.",
     freezeOn: "Clock frozen at the current time.",
     freezeOff: "Clock resumed.",
@@ -1100,17 +1140,17 @@ const en: Dictionary = {
     requestCaptured: "JSON request captured by the Inspectors.",
     statusRecorded: (label) => `Status recorded: ${label}`,
     inspectorsCount: (count) => `${count} request(s) captured so far.`,
-    inspectorsEmpty: 'No requests captured yet — click "Simulate request".',
+    inspectorsEmpty: 'No requests captured yet. Click "Simulate request".',
     jsonStudio: "JSON Studio: available in the full extension.",
     breakpointViewer: "Full-screen Breakpoint Viewer: available in the full extension.",
   },
   about: {
     eyebrow: "What it is",
     title: "A QA bar that lives inside your page",
-    lead: "QA Toolbar Sandbox is a browser extension that injects a context bar and a testing toolkit into any site: tag the client, project, product and environment you're testing, capture evidence (screenshots, recordings, visual markers), inspect network requests, freeze the clock, force HTTP responses and emulate breakpoints — all without leaving the tab.",
+    lead: "QA Toolbar Sandbox is a browser extension that injects a context bar and a testing toolkit into any site: tag the client, project, product and environment you're testing, capture evidence (screenshots, recordings, visual markers), inspect network requests, freeze the clock, force HTTP responses and emulate breakpoints, all without leaving the tab.",
     mission: {
       title: "Mission",
-      body: "Give everyone who tests software a context bar always at hand — without relying on spreadsheets, extra tabs, or memory to know what's being validated.",
+      body: "Give everyone who tests software a context bar always at hand, without relying on spreadsheets, extra tabs, or memory to know what's being validated.",
     },
     vision: {
       title: "Vision",
@@ -1118,20 +1158,20 @@ const en: Dictionary = {
     },
     values: {
       title: "Values",
-      body: "Transparency in evidence, respect for human judgment, and automation that accelerates — never replaces — the tester's critical eye.",
+      body: "Transparency in evidence, respect for human judgment, and automation that accelerates, never replaces, the tester's critical eye.",
     },
   },
   semiauto: {
     eyebrow: "Semi-automated Testing",
     titleLine1: "Manual testing with an",
     titleGradient: "automated flavor",
-    body: "We don't take the human out of the loop — we just speed them up. QA Toolbar Sandbox handles the repetitive work (context, evidence, network capture, timers) while you keep the critical eye no automation can replace. It's manual testing, with an automated flavor.",
+    body: "We don't take the human out of the loop, we just speed them up. QA Toolbar Sandbox handles the repetitive work (context, evidence, network capture, timers) while you keep the critical eye no automation can replace. It's manual testing, with an automated flavor.",
     gifAlt: "Energetic flavor, automated flavor",
   },
   features: {
     eyebrow: "Tools",
     title: "What actually changes in your testing day",
-    lead: "The real win isn't the number of features — it's never losing yourself across tabs from different environments and projects while testing manually again. Every group below is really in the extension's Tools menu; click to open it and see how it works.",
+    lead: "The real win isn't the number of features, it's never losing yourself across tabs from different environments and projects while testing manually again. Every group below is really in the extension's Tools menu; click to open it and see how it works.",
     groups: {
       evidence: {
         title: "Evidence and test result",
@@ -1147,7 +1187,7 @@ const en: Dictionary = {
       },
       macroStudio: {
         title: "Declarative automation",
-        description: "Record once, replay any time — without writing a line of code.",
+        description: "Record once, replay any time, without writing a line of code.",
       },
       keyView: {
         title: "Key View",
@@ -1166,17 +1206,17 @@ const en: Dictionary = {
       testStatus: {
         title: "Test Status",
         short: "Mark Pass, Fail, Blocked or Limitation in one click.",
-        details: "A four-state menu (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) records the test case result right on the page, with the URL and timestamp — no copying it by hand into a spreadsheet while the context is still fresh on screen.",
+        details: "A four-state menu (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) records the test case result right on the page, with the URL and timestamp, no copying it by hand into a spreadsheet while the context is still fresh on screen.",
       },
       passFail: {
         title: "Pass/Fail markers",
         short: "Point exactly where an element passed or failed.",
-        details: "Click anywhere on the page to drop a visual ✓ or ✕ marker right there — great for pinpointing exactly which button, field or section failed before taking the evidence screenshot.",
+        details: "Click anywhere on the page to drop a visual ✓ or ✕ marker right there, great for pinpointing exactly which button, field or section failed before taking the evidence screenshot.",
       },
       notesShapes: {
         title: "Notes and shapes",
         short: "Text annotations and highlights drawn over the page.",
-        details: "Draggable text notes and highlight shapes overlay the real page, letting you document a bug with full visual context — no separate tab needed to write up the problem description.",
+        details: "Draggable text notes and highlight shapes overlay the real page, letting you document a bug with full visual context, no separate tab needed to write up the problem description.",
       },
       screenshot: {
         title: "Screenshot",
@@ -1186,22 +1226,27 @@ const en: Dictionary = {
       recording: {
         title: "Evidence recording",
         short: "Records your screen on video while you test.",
-        details: "Starts and stops video recording (MP4/GIF depending on the plan) right from the bar, no separate screen-recording software needed — the evidence comes out ready to attach.",
+        details: "Starts and stops video recording (MP4/GIF depending on the plan) right from the bar, no separate screen-recording software needed, the evidence comes out ready to attach.",
       },
       inspectors: {
         title: "Inspectors",
         short: "A live list of the API responses that matter for your test.",
-        details: "Captures network calls matching URL patterns you configure per environment — only what matters for your test shows up, filterable by method, status and source, without the noise of a generic browser Network tab.",
+        details: "Captures network calls matching URL patterns you configure per environment, only what matters for your test shows up, filterable by method, status and source, without the noise of a generic browser Network tab.",
       },
       jsonStudio: {
         title: "JSON Studio",
         short: "Formats, compacts and copies JSON payloads.",
-        details: "Opens any captured response already formatted and readable, with a shortcut to compact or copy it — no pasting raw JSON into an external formatter site every time you need to read an API response.",
+        details: "Opens any captured response already formatted and readable, with a shortcut to compact or copy it, no pasting raw JSON into an external formatter site every time you need to read an API response.",
       },
       forceHttp: {
         title: "Force HTTP",
         short: "Simulates error responses (400, 404, 500...) on demand.",
         details: "Forces the next network response to simulate a specific error status, to test how the screen behaves in failure scenarios without taking down the backend or waiting for a real error to happen.",
+      },
+      errorMonitor: {
+        title: "Error Monitor",
+        short: "Automatically logs the HTTP errors that happen on the page.",
+        details: "Shows in real time, with a counter on the bar, every network response with an error status the page actually triggers, no setup needed, filterable by status and source, so you catch a silent failure before it becomes a bug someone else reports.",
       },
       freezeClock: {
         title: "Freeze Clock",
@@ -1221,12 +1266,12 @@ const en: Dictionary = {
       characterCounter: {
         title: "Character counter",
         short: "Counts characters, words, lines and UTF-8 bytes.",
-        details: "Measures the text selected on the page (or any pasted text) with and without spaces — right in the bar, no separate character-counting tab needed to validate a field limit.",
+        details: "Measures the text selected on the page (or any pasted text) with and without spaces, right in the bar, no separate character-counting tab needed to validate a field limit.",
       },
       multiClick: {
         title: "Multiclick",
         short: "Clicks the same element repeatedly, at the interval you set.",
-        details: "Visually select an element, choose 2 to 100 clicks and the interval between them — useful for testing debounce, double-submit and behavior under repeated clicks without clicking manually yourself.",
+        details: "Visually select an element, choose 2 to 100 clicks and the interval between them, useful for testing debounce, double-submit and behavior under repeated clicks without clicking manually yourself.",
       },
       inputLab: {
         title: "Input Lab",
@@ -1241,17 +1286,17 @@ const en: Dictionary = {
       macroStudio: {
         title: "Macro Studio",
         short: "Records a sequence of actions and replays it any time you want.",
-        details: "Records clicks, typing, selects, checkboxes and key presses while you browse normally; review the flow in Vibe Code mode (drag and drop), save it, pin it to the menu to re-run it in one click, and use Coder to copy that same sequence as a real Playwright test — no code needed to record or replay.",
+        details: "Records clicks, typing, selects, checkboxes and key presses while you browse normally; review the flow in Vibe Code mode (drag and drop), save it, pin it to the menu to re-run it in one click, and use Coder to copy that same sequence as a real Playwright test, no code needed to record or replay.",
       },
       keyView: {
         title: "Key View",
         short: "Shows keyboard shortcuts and mouse clicks on screen, live.",
-        details: "Displays key combos (e.g. Ctrl+V) as 3D-styled keys that fade out on their own, a Typing mode that accumulates what you type until you clear it, and a visual indicator for left/right/middle click and scroll — ideal for recordings and demos where the audience needs to see exactly what you're doing.",
+        details: "Displays key combos (e.g. Ctrl+V) as 3D-styled keys that fade out on their own, a Typing mode that accumulates what you type until you clear it, and a visual indicator for left/right/middle click and scroll, ideal for recordings and demos where the audience needs to see exactly what you're doing.",
       },
       elementCapture: {
         title: "Capture Elements",
         short: "Exports a CSV with every interactive element on the page, ready for automation.",
-        details: "Scans the current page and generates a CSV with tag, type, name, id, unique CSS selector, XPath, visible text/label and placeholder for every interactive element (links, buttons, inputs, selects) — ready to speed up automation test authoring. No typed value is ever exported; sensitive fields (password, card, token) are flagged, never captured.",
+        details: "Scans the current page and generates a CSV with tag, type, name, id, unique CSS selector, XPath, visible text/label and placeholder for every interactive element (links, buttons, inputs, selects), ready to speed up automation test authoring. No typed value is ever exported; sensitive fields (password, card, token) are flagged, never captured.",
       },
       testAccounts: {
         title: "Test accounts",
@@ -1279,6 +1324,13 @@ const en: Dictionary = {
     voucherAppliedSuffix: "applied",
     voucherErrorEmpty: "Enter a voucher code.",
     voucherErrorInvalid: "Invalid or expired voucher.",
+    voucherAlreadyRedeemed: "You already redeemed this voucher.",
+    voucherPlanMismatch: "This voucher is for a different plan. Pick the plan shown below.",
+    voucherPreviewBadge: "Voucher applied",
+    voucherPreviewLifetime: "Lifetime access to the {plan} plan.",
+    voucherPreviewDays: "{days} free days on the {plan} plan.",
+    voucherPreviewDiscount: "{value} off the {plan} plan.",
+    voucherPreviewAnyPlan: "you choose",
     recommendedBadge: "Best value",
     perMonth: "per month",
     perYear: "per year",
@@ -1289,6 +1341,9 @@ const en: Dictionary = {
     freeNote: "Free for 30 days, then pick a plan",
     ctaFree: "Start for free",
     ctaPaid: "Subscribe",
+    ctaLifetime: "Activate lifetime access",
+    ctaDaysVoucher: "{days} free days",
+    ctaDiscount: "Subscribe with discount",
     checkoutPending: "Payment received. We are confirming your access.",
     accountTitle: "Your account",
     accountLead: "Access your plans, vouchers, and the extension with the same email.",
@@ -1318,7 +1373,7 @@ const en: Dictionary = {
     downloadExtensionZip: "Download extension (.zip)",
     downloadExtensionHint: "Don't want to wait for Chrome Web Store review? Download the package, open chrome://extensions, enable Developer mode and click \"Load unpacked\".",
     packageVersionLine: "Current package version: v{version}",
-    storeReviewPendingNotice: "Coming soon to the Chrome Web Store — pending Google review.",
+    storeReviewPendingNotice: "Coming soon to the Chrome Web Store: pending Google review.",
     paymentProcessing: "Payment received. We are confirming your access.",
     paymentCanceled: "Checkout canceled. No access was granted.",
     checkoutFailed: "This step could not be completed. Review the details and try again.",
@@ -1330,7 +1385,7 @@ const en: Dictionary = {
     alreadySubscribed: "You already have an active subscription. To change plans, contact support.",
     currentPlanBadge: "Your current plan",
     currentPlanCta: "Current plan",
-    unavailableWhileSubscribed: "Unavailable — active subscription",
+    unavailableWhileSubscribed: "Unavailable: active subscription",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -1383,11 +1438,11 @@ const en: Dictionary = {
   support: {
     eyebrow1: "Support & suggestions",
     title1: "Found a bug or have an idea?",
-    body1: "Every suggestion becomes roadmap. Write to contato@matheusbonotto.com.br with as much context as possible — screenshot, steps, and what you expected to see.",
+    body1: "Every suggestion becomes roadmap. Write to contato@matheusbonotto.com.br with as much context as possible: screenshot, steps, and what you expected to see.",
     cta1: "Send a message",
     eyebrow2: "Custom project",
     title2: "Need something tailor-made?",
-    body2: "Integrations, corporate workspaces, SSO, custom reports — tell us what your team needs and we'll build a specific proposal.",
+    body2: "Integrations, corporate workspaces, SSO, custom reports: tell us what your team needs and we'll build a specific proposal.",
     cta2: "Talk about my project",
   },
   footer: {
@@ -1407,12 +1462,12 @@ const en: Dictionary = {
       { name: "storage", reason: "Store your workspace (clients, projects, products, environments) locally in the browser, without sending it to external servers." },
       { name: "scripting", reason: "Inject the QA bar and testing tools into the page you're visiting, only when you trigger it." },
       { name: "activeTab / tabs", reason: "Know which tab the bar should appear on and capture screenshots of the active tab when you trigger the evidence button." },
-      { name: "host_permissions (all sites)", reason: "Let you use the extension on any site by default — you can restrict this in the extension's settings." },
+      { name: "host_permissions (all sites)", reason: "Let you use the extension on any site by default. You can restrict this in the extension's settings." },
     ],
     dataTitle: "Where your data lives",
     dataBody: "Clients, projects, products, environments and evidence you create are stored locally in your browser (chrome.storage.local), tied to your Chrome user profile. We don't collect or transmit your workspace content to our servers.",
     accountTitle: "Account and billing",
-    accountBody: "When you create an account — whether from the landing page or the extension — we collect your email and payment information processed directly by Stripe (we never store card data on our servers). By continuing, you consent to this policy and the terms of use. You can delete your account at any time in Settings → My account: this immediately cancels an active subscription and erases your personal data; financial records are kept only in anonymized form, for as long as required by fiscal obligations.",
+    accountBody: "When you create an account (whether from the landing page or the extension), we collect your email and payment information processed directly by Stripe (we never store card data on our servers). By continuing, you consent to this policy and the terms of use. You can delete your account at any time in Settings → My account: this immediately cancels an active subscription and erases your personal data; financial records are kept only in anonymized form, for as long as required by fiscal obligations.",
     contactTitle: "Contact",
     contactBody: "Questions about privacy? Write to contato@matheusbonotto.com.br.",
   },

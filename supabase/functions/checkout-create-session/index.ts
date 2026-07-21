@@ -3,7 +3,7 @@ import { authenticatedUser, adminClient, enforceRateLimit } from "../_shared/aut
 import { billingConfig } from "../_shared/config.ts";
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
-import { stripeClient } from "../_shared/stripe.ts";
+import { Stripe, stripeClient } from "../_shared/stripe.ts";
 
 interface CheckoutInput {
   planKey: string;
@@ -41,16 +41,54 @@ serve(async (request) => {
     .eq("key", input.planKey).eq("is_active", true).maybeSingle();
   if (planError || !plan) throw new ApiError(404, "plan_not_found");
 
+  let voucherDiscount: {
+    label: string;
+    percentOff: number | null;
+    amountOffMinor: number | null;
+    discountCurrency: string | null;
+  } | null = null;
+
   if (input.voucherCode) {
     const voucherHash = createHash("sha256").update(input.voucherCode).digest("hex");
-    const redeemed = await admin.rpc("redeem_voucher", { target_user_id: user.id, voucher_hash: voucherHash });
-    if (redeemed.error || !redeemed.data?.[0]) throw new ApiError(409, "voucher_unavailable");
-    return jsonResponse(request, {
-      accessGranted: true,
-      voucherRedeemed: true,
-      label: redeemed.data[0].label,
-      expiresAt: redeemed.data[0].access_expires_at,
+    const [{ data: campaignRow }, { data: voucherRow }] = await Promise.all([
+      admin.from("voucher_campaigns").select("kind").eq("code_hash", voucherHash).maybeSingle(),
+      admin.from("vouchers").select("kind").eq("code_hash", voucherHash).maybeSingle(),
+    ]);
+    const voucherKind = campaignRow?.kind ?? voucherRow?.kind ?? null;
+
+    if (voucherKind !== "discount") {
+      // days/lifetime -- unchanged: grants access directly, never touches Stripe.
+      const redeemed = await admin.rpc("redeem_voucher", { target_user_id: user.id, voucher_hash: voucherHash });
+      if (redeemed.error || !redeemed.data?.[0]) throw new ApiError(409, "voucher_unavailable");
+      return jsonResponse(request, {
+        accessGranted: true,
+        voucherRedeemed: true,
+        label: redeemed.data[0].label,
+        expiresAt: redeemed.data[0].access_expires_at,
+      });
+    }
+
+    // kind === 'discount' -- reserve it (so the same code can't be consumed twice while this
+    // checkout is in flight) and fall through to a real Stripe Checkout Session below.
+    const reserved = await admin.rpc("reserve_voucher_discount", {
+      target_user_id: user.id, voucher_hash: voucherHash, request_id_input: input.requestId,
     });
+    if (reserved.error || !reserved.data?.[0]) {
+      const code = reserved.error?.message?.includes("voucher_already_redeemed")
+        ? "voucher_already_redeemed" : "voucher_unavailable";
+      throw new ApiError(409, code);
+    }
+    const discount = reserved.data[0];
+    if (discount.target_plan_id && discount.target_plan_id !== plan.id) {
+      await admin.rpc("release_voucher_reservation", { request_id_input: input.requestId });
+      throw new ApiError(409, "voucher_plan_mismatch");
+    }
+    voucherDiscount = {
+      label: discount.label,
+      percentOff: discount.percent_off ?? null,
+      amountOffMinor: discount.amount_off_minor ?? null,
+      discountCurrency: discount.discount_currency ?? null,
+    };
   }
 
   if (plan.key === "smoke-test") {
@@ -91,18 +129,47 @@ serve(async (request) => {
     await admin.rpc("register_referral", { target_user_id: user.id, referral_code_input: input.referralCode });
   }
   const config = billingConfig();
-  const session = await stripe.checkout.sessions.create({
-    mode: "subscription",
-    customer: customer.provider_customer_id,
-    client_reference_id: user.id,
-    line_items: [{ price: price.provider_price_id, quantity: 1 }],
-    allow_promotion_codes: true,
-    success_url: config.checkoutSuccessUrl,
-    cancel_url: config.checkoutCancelUrl,
-    metadata: { supabase_user_id: user.id, plan_key: plan.key, billing_cycle: input.billingCycle },
-    subscription_data: { metadata: { supabase_user_id: user.id, plan_key: plan.key } },
-  }, { idempotencyKey: `checkout:${user.id}:${input.requestId}` });
-  if (!session.url?.startsWith("https://checkout.stripe.com/")) throw new Error("Stripe returned an invalid Checkout URL");
+
+  let session: Stripe.Checkout.Session;
+  try {
+    let discounts: Stripe.Checkout.SessionCreateParams["discounts"];
+    if (voucherDiscount) {
+      const coupon = voucherDiscount.percentOff
+        ? await stripe.coupons.create({ percent_off: voucherDiscount.percentOff, duration: "once" }, {
+          idempotencyKey: `voucher-coupon-pct:${input.voucherCode}`,
+        })
+        : await stripe.coupons.create({
+          amount_off: voucherDiscount.amountOffMinor!,
+          currency: voucherDiscount.discountCurrency ?? "brl",
+          duration: "once",
+        }, { idempotencyKey: `voucher-coupon-amt:${input.voucherCode}` });
+      discounts = [{ coupon: coupon.id }];
+    }
+    session = await stripe.checkout.sessions.create({
+      mode: "subscription",
+      customer: customer.provider_customer_id,
+      client_reference_id: user.id,
+      line_items: [{ price: price.provider_price_id, quantity: 1 }],
+      // A voucher discount is never combined with a manually typed Stripe promo code.
+      allow_promotion_codes: voucherDiscount ? false : true,
+      ...(discounts ? { discounts } : {}),
+      ...(voucherDiscount ? { expires_at: Math.floor(Date.now() / 1000) + 30 * 60 } : {}),
+      success_url: config.checkoutSuccessUrl,
+      cancel_url: config.checkoutCancelUrl,
+      metadata: {
+        supabase_user_id: user.id, plan_key: plan.key, billing_cycle: input.billingCycle,
+        ...(voucherDiscount ? { voucher_request_id: input.requestId } : {}),
+      },
+      subscription_data: { metadata: { supabase_user_id: user.id, plan_key: plan.key } },
+    }, { idempotencyKey: `checkout:${user.id}:${input.requestId}` });
+  } catch (error) {
+    if (voucherDiscount) await admin.rpc("release_voucher_reservation", { request_id_input: input.requestId });
+    throw error;
+  }
+  if (!session.url?.startsWith("https://checkout.stripe.com/")) {
+    if (voucherDiscount) await admin.rpc("release_voucher_reservation", { request_id_input: input.requestId });
+    throw new Error("Stripe returned an invalid Checkout URL");
+  }
 
   const persisted = await admin.from("checkout_sessions").upsert({
     user_id: user.id, plan_id: plan.id, billing_cycle: input.billingCycle, request_id: input.requestId,

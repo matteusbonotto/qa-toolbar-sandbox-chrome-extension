@@ -53,10 +53,34 @@ async function removeToolbarFromOpenTabs() {
   }));
 }
 
+// Founder-reported bug, confirmed by reading the code: getAccessState() returns `active: false`
+// for ANY failed access-status call, not just a genuine "subscription lapsed" — including a plain
+// network hiccup or a cold Supabase function, which is exactly the least reliable moment for a
+// network call (right as chrome.runtime.onInstalled/onStartup fires after an update or browser
+// restart). Treating that the same as "access really ended" used to unregister the content
+// scripts and rip the toolbar out of every open tab, with nothing to bring it back except another
+// update or restart — no retry, no explanation to whoever was mid-test. A transient failure
+// (reason: "access_unavailable") now falls back to the last confirmed status instead of assuming
+// the worst, and schedules a retry via chrome.alarms (survives the service worker going idle,
+// unlike a plain setTimeout) so a genuine lapse still gets caught shortly after.
+const ACCESS_RETRY_ALARM = "qts-access-retry";
+
 async function applyContentScriptRegistration({ forceAccess = false } = {}) {
-  await unregisterContentScripts();
   const access = await getAccessState({ force: forceAccess });
-  if (!access.active) {
+  let effectiveActive = access.active;
+  if (access.reason === "access_unavailable") {
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.accessStatus);
+    effectiveActive = stored[STORAGE_KEYS.accessStatus]?.active === true;
+    // Published (packed) extensions clamp delayInMinutes below 1 back up to 1 anyway, so this is
+    // the real-world floor, not just a nicer round number.
+    await chrome.alarms.create(ACCESS_RETRY_ALARM, { delayInMinutes: 1 });
+    if (!effectiveActive) return; // never had confirmed access — nothing to preserve; wait for the retry
+  } else {
+    await chrome.alarms.clear(ACCESS_RETRY_ALARM);
+  }
+
+  await unregisterContentScripts();
+  if (!effectiveActive) {
     await removeToolbarFromOpenTabs();
     return;
   }
@@ -117,6 +141,10 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   const item = CONTEXT_MENU_ACTIONS.find((candidate) => candidate.id === info.menuItemId);
   if (!item || !tab?.id) return;
   chrome.tabs.sendMessage(tab.id, { type: "qts:context-action", action: item.action }).catch(() => {});
+});
+
+chrome.alarms.onAlarm.addListener((alarm) => {
+  if (alarm.name === ACCESS_RETRY_ALARM) void applyContentScriptRegistration({ forceAccess: true });
 });
 
 chrome.runtime.onInstalled.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); setupContextMenus(); });

@@ -2,6 +2,7 @@
 // the bundle. `fill="currentColor"` in the source SVGs means these inherit text color via CSS.
 import iconAspectRatio from "bootstrap-icons/icons/aspect-ratio.svg?raw";
 import iconBraces from "bootstrap-icons/icons/braces.svg?raw";
+import iconBug from "bootstrap-icons/icons/bug.svg?raw";
 import iconCamera from "bootstrap-icons/icons/camera.svg?raw";
 import iconCheckSquare from "bootstrap-icons/icons/check-square.svg?raw";
 import iconCheck2Circle from "bootstrap-icons/icons/check2-circle.svg?raw";
@@ -25,6 +26,7 @@ import iconStars from "bootstrap-icons/icons/stars.svg?raw";
 const ICONS = {
   aspectRatio: iconAspectRatio,
   braces: iconBraces,
+  bug: iconBug,
   camera: iconCamera,
   checkSquare: iconCheckSquare,
   check2Circle: iconCheck2Circle,
