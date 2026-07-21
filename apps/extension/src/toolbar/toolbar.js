@@ -1,12 +1,14 @@
 const { getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 const ICON = window.QTS_ICONS.svg;
 
-// 24px of tallest inner content (buttons, #currentUrl) plus a tight 2px top/bottom — founder
-// feedback: the old fixed 48px box centered that same content with ~11px of empty space above and
-// below it, reading as unnecessarily thick. Every consumer of this constant (spacer height, marker
-// placement floor, header-offset math) shares it, so this single number is the actual rendered bar
-// height everywhere, not just in the CSS below.
-const TOOLBAR_HEIGHT = 28;
+// The real measured height of #bar with its actual content (buttons, #currentUrl) plus a tight
+// 2px top/bottom padding — founder feedback: the old fixed 48px box centered that same content
+// with ~11px of empty space above and below it, reading as unnecessarily thick. CSS below uses
+// min-height (not height) so a locale whose button labels run longer never gets clipped; this
+// constant is the *measured* real-world value for that CSS at today's content (confirmed against
+// the real-Chrome smoke test), used everywhere else that needs the bar's height in JS (spacer,
+// marker placement floor, header-offset math) since those can't just ask the DOM before it exists.
+const TOOLBAR_HEIGHT = 37;
 const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
 
