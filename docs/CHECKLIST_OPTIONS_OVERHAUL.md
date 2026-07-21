@@ -143,9 +143,24 @@
       simulados, painel lista as 2 notificações, clicar fora fecha o painel, clicar numa
       notificação abre o Error Monitor com as mesmas 2 entradas, e limpar pelo Error Monitor
       também esconde o badge do sino.
-- [ ] **Inspectors**: revisar comportamento vs. `tampermonkey.js` — filtro "Todos" vs "Meus
-      Inspectors", marcar qualquer endpoint capturado como "meu inspector", cada inspector
-      configurado também funciona como filtro.
+- [x] **Inspectors**: mudança de fundo — antes, qualquer resposta que não batesse com nenhum
+      padrão de Inspector configurado era **descartada na captura**, então "ver tudo" era
+      impossível mesmo clicando em algo. Agora toda resposta JSON é sempre guardada em
+      `state.networkHistory` com `matchedInspectorIds` calculado; o filtro virou algo que se
+      aplica depois, não antes.
+  - Aba "Todos" vs "Meus Inspectors" (`.qts-tabs` no topo do drawer, mesmo padrão do Macro
+    Studio). Padrão automático: "Meus Inspectors" se já existem inspectors configurados
+    (preserva o comportamento antigo por padrão), "Todos" se não existe nenhum configurado ainda
+    (não faria sentido logo de cara — verificado ao vivo).
+  - Botão de pin (📌) em cada linha capturada: "Marcar como meu inspector" cria um inspector novo
+    com padrão = pathname da URL, sem precisar abrir Configurações; re-marca retroativamente as
+    entradas já capturadas que batem com o novo padrão (não precisa esperar uma requisição nova).
+  - Cada inspector configurado agora também aparece como um chip de filtro próprio
+    (`buildInspectorFilterFields` ganhou o grupo "inspector"), funcionando em conjunto com
+    Todos/Meus e os filtros existentes (método/status/origem).
+- [x] Verificado ao vivo: sem inspectors configurados, padrão é "Todos" e mostra as 2 respostas
+      simuladas; marcar uma como inspector e trocar para "Meus Inspectors" mostra só ela; o chip
+      de filtro por inspector específico também isola a mesma entrada.
 - [ ] **Contador de caracteres**: opção de clicar em um input da página e ver a contagem revelada
       no próprio input (além do textarea manual atual).
 - [ ] **JSON Studio**: pouco claro qual o propósito atual (só textarea + 3 botões) — investigar a

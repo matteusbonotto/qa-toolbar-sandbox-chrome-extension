@@ -15,7 +15,6 @@ const state = {
   clockFrozen: false,
   forceHttpActive: false,
   networkHistory: [],
-  inspectorsFilteredCount: 0,
   httpErrors: [],
   t: null,
   authorized: false,
@@ -1813,21 +1812,24 @@ function openForceHttpDialog() {
 // Fully generic/declarative — no product-specific endpoint names hardcoded.
 // ---------------------------------------------------------------------------
 
-function handleNetworkCaptured(entry) {
-  const configured = (state.workspace.inspectors || []).filter((inspector) => inspector.active !== false && Array.isArray(inspector.patterns) && inspector.patterns.length);
-  if (configured.length && !configured.some((inspector) => inspector.patterns.some((pattern) => {
+function inspectorMatchesUrl(inspector, url) {
+  return (inspector.patterns || []).some((pattern) => {
     const candidate = String(pattern || "").trim();
     if (!candidate) return false;
-    try { return candidate.includes("*") ? wildcardToRegExp(candidate).test(String(entry?.url || "")) : String(entry?.url || "").toLowerCase().includes(candidate.toLowerCase()); } catch { return false; }
-  }))) {
-    // Every configured inspector pattern requires a match — a typo'd/wrong-environment pattern
-    // silently dropped 100% of captures here with zero indication, reading as "Inspectors is
-    // just broken" instead of "your pattern doesn't match anything." This counter is surfaced in
-    // renderInspectorsList()'s empty state so a config mismatch reads as a config problem.
-    state.inspectorsFilteredCount = (state.inspectorsFilteredCount || 0) + 1;
-    if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
-    return;
-  }
+    try { return candidate.includes("*") ? wildcardToRegExp(candidate).test(String(url || "")) : String(url || "").toLowerCase().includes(candidate.toLowerCase()); } catch { return false; }
+  });
+}
+
+function configuredInspectors() {
+  return (state.workspace.inspectors || []).filter((inspector) => inspector.active !== false && Array.isArray(inspector.patterns) && inspector.patterns.length);
+}
+
+// Everything captured is always kept now (previously a non-matching entry was dropped before it
+// ever reached state.networkHistory, which made "see everything" impossible even for founders who
+// just wanted a quick look — the "Todos"/"Meus Inspectors" toggle in renderInspectorsList() is a
+// soft filter over matchedInspectorIds instead of a hard capture-time drop).
+function handleNetworkCaptured(entry) {
+  entry.matchedInspectorIds = configuredInspectors().filter((inspector) => inspectorMatchesUrl(inspector, entry?.url)).map((inspector) => inspector.id);
   state.networkHistory.unshift(entry);
   if (state.networkHistory.length > 150) state.networkHistory.length = 150;
   if (Number(entry?.status) >= 400) playSound("httpError");
@@ -1839,7 +1841,38 @@ function handleNetworkCaptured(entry) {
   if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
 }
 
-const inspectorsFilterState = { query: "", method: new Set(), status: new Set(), source: new Set(), collapsed: false };
+// "auto" means "not yet manually chosen" — resolved once per drawer session by
+// inspectorsEffectiveScope() (mine if the founder already has configured inspectors, since that
+// preserves the pre-existing filtered experience; all otherwise, since there'd be nothing to see).
+const inspectorsFilterState = { query: "", method: new Set(), status: new Set(), source: new Set(), inspector: new Set(), collapsed: false, scope: "auto" };
+
+function inspectorsEffectiveScope() {
+  if (inspectorsFilterState.scope !== "auto") return inspectorsFilterState.scope;
+  return configuredInspectors().length ? "mine" : "all";
+}
+
+async function markEntryAsInspector(entry) {
+  let pattern = entry.url;
+  try { pattern = new URL(entry.url).pathname || entry.url; } catch { /* relative/unparseable URL: fall back to the raw string */ }
+  if (!state.workspace.inspectors) state.workspace.inspectors = [];
+  const inspectors = state.workspace.inspectors;
+  if (inspectors.some((inspector) => (inspector.patterns || []).includes(pattern))) {
+    showQaToast("Esse endpoint já está entre seus Inspectors.");
+    return;
+  }
+  const inspector = { id: crypto.randomUUID(), label: pattern.length > 40 ? `${pattern.slice(0, 40)}…` : pattern, patterns: [pattern], active: true };
+  inspectors.push(inspector);
+  await persistWorkspaceState();
+  // Re-tag already-captured entries immediately — otherwise "Meus Inspectors" would stay empty
+  // for this exact endpoint until the next real network call re-runs handleNetworkCaptured.
+  for (const item of state.networkHistory) {
+    if (inspectorMatchesUrl(inspector, item.url) && !(item.matchedInspectorIds || []).includes(inspector.id)) {
+      item.matchedInspectorIds = [...(item.matchedInspectorIds || []), inspector.id];
+    }
+  }
+  renderInspectorsList();
+  showQaToast(`Adicionado aos Inspectors: ${inspector.label}`);
+}
 
 function statusBucket(status) {
   if (!status) return "—";
@@ -1850,11 +1883,16 @@ function buildInspectorFilterFields() {
   const methods = [...new Set(state.networkHistory.map((entry) => entry.method))].sort();
   const statuses = [...new Set(state.networkHistory.map((entry) => statusBucket(entry.status)))].sort();
   const sources = [...new Set(state.networkHistory.map((entry) => entry.source))].sort();
-  return [
+  const fields = [
     { key: "method", label: state.t.filterMethod, options: methods.map((value) => ({ value, label: value })) },
     { key: "status", label: state.t.filterStatus, options: statuses.map((value) => ({ value, label: value })) },
     { key: "source", label: state.t.filterSource, options: sources.map((value) => ({ value, label: value })) },
   ];
+  const configured = configuredInspectors();
+  // Each configured inspector is also its own filter chip — lets the founder narrow down to
+  // "just what Inspector X caught" regardless of whether they're viewing Todos or Meus Inspectors.
+  if (configured.length) fields.push({ key: "inspector", label: "Inspector", options: configured.map((inspector) => ({ value: inspector.id, label: inspector.label || inspector.id })) });
+  return fields;
 }
 
 function matchesInspectorFilters(entry) {
@@ -1863,6 +1901,8 @@ function matchesInspectorFilters(entry) {
     const haystack = `${entry.url} ${entry.method} ${entry.status} ${JSON.stringify(entry.payload)}`.toLowerCase();
     if (!haystack.includes(query)) return false;
   }
+  if (inspectorsEffectiveScope() === "mine" && !(entry.matchedInspectorIds || []).length) return false;
+  if (inspectorsFilterState.inspector.size && !(entry.matchedInspectorIds || []).some((id) => inspectorsFilterState.inspector.has(id))) return false;
   if (inspectorsFilterState.method.size && !inspectorsFilterState.method.has(entry.method)) return false;
   if (inspectorsFilterState.status.size && !inspectorsFilterState.status.has(statusBucket(entry.status))) return false;
   if (inspectorsFilterState.source.size && !inspectorsFilterState.source.has(entry.source)) return false;
@@ -1875,8 +1915,13 @@ function renderInspectorsList() {
   if (!body) return;
   const fields = buildInspectorFilterFields();
   const filtered = state.networkHistory.filter(matchesInspectorFilters);
+  const scope = inspectorsEffectiveScope();
 
   body.innerHTML = `
+    <div class="qts-tabs">
+      <button type="button" class="${scope === "all" ? "isSelected" : ""}" data-inspector-scope="all">Todos</button>
+      <button type="button" class="${scope === "mine" ? "isSelected" : ""}" data-inspector-scope="mine">Meus Inspectors</button>
+    </div>
     <div class="qts-toolbar-row">
       <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${inspectorsFilterState.collapsed ? "isActive" : ""}" id="inspectorsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
@@ -1888,22 +1933,38 @@ function renderInspectorsList() {
   `;
 
   const listBody = body.querySelector("#inspectorsListBody");
-  const mismatchHint = !state.networkHistory.length && state.inspectorsFilteredCount
-    ? `<div class="qts-empty">${escapeHtml(t.noResponsesYet)}<br><small style="color:#ffb020">${escapeHtml(translateQaSurfaceText(`${state.inspectorsFilteredCount} requisição(ões) capturada(s) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas/endpoints cadastrados.`))}</small></div>`
-    : null;
+  const emptyMessage = !state.networkHistory.length
+    ? t.noResponsesYet
+    : scope === "mine" && !state.networkHistory.some((entry) => entry.matchedInspectorIds?.length)
+      ? translateQaSurfaceText("Nenhuma resposta corresponde aos seus Inspectors configurados ainda. Veja em \"Todos\" e marque um endpoint como seu Inspector, ou ajuste os padrões em Configurações.")
+      : t.noFilterResults;
   listBody.innerHTML = filtered.length
     ? filtered.map((entry) => `
-        <div class="qts-net-item" data-id="${escapeHtml(entry.id)}">
-          <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+        <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
+          <div style="min-width:0;flex:1">
+            <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+            ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">★ ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
+          </div>
+          <button type="button" class="qts-icon-btn" data-mark-inspector="${escapeHtml(entry.id)}" title="Marcar como meu inspector" style="width:26px;height:26px;flex:0 0 auto">${ICON("pin")}</button>
         </div>
       `).join("")
-    : mismatchHint || `<div class="qts-empty">${state.networkHistory.length ? t.noFilterResults : t.noResponsesYet}</div>`;
+    : `<div class="qts-empty">${escapeHtml(emptyMessage)}</div>`;
 
-  listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
+  listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", (event) => {
+    if (event.target.closest("[data-mark-inspector]")) return;
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
     openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
+  listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const entry = state.networkHistory.find((item) => item.id === button.dataset.markInspector);
+    if (entry) void markEntryAsInspector(entry);
+  }));
 
+  body.querySelectorAll("[data-inspector-scope]").forEach((button) => button.addEventListener("click", () => {
+    inspectorsFilterState.scope = button.dataset.inspectorScope;
+    renderInspectorsList();
+  }));
   body.querySelector("#inspectorsSearch").addEventListener("input", (event) => {
     inspectorsFilterState.query = event.target.value;
     renderInspectorsList();
