@@ -18,7 +18,7 @@ async function patternsForAuthorizedWorkspace() {
   const workspace = await getWorkspace();
   return [...new Set((workspace.urlBindings || [])
     .filter((binding) => binding.active !== false)
-    .map((binding) => binding.pattern)
+    .flatMap((binding) => binding.patterns || [])
     .filter(isChromeMatchPattern))];
 }
 
@@ -30,7 +30,7 @@ async function isAuthorizedContentSender(sender) {
   });
   const bindingPatterns = (workspace.urlBindings || [])
     .filter((binding) => binding.active !== false)
-    .map((binding) => binding.pattern)
+    .flatMap((binding) => binding.patterns || [])
     .filter(isChromeMatchPattern);
   return matches(registrationPatterns) && matches(bindingPatterns);
 }
