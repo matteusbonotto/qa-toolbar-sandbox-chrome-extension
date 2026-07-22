@@ -202,6 +202,34 @@ try {
     await page.waitForTimeout(600);
   });
 
+  await captureTool("line", async (page) => {
+    await page.locator("#lineButton").click();
+    await page.mouse.move(280, 420);
+    await page.mouse.down();
+    await page.mouse.move(560, 420, { steps: 10 });
+    await page.mouse.up();
+    await page.locator(".qts-line [data-visibility-toggle]").click();
+    await page.locator(".qts-line .qts-edit-btn").click();
+    await page.locator("[data-line-arrow]").selectOption("end");
+    await page.waitForTimeout(600);
+  });
+
+  await captureTool("blurElements", async (page) => {
+    await openToolByMenu(page, "blurElementsMenuItem");
+    await page.locator("#blurSelectElement").click();
+    await page.locator("#userName").click();
+    await page.waitForTimeout(600);
+  });
+
+  await captureTool("holofote", async (page) => {
+    await openToolByMenu(page, "holofoteMenuItem");
+    await page.locator("#holofoteToggle").click();
+    await closeDrawer(page);
+    await page.mouse.move(420, 380);
+    await page.mouse.down();
+    await page.waitForTimeout(3_400);
+  });
+
   await captureTool("screenshot", async (page) => {
     await page.locator("#screenshotButton").click().catch(() => {});
   });

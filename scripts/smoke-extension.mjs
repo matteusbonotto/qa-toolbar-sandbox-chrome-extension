@@ -303,6 +303,21 @@ try {
   await host.locator("#drawerClose").click();
   trace("modo holofote verified (3s hold, follows release fade, page stays interactive)");
 
+  // Recording type menu: clicking the record button (while idle) offers "Vídeo" vs "Vídeo em
+  // partes (30s)" instead of recording immediately. Actually invoking getDisplayMedia is not
+  // exercised here — it opens a real native OS picker with no Chromium test flag that reliably
+  // auto-approves it (unlike camera/mic fake devices), so clicking past this menu would hang or
+  // flake the suite. The menu wiring itself (open/close, both options present) is real coverage;
+  // the segmentation/zip-packaging logic was verified separately via a Node harness against the
+  // already-proven window.QTS_ZIP writer.
+  await host.locator("#recordToggleButton").click();
+  await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ timeout: 2_000 });
+  if (!(await host.locator("#recordTypeVideoItem").isVisible())) throw new Error("Record type menu missing the single-video option");
+  if (!(await host.locator("#recordTypePartsItem").isVisible())) throw new Error("Record type menu missing the 30s-parts option");
+  await host.locator("#currentUrl").click();
+  await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ state: "hidden", timeout: 2_000 });
+  trace("record type menu verified (video vs 30s-parts options, opens/closes correctly)");
+
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
   await host.locator("#jsonStudioMenuItem").click();

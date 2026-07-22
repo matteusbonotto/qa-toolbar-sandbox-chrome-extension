@@ -396,7 +396,22 @@ const pt: Dictionary = {
       notesShapes: {
         title: "Notas e formas",
         short: "Anotações de texto e destaques desenhados sobre a página.",
-        details: "Notas de texto arrastáveis e formas de destaque ficam sobrepostas à página real, permitindo documentar um bug com contexto visual completo, sem precisar de outra aba pra escrever a descrição do problema.",
+        details: "Notas de texto arrastáveis e formas de destaque ficam sobrepostas à página real, permitindo documentar um bug com contexto visual completo, sem precisar de outra aba pra escrever a descrição do problema. Formas ganham efeito de borrão além de cor, em retângulo, quadrado ou círculo.",
+      },
+      line: {
+        title: "Linha com seta",
+        short: "Desenhe uma linha apontando exatamente para o que importa.",
+        details: "Arraste de um ponto a outro da página para desenhar uma linha reta, com ponta de seta opcional, ideal para apontar a relação entre dois elementos numa evidência (o campo errado e a mensagem de erro, por exemplo).",
+      },
+      blurElements: {
+        title: "Borrar elementos",
+        short: "Oculte dado sensível na tela sem esconder o layout ao redor.",
+        details: "Clique em qualquer elemento real da página para borrá-lo (dado pessoal, valor financeiro, informação de outro cliente) antes de tirar um print ou gravar, mantendo o resto da tela visível e o contexto do teste intacto.",
+      },
+      holofote: {
+        title: "Modo Holofote",
+        short: "Escureça a tela ao redor do cursor para guiar a atenção.",
+        details: "Segure o clique por 3 segundos em qualquer ponto da página para acender um holofote que acompanha o mouse, com tamanho, escurecimento e borrão configuráveis — perfeito para apresentações e demonstrações em vídeo.",
       },
       screenshot: {
         title: "Screenshot",
@@ -406,7 +421,7 @@ const pt: Dictionary = {
       recording: {
         title: "Gravação de evidências",
         short: "Grava a tela em vídeo enquanto você testa.",
-        details: "Inicia e para a gravação de vídeo (MP4/GIF conforme o plano) direto da barra, sem precisar de um software de gravação de tela separado rodando em paralelo, a evidência sai pronta pra anexar.",
+        details: "Inicia e para a gravação de vídeo direto da barra, em um único arquivo ou cortada em partes de 30 segundos (empacotadas automaticamente num .zip quando há mais de uma), sem precisar de um software de gravação separado nem de serviço externo — a evidência sai pronta pra anexar.",
       },
       inspectors: {
         title: "Inspectors",
@@ -851,7 +866,22 @@ const es: Dictionary = {
       notesShapes: {
         title: "Notas y formas",
         short: "Anotaciones de texto y resaltados dibujados sobre la página.",
-        details: "Notas de texto arrastrables y formas de resaltado se superponen a la página real, permitiendo documentar un bug con contexto visual completo, sin necesitar otra pestaña para escribir la descripción del problema.",
+        details: "Notas de texto arrastrables y formas de resaltado se superponen a la página real, permitiendo documentar un bug con contexto visual completo, sin necesitar otra pestaña para escribir la descripción del problema. Las formas suman efecto de desenfoque además de color, en rectángulo, cuadrado o círculo.",
+      },
+      line: {
+        title: "Línea con flecha",
+        short: "Dibuja una línea apuntando exactamente a lo que importa.",
+        details: "Arrastra de un punto a otro de la página para dibujar una línea recta, con punta de flecha opcional, ideal para señalar la relación entre dos elementos en una evidencia (el campo equivocado y el mensaje de error, por ejemplo).",
+      },
+      blurElements: {
+        title: "Difuminar elementos",
+        short: "Oculta datos sensibles en pantalla sin esconder el resto del diseño.",
+        details: "Haz clic en cualquier elemento real de la página para difuminarlo (dato personal, valor financiero, información de otro cliente) antes de capturar o grabar, manteniendo el resto de la pantalla visible y el contexto de la prueba intacto.",
+      },
+      holofote: {
+        title: "Modo Foco",
+        short: "Oscurece la pantalla alrededor del cursor para guiar la atención.",
+        details: "Mantén el clic 3 segundos en cualquier punto de la página para encender un foco que sigue al mouse, con tamaño, oscurecimiento y desenfoque configurables — perfecto para presentaciones y demostraciones en video.",
       },
       screenshot: {
         title: "Captura de pantalla",
@@ -861,7 +891,7 @@ const es: Dictionary = {
       recording: {
         title: "Grabación de evidencias",
         short: "Graba la pantalla en video mientras pruebas.",
-        details: "Inicia y detiene la grabación de video (MP4/GIF según el plan) directo desde la barra, sin necesitar un software de grabación aparte, la evidencia queda lista para adjuntar.",
+        details: "Inicia y detiene la grabación de video directo desde la barra, en un solo archivo o cortada en partes de 30 segundos (empaquetadas automáticamente en un .zip cuando hay más de una), sin necesitar un software aparte ni un servicio externo — la evidencia queda lista para adjuntar.",
       },
       inspectors: {
         title: "Inspectors",
@@ -1306,7 +1336,22 @@ const en: Dictionary = {
       notesShapes: {
         title: "Notes and shapes",
         short: "Text annotations and highlights drawn over the page.",
-        details: "Draggable text notes and highlight shapes overlay the real page, letting you document a bug with full visual context, no separate tab needed to write up the problem description.",
+        details: "Draggable text notes and highlight shapes overlay the real page, letting you document a bug with full visual context, no separate tab needed to write up the problem description. Shapes also support a blur effect besides color, as a rectangle, square, or circle.",
+      },
+      line: {
+        title: "Line with arrow",
+        short: "Draw a line pointing exactly at what matters.",
+        details: "Drag from one point to another on the page to draw a straight line, with an optional arrowhead — great for pointing out the relationship between two elements in a piece of evidence (the wrong field and the error message, for example).",
+      },
+      blurElements: {
+        title: "Blur elements",
+        short: "Hide sensitive data on screen without hiding the layout around it.",
+        details: "Click any real element on the page to blur it (personal data, a financial value, another customer's information) before taking a screenshot or recording, keeping the rest of the screen visible and the test context intact.",
+      },
+      holofote: {
+        title: "Spotlight Mode",
+        short: "Dim the screen around the cursor to guide attention.",
+        details: "Hold the click for 3 seconds anywhere on the page to light up a spotlight that follows the mouse, with configurable size, dimming, and blur — perfect for presentations and video demos.",
       },
       screenshot: {
         title: "Screenshot",
@@ -1316,7 +1361,7 @@ const en: Dictionary = {
       recording: {
         title: "Evidence recording",
         short: "Records your screen on video while you test.",
-        details: "Starts and stops video recording (MP4/GIF depending on the plan) right from the bar, no separate screen-recording software needed, the evidence comes out ready to attach.",
+        details: "Starts and stops video recording right from the bar, as a single file or cut into 30-second parts (automatically packaged into a .zip when there's more than one), no separate screen-recording software or third-party service needed — the evidence comes out ready to attach.",
       },
       inspectors: {
         title: "Inspectors",

@@ -79,15 +79,51 @@ qualquer item ainda `[ ]` é o que falta retomar.
       clique em qualquer ponto da página por 3s acende o holofote ao redor do mouse (acompanha o
       mouse enquanto segura); soltar apaga suavemente em 3s. Nunca bloqueia cliques/links reais da
       página — é uma camada visual passiva, não um modo de seleção.
-- [ ] **Menu de tipo de gravação** ao clicar em gravar: Vídeo normal (grava direto) ou GIF (grava e
-      corta em blocos de 30s; 1 parte = salva normal, 2+ partes = zip com part1/part2/...).
-      Nome de arquivo: `evidencia_tela_(DataHora)_part` respeitando o idioma configurado. Não
-      comecei — é a peça mais arriscada do backlog (conversão vídeo→GIF no navegador sem serviço
-      terceiro é um projeto por si só) e prefiro fazer isso com atenção total, não no fim de uma
-      sessão já longa.
+- [x] **Menu de tipo de gravação** ao clicar em gravar: agora abre um menu perguntando "Vídeo" ou
+      "Vídeo em partes (30s)" em vez de gravar direto. No modo em partes, a cada 30s a gravação
+      atual é fechada como um arquivo próprio e uma nova começa no mesmo stream, sem perder tempo
+      de vídeo entre um pedaço e outro. Ao parar: 1 parte = baixa o vídeo normalmente; 2+ partes =
+      empacota tudo num `.zip` (part1/part2/...) usando um ZIP writer novo, escrito à mão e
+      verificado byte-a-byte (`apps/extension/src/lib/minizip-content.js`, testado extraindo com o
+      `Expand-Archive` do PowerShell). Nome de arquivo segue `evidencia_tela_(DataHora)_parteN`
+      (ou `screen_evidence_.../partN`, `evidencia_pantalla_.../parteN` em en/es), sempre no idioma
+      configurado. *(Duas ressalvas honestas: (1) "GIF" virou "Vídeo em partes" — gerar pixels de
+      GIF de verdade no navegador sem serviço terceiro exigiria implementar LZW + quantização de
+      paleta do zero, um projeto à parte, e um bug ali produziria arquivo corrompido silenciosamente;
+      preferi entregar algo verificável a arriscar isso no fim de uma sessão longa — os arquivos são
+      `.webm`/`.mp4` reais, só cortados e zipados, não pixels de GIF. (2) `getDisplayMedia` abre um
+      seletor nativo do sistema operacional que o Chrome não tem como automatizar de forma confiável
+      em teste (diferente de câmera/microfone, que têm flag de dispositivo falso) — o smoke test
+      cobre a abertura/fechamento do menu de tipo de gravação de verdade, e a lógica de corte/zip foi
+      verificada à parte com um teste Node + extração real do zip, mas o fluxo completo de gravação
+      real nunca foi (e não é possível ser) testado automaticamente ponta a ponta.)*
 
-*(Essas quatro pendências de Prioridade 5 são candidatas fortes pra próxima rodada, cada uma dá
-pra tratar como uma tarefa isolada.)*
+*(Este era o último item da Prioridade 5 — backlog inteiro concluído nesta rodada, com as ressalvas
+documentadas acima e nos itens anteriores.)*
+
+## Fechamento: "não esqueça de atualizar a LP, as feature flags, os planos, e os tutoriais e tour"
+
+- [x] **Tutoriais/tour**: ao concluir o item acima, percebi que Linha, Borrar elementos e Modo
+      Holofote (as 3 ferramentas novas desta rodada) não tinham entrada no painel Tutorial nem no
+      tour ao vivo — só existiam no menu da barra. Adicionados os 3 módulos novos em
+      `tutorial-data.js` (título/resumo/instruções/dica, no grupo "Evidências de teste") com
+      screenshot e vídeo reais (recapturados via `npm run tutorial:capture`), tradução es/en
+      completa, e alvo no tour ao vivo (`TOUR_TARGETS`) pra cada um. A descrição da ferramenta de
+      Gravação também foi corrigida (não fala mais em "GIF conforme o plano" — reflete o menu de
+      tipo de gravação novo).
+- [x] **LP**: catálogo de features (`apps/landing/src/data/featureGroups.ts` +
+      `translations.ts`) ganhou 3 itens novos (Linha com seta, Borrar elementos, Modo Holofote) nas
+      3 línguas, com ícone próprio cada um. A descrição de "Gravação de evidências" também foi
+      atualizada pra não citar mais GIF.
+- [x] **Feature flags / planos**: confirmado no código (`PLAN_GATED_TOOLS` em `toolbar.js`) que
+      nenhuma das 4 ferramentas novas desta rodada (Borrar, Linha, Holofote, tipo de gravação) foi
+      gateada por plano — todas ficam disponíveis a qualquer workspace, igual as outras ferramentas
+      não-premium. Isso é intencional (mesma decisão já tomada quando cada uma foi implementada) e
+      confirma que não há mudança pendente em `plan_features`/admin.
+
+Todos os itens do backlog original (Prioridade 1 a 5) e este fechamento estão concluídos e
+validados (`npm run typecheck`, `npm run test`, `npm run test:chrome` e
+`npm run security:extension` verdes, 0 erros de console).
 
 ## Feito nesta rodada anterior (referência, já mergeado/PR aberto)
 

@@ -476,6 +476,13 @@ function buildShadowHost() {
       .qts-bell-row:hover { background: #232323; }
       .qts-bell-row span { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; }
       .qts-bell-row small { display: block; margin-top: 2px; color: #777; }
+      #recordWrapper { position: relative; }
+      #recordTypeMenu { position: absolute; top: 30px; right: 0; width: 240px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
+      #recordTypeMenuTitle { margin: 2px 4px 4px; font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: .04em; }
+      #recordTypeMenu button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 2px; width: 100%; padding: 8px; border-radius: 7px; background: #171717; border: 1px solid #2c2c2c; }
+      #recordTypeMenu button:hover { background: #232323; border-color: #ffd700; }
+      #recordTypeMenu button strong { font-size: 12px; }
+      #recordTypeMenu button span { font-size: 10px; color: #999; line-height: 1.35; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
@@ -486,8 +493,8 @@ function buildShadowHost() {
          way back. Below this width those pinned buttons hide and the same actions move into the
          Tools menu instead (#mobileActionsMenu), which stays reachable regardless of width. */
       @media (max-width: 560px) {
-        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #clearAllButton,
-        #screenshotButton, #recordToggleButton, #recordStopButton, #recordTimer { display: none !important; }
+        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #lineButton, #clearAllButton,
+        #screenshotButton, #recordWrapper, #recordStopButton, #recordTimer { display: none !important; }
         #mobileActionsMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       }
     </style>
@@ -509,7 +516,20 @@ function buildShadowHost() {
         <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
         <button id="hideAllButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.hideAllTitle)}">${ICON("eye")}</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">${ICON("camera")}</button>
-        <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
+        <div id="recordWrapper">
+          <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
+          <div id="recordTypeMenu" class="isHidden" role="menu">
+            <p id="recordTypeMenuTitle">${escapeHtml(t.recordTypeMenuTitle)}</p>
+            <button type="button" id="recordTypeVideoItem" role="menuitem" data-record-mode="video">
+              <strong>${escapeHtml(t.recordTypeVideoLabel)}</strong>
+              <span>${escapeHtml(t.recordTypeVideoHint)}</span>
+            </button>
+            <button type="button" id="recordTypePartsItem" role="menuitem" data-record-mode="parts">
+              <strong>${escapeHtml(t.recordTypePartsLabel)}</strong>
+              <span>${escapeHtml(t.recordTypePartsHint)}</span>
+            </button>
+          </div>
+        </div>
         <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">${ICON("recordStop")}</button>
         <span id="recordTimer" class="isHidden">00:00</span>
         <div id="macroRecordingBar" class="isHidden">
@@ -596,7 +616,6 @@ function buildShadowHost() {
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
   shadow.getElementById("hideAllButton").addEventListener("click", () => toggleAllFloatingItemsVisibility());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
-  shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
   shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
   shadow.getElementById("macroRecHistoryButton").addEventListener("click", () => toggleMacroHistoryPanel());
   shadow.getElementById("macroRecPauseButton").addEventListener("click", () => toggleMacroRecordingPause());
@@ -613,16 +632,25 @@ function buildShadowHost() {
   shadow.getElementById("mobileShapeItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton")); closeToolsMenu(); });
   shadow.getElementById("mobileLineItem").addEventListener("click", () => { enablePlacementMode("line", shadow.getElementById("lineButton")); closeToolsMenu(); });
   shadow.getElementById("mobileScreenshotItem").addEventListener("click", () => { captureScreenshot(); closeToolsMenu(); });
-  shadow.getElementById("mobileRecordItem").addEventListener("click", () => { handleRecordToggle(); closeToolsMenu(); });
+  shadow.getElementById("mobileRecordItem").addEventListener("click", () => {
+    if (recordingState.status === "idle") startEvidenceRecording("video");
+    else handleRecordToggle();
+    closeToolsMenu();
+  });
 
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
     shadow.getElementById("toolsMenu").classList.toggle("isOpen");
   });
   shadow.getElementById("notificationBellButton").addEventListener("click", (event) => { event.stopPropagation(); toggleNotificationBellPanel(); });
+  shadow.getElementById("recordToggleButton").addEventListener("click", (event) => { event.stopPropagation(); handleRecordToggle(); });
+  shadow.getElementById("recordTypeMenu").addEventListener("click", (event) => event.stopPropagation());
+  shadow.getElementById("recordTypeVideoItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("video"); });
+  shadow.getElementById("recordTypePartsItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("parts"); });
   shadow.addEventListener("click", () => {
     shadow.getElementById("toolsMenu").classList.remove("isOpen");
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
+    toggleRecordTypeMenu(false);
   });
   shadow.getElementById("toolsMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.getElementById("notificationBellPanel").addEventListener("click", (event) => event.stopPropagation());
@@ -705,6 +733,9 @@ const TOUR_TARGETS = {
   testStatus: { selector: "#testStatusButton" },
   passFail: { selector: "#passButton" },
   notesShapes: { selector: "#noteButton" },
+  line: { selector: "#lineButton" },
+  blurElements: { selector: "#blurElementsMenuItem", menu: true },
+  holofote: { selector: "#holofoteMenuItem", menu: true },
   screenshot: { selector: "#screenshotButton" },
   recording: { selector: "#recordToggleButton" },
   clickSpy: { selector: "#clickSpyMenuItem", menu: true },
@@ -4630,15 +4661,20 @@ document.addEventListener("qts:force-http-state", (event) => {
 // produce usable evidence today.
 // ---------------------------------------------------------------------------
 
+const RECORD_PART_DURATION_MS = 30_000;
+
 const recordingState = {
   status: "idle", // idle | recording | paused
+  mode: "video", // video | parts (parts = 30s chunks, zipped together if more than one)
   stream: null,
   recorder: null,
   chunks: [],
+  parts: [], // finished segment Blobs, only used when mode === "parts"
   mimeType: "",
   elapsedMs: 0,
   segmentStartedAt: 0,
   timerId: null,
+  partTimerId: null,
 };
 
 function pickRecordingMimeType() {
@@ -4672,13 +4708,58 @@ function setRecordingUi() {
   timer?.classList.toggle("isHidden", recordingState.status === "idle");
 }
 
-async function handleRecordToggle() {
-  if (recordingState.status === "idle") { await startEvidenceRecording(); return; }
+function toggleRecordTypeMenu(forceOpen) {
+  const menu = state.shadowRoot?.getElementById("recordTypeMenu");
+  if (!menu) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : menu.classList.contains("isHidden");
+  menu.classList.toggle("isHidden", !shouldOpen);
+}
+
+function handleRecordToggle() {
+  if (recordingState.status === "idle") { toggleRecordTypeMenu(); return; }
   if (recordingState.status === "recording") { pauseEvidenceRecording(); return; }
   resumeEvidenceRecording();
 }
 
-async function startEvidenceRecording() {
+function startPartRotationTimer() {
+  if (recordingState.mode !== "parts") return;
+  recordingState.partTimerId = window.setTimeout(handlePartRotationTick, RECORD_PART_DURATION_MS);
+}
+
+function stopPartRotationTimer() {
+  if (recordingState.partTimerId) {
+    window.clearTimeout(recordingState.partTimerId);
+    recordingState.partTimerId = null;
+  }
+}
+
+async function handlePartRotationTick() {
+  if (recordingState.status !== "recording" || recordingState.mode !== "parts") return;
+  await rotateRecordingSegment();
+  if (recordingState.status === "recording") startPartRotationTimer();
+}
+
+// Finishes the current MediaRecorder segment as its own standalone playable file (a fresh
+// MediaRecorder on the same live stream, not a mid-stream split — WebM/MP4 containers need their
+// own header, so this is the only reliable way to get N independently-playable chunks) and starts
+// the next one immediately so no video time is lost between segments.
+async function rotateRecordingSegment() {
+  const recorder = recordingState.recorder;
+  if (!recorder || !recordingState.stream) return;
+  const stopped = new Promise((resolveStop) => recorder.addEventListener("stop", resolveStop, { once: true }));
+  recorder.stop();
+  await stopped;
+  recordingState.parts.push(new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" }));
+  recordingState.chunks = [];
+  if (recordingState.status !== "recording") return;
+  recordingState.recorder = new MediaRecorder(recordingState.stream, recordingState.mimeType ? { mimeType: recordingState.mimeType } : undefined);
+  recordingState.recorder.addEventListener("dataavailable", (event) => {
+    if (event.data?.size) recordingState.chunks.push(event.data);
+  });
+  recordingState.recorder.start(1000);
+}
+
+async function startEvidenceRecording(mode = "video") {
   if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
     openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
     return;
@@ -4690,8 +4771,10 @@ async function startEvidenceRecording() {
     return; // User cancelled the native picker — not an error.
   }
   const mimeType = pickRecordingMimeType();
+  recordingState.mode = mode;
   recordingState.stream = stream;
   recordingState.chunks = [];
+  recordingState.parts = [];
   recordingState.mimeType = mimeType;
   recordingState.elapsedMs = 0;
   recordingState.recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -4706,6 +4789,7 @@ async function startEvidenceRecording() {
   recordingState.status = "recording";
   recordingState.segmentStartedAt = Date.now();
   recordingState.timerId = window.setInterval(updateRecordTimerDisplay, 500);
+  startPartRotationTimer();
   setRecordingUi();
 }
 
@@ -4714,6 +4798,7 @@ function pauseEvidenceRecording() {
   recordingState.recorder.pause();
   recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
   recordingState.status = "paused";
+  stopPartRotationTimer();
   setRecordingUi();
 }
 
@@ -4722,11 +4807,44 @@ function resumeEvidenceRecording() {
   recordingState.recorder.resume();
   recordingState.segmentStartedAt = Date.now();
   recordingState.status = "recording";
+  startPartRotationTimer();
   setRecordingUi();
+}
+
+function recordingFileBaseName() {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${state.t.recordFilenamePrefix || "evidencia_tela"}_${stamp}`;
+}
+
+function triggerBlobDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// Single segment downloads directly; 2+ segments (mode "parts", recording longer than 30s) get
+// packaged into one .zip via window.QTS_ZIP so the user gets one file to attach as evidence
+// instead of a scattered pile of part1/part2/... downloads.
+async function downloadRecordingResult(parts, extension) {
+  const baseName = recordingFileBaseName();
+  if (parts.length <= 1) {
+    triggerBlobDownload(parts[0], `${baseName}.${extension}`);
+    return;
+  }
+  const partWord = state.t.recordFilenamePart || "part";
+  const files = await Promise.all(parts.map(async (blob, index) => ({
+    name: `${baseName}_${partWord}${index + 1}.${extension}`,
+    data: new Uint8Array(await blob.arrayBuffer()),
+  })));
+  triggerBlobDownload(window.QTS_ZIP.createZip(files), `${baseName}.zip`);
 }
 
 async function stopEvidenceRecording() {
   if (recordingState.status === "idle" || !recordingState.recorder) return;
+  stopPartRotationTimer();
   const recorder = recordingState.recorder;
   if (recordingState.status === "recording") recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
   window.clearInterval(recordingState.timerId);
@@ -4737,19 +4855,17 @@ async function stopEvidenceRecording() {
   await stopped;
   recordingState.stream?.getTracks().forEach((track) => track.stop());
 
-  const blob = new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" });
+  const finalBlob = new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" });
   const extension = (recordingState.mimeType || "").includes("mp4") ? "mp4" : "webm";
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `qa-evidencia-${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  const parts = recordingState.mode === "parts" ? [...recordingState.parts, finalBlob] : [finalBlob];
+  await downloadRecordingResult(parts, extension);
 
   recordingState.status = "idle";
+  recordingState.mode = "video";
   recordingState.recorder = null;
   recordingState.stream = null;
   recordingState.chunks = [];
+  recordingState.parts = [];
   recordingState.elapsedMs = 0;
   setRecordingUi();
   updateRecordTimerDisplay();

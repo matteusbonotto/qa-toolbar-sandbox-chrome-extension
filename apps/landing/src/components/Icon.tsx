@@ -10,6 +10,8 @@ import iconChevronDown from "bootstrap-icons/icons/chevron-down.svg?raw";
 import iconCodeSlash from "bootstrap-icons/icons/code-slash.svg?raw";
 import iconCreditCard from "bootstrap-icons/icons/credit-card.svg?raw";
 import iconCrosshair from "bootstrap-icons/icons/crosshair.svg?raw";
+import iconDashLg from "bootstrap-icons/icons/dash-lg.svg?raw";
+import iconDropletHalf from "bootstrap-icons/icons/droplet-half.svg?raw";
 import iconExclamationTriangle from "bootstrap-icons/icons/exclamation-triangle.svg?raw";
 import iconFonts from "bootstrap-icons/icons/fonts.svg?raw";
 import iconKey from "bootstrap-icons/icons/key.svg?raw";
@@ -22,6 +24,7 @@ import iconPuzzle from "bootstrap-icons/icons/puzzle.svg?raw";
 import iconRecordCircle from "bootstrap-icons/icons/record-circle.svg?raw";
 import iconSquare from "bootstrap-icons/icons/square.svg?raw";
 import iconStars from "bootstrap-icons/icons/stars.svg?raw";
+import iconSunFill from "bootstrap-icons/icons/sun-fill.svg?raw";
 
 const ICONS = {
   aspectRatio: iconAspectRatio,
@@ -34,6 +37,8 @@ const ICONS = {
   codeSlash: iconCodeSlash,
   creditCard: iconCreditCard,
   crosshair: iconCrosshair,
+  dashLg: iconDashLg,
+  dropletHalf: iconDropletHalf,
   exclamationTriangle: iconExclamationTriangle,
   fonts: iconFonts,
   key: iconKey,
@@ -46,6 +51,7 @@ const ICONS = {
   recordCircle: iconRecordCircle,
   square: iconSquare,
   stars: iconStars,
+  sunFill: iconSunFill,
 } as const;
 
 export type IconName = keyof typeof ICONS;
