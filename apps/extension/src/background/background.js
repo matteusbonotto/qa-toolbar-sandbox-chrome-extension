@@ -1,4 +1,4 @@
-import { getSiteScope, getWorkspace, onStorageChanged, STORAGE_KEYS } from "../lib/storage.js";
+import { getSiteScope, getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS } from "../lib/storage.js";
 import { acceptSessionHandoff, deleteAccount, getAccessState, redeemVoucher, requestPasswordReset, signIn, signOut } from "./auth.js";
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
@@ -95,7 +95,7 @@ async function applyContentScriptRegistration({ forceAccess = false } = {}) {
     // allFrames:true so the bar also renders inside the Breakpoint Viewer's own device-preview
     // iframes (same-origin, matching these same URL patterns) — boot()'s tiny-frame guard in
     // toolbar.js keeps this from mounting in incidental small embedded widgets on normal pages.
-    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: true },
+    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: true },
   ]);
   await injectIntoOpenTabs(matches);
 }
@@ -110,7 +110,7 @@ async function injectIntoOpenTabs(matches) {
       if (existing?.present) return;
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", files: ["src/pagebridge/pagebridge.js"] });
       await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["src/toolbar/toolbar.css"] });
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/toolbar/toolbar.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"] });
     } catch {}
   }));
 }
@@ -147,7 +147,40 @@ chrome.alarms.onAlarm.addListener((alarm) => {
   if (alarm.name === ACCESS_RETRY_ALARM) void applyContentScriptRegistration({ forceAccess: true });
 });
 
-chrome.runtime.onInstalled.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); setupContextMenus(); });
+// The live guided tour needs a real logged-in toolbar to point the spotlight at, so it can't start
+// right on chrome.runtime.onInstalled (nobody has signed in yet at that instant) -- fresh installs
+// just jump straight to the login/signup screen instead. The tour itself only ever starts from an
+// explicit user action (the "Novo por aqui?" banner or the Tutorial panel's "Iniciar tutorial"
+// button, both in options.js) via the qts:start-tutorial-tour message below -- deliberately never
+// automatic on login, so it can't hijack a returning user's tab or interrupt an unrelated flow
+// (this was tried and reverted: it also fired mid-flow for anyone whose workspace happened to
+// still be empty, stealing focus into a new tab right when they didn't ask for it).
+const TUTORIAL_DEMO_URL = "https://demoqa.com/text-box?qtsTutorial=1";
+
+// Seeds a starter workspace (client/project/product/environment/URL pointing at the public demo
+// site used for tutorial captures) so the toolbar has something real to mount on, then opens that
+// demo page in a new tab for the live tour in toolbar.js to take over. Never overwrites a
+// workspace that already has real data -- if the user already set one up, this just opens the tab.
+async function seedDemoWorkspaceAndOpenTour() {
+  const workspace = await getWorkspace();
+  if (!workspace.clients.length) {
+    await saveWorkspace({
+      clients: [{ id: "demo-client", name: "Cliente Exemplo" }],
+      projects: [{ id: "demo-project", clientId: "demo-client", name: "Projeto Exemplo" }],
+      products: [{ id: "demo-product", projectId: "demo-project", name: "Produto Exemplo" }],
+      environments: [{ id: "demo-env", name: "QA", color: "#5b21b6" }],
+      urlBindings: [{ id: "demo-binding", productId: "demo-product", environmentIds: ["demo-env"], patterns: ["https://demoqa.com/*"] }],
+    });
+    await applyContentScriptRegistration();
+  }
+  await chrome.tabs.create({ url: TUTORIAL_DEMO_URL });
+}
+
+chrome.runtime.onInstalled.addListener((details) => {
+  void applyContentScriptRegistration({ forceAccess: true });
+  setupContextMenus();
+  if (details.reason === "install") chrome.runtime.openOptionsPage();
+});
 chrome.runtime.onStartup.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); setupContextMenus(); });
 
 onStorageChanged((changes) => {
@@ -191,9 +224,16 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "qts:auth-sign-in" && isOwnOptionsPage(sender)) {
     signIn(message.email, message.password)
       .then(() => getAccessState({ force: true }))
-      .then(async (access) => { if (access.active) await applyContentScriptRegistration(); sendResponse({ ok: access.active, access }); })
+      .then(async (access) => {
+        if (access.active) await applyContentScriptRegistration();
+        sendResponse({ ok: access.active, access });
+      })
       .catch((error) => sendResponse({ ok: false, error: String(error?.message || "authentication_failed") }));
     return true;
+  }
+  if (message.type === "qts:start-tutorial-tour" && isOwnOptionsPage(sender)) {
+    void seedDemoWorkspaceAndOpenTour();
+    return undefined;
   }
   if (message.type === "qts:auth-recover-password" && isOwnOptionsPage(sender)) {
     requestPasswordReset(message.email)
@@ -228,7 +268,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === "qts:open-options") {
-    chrome.runtime.openOptionsPage();
+    // openOptionsPage() has no way to pass a query param, so the live tutorial tour (toolbar.js),
+    // which needs to land the user directly on the Workspace tab after "Pular tutorial", opens the
+    // page URL directly instead; every other caller keeps using the plain openOptionsPage() path.
+    if (message.tab) chrome.tabs.create({ url: chrome.runtime.getURL(`src/options/options.html?tab=${encodeURIComponent(message.tab)}`) });
+    else chrome.runtime.openOptionsPage();
     return undefined;
   }
   return undefined;

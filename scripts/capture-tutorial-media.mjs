@@ -1,14 +1,16 @@
-// Local/manual media capture for the extension's Tutorial panel (Part B). Modeled directly on the
+// Local/manual media capture for the extension's Tutorial panel (Part B revision). Modeled on the
 // already-validated pattern in scripts/smoke-extension.mjs (launchPersistentContext + route mocks
-// for the Edge Functions + extensionId extraction via serviceWorkers()) -- the novelty here is
-// aiming the bar at real external sites (demoqa.com / saucedemo.com, per the user's request)
-// instead of the local fixture server, and saving screenshots into a VERSIONED directory
-// (apps/extension/src/options/tutorial-assets/) since artifacts/ is gitignored and can't be the
-// final destination for assets the Tutorial panel loads at runtime.
+// for the Edge Functions + extensionId extraction via serviceWorkers(), and the exact tool
+// interaction selectors already proven there) -- the novelty here is aiming the bar at a real
+// external site (demoqa.com) instead of the local fixture server, recording a short video per tool
+// (Playwright's native recordVideo, one fresh page per tool so each clip stays short and focused),
+// and saving everything into a VERSIONED directory (apps/extension/src/options/tutorial-assets/)
+// since artifacts/ is gitignored and can't be the final destination for assets the Tutorial panel
+// loads at runtime.
 //
-// Not part of CI -- run manually with `npm run tutorial:capture` and review the PNGs before
-// committing. Captures an initial representative batch (workspace setup + flagship tools that
-// don't require a second site login); rerun/extend later for the remaining tools.
+// Not part of CI -- run manually with `npm run tutorial:capture` and review the media before
+// committing. Each tool capture is wrapped so one failure doesn't abort the whole batch; failures
+// are reported at the end so they're easy to re-run individually later.
 import { mkdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
@@ -16,15 +18,20 @@ import { chromium } from "playwright";
 const root = resolve(import.meta.dirname, "..");
 const extensionPath = resolve(root, "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-tutorial-capture-profile");
+const videoTmpPath = resolve(root, "artifacts/tutorial-video-tmp");
 const assetsPath = resolve(root, "apps/extension/src/options/tutorial-assets");
+const DEMO_URL = "https://demoqa.com/text-box";
 const trace = (label) => console.log(`[tutorial-capture] ${label}`);
 await rm(profilePath, { recursive: true, force: true });
+await rm(videoTmpPath, { recursive: true, force: true });
 await mkdir(assetsPath, { recursive: true });
+await mkdir(videoTmpPath, { recursive: true });
 
 const context = await chromium.launchPersistentContext(profilePath, {
   headless: false,
   args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, "--window-position=20,20", "--window-size=1440,960", "--no-first-run"],
   viewport: { width: 1440, height: 960 },
+  recordVideo: { dir: videoTmpPath, size: { width: 1440, height: 960 } },
 });
 context.setDefaultTimeout(15_000);
 
@@ -43,6 +50,47 @@ await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", 
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
+
+const failures = [];
+
+// Every fresh page starts unauthenticated in a persistent context UNLESS storage state carries
+// over -- chrome.storage.local (extension-scoped) already persists automatically per profile, so
+// the session/workspace seeded once via the options page below is visible to every later page.
+async function waitForToolbar(page) {
+  await page.goto(DEMO_URL, { waitUntil: "domcontentloaded", timeout: 45_000 });
+  await page.locator("#qts-toolbar-host").waitFor({ state: "attached", timeout: 15_000 });
+  await page.waitForTimeout(500);
+}
+
+async function openToolByMenu(page, menuItemId) {
+  await page.locator("#toolsButton").click();
+  await page.locator(`#${menuItemId}`).click();
+}
+
+async function closeDrawer(page) {
+  await page.locator("#drawerClose").click().catch(() => {});
+}
+
+// One fresh page per tool keeps each recorded .webm short and focused on that single tool, instead
+// of one long video covering the whole session -- Playwright's recordVideo is context-scoped, so a
+// page's own clip is finalized (and renameable via page.video().saveAs) once that page closes.
+async function captureTool(key, action) {
+  const page = await context.newPage();
+  try {
+    await waitForToolbar(page);
+    await action(page);
+    await page.waitForTimeout(1_200);
+    await page.screenshot({ path: resolve(assetsPath, `${key}.png`), fullPage: false });
+    const video = page.video();
+    await page.close();
+    if (video) await video.saveAs(resolve(assetsPath, `${key}.webm`));
+    trace(`captured ${key}.png + ${key}.webm`);
+  } catch (error) {
+    failures.push(key);
+    trace(`FAILED ${key}: ${error.message}`);
+    await page.close().catch(() => {});
+  }
+}
 
 try {
   let worker = context.serviceWorkers()[0];
@@ -84,74 +132,161 @@ try {
     await options.locator(".environmentToggle", { hasText: "QA" }).click();
     await options.locator("#urlRelationForm button[type=submit]").click();
   }
-  trace("workspace ready (Cliente Demo / Projeto Demo / Produto Demo, demoqa.com + saucedemo.com)");
+
+  // Seed a test account, a payment method and a resource too, so the corresponding tools have
+  // something real to display instead of an empty drawer.
+  await options.locator('[data-workspace-tab="accounts"]').click();
+  await options.locator('[data-open-composer="testAccountComposer"]').click();
+  await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
+  await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).locator("input").check();
+  await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
+  await options.locator("#testAccountLabel").fill("Conta sandbox");
+  await options.locator("#testAccountUsername").fill("sandbox@example.com");
+  await options.locator("#testAccountPassword").fill("local-password-value");
+  await options.locator("#testAccountForm button[type=submit]").click();
+  await options.locator('[data-workspace-tab="payments"]').click();
+  await options.locator('[data-open-composer="paymentMethodComposer"]').click();
+  await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
+  await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).locator("input").check();
+  await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
+  await options.locator("#paymentMethodLabel").fill("Visa sandbox");
+  await options.locator("#paymentMethodValue").fill("4242424242424242");
+  await options.locator("#paymentMethodForm button[type=submit]").click();
+  await options.locator('[data-workspace-tab="integrations"]').click();
+  await options.locator('[data-open-composer="resourceComposer"]').click();
+  await options.locator("#resourceLabel").fill("Runbook QA");
+  await options.locator("#resourceUrl").fill("https://example.com/runbook");
+  await options.locator("#resourceForm button[type=submit]").click();
+  trace("workspace ready (client/project/product/environment/URLs/account/payment/resource)");
+
   await options.locator('[data-workspace-tab="structure"]').click();
   await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
   trace("captured workspace-setup.png");
+  await options.close();
 
-  const host = await context.newPage();
-  // demoqa.com is ad-heavy and slow to reach a full "load" event; domcontentloaded + a generous
-  // timeout is enough since we only need the DOM present for the toolbar's URL-match to fire.
-  await host.goto("https://demoqa.com/text-box", { waitUntil: "domcontentloaded", timeout: 45_000 });
-  const toolbar = host.locator("#qts-toolbar-host");
-  await toolbar.waitFor({ state: "attached", timeout: 15_000 });
-  await host.waitForTimeout(600);
-  trace("toolbar mounted on demoqa.com/text-box");
+  await captureTool("testStatus", async (page) => {
+    await page.locator("#testStatusButton").click();
+    await page.locator("#qts-test-status-modal").waitFor();
+  });
 
-  // Test Status
-  await host.locator("#testStatusButton").click();
-  await host.locator("#qts-test-status-modal").waitFor();
-  await host.screenshot({ path: resolve(assetsPath, "test-status.png"), fullPage: false });
-  await host.keyboard.press("Escape");
-  trace("captured test-status.png");
+  await captureTool("passFail", async (page) => {
+    await page.locator("#passButton").click();
+    await page.locator("#userName-label").click({ force: true });
+  });
 
-  // Pass/Fail marker
-  await host.locator("#passButton").click();
-  await host.locator("#userName-label").click({ force: true });
-  await host.screenshot({ path: resolve(assetsPath, "pass-fail.png"), fullPage: false });
-  trace("captured pass-fail.png");
+  await captureTool("notesShapes", async (page) => {
+    await page.locator("#noteButton").click();
+  });
 
-  // Screenshot button (captures the toast, not the resulting image)
-  const cameraButton = host.locator('button[title]', { hasText: "" });
-  await host.locator("#screenshotButton").click().catch(() => {});
-  await host.screenshot({ path: resolve(assetsPath, "screenshot.png"), fullPage: false });
-  trace("captured screenshot.png");
+  await captureTool("screenshot", async (page) => {
+    await page.locator("#screenshotButton").click().catch(() => {});
+  });
 
-  // Click Spy
-  await host.locator("#toolsButton").click();
-  await host.locator("#clickSpyMenuItem").click();
-  await host.locator("#userName").hover();
-  await host.screenshot({ path: resolve(assetsPath, "click-spy.png"), fullPage: false });
-  await host.locator("#toolsButton").click();
-  await host.locator("#clickSpyMenuItem").click();
-  trace("captured click-spy.png");
+  await captureTool("recording", async (page) => {
+    // Real screen recording needs OS-level display-capture consent that automation can't safely
+    // drive -- hover the button (visible + highlighted) instead of clicking it, so the clip shows
+    // the real UI without triggering getDisplayMedia().
+    await page.locator("#recordToggleButton").hover();
+  });
 
-  // Freeze Clock (opens in the same drawer as Force HTTP/JSON Studio/etc -- close it explicitly
-  // via #drawerClose rather than Escape, which these drawers don't listen for)
-  await host.locator("#toolsButton").click();
-  await host.locator("#freezeClockMenuItem").click();
-  await host.waitForTimeout(300);
-  await host.screenshot({ path: resolve(assetsPath, "freeze-clock.png"), fullPage: false });
-  await host.locator("#drawerClose").click().catch(() => {});
-  trace("captured freeze-clock.png");
+  await captureTool("clickSpy", async (page) => {
+    await openToolByMenu(page, "clickSpyMenuItem");
+    await page.locator("#userName").hover();
+  });
 
-  // Force HTTP
-  await host.locator("#toolsButton").click();
-  await host.locator("#forceHttpMenuItem").click();
-  await host.waitForTimeout(300);
-  await host.screenshot({ path: resolve(assetsPath, "force-http.png"), fullPage: false });
-  await host.locator("#drawerClose").click().catch(() => {});
-  trace("captured force-http.png");
+  await captureTool("freezeClock", async (page) => {
+    await openToolByMenu(page, "freezeClockMenuItem");
+  });
 
-  // Capturar Elementos
-  await host.locator("#toolsButton").click();
-  await host.locator("#elementCaptureMenuItem").click();
-  await host.getByText(/elemento\(s\) encontrado\(s\)/).waitFor();
-  await host.screenshot({ path: resolve(assetsPath, "element-capture.png"), fullPage: false });
-  await host.locator("#drawerClose").click().catch(() => {});
-  trace("captured element-capture.png");
+  await captureTool("forceHttp", async (page) => {
+    await openToolByMenu(page, "forceHttpMenuItem");
+  });
 
-  trace("done -- review the PNGs in apps/extension/src/options/tutorial-assets/ before committing");
+  await captureTool("errorMonitor", async (page) => {
+    await openToolByMenu(page, "errorMonitorMenuItem");
+  });
+
+  await captureTool("inspectors", async (page) => {
+    await openToolByMenu(page, "inspectorsMenuItem");
+  });
+
+  await captureTool("jsonStudio", async (page) => {
+    await openToolByMenu(page, "jsonStudioMenuItem");
+    await page.locator("#jsonInput").fill('{"ok":true,"example":"qa-toolbar-sandbox"}');
+    await page.locator("#jsonFormat").click();
+  });
+
+  await captureTool("breakpoints", async (page) => {
+    await openToolByMenu(page, "breakpointMenuItem");
+    await page.locator("#bpStage .qts-bp-frame").nth(1).waitFor();
+  });
+
+  await captureTool("characterCounter", async (page) => {
+    await openToolByMenu(page, "characterCounterMenuItem");
+    await page.locator("#characterCounterInput").fill("QA Toolbar Sandbox\nTeste de contagem");
+  });
+
+  await captureTool("multiClick", async (page) => {
+    await openToolByMenu(page, "multiClickMenuItem");
+    await page.locator("#multiSelect").click();
+    await page.locator("#submit").click();
+    await page.locator("#multiCount").fill("3");
+    await page.locator("#multiInterval").fill("150");
+    await page.locator("#multiRun").click();
+  });
+
+  await captureTool("inputLab", async (page) => {
+    await openToolByMenu(page, "inputLabMenuItem");
+    await page.locator("#inputSelect").click();
+    await page.locator("#userName").click();
+    await page.locator("#inputRun").click();
+    await page.locator("#inputResults tbody tr").first().waitFor();
+  });
+
+  await captureTool("fakerFill", async (page) => {
+    await openToolByMenu(page, "fakerFillMenuItem");
+    await page.locator("#fakerRun").click();
+  });
+
+  await captureTool("macroStudio", async (page) => {
+    await openToolByMenu(page, "macroStudioMenuItem");
+    await page.locator("#startMacroRecording").click();
+    await page.locator("#userName").click();
+    await page.keyboard.type("QA Toolbar Sandbox");
+    await page.locator("#userName").press("Tab");
+    await page.locator("#macroRecDoneButton").click();
+    await page.locator("#macroSave").click();
+    await page.locator("#macroList .qts-card").first().waitFor();
+  });
+
+  await captureTool("keyView", async (page) => {
+    await openToolByMenu(page, "keyViewMenuItem");
+    await page.locator("#keyViewToggle").click();
+    await closeDrawer(page);
+    await page.locator("h1").click();
+    await page.keyboard.press("Control+V");
+  });
+
+  await captureTool("elementCapture", async (page) => {
+    await openToolByMenu(page, "elementCaptureMenuItem");
+    await page.getByText(/elemento\(s\) encontrado\(s\)/).waitFor();
+  });
+
+  await captureTool("testAccounts", async (page) => {
+    await openToolByMenu(page, "testAccountsMenuItem");
+  });
+
+  await captureTool("paymentMethods", async (page) => {
+    await openToolByMenu(page, "paymentMethodsMenuItem");
+  });
+
+  await captureTool("resources", async (page) => {
+    await openToolByMenu(page, "resourcesMenuItem");
+  });
+
+  if (failures.length) trace(`done with failures: ${failures.join(", ")} -- rerun this script, only the failed tools need retrying (workspace setup is idempotent-ish but review the profile first)`);
+  else trace("done -- review the media in apps/extension/src/options/tutorial-assets/ before committing");
 } finally {
   await context.close();
+  await rm(videoTmpPath, { recursive: true, force: true });
 }

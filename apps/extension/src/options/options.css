@@ -318,7 +318,8 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .tutorialModules { display:grid; gap:12px; margin-top:14px; }
 .tutorialModule { display:grid; grid-template-columns:160px 1fr; gap:16px; padding:16px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(145deg,rgba(26,29,39,.96),rgba(18,20,27,.96)); }
 .tutorialModule.isDone { border-color:rgba(66,213,194,.5); }
-.tutorialModuleMedia { width:160px; height:100px; border-radius:10px; overflow:hidden; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px; }
+.tutorialModuleMedia { width:160px; height:100px; border-radius:10px; overflow:hidden; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px; border:0; padding:0; cursor:default; position:relative; }
+.tutorialModuleMedia:not(:disabled) { cursor:pointer; }
 .tutorialModuleMedia img { width:100%; height:100%; object-fit:cover; display:block; }
 .tutorialModuleHead { display:flex; align-items:center; gap:9px; flex-wrap:wrap; }
 .tutorialModuleHead h3 { margin:0; font-size:14px; display:flex; align-items:center; gap:7px; }
@@ -330,9 +331,13 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 @keyframes tutorialPop { 0% { transform:scale(1); box-shadow:none; } 40% { transform:scale(1.012); box-shadow:0 0 0 4px rgba(66,213,194,.35); } 100% { transform:scale(1); box-shadow:none; } }
 @media (max-width:640px) { .tutorialModule { grid-template-columns:1fr; } .tutorialModuleMedia { width:100%; height:140px; } }
 
-.tutorialAchievementToast { position:fixed; right:20px; bottom:20px; z-index:50; padding:12px 16px; border-radius:12px; background:linear-gradient(135deg,var(--accent),var(--accent-2)); color:#fff; font-size:13px; font-weight:750; box-shadow:0 16px 32px rgba(0,0,0,.35); opacity:0; transform:translateY(10px); transition:opacity .2s ease,transform .2s ease; pointer-events:none; }
-.tutorialAchievementToast.isVisible { opacity:1; transform:translateY(0); }
+.tutorialPlayBadge { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; font-size:28px; color:#fff; background:rgba(9,10,14,.32); opacity:0; transition:opacity .15s ease; }
+.tutorialModuleMedia:not(:disabled):hover .tutorialPlayBadge { opacity:1; }
+.tutorialVideoDialog video { width:100%; max-height:60vh; border-radius:10px; background:#000; }
 
 .faqAccordion .list { display:block; }
 .faqAccordion p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
+.faqAnswer.list { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
+.faqAnswer img { width:180px; max-width:100%; border-radius:8px; flex:none; display:block; }
+.faqAnswer p { flex:1; min-width:220px; }
 @media (max-width:720px) { .shell { display:block; } .nav { position:static; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--border); } .nav nav { grid-template-columns:repeat(2,minmax(0,1fr)); } .brand { padding-bottom:10px; } .langSwitch { margin-top:8px; } .content { padding:22px 14px; } .checkGrid,.compactEntityGrid,.formGrid2,.imageEditorControls { grid-template-columns:1fr; } .workspacePane { padding:14px; } .workspaceTabs { padding:7px; } .paneIntro { align-items:flex-start; } .chipInputRow { flex-direction:column; } .rowActions { flex-wrap:wrap; justify-content:flex-end; } }

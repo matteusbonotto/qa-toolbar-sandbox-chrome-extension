@@ -28,6 +28,7 @@
       short: "Cadastre cliente, projeto, produto, ambiente e URL antes de testar.",
       instructions: "Abra a aba Workspace e cadastre, nessa ordem: um cliente, um projeto dentro dele, um produto dentro do projeto, um ambiente (ex.: QA) e uma URL vinculando produto e ambiente. É essa cadeia que faz a barra aparecer automaticamente quando você abre uma página com a URL cadastrada.",
       screenshot: "tutorial-assets/workspace-setup.png",
+      video: null,
       planFeature: null,
     },
     {
@@ -35,7 +36,8 @@
       title: "Test Status",
       short: "Marca Pass, Fail, Blocked ou Limitation em um clique.",
       instructions: "Com a barra visível, clique em \"Test Status\" e escolha um dos quatro status. O resultado é registrado com a URL e o horário atual, sem precisar copiar isso à mão para outro lugar.",
-      screenshot: "tutorial-assets/test-status.png",
+      screenshot: "tutorial-assets/testStatus.png",
+      video: "tutorial-assets/testStatus.webm",
       planFeature: null,
     },
     {
@@ -43,7 +45,8 @@
       title: "Marcadores Pass/Fail",
       short: "Aponte exatamente onde um elemento passou ou falhou.",
       instructions: "Clique no botão de marcador (✓ ou ✕) e depois clique em qualquer ponto da página para deixar o marcador visual ali, antes de tirar o screenshot de evidência.",
-      screenshot: "tutorial-assets/pass-fail.png",
+      screenshot: "tutorial-assets/passFail.png",
+      video: "tutorial-assets/passFail.webm",
       planFeature: null,
     },
     {
@@ -51,7 +54,8 @@
       title: "Notas e formas",
       short: "Anotações de texto e destaques desenhados sobre a página.",
       instructions: "Abra o menu de notas, arraste uma nota de texto ou uma forma de destaque sobre a área da página que você quer documentar. Dá pra mover e editar depois de posicionar.",
-      screenshot: null,
+      screenshot: "tutorial-assets/notesShapes.png",
+      video: "tutorial-assets/notesShapes.webm",
       planFeature: null,
     },
     {
@@ -60,6 +64,7 @@
       short: "Captura instantânea da tela com um clique.",
       instructions: "Com os marcadores e anotações já posicionados, clique no botão de câmera para gerar a evidência pronta para anexar no chamado ou no card do board.",
       screenshot: "tutorial-assets/screenshot.png",
+      video: "tutorial-assets/screenshot.webm",
       planFeature: null,
     },
     {
@@ -67,7 +72,8 @@
       title: "Gravação de evidências",
       short: "Grava a tela em vídeo enquanto você testa.",
       instructions: "Clique no botão de gravação para começar e de novo para parar. O vídeo (MP4/GIF conforme o plano) sai pronto para anexar, sem precisar de outro software rodando em paralelo.",
-      screenshot: null,
+      screenshot: "tutorial-assets/recording.png",
+      video: "tutorial-assets/recording.webm",
       planFeature: null,
     },
     {
@@ -75,7 +81,8 @@
       title: "Click Spy",
       short: "Destaca visualmente cada elemento clicável ao passar o mouse.",
       instructions: "Ative o Click Spy no menu de ferramentas e passe o mouse pela página: cada elemento clicável sob o cursor é contornado em tempo real, útil para mapear a área clicável real antes de escrever um passo de teste.",
-      screenshot: "tutorial-assets/click-spy.png",
+      screenshot: "tutorial-assets/clickSpy.png",
+      video: "tutorial-assets/clickSpy.webm",
       planFeature: null,
     },
     {
@@ -83,7 +90,8 @@
       title: "Freeze Clock",
       short: "Congela a data/hora do navegador no momento que você escolher.",
       instructions: "Abra o Freeze Clock, escolha a data/hora desejada e confirme. A página passa a enxergar aquele instante fixo, útil para testar regras de expiração, promoção ou fuso horário.",
-      screenshot: "tutorial-assets/freeze-clock.png",
+      screenshot: "tutorial-assets/freezeClock.png",
+      video: "tutorial-assets/freezeClock.webm",
       planFeature: null,
     },
     {
@@ -91,7 +99,8 @@
       title: "Force HTTP",
       short: "Simula respostas de erro (400, 404, 500...) sob demanda.",
       instructions: "Abra o Force HTTP, escolha o status de erro desejado e confirme. A próxima requisição de rede retorna esse status, para testar como a tela reage a falhas sem derrubar o backend de verdade.",
-      screenshot: "tutorial-assets/force-http.png",
+      screenshot: "tutorial-assets/forceHttp.png",
+      video: "tutorial-assets/forceHttp.webm",
       planFeature: null,
     },
     {
@@ -99,7 +108,8 @@
       title: "Error Monitor",
       short: "Registra automaticamente os erros HTTP que acontecerem na página.",
       instructions: "Abra o Error Monitor e navegue normalmente pela página: toda resposta de rede com status de erro aparece na lista em tempo real, com contador na barra, sem precisar configurar nada antes.",
-      screenshot: null,
+      screenshot: "tutorial-assets/errorMonitor.png",
+      video: "tutorial-assets/errorMonitor.webm",
       planFeature: null,
     },
     {
@@ -107,7 +117,8 @@
       title: "Inspectors",
       short: "Lista ao vivo das respostas de API relevantes para o seu teste.",
       instructions: "Cadastre um padrão de URL em Workspace → Integrações → Inspectors e depois abra o painel de Inspectors: só as chamadas que batem com esse padrão aparecem, filtráveis por método, status e origem.",
-      screenshot: null,
+      screenshot: "tutorial-assets/inspectors.png",
+      video: "tutorial-assets/inspectors.webm",
       planFeature: null,
     },
     {
@@ -115,7 +126,8 @@
       title: "JSON Studio",
       short: "Formata, comprime e copia payloads JSON.",
       instructions: "A partir de uma resposta capturada nos Inspectors, clique para abrir no JSON Studio: o payload aparece formatado e legível, com atalho para compactar ou copiar.",
-      screenshot: null,
+      screenshot: "tutorial-assets/jsonStudio.png",
+      video: "tutorial-assets/jsonStudio.webm",
       planFeature: null,
     },
     {
@@ -123,7 +135,8 @@
       title: "Breakpoint Viewer (Responsive View)",
       short: "Veja a mesma página em vários tamanhos de tela ao mesmo tempo.",
       instructions: "Abra o Breakpoint Viewer para renderizar a página lado a lado em molduras de laptop e celular sincronizadas, e pegar problemas de layout responsivo sem redimensionar a janela.",
-      screenshot: null,
+      screenshot: "tutorial-assets/breakpoints.png",
+      video: "tutorial-assets/breakpoints.webm",
       planFeature: null,
     },
     {
@@ -131,7 +144,8 @@
       title: "Contador de caracteres",
       short: "Conta caracteres, palavras, linhas e bytes UTF-8.",
       instructions: "Selecione um texto na página (ou cole um texto) e abra o Contador de caracteres: a contagem com e sem espaços aparece direto na barra, sem precisar de uma calculadora externa.",
-      screenshot: null,
+      screenshot: "tutorial-assets/characterCounter.png",
+      video: "tutorial-assets/characterCounter.webm",
       planFeature: "characterCounter.enabled",
     },
     {
@@ -139,7 +153,8 @@
       title: "Multiclick",
       short: "Clica no mesmo elemento várias vezes, no intervalo que você definir.",
       instructions: "Abra o Multiclick, selecione visualmente um elemento na página, escolha entre 2 e 100 cliques e o intervalo entre eles, e confirme para testar debounce ou double-submit.",
-      screenshot: null,
+      screenshot: "tutorial-assets/multiClick.png",
+      video: "tutorial-assets/multiClick.webm",
       planFeature: "multiClick.enabled",
     },
     {
@@ -147,7 +162,8 @@
       title: "Input Lab",
       short: "Testa um campo com texto, número, Unicode e excesso de caracteres.",
       instructions: "Selecione um campo de input e abra o Input Lab: ele roda o kit de validação (vazio, texto, número, Unicode, limite excedido) sem enviar o formulário e restaura o valor original ao final.",
-      screenshot: null,
+      screenshot: "tutorial-assets/inputLab.png",
+      video: "tutorial-assets/inputLab.webm",
       planFeature: "inputLab.enabled",
     },
     {
@@ -155,7 +171,8 @@
       title: "Faker Fill",
       short: "Preenche a página ou um formulário com dados sintéticos realistas.",
       instructions: "Abra o Faker Fill e escolha preencher a página inteira ou só o formulário focado: nome, e-mail e outros campos comuns são preenchidos com dados fictícios, sempre pulando senha, cartão, CVV e token.",
-      screenshot: null,
+      screenshot: "tutorial-assets/fakerFill.png",
+      video: "tutorial-assets/fakerFill.webm",
       planFeature: "fakerFill.enabled",
     },
     {
@@ -163,7 +180,8 @@
       title: "Macro Studio",
       short: "Grava uma sequência de ações e reproduz depois, quando quiser.",
       instructions: "Abra o Macro Studio, clique em gravar e navegue normalmente (clique, digitação, seleção); pare a gravação, revise no modo Vibe Code, salve e fixe no menu para reexecutar em um clique.",
-      screenshot: null,
+      screenshot: "tutorial-assets/macroStudio.png",
+      video: "tutorial-assets/macroStudio.webm",
       planFeature: "macroStudio.enabled",
     },
     {
@@ -171,7 +189,8 @@
       title: "Key View",
       short: "Mostra na tela os atalhos de teclado e cliques do mouse em tempo real.",
       instructions: "Ative o Key View nas configurações de aparência: combinações de teclado aparecem como teclas com efeito 3D, e cliques esquerdo/direito/meio ficam visualmente indicados, ideal para gravações e demonstrações.",
-      screenshot: null,
+      screenshot: "tutorial-assets/keyView.png",
+      video: "tutorial-assets/keyView.webm",
       planFeature: "keyView.enabled",
     },
     {
@@ -179,7 +198,8 @@
       title: "Capturar Elementos",
       short: "Exporta um CSV com todos os elementos interativos da página, prontos para automação.",
       instructions: "Abra Capturar Elementos e confirme: a extensão escaneia a página atual e gera um CSV com tag, seletor CSS, XPath e texto visível de cada elemento interativo, pronto para acelerar a criação de testes de automação.",
-      screenshot: "tutorial-assets/element-capture.png",
+      screenshot: "tutorial-assets/elementCapture.png",
+      video: "tutorial-assets/elementCapture.webm",
       planFeature: "elementCapture.enabled",
     },
     {
@@ -187,7 +207,8 @@
       title: "Contas de teste",
       short: "Credenciais sandbox por ambiente, sempre mascaradas.",
       instructions: "Cadastre uma conta de teste em Workspace → Contas, vinculada ao ambiente ativo, e depois acesse ela pelo menu da barra: usuário e senha aparecem mascarados e nunca entram na exportação.",
-      screenshot: null,
+      screenshot: "tutorial-assets/testAccounts.png",
+      video: "tutorial-assets/testAccounts.webm",
       planFeature: null,
     },
     {
@@ -195,7 +216,8 @@
       title: "Meios de pagamento",
       short: "Cartões de teste sandbox, filtrados pelo ambiente atual.",
       instructions: "Cadastre um cartão sandbox em Workspace → Pagamentos e acesse pelo menu da barra na hora de testar um checkout, sem precisar procurar a documentação do gateway toda vez.",
-      screenshot: null,
+      screenshot: "tutorial-assets/paymentMethods.png",
+      video: "tutorial-assets/paymentMethods.webm",
       planFeature: null,
     },
     {
@@ -203,7 +225,8 @@
       title: "Recursos e links",
       short: "Atalhos para documentação e ferramentas do projeto, direto no menu.",
       instructions: "Cadastre um link útil (documentação, board, staging) em Workspace → Integrações → Recursos, associado ao ambiente ativo, e acesse pelo menu da barra sem precisar de aba fixada.",
-      screenshot: null,
+      screenshot: "tutorial-assets/resources.png",
+      video: "tutorial-assets/resources.webm",
       planFeature: null,
     },
   ];

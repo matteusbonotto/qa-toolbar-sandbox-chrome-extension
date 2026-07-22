@@ -2,7 +2,7 @@ import { readFile, readdir } from "node:fs/promises";
 import { resolve, relative, sep } from "node:path";
 import { pathToFileURL } from "node:url";
 
-const ALLOWED_FILES = [/^manifest\.json$/, /^icons\/[a-z0-9._-]+\.png$/i, /^src\/[a-z0-9_./-]+\.(?:js|css|html|mp3|png)$/i];
+const ALLOWED_FILES = [/^manifest\.json$/, /^icons\/[a-z0-9._-]+\.png$/i, /^src\/[a-z0-9_./-]+\.(?:js|css|html|mp3|png|webm)$/i];
 const FORBIDDEN_NAMES = /(^|\/)(?:\.env(?:\..*)?|manifest\.key|node_modules|fixtures?|tests?|artifacts?|.*\.(?:map|pem|key|p12|pfx|sqlite|log))($|\/)/i;
 const SECRET_PATTERNS = [
   /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/,
@@ -43,7 +43,11 @@ export async function verifyExtensionSource(sourceDirectory) {
     const text = contents.toString("utf8");
     if (SECRET_PATTERNS.some((pattern) => pattern.test(text))) throw new Error(`Secret-like value found in extension source: ${entries[index]}`);
   }
-  if (totalBytes > 8_000_000) throw new Error("Extension package exceeds the 8 MB source safety limit");
+  // Raised from 8 MB once the Tutorial panel started shipping real short (~3s) .webm clips per
+  // tool (apps/extension/src/options/tutorial-assets/) -- 20 MB still leaves headroom to catch a
+  // genuine accident (a full recording left in by mistake, a huge unrelated binary) while fitting
+  // the full 22-tool video library comfortably.
+  if (totalBytes > 20_000_000) throw new Error("Extension package exceeds the 20 MB source safety limit");
 
   const manifest = JSON.parse(await readFile(resolve(source, "manifest.json"), "utf8"));
   if (manifest.manifest_version !== 3 || manifest.key) throw new Error("Manifest must be MV3 and must not contain manifest.key");
