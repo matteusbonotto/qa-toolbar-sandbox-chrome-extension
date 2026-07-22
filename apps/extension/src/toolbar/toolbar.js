@@ -1298,6 +1298,12 @@ function placeShape(left, top, width, height) {
   updateClearAllVisibility();
 }
 
+// Founder request: shapes needed a real square/circle option (not just "rectangle with rounded
+// corners") and a way to blur a sensitive area instead of just outlining/filling it with a color
+// (e.g. hiding a real customer name in a screenshot). Both live in the same style popover as the
+// existing color controls -- "Formato" picks the box's proportions/radius, "Efeito" swaps the
+// color inputs for a blur-strength slider (backdrop-filter, so it blurs whatever's underneath,
+// not just tints it).
 function toggleShapeStyleEditor(shape) {
   const existing = shape.querySelector(".qts-shape-editor");
   if (existing) { existing.remove(); return; }
@@ -1306,23 +1312,55 @@ function toggleShapeStyleEditor(shape) {
   const editor = document.createElement("div");
   editor.className = "qts-shape-editor";
   editor.innerHTML = `
-    <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-shape-border value="#ef3340" /></label>
-    <label>${escapeHtml(t.shapeEditorFillColor)}<input type="color" data-shape-fill value="#ef3340" /></label>
-    <label>${escapeHtml(t.shapeEditorOpacity)}<input type="range" min="20" max="100" value="100" data-shape-opacity /></label>
-    <label>${escapeHtml(t.shapeEditorRadius)}<input type="range" min="0" max="48" value="8" data-shape-radius /></label>
+    <label>${escapeHtml(t.shapeEditorType)}<select data-shape-type>
+      <option value="rectangle">${escapeHtml(t.shapeTypeRectangle)}</option>
+      <option value="square">${escapeHtml(t.shapeTypeSquare)}</option>
+      <option value="circle">${escapeHtml(t.shapeTypeCircle)}</option>
+    </select></label>
+    <label>${escapeHtml(t.shapeEditorEffect)}<select data-shape-effect>
+      <option value="color">${escapeHtml(t.shapeEffectColor)}</option>
+      <option value="blur">${escapeHtml(t.shapeEffectBlur)}</option>
+    </select></label>
+    <div data-shape-color-controls>
+      <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-shape-border value="#ef3340" /></label>
+      <label>${escapeHtml(t.shapeEditorFillColor)}<input type="color" data-shape-fill value="#ef3340" /></label>
+      <label>${escapeHtml(t.shapeEditorOpacity)}<input type="range" min="20" max="100" value="100" data-shape-opacity /></label>
+    </div>
+    <label data-shape-blur-control hidden>${escapeHtml(t.shapeEditorBlurStrength)}<input type="range" min="2" max="24" value="10" data-shape-blur /></label>
+    <label data-shape-radius-control>${escapeHtml(t.shapeEditorRadius)}<input type="range" min="0" max="48" value="8" data-shape-radius /></label>
   `;
   shape.appendChild(editor);
   const apply = () => {
-    const borderColor = editor.querySelector("[data-shape-border]").value;
-    const fillColor = editor.querySelector("[data-shape-fill]").value;
-    const opacity = Number(editor.querySelector("[data-shape-opacity]").value) / 100;
-    const radius = Number(editor.querySelector("[data-shape-radius]").value);
-    box.style.setProperty("--qts-shape-border", `3px solid ${borderColor}`);
-    box.style.setProperty("--qts-shape-bg", hexToRgba(fillColor, 0.15));
-    box.style.setProperty("--qts-shape-opacity", String(opacity));
-    box.style.setProperty("--qts-shape-radius", `${radius}px`);
+    const type = editor.querySelector("[data-shape-type]").value;
+    const effect = editor.querySelector("[data-shape-effect]").value;
+    const isSquarish = type === "square" || type === "circle";
+    if (isSquarish) {
+      const size = Math.max(30, Math.min(shape.offsetWidth, shape.offsetHeight));
+      shape.style.width = `${size}px`;
+      shape.style.height = `${size}px`;
+    }
+    box.style.setProperty("--qts-shape-radius", type === "circle" ? "50%" : isSquarish ? "0px" : `${editor.querySelector("[data-shape-radius]").value}px`);
+    editor.querySelector("[data-shape-radius-control]").hidden = isSquarish;
+    editor.querySelector("[data-shape-color-controls]").hidden = effect === "blur";
+    editor.querySelector("[data-shape-blur-control]").hidden = effect !== "blur";
+    if (effect === "blur") {
+      const strength = editor.querySelector("[data-shape-blur]").value;
+      box.style.setProperty("--qts-shape-blur", `blur(${strength}px)`);
+      box.style.setProperty("--qts-shape-bg", "rgba(0,0,0,.05)");
+      box.style.setProperty("--qts-shape-border", "2px dashed rgba(255,255,255,.6)");
+      box.style.setProperty("--qts-shape-opacity", "1");
+    } else {
+      const borderColor = editor.querySelector("[data-shape-border]").value;
+      const fillColor = editor.querySelector("[data-shape-fill]").value;
+      const opacity = Number(editor.querySelector("[data-shape-opacity]").value) / 100;
+      box.style.setProperty("--qts-shape-blur", "none");
+      box.style.setProperty("--qts-shape-border", `3px solid ${borderColor}`);
+      box.style.setProperty("--qts-shape-bg", hexToRgba(fillColor, 0.15));
+      box.style.setProperty("--qts-shape-opacity", String(opacity));
+    }
   };
-  editor.querySelectorAll("input").forEach((input) => input.addEventListener("input", apply));
+  editor.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", apply));
+  apply();
 }
 
 function hexToRgba(hex, alpha) {

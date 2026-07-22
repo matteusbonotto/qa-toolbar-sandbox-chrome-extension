@@ -61,16 +61,32 @@ qualquer item ainda `[ ]` é o que falta retomar.
 
 ## Prioridade 5 — novas ferramentas (funcionalidades novas, não tutorial)
 
+- [x] Formas (Notas e Formas): a caixa de estilo agora tem "Formato" (Retângulo/Quadrado/Círculo —
+      quadrado e círculo travam largura=altura e ajustam o raio da borda automaticamente) e
+      "Efeito" (Cor, como já era, ou Borrão — troca as cores por um controle de intensidade e
+      aplica `backdrop-filter: blur()` de verdade sobre a área, não só uma cor por cima).
+- [ ] **Ferramenta Borrar dedicada** (clicar num elemento específico da página pra borrá-lo, com
+      "Limpar todos os borrados") — dá pra já resolver boa parte disso com o efeito Borrão nas
+      formas acima (desenha um retângulo sobre a área sensível), mas não é a mesma coisa que
+      selecionar o elemento em si. Não comecei: registrar um tool novo de verdade nessa extensão
+      toca ~6 lugares diferentes (lista de ferramentas padrão em dois arquivos, checkbox em
+      Configurações, ordem do menu, ícone novo, tradução dupla, cobertura no smoke test) e não
+      quis fazer isso pela metade sob pressão de tempo.
+- [ ] Linha com ponta configurável (seta ou nenhuma) — não comecei; é um tipo de forma
+      genuinamente novo (dois pontos + rotação + marcador de seta), não uma variação da caixa
+      atual como quadrado/círculo/borrão foram.
 - [ ] **Modo Holofote**: segurar o clique por 3s cria um círculo de destaque ao redor do mouse com
-      o entorno escurecido (efeito holofote); soltar leva 3s pra voltar ao normal; configurável
-      (escurecer, borrar, opacidade, tamanho do holofote); animação de entrada/saída.
-- [ ] **Ferramenta Borrar**: borrar elementos da página, botão de limpar todos os borrados.
-- [ ] Formas (Notas e Formas): adicionar efeito "borrar" como opção além de cor/opacidade; formas
-      distintas quadrado e círculo; linha com ponta configurável (seta ou nenhuma).
+      o entorno escurecido; soltar leva 3s pra voltar ao normal; configurável (escurecer, borrar,
+      opacidade, tamanho); animação de entrada/saída. Não comecei — é uma ferramenta nova do zero.
 - [ ] **Menu de tipo de gravação** ao clicar em gravar: Vídeo normal (grava direto) ou GIF (grava e
       corta em blocos de 30s; 1 parte = salva normal, 2+ partes = zip com part1/part2/...).
-      Nome de arquivo: `evidencia_tela_(DataHora)_part` respeitando o idioma configurado. Pesquisar
-      forma nativa (sem serviço terceiro tipo convertio.io).
+      Nome de arquivo: `evidencia_tela_(DataHora)_part` respeitando o idioma configurado. Não
+      comecei — é a peça mais arriscada do backlog (conversão vídeo→GIF no navegador sem serviço
+      terceiro é um projeto por si só) e prefiro fazer isso com atenção total, não no fim de uma
+      sessão já longa.
+
+*(Essas quatro pendências de Prioridade 5 são candidatas fortes pra próxima rodada, cada uma dá
+pra tratar como uma tarefa isolada.)*
 
 ## Feito nesta rodada anterior (referência, já mergeado/PR aberto)
 

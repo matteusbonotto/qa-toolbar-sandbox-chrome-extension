@@ -224,6 +224,28 @@ try {
   await host.locator("#notificationBellButton").click();
   trace("first-run notification moved to the bell");
 
+  // Shapes: Formato (rectangle/square/circle) constrains the box and sets the CSS radius;
+  // Efeito "Borrão" swaps the color inputs for a blur-strength slider and applies a real
+  // backdrop-filter instead of a color, so a sensitive area can be hidden instead of just outlined.
+  await host.locator("#shapeButton").click();
+  await host.mouse.move(300, 300);
+  await host.mouse.down();
+  await host.mouse.move(460, 420, { steps: 6 });
+  await host.mouse.up();
+  await host.locator(".qts-shape [data-visibility-toggle]").click();
+  await host.locator(".qts-shape .qts-edit-btn").click();
+  await host.locator("[data-shape-type]").selectOption("circle");
+  const circleRadius = await host.locator(".qts-shape-box").evaluate((box) => getComputedStyle(box).borderRadius);
+  if (!circleRadius.includes("50%")) throw new Error(`Shape "Círculo" did not apply a 50% radius: ${circleRadius}`);
+  const [circleWidth, circleHeight] = await host.locator(".qts-shape").evaluate((shape) => [shape.offsetWidth, shape.offsetHeight]);
+  if (circleWidth !== circleHeight) throw new Error(`Shape "Círculo" did not constrain to equal width/height: ${circleWidth}x${circleHeight}`);
+  await host.locator("[data-shape-effect]").selectOption("blur");
+  if (await host.locator("[data-shape-blur-control]").isHidden()) throw new Error("Blur-strength slider did not appear after selecting the Borrão effect");
+  const blurFilter = await host.locator(".qts-shape-box").evaluate((box) => getComputedStyle(box).backdropFilter || getComputedStyle(box).webkitBackdropFilter);
+  if (!blurFilter.includes("blur")) throw new Error(`Shape "Borrão" effect did not apply a real backdrop-filter blur: ${blurFilter}`);
+  await host.locator(".qts-shape .qts-remove-btn").click();
+  trace("shape formato/efeito (círculo + borrão) verified");
+
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
   await host.locator("#jsonStudioMenuItem").click();

@@ -290,6 +290,8 @@ body.qts-placement-mode, body.qts-placement-mode * {
   border-radius: var(--qts-shape-radius, 8px) !important;
   background: var(--qts-shape-bg, rgba(239,51,64,.08)) !important;
   opacity: var(--qts-shape-opacity, 1) !important;
+  backdrop-filter: var(--qts-shape-blur, none) !important;
+  -webkit-backdrop-filter: var(--qts-shape-blur, none) !important;
 }
 .qts-shape-editor {
   /* .qts-shape-box (a sibling, appended before this) is position:absolute;inset:0 — an
@@ -301,6 +303,8 @@ body.qts-placement-mode, body.qts-placement-mode * {
   border: 1px solid #2a2a2a !important; border-radius: 10px !important; margin-top: 6px !important; width: 220px !important;
 }
 .qts-shape-editor label { display: grid !important; gap: 4px !important; font-size: 11px !important; color: #999 !important; }
+.qts-shape-editor [data-shape-color-controls] { display: grid !important; gap: 8px !important; }
+.qts-shape-editor select { width: 100% !important; height: 28px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; color: #fff !important; }
 .qts-shape-editor input[type="color"] { width: 100% !important; height: 28px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; padding: 2px !important; }
 .qts-shape-editor input[type="range"] { width: 100% !important; }
 
