@@ -15,6 +15,8 @@ import type {
   Role,
   Subscription,
   UserRole,
+  LegalRegistration,
+  LegalRegistrationStatus,
   Voucher,
   VoucherCampaign,
   VoucherKind,
@@ -305,4 +307,40 @@ export async function listAuditLogs(limit = 100): Promise<AuditLogEntry[]> {
   const { data, error } = await requireClient().from("audit_logs").select("*").order("created_at", { ascending: false }).limit(limit);
   if (error) throw error;
   return data ?? [];
+}
+
+// ---------- Legal registration (INPI "Registro de Programa de Computador" status) ----------
+export async function getLegalRegistration(): Promise<LegalRegistration> {
+  const { data, error } = await requireClient().from("legal_registration").select("*").eq("id", true).single();
+  if (error) throw error;
+  return data;
+}
+
+export async function updateLegalRegistration(input: {
+  status: LegalRegistrationStatus;
+  softwareName: string;
+  holderName: string;
+  protocolNumber: string | null;
+  protocolDate: string | null;
+  registrationNumber: string | null;
+  grantDate: string | null;
+  publicQueryUrl: string | null;
+  publicNotice: string | null;
+}) {
+  const client = requireClient();
+  const { data: userData } = await client.auth.getUser();
+  const { error } = await client.from("legal_registration").update({
+    status: input.status,
+    software_name: input.softwareName,
+    holder_name: input.holderName,
+    protocol_number: input.protocolNumber,
+    protocol_date: input.protocolDate,
+    registration_number: input.registrationNumber,
+    grant_date: input.grantDate,
+    public_query_url: input.publicQueryUrl,
+    public_notice: input.publicNotice,
+    updated_at: new Date().toISOString(),
+    updated_by: userData.user?.id ?? null,
+  }).eq("id", true);
+  if (error) throw error;
 }
