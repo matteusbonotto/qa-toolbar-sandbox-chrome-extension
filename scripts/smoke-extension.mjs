@@ -509,23 +509,44 @@ try {
   if (!/^sha256:[a-f0-9]{64}$/i.test(exportedPayload.checksum || "")) throw new Error("Secure export did not include an integrity checksum");
   trace("settings and secure export verified");
 
-  // Tutorial (Part B): the "Novo por aqui?" banner routes into the Tutorial panel, completing a
-  // step plays the achievement sound + toast and persists across a full page reload, no tool shows
-  // a lock badge (access-status above enables every plan-gated feature), and the FAQ's
-  // expand/collapse-all actually touches every accordion.
+  // Tutorial (Part B + live-tour revision): banner stays visible until dismissed (its "Fazer o
+  // tour" action is exercised via the live-tour and start-button checks further below, both of
+  // which route through the same qts:start-tutorial-tour message this banner now sends instead of
+  // just switching tabs). This block covers the video-library panel: every card exposes a playable
+  // video thumbnail, marking a step done plays the achievement sound and opens the completion
+  // modal (Repetir/Próximo/Fechar, not the old toast), progress persists across reload, no tool
+  // shows a lock badge, and the FAQ's expand/collapse-all touches every accordion (now illustrated
+  // with the same screenshots).
   await options.getByRole("button", { name: "Minha conta" }).click();
   if (await options.locator("#tutorialBanner").isHidden()) throw new Error("Tutorial banner should be visible before it's dismissed");
-  await options.locator("#tutorialBannerOpen").click();
-  await options.locator('[data-panel="tutorial"].isActive').waitFor();
+  await options.getByRole("button", { name: "Tutorial" }).click();
   const tutorialModuleCount = await options.locator("[data-tutorial-module]").count();
   if (tutorialModuleCount < 20) throw new Error(`Tutorial panel rendered too few modules: ${tutorialModuleCount}`);
   if (await options.locator(".tutorialLockBadge").count() !== 0) throw new Error("A tool showed a plan lock badge despite every plan feature being enabled in this mock");
+  if (await options.locator("[data-tutorial-play]:not([disabled])").count() < 20) throw new Error("Tutorial cards did not expose a playable video thumbnail");
+
+  // Video dialog: opens with a real source, "Marcar como concluído" closes it and chains straight
+  // into the completion modal, whose "Próximo" opens the following module's video.
+  await options.locator('[data-tutorial-play="testStatus"]').click();
+  await options.locator("#tutorialVideoDialog[open]").waitFor();
+  if (!(await options.locator("#tutorialVideoPlayer").getAttribute("src"))?.includes("testStatus.webm")) throw new Error("Video dialog did not load the expected clip");
+  await options.locator("#tutorialVideoComplete").click();
+  await options.locator("#tutorialStepDoneDialog[open]").waitFor();
+  if ((await options.locator("#tutorialStepDoneTitle").innerText()) !== "Test Status concluído!") throw new Error("Completion modal did not show the right step title after finishing from the video dialog");
+  await options.locator("#tutorialStepNext").click();
+  await options.locator("#tutorialVideoDialog[open]").waitFor();
+  if (!(await options.locator("#tutorialVideoPlayer").getAttribute("src"))?.includes("passFail.webm")) throw new Error("Completion modal's Próximo did not open the next module's video");
+  await options.locator("#tutorialVideoClose").click();
+  trace("tutorial video dialog + completion modal chaining verified");
+
   const achievementSoundPromise = options.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
   await options.locator('[data-tutorial-complete="workspace"]').click();
   await achievementSoundPromise;
-  await options.locator("#tutorialAchievementToast.isVisible").waitFor();
+  await options.locator("#tutorialStepDoneDialog[open]").waitFor();
+  if ((await options.locator("#tutorialStepDoneTitle").innerText()) !== "Prepare seu workspace concluído!") throw new Error("Completion modal did not show the right step title");
+  await options.locator("#tutorialStepClose").click();
   await options.locator('[data-tutorial-module="workspace"].isDone').waitFor();
-  if ((await options.locator("#tutorialProgressLabel").textContent()) !== `1 de ${tutorialModuleCount} concluídos`) throw new Error("Tutorial progress label did not update after completing a step");
+  if ((await options.locator("#tutorialProgressLabel").textContent()) !== `2 de ${tutorialModuleCount} concluídos`) throw new Error("Tutorial progress label did not update after completing a step");
   trace("tutorial step completion verified");
 
   await options.reload();
@@ -539,9 +560,51 @@ try {
   if (faqCount < 20) throw new Error(`FAQ panel rendered too few entries: ${faqCount}`);
   await options.locator("#faqExpandAll").click();
   if (await options.locator(".faqAccordion:not([open])").count() !== 0) throw new Error("Expandir tudo did not open every FAQ entry");
+  if (await options.locator(".faqAnswer img").count() < 20) throw new Error("FAQ entries did not render illustrative screenshots");
   await options.locator("#faqCollapseAll").click();
   if (await options.locator(".faqAccordion[open]").count() !== 0) throw new Error("Recolher tudo did not close every FAQ entry");
   trace("FAQ accordions verified");
+
+  // Live tutorial tour: same overlay code path as the real demoqa.com launch (background.js only
+  // hardcodes that URL for the actual seed-and-open flow, tested separately below) -- toolbar.js
+  // reacts to the exact same ?qtsTutorial=1 query param regardless of host, so pointing it at the
+  // local fixture page keeps this a zero-external-network check while exercising the real code.
+  // The URL binding pattern was narrowed to /app* earlier ("environment and SPA reactivity
+  // verified"), so this has to match that, not the original root pattern.
+  await host.goto("http://127.0.0.1:43117/app?qtsTutorial=1");
+  await toolbar.waitFor({ timeout: 10_000 });
+  await host.locator(".qts-tour-spotlight").waitFor({ timeout: 5_000 });
+  const firstTourStepTitle = await host.locator(".qts-tour-balloon b").innerText();
+  const tourSoundPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
+  await host.locator("[data-tour-done]").click();
+  await tourSoundPromise;
+  await host.locator(".qts-tour-card").waitFor();
+  await host.locator("[data-tour-next-card]").click();
+  await host.locator(".qts-tour-balloon").waitFor();
+  const secondTourStepTitle = await host.locator(".qts-tour-balloon b").innerText();
+  if (secondTourStepTitle === firstTourStepTitle) throw new Error("Live tour did not advance to the next step after Próximo");
+  const [workspaceTabAfterSkip] = await Promise.all([
+    context.waitForEvent("page"),
+    host.locator("[data-tour-skip]").click(),
+  ]);
+  await workspaceTabAfterSkip.locator('[data-panel="workspace"].isActive').waitFor({ timeout: 10_000 });
+  await workspaceTabAfterSkip.close();
+  if (await host.locator(".qts-tour-balloon").count()) throw new Error("Pular tutorial did not close the live tour overlay");
+  trace("live tutorial tour verified (spotlight, step advance, achievement sound, skip-to-workspace)");
+
+  // "Iniciar tutorial" in the Settings Tutorial panel must never clobber a workspace that already
+  // has real data (this run already built one earlier) -- it should just open the demo tab.
+  await options.getByRole("button", { name: "Tutorial" }).click();
+  const clientCountBeforeTourButton = await options.evaluate(async () => (await chrome.storage.local.get("qtsWorkspaceV1")).qtsWorkspaceV1?.clients?.length || 0);
+  const [demoTab] = await Promise.all([
+    context.waitForEvent("page"),
+    options.locator("#tutorialStartTour").click(),
+  ]);
+  if (!demoTab.url().includes("demoqa.com")) throw new Error(`"Iniciar tutorial" opened an unexpected URL: ${demoTab.url()}`);
+  await demoTab.close();
+  const clientCountAfterTourButton = await options.evaluate(async () => (await chrome.storage.local.get("qtsWorkspaceV1")).qtsWorkspaceV1?.clients?.length || 0);
+  if (clientCountAfterTourButton !== clientCountBeforeTourButton) throw new Error(`"Iniciar tutorial" modified the existing workspace: ${clientCountBeforeTourButton} -> ${clientCountAfterTourButton}`);
+  trace("tutorial start button verified (opens demo tab, never overwrites an existing workspace)");
 
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();
@@ -550,7 +613,7 @@ try {
   if (!await options.locator('.protectedNav[data-tab="workspace"]').isDisabled()) throw new Error("Protected settings remained enabled after logout");
 
   if (hostErrors.length || optionsErrors.length || workerErrors.length) throw new Error(`Console errors:\n${[...hostErrors, ...optionsErrors, ...workerErrors].join("\n")}`);
-  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, workspaceStudioTabs: true, relationalUrls: true, searchableEnvironmentMultiselect: true, imageEditor: true, hierarchyAndUrl: true, soundEffectsRequested: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewSizes: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, elementCaptureCsvSafe: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactModePerEntity: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, tutorialGamification: true, tutorialProgressPersisted: true, faqAccordions: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
+  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, workspaceStudioTabs: true, relationalUrls: true, searchableEnvironmentMultiselect: true, imageEditor: true, hierarchyAndUrl: true, soundEffectsRequested: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewSizes: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, elementCaptureCsvSafe: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactModePerEntity: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, tutorialGamification: true, tutorialProgressPersisted: true, faqAccordions: true, liveTutorialTour: true, tutorialStartButton: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
 } finally {
   await context.close();
   await new Promise((resolveClosed) => server.close(resolveClosed));

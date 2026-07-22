@@ -1444,21 +1444,6 @@ const TUTORIAL_ICON_BY_KEY = {
   paymentMethods: "paymentMethods", resources: "resources",
 };
 let tutorialProgress = { completedSteps: [], dismissedBannerAt: null };
-let achievementToastTimer = null;
-
-function showAchievementToast(title) {
-  let toast = document.getElementById("tutorialAchievementToast");
-  if (!toast) {
-    toast = document.createElement("div");
-    toast.id = "tutorialAchievementToast";
-    toast.className = "tutorialAchievementToast";
-    document.body.appendChild(toast);
-  }
-  toast.textContent = `🏆 ${t("Conquista desbloqueada")}: ${title}`;
-  toast.classList.add("isVisible");
-  clearTimeout(achievementToastTimer);
-  achievementToastTimer = setTimeout(() => toast.classList.remove("isVisible"), 2600);
-}
 
 function renderTutorialPanel() {
   const modules = window.QTS_TUTORIAL_DATA || [];
@@ -1472,7 +1457,10 @@ function renderTutorialPanel() {
     const iconName = TUTORIAL_ICON_BY_KEY[module.key];
     return `
       <article class="tutorialModule${isDone ? " isDone" : ""}" data-tutorial-module="${escapeHtml(module.key)}">
-        <div class="tutorialModuleMedia">${module.screenshot ? `<img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />` : `<span>${escapeHtml(t("Prévia em breve"))}</span>`}</div>
+        <button type="button" class="tutorialModuleMedia" data-tutorial-play="${escapeHtml(module.key)}" ${module.video ? "" : "disabled"}>
+          <img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />
+          ${module.video ? `<span class="tutorialPlayBadge">▶</span>` : ""}
+        </button>
         <div class="tutorialModuleBody">
           <div class="tutorialModuleHead">
             <h3>${iconName ? ICON(iconName) : ""} ${escapeHtml(t(module.title))}</h3>
@@ -1488,7 +1476,37 @@ function renderTutorialPanel() {
   document.querySelectorAll("[data-tutorial-complete]").forEach((button) => {
     button.addEventListener("click", () => completeTutorialStep(button.dataset.tutorialComplete));
   });
+  document.querySelectorAll("[data-tutorial-play]").forEach((button) => {
+    button.addEventListener("click", () => openTutorialVideo(button.dataset.tutorialPlay));
+  });
 }
+
+let currentTutorialVideoKey = null;
+function openTutorialVideo(key) {
+  const module = (window.QTS_TUTORIAL_DATA || []).find((item) => item.key === key);
+  if (!module || !module.video) return;
+  currentTutorialVideoKey = key;
+  document.getElementById("tutorialVideoTitle").textContent = t(module.title);
+  document.getElementById("tutorialVideoInstructions").textContent = t(module.instructions);
+  const player = document.getElementById("tutorialVideoPlayer");
+  player.src = module.video;
+  const isDone = tutorialProgress.completedSteps.includes(key);
+  const completeButton = document.getElementById("tutorialVideoComplete");
+  completeButton.textContent = isDone ? `✓ ${t("Concluído")}` : t("Marcar como concluído");
+  completeButton.disabled = isDone;
+  document.getElementById("tutorialVideoDialog").showModal();
+}
+document.getElementById("tutorialVideoDialog").addEventListener("close", () => {
+  const player = document.getElementById("tutorialVideoPlayer");
+  player.pause();
+  player.removeAttribute("src");
+  player.load();
+});
+document.getElementById("tutorialVideoComplete").addEventListener("click", async () => {
+  if (!currentTutorialVideoKey) return;
+  document.getElementById("tutorialVideoDialog").close();
+  await completeTutorialStep(currentTutorialVideoKey);
+});
 
 async function completeTutorialStep(key) {
   const module = (window.QTS_TUTORIAL_DATA || []).find((item) => item.key === key);
@@ -1499,8 +1517,29 @@ async function completeTutorialStep(key) {
   renderTutorialPanel();
   const row = document.querySelector(`[data-tutorial-module="${key}"]`);
   if (row) { row.classList.add("justCompleted"); setTimeout(() => row.classList.remove("justCompleted"), 500); }
-  showAchievementToast(t(module.title));
+  showTutorialStepDoneModal(key);
 }
+
+let currentTutorialStepDoneKey = null;
+function showTutorialStepDoneModal(key) {
+  const module = (window.QTS_TUTORIAL_DATA || []).find((item) => item.key === key);
+  if (!module) return;
+  currentTutorialStepDoneKey = key;
+  document.getElementById("tutorialStepDoneTitle").textContent = `${t(module.title)} ${t("concluído!")}`;
+  document.getElementById("tutorialStepDoneDialog").showModal();
+}
+document.getElementById("tutorialStepRepeat").addEventListener("click", () => {
+  document.getElementById("tutorialStepDoneDialog").close();
+  if (currentTutorialStepDoneKey) openTutorialVideo(currentTutorialStepDoneKey);
+});
+document.getElementById("tutorialStepNext").addEventListener("click", () => {
+  document.getElementById("tutorialStepDoneDialog").close();
+  const modules = window.QTS_TUTORIAL_DATA || [];
+  const index = modules.findIndex((item) => item.key === currentTutorialStepDoneKey);
+  const next = index >= 0 ? modules[index + 1] : null;
+  if (next?.video) openTutorialVideo(next.key);
+});
+document.getElementById("tutorialStepClose").addEventListener("click", () => document.getElementById("tutorialStepDoneDialog").close());
 
 function renderFaqPanel() {
   const general = window.QTS_FAQ_DATA?.general || [];
@@ -1509,7 +1548,7 @@ function renderFaqPanel() {
     <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t(item.question))}</b></summary><div class="list"><p>${escapeHtml(t(item.answer))}</p></div></details>
   `).join("");
   const toolsHtml = modules.map((module) => `
-    <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t("Para que serve {tool}?", { tool: t(module.title) }))}</b></summary><div class="list"><p>${escapeHtml(t(module.short))} ${escapeHtml(t(module.instructions))}</p></div></details>
+    <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t("Para que serve {tool}?", { tool: t(module.title) }))}</b></summary><div class="list faqAnswer">${module.screenshot ? `<img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />` : ""}<p>${escapeHtml(t(module.short))} ${escapeHtml(t(module.instructions))}</p></div></details>
   `).join("");
   document.getElementById("faqAccordions").innerHTML = generalHtml + toolsHtml;
 }
@@ -1518,6 +1557,9 @@ function renderTutorialBanner() {
   document.getElementById("tutorialBanner").hidden = !accessState?.active || !!tutorialProgress.dismissedBannerAt;
 }
 
+document.getElementById("tutorialStartTour").addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "qts:start-tutorial-tour" });
+});
 document.getElementById("tutorialSkipAll").addEventListener("click", async () => {
   const modules = window.QTS_TUTORIAL_DATA || [];
   for (const module of modules) {
@@ -1534,7 +1576,9 @@ document.getElementById("tutorialReset").addEventListener("click", async () => {
   tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
   renderTutorialPanel();
 });
-document.getElementById("tutorialBannerOpen").addEventListener("click", () => switchTab("tutorial"));
+document.getElementById("tutorialBannerOpen").addEventListener("click", () => {
+  chrome.runtime.sendMessage({ type: "qts:start-tutorial-tour" });
+});
 document.getElementById("tutorialBannerDismiss").addEventListener("click", async () => {
   await window.QTS_STORAGE.saveTutorialBannerDismissed();
   tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
@@ -1569,6 +1613,11 @@ document.getElementById("resetButton").addEventListener("click", async () => {
   renderFaqPanel();
   await loadAccess(true);
   void loadLegalStatus();
+  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  if (requestedTab) {
+    switchTab(requestedTab);
+    window.history.replaceState({}, "", window.location.pathname);
+  }
   onStorageChanged(async (changes) => {
     if (!changes[STORAGE_KEYS.workspace]) return;
     workspace = await getWorkspace();

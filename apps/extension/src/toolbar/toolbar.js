@@ -670,6 +670,7 @@ function mountToolbar() {
   render();
   void maybeShowFirstRunIntro();
   void maybeShowTutorialDot();
+  void maybeStartLiveTour();
 }
 
 // Small dot on the settings button, separate from maybeShowFirstRunIntro's one-time card above:
@@ -684,6 +685,187 @@ async function maybeShowTutorialDot() {
   const dot = state.shadowRoot.getElementById("tutorialDot");
   if (!dot) return;
   dot.hidden = progress.completedSteps.length > 0 || Boolean(progress.dismissedBannerAt);
+}
+
+// Live guided tour: a spotlight ring + instruction balloon pointing at each plan-gated-or-not
+// tool's REAL button/menu item on the actual bar, one at a time. The user performs the real action
+// themselves (the tour never simulates clicks for them) and clicks "Concluir passo" when ready.
+// Content comes straight from window.QTS_TUTORIAL_DATA (tutorial-data.js, now also loaded in this
+// content-script context) — adding a tool there and to TOUR_TARGETS below is the only wiring a
+// future tool needs to join the live tour, same "one array" principle as the Tutorial/FAQ panels.
+const TOUR_TARGETS = {
+  testStatus: { selector: "#testStatusButton" },
+  passFail: { selector: "#passButton" },
+  notesShapes: { selector: "#noteButton" },
+  screenshot: { selector: "#screenshotButton" },
+  recording: { selector: "#recordToggleButton" },
+  clickSpy: { selector: "#clickSpyMenuItem", menu: true },
+  freezeClock: { selector: "#freezeClockMenuItem", menu: true },
+  forceHttp: { selector: "#forceHttpMenuItem", menu: true },
+  errorMonitor: { selector: "#errorMonitorMenuItem", menu: true },
+  inspectors: { selector: "#inspectorsMenuItem", menu: true },
+  jsonStudio: { selector: "#jsonStudioMenuItem", menu: true },
+  breakpoints: { selector: "#breakpointMenuItem", menu: true },
+  characterCounter: { selector: "#characterCounterMenuItem", menu: true },
+  multiClick: { selector: "#multiClickMenuItem", menu: true },
+  inputLab: { selector: "#inputLabMenuItem", menu: true },
+  fakerFill: { selector: "#fakerFillMenuItem", menu: true },
+  macroStudio: { selector: "#macroStudioMenuItem", menu: true },
+  keyView: { selector: "#keyViewMenuItem", menu: true },
+  elementCapture: { selector: "#elementCaptureMenuItem", menu: true },
+  testAccounts: { selector: "#testAccountsMenuItem", menu: true },
+  paymentMethods: { selector: "#paymentMethodsMenuItem", menu: true },
+  resources: { selector: "#resourcesMenuItem", menu: true },
+};
+let tourSteps = [];
+let tourStepIndex = -1;
+let tourResizeHandler = null;
+
+async function maybeStartLiveTour() {
+  const url = new URL(window.location.href);
+  if (url.searchParams.get("qtsTutorial") !== "1") return;
+  url.searchParams.delete("qtsTutorial");
+  window.history.replaceState({}, "", url.toString());
+  startTutorialTour();
+}
+
+function startTutorialTour() {
+  if (!state.shadowRoot) return;
+  tourSteps = (window.QTS_TUTORIAL_DATA || []).filter((module) => TOUR_TARGETS[module.key]);
+  tourStepIndex = 0;
+  if (!tourSteps.length) return;
+  ensureTourHost();
+  renderTourStep();
+  tourResizeHandler = () => renderTourStep();
+  window.addEventListener("resize", tourResizeHandler);
+}
+
+function ensureTourHost() {
+  if (state.shadowRoot.getElementById("tourOverlay")) return;
+  const host = document.createElement("div");
+  host.id = "tourOverlay";
+  host.innerHTML = `
+    <style>
+      #tourOverlay { all: initial; }
+      .qts-tour-spotlight { position: fixed; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; z-index: 2147483646; }
+      .qts-tour-balloon {
+        position: fixed; z-index: 2147483647; width: min(320px, calc(100vw - 24px)); padding: 14px;
+        border-radius: 12px; background: #0b0b0b; border: 1px solid #333; box-shadow: 0 16px 34px rgba(0,0,0,.5);
+        color: #fff; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .qts-tour-balloon .qts-tour-step { color: #ffd700; font-size: 11px; font-weight: 800; letter-spacing: .02em; }
+      .qts-tour-balloon b { display: block; margin: 4px 0 6px; font-size: 14px; }
+      .qts-tour-balloon p { margin: 0 0 12px; color: #ccc; }
+      .qts-tour-actions { display: flex; gap: 8px; }
+      .qts-tour-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; height: 32px; line-height: 32px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12px; }
+      .qts-tour-skip { background: #232323; color: #ccc; flex: none !important; padding: 0 12px; }
+      .qts-tour-next { background: #ffd700; color: #111; }
+      .qts-tour-card {
+        position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2147483647;
+        width: min(340px, calc(100vw - 24px)); padding: 18px; border-radius: 14px; background: #0b0b0b;
+        border: 1px solid #333; box-shadow: 0 20px 48px rgba(0,0,0,.55); color: #fff; text-align: center;
+        font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      }
+      .qts-tour-card .qts-tour-trophy { font-size: 30px; margin-bottom: 6px; }
+      .qts-tour-card b { display: block; font-size: 15px; margin-bottom: 4px; }
+      .qts-tour-card .qts-tour-card-actions { display: flex; gap: 8px; margin-top: 14px; }
+      .qts-tour-card .qts-tour-card-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; height: 32px; line-height: 32px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12px; background: #232323; color: #ccc; }
+      .qts-tour-card .qts-tour-card-actions button.qts-tour-primary { background: #ffd700; color: #111; }
+    </style>
+  `;
+  state.shadowRoot.appendChild(host);
+}
+
+function tourHost() {
+  return state.shadowRoot?.getElementById("tourOverlay") || null;
+}
+
+function renderTourStep() {
+  const host = tourHost();
+  const module = tourSteps[tourStepIndex];
+  if (!host || !module) return;
+  host.querySelectorAll(".qts-tour-spotlight, .qts-tour-balloon, .qts-tour-card").forEach((node) => node.remove());
+  const config = TOUR_TARGETS[module.key];
+  if (config.menu) { state.shadowRoot.getElementById("toolsMenu")?.classList.add("isOpen"); }
+  const targetEl = state.shadowRoot.querySelector(config.selector);
+  if (!targetEl) { advanceTourStep(); return; }
+  const rect = targetEl.getBoundingClientRect();
+  const pad = 6;
+  const spotlight = document.createElement("div");
+  spotlight.className = "qts-tour-spotlight";
+  spotlight.style.top = `${rect.top - pad}px`;
+  spotlight.style.left = `${rect.left - pad}px`;
+  spotlight.style.width = `${rect.width + pad * 2}px`;
+  spotlight.style.height = `${rect.height + pad * 2}px`;
+  host.appendChild(spotlight);
+
+  const balloon = document.createElement("div");
+  balloon.className = "qts-tour-balloon";
+  const t = state.t;
+  balloon.innerHTML = `
+    <span class="qts-tour-step">${escapeHtml(t.tourStepLabel ? t.tourStepLabel(tourStepIndex + 1, tourSteps.length) : `${tourStepIndex + 1}/${tourSteps.length}`)}</span>
+    <b>${escapeHtml(module.title)}</b>
+    <p>${escapeHtml(module.instructions)}</p>
+    <div class="qts-tour-actions">
+      <button type="button" class="qts-tour-skip" data-tour-skip>${escapeHtml(t.tourSkip || "Pular tutorial")}</button>
+      <button type="button" class="qts-tour-next" data-tour-done>${escapeHtml(t.tourComplete || "Concluir passo")}</button>
+    </div>
+  `;
+  host.appendChild(balloon);
+  const balloonWidth = balloon.offsetWidth || 320;
+  const top = Math.min(window.innerHeight - 140, rect.bottom + 14);
+  const left = Math.min(Math.max(12, rect.left), window.innerWidth - balloonWidth - 12);
+  balloon.style.top = `${top}px`;
+  balloon.style.left = `${left}px`;
+  balloon.querySelector("[data-tour-skip]").addEventListener("click", () => endTour({ redirectToWorkspace: true }));
+  balloon.querySelector("[data-tour-done]").addEventListener("click", () => completeCurrentTourStep());
+}
+
+async function completeCurrentTourStep() {
+  const module = tourSteps[tourStepIndex];
+  if (!module) return;
+  await window.QTS_STORAGE.saveTutorialCompletedStep(module.key);
+  playSound("achievement");
+  showTourStepDoneCard(module);
+}
+
+function showTourStepDoneCard(module) {
+  const host = tourHost();
+  if (!host) return;
+  host.querySelectorAll(".qts-tour-spotlight, .qts-tour-balloon, .qts-tour-card").forEach((node) => node.remove());
+  const t = state.t;
+  const isLast = tourStepIndex >= tourSteps.length - 1;
+  const card = document.createElement("div");
+  card.className = "qts-tour-card";
+  card.innerHTML = `
+    <div class="qts-tour-trophy">🏆</div>
+    <b>${escapeHtml(module.title)} ${escapeHtml(t.tourDone || "concluído!")}</b>
+    <div class="qts-tour-card-actions">
+      <button type="button" data-tour-repeat>${escapeHtml(t.tourRepeat || "Repetir")}</button>
+      <button type="button" data-tour-close>${escapeHtml(t.close || "Fechar")}</button>
+      <button type="button" class="qts-tour-primary" data-tour-next-card>${isLast ? escapeHtml(t.tourFinish || "Concluir") : escapeHtml(t.tourNext || "Próximo")}</button>
+    </div>
+  `;
+  host.appendChild(card);
+  card.querySelector("[data-tour-repeat]").addEventListener("click", () => renderTourStep());
+  card.querySelector("[data-tour-close]").addEventListener("click", () => endTour({ redirectToWorkspace: false }));
+  card.querySelector("[data-tour-next-card]").addEventListener("click", () => advanceTourStep());
+}
+
+function advanceTourStep() {
+  tourStepIndex += 1;
+  if (tourStepIndex >= tourSteps.length) { endTour({ redirectToWorkspace: true }); return; }
+  renderTourStep();
+}
+
+function endTour({ redirectToWorkspace }) {
+  tourHost()?.remove();
+  tourSteps = [];
+  tourStepIndex = -1;
+  state.shadowRoot?.getElementById("toolsMenu")?.classList.remove("isOpen");
+  if (tourResizeHandler) { window.removeEventListener("resize", tourResizeHandler); tourResizeHandler = null; }
+  void window.QTS_STORAGE.saveTutorialBannerDismissed();
+  if (redirectToWorkspace) chrome.runtime.sendMessage({ type: "qts:open-options", tab: "workspace" });
 }
 
 // One-time callout the very first time the bar ever mounts on any authorized site — after
