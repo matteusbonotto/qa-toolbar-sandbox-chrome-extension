@@ -276,6 +276,11 @@ body.qts-placement-mode, body.qts-placement-mode * {
 }
 .qts-locator-copy:hover { border-color: #ffd700 !important; }
 
+/* Applied straight to a real host-page element (not a floating item we created) by the "Borrar
+   elementos" tool -- filter (not backdrop-filter) since it needs to blur the element's own
+   content, not whatever sits behind a transparent overlay. */
+.qts-blurred-element { filter: blur(6px) !important; transition: filter .15s ease !important; }
+
 .qts-shape-preview {
   position: fixed !important; z-index: 2147483644 !important; border: 2px dashed #ffd700 !important;
   background: rgba(255,215,0,.1) !important; pointer-events: none !important;

@@ -208,6 +208,7 @@
       fakerFillMenuLabel: "Faker Fill",
       keyViewMenuLabel: "Key View",
       elementCaptureMenuLabel: "Capturar elementos",
+      blurElementsMenuLabel: "Borrar elementos",
     },
     es: {
       locale: "es",
@@ -407,6 +408,7 @@
       fakerFillMenuLabel: "Relleno con datos ficticios",
       keyViewMenuLabel: "Key View",
       elementCaptureMenuLabel: "Capturar elementos",
+      blurElementsMenuLabel: "Borrar elementos",
     },
     en: {
       locale: "en",
@@ -606,6 +608,7 @@
       fakerFillMenuLabel: "Faker Fill",
       keyViewMenuLabel: "Key View",
       elementCaptureMenuLabel: "Capture elements",
+      blurElementsMenuLabel: "Blur elements",
     },
   };
 

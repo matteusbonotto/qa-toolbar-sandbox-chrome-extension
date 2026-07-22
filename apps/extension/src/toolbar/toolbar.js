@@ -330,7 +330,7 @@ function applyPinnedTools() {
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
     characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
     inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
-    elementCapture: "elementCaptureMenuItem",
+    elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem",
   };
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
@@ -553,6 +553,7 @@ function buildShadowHost() {
             <button type="button" id="paymentMethodsMenuItem" role="menuitem">${ICON("paymentMethods")} ${escapeHtml(t.paymentMethodsMenuLabel)}</button>
             <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(t.resourcesMenuLabel)}</button>
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
+            <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}<span id="tutorialDot" class="qts-tutorial-dot" hidden></span></button>
@@ -632,6 +633,7 @@ function buildShadowHost() {
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
   shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
+  shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => { openBlurElementsTool(); closeToolsMenu(); });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
@@ -1644,6 +1646,11 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Tamanho das teclas": "Tamaño de las teclas", "Tamanho do mouse": "Tamaño del ratón", "Pequeno": "Pequeño", "Médio": "Mediano", "Grande": "Grande",
   "Posição na tela": "Posición en pantalla", "Privacidade local": "Privacidad local", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "El texto no se guarda ni se envía. Nunca se capturan campos de contraseña, tarjeta, CVV, token o secreto.",
   "Salvar configurações": "Guardar configuración", "Limpar texto": "Limpiar texto", "Configurações salvas.": "Configuración guardada.", "Texto limpo.": "Texto borrado.",
+  "Borrar elementos": "Difuminar elementos",
+  "Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.": "Haz clic en elementos de la página para difuminar información sensible antes de una captura o grabación. Vuelve a hacer clic en el mismo elemento para deshacerlo.",
+  "Selecionar elemento": "Seleccionar elemento", "Limpar todos os borrados": "Quitar todo el difuminado",
+  "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.": "Haz clic en un elemento para difuminarlo (o quitar el difuminado si ya lo tiene). Esc para detener.",
+  "Nenhum elemento borrado ainda.": "Ningún elemento difuminado todavía.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -1654,6 +1661,11 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Tamanho das teclas": "Key size", "Tamanho do mouse": "Mouse size", "Pequeno": "Small", "Médio": "Medium", "Grande": "Large",
   "Posição na tela": "Screen position", "Privacidade local": "Local privacy", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "Text is neither saved nor sent. Password, card, CVV, token, and secret fields are never captured.",
   "Salvar configurações": "Save settings", "Limpar texto": "Clear text", "Configurações salvas.": "Settings saved.", "Texto limpo.": "Text cleared.",
+  "Borrar elementos": "Blur elements",
+  "Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.": "Click elements on the page to blur sensitive information before a screenshot or recording. Click the same element again to undo it.",
+  "Selecionar elemento": "Select element", "Limpar todos os borrados": "Clear all blurred elements",
+  "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.": "Click an element to blur it (or unblur it, if already blurred). Esc to stop.",
+  "Nenhum elemento borrado ainda.": "No elements blurred yet.",
 });
 
 function translateQaSurfaceText(value) {
@@ -1667,8 +1679,8 @@ function translateQaSurfaceText(value) {
     const suffix = Object.keys(translations).sort((left, right) => right.length - left.length).find((source) => core.endsWith(` ${source}`));
     if (suffix) translated = `${core.slice(0, -suffix.length)}${translations[suffix]}`;
   }
-  if (state.t.locale === "en") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 step(s)").replace(/(\d+) clique\(s\)/g, "$1 click(s)").replace(/campo\(s\)/g, "field(s)").replace(/sensível\(is\) protegido\(s\)/g, "sensitive field(s) protected");
-  if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)");
+  if (state.t.locale === "en") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 step(s)").replace(/(\d+) clique\(s\)/g, "$1 click(s)").replace(/campo\(s\)/g, "field(s)").replace(/sensível\(is\) protegido\(s\)/g, "sensitive field(s) protected").replace(/^(\d+) elemento\(s\) borrado\(s\)\.$/, "$1 element(s) blurred.");
+  if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)").replace(/^(\d+) elemento\(s\) borrado\(s\)\.$/, "$1 elemento(s) difuminado(s).");
   if (state.t.locale === "en") translated = translated.replace(/^Executando /, "Running ").replace(/^Macro concluída:/, "Macro completed:").replace(/^Macro interrompida:/, "Macro stopped:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "The macro could not be started safely.");
   if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
   if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns — check the routes/endpoints you registered.");
@@ -3618,6 +3630,45 @@ function downloadElementCaptureCsv(rows) {
 
 function elementCaptureLabel(row) {
   return row.text || row.placeholder || row.name || row.testId || row.id || "";
+}
+
+// Complements the Shapes "Borrão" effect (a drawn box over an area) with a per-element blur --
+// click a real element (a name, an ID, anything sensitive) to blur it in place, click it again to
+// undo. Reuses selectPageElement's existing hover/click/Esc selection UI instead of building a
+// second one, and re-arms itself after each pick so the user can blur several elements in one go.
+function toggleElementBlur(element) {
+  if (!state.blurredElements) state.blurredElements = new Set();
+  if (state.blurredElements.has(element)) { element.classList.remove("qts-blurred-element"); state.blurredElements.delete(element); }
+  else { element.classList.add("qts-blurred-element"); state.blurredElements.add(element); }
+}
+
+function clearAllBlurredElements() {
+  if (!state.blurredElements) return;
+  for (const element of state.blurredElements) element.classList.remove("qts-blurred-element");
+  state.blurredElements.clear();
+}
+
+function openBlurElementsTool() {
+  openDrawer({
+    title: "Borrar elementos",
+    bodyHtml: `<p class="qts-tool-lead">Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.</p>
+      <div class="qts-card-actions"><button class="action primary" id="blurSelectElement" type="button">Selecionar elemento</button><button class="action" id="blurClearAll" type="button">Limpar todos os borrados</button></div>
+      <div class="qts-status" id="blurStatus"></div>`,
+    onReady(body) {
+      const status = body.querySelector("#blurStatus");
+      const updateStatus = () => {
+        const count = state.blurredElements?.size || 0;
+        status.textContent = count ? translateQaSurfaceText(`${count} elemento(s) borrado(s).`) : translateQaSurfaceText("Nenhum elemento borrado ainda.");
+      };
+      const armSelection = () => selectPageElement({
+        instruction: "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.",
+        onSelected: (element) => { toggleElementBlur(element); updateStatus(); armSelection(); },
+      });
+      body.querySelector("#blurSelectElement").addEventListener("click", armSelection);
+      body.querySelector("#blurClearAll").addEventListener("click", () => { clearAllBlurredElements(); updateStatus(); });
+      updateStatus();
+    },
+  });
 }
 
 function openElementCapture() {

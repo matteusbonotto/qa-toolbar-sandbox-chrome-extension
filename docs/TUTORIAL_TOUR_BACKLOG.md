@@ -65,13 +65,12 @@ qualquer item ainda `[ ]` é o que falta retomar.
       quadrado e círculo travam largura=altura e ajustam o raio da borda automaticamente) e
       "Efeito" (Cor, como já era, ou Borrão — troca as cores por um controle de intensidade e
       aplica `backdrop-filter: blur()` de verdade sobre a área, não só uma cor por cima).
-- [ ] **Ferramenta Borrar dedicada** (clicar num elemento específico da página pra borrá-lo, com
-      "Limpar todos os borrados") — dá pra já resolver boa parte disso com o efeito Borrão nas
-      formas acima (desenha um retângulo sobre a área sensível), mas não é a mesma coisa que
-      selecionar o elemento em si. Não comecei: registrar um tool novo de verdade nessa extensão
-      toca ~6 lugares diferentes (lista de ferramentas padrão em dois arquivos, checkbox em
-      Configurações, ordem do menu, ícone novo, tradução dupla, cobertura no smoke test) e não
-      quis fazer isso pela metade sob pressão de tempo.
+- [x] **Ferramenta Borrar dedicada**: novo item "Borrar elementos" no menu Tools — clique num
+      elemento real da página pra borrá-lo (`filter: blur()`), clique de novo pra desfazer, e
+      "Limpar todos os borrados" reseta tudo de uma vez. Reaproveita o mesmo mecanismo de seleção
+      por clique já usado no Capturar Elementos (`selectPageElement`), registrado como ferramenta
+      de verdade (lista de ferramentas padrão + checkbox em Configurações + migração de schema
+      para quem já tinha workspace salvo + tradução completa pt/es/en + cobertura no smoke test).
 - [ ] Linha com ponta configurável (seta ou nenhuma) — não comecei; é um tipo de forma
       genuinamente novo (dois pontos + rotação + marcador de seta), não uma variação da caixa
       atual como quadrado/círculo/borrão foram.

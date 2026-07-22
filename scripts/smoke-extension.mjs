@@ -246,6 +246,26 @@ try {
   await host.locator(".qts-shape .qts-remove-btn").click();
   trace("shape formato/efeito (círculo + borrão) verified");
 
+  // Borrar elementos: click-to-select (reusing the same selectPageElement UX as Element Capture),
+  // toggles the blur on/off per element, re-arms itself for picking more than one, and "Limpar
+  // todos" resets everything.
+  await host.locator("#toolsButton").click();
+  await host.locator("#blurElementsMenuItem").click();
+  await host.locator("#blurSelectElement").click();
+  await host.locator("#qaName").click();
+  if (!(await host.locator("#qaName").evaluate((element) => element.classList.contains("qts-blurred-element")))) throw new Error("Borrar elementos did not blur the clicked element");
+  await host.locator("#qaEmail").click();
+  if (!(await host.locator("#qaEmail").evaluate((element) => element.classList.contains("qts-blurred-element")))) throw new Error("Borrar elementos did not blur a second element (selection did not re-arm)");
+  await host.locator("#qaName").click();
+  if (await host.locator("#qaName").evaluate((element) => element.classList.contains("qts-blurred-element"))) throw new Error("Clicking an already-blurred element did not undo the blur");
+  await host.keyboard.press("Escape");
+  await host.locator("#toolsButton").click();
+  await host.locator("#blurElementsMenuItem").click();
+  await host.locator("#blurClearAll").click();
+  if (await host.locator("#qaEmail").evaluate((element) => element.classList.contains("qts-blurred-element"))) throw new Error('"Limpar todos os borrados" left an element blurred');
+  await host.locator("#drawerClose").click();
+  trace("borrar elementos tool verified (select, toggle, re-arm, clear all)");
+
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
   await host.locator("#jsonStudioMenuItem").click();
