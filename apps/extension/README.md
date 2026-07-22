@@ -36,7 +36,7 @@ Feche a janela do Chrome para encerrar o comando.
 
 `npm run test:chrome` executa em Chromium real o contrato deslogado → login → CRUD → toolbar → modo compacto → edição de URL → navegação SPA → pagamentos/recursos → exportação segura → logout.
 
-`npm run verify:cinemark` importa pela UI o fixture white-label de referência e confirma vínculos, contagens, badges e ambientes sem acessar os sites reais do cliente.
+`npm run verify:cineluna` importa pela UI o fixture white-label fictício de referência e confirma vínculos, contagens, badges e ambientes.
 
 ## Atualização na Chrome Web Store
 

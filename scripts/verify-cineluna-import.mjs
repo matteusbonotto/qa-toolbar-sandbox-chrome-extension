@@ -1,18 +1,19 @@
-// Real-Chrome verification for the "import a real client workspace" scenario the extension
-// is built for: loads the unpacked extension, imports fixtures/cinemark-import-example.json
-// through the options page's own "Importar JSON" button (not a storage.set shortcut — this
-// exercises the exact same code path a real user hits), and confirms every entity landed
-// with the right counts, badges and colors. Kept separate from scripts/smoke-extension.mjs
-// (which stays intentionally generic/white-label) since this one is about proving a specific
-// real-world scenario end to end, not about extension features in general.
+// Real-Chrome verification for the "import a client workspace" scenario the extension is built
+// for: loads the unpacked extension, imports fixtures/cineluna-import-example.json (a fictional
+// client -- see docs/legal guidance on never using real client/employer names in fixtures) through
+// the options page's own "Importar JSON" button (not a storage.set shortcut -- this exercises the
+// exact same code path a real user hits), and confirms every entity landed with the right counts,
+// badges and colors. Kept separate from scripts/smoke-extension.mjs (which stays intentionally
+// generic/white-label) since this one is about proving a specific multi-entity import scenario end
+// to end, not about extension features in general.
 import { resolve } from "node:path";
 import { mkdir, rm } from "node:fs/promises";
 import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
 const extensionPath = resolve(root, "apps/extension");
-const fixturePath = resolve(root, "apps/extension/fixtures/cinemark-import-example.json");
-const profilePath = resolve(root, "artifacts/chrome-cinemark-profile");
+const fixturePath = resolve(root, "apps/extension/fixtures/cineluna-import-example.json");
+const profilePath = resolve(root, "artifacts/chrome-cineluna-profile");
 const evidencePath = resolve(root, "artifacts/runtime-evidence");
 await mkdir(evidencePath, { recursive: true });
 await rm(profilePath, { recursive: true, force: true });
@@ -77,7 +78,7 @@ try {
     apis: await page.locator("#apiCount").textContent(),
     resources: await page.locator("#resourceCount").textContent(),
   };
-  // Every collection the fixture ships must land with exactly one row — this is meant to be a
+  // Every collection the fixture ships must land with exactly one row -- this is meant to be a
   // complete "one example of every CRUD entity" reference, so a silently-dropped collection
   // (a normalizeWorkspace filter rejecting it, a broken foreign key) must fail loudly here.
   const expected = { clients: "1", projects: "1", products: "1", environments: "4", testAccounts: "1", paymentMethods: "1", inspectors: "1", apis: "1", resources: "1" };
@@ -86,7 +87,7 @@ try {
   }
 
   // Test account custom fields (Phase 2 dynamic schema) round-trip through the same edit path a
-  // real user would use — switch to the tab that actually renders the list (the counts above are
+  // real user would use -- switch to the tab that actually renders the list (the counts above are
   // read straight from the DOM regardless of panel visibility, but a real click needs the panel
   // visible), then open the account for editing and confirm all 3 field rows re-render.
   await page.locator('.protectedNav[data-tab="test-data"]').click();
@@ -99,7 +100,7 @@ try {
   await page.locator('[data-cancel="testAccount"]').click();
 
   const clientBadge = await page.locator("#clientList .qts-badge-avatar").textContent();
-  if (clientBadge.trim() !== "C") throw new Error(`Expected client badge "C" (Cinemark), got: ${clientBadge}`);
+  if (clientBadge.trim() !== "C") throw new Error(`Expected client badge "C" (Cineluna), got: ${clientBadge}`);
 
   const environmentNames = await page.locator("#environmentList b").allTextContents();
   for (const name of ["Dev", "QA", "Beta", "Produção"]) {
@@ -108,12 +109,12 @@ try {
     }
   }
 
-  await page.screenshot({ path: resolve(evidencePath, "cinemark-import-workspace.png"), fullPage: true });
+  await page.screenshot({ path: resolve(evidencePath, "cineluna-import-workspace.png"), fullPage: true });
 
   // Breadcrumb rendering for a URL matching an imported wildcard pattern is already covered
   // end-to-end by scripts/smoke-extension.mjs (creates an environment via the CRUD form and
   // asserts the toolbar breadcrumb on a matching page). Re-proving that here with a second
-  // browser tab would just duplicate that coverage — what's specific to this fixture is the
+  // browser tab would just duplicate that coverage -- what's specific to this fixture is the
   // import pipeline and data integrity, which the assertions above already establish.
 
   if (errors.length) throw new Error(`Console errors:\n${errors.join("\n")}`);

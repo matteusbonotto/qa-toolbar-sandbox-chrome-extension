@@ -216,7 +216,7 @@
 
 ## Segunda rodada de feedback ao vivo, real, com prints (2026-07-20 — 10 itens reportados juntos)
 
-> Founder testou a versão publicada com dados reais (Cinemark) e reportou 10 problemas de uma vez,
+> Founder testou a versão publicada com um workspace de exemplo e reportou 10 problemas de uma vez,
 > vários com prints. Tratando cada um nesta seção, mais criteriosa que a lista antiga acima porque
 > agora há evidência real (prints) e comparação direta com `tampermonkey.js` (script de referência,
 > local, fora do git — `.gitignore` linha 29).
@@ -254,7 +254,7 @@
       um e salvar, e o fluxo aninhado de criar ambiente funcionando de ponta a ponta.
 - [x] **3. Inspectors não se comporta como no tampermonkey**: comparado com o `qaCnkApiInspectorState`
       do original (drawers de API por endpoint, com espera + retry) — a ideia geral fazia sentido,
-      mas o original é hardcoded por endpoint específico da Cinemark (movies/showtimes/members),
+      mas o original é hardcoded por endpoint específico de um cliente (movies/showtimes/members),
       o que contraria o design genérico deste produto de propósito ("Fully generic/declarative"
       já documentado no código). Portei a UX, não o hardcode: "Meus Inspectors" agora é um
       dashboard por Inspector configurado (`renderInspectorDashboard`), não mais uma lista de
