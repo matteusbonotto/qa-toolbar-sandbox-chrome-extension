@@ -18,6 +18,8 @@
         <button type="button" class="navItem protectedNav" data-tab="test-data" disabled>Dados de teste</button>
         <button type="button" class="navItem protectedNav" data-tab="integrations" disabled>Inspectors e recursos</button>
         <button type="button" class="navItem protectedNav" data-tab="data" disabled>Importar / Exportar</button>
+        <button type="button" class="navItem protectedNav" data-tab="tutorial" disabled>Tutorial</button>
+        <button type="button" class="navItem protectedNav" data-tab="faq" disabled>FAQ</button>
       </nav>
       <div class="langSwitch" id="langSwitch" role="group" aria-label="Idioma">
         <button type="button" data-locale="pt-BR">PT</button><button type="button" data-locale="es">ES</button><button type="button" data-locale="en">EN</button>
@@ -30,6 +32,10 @@
         <div class="card paymentBanner" id="paymentFailedBanner" hidden>
           <strong>Pagamento pendente</strong>
           <p>Sua última cobrança falhou e o acesso a recursos pagos foi bloqueado até a fatura ser regularizada. A Stripe já deve ter te avisado por e-mail com um link para atualizar o cartão; se precisar de ajuda, escreva para <a href="mailto:contato@matheusbonotto.com.br">contato@matheusbonotto.com.br</a>.</p>
+        </div>
+        <div class="card tutorialBanner" id="tutorialBanner" hidden>
+          <div><strong>Novo por aqui?</strong><p>Faça o tour guiado e conheça cada ferramenta no seu ritmo.</p></div>
+          <div class="actions"><button type="button" class="button primary" id="tutorialBannerOpen">Fazer o tour</button><button type="button" class="button linkButton" id="tutorialBannerDismiss">Dispensar</button></div>
         </div>
         <div class="card accountCard">
           <div id="signedOutState">
@@ -214,6 +220,24 @@
         <header class="panelHead"><h1>Importar / Exportar</h1><p>A importação valida e normaliza vínculos e URLs antes de substituir o workspace.</p></header>
         <div class="card"><div class="actions"><button type="button" class="button primary" id="exportButton">Exportação segura (JSON)</button><button type="button" class="button" id="importButton">Importar JSON</button><button type="button" class="button" id="downloadTemplateButton">Baixar template</button><button type="button" class="button danger" id="resetButton">Resetar workspace</button><input type="file" id="importFile" accept="application/json,.json" hidden /></div><p class="hint" id="dataHint" role="status"></p></div>
       </section>
+
+      <section data-panel="tutorial" class="panel protectedPanel">
+        <header class="panelHead"><h1>Tutorial</h1><p>Um passo a passo guiado que você pode pular e retomar quando quiser, pela ordem que preferir.</p></header>
+        <div class="card tutorialProgressCard">
+          <div class="tutorialProgressHead">
+            <strong id="tutorialProgressLabel">0 de 0 concluídos</strong>
+            <div class="actions"><button type="button" class="button" id="tutorialSkipAll">Pular tudo</button><button type="button" class="button linkButton" id="tutorialReset">Reiniciar</button></div>
+          </div>
+          <div class="tutorialProgressBar"><div class="tutorialProgressFill" id="tutorialProgressFill"></div></div>
+        </div>
+        <div class="tutorialModules" id="tutorialModules"></div>
+      </section>
+
+      <section data-panel="faq" class="panel protectedPanel">
+        <header class="panelHead"><h1>FAQ</h1><p>Perguntas frequentes sobre a extensão e cada ferramenta.</p></header>
+        <div class="card"><div class="actions"><button type="button" class="button" id="faqExpandAll">Expandir tudo</button><button type="button" class="button" id="faqCollapseAll">Recolher tudo</button></div></div>
+        <div id="faqAccordions"></div>
+      </section>
     </main>
   </div>
   <dialog class="imageEditorDialog" id="imageEditorDialog" aria-labelledby="imageEditorTitle">
@@ -280,6 +304,6 @@
     <div class="formActions"><button type="button" class="button" id="deleteConfirmCancel">Cancelar</button><button type="button" class="button danger" id="deleteConfirmAccept">Excluir</button></div>
   </dialog>
 
-  <script src="../lib/storage-content.js"></script><script src="../lib/i18n-content.js"></script><script src="../lib/avatar-content.js"></script><script src="../lib/icons-content.js"></script><script src="../lib/legal-content.js"></script><script src="options-i18n.js"></script><script src="options.js"></script>
+  <script src="../lib/storage-content.js"></script><script src="../lib/i18n-content.js"></script><script src="../lib/avatar-content.js"></script><script src="../lib/icons-content.js"></script><script src="../lib/legal-content.js"></script><script src="../lib/sound-content.js"></script><script src="tutorial-data.js"></script><script src="faq-data.js"></script><script src="options-i18n.js"></script><script src="options.js"></script>
 </body>
 </html>

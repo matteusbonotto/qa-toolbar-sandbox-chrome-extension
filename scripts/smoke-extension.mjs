@@ -509,6 +509,40 @@ try {
   if (!/^sha256:[a-f0-9]{64}$/i.test(exportedPayload.checksum || "")) throw new Error("Secure export did not include an integrity checksum");
   trace("settings and secure export verified");
 
+  // Tutorial (Part B): the "Novo por aqui?" banner routes into the Tutorial panel, completing a
+  // step plays the achievement sound + toast and persists across a full page reload, no tool shows
+  // a lock badge (access-status above enables every plan-gated feature), and the FAQ's
+  // expand/collapse-all actually touches every accordion.
+  await options.getByRole("button", { name: "Minha conta" }).click();
+  if (await options.locator("#tutorialBanner").isHidden()) throw new Error("Tutorial banner should be visible before it's dismissed");
+  await options.locator("#tutorialBannerOpen").click();
+  await options.locator('[data-panel="tutorial"].isActive').waitFor();
+  const tutorialModuleCount = await options.locator("[data-tutorial-module]").count();
+  if (tutorialModuleCount < 20) throw new Error(`Tutorial panel rendered too few modules: ${tutorialModuleCount}`);
+  if (await options.locator(".tutorialLockBadge").count() !== 0) throw new Error("A tool showed a plan lock badge despite every plan feature being enabled in this mock");
+  const achievementSoundPromise = options.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
+  await options.locator('[data-tutorial-complete="workspace"]').click();
+  await achievementSoundPromise;
+  await options.locator("#tutorialAchievementToast.isVisible").waitFor();
+  await options.locator('[data-tutorial-module="workspace"].isDone').waitFor();
+  if ((await options.locator("#tutorialProgressLabel").textContent()) !== `1 de ${tutorialModuleCount} concluídos`) throw new Error("Tutorial progress label did not update after completing a step");
+  trace("tutorial step completion verified");
+
+  await options.reload();
+  await options.locator('.protectedNav[data-tab="tutorial"]:not(:disabled)').waitFor({ timeout: 10_000 });
+  await options.getByRole("button", { name: "Tutorial" }).click();
+  await options.locator('[data-tutorial-module="workspace"].isDone').waitFor();
+  trace("tutorial progress persisted across reload");
+
+  await options.getByRole("button", { name: "FAQ" }).click();
+  const faqCount = await options.locator(".faqAccordion").count();
+  if (faqCount < 20) throw new Error(`FAQ panel rendered too few entries: ${faqCount}`);
+  await options.locator("#faqExpandAll").click();
+  if (await options.locator(".faqAccordion:not([open])").count() !== 0) throw new Error("Expandir tudo did not open every FAQ entry");
+  await options.locator("#faqCollapseAll").click();
+  if (await options.locator(".faqAccordion[open]").count() !== 0) throw new Error("Recolher tudo did not close every FAQ entry");
+  trace("FAQ accordions verified");
+
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();
   await host.waitForTimeout(500);
@@ -516,7 +550,7 @@ try {
   if (!await options.locator('.protectedNav[data-tab="workspace"]').isDisabled()) throw new Error("Protected settings remained enabled after logout");
 
   if (hostErrors.length || optionsErrors.length || workerErrors.length) throw new Error(`Console errors:\n${[...hostErrors, ...optionsErrors, ...workerErrors].join("\n")}`);
-  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, workspaceStudioTabs: true, relationalUrls: true, searchableEnvironmentMultiselect: true, imageEditor: true, hierarchyAndUrl: true, soundEffectsRequested: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewSizes: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, elementCaptureCsvSafe: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactModePerEntity: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
+  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, workspaceStudioTabs: true, relationalUrls: true, searchableEnvironmentMultiselect: true, imageEditor: true, hierarchyAndUrl: true, soundEffectsRequested: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewSizes: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, elementCaptureCsvSafe: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactModePerEntity: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, tutorialGamification: true, tutorialProgressPersisted: true, faqAccordions: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
 } finally {
   await context.close();
   await new Promise((resolveClosed) => server.close(resolveClosed));

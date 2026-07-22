@@ -276,32 +276,12 @@ function safeCurrentUrl() {
   }
 }
 
-// Sound effects: short cues for test status results, HTTP errors captured by the network
-// inspector, and macro playback starting. Disabled entirely via preferences.soundEffects.
-const SOUND_FILES = {
-  pass: "src/assets/sounds/test-pass.mp3",
-  fail: "src/assets/sounds/test-fail.mp3",
-  blocked: "src/assets/sounds/test-block.mp3",
-  limitation: "src/assets/sounds/test-block.mp3",
-  httpError: "src/assets/sounds/http-error.mp3",
-  macroPlay: "src/assets/sounds/play-macro.mp3",
-};
-
-function soundEffectsEnabled() {
-  return state.workspace?.preferences?.soundEffects !== false;
-}
-
+// Sound effects (SOUND_FILES/playSound) now live in lib/sound-content.js, shared with the
+// options page's Tutorial panel. Thin wrapper keeps every existing call site in this file
+// (playSound(key)) unchanged, implicitly passing the toolbar's current workspace for the
+// preferences.soundEffects check.
 function playSound(key) {
-  if (!soundEffectsEnabled()) return;
-  const path = SOUND_FILES[key];
-  if (!path) return;
-  try {
-    const audio = new Audio(chrome.runtime.getURL(path));
-    audio.volume = 0.6;
-    void audio.play().catch(() => {});
-  } catch {
-    // Ignore playback failures (e.g. autoplay policy) — sound is a nicety, never blocking.
-  }
+  window.QTS_SOUND.playSound(key, state.workspace);
 }
 
 // Tools gated by the account's plan (via access-status' `features` map), on top of the
@@ -474,6 +454,8 @@ function buildShadowHost() {
       #toolsMenu button:hover { background: #232323; border-color: #ffd700; }
       #toolsMenu button.isActive { background: #ffd700 !important; color: #111 !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; }
+      #settingsButton { position: relative; }
+      .qts-tutorial-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #42d5c2; box-shadow: 0 0 0 2px #171717; }
       #macroRecordingBar { position: relative; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 9px; background: #8f0909; border: 1px solid #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
       #macroRecordingBar.isPaused { background: #7a5b00; animation: none; }
       #macroRecHistoryPanel { position: absolute; top: 30px; right: 0; width: 260px; max-height: 260px; overflow: auto; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; }
@@ -573,7 +555,7 @@ function buildShadowHost() {
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
           </div>
         </div>
-        <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}</button>
+        <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}<span id="tutorialDot" class="qts-tutorial-dot" hidden></span></button>
         <button id="minimizeButton" class="iconOnly" type="button" title="${escapeHtml(t.minimize)}">${ICON("chevronUp")}</button>
       </div>
     </div>
@@ -687,6 +669,21 @@ function mountToolbar() {
 
   render();
   void maybeShowFirstRunIntro();
+  void maybeShowTutorialDot();
+}
+
+// Small dot on the settings button, separate from maybeShowFirstRunIntro's one-time card above:
+// this one points at the Tutorial panel specifically, only while the user hasn't opened it at all
+// yet (no completed steps) and hasn't already dismissed the "Novo por aqui?" banner in options.js
+// (dismissedBannerAt covers both surfaces with one flag, since dismissing one implies "I know
+// about the tutorial already"). Re-checked on every mount rather than cached in `state`, since the
+// user may complete/dismiss it from the options page while a toolbar tab stays open.
+async function maybeShowTutorialDot() {
+  if (!state.shadowRoot) return;
+  const progress = await window.QTS_STORAGE.getTutorialProgress();
+  const dot = state.shadowRoot.getElementById("tutorialDot");
+  if (!dot) return;
+  dot.hidden = progress.completedSteps.length > 0 || Boolean(progress.dismissedBannerAt);
 }
 
 // One-time callout the very first time the bar ever mounts on any authorized site — after
