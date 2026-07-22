@@ -9,6 +9,7 @@ import { AccessPage } from "./pages/AccessPage";
 import { LicensesPage } from "./pages/LicensesPage";
 import { UsersPage } from "./pages/UsersPage";
 import { AuditPage } from "./pages/AuditPage";
+import { LegalRegistrationPage } from "./pages/LegalRegistrationPage";
 
 function Gate() {
   const { status } = useAuth();
@@ -31,6 +32,7 @@ function Gate() {
           <Route path="/licencas" element={<LicensesPage />} />
           <Route path="/usuarios" element={<UsersPage />} />
           <Route path="/auditoria" element={<AuditPage />} />
+          <Route path="/juridico" element={<LegalRegistrationPage />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Layout>

@@ -165,6 +165,23 @@ export interface AuditLogEntry {
   created_at: string;
 }
 
+export type LegalRegistrationStatus = "preparation" | "payment_pending" | "protocolled" | "registered";
+
+export interface LegalRegistration {
+  id: true;
+  status: LegalRegistrationStatus;
+  software_name: string;
+  holder_name: string;
+  protocol_number: string | null;
+  protocol_date: string | null;
+  registration_number: string | null;
+  grant_date: string | null;
+  public_query_url: string | null;
+  public_notice: string | null;
+  updated_at: string;
+  updated_by: string | null;
+}
+
 export interface DashboardMetrics {
   monthlyRecurringRevenueMinor: number;
   activeSubscriptions: number;
