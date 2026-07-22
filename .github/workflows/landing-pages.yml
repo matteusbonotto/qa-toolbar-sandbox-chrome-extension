@@ -60,7 +60,7 @@ jobs:
         run: cp apps/landing/dist/index.html apps/landing/dist/404.html
       - name: Give static-checked routes a real 200 response (not just the 404-status SPA fallback)
         run: |
-          for route in privacidade redefinir-senha; do
+          for route in privacidade redefinir-senha propriedade-intelectual; do
             mkdir -p "apps/landing/dist/$route"
             cp apps/landing/dist/index.html "apps/landing/dist/$route/index.html"
           done

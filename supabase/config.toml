@@ -63,6 +63,9 @@ verify_jwt = false
 [functions.voucher-preview]
 verify_jwt = false
 
+[functions.legal-registration]
+verify_jwt = false
+
 [functions.referral-track]
 verify_jwt = false
 

@@ -198,7 +198,25 @@ export interface Dictionary {
     navPricing: string;
     navSupport: string;
     navPrivacy: string;
+    navIp: string;
+    allRightsReserved: string;
     creditPrefix: string;
+  };
+  legal: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    ownershipTitle: string;
+    ownershipBody: string;
+    usageTitle: string;
+    usageBody: string;
+    registrationTitle: string;
+    thirdPartyTitle: string;
+    thirdPartyBody: string;
+    contactTitle: string;
+    contactBody: string;
+    languageNote: string;
+    status: Record<"preparation" | "payment_pending" | "protocolled" | "registered", { title: string; body: string; disclaimer?: string }>;
   };
   privacy: {
     back: string;
@@ -612,7 +630,43 @@ const pt: Dictionary = {
     navPricing: "Planos",
     navSupport: "Suporte",
     navPrivacy: "Política de Privacidade",
+    navIp: "Propriedade Intelectual",
+    allRightsReserved: "Todos os direitos reservados.",
     creditPrefix: "desenvolvido por",
+  },
+  legal: {
+    eyebrow: "Propriedade Intelectual",
+    title: "Propriedade Intelectual",
+    lead: "Este documento descreve a titularidade e os direitos relacionados à QA Toolbar Sandbox.",
+    ownershipTitle: "Titularidade",
+    ownershipBody: "A QA Toolbar Sandbox, incluindo seu código-fonte, arquitetura, documentação, interfaces, textos, identidade visual e funcionalidades originais, foi criada por Matheus Alves Bonotto Santos, sendo protegida pela legislação brasileira aplicável a direitos autorais e a programas de computador (Lei nº 9.609/1998 e Lei nº 9.610/1998).",
+    usageTitle: "Uso autorizado e restrições",
+    usageBody: "O uso da QA Toolbar Sandbox é regido pelos Termos de Uso do produto. Salvo autorização expressa, é vedada a cópia, redistribuição, revenda, sublicenciamento, engenharia reversa além do permitido em lei, ou criação de produto derivado a partir do código-fonte ou da identidade visual da QA Toolbar Sandbox.",
+    registrationTitle: "Registro de programa de computador",
+    thirdPartyTitle: "Conteúdo de terceiros",
+    thirdPartyBody: "Bibliotecas, frameworks, ícones, fontes e demais componentes de terceiros utilizados na QA Toolbar Sandbox permanecem sujeitos às respectivas licenças originais.",
+    contactTitle: "Contato jurídico",
+    contactBody: "Dúvidas sobre propriedade intelectual, licenciamento ou denúncias de uso não autorizado podem ser enviadas para contato@matheusbonotto.com.br.",
+    languageNote: "A versão em português prevalecerá em caso de divergência de interpretação relacionada ao registro brasileiro.",
+    status: {
+      preparation: {
+        title: "Registro de software em preparação",
+        body: "O processo de registro de programa de computador da {software} está sendo preparado perante o INPI.",
+      },
+      payment_pending: {
+        title: "Registro de software em andamento",
+        body: "O processo de registro de programa de computador da {software} está em andamento perante o Instituto Nacional da Propriedade Industrial (INPI).",
+      },
+      protocolled: {
+        title: "Pedido protocolado no INPI",
+        body: "O pedido de registro de programa de computador da {software} foi protocolado no INPI sob o processo nº {process}, em {date}.",
+      },
+      registered: {
+        title: "Programa de computador registrado no INPI",
+        body: "{software} é um programa de computador registrado no INPI sob o nº {number}, concedido em {date}. Titular: {holder}.",
+        disclaimer: "O registro refere-se à proteção jurídica do programa de computador e não representa certificação, homologação ou aprovação técnica do produto pelo INPI.",
+      },
+    },
   },
   privacy: {
     back: "← Voltar para a página inicial",
@@ -1031,7 +1085,43 @@ const es: Dictionary = {
     navPricing: "Planes",
     navSupport: "Soporte",
     navPrivacy: "Política de Privacidad",
+    navIp: "Propiedad Intelectual",
+    allRightsReserved: "Todos los derechos reservados.",
     creditPrefix: "desarrollado por",
+  },
+  legal: {
+    eyebrow: "Propiedad Intelectual",
+    title: "Propiedad Intelectual",
+    lead: "Este documento describe la titularidad y los derechos relacionados con QA Toolbar Sandbox.",
+    ownershipTitle: "Titularidad",
+    ownershipBody: "QA Toolbar Sandbox, incluyendo su código fuente, arquitectura, documentación, interfaces, textos, identidad visual y funcionalidades originales, fue creada por Matheus Alves Bonotto Santos, protegida por la legislación brasileña aplicable a derechos de autor y programas de computador (Ley nº 9.609/1998 y Ley nº 9.610/1998).",
+    usageTitle: "Uso autorizado y restricciones",
+    usageBody: "El uso de QA Toolbar Sandbox se rige por los Términos de Uso del producto. Salvo autorización expresa, está prohibida la copia, redistribución, reventa, sublicenciamiento, ingeniería inversa más allá de lo permitido por ley, o la creación de un producto derivado a partir del código fuente o la identidad visual de QA Toolbar Sandbox.",
+    registrationTitle: "Registro de programa de computador",
+    thirdPartyTitle: "Contenido de terceros",
+    thirdPartyBody: "Las bibliotecas, frameworks, íconos, fuentes y demás componentes de terceros utilizados en QA Toolbar Sandbox permanecen sujetos a sus respectivas licencias originales.",
+    contactTitle: "Contacto legal",
+    contactBody: "Dudas sobre propiedad intelectual, licenciamiento o denuncias de uso no autorizado pueden enviarse a contato@matheusbonotto.com.br.",
+    languageNote: "La versión en portugués prevalecerá en caso de divergencia de interpretación relacionada con el registro brasileño.",
+    status: {
+      preparation: {
+        title: "Registro de software en preparación",
+        body: "El proceso de registro de programa de computador de {software} está siendo preparado ante el INPI (Brasil).",
+      },
+      payment_pending: {
+        title: "Registro de software en curso",
+        body: "El proceso de registro de programa de computador de {software} está en curso ante el Instituto Nacional da Propriedade Industrial (INPI, Brasil).",
+      },
+      protocolled: {
+        title: "Solicitud protocolada en el INPI",
+        body: "La solicitud de registro de programa de computador de {software} fue protocolada en el INPI bajo el proceso nº {process}, el {date}.",
+      },
+      registered: {
+        title: "Programa de computador registrado en el INPI",
+        body: "{software} es un programa de computador registrado en el INPI bajo el nº {number}, concedido el {date}. Titular: {holder}.",
+        disclaimer: "El registro se refiere a la protección jurídica del programa de computador y no representa certificación, homologación o aprobación técnica por parte del INPI.",
+      },
+    },
   },
   privacy: {
     back: "← Volver a la página de inicio",
@@ -1450,7 +1540,43 @@ const en: Dictionary = {
     navPricing: "Pricing",
     navSupport: "Support",
     navPrivacy: "Privacy Policy",
+    navIp: "Intellectual Property",
+    allRightsReserved: "All rights reserved.",
     creditPrefix: "built by",
+  },
+  legal: {
+    eyebrow: "Intellectual Property",
+    title: "Intellectual Property",
+    lead: "This page describes ownership and rights related to QA Toolbar Sandbox.",
+    ownershipTitle: "Ownership",
+    ownershipBody: "QA Toolbar Sandbox, including its source code, architecture, documentation, interfaces, text, visual identity, and original features, was created by Matheus Alves Bonotto Santos, protected under applicable Brazilian copyright and computer program legislation (Law No. 9,609/1998 and Law No. 9,610/1998).",
+    usageTitle: "Authorized use and restrictions",
+    usageBody: "Use of QA Toolbar Sandbox is governed by the product's Terms of Use. Unless expressly authorized, copying, redistributing, reselling, sublicensing, reverse engineering beyond what's permitted by law, or creating a derivative product from QA Toolbar Sandbox's source code or visual identity is prohibited.",
+    registrationTitle: "Computer program registration",
+    thirdPartyTitle: "Third-party content",
+    thirdPartyBody: "Libraries, frameworks, icons, fonts, and other third-party components used in QA Toolbar Sandbox remain subject to their respective original licenses.",
+    contactTitle: "Legal contact",
+    contactBody: "Questions about intellectual property, licensing, or reports of unauthorized use can be sent to contato@matheusbonotto.com.br.",
+    languageNote: "The Portuguese version will prevail in case of interpretation divergence related to the Brazilian registration.",
+    status: {
+      preparation: {
+        title: "Software registration in preparation",
+        body: "The computer program registration process for {software} is being prepared with INPI (Brazil's IP office).",
+      },
+      payment_pending: {
+        title: "Software registration in progress",
+        body: "The computer program registration process for {software} is in progress with Brazil's National Institute of Industrial Property (INPI).",
+      },
+      protocolled: {
+        title: "Application filed with INPI",
+        body: "The computer program registration application for {software} was filed with INPI under process no. {process}, on {date}.",
+      },
+      registered: {
+        title: "Computer program registered with INPI",
+        body: "{software} is a computer program registered with INPI under no. {number}, granted on {date}. Holder: {holder}.",
+        disclaimer: "This registration concerns the legal protection of the computer program and does not represent certification, approval, or technical endorsement by INPI.",
+      },
+    },
   },
   privacy: {
     back: "← Back to the homepage",

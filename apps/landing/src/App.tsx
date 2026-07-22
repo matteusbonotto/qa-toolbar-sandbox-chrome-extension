@@ -6,6 +6,7 @@ import { PricingSection } from "./sections/PricingSection";
 import { SupportSection } from "./sections/SupportSection";
 import { Footer } from "./sections/Footer";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
+import { IntellectualPropertyPage } from "./pages/IntellectualPropertyPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { ParticleBackground } from "./components/ParticleBackground";
 import { SiteNavToolbar } from "./components/SiteNavToolbar";
@@ -18,6 +19,7 @@ function matchesPath(pathname: string, routeName: string): boolean {
 export default function App() {
   const pathname = window.location.pathname;
   const isPrivacyPage = matchesPath(pathname, "privacidade");
+  const isIpPage = matchesPath(pathname, "propriedade-intelectual");
   const isResetPasswordPage = matchesPath(pathname, "redefinir-senha");
 
   if (isPrivacyPage) {
@@ -26,6 +28,18 @@ export default function App() {
         <ParticleBackground />
         <div className="qts-page-content">
           <PrivacyPolicyPage />
+          <Footer />
+        </div>
+      </>
+    );
+  }
+
+  if (isIpPage) {
+    return (
+      <>
+        <ParticleBackground />
+        <div className="qts-page-content">
+          <IntellectualPropertyPage />
           <Footer />
         </div>
       </>

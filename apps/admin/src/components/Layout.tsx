@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { to: "/licencas", label: "Licenças", end: false },
   { to: "/usuarios", label: "Usuários", end: false },
   { to: "/auditoria", label: "Auditoria", end: false },
+  { to: "/juridico", label: "Jurídico", end: false },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {

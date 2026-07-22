@@ -386,6 +386,34 @@ create table if not exists public.store_listing_status (
 );
 insert into public.store_listing_status (id) values (true) on conflict (id) do nothing;
 
+-- Single-row tracker for the QA Toolbar Sandbox INPI "Registro de Programa de Computador"
+-- process. The founder updates it via the admin panel as the real-world process advances;
+-- nothing here is automated or inferred, and the LP/extension only ever render what's actually
+-- stored -- never a claim ahead of reality. No sensitive fields (CPF, GRU number, bank details,
+-- signed documents) live here, so the whole row is safe to expose publicly as-is.
+create table if not exists public.legal_registration (
+  id boolean primary key default true check (id),
+  status text not null default 'preparation'
+    check (status in ('preparation', 'payment_pending', 'protocolled', 'registered')),
+  software_name text not null default 'QA Toolbar Sandbox',
+  holder_name text not null default 'Matheus Alves Bonotto Santos',
+  protocol_number text,
+  protocol_date date,
+  registration_number text,
+  grant_date date,
+  public_query_url text,
+  public_notice text,
+  updated_at timestamptz not null default now(),
+  updated_by uuid references auth.users(id),
+  constraint legal_registration_protocolled_fields check (
+    status <> 'protocolled' or (protocol_number is not null and protocol_date is not null)
+  ),
+  constraint legal_registration_registered_fields check (
+    status <> 'registered' or (registration_number is not null and grant_date is not null)
+  )
+);
+insert into public.legal_registration (id) values (true) on conflict (id) do nothing;
+
 create table if not exists public.system_notices (
   id uuid primary key default gen_random_uuid(),
   severity text not null check (severity in ('info', 'warning', 'critical')),
@@ -1190,6 +1218,7 @@ alter table public.referral_profiles enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.app_versions enable row level security;
 alter table public.store_listing_status enable row level security;
+alter table public.legal_registration enable row level security;
 alter table public.system_notices enable row level security;
 alter table public.feature_flags enable row level security;
 alter table public.api_rate_limits enable row level security;
@@ -1204,6 +1233,7 @@ create policy "features are publicly readable" on public.features for select usi
 create policy "plan_features are publicly readable" on public.plan_features for select using (true);
 create policy "app_versions are publicly readable" on public.app_versions for select using (true);
 create policy "store_listing_status is publicly readable" on public.store_listing_status for select using (true);
+create policy "legal_registration is publicly readable" on public.legal_registration for select using (true);
 create policy "active system_notices are publicly readable" on public.system_notices for select using (is_active);
 create policy "feature_flags are publicly readable" on public.feature_flags for select using (true);
 create policy "active stripe_prices are publicly readable" on public.stripe_prices for select using (is_active);
@@ -1213,6 +1243,7 @@ create policy "founder manages features" on public.features for all using (publi
 create policy "founder manages plan_features" on public.plan_features for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages app_versions" on public.app_versions for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages store_listing_status" on public.store_listing_status for all using (public.is_founder()) with check (public.is_founder());
+create policy "founder manages legal_registration" on public.legal_registration for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages system_notices" on public.system_notices for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages feature_flags" on public.feature_flags for all using (public.is_founder()) with check (public.is_founder());
 create policy "founder manages stripe_prices" on public.stripe_prices for all using (public.is_founder()) with check (public.is_founder());
@@ -1317,7 +1348,7 @@ begin
     'plans','features','plan_features','stripe_prices','subscriptions','checkout_sessions',
     'vouchers','voucher_campaigns','entitlement_grants','entitlement_overrides',
     'license_keys','license_activations','user_roles','app_versions','system_notices','feature_flags',
-    'store_listing_status'
+    'store_listing_status','legal_registration'
   ] loop
     execute format('drop trigger if exists trg_audit_founder_mutation on public.%I', table_name);
     execute format('create trigger trg_audit_founder_mutation after insert or update or delete on public.%I for each row execute function public.audit_founder_table_mutation()', table_name);

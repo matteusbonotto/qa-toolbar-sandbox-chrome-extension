@@ -1,9 +1,17 @@
+import { useEffect, useState } from "react";
 import { useI18n } from "../i18n/I18nProvider";
+import { loadLegalRegistration, type LegalRegistrationRecord } from "../legal/legalRegistration";
 
 const CURRENT_YEAR = new Date().getFullYear();
+const DEFAULT_HOLDER = "Matheus Alves Bonotto Santos";
 
 export function Footer() {
   const { t } = useI18n();
+  const [legal, setLegal] = useState<LegalRegistrationRecord | null>(null);
+
+  useEffect(() => {
+    void loadLegalRegistration().then(setLegal);
+  }, []);
 
   return (
     <footer className="qts-footer">
@@ -17,6 +25,7 @@ export function Footer() {
           <a href="#planos">{t.footer.navPricing}</a>
           <a href="#suporte">{t.footer.navSupport}</a>
           <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.footer.navPrivacy}</a>
+          <a href={`${import.meta.env.BASE_URL}propriedade-intelectual`}>{t.footer.navIp}</a>
         </nav>
         <p className="qts-footer-credit">
           {t.footer.creditPrefix}{" "}
@@ -25,6 +34,10 @@ export function Footer() {
             Matheus Bonotto
           </a>{" "}
           {CURRENT_YEAR}
+        </p>
+        <p className="qts-footer-legal">
+          © {CURRENT_YEAR} {legal?.holderName ?? DEFAULT_HOLDER}. {t.footer.allRightsReserved}
+          {legal ? <> · {t.legal.status[legal.status].title}</> : null}
         </p>
       </div>
     </footer>
