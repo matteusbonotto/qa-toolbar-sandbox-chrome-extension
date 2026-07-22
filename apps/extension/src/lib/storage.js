@@ -225,6 +225,7 @@ export function createEmptyWorkspace() {
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
       toolsMenuOrder: [...DEFAULT_ENABLED_TOOLS],
       soundEffects: true,
+      remindTestStatusOnRecording: false,
       breadcrumbVisibility: { client: true, project: true, product: true, environment: true },
       breadcrumbOrder: ["client", "project", "product"],
       keyView: {
@@ -394,6 +395,7 @@ export function normalizeWorkspace(rawWorkspace) {
       enabledTools: normalizedEnabledTools,
       toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),
       soundEffects: preferences.soundEffects !== false,
+      remindTestStatusOnRecording: preferences.remindTestStatusOnRecording === true,
       breadcrumbVisibility: {
         client: preferences.breadcrumbVisibility?.client !== false,
         project: preferences.breadcrumbVisibility?.project !== false,

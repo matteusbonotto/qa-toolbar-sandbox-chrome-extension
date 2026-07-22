@@ -421,7 +421,7 @@ const pt: Dictionary = {
       recording: {
         title: "Gravação de evidências",
         short: "Grava a tela em vídeo enquanto você testa.",
-        details: "Inicia e para a gravação de vídeo direto da barra, em um único arquivo ou cortada em partes de 30 segundos (empacotadas automaticamente num .zip quando há mais de uma), sem precisar de um software de gravação separado nem de serviço externo — a evidência sai pronta pra anexar.",
+        details: "Inicia e para a gravação de vídeo direto da barra, sem precisar de um software de gravação separado nem de serviço externo — a evidência sai pronta pra anexar. (Gravação em partes automáticas, em breve.)",
       },
       inspectors: {
         title: "Inspectors",
@@ -891,7 +891,7 @@ const es: Dictionary = {
       recording: {
         title: "Grabación de evidencias",
         short: "Graba la pantalla en video mientras pruebas.",
-        details: "Inicia y detiene la grabación de video directo desde la barra, en un solo archivo o cortada en partes de 30 segundos (empaquetadas automáticamente en un .zip cuando hay más de una), sin necesitar un software aparte ni un servicio externo — la evidencia queda lista para adjuntar.",
+        details: "Inicia y detiene la grabación de video directo desde la barra, sin necesitar un software aparte ni un servicio externo — la evidencia queda lista para adjuntar. (Grabación en partes automáticas, próximamente.)",
       },
       inspectors: {
         title: "Inspectors",
@@ -1361,7 +1361,7 @@ const en: Dictionary = {
       recording: {
         title: "Evidence recording",
         short: "Records your screen on video while you test.",
-        details: "Starts and stops video recording right from the bar, as a single file or cut into 30-second parts (automatically packaged into a .zip when there's more than one), no separate screen-recording software or third-party service needed — the evidence comes out ready to attach.",
+        details: "Starts and stops video recording right from the bar, no separate screen-recording software or third-party service needed — the evidence comes out ready to attach. (Automatic segmented recording is coming soon.)",
       },
       inspectors: {
         title: "Inspectors",

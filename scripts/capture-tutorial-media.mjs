@@ -162,7 +162,18 @@ try {
   await options.locator('[data-workspace-tab="structure"]').click();
   await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
   trace("captured workspace-setup.png");
+
+  // Short walkthrough of every Settings section, for the "workspace" tutorial module's video --
+  // reuses this same already-authenticated page (recordVideo is context-scoped, so it's already
+  // being recorded) instead of opening a fresh one just for this.
+  for (const tab of ["account", "general", "workspace", "test-data", "integrations", "data", "tutorial", "faq"]) {
+    await options.locator(`.navItem[data-tab="${tab}"]`).click();
+    await options.waitForTimeout(900);
+  }
+  const optionsVideo = options.video();
   await options.close();
+  if (optionsVideo) await optionsVideo.saveAs(resolve(assetsPath, "workspace-setup.webm"));
+  trace("captured workspace-setup.webm (Settings navigation walkthrough)");
 
   await captureTool("testStatus", async (page) => {
     await page.locator("#testStatusButton").click();

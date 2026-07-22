@@ -312,13 +312,6 @@ async function loadScopeUi() {
 document.querySelectorAll('input[name="scopeMode"]').forEach((input) => input.addEventListener("change", () => {
   document.getElementById("scopePatterns").disabled = input.value !== "custom";
 }));
-document.getElementById("saveScope").addEventListener("click", async () => {
-  const mode = document.querySelector('input[name="scopeMode"]:checked')?.value || "environments";
-  const patterns = normalizeUrlPatterns(document.getElementById("scopePatterns").value);
-  if (mode === "custom" && !patterns.length) return showMessage("scopeSavedHint", "Adicione ao menos uma URL.", "Error");
-  await saveSiteScope({ mode, patterns });
-  document.getElementById("scopeSavedHint").textContent = t("Salvo.");
-});
 
 function hasKeyViewPlanAccess() {
   return accessState?.features?.["keyView.enabled"] === true;
@@ -331,6 +324,7 @@ function loadPreferenceUi() {
   document.querySelectorAll("[data-compact-entity]").forEach((checkbox) => { checkbox.checked = compactEntities[checkbox.dataset.compactEntity] === true; });
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
+  document.getElementById("remindTestStatusOnRecording").checked = preferences.remindTestStatusOnRecording === true;
   document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
   const keyView = preferences.keyView || {};
   document.getElementById("keyViewEnabled").checked = keyView.enabled === true;
@@ -361,7 +355,7 @@ function loadPreferenceUi() {
 }
 
 // Cliente/Projeto/Produto priority in the breadcrumb — a local draft array (not saved until
-// "Salvar aparência") so drag/arrow reordering and the live preview stay instant without writing
+// "Salvar", the sticky bottom button) so drag/arrow reordering and the live preview stay instant without writing
 // to the workspace on every rearrange. Environment is intentionally not reorderable — it's always
 // the last, "current tier" segment (see buildBreadcrumb in toolbar.js).
 let breadcrumbOrderDraft = ["client", "project", "product"];
@@ -414,7 +408,7 @@ function renderBreadcrumbOrderList() {
 }
 
 // Mock breadcrumb using sample names — reflects order/visibility/compact-mode instantly, without
-// needing a real workspace/environment or waiting for "Salvar aparência".
+// needing a real workspace/environment or waiting for the "Salvar" button.
 function renderBarPreview() {
   const sample = { client: "Cliente", project: "Projeto", product: "Produto", environment: "QA" };
   const visibility = Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked]));
@@ -484,7 +478,15 @@ function renderToolsMenuOrderList() {
   });
 }
 
-document.getElementById("savePreferences").addEventListener("click", async () => {
+// One button saves everything on this screen (site scope + all toolbar/appearance preferences)
+// instead of the two separate saves this panel used to have — a user changing both a URL pattern
+// and, say, a pinned tool no longer has to remember to click twice.
+document.getElementById("saveGeneralSettings").addEventListener("click", async () => {
+  const scopeMode = document.querySelector('input[name="scopeMode"]:checked')?.value || "environments";
+  const scopePatterns = normalizeUrlPatterns(document.getElementById("scopePatterns").value);
+  if (scopeMode === "custom" && !scopePatterns.length) return showMessage("generalSavedHint", "Adicione ao menos uma URL.", "Error");
+  await saveSiteScope({ mode: scopeMode, patterns: scopePatterns });
+
   const compactEntities = Object.fromEntries([...document.querySelectorAll("[data-compact-entity]")].map((checkbox) => [checkbox.dataset.compactEntity, checkbox.checked]));
   workspace.preferences = {
     ...(workspace.preferences || {}),
@@ -492,6 +494,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     compactEntities,
     pushSiteContent: document.getElementById("pushSiteContent").checked,
     soundEffects: document.getElementById("soundEffects").checked,
+    remindTestStatusOnRecording: document.getElementById("remindTestStatusOnRecording").checked,
     avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
     keyView: {
       enabled: document.getElementById("keyViewEnabled").checked,
@@ -509,7 +512,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     toolsMenuOrder: [...toolsMenuOrderDraft],
   };
   await persistWorkspace();
-  document.getElementById("preferencesSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
 });
 
 function findById(collection, id) {

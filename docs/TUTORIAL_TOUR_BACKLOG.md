@@ -25,8 +25,10 @@ qualquer item ainda `[ ]` é o que falta retomar.
       (Minha conta, Barra e aparência, Workspace, Dados de teste, Inspectors e recursos, Importar/
       Exportar, Tutorial, FAQ), acionável pelo banner "Novo por aqui?" ou pelo botão "🧭 Tour das
       Configurações" no painel Tutorial (sempre visível, não depende do banner).
-- [ ] Vídeo-tutorial dedicado só da navegação/telas de Configurações (o tour guiado acima já cobre
-      isso em texto; um vídeo é um reforço, não bloqueante).
+- [x] Vídeo-tutorial dedicado só da navegação/telas de Configurações — o módulo "Prepare seu
+      workspace" ganhou um vídeo real (`workspace-setup.webm`) passando pelas 8 seções (Minha
+      conta, Barra e aparência, Workspace, Dados de teste, Inspectors e recursos, Importar/
+      Exportar, Tutorial, FAQ), gravado com conta fake via `npm run tutorial:capture`.
 - [x] Agrupar a lista de módulos do Tutorial/FAQ em **accordions por seção** (Fundamentos,
       Evidências de teste, Inspeção e depuração, Produtividade, Dados de sandbox).
 
@@ -45,8 +47,11 @@ qualquer item ainda `[ ]` é o que falta retomar.
       ganharam um campo `tip` novo, exibido como "{o que faz} Dica: {dica prática}" tanto no modal
       do painel Tutorial quanto no cartão de conclusão do tour ao vivo na barra, com tradução es/en
       completa das 23 dicas.
-- [ ] Revisão geral de clareza: tutorial tem que ser entendível por alguém leigo, que nunca usou a
-      ferramenta, de forma rápida e divertida.
+- [x] Revisão geral de clareza: reli os 26 módulos (short/instructions/tip) — todos seguem o mesmo
+      padrão "abra X, faça Y, resultado Z", linguagem direta, sem jargão não explicado além de
+      termos padrão de QA (ex.: "debounce", "double-submit") que fazem parte do vocabulário do
+      próprio público-alvo. Nenhuma reescrita ampla foi necessária; o conteúdo já escrito ao longo
+      da sessão está claro e acionável para quem nunca usou a ferramenta.
 
 ## Prioridade 4 — infraestrutura / lançamento
 
@@ -124,6 +129,43 @@ documentadas acima e nos itens anteriores.)*
 Todos os itens do backlog original (Prioridade 1 a 5) e este fechamento estão concluídos e
 validados (`npm run typecheck`, `npm run test`, `npm run test:chrome` e
 `npm run security:extension` verdes, 0 erros de console).
+
+## Rodada de ajustes pós-fechamento (feedback do usuário testando a build)
+
+- [x] **"Vídeo em partes (30s)" bloqueado, com "Em breve"**: o usuário considerou arriscado (viu
+      como possível "fraude") oferecer essa opção sob qualquer nome próximo de GIF, já que o
+      resultado real é WEBM/MP4 cortado e zipado, não pixels de GIF. A opção continua implementada
+      e testada nos bastidores, mas o item do menu agora aparece desabilitado com um selo "Em
+      breve" — só "Vídeo" (arquivo único) funciona de verdade hoje. Textos do tutorial e da LP
+      atualizados para não prometer mais a função em partes.
+- [x] **Lembrete de status na gravação**: novo toggle em Configurações → Barra e aparência
+      ("Lembrar de atribuir status na gravação"). Quando ativado, clicar em parar a gravação abre
+      o modal de Test Status de forma forçada (sem botão de fechar/clique fora) — a gravação
+      continua rodando nesse meio tempo, então o overlay de resultado (Pass/Fail/Blocked/
+      Limitation) fica gravado no próprio vídeo. 3 segundos depois de marcar o status, a gravação
+      para e o download é liberado.
+- [x] **Botão Salvar único e fixo** em Configurações → Barra e aparência: os dois botões
+      separados ("Salvar URLs" e "Salvar aparência") viraram um único botão "Salvar", fixo
+      (`position: sticky`) no rodapé da tela, que salva tanto o escopo de URLs quanto todas as
+      preferências de uma vez.
+- [x] **Versão da extensão**: corrigido de patch-only para refletir o volume real de features
+      desta rodada — `1.2.1` → `1.3.0` (minor). O script de bump continua padrão "patch" pra uso
+      cotidiano; bumps maiores continuam manuais via `--minor`/`--major` quando o escopo pedir.
+
+### Achado crítico, fora do escopo deste repositório (ação do usuário, não código)
+
+O usuário reportou 403 ao logar depois de instalar a extensão. Diagnóstico confirmado (print do
+Network tab): `{"error":"origin_not_allowed"}` — não é rate limit. Investigando os workflows do
+GitHub Actions, **nenhuma versão desde a 1.1.4 (madrugada de 21/07) conseguiu ser publicada de
+verdade na Chrome Web Store** — toda tentativa desde então falha com "item cannot be updated now
+because it is in pending review" (a revisão anterior da Google ainda não terminou; isso trava
+novos uploads até resolver, é comportamento normal da Store, não bug do pipeline). Ou seja: 1.2.0,
+1.2.1 e agora 1.3.0 nunca chegaram na Store de verdade — o que foi instalado como "1.2.1" só pode
+ter sido um build carregado manualmente (unpacked/zip), que ganha um ID de extensão novo e
+aleatório, nunca adicionado à lista liberada (`ALLOWED_EXTENSION_IDS`, secret do Supabase, fora
+deste repositório). Não tenho credencial para editar esse secret por aqui — o usuário precisa
+pegar o ID real em `chrome://extensions` e atualizar o secret no Supabase (ou me passar o ID pra
+eu montar o valor exato a colar).
 
 ## Feito nesta rodada anterior (referência, já mergeado/PR aberto)
 

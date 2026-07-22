@@ -483,6 +483,9 @@ function buildShadowHost() {
       #recordTypeMenu button:hover { background: #232323; border-color: #ffd700; }
       #recordTypeMenu button strong { font-size: 12px; }
       #recordTypeMenu button span { font-size: 10px; color: #999; line-height: 1.35; }
+      #recordTypeMenu button.isComingSoon { cursor: not-allowed; opacity: .55; }
+      #recordTypeMenu button.isComingSoon:hover { background: #171717; border-color: #2c2c2c; }
+      .qts-coming-soon-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #3a3a3a; color: #ffd700; font-size: 9px; font-weight: 800; vertical-align: middle; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
@@ -524,8 +527,8 @@ function buildShadowHost() {
               <strong>${escapeHtml(t.recordTypeVideoLabel)}</strong>
               <span>${escapeHtml(t.recordTypeVideoHint)}</span>
             </button>
-            <button type="button" id="recordTypePartsItem" role="menuitem" data-record-mode="parts">
-              <strong>${escapeHtml(t.recordTypePartsLabel)}</strong>
+            <button type="button" id="recordTypePartsItem" role="menuitem" data-record-mode="parts" class="isComingSoon" disabled aria-disabled="true">
+              <strong>${escapeHtml(t.recordTypePartsLabel)} <span class="qts-coming-soon-badge">${escapeHtml(t.comingSoonBadge)}</span></strong>
               <span>${escapeHtml(t.recordTypePartsHint)}</span>
             </button>
           </div>
@@ -616,7 +619,7 @@ function buildShadowHost() {
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
   shadow.getElementById("hideAllButton").addEventListener("click", () => toggleAllFloatingItemsVisibility());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
-  shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
+  shadow.getElementById("recordStopButton").addEventListener("click", () => handleStopRecordingClick());
   shadow.getElementById("macroRecHistoryButton").addEventListener("click", () => toggleMacroHistoryPanel());
   shadow.getElementById("macroRecPauseButton").addEventListener("click", () => toggleMacroRecordingPause());
   shadow.getElementById("macroRecUndoButton").addEventListener("click", () => undoLastMacroStep());
@@ -646,7 +649,11 @@ function buildShadowHost() {
   shadow.getElementById("recordToggleButton").addEventListener("click", (event) => { event.stopPropagation(); handleRecordToggle(); });
   shadow.getElementById("recordTypeMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.getElementById("recordTypeVideoItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("video"); });
-  shadow.getElementById("recordTypePartsItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("parts"); });
+  // "Vídeo em partes" stays implemented (segmentation + zip packaging both work and are tested —
+  // see startPartRotationTimer/downloadRecordingResult below) but disabled in the UI: shipping it
+  // under any framing close to "GIF" was judged misleading since it produces WEBM/MP4 segments,
+  // not real GIF pixels, so it's held back as "Em breve" until there's a real answer for that gap.
+  shadow.getElementById("recordTypePartsItem").addEventListener("click", (event) => event.preventDefault());
   shadow.addEventListener("click", () => {
     shadow.getElementById("toolsMenu").classList.remove("isOpen");
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
@@ -1048,17 +1055,22 @@ function closeTestStatusModal() {
   document.getElementById("qts-test-status-modal")?.remove();
 }
 
-function openTestStatusModal() {
+// `forced` (used by the "lembrar de atribuir status" recording flow) hides the close button and
+// backdrop-dismiss so the modal can't be skipped, and `onDone` fires 3s after a status is picked
+// (matching showResultOverlay's own on-screen duration) — the recording is still running the whole
+// time, so the result overlay actually gets captured in the video before the caller stops it.
+function openTestStatusModal({ forced = false, onDone = null } = {}) {
   closeTestStatusModal();
-  const options = getTestStatusOptions();
+  const statusOptions = getTestStatusOptions();
   const modal = document.createElement("div");
   modal.id = "qts-test-status-modal";
   modal.className = "qts-modal-backdrop";
   modal.innerHTML = `
     <div class="qts-modal">
-      <header><h2>${escapeHtml(state.t.testStatus)}</h2><button type="button" data-close>×</button></header>
+      <header><h2>${escapeHtml(state.t.testStatus)}</h2>${forced ? "" : `<button type="button" data-close>×</button>`}</header>
+      ${forced ? `<p class="qts-modal-forced-hint">${escapeHtml(state.t.recordForceStatusHint)}</p>` : ""}
       <div class="qts-status-grid">
-        ${options.map((option) => `
+        ${statusOptions.map((option) => `
           <button type="button" class="qts-status-option" data-status="${option.key}" style="--qts-status-color:${option.color}">
             <span class="qts-status-icon">${option.icon}</span><span>${escapeHtml(option.label)}</span>
           </button>
@@ -1068,16 +1080,19 @@ function openTestStatusModal() {
   `;
   document.body.appendChild(modal);
   requestAnimationFrame(() => modal.classList.add("isOpen"));
-  modal.querySelector("[data-close]").addEventListener("click", closeTestStatusModal);
-  modal.addEventListener("click", (event) => { if (event.target === modal) closeTestStatusModal(); });
+  if (!forced) {
+    modal.querySelector("[data-close]").addEventListener("click", closeTestStatusModal);
+    modal.addEventListener("click", (event) => { if (event.target === modal) closeTestStatusModal(); });
+  }
   modal.querySelectorAll("[data-status]").forEach((button) => {
     button.addEventListener("click", () => {
       const key = button.dataset.status;
-      const option = options.find((item) => item.key === key);
+      const option = statusOptions.find((item) => item.key === key);
       closeTestStatusModal();
       showResultOverlay(option);
       playSound(key);
       void recordTestStatus(option);
+      if (onDone) window.setTimeout(onDone, 3_000);
     });
   });
 }
@@ -4840,6 +4855,17 @@ async function downloadRecordingResult(parts, extension) {
     data: new Uint8Array(await blob.arrayBuffer()),
   })));
   triggerBlobDownload(window.QTS_ZIP.createZip(files), `${baseName}.zip`);
+}
+
+// Entry point for the visible Stop button (as opposed to the native "stop sharing" bar, which
+// ends the capture source itself and calls stopEvidenceRecording directly below — forcing the
+// status modal there would be pointless since there'd be nothing left to actually capture).
+function handleStopRecordingClick() {
+  if (state.workspace?.preferences?.remindTestStatusOnRecording && recordingState.status !== "idle") {
+    openTestStatusModal({ forced: true, onDone: () => stopEvidenceRecording() });
+    return;
+  }
+  stopEvidenceRecording();
 }
 
 async function stopEvidenceRecording() {

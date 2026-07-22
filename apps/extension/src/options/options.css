@@ -144,6 +144,7 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .button.danger { background:#2b171b; border-color:#66313a; color:#ff9298; }
 .linkButton { width:max-content; }
 .savedHint,.hint { color:var(--muted); font-size:12px; }
+.stickySaveBar { position:sticky; bottom:0; z-index:5; display:flex; justify-content:flex-end; align-items:center; gap:12px; margin-top:18px; padding:12px clamp(14px,2vw,22px); border:1px solid var(--border); border-radius:14px; background:rgba(15,16,23,.94); backdrop-filter:blur(6px); box-shadow:0 -12px 30px rgba(0,0,0,.35); }
 .accountType { padding:1px 6px; border-radius:999px; background:#272b39; color:var(--accent-2); font-size:10px; }
 
 /* Workspace Studio: one cohesive surface with progressive disclosure. */

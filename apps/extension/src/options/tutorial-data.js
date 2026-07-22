@@ -43,7 +43,7 @@
       instructions: "Abra a aba Workspace e cadastre, nessa ordem: um cliente, um projeto dentro dele, um produto dentro do projeto, um ambiente (ex.: QA) e uma URL vinculando produto e ambiente. É essa cadeia que faz a barra aparecer automaticamente quando você abre uma página com a URL cadastrada.",
       tip: "Repita esse cadastro pra cada projeto novo que você testar — é único trabalho de configuração, depois a barra aparece sozinha.",
       screenshot: "tutorial-assets/workspace-setup.png",
-      video: null,
+      video: "tutorial-assets/workspace-setup.webm",
       planFeature: null,
     },
     {
@@ -128,7 +128,7 @@
       group: "evidence",
       title: "Gravação de evidências",
       short: "Grava a tela em vídeo enquanto você testa.",
-      instructions: "Clique no botão de gravação e escolha o tipo: \"Vídeo\" grava um arquivo único, \"Vídeo em partes (30s)\" corta a gravação em blocos de 30 segundos e, ao parar, empacota tudo num .zip se houver mais de uma parte. Clique de novo pra parar.",
+      instructions: "Clique no botão de gravação para escolher o tipo e começar. \"Vídeo\" grava um arquivo único; clique de novo para parar. (A opção \"Vídeo em partes\" aparece marcada como Em breve — ainda não está liberada.)",
       tip: "Ligue o Test Status no fim da gravação: o vídeo mostra o resultado (Pass/Fail) junto com o teste, sem precisar de um segundo print.",
       screenshot: "tutorial-assets/recording.png",
       video: "tutorial-assets/recording.webm",
