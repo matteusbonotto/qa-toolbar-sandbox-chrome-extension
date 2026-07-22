@@ -1430,6 +1430,18 @@ document.getElementById("importFile").addEventListener("change", async (event) =
   } catch (error) { workspace = previousWorkspace; renderWorkspace(); document.getElementById("dataHint").textContent = t("Falha ao importar: {error}. O workspace anterior foi preservado.", { error: t(error.message) }); }
   event.target.value = "";
 });
+async function loadLegalStatus() {
+  const record = await window.QTS_LEGAL.fetchLegalRegistration();
+  if (!record) {
+    document.getElementById("legalStatusTitle").textContent = "Informações jurídicas indisponíveis no momento.";
+    return;
+  }
+  const copy = window.QTS_LEGAL.resolveStatusText(record, currentLocale);
+  document.getElementById("legalStatusTitle").textContent = copy.title;
+  const staleNote = record.stale ? ` (última verificação: ${window.QTS_LEGAL.formatDate(record.updatedAt?.slice(0, 10), currentLocale) || "offline"})` : "";
+  document.getElementById("legalStatusBody").textContent = `${copy.body}${copy.disclaimer ? ` ${copy.disclaimer}` : ""}${staleNote}`;
+}
+
 document.getElementById("resetButton").addEventListener("click", async () => {
   if (!(await confirmDialog(t("Apagar somente o workspace local? Sua conta e assinatura não serão removidas.")))) return;
   workspace = window.QTS_STORAGE.createEmptyWorkspace(); await persistWorkspace(); document.getElementById("dataHint").textContent = t("Workspace local resetado.");
@@ -1441,6 +1453,7 @@ document.getElementById("resetButton").addEventListener("click", async () => {
   await loadScopeUi();
   renderWorkspace();
   await loadAccess(true);
+  void loadLegalStatus();
   onStorageChanged(async (changes) => {
     if (!changes[STORAGE_KEYS.workspace]) return;
     workspace = await getWorkspace();
