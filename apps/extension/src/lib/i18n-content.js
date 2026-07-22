@@ -214,6 +214,7 @@
       keyViewMenuLabel: "Key View",
       elementCaptureMenuLabel: "Capturar elementos",
       blurElementsMenuLabel: "Borrar elementos",
+      holofoteMenuLabel: "Modo Holofote",
     },
     es: {
       locale: "es",
@@ -419,6 +420,7 @@
       keyViewMenuLabel: "Key View",
       elementCaptureMenuLabel: "Capturar elementos",
       blurElementsMenuLabel: "Borrar elementos",
+      holofoteMenuLabel: "Modo Holofote",
     },
     en: {
       locale: "en",
@@ -624,6 +626,7 @@
       keyViewMenuLabel: "Key View",
       elementCaptureMenuLabel: "Capture elements",
       blurElementsMenuLabel: "Blur elements",
+      holofoteMenuLabel: "Spotlight Mode",
     },
   };
 

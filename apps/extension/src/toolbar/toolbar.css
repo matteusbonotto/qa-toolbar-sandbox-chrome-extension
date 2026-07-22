@@ -279,6 +279,21 @@ body.qts-placement-mode, body.qts-placement-mode * {
 /* Applied straight to a real host-page element (not a floating item we created) by the "Borrar
    elementos" tool -- filter (not backdrop-filter) since it needs to blur the element's own
    content, not whatever sits behind a transparent overlay. */
+/* Full-viewport layer, normally invisible (opacity:0, pointer-events:none so the page underneath
+   stays fully interactive) -- a radial-gradient mask cuts a circle around the cursor out of the
+   darken/blur effect, which is how "spotlight the mouse, dim/blur everywhere else" works without
+   needing two separately positioned elements. .isVisible's transition-duration is set inline by
+   JS (220ms fade-in vs a slow 3s fade-out) since those two directions need different speeds. */
+#qts-holofote-overlay {
+  position: fixed !important; inset: 0 !important; z-index: 2147483643 !important; pointer-events: none !important;
+  opacity: 0 !important; transition-property: opacity !important; transition-timing-function: ease !important;
+  background: var(--qts-holofote-bg, rgba(0,0,0,.7)) !important;
+  backdrop-filter: var(--qts-holofote-blur, none) !important; -webkit-backdrop-filter: var(--qts-holofote-blur, none) !important;
+  -webkit-mask-image: radial-gradient(circle var(--qts-holofote-size, 140px) at var(--qts-holofote-x, 50%) var(--qts-holofote-y, 50%), transparent 0, transparent calc(var(--qts-holofote-size, 140px) - 1px), black var(--qts-holofote-size, 140px)) !important;
+  mask-image: radial-gradient(circle var(--qts-holofote-size, 140px) at var(--qts-holofote-x, 50%) var(--qts-holofote-y, 50%), transparent 0, transparent calc(var(--qts-holofote-size, 140px) - 1px), black var(--qts-holofote-size, 140px)) !important;
+}
+#qts-holofote-overlay.isVisible { opacity: 1 !important; }
+
 .qts-blurred-element { filter: blur(6px) !important; transition: filter .15s ease !important; }
 
 .qts-shape-preview {

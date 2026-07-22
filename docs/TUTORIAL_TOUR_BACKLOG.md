@@ -74,9 +74,11 @@ qualquer item ainda `[ ]` é o que falta retomar.
 - [x] **Linha com ponta configurável**: novo botão fixo ao lado de Formas (mesmo grupo "notas" de
       visibilidade), desenhada arrastando de um ponto a outro (não é uma variação da caixa de
       Formas — usa rotação real), com estilo próprio (cor, espessura, ponta Nenhuma/Seta).
-- [ ] **Modo Holofote**: segurar o clique por 3s cria um círculo de destaque ao redor do mouse com
-      o entorno escurecido; soltar leva 3s pra voltar ao normal; configurável (escurecer, borrar,
-      opacidade, tamanho); animação de entrada/saída. Não comecei — é uma ferramenta nova do zero.
+- [x] **Modo Holofote**: novo item no menu Tools com um drawer de configuração (Ativar/Desativar,
+      Efeito Escurecer/Borrar, Opacidade, Intensidade do borrão, Tamanho do holofote). Segurar o
+      clique em qualquer ponto da página por 3s acende o holofote ao redor do mouse (acompanha o
+      mouse enquanto segura); soltar apaga suavemente em 3s. Nunca bloqueia cliques/links reais da
+      página — é uma camada visual passiva, não um modo de seleção.
 - [ ] **Menu de tipo de gravação** ao clicar em gravar: Vídeo normal (grava direto) ou GIF (grava e
       corta em blocos de 30s; 1 parte = salva normal, 2+ partes = zip com part1/part2/...).
       Nome de arquivo: `evidencia_tela_(DataHora)_part` respeitando o idioma configurado. Não

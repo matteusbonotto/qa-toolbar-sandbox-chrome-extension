@@ -283,6 +283,26 @@ try {
   if (await host.locator(".qts-line").count()) throw new Error("Removing the line did not remove it from the page");
   trace("linha com ponta de seta verified");
 
+  // Holofote: never preventDefault's the real mouse events (the page must keep working while the
+  // mode is on), only shows the spotlight after a genuine 3s hold, and fades back out on release.
+  await host.locator("#toolsButton").click();
+  await host.locator("#holofoteMenuItem").click();
+  await host.locator("#holofoteToggle").click();
+  await host.locator("#drawerClose").click();
+  await host.mouse.move(320, 260);
+  await host.mouse.down();
+  if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote appeared before the 3s hold threshold");
+  await host.waitForTimeout(3_400);
+  await host.locator("#qts-holofote-overlay.isVisible").waitFor({ timeout: 2_000 });
+  await host.mouse.up();
+  if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote did not start fading out on release");
+  if (!(await host.locator("h1").isVisible())) throw new Error("Holofote mode blocked normal page interaction");
+  await host.locator("#toolsButton").click();
+  await host.locator("#holofoteMenuItem").click();
+  await host.locator("#holofoteToggle").click();
+  await host.locator("#drawerClose").click();
+  trace("modo holofote verified (3s hold, follows release fade, page stays interactive)");
+
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
   await host.locator("#jsonStudioMenuItem").click();

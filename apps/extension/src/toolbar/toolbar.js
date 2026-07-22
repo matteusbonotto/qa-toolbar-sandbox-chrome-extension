@@ -330,7 +330,7 @@ function applyPinnedTools() {
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
     characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
     inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
-    elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem",
+    elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem", holofote: "holofoteMenuItem",
   };
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
@@ -556,6 +556,7 @@ function buildShadowHost() {
             <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(t.resourcesMenuLabel)}</button>
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
             <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
+            <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("eye")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}<span id="tutorialDot" class="qts-tutorial-dot" hidden></span></button>
@@ -638,6 +639,7 @@ function buildShadowHost() {
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
   shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
   shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => { openBlurElementsTool(); closeToolsMenu(); });
+  shadow.getElementById("holofoteMenuItem").addEventListener("click", () => { openHolofoteTool(); closeToolsMenu(); });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
@@ -1743,6 +1745,13 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Selecionar elemento": "Seleccionar elemento", "Limpar todos os borrados": "Quitar todo el difuminado",
   "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.": "Haz clic en un elemento para difuminarlo (o quitar el difuminado si ya lo tiene). Esc para detener.",
   "Nenhum elemento borrado ainda.": "Ningún elemento difuminado todavía.",
+  "Modo Holofote": "Modo Foco",
+  "Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.": "Actívalo y mantén presionado el clic en cualquier punto de la página durante 3 segundos para encender un foco alrededor del mouse, útil para guiar la atención en demostraciones y grabaciones. Soltar el clic apaga el foco suavemente.",
+  "Ativar": "Activar", "Desativar": "Desactivar",
+  "Efeito": "Efecto", "Escurecer": "Oscurecer", "Borrar": "Difuminar",
+  "Opacidade (efeito Escurecer)": "Opacidad (efecto Oscurecer)",
+  "Intensidade do borrão (efeito Borrar)": "Intensidad del desenfoque (efecto Difuminar)",
+  "Tamanho do holofote": "Tamaño del foco",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -1758,6 +1767,13 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Selecionar elemento": "Select element", "Limpar todos os borrados": "Clear all blurred elements",
   "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.": "Click an element to blur it (or unblur it, if already blurred). Esc to stop.",
   "Nenhum elemento borrado ainda.": "No elements blurred yet.",
+  "Modo Holofote": "Spotlight Mode",
+  "Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.": "Turn it on and hold the click anywhere on the page for 3 seconds to light up a spotlight around the mouse, useful for directing attention during demos and recordings. Releasing the click fades the spotlight out smoothly.",
+  "Ativar": "Enable", "Desativar": "Disable",
+  "Efeito": "Effect", "Escurecer": "Darken", "Borrar": "Blur",
+  "Opacidade (efeito Escurecer)": "Opacity (Darken effect)",
+  "Intensidade do borrão (efeito Borrar)": "Blur strength (Blur effect)",
+  "Tamanho do holofote": "Spotlight size",
 });
 
 function translateQaSurfaceText(value) {
@@ -3759,6 +3775,126 @@ function openBlurElementsTool() {
       body.querySelector("#blurSelectElement").addEventListener("click", armSelection);
       body.querySelector("#blurClearAll").addEventListener("click", () => { clearAllBlurredElements(); updateStatus(); });
       updateStatus();
+    },
+  });
+}
+
+// Holding the mouse for 3s anywhere on the page shows a spotlight around the cursor (darken or
+// blur outside a circle that follows the mouse), fading in on the way up and taking a slow 3s
+// fade back out on release -- never preventDefault's the actual mousedown/mouseup/click, so the
+// page underneath keeps working normally the whole time (this is a passive visual layer, not a
+// selection mode like Borrar/Element Capture).
+const HOLOFOTE_HOLD_MS = 3_000;
+const HOLOFOTE_FADE_MS = 3_000;
+let holofoteSettings = { effect: "darken", size: 140, opacity: 70, blur: 10 };
+let holofoteHoldTimer = null;
+let holofoteFadeTimer = null;
+
+function ensureHolofoteOverlay() {
+  let overlay = document.getElementById("qts-holofote-overlay");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "qts-holofote-overlay";
+  overlay.className = "qts-floating-item";
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function applyHolofoteSettings(overlay) {
+  overlay.style.setProperty("--qts-holofote-size", `${holofoteSettings.size}px`);
+  if (holofoteSettings.effect === "blur") {
+    overlay.style.setProperty("--qts-holofote-bg", "rgba(0,0,0,.05)");
+    overlay.style.setProperty("--qts-holofote-blur", `blur(${holofoteSettings.blur}px)`);
+  } else {
+    overlay.style.setProperty("--qts-holofote-bg", `rgba(0,0,0,${holofoteSettings.opacity / 100})`);
+    overlay.style.setProperty("--qts-holofote-blur", "none");
+  }
+}
+
+function moveHolofote(x, y) {
+  const overlay = ensureHolofoteOverlay();
+  overlay.style.setProperty("--qts-holofote-x", `${x}px`);
+  overlay.style.setProperty("--qts-holofote-y", `${y}px`);
+}
+
+function enableHolofoteMode() {
+  if (state.holofoteActive) return;
+  state.holofoteActive = true;
+  state.shadowRoot?.getElementById("holofoteMenuItem")?.classList.add("isActive");
+  let heldSince = 0;
+  const downHandler = (event) => {
+    if (isInsideToolbarUi(event.target)) return;
+    heldSince = Date.now();
+    clearTimeout(holofoteFadeTimer);
+    moveHolofote(event.clientX, event.clientY);
+    holofoteHoldTimer = setTimeout(() => {
+      const overlay = ensureHolofoteOverlay();
+      applyHolofoteSettings(overlay);
+      overlay.style.transitionDuration = "220ms";
+      overlay.classList.add("isVisible");
+    }, HOLOFOTE_HOLD_MS);
+  };
+  const moveHandler = (event) => { if (heldSince) moveHolofote(event.clientX, event.clientY); };
+  const upHandler = () => {
+    clearTimeout(holofoteHoldTimer);
+    heldSince = 0;
+    const overlay = document.getElementById("qts-holofote-overlay");
+    if (overlay?.classList.contains("isVisible")) {
+      overlay.style.transitionDuration = `${HOLOFOTE_FADE_MS}ms`;
+      overlay.classList.remove("isVisible");
+    }
+  };
+  document.addEventListener("mousedown", downHandler, true);
+  document.addEventListener("mousemove", moveHandler, true);
+  document.addEventListener("mouseup", upHandler, true);
+  state.holofoteCleanup = () => {
+    document.removeEventListener("mousedown", downHandler, true);
+    document.removeEventListener("mousemove", moveHandler, true);
+    document.removeEventListener("mouseup", upHandler, true);
+    clearTimeout(holofoteHoldTimer);
+    document.getElementById("qts-holofote-overlay")?.classList.remove("isVisible");
+  };
+}
+
+function disableHolofoteMode() {
+  state.holofoteActive = false;
+  state.shadowRoot?.getElementById("holofoteMenuItem")?.classList.remove("isActive");
+  state.holofoteCleanup?.();
+  state.holofoteCleanup = null;
+}
+
+function openHolofoteTool() {
+  openDrawer({
+    title: "Modo Holofote",
+    bodyHtml: `<p class="qts-tool-lead">Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.</p>
+      <div class="qts-card-actions"><button class="action ${state.holofoteActive ? "" : "primary"}" id="holofoteToggle" type="button">${state.holofoteActive ? "Desativar" : "Ativar"}</button></div>
+      <label>Efeito<select id="holofoteEffect">
+        <option value="darken">Escurecer</option>
+        <option value="blur">Borrar</option>
+      </select></label>
+      <label>Opacidade (efeito Escurecer)<input type="range" min="20" max="95" id="holofoteOpacity" /></label>
+      <label>Intensidade do borrão (efeito Borrar)<input type="range" min="2" max="24" id="holofoteBlur" /></label>
+      <label>Tamanho do holofote<input type="range" min="60" max="320" id="holofoteSize" /></label>`,
+    onReady(body) {
+      const toggle = body.querySelector("#holofoteToggle");
+      const effectInput = body.querySelector("#holofoteEffect");
+      const opacityInput = body.querySelector("#holofoteOpacity");
+      const blurInput = body.querySelector("#holofoteBlur");
+      const sizeInput = body.querySelector("#holofoteSize");
+      effectInput.value = holofoteSettings.effect;
+      opacityInput.value = holofoteSettings.opacity;
+      blurInput.value = holofoteSettings.blur;
+      sizeInput.value = holofoteSettings.size;
+      const applyFromInputs = () => {
+        holofoteSettings = { effect: effectInput.value, opacity: Number(opacityInput.value), blur: Number(blurInput.value), size: Number(sizeInput.value) };
+      };
+      [effectInput, opacityInput, blurInput, sizeInput].forEach((input) => input.addEventListener("input", applyFromInputs));
+      toggle.addEventListener("click", () => {
+        if (state.holofoteActive) disableHolofoteMode();
+        else enableHolofoteMode();
+        toggle.textContent = translateQaSurfaceText(state.holofoteActive ? "Desativar" : "Ativar");
+        toggle.classList.toggle("primary", !state.holofoteActive);
+      });
     },
   });
 }
