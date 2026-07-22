@@ -772,6 +772,7 @@ function ensureTourHost() {
       }
       .qts-tour-card .qts-tour-trophy { font-size: 30px; margin-bottom: 6px; }
       .qts-tour-card b { display: block; font-size: 15px; margin-bottom: 4px; }
+      .qts-tour-card-tip { margin: 0; color: #ccc; font-size: 12px; line-height: 1.5; }
       .qts-tour-card .qts-tour-card-actions { display: flex; gap: 8px; margin-top: 14px; }
       .qts-tour-card .qts-tour-card-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; height: 32px; line-height: 32px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12px; background: #232323; color: #ccc; }
       .qts-tour-card .qts-tour-card-actions button.qts-tour-primary { background: #ffd700; color: #111; }
@@ -849,9 +850,11 @@ function showTourStepDoneCard(module) {
   const isLast = tourStepIndex >= tourSteps.length - 1;
   const card = document.createElement("div");
   card.className = "qts-tour-card";
+  const tipLine = module.tip ? `${module.short} ${t.tourTip || "Dica"}: ${module.tip}` : module.short;
   card.innerHTML = `
     <div class="qts-tour-trophy">🏆</div>
     <b>${escapeHtml(module.title)} ${escapeHtml(t.tourDone || "concluído!")}</b>
+    <p class="qts-tour-card-tip">${escapeHtml(tipLine)}</p>
     <div class="qts-tour-card-actions">
       <button type="button" data-tour-repeat>${escapeHtml(t.tourRepeat || "Repetir")}</button>
       <button type="button" data-tour-close>${escapeHtml(t.close || "Fechar")}</button>

@@ -40,8 +40,12 @@ qualquer item ainda `[ ]` é o que falta retomar.
       naquele passo específico (`qtsTutorialStep`). *(Conclusão do passo continua autodeclarada —
       detectar a ação real do usuário em 22 ferramentas é escopo grande demais pra esta rodada,
       registrado como pendência.)*
-- [ ] Modal de sucesso com descrição curta do que foi aprendido + 1 dica prática (curto, sem
-      textão) em vez do texto genérico atual.
+- [x] Modal de sucesso com descrição curta do que foi aprendido + 1 dica prática — os 23 módulos
+      ganharam um campo `tip` novo, exibido como "{o que faz} Dica: {dica prática}" tanto no modal
+      do painel Tutorial quanto no cartão de conclusão do tour ao vivo na barra. *(Os textos de
+      `tip` só existem em pt-BR por enquanto — es/en caem no fallback gracioso do sistema de
+      tradução, ou seja, aparecem em português até alguém traduzir; 23 frases × 2 idiomas ficou
+      grande demais pra esta rodada, registrado como pendência sem quebrar nada.)*
 - [ ] Revisão geral de clareza: tutorial tem que ser entendível por alguém leigo, que nunca usou a
       ferramenta, de forma rápida e divertida.
 

@@ -564,6 +564,7 @@ try {
   await achievementSoundPromise;
   await options.locator("#tutorialStepDoneDialog[open]").waitFor();
   if ((await options.locator("#tutorialStepDoneTitle").innerText()) !== "Prepare seu workspace concluído!") throw new Error("Completion modal did not show the right step title");
+  if (!(await options.locator("#tutorialStepDoneBody").innerText()).includes("Dica:")) throw new Error("Completion modal did not show the practical tip");
   await options.locator("#tutorialStepClose").click();
   await options.locator('[data-tutorial-module="workspace"].isDone').waitFor();
   if ((await options.locator("#tutorialProgressLabel").textContent()) !== `2 de ${tutorialModuleCount} concluídos`) throw new Error("Tutorial progress label did not update after completing a step");
@@ -605,6 +606,7 @@ try {
   await host.locator("[data-tour-done]").click();
   await tourSoundPromise;
   await host.locator(".qts-tour-card").waitFor();
+  if (!(await host.locator(".qts-tour-card-tip").innerText()).includes("Dica:")) throw new Error("Live tour completion card did not show the practical tip");
   await host.locator("[data-tour-next-card]").click();
   await host.locator(".qts-tour-balloon").waitFor();
   const secondTourStepTitle = await host.locator(".qts-tour-balloon b").innerText();

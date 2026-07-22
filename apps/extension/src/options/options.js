@@ -1553,6 +1553,7 @@ function showTutorialStepDoneModal(key) {
   if (!module) return;
   currentTutorialStepDoneKey = key;
   document.getElementById("tutorialStepDoneTitle").textContent = `${t(module.title)} ${t("concluído!")}`;
+  document.getElementById("tutorialStepDoneBody").textContent = module.tip ? `${t(module.short)} ${t("Dica")}: ${t(module.tip)}` : t(module.short);
   document.getElementById("tutorialStepDoneDialog").showModal();
 }
 document.getElementById("tutorialStepRepeat").addEventListener("click", () => {
