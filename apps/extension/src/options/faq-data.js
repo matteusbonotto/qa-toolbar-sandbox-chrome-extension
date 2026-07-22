@@ -34,6 +34,11 @@
       answer: "Sim. O painel Tutorial fica sempre disponível no menu de configurações e seu progresso continua salvo; use o botão \"Reiniciar\" ali se quiser refazer os passos do zero.",
     },
     {
+      key: "contextMenu",
+      question: "Existe algum atalho fora da barra?",
+      answer: "Sim. Clique com o botão direito em qualquer página autorizada e abra \"QA Sandbox\" no menu de contexto: dá pra contar caracteres da seleção, revelar test-id/seletor/XPath do elemento clicado, preencher com dado fake e conferir limites do campo, sem precisar abrir a barra.",
+    },
+    {
       key: "support",
       question: "Encontrei um problema ou tenho uma sugestão, para onde envio?",
       answer: "Escreva para contato@matheusbonotto.com.br com o máximo de contexto possível: screenshot, passos e o que você esperava que acontecesse.",

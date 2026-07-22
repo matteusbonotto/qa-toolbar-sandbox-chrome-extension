@@ -87,6 +87,11 @@ body.qts-placement-mode, body.qts-placement-mode * {
   width: 28px !important; height: 28px !important; border: 0 !important; border-radius: 8px !important;
   background: #b20808 !important; color: #fff !important; font-size: 18px !important; cursor: pointer !important;
 }
+.qts-modal-forced-hint {
+  margin: 12px 16px 0 !important; padding: 8px 10px !important; border-radius: 9px !important;
+  background: #2a1f15 !important; border: 1px solid #6c4a24 !important; color: #ffbd78 !important;
+  font-size: 11px !important; font-weight: 700 !important;
+}
 .qts-status-grid { padding: 16px !important; display: grid !important; grid-template-columns: 1fr 1fr !important; gap: 10px !important; }
 .qts-status-option {
   height: 76px !important; border: 1px solid #333 !important; border-radius: 12px !important; cursor: pointer !important;
@@ -276,6 +281,26 @@ body.qts-placement-mode, body.qts-placement-mode * {
 }
 .qts-locator-copy:hover { border-color: #ffd700 !important; }
 
+/* Applied straight to a real host-page element (not a floating item we created) by the "Borrar
+   elementos" tool -- filter (not backdrop-filter) since it needs to blur the element's own
+   content, not whatever sits behind a transparent overlay. */
+/* Full-viewport layer, normally invisible (opacity:0, pointer-events:none so the page underneath
+   stays fully interactive) -- a radial-gradient mask cuts a circle around the cursor out of the
+   darken/blur effect, which is how "spotlight the mouse, dim/blur everywhere else" works without
+   needing two separately positioned elements. .isVisible's transition-duration is set inline by
+   JS (220ms fade-in vs a slow 3s fade-out) since those two directions need different speeds. */
+#qts-holofote-overlay {
+  position: fixed !important; inset: 0 !important; z-index: 2147483643 !important; pointer-events: none !important;
+  opacity: 0 !important; transition-property: opacity !important; transition-timing-function: ease !important;
+  background: var(--qts-holofote-bg, rgba(0,0,0,.7)) !important;
+  backdrop-filter: var(--qts-holofote-blur, none) !important; -webkit-backdrop-filter: var(--qts-holofote-blur, none) !important;
+  -webkit-mask-image: radial-gradient(circle var(--qts-holofote-size, 140px) at var(--qts-holofote-x, 50%) var(--qts-holofote-y, 50%), transparent 0, transparent calc(var(--qts-holofote-size, 140px) - 1px), black var(--qts-holofote-size, 140px)) !important;
+  mask-image: radial-gradient(circle var(--qts-holofote-size, 140px) at var(--qts-holofote-x, 50%) var(--qts-holofote-y, 50%), transparent 0, transparent calc(var(--qts-holofote-size, 140px) - 1px), black var(--qts-holofote-size, 140px)) !important;
+}
+#qts-holofote-overlay.isVisible { opacity: 1 !important; }
+
+.qts-blurred-element { filter: blur(6px) !important; transition: filter .15s ease !important; }
+
 .qts-shape-preview {
   position: fixed !important; z-index: 2147483644 !important; border: 2px dashed #ffd700 !important;
   background: rgba(255,215,0,.1) !important; pointer-events: none !important;
@@ -290,7 +315,36 @@ body.qts-placement-mode, body.qts-placement-mode * {
   border-radius: var(--qts-shape-radius, 8px) !important;
   background: var(--qts-shape-bg, rgba(239,51,64,.08)) !important;
   opacity: var(--qts-shape-opacity, 1) !important;
+  backdrop-filter: var(--qts-shape-blur, none) !important;
+  -webkit-backdrop-filter: var(--qts-shape-blur, none) !important;
 }
+.qts-line-preview {
+  position: fixed !important; z-index: 2147483644 !important; height: 3px !important;
+  background: #ffd700 !important; transform-origin: left center !important; pointer-events: none !important;
+}
+.qts-line { min-width: 24px !important; }
+.qts-line-bar {
+  position: absolute !important; left: 0 !important; top: 50% !important; width: 100% !important;
+  height: var(--qts-line-thickness, 3px) !important; background: var(--qts-line-color, #ef3340) !important;
+  transform: translateY(-50%) rotate(var(--qts-line-angle, 0deg)) !important; transform-origin: left center !important;
+  cursor: grab !important;
+}
+.qts-line.hasArrow .qts-line-bar::after {
+  content: "" !important; position: absolute !important; right: -2px !important; top: 50% !important;
+  transform: translateY(-50%) !important; width: 0 !important; height: 0 !important;
+  border-style: solid !important; border-width: 6px 0 6px 10px !important;
+  border-color: transparent transparent transparent var(--qts-line-color, #ef3340) !important;
+}
+.qts-line .qts-visibility-btn, .qts-line .qts-hide-content-btn, .qts-line .qts-edit-btn, .qts-line .qts-remove-btn {
+  position: absolute !important; top: -26px !important;
+}
+.qts-line .qts-visibility-btn { left: 0 !important; }
+.qts-line .qts-hide-content-btn { left: 26px !important; }
+.qts-line .qts-edit-btn { left: 52px !important; }
+.qts-line .qts-remove-btn { left: 78px !important; }
+.qts-line.isContentHidden .qts-line-bar { visibility: hidden !important; }
+.qts-line .qts-shape-editor { position: fixed !important; margin-top: 0 !important; }
+
 .qts-shape-editor {
   /* .qts-shape-box (a sibling, appended before this) is position:absolute;inset:0 — an
      absolutely-positioned box paints/hit-tests above a static sibling regardless of DOM order,
@@ -301,6 +355,8 @@ body.qts-placement-mode, body.qts-placement-mode * {
   border: 1px solid #2a2a2a !important; border-radius: 10px !important; margin-top: 6px !important; width: 220px !important;
 }
 .qts-shape-editor label { display: grid !important; gap: 4px !important; font-size: 11px !important; color: #999 !important; }
+.qts-shape-editor [data-shape-color-controls] { display: grid !important; gap: 8px !important; }
+.qts-shape-editor select { width: 100% !important; height: 28px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; color: #fff !important; }
 .qts-shape-editor input[type="color"] { width: 100% !important; height: 28px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; padding: 2px !important; }
 .qts-shape-editor input[type="range"] { width: 100% !important; }
 

@@ -214,6 +214,113 @@ try {
   await passSoundRequestPromise;
   trace("toolbar hierarchy verified");
 
+  // The first-run callout moved from a popup card (which sat right where the tour balloon and
+  // evidence recordings needed that space) into the notification bell.
+  if (await host.locator("#firstRunIntro").count()) throw new Error("First-run intro still renders as a popup card instead of a bell notification");
+  await host.locator("#notificationBellButton").click();
+  await host.getByText("A barra está pronta").waitFor({ timeout: 5_000 });
+  await host.locator('[data-dismiss-intro]').click();
+  if (await host.locator("#notificationBellBadge.isVisible").count()) throw new Error("Notification bell badge stayed visible after dismissing the first-run entry");
+  await host.locator("#notificationBellButton").click();
+  trace("first-run notification moved to the bell");
+
+  // Shapes: Formato (rectangle/square/circle) constrains the box and sets the CSS radius;
+  // Efeito "Borrão" swaps the color inputs for a blur-strength slider and applies a real
+  // backdrop-filter instead of a color, so a sensitive area can be hidden instead of just outlined.
+  await host.locator("#shapeButton").click();
+  await host.mouse.move(300, 300);
+  await host.mouse.down();
+  await host.mouse.move(460, 420, { steps: 6 });
+  await host.mouse.up();
+  await host.locator(".qts-shape [data-visibility-toggle]").click();
+  await host.locator(".qts-shape .qts-edit-btn").click();
+  await host.locator("[data-shape-type]").selectOption("circle");
+  const circleRadius = await host.locator(".qts-shape-box").evaluate((box) => getComputedStyle(box).borderRadius);
+  if (!circleRadius.includes("50%")) throw new Error(`Shape "Círculo" did not apply a 50% radius: ${circleRadius}`);
+  const [circleWidth, circleHeight] = await host.locator(".qts-shape").evaluate((shape) => [shape.offsetWidth, shape.offsetHeight]);
+  if (circleWidth !== circleHeight) throw new Error(`Shape "Círculo" did not constrain to equal width/height: ${circleWidth}x${circleHeight}`);
+  await host.locator("[data-shape-effect]").selectOption("blur");
+  if (await host.locator("[data-shape-blur-control]").isHidden()) throw new Error("Blur-strength slider did not appear after selecting the Borrão effect");
+  const blurFilter = await host.locator(".qts-shape-box").evaluate((box) => getComputedStyle(box).backdropFilter || getComputedStyle(box).webkitBackdropFilter);
+  if (!blurFilter.includes("blur")) throw new Error(`Shape "Borrão" effect did not apply a real backdrop-filter blur: ${blurFilter}`);
+  await host.locator(".qts-shape .qts-remove-btn").click();
+  trace("shape formato/efeito (círculo + borrão) verified");
+
+  // Borrar elementos: click-to-select (reusing the same selectPageElement UX as Element Capture),
+  // toggles the blur on/off per element, re-arms itself for picking more than one, and "Limpar
+  // todos" resets everything.
+  await host.locator("#toolsButton").click();
+  await host.locator("#blurElementsMenuItem").click();
+  await host.locator("#blurSelectElement").click();
+  await host.locator("#qaName").click();
+  if (!(await host.locator("#qaName").evaluate((element) => element.classList.contains("qts-blurred-element")))) throw new Error("Borrar elementos did not blur the clicked element");
+  await host.locator("#qaEmail").click();
+  if (!(await host.locator("#qaEmail").evaluate((element) => element.classList.contains("qts-blurred-element")))) throw new Error("Borrar elementos did not blur a second element (selection did not re-arm)");
+  await host.locator("#qaName").click();
+  if (await host.locator("#qaName").evaluate((element) => element.classList.contains("qts-blurred-element"))) throw new Error("Clicking an already-blurred element did not undo the blur");
+  await host.keyboard.press("Escape");
+  await host.locator("#toolsButton").click();
+  await host.locator("#blurElementsMenuItem").click();
+  await host.locator("#blurClearAll").click();
+  if (await host.locator("#qaEmail").evaluate((element) => element.classList.contains("qts-blurred-element"))) throw new Error('"Limpar todos os borrados" left an element blurred');
+  await host.locator("#drawerClose").click();
+  trace("borrar elementos tool verified (select, toggle, re-arm, clear all)");
+
+  // Linha: drawn from two literal points (not a drag-to-size box), width matches the real
+  // distance between them, and enabling the arrow endpoint adds the CSS class that renders it.
+  await host.locator("#lineButton").click();
+  await host.mouse.move(200, 200);
+  await host.mouse.down();
+  await host.mouse.move(400, 200, { steps: 6 });
+  await host.mouse.up();
+  const lineWidth = await host.locator(".qts-line").evaluate((line) => line.offsetWidth);
+  if (Math.abs(lineWidth - 200) > 5) throw new Error(`Line width did not match the drawn distance: ${lineWidth}`);
+  await host.locator(".qts-line [data-visibility-toggle]").click();
+  await host.locator(".qts-line .qts-edit-btn").click();
+  await host.locator("[data-line-arrow]").selectOption("end");
+  if (!(await host.locator(".qts-line").evaluate((line) => line.classList.contains("hasArrow")))) throw new Error("Line arrow endpoint option did not apply");
+  await host.locator(".qts-line .qts-remove-btn").click();
+  if (await host.locator(".qts-line").count()) throw new Error("Removing the line did not remove it from the page");
+  trace("linha com ponta de seta verified");
+
+  // Holofote: never preventDefault's the real mouse events (the page must keep working while the
+  // mode is on), only shows the spotlight after a genuine 3s hold, and fades back out on release.
+  await host.locator("#toolsButton").click();
+  await host.locator("#holofoteMenuItem").click();
+  await host.locator("#holofoteToggle").click();
+  await host.locator("#drawerClose").click();
+  await host.mouse.move(320, 260);
+  await host.mouse.down();
+  if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote appeared before the 3s hold threshold");
+  await host.waitForTimeout(3_400);
+  await host.locator("#qts-holofote-overlay.isVisible").waitFor({ timeout: 2_000 });
+  await host.mouse.up();
+  if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote did not start fading out on release");
+  if (!(await host.locator("h1").isVisible())) throw new Error("Holofote mode blocked normal page interaction");
+  await host.locator("#toolsButton").click();
+  await host.locator("#holofoteMenuItem").click();
+  await host.locator("#holofoteToggle").click();
+  await host.locator("#drawerClose").click();
+  trace("modo holofote verified (3s hold, follows release fade, page stays interactive)");
+
+  // Recording type menu: clicking the record button (while idle) offers "Vídeo" vs "Vídeo em
+  // partes (30s)" instead of recording immediately. The parts option is intentionally disabled
+  // ("Em breve") — shipping it under any GIF-adjacent framing was judged misleading since it
+  // produces WEBM/MP4 segments, not real GIF pixels, so only plain "Vídeo" is clickable for now.
+  // Actually invoking getDisplayMedia is not exercised here — it opens a real native OS picker
+  // with no Chromium test flag that reliably auto-approves it (unlike camera/mic fake devices),
+  // so clicking past this menu would hang or flake the suite. The menu wiring itself (open/close,
+  // both options present, parts option disabled) is real coverage; the segmentation/zip-packaging
+  // logic was verified separately via a Node harness against the already-proven window.QTS_ZIP writer.
+  await host.locator("#recordToggleButton").click();
+  await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ timeout: 2_000 });
+  if (!(await host.locator("#recordTypeVideoItem").isVisible())) throw new Error("Record type menu missing the single-video option");
+  if (!(await host.locator("#recordTypePartsItem").isVisible())) throw new Error("Record type menu missing the 30s-parts option");
+  if (!(await host.locator("#recordTypePartsItem").isDisabled())) throw new Error("30s-parts recording option should stay disabled (Em breve) until it ships");
+  await host.locator("#currentUrl").click();
+  await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ state: "hidden", timeout: 2_000 });
+  trace("record type menu verified (video option works, 30s-parts is disabled/Em breve, opens/closes correctly)");
+
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
   await host.locator("#jsonStudioMenuItem").click();
@@ -417,7 +524,7 @@ try {
   await options.waitForFunction(() => document.querySelector("#keyViewTheme")?.value === "light" && document.querySelector("#keyViewPosition")?.value === "top-right" && document.querySelector("#keyViewKeySize")?.value === "large" && document.querySelector("#keyViewMouseSize")?.value === "small" && !document.querySelector("#keyViewEnabled")?.checked);
   if (await options.locator('[data-tool="keyView"]').count() !== 1 || await options.locator('[data-tool="keyView"]').isChecked() !== true) throw new Error("Key View menu preference did not persist in options");
   await options.locator('[data-compact-entity="project"]').check();
-  await options.locator("#savePreferences").click();
+  await options.locator("#saveGeneralSettings").click();
   await host.waitForTimeout(500);
   const compact = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
@@ -524,6 +631,16 @@ try {
   if (tutorialModuleCount < 20) throw new Error(`Tutorial panel rendered too few modules: ${tutorialModuleCount}`);
   if (await options.locator(".tutorialLockBadge").count() !== 0) throw new Error("A tool showed a plan lock badge despite every plan feature being enabled in this mock");
   if (await options.locator("[data-tutorial-play]:not([disabled])").count() < 20) throw new Error("Tutorial cards did not expose a playable video thumbnail");
+  const tutorialGroupCount = await options.locator(".tutorialGroupAccordion").count();
+  if (tutorialGroupCount < 3) throw new Error(`Tutorial panel did not group modules into accordion sections: ${tutorialGroupCount}`);
+  if (await options.locator('[data-tutorial-try="testStatus"]').count() !== 1) throw new Error('Tutorial card is missing the "Tentar" button');
+  const [tryTourTab] = await Promise.all([
+    context.waitForEvent("page"),
+    options.locator('[data-tutorial-try="testStatus"]').click(),
+  ]);
+  if (!tryTourTab.url().includes("qtsTutorialStep=testStatus")) throw new Error(`"Tentar" did not target the requested step: ${tryTourTab.url()}`);
+  await tryTourTab.close();
+  trace('tutorial "Tentar" button verified (jumps the live tour straight to the requested step)');
 
   // Video dialog: opens with a real source, "Marcar como concluído" closes it and chains straight
   // into the completion modal, whose "Próximo" opens the following module's video.
@@ -544,6 +661,7 @@ try {
   await achievementSoundPromise;
   await options.locator("#tutorialStepDoneDialog[open]").waitFor();
   if ((await options.locator("#tutorialStepDoneTitle").innerText()) !== "Prepare seu workspace concluído!") throw new Error("Completion modal did not show the right step title");
+  if (!(await options.locator("#tutorialStepDoneBody").innerText()).includes("Dica:")) throw new Error("Completion modal did not show the practical tip");
   await options.locator("#tutorialStepClose").click();
   await options.locator('[data-tutorial-module="workspace"].isDone').waitFor();
   if ((await options.locator("#tutorialProgressLabel").textContent()) !== `2 de ${tutorialModuleCount} concluídos`) throw new Error("Tutorial progress label did not update after completing a step");
@@ -561,9 +679,15 @@ try {
   await options.locator("#faqExpandAll").click();
   if (await options.locator(".faqAccordion:not([open])").count() !== 0) throw new Error("Expandir tudo did not open every FAQ entry");
   if (await options.locator(".faqAnswer img").count() < 20) throw new Error("FAQ entries did not render illustrative screenshots");
+  if (await options.locator(".faqGroupAccordion").count() < 4) throw new Error("FAQ panel did not group entries into accordion sections");
+  await options.locator(".faqAnswer img").first().click();
+  await options.locator("#imageLightbox:not([hidden])").waitFor();
+  if (!(await options.locator("#imageLightboxImg").getAttribute("src"))) throw new Error("Image lightbox did not load the clicked screenshot");
+  await options.locator("#imageLightboxClose").click();
+  if (!(await options.locator("#imageLightbox").isHidden())) throw new Error("Image lightbox did not close");
   await options.locator("#faqCollapseAll").click();
   if (await options.locator(".faqAccordion[open]").count() !== 0) throw new Error("Recolher tudo did not close every FAQ entry");
-  trace("FAQ accordions verified");
+  trace("FAQ accordions + image lightbox verified");
 
   // Live tutorial tour: same overlay code path as the real demoqa.com launch (background.js only
   // hardcodes that URL for the actual seed-and-open flow, tested separately below) -- toolbar.js
@@ -579,6 +703,7 @@ try {
   await host.locator("[data-tour-done]").click();
   await tourSoundPromise;
   await host.locator(".qts-tour-card").waitFor();
+  if (!(await host.locator(".qts-tour-card-tip").innerText()).includes("Dica:")) throw new Error("Live tour completion card did not show the practical tip");
   await host.locator("[data-tour-next-card]").click();
   await host.locator(".qts-tour-balloon").waitFor();
   const secondTourStepTitle = await host.locator(".qts-tour-balloon b").innerText();
@@ -613,6 +738,20 @@ try {
   const clientCountAfterTourButton = await options.evaluate(async () => (await chrome.storage.local.get("qtsWorkspaceV1")).qtsWorkspaceV1?.clients?.length || 0);
   if (clientCountAfterTourButton !== clientCountBeforeTourButton) throw new Error(`"Iniciar tutorial" modified the existing workspace: ${clientCountBeforeTourButton} -> ${clientCountAfterTourButton}`);
   trace("tutorial start button verified (opens demo tab, never overwrites an existing workspace)");
+
+  // Settings-screen tour: spotlight + balloon walking through the 8 nav sections, right here on
+  // options.html (separate engine from the toolbar's live tour -- no shadow DOM involved).
+  await options.getByRole("button", { name: "Minha conta" }).click();
+  await options.locator("#settingsTourStart").click();
+  await options.locator(".settingsTourBalloon").waitFor();
+  const settingsTourFirstTitle = await options.locator(".settingsTourBalloon b").innerText();
+  await options.locator("#settingsTourNext").click();
+  const settingsTourSecondTitle = await options.locator(".settingsTourBalloon b").innerText();
+  if (settingsTourSecondTitle === settingsTourFirstTitle) throw new Error("Settings tour did not advance to the next section");
+  if (await options.locator('[data-panel="general"].isActive').count() !== 1) throw new Error("Settings tour did not switch to the section it's pointing at");
+  await options.locator("#settingsTourSkip").click();
+  if (await options.locator(".settingsTourBalloon").count()) throw new Error("Settings tour overlay did not close");
+  trace("settings-screen tour verified");
 
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();

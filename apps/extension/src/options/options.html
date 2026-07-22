@@ -35,7 +35,7 @@
         </div>
         <div class="card tutorialBanner" id="tutorialBanner" hidden>
           <div><strong>Novo por aqui?</strong><p>Faça o tour guiado e conheça cada ferramenta no seu ritmo.</p></div>
-          <div class="actions"><button type="button" class="button primary" id="tutorialBannerOpen">Fazer o tour</button><button type="button" class="button linkButton" id="tutorialBannerDismiss">Dispensar</button></div>
+          <div class="actions"><button type="button" class="button primary" id="tutorialBannerOpen">Fazer o tour</button><button type="button" class="button" id="settingsTourStart">🧭 Tour das Configurações</button><button type="button" class="button linkButton" id="tutorialBannerDismiss">Dispensar</button></div>
         </div>
         <div class="card accountCard">
           <div id="signedOutState">
@@ -80,7 +80,6 @@
             <label class="radioRow"><input type="radio" name="scopeMode" value="environments" /><div><b>URLs dos ambientes</b><small>Usa as URLs configuradas em cada ambiente do Workspace.</small></div></label>
             <label class="radioRow"><input type="radio" name="scopeMode" value="custom" /><div><b>Restringir com lista personalizada</b><small>A URL também precisa pertencer a um ambiente. Use padrões como <code>https://*.exemplo.com/*</code>, um por linha.</small></div></label>
             <textarea id="scopePatterns" rows="5" placeholder="https://app.exemplo.com/*" disabled></textarea>
-            <div class="actions"><button type="button" class="button primary" id="saveScope">Salvar URLs</button><span class="savedHint" id="scopeSavedHint"></span></div>
           </div>
           <div class="card">
             <div class="cardHead"><h2>Exibição</h2></div>
@@ -89,6 +88,7 @@
             <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
             <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Empurrar conteúdo do site</b><small>Reserva o espaço da barra no topo da página.</small></span></label>
             <label class="toggleRow"><input id="soundEffects" type="checkbox" /><span><b>Efeitos sonoros</b><small>Toca um som ao marcar status de teste, capturar erro HTTP ou iniciar uma macro.</small></span></label>
+            <label class="toggleRow"><input id="remindTestStatusOnRecording" type="checkbox" /><span><b>Lembrar de atribuir status na gravação</b><small>Ao parar uma gravação de evidência, pede o Test Status antes de liberar o download — garante que toda gravação tenha um resultado marcado.</small></span></label>
             <label>Formato das imagens (cliente/projeto/produto)<select id="avatarShape"><option value="square">Quadrado</option><option value="round">Redondo</option></select></label>
             <fieldset><legend>Mostrar no breadcrumb</legend><div class="checkGrid">
               <label><input type="checkbox" data-breadcrumb="client" /> Cliente</label>
@@ -121,9 +121,10 @@
               <label><input type="checkbox" data-tool="fakerFill" /> Faker Fill</label>
               <label><input type="checkbox" data-tool="keyView" /> Key View</label>
               <label><input type="checkbox" data-tool="elementCapture" /> Capturar elementos</label>
+              <label><input type="checkbox" data-tool="blurElements" /> Borrar elementos</label>
+              <label><input type="checkbox" data-tool="holofote" /> Modo Holofote</label>
             </div></fieldset>
             <fieldset><legend>Ordem no menu Tools</legend><p class="cardLead">Arraste ou use as setas para definir a ordem das ferramentas no menu.</p><ol class="breadcrumbOrderList toolsMenuOrderList" id="toolsMenuOrderList"></ol></fieldset>
-            <div class="actions"><button type="button" class="button primary" id="savePreferences">Salvar aparência</button><span class="savedHint" id="preferencesSavedHint"></span></div>
           </div>
           <div class="card">
             <div class="cardHead"><h2>Key View</h2></div>
@@ -141,6 +142,7 @@
             <p class="securityHint">O buffer de digitação fica somente na memória. Senhas, cartões, CVV, tokens e segredos não são capturados.</p>
           </div>
         </div>
+        <div class="stickySaveBar"><span class="savedHint" id="generalSavedHint"></span><button type="button" class="button primary" id="saveGeneralSettings">Salvar</button></div>
       </section>
 
       <section data-panel="workspace" class="panel protectedPanel workspacePanel">
@@ -226,6 +228,7 @@
         <div class="card tutorialProgressCard">
           <div class="tutorialProgressHead">
             <button type="button" class="button primary" id="tutorialStartTour">▶ Iniciar tutorial</button>
+            <button type="button" class="button" id="tutorialStartSettingsTour">🧭 Tour das Configurações</button>
             <strong id="tutorialProgressLabel">0 de 0 concluídos</strong>
             <div class="actions"><button type="button" class="button" id="tutorialSkipAll">Pular tudo</button><button type="button" class="button linkButton" id="tutorialReset">Reiniciar</button></div>
           </div>
@@ -239,6 +242,11 @@
         <div class="card"><div class="actions"><button type="button" class="button" id="faqExpandAll">Expandir tudo</button><button type="button" class="button" id="faqCollapseAll">Recolher tudo</button></div></div>
         <div id="faqAccordions"></div>
       </section>
+
+      <div class="imageLightbox" id="imageLightbox" hidden>
+        <button type="button" class="imageLightboxClose" id="imageLightboxClose" aria-label="Fechar">×</button>
+        <img id="imageLightboxImg" alt="" />
+      </div>
     </main>
   </div>
   <dialog class="imageEditorDialog" id="imageEditorDialog" aria-labelledby="imageEditorTitle">
@@ -309,7 +317,7 @@
     <div class="formDialogHead"><div><span class="eyebrow">Tutorial</span><h2 id="tutorialVideoTitle"></h2></div><button type="button" class="dialogClose" id="tutorialVideoClose" data-close-composer aria-label="Fechar">×</button></div>
     <video id="tutorialVideoPlayer" controls autoplay muted></video>
     <p class="cardLead" id="tutorialVideoInstructions"></p>
-    <div class="formActions"><button type="button" class="button primary" id="tutorialVideoComplete">Marcar como concluído</button></div>
+    <div class="formActions"><button type="button" class="button" id="tutorialVideoTry">▶ Tentar</button><button type="button" class="button primary" id="tutorialVideoComplete">Marcar como concluído</button></div>
   </dialog>
 
   <dialog class="formDialog" id="tutorialStepDoneDialog" aria-labelledby="tutorialStepDoneTitle">

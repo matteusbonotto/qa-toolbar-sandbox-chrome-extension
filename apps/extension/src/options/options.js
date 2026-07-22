@@ -312,13 +312,6 @@ async function loadScopeUi() {
 document.querySelectorAll('input[name="scopeMode"]').forEach((input) => input.addEventListener("change", () => {
   document.getElementById("scopePatterns").disabled = input.value !== "custom";
 }));
-document.getElementById("saveScope").addEventListener("click", async () => {
-  const mode = document.querySelector('input[name="scopeMode"]:checked')?.value || "environments";
-  const patterns = normalizeUrlPatterns(document.getElementById("scopePatterns").value);
-  if (mode === "custom" && !patterns.length) return showMessage("scopeSavedHint", "Adicione ao menos uma URL.", "Error");
-  await saveSiteScope({ mode, patterns });
-  document.getElementById("scopeSavedHint").textContent = t("Salvo.");
-});
 
 function hasKeyViewPlanAccess() {
   return accessState?.features?.["keyView.enabled"] === true;
@@ -331,6 +324,7 @@ function loadPreferenceUi() {
   document.querySelectorAll("[data-compact-entity]").forEach((checkbox) => { checkbox.checked = compactEntities[checkbox.dataset.compactEntity] === true; });
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
+  document.getElementById("remindTestStatusOnRecording").checked = preferences.remindTestStatusOnRecording === true;
   document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
   const keyView = preferences.keyView || {};
   document.getElementById("keyViewEnabled").checked = keyView.enabled === true;
@@ -361,7 +355,7 @@ function loadPreferenceUi() {
 }
 
 // Cliente/Projeto/Produto priority in the breadcrumb — a local draft array (not saved until
-// "Salvar aparência") so drag/arrow reordering and the live preview stay instant without writing
+// "Salvar", the sticky bottom button) so drag/arrow reordering and the live preview stay instant without writing
 // to the workspace on every rearrange. Environment is intentionally not reorderable — it's always
 // the last, "current tier" segment (see buildBreadcrumb in toolbar.js).
 let breadcrumbOrderDraft = ["client", "project", "product"];
@@ -414,7 +408,7 @@ function renderBreadcrumbOrderList() {
 }
 
 // Mock breadcrumb using sample names — reflects order/visibility/compact-mode instantly, without
-// needing a real workspace/environment or waiting for "Salvar aparência".
+// needing a real workspace/environment or waiting for the "Salvar" button.
 function renderBarPreview() {
   const sample = { client: "Cliente", project: "Projeto", product: "Produto", environment: "QA" };
   const visibility = Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked]));
@@ -484,7 +478,15 @@ function renderToolsMenuOrderList() {
   });
 }
 
-document.getElementById("savePreferences").addEventListener("click", async () => {
+// One button saves everything on this screen (site scope + all toolbar/appearance preferences)
+// instead of the two separate saves this panel used to have — a user changing both a URL pattern
+// and, say, a pinned tool no longer has to remember to click twice.
+document.getElementById("saveGeneralSettings").addEventListener("click", async () => {
+  const scopeMode = document.querySelector('input[name="scopeMode"]:checked')?.value || "environments";
+  const scopePatterns = normalizeUrlPatterns(document.getElementById("scopePatterns").value);
+  if (scopeMode === "custom" && !scopePatterns.length) return showMessage("generalSavedHint", "Adicione ao menos uma URL.", "Error");
+  await saveSiteScope({ mode: scopeMode, patterns: scopePatterns });
+
   const compactEntities = Object.fromEntries([...document.querySelectorAll("[data-compact-entity]")].map((checkbox) => [checkbox.dataset.compactEntity, checkbox.checked]));
   workspace.preferences = {
     ...(workspace.preferences || {}),
@@ -492,6 +494,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     compactEntities,
     pushSiteContent: document.getElementById("pushSiteContent").checked,
     soundEffects: document.getElementById("soundEffects").checked,
+    remindTestStatusOnRecording: document.getElementById("remindTestStatusOnRecording").checked,
     avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
     keyView: {
       enabled: document.getElementById("keyViewEnabled").checked,
@@ -509,7 +512,7 @@ document.getElementById("savePreferences").addEventListener("click", async () =>
     toolsMenuOrder: [...toolsMenuOrderDraft],
   };
   await persistWorkspace();
-  document.getElementById("preferencesSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
 });
 
 function findById(collection, id) {
@@ -1447,11 +1450,12 @@ let tutorialProgress = { completedSteps: [], dismissedBannerAt: null };
 
 function renderTutorialPanel() {
   const modules = window.QTS_TUTORIAL_DATA || [];
+  const groupLabels = window.QTS_TUTORIAL_GROUPS || {};
   const total = modules.length;
   const done = modules.filter((module) => tutorialProgress.completedSteps.includes(module.key)).length;
   document.getElementById("tutorialProgressLabel").textContent = t("{done} de {total} concluídos", { done, total });
   document.getElementById("tutorialProgressFill").style.width = total ? `${Math.round((done / total) * 100)}%` : "0%";
-  document.getElementById("tutorialModules").innerHTML = modules.map((module) => {
+  const moduleCard = (module) => {
     const isDone = tutorialProgress.completedSteps.includes(module.key);
     const locked = module.planFeature && accessState?.features?.[module.planFeature] !== true;
     const iconName = TUTORIAL_ICON_BY_KEY[module.key];
@@ -1468,9 +1472,27 @@ function renderTutorialPanel() {
           </div>
           <p class="tutorialModuleShort">${escapeHtml(t(module.short))}</p>
           <p class="tutorialModuleInstructions">${escapeHtml(t(module.instructions))}</p>
-          <div class="actions"><button type="button" class="button${isDone ? "" : " primary"}" data-tutorial-complete="${escapeHtml(module.key)}">${isDone ? `✓ ${escapeHtml(t("Concluído"))}` : escapeHtml(t("Marcar como concluído"))}</button></div>
+          <div class="actions">
+            ${module.key !== "workspace" ? `<button type="button" class="button" data-tutorial-try="${escapeHtml(module.key)}">${escapeHtml(t("▶ Tentar"))}</button>` : ""}
+            <button type="button" class="button${isDone ? "" : " primary"}" data-tutorial-complete="${escapeHtml(module.key)}">${isDone ? `✓ ${escapeHtml(t("Concluído"))}` : escapeHtml(t("Marcar como concluído"))}</button>
+          </div>
         </div>
       </article>
+    `;
+  };
+  const groups = [];
+  for (const module of modules) {
+    let group = groups.find((entry) => entry.key === module.group);
+    if (!group) { group = { key: module.group, modules: [] }; groups.push(group); }
+    group.modules.push(module);
+  }
+  document.getElementById("tutorialModules").innerHTML = groups.map((group) => {
+    const groupDone = group.modules.filter((module) => tutorialProgress.completedSteps.includes(module.key)).length;
+    return `
+      <details class="environmentAccordion tutorialGroupAccordion" open>
+        <summary><b>${escapeHtml(t(groupLabels[group.key] || group.key))}</b><span class="tutorialGroupCount">${groupDone}/${group.modules.length}</span></summary>
+        <div class="list tutorialModules">${group.modules.map(moduleCard).join("")}</div>
+      </details>
     `;
   }).join("");
   document.querySelectorAll("[data-tutorial-complete]").forEach((button) => {
@@ -1478,6 +1500,9 @@ function renderTutorialPanel() {
   });
   document.querySelectorAll("[data-tutorial-play]").forEach((button) => {
     button.addEventListener("click", () => openTutorialVideo(button.dataset.tutorialPlay));
+  });
+  document.querySelectorAll("[data-tutorial-try]").forEach((button) => {
+    button.addEventListener("click", () => chrome.runtime.sendMessage({ type: "qts:start-tutorial-tour", stepKey: button.dataset.tutorialTry }));
   });
 }
 
@@ -1507,6 +1532,11 @@ document.getElementById("tutorialVideoComplete").addEventListener("click", async
   document.getElementById("tutorialVideoDialog").close();
   await completeTutorialStep(currentTutorialVideoKey);
 });
+document.getElementById("tutorialVideoTry").addEventListener("click", () => {
+  if (!currentTutorialVideoKey) return;
+  document.getElementById("tutorialVideoDialog").close();
+  chrome.runtime.sendMessage({ type: "qts:start-tutorial-tour", stepKey: currentTutorialVideoKey });
+});
 
 async function completeTutorialStep(key) {
   const module = (window.QTS_TUTORIAL_DATA || []).find((item) => item.key === key);
@@ -1526,6 +1556,7 @@ function showTutorialStepDoneModal(key) {
   if (!module) return;
   currentTutorialStepDoneKey = key;
   document.getElementById("tutorialStepDoneTitle").textContent = `${t(module.title)} ${t("concluído!")}`;
+  document.getElementById("tutorialStepDoneBody").textContent = module.tip ? `${t(module.short)} ${t("Dica")}: ${t(module.tip)}` : t(module.short);
   document.getElementById("tutorialStepDoneDialog").showModal();
 }
 document.getElementById("tutorialStepRepeat").addEventListener("click", () => {
@@ -1544,14 +1575,46 @@ document.getElementById("tutorialStepClose").addEventListener("click", () => doc
 function renderFaqPanel() {
   const general = window.QTS_FAQ_DATA?.general || [];
   const modules = (window.QTS_TUTORIAL_DATA || []).filter((module) => module.key !== "workspace");
+  const groupLabels = window.QTS_TUTORIAL_GROUPS || {};
   const generalHtml = general.map((item) => `
     <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t(item.question))}</b></summary><div class="list"><p>${escapeHtml(t(item.answer))}</p></div></details>
   `).join("");
-  const toolsHtml = modules.map((module) => `
-    <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t("Para que serve {tool}?", { tool: t(module.title) }))}</b></summary><div class="list faqAnswer">${module.screenshot ? `<img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />` : ""}<p>${escapeHtml(t(module.short))} ${escapeHtml(t(module.instructions))}</p></div></details>
+  const groups = [];
+  for (const module of modules) {
+    let group = groups.find((entry) => entry.key === module.group);
+    if (!group) { group = { key: module.group, modules: [] }; groups.push(group); }
+    group.modules.push(module);
+  }
+  const toolGroupsHtml = groups.map((group) => `
+    <details class="environmentAccordion faqGroupAccordion" open>
+      <summary><b>${escapeHtml(t(groupLabels[group.key] || group.key))}</b></summary>
+      <div class="list">${group.modules.map((module) => `
+        <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t("Para que serve {tool}?", { tool: t(module.title) }))}</b></summary><div class="list faqAnswer">${module.screenshot ? `<img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />` : ""}<p>${escapeHtml(t(module.short))} ${escapeHtml(t(module.instructions))}</p></div></details>
+      `).join("")}</div>
+    </details>
   `).join("");
-  document.getElementById("faqAccordions").innerHTML = generalHtml + toolsHtml;
+  document.getElementById("faqAccordions").innerHTML = `
+    <details class="environmentAccordion faqGroupAccordion" open><summary><b>${escapeHtml(t("Geral"))}</b></summary><div class="list">${generalHtml}</div></details>
+    ${toolGroupsHtml}
+  `;
+  document.querySelectorAll(".faqAnswer img").forEach((img) => {
+    img.addEventListener("click", () => openImageLightbox(img.src, img.alt));
+  });
 }
+
+function openImageLightbox(src, alt) {
+  document.getElementById("imageLightboxImg").src = src;
+  document.getElementById("imageLightboxImg").alt = alt || "";
+  document.getElementById("imageLightbox").hidden = false;
+}
+function closeImageLightbox() {
+  document.getElementById("imageLightbox").hidden = true;
+  document.getElementById("imageLightboxImg").src = "";
+}
+document.getElementById("imageLightbox").addEventListener("click", (event) => {
+  if (event.target === event.currentTarget) closeImageLightbox();
+});
+document.getElementById("imageLightboxClose").addEventListener("click", closeImageLightbox);
 
 function renderTutorialBanner() {
   document.getElementById("tutorialBanner").hidden = !accessState?.active || !!tutorialProgress.dismissedBannerAt;
@@ -1560,6 +1623,69 @@ function renderTutorialBanner() {
 document.getElementById("tutorialStartTour").addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "qts:start-tutorial-tour" });
 });
+
+// Settings-screen tour: a spotlight + balloon walk through the 8 nav sections, right here on
+// options.html -- same visual language as the live tour in toolbar.js, but simpler (no shadow
+// DOM, no menu-opening step, just the always-visible nav buttons) since this is meant as a quick
+// "here's what each screen does" orientation, not a per-field walkthrough.
+const SETTINGS_TOUR_STEPS = [
+  { tab: "account", title: "Minha conta", text: "Entre, aplique um voucher e veja seu plano aqui. Sem login, o resto da tela fica bloqueado." },
+  { tab: "general", title: "Barra e aparência", text: "Escolha onde a barra aparece no site, o que fica visível nela e a ordem das ferramentas no menu." },
+  { tab: "workspace", title: "Workspace", text: "O coração da extensão: cadastre cliente, projeto, produto, ambiente e URL aqui — é isso que faz a barra aparecer." },
+  { tab: "test-data", title: "Dados de teste", text: "Contas de teste e cartões sandbox, organizados por ambiente e sempre mascarados." },
+  { tab: "integrations", title: "Inspectors e recursos", text: "Configure quais respostas de API o Inspectors acompanha, APIs internas e links úteis do projeto." },
+  { tab: "data", title: "Importar / Exportar", text: "Faça backup do seu workspace em JSON, ou importe um workspace já pronto de outro lugar." },
+  { tab: "tutorial", title: "Tutorial", text: "Reveja qualquer passo a passo em vídeo, ou refaça o tour ao vivo na barra quando quiser." },
+  { tab: "faq", title: "FAQ", text: "Respostas rápidas e diretas pra qualquer dúvida sobre a extensão." },
+];
+let settingsTourIndex = -1;
+function settingsTourHost() {
+  let host = document.getElementById("settingsTourOverlay");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "settingsTourOverlay";
+    document.body.appendChild(host);
+  }
+  return host;
+}
+function startSettingsTour() {
+  if (!accessState?.active) return;
+  settingsTourIndex = 0;
+  renderSettingsTourStep();
+}
+function renderSettingsTourStep() {
+  const step = SETTINGS_TOUR_STEPS[settingsTourIndex];
+  const host = settingsTourHost();
+  if (!step) { endSettingsTour(); return; }
+  switchTab(step.tab);
+  const target = document.querySelector(`.navItem[data-tab="${step.tab}"]`);
+  if (!target) { settingsTourIndex += 1; renderSettingsTourStep(); return; }
+  const rect = target.getBoundingClientRect();
+  const pad = 5;
+  const isLast = settingsTourIndex >= SETTINGS_TOUR_STEPS.length - 1;
+  const balloonLeft = Math.min(rect.right + 16, window.innerWidth - 340);
+  host.innerHTML = `
+    <div class="settingsTourSpotlight" style="top:${rect.top - pad}px;left:${rect.left - pad}px;width:${rect.width + pad * 2}px;height:${rect.height + pad * 2}px"></div>
+    <div class="settingsTourBalloon" style="top:${Math.max(12, rect.top)}px;left:${balloonLeft}px">
+      <span class="settingsTourStepLabel">${t("Passo {current} de {total}", { current: settingsTourIndex + 1, total: SETTINGS_TOUR_STEPS.length })}</span>
+      <b>${escapeHtml(t(step.title))}</b>
+      <p>${escapeHtml(t(step.text))}</p>
+      <div class="settingsTourActions">
+        <button type="button" class="button" id="settingsTourSkip">${escapeHtml(t("Pular tutorial"))}</button>
+        <button type="button" class="button primary" id="settingsTourNext">${isLast ? escapeHtml(t("Concluir")) : escapeHtml(t("Próximo"))}</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("settingsTourSkip").addEventListener("click", endSettingsTour);
+  document.getElementById("settingsTourNext").addEventListener("click", () => { settingsTourIndex += 1; renderSettingsTourStep(); });
+}
+function endSettingsTour() {
+  settingsTourIndex = -1;
+  document.getElementById("settingsTourOverlay")?.remove();
+}
+window.addEventListener("resize", () => { if (settingsTourIndex >= 0) renderSettingsTourStep(); });
+document.getElementById("settingsTourStart").addEventListener("click", startSettingsTour);
+document.getElementById("tutorialStartSettingsTour").addEventListener("click", startSettingsTour);
 document.getElementById("tutorialSkipAll").addEventListener("click", async () => {
   const modules = window.QTS_TUTORIAL_DATA || [];
   for (const module of modules) {
@@ -1584,7 +1710,7 @@ document.getElementById("tutorialBannerDismiss").addEventListener("click", async
   tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
   renderTutorialBanner();
 });
-document.getElementById("faqExpandAll").addEventListener("click", () => document.querySelectorAll(".faqAccordion").forEach((details) => { details.open = true; }));
+document.getElementById("faqExpandAll").addEventListener("click", () => document.querySelectorAll(".faqAccordion, .faqGroupAccordion").forEach((details) => { details.open = true; }));
 document.getElementById("faqCollapseAll").addEventListener("click", () => document.querySelectorAll(".faqAccordion").forEach((details) => { details.open = false; }));
 
 async function loadLegalStatus() {

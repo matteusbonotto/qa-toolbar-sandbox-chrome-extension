@@ -18,11 +18,14 @@ export const DEFAULT_ENABLED_TOOLS = Object.freeze([
   "clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio",
   "breakpoints", "testAccounts", "paymentMethods", "resources",
   "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "elementCapture",
+  "blurElements", "holofote",
 ]);
 const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
 const SCHEMA_4_TOOLS = ["keyView"];
 const SCHEMA_5_TOOLS = ["errorMonitor"];
 const SCHEMA_6_TOOLS = ["elementCapture"];
+const SCHEMA_7_TOOLS = ["blurElements"];
+const SCHEMA_8_TOOLS = ["holofote"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -207,7 +210,7 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 8,
+    schemaVersion: 10,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [],
@@ -222,6 +225,7 @@ export function createEmptyWorkspace() {
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
       toolsMenuOrder: [...DEFAULT_ENABLED_TOOLS],
       soundEffects: true,
+      remindTestStatusOnRecording: false,
       breadcrumbVisibility: { client: true, project: true, product: true, environment: true },
       breadcrumbOrder: ["client", "project", "product"],
       keyView: {
@@ -350,9 +354,15 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 6) {
     for (const tool of SCHEMA_6_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 7) {
+    for (const tool of SCHEMA_7_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
+  if (Number(source.schemaVersion || 0) < 8) {
+    for (const tool of SCHEMA_8_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 8,
+    schemaVersion: 10,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
@@ -385,6 +395,7 @@ export function normalizeWorkspace(rawWorkspace) {
       enabledTools: normalizedEnabledTools,
       toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),
       soundEffects: preferences.soundEffects !== false,
+      remindTestStatusOnRecording: preferences.remindTestStatusOnRecording === true,
       breadcrumbVisibility: {
         client: preferences.breadcrumbVisibility?.client !== false,
         project: preferences.breadcrumbVisibility?.project !== false,

@@ -162,20 +162,83 @@ try {
   await options.locator('[data-workspace-tab="structure"]').click();
   await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
   trace("captured workspace-setup.png");
+
+  // Short walkthrough of every Settings section, for the "workspace" tutorial module's video --
+  // reuses this same already-authenticated page (recordVideo is context-scoped, so it's already
+  // being recorded) instead of opening a fresh one just for this.
+  for (const tab of ["account", "general", "workspace", "test-data", "integrations", "data", "tutorial", "faq"]) {
+    await options.locator(`.navItem[data-tab="${tab}"]`).click();
+    await options.waitForTimeout(900);
+  }
+  const optionsVideo = options.video();
   await options.close();
+  if (optionsVideo) await optionsVideo.saveAs(resolve(assetsPath, "workspace-setup.webm"));
+  trace("captured workspace-setup.webm (Settings navigation walkthrough)");
 
   await captureTool("testStatus", async (page) => {
     await page.locator("#testStatusButton").click();
     await page.locator("#qts-test-status-modal").waitFor();
+    await page.waitForTimeout(1_400); // let the four status options sit on screen before picking one
+    await page.locator('#qts-test-status-modal [data-status="pass"]').click();
+    await page.waitForTimeout(600); // show the after-click result, not just the picker
   });
 
   await captureTool("passFail", async (page) => {
     await page.locator("#passButton").click();
     await page.locator("#userName-label").click({ force: true });
+    // Reveal the marker's own controls (resize/hide/remove/drag) so the clip shows what's
+    // available on a placed marker, not just the marker itself.
+    await page.locator(".qts-marker [data-visibility-toggle]").click();
+    await page.waitForTimeout(1_000);
+    const handle = page.locator(".qts-marker [data-drag-handle]");
+    const box = await handle.boundingBox();
+    if (box) {
+      await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+      await page.mouse.down();
+      await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2 + 30, { steps: 8 });
+      await page.mouse.up();
+    }
   });
 
   await captureTool("notesShapes", async (page) => {
     await page.locator("#noteButton").click();
+    await page.locator(".qts-note textarea").fill("Confirmar mensagem de erro com o time de produto");
+    await page.locator(".qts-note [data-save]").click();
+    await page.waitForTimeout(400);
+    await page.locator("#shapeButton").click();
+    await page.mouse.move(300, 420);
+    await page.mouse.down();
+    await page.mouse.move(520, 560, { steps: 10 });
+    await page.mouse.up();
+    await page.waitForTimeout(600);
+  });
+
+  await captureTool("line", async (page) => {
+    await page.locator("#lineButton").click();
+    await page.mouse.move(280, 420);
+    await page.mouse.down();
+    await page.mouse.move(560, 420, { steps: 10 });
+    await page.mouse.up();
+    await page.locator(".qts-line [data-visibility-toggle]").click();
+    await page.locator(".qts-line .qts-edit-btn").click();
+    await page.locator("[data-line-arrow]").selectOption("end");
+    await page.waitForTimeout(600);
+  });
+
+  await captureTool("blurElements", async (page) => {
+    await openToolByMenu(page, "blurElementsMenuItem");
+    await page.locator("#blurSelectElement").click();
+    await page.locator("#userName").click();
+    await page.waitForTimeout(600);
+  });
+
+  await captureTool("holofote", async (page) => {
+    await openToolByMenu(page, "holofoteMenuItem");
+    await page.locator("#holofoteToggle").click();
+    await closeDrawer(page);
+    await page.mouse.move(420, 380);
+    await page.mouse.down();
+    await page.waitForTimeout(3_400);
   });
 
   await captureTool("screenshot", async (page) => {
@@ -219,6 +282,10 @@ try {
   await captureTool("breakpoints", async (page) => {
     await openToolByMenu(page, "breakpointMenuItem");
     await page.locator("#bpStage .qts-bp-frame").nth(1).waitFor();
+    // The frames themselves attach fast, but the mobile-sized iframe still needs a moment to
+    // actually paint the page inside it -- without this the clip/screenshot caught an empty frame.
+    await page.locator("#bpStage .qts-bp-frame").nth(1).locator("iframe").waitFor();
+    await page.waitForTimeout(1_800);
   });
 
   await captureTool("characterCounter", async (page) => {

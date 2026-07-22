@@ -315,7 +315,7 @@ function applyPinnedTools() {
   const pinned = new Set(state.workspace?.preferences?.pinnedTools || []);
   const groups = {
     passFail: ["testStatusButton", "passButton", "failButton"],
-    notes: ["noteButton", "shapeButton"],
+    notes: ["noteButton", "shapeButton", "lineButton"],
     screenshot: ["screenshotButton"],
     record: ["recordToggleButton", "recordStopButton", "recordTimer"],
   };
@@ -330,7 +330,7 @@ function applyPinnedTools() {
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
     characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
     inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
-    elementCapture: "elementCaptureMenuItem",
+    elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem", holofote: "holofoteMenuItem",
   };
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
@@ -476,6 +476,16 @@ function buildShadowHost() {
       .qts-bell-row:hover { background: #232323; }
       .qts-bell-row span { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; }
       .qts-bell-row small { display: block; margin-top: 2px; color: #777; }
+      #recordWrapper { position: relative; }
+      #recordTypeMenu { position: absolute; top: 30px; right: 0; width: 240px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
+      #recordTypeMenuTitle { margin: 2px 4px 4px; font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: .04em; }
+      #recordTypeMenu button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 2px; width: 100%; padding: 8px; border-radius: 7px; background: #171717; border: 1px solid #2c2c2c; }
+      #recordTypeMenu button:hover { background: #232323; border-color: #ffd700; }
+      #recordTypeMenu button strong { font-size: 12px; }
+      #recordTypeMenu button span { font-size: 10px; color: #999; line-height: 1.35; }
+      #recordTypeMenu button.isComingSoon { cursor: not-allowed; opacity: .55; }
+      #recordTypeMenu button.isComingSoon:hover { background: #171717; border-color: #2c2c2c; }
+      .qts-coming-soon-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #3a3a3a; color: #ffd700; font-size: 9px; font-weight: 800; vertical-align: middle; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
@@ -486,8 +496,8 @@ function buildShadowHost() {
          way back. Below this width those pinned buttons hide and the same actions move into the
          Tools menu instead (#mobileActionsMenu), which stays reachable regardless of width. */
       @media (max-width: 560px) {
-        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #clearAllButton,
-        #screenshotButton, #recordToggleButton, #recordStopButton, #recordTimer { display: none !important; }
+        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #lineButton, #clearAllButton,
+        #screenshotButton, #recordWrapper, #recordStopButton, #recordTimer { display: none !important; }
         #mobileActionsMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       }
     </style>
@@ -505,10 +515,24 @@ function buildShadowHost() {
         <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
         <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
         <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
+        <button id="lineButton" class="iconOnly" type="button" title="${escapeHtml(t.line || "Linha")}">${ICON("arrowLeft")}</button>
         <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
         <button id="hideAllButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.hideAllTitle)}">${ICON("eye")}</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">${ICON("camera")}</button>
-        <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
+        <div id="recordWrapper">
+          <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
+          <div id="recordTypeMenu" class="isHidden" role="menu">
+            <p id="recordTypeMenuTitle">${escapeHtml(t.recordTypeMenuTitle)}</p>
+            <button type="button" id="recordTypeVideoItem" role="menuitem" data-record-mode="video">
+              <strong>${escapeHtml(t.recordTypeVideoLabel)}</strong>
+              <span>${escapeHtml(t.recordTypeVideoHint)}</span>
+            </button>
+            <button type="button" id="recordTypePartsItem" role="menuitem" data-record-mode="parts" class="isComingSoon" disabled aria-disabled="true">
+              <strong>${escapeHtml(t.recordTypePartsLabel)} <span class="qts-coming-soon-badge">${escapeHtml(t.comingSoonBadge)}</span></strong>
+              <span>${escapeHtml(t.recordTypePartsHint)}</span>
+            </button>
+          </div>
+        </div>
         <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">${ICON("recordStop")}</button>
         <span id="recordTimer" class="isHidden">00:00</span>
         <div id="macroRecordingBar" class="isHidden">
@@ -532,6 +556,7 @@ function buildShadowHost() {
               <button type="button" id="mobileFailItem" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
               <button type="button" id="mobileNoteItem" role="menuitem">${escapeHtml(t.note)}</button>
               <button type="button" id="mobileShapeItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
+              <button type="button" id="mobileLineItem" role="menuitem">${ICON("arrowLeft")} ${escapeHtml(t.line || "Linha")}</button>
               <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
@@ -553,6 +578,8 @@ function buildShadowHost() {
             <button type="button" id="paymentMethodsMenuItem" role="menuitem">${ICON("paymentMethods")} ${escapeHtml(t.paymentMethodsMenuLabel)}</button>
             <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(t.resourcesMenuLabel)}</button>
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
+            <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
+            <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("eye")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}<span id="tutorialDot" class="qts-tutorial-dot" hidden></span></button>
@@ -588,11 +615,11 @@ function buildShadowHost() {
   shadow.getElementById("failButton").addEventListener("click", (event) => enablePlacementMode("fail", event.currentTarget));
   shadow.getElementById("noteButton").addEventListener("click", () => addFloatingTextNote());
   shadow.getElementById("shapeButton").addEventListener("click", (event) => enablePlacementMode("shape", event.currentTarget));
+  shadow.getElementById("lineButton").addEventListener("click", (event) => enablePlacementMode("line", event.currentTarget));
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
   shadow.getElementById("hideAllButton").addEventListener("click", () => toggleAllFloatingItemsVisibility());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
-  shadow.getElementById("recordToggleButton").addEventListener("click", () => handleRecordToggle());
-  shadow.getElementById("recordStopButton").addEventListener("click", () => stopEvidenceRecording());
+  shadow.getElementById("recordStopButton").addEventListener("click", () => handleStopRecordingClick());
   shadow.getElementById("macroRecHistoryButton").addEventListener("click", () => toggleMacroHistoryPanel());
   shadow.getElementById("macroRecPauseButton").addEventListener("click", () => toggleMacroRecordingPause());
   shadow.getElementById("macroRecUndoButton").addEventListener("click", () => undoLastMacroStep());
@@ -606,17 +633,31 @@ function buildShadowHost() {
   shadow.getElementById("mobileFailItem").addEventListener("click", () => { enablePlacementMode("fail", shadow.getElementById("failButton")); closeToolsMenu(); });
   shadow.getElementById("mobileNoteItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
   shadow.getElementById("mobileShapeItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileLineItem").addEventListener("click", () => { enablePlacementMode("line", shadow.getElementById("lineButton")); closeToolsMenu(); });
   shadow.getElementById("mobileScreenshotItem").addEventListener("click", () => { captureScreenshot(); closeToolsMenu(); });
-  shadow.getElementById("mobileRecordItem").addEventListener("click", () => { handleRecordToggle(); closeToolsMenu(); });
+  shadow.getElementById("mobileRecordItem").addEventListener("click", () => {
+    if (recordingState.status === "idle") startEvidenceRecording("video");
+    else handleRecordToggle();
+    closeToolsMenu();
+  });
 
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
     shadow.getElementById("toolsMenu").classList.toggle("isOpen");
   });
   shadow.getElementById("notificationBellButton").addEventListener("click", (event) => { event.stopPropagation(); toggleNotificationBellPanel(); });
+  shadow.getElementById("recordToggleButton").addEventListener("click", (event) => { event.stopPropagation(); handleRecordToggle(); });
+  shadow.getElementById("recordTypeMenu").addEventListener("click", (event) => event.stopPropagation());
+  shadow.getElementById("recordTypeVideoItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("video"); });
+  // "Vídeo em partes" stays implemented (segmentation + zip packaging both work and are tested —
+  // see startPartRotationTimer/downloadRecordingResult below) but disabled in the UI: shipping it
+  // under any framing close to "GIF" was judged misleading since it produces WEBM/MP4 segments,
+  // not real GIF pixels, so it's held back as "Em breve" until there's a real answer for that gap.
+  shadow.getElementById("recordTypePartsItem").addEventListener("click", (event) => event.preventDefault());
   shadow.addEventListener("click", () => {
     shadow.getElementById("toolsMenu").classList.remove("isOpen");
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
+    toggleRecordTypeMenu(false);
   });
   shadow.getElementById("toolsMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.getElementById("notificationBellPanel").addEventListener("click", (event) => event.stopPropagation());
@@ -632,6 +673,8 @@ function buildShadowHost() {
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
   shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
+  shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => { openBlurElementsTool(); closeToolsMenu(); });
+  shadow.getElementById("holofoteMenuItem").addEventListener("click", () => { openHolofoteTool(); closeToolsMenu(); });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
@@ -697,6 +740,9 @@ const TOUR_TARGETS = {
   testStatus: { selector: "#testStatusButton" },
   passFail: { selector: "#passButton" },
   notesShapes: { selector: "#noteButton" },
+  line: { selector: "#lineButton" },
+  blurElements: { selector: "#blurElementsMenuItem", menu: true },
+  holofote: { selector: "#holofoteMenuItem", menu: true },
   screenshot: { selector: "#screenshotButton" },
   recording: { selector: "#recordToggleButton" },
   clickSpy: { selector: "#clickSpyMenuItem", menu: true },
@@ -724,16 +770,19 @@ let tourResizeHandler = null;
 async function maybeStartLiveTour() {
   const url = new URL(window.location.href);
   if (url.searchParams.get("qtsTutorial") !== "1") return;
+  const requestedStep = url.searchParams.get("qtsTutorialStep");
   url.searchParams.delete("qtsTutorial");
+  url.searchParams.delete("qtsTutorialStep");
   window.history.replaceState({}, "", url.toString());
-  startTutorialTour();
+  startTutorialTour(requestedStep);
 }
 
-function startTutorialTour() {
+function startTutorialTour(startAtKey) {
   if (!state.shadowRoot) return;
   tourSteps = (window.QTS_TUTORIAL_DATA || []).filter((module) => TOUR_TARGETS[module.key]);
-  tourStepIndex = 0;
   if (!tourSteps.length) return;
+  const requestedIndex = startAtKey ? tourSteps.findIndex((module) => module.key === startAtKey) : -1;
+  tourStepIndex = requestedIndex >= 0 ? requestedIndex : 0;
   ensureTourHost();
   renderTourStep();
   tourResizeHandler = () => renderTourStep();
@@ -747,7 +796,8 @@ function ensureTourHost() {
   host.innerHTML = `
     <style>
       #tourOverlay { all: initial; }
-      .qts-tour-spotlight { position: fixed; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; z-index: 2147483646; }
+      .qts-tour-spotlight { position: fixed; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; z-index: 2147483646; animation: qts-tour-pulse 1.4s ease-in-out infinite; }
+      @keyframes qts-tour-pulse { 0%, 100% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; } 50% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 6px #ffd700; } }
       .qts-tour-balloon {
         position: fixed; z-index: 2147483647; width: min(320px, calc(100vw - 24px)); padding: 14px;
         border-radius: 12px; background: #0b0b0b; border: 1px solid #333; box-shadow: 0 16px 34px rgba(0,0,0,.5);
@@ -768,6 +818,7 @@ function ensureTourHost() {
       }
       .qts-tour-card .qts-tour-trophy { font-size: 30px; margin-bottom: 6px; }
       .qts-tour-card b { display: block; font-size: 15px; margin-bottom: 4px; }
+      .qts-tour-card-tip { margin: 0; color: #ccc; font-size: 12px; line-height: 1.5; }
       .qts-tour-card .qts-tour-card-actions { display: flex; gap: 8px; margin-top: 14px; }
       .qts-tour-card .qts-tour-card-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; height: 32px; line-height: 32px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12px; background: #232323; color: #ccc; }
       .qts-tour-card .qts-tour-card-actions button.qts-tour-primary { background: #ffd700; color: #111; }
@@ -780,13 +831,21 @@ function tourHost() {
   return state.shadowRoot?.getElementById("tourOverlay") || null;
 }
 
-function renderTourStep() {
+async function renderTourStep() {
   const host = tourHost();
   const module = tourSteps[tourStepIndex];
   if (!host || !module) return;
   host.querySelectorAll(".qts-tour-spotlight, .qts-tour-balloon, .qts-tour-card").forEach((node) => node.remove());
   const config = TOUR_TARGETS[module.key];
-  if (config.menu) { state.shadowRoot.getElementById("toolsMenu")?.classList.add("isOpen"); }
+  if (config.menu) {
+    state.shadowRoot.getElementById("toolsMenu")?.classList.add("isOpen");
+    // #toolsMenu opens via a 140ms opacity/transform transition (toolbar.js's own CSS) -- reading
+    // getBoundingClientRect() in the same tick as toggling .isOpen can still see the pre-transition
+    // (closed, translateY(-6px)) geometry, which threw the spotlight off the real button just
+    // enough to look like nothing was highlighted. Wait the transition out before measuring.
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 180));
+    if (tourSteps[tourStepIndex] !== module) return; // tour moved on while we were waiting
+  }
   const targetEl = state.shadowRoot.querySelector(config.selector);
   if (!targetEl) { advanceTourStep(); return; }
   const rect = targetEl.getBoundingClientRect();
@@ -837,9 +896,11 @@ function showTourStepDoneCard(module) {
   const isLast = tourStepIndex >= tourSteps.length - 1;
   const card = document.createElement("div");
   card.className = "qts-tour-card";
+  const tipLine = module.tip ? `${module.short} ${t.tourTip || "Dica"}: ${module.tip}` : module.short;
   card.innerHTML = `
     <div class="qts-tour-trophy">🏆</div>
     <b>${escapeHtml(module.title)} ${escapeHtml(t.tourDone || "concluído!")}</b>
+    <p class="qts-tour-card-tip">${escapeHtml(tipLine)}</p>
     <div class="qts-tour-card-actions">
       <button type="button" data-tour-repeat>${escapeHtml(t.tourRepeat || "Repetir")}</button>
       <button type="button" data-tour-close>${escapeHtml(t.close || "Fechar")}</button>
@@ -868,52 +929,22 @@ function endTour({ redirectToWorkspace }) {
   if (redirectToWorkspace) chrome.runtime.sendMessage({ type: "qts:open-options", tab: "workspace" });
 }
 
-// One-time callout the very first time the bar ever mounts on any authorized site — after
-// that, chrome.storage.local remembers it was seen and it never shows again. Lives inside the
-// shadow root (not document.body) since it only ever needs to point at our own bar, not overlay
-// arbitrary page content.
+// First-run callout used to be a popup card at the bottom of the screen — founder feedback: it
+// sat right where the tour balloon and evidence recordings needed that space, so it now queues as
+// a normal entry in the notification bell instead (dismiss = same hasSeenToolbarIntro flag as
+// before, just read/written from updateHttpErrorSurfaces/renderNotificationBellPanel below).
 async function maybeShowFirstRunIntro() {
   if (!state.shadowRoot) return;
   const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
-  if (stored[STORAGE_KEYS.uiState]?.hasSeenToolbarIntro) return;
-  if (state.shadowRoot.getElementById("firstRunIntro")) return;
-  const t = state.t;
-  const host = document.createElement("div");
-  host.id = "firstRunIntro";
-  host.innerHTML = `
-    <style>
-      #firstRunIntroCard {
-        position: fixed; bottom: 20px; left: 50%; z-index: 2147483647; transform: translateX(-50%);
-        width: min(320px, calc(100vw - 24px)); padding: 14px; border-radius: 12px;
-        background: #0b0b0b; border: 1px solid #333; box-shadow: 0 16px 34px rgba(0,0,0,.45);
-        color: #fff; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        animation: qts-intro-in 180ms ease;
-      }
-      /* Bottom-center, matching showQaToast's proven-safe spot — anywhere near the bar itself
-         risks sitting on top of the tools dropdown (it did, and blocked clicking menu items).
-         The "to" state must match the base transform exactly, or it snaps sideways once the
-         (non-forwards) animation ends and the base rule's transform takes back over. */
-      @keyframes qts-intro-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translateX(-50%); } }
-      #firstRunIntroCard .qts-intro-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-      #firstRunIntroCard b { color: #ffd700; font-size: 13px; }
-      #firstRunIntroCard p { margin: 0 0 10px; color: #ccc; }
-      #firstRunIntroCard button.qts-intro-close { flex: none; width: 22px; height: 22px; border: 0; border-radius: 999px; background: #b20808; color: #fff; cursor: pointer; }
-      #firstRunIntroCard button.qts-intro-cta { width: 100%; height: 32px; border: 0; border-radius: 8px; background: #ffd700; color: #111; font-weight: 800; cursor: pointer; }
-    </style>
-    <div id="firstRunIntroCard">
-      <div class="qts-intro-head"><b>${escapeHtml(t.firstRunTitle)}</b><button type="button" class="qts-intro-close" title="${escapeHtml(t.close)}">×</button></div>
-      <p>${escapeHtml(t.firstRunBody)}</p>
-      <button type="button" class="qts-intro-cta">${escapeHtml(t.firstRunCta)}</button>
-    </div>
-  `;
-  state.shadowRoot.appendChild(host);
-  const dismiss = async () => {
-    host.remove();
-    const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
-    await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...(current[STORAGE_KEYS.uiState] || {}), hasSeenToolbarIntro: true } });
-  };
-  host.querySelector(".qts-intro-close").addEventListener("click", dismiss);
-  host.querySelector(".qts-intro-cta").addEventListener("click", dismiss);
+  state.showFirstRunNotification = !stored[STORAGE_KEYS.uiState]?.hasSeenToolbarIntro;
+  updateHttpErrorSurfaces();
+}
+
+async function dismissFirstRunNotification() {
+  state.showFirstRunNotification = false;
+  const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...(current[STORAGE_KEYS.uiState] || {}), hasSeenToolbarIntro: true } });
+  updateHttpErrorSurfaces();
 }
 
 function removeToolbar({ disableBridge = false } = {}) {
@@ -1024,17 +1055,22 @@ function closeTestStatusModal() {
   document.getElementById("qts-test-status-modal")?.remove();
 }
 
-function openTestStatusModal() {
+// `forced` (used by the "lembrar de atribuir status" recording flow) hides the close button and
+// backdrop-dismiss so the modal can't be skipped, and `onDone` fires 3s after a status is picked
+// (matching showResultOverlay's own on-screen duration) — the recording is still running the whole
+// time, so the result overlay actually gets captured in the video before the caller stops it.
+function openTestStatusModal({ forced = false, onDone = null } = {}) {
   closeTestStatusModal();
-  const options = getTestStatusOptions();
+  const statusOptions = getTestStatusOptions();
   const modal = document.createElement("div");
   modal.id = "qts-test-status-modal";
   modal.className = "qts-modal-backdrop";
   modal.innerHTML = `
     <div class="qts-modal">
-      <header><h2>${escapeHtml(state.t.testStatus)}</h2><button type="button" data-close>×</button></header>
+      <header><h2>${escapeHtml(state.t.testStatus)}</h2>${forced ? "" : `<button type="button" data-close>×</button>`}</header>
+      ${forced ? `<p class="qts-modal-forced-hint">${escapeHtml(state.t.recordForceStatusHint)}</p>` : ""}
       <div class="qts-status-grid">
-        ${options.map((option) => `
+        ${statusOptions.map((option) => `
           <button type="button" class="qts-status-option" data-status="${option.key}" style="--qts-status-color:${option.color}">
             <span class="qts-status-icon">${option.icon}</span><span>${escapeHtml(option.label)}</span>
           </button>
@@ -1044,16 +1080,19 @@ function openTestStatusModal() {
   `;
   document.body.appendChild(modal);
   requestAnimationFrame(() => modal.classList.add("isOpen"));
-  modal.querySelector("[data-close]").addEventListener("click", closeTestStatusModal);
-  modal.addEventListener("click", (event) => { if (event.target === modal) closeTestStatusModal(); });
+  if (!forced) {
+    modal.querySelector("[data-close]").addEventListener("click", closeTestStatusModal);
+    modal.addEventListener("click", (event) => { if (event.target === modal) closeTestStatusModal(); });
+  }
   modal.querySelectorAll("[data-status]").forEach((button) => {
     button.addEventListener("click", () => {
       const key = button.dataset.status;
-      const option = options.find((item) => item.key === key);
+      const option = statusOptions.find((item) => item.key === key);
       closeTestStatusModal();
       showResultOverlay(option);
       playSound(key);
       void recordTestStatus(option);
+      if (onDone) window.setTimeout(onDone, 3_000);
     });
   });
 }
@@ -1090,6 +1129,7 @@ function cancelPlacementMode() {
   state.placementMode = null;
   document.removeEventListener("click", handlePlacementClick, true);
   document.removeEventListener("mousedown", handleShapeMouseDown, true);
+  document.removeEventListener("mousedown", handleLineMouseDown, true);
   document.removeEventListener("keydown", handlePlacementEscape, true);
 }
 
@@ -1104,6 +1144,7 @@ function enablePlacementMode(mode, triggerButton) {
   triggerButton.classList.add("isActive");
   document.addEventListener("keydown", handlePlacementEscape, true);
   if (mode === "shape") document.addEventListener("mousedown", handleShapeMouseDown, true);
+  else if (mode === "line") document.addEventListener("mousedown", handleLineMouseDown, true);
   else document.addEventListener("click", handlePlacementClick, true);
 }
 
@@ -1313,6 +1354,12 @@ function placeShape(left, top, width, height) {
   updateClearAllVisibility();
 }
 
+// Founder request: shapes needed a real square/circle option (not just "rectangle with rounded
+// corners") and a way to blur a sensitive area instead of just outlining/filling it with a color
+// (e.g. hiding a real customer name in a screenshot). Both live in the same style popover as the
+// existing color controls -- "Formato" picks the box's proportions/radius, "Efeito" swaps the
+// color inputs for a blur-strength slider (backdrop-filter, so it blurs whatever's underneath,
+// not just tints it).
 function toggleShapeStyleEditor(shape) {
   const existing = shape.querySelector(".qts-shape-editor");
   if (existing) { existing.remove(); return; }
@@ -1321,23 +1368,55 @@ function toggleShapeStyleEditor(shape) {
   const editor = document.createElement("div");
   editor.className = "qts-shape-editor";
   editor.innerHTML = `
-    <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-shape-border value="#ef3340" /></label>
-    <label>${escapeHtml(t.shapeEditorFillColor)}<input type="color" data-shape-fill value="#ef3340" /></label>
-    <label>${escapeHtml(t.shapeEditorOpacity)}<input type="range" min="20" max="100" value="100" data-shape-opacity /></label>
-    <label>${escapeHtml(t.shapeEditorRadius)}<input type="range" min="0" max="48" value="8" data-shape-radius /></label>
+    <label>${escapeHtml(t.shapeEditorType)}<select data-shape-type>
+      <option value="rectangle">${escapeHtml(t.shapeTypeRectangle)}</option>
+      <option value="square">${escapeHtml(t.shapeTypeSquare)}</option>
+      <option value="circle">${escapeHtml(t.shapeTypeCircle)}</option>
+    </select></label>
+    <label>${escapeHtml(t.shapeEditorEffect)}<select data-shape-effect>
+      <option value="color">${escapeHtml(t.shapeEffectColor)}</option>
+      <option value="blur">${escapeHtml(t.shapeEffectBlur)}</option>
+    </select></label>
+    <div data-shape-color-controls>
+      <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-shape-border value="#ef3340" /></label>
+      <label>${escapeHtml(t.shapeEditorFillColor)}<input type="color" data-shape-fill value="#ef3340" /></label>
+      <label>${escapeHtml(t.shapeEditorOpacity)}<input type="range" min="20" max="100" value="100" data-shape-opacity /></label>
+    </div>
+    <label data-shape-blur-control hidden>${escapeHtml(t.shapeEditorBlurStrength)}<input type="range" min="2" max="24" value="10" data-shape-blur /></label>
+    <label data-shape-radius-control>${escapeHtml(t.shapeEditorRadius)}<input type="range" min="0" max="48" value="8" data-shape-radius /></label>
   `;
   shape.appendChild(editor);
   const apply = () => {
-    const borderColor = editor.querySelector("[data-shape-border]").value;
-    const fillColor = editor.querySelector("[data-shape-fill]").value;
-    const opacity = Number(editor.querySelector("[data-shape-opacity]").value) / 100;
-    const radius = Number(editor.querySelector("[data-shape-radius]").value);
-    box.style.setProperty("--qts-shape-border", `3px solid ${borderColor}`);
-    box.style.setProperty("--qts-shape-bg", hexToRgba(fillColor, 0.15));
-    box.style.setProperty("--qts-shape-opacity", String(opacity));
-    box.style.setProperty("--qts-shape-radius", `${radius}px`);
+    const type = editor.querySelector("[data-shape-type]").value;
+    const effect = editor.querySelector("[data-shape-effect]").value;
+    const isSquarish = type === "square" || type === "circle";
+    if (isSquarish) {
+      const size = Math.max(30, Math.min(shape.offsetWidth, shape.offsetHeight));
+      shape.style.width = `${size}px`;
+      shape.style.height = `${size}px`;
+    }
+    box.style.setProperty("--qts-shape-radius", type === "circle" ? "50%" : isSquarish ? "0px" : `${editor.querySelector("[data-shape-radius]").value}px`);
+    editor.querySelector("[data-shape-radius-control]").hidden = isSquarish;
+    editor.querySelector("[data-shape-color-controls]").hidden = effect === "blur";
+    editor.querySelector("[data-shape-blur-control]").hidden = effect !== "blur";
+    if (effect === "blur") {
+      const strength = editor.querySelector("[data-shape-blur]").value;
+      box.style.setProperty("--qts-shape-blur", `blur(${strength}px)`);
+      box.style.setProperty("--qts-shape-bg", "rgba(0,0,0,.05)");
+      box.style.setProperty("--qts-shape-border", "2px dashed rgba(255,255,255,.6)");
+      box.style.setProperty("--qts-shape-opacity", "1");
+    } else {
+      const borderColor = editor.querySelector("[data-shape-border]").value;
+      const fillColor = editor.querySelector("[data-shape-fill]").value;
+      const opacity = Number(editor.querySelector("[data-shape-opacity]").value) / 100;
+      box.style.setProperty("--qts-shape-blur", "none");
+      box.style.setProperty("--qts-shape-border", `3px solid ${borderColor}`);
+      box.style.setProperty("--qts-shape-bg", hexToRgba(fillColor, 0.15));
+      box.style.setProperty("--qts-shape-opacity", String(opacity));
+    }
   };
-  editor.querySelectorAll("input").forEach((input) => input.addEventListener("input", apply));
+  editor.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", apply));
+  apply();
 }
 
 function hexToRgba(hex, alpha) {
@@ -1346,6 +1425,92 @@ function hexToRgba(hex, alpha) {
   const g = parseInt(normalized.slice(2, 4), 16) || 0;
   const b = parseInt(normalized.slice(4, 6), 16) || 0;
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// A line is created from two literal points (not a drag-to-size box like Shapes), so it gets its
+// own placement mode. The outer floating-item stays axis-aligned (so its edit/remove/visibility
+// controls stay readable) sized to the straight-line distance; only the inner bar rotates around
+// its own left edge to point at the second click point, with an optional arrowhead at that end.
+function handleLineMouseDown(event) {
+  if (event.button !== 0 || isInsideToolbarUi(event.target)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const preview = document.createElement("div");
+  preview.className = "qts-line-preview";
+  preview.style.left = `${startX}px`;
+  preview.style.top = `${startY}px`;
+  document.body.appendChild(preview);
+  const updatePreview = (endX, endY) => {
+    const length = Math.hypot(endX - startX, endY - startY);
+    const angle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
+    preview.style.width = `${length}px`;
+    preview.style.transform = `rotate(${angle}deg)`;
+  };
+  const handleMove = (moveEvent) => updatePreview(moveEvent.clientX, moveEvent.clientY);
+  const handleUp = (upEvent) => {
+    document.removeEventListener("mousemove", handleMove, true);
+    document.removeEventListener("mouseup", handleUp, true);
+    preview.remove();
+    placeLine(startX, startY, upEvent.clientX, upEvent.clientY);
+    cancelPlacementMode();
+  };
+  document.addEventListener("mousemove", handleMove, true);
+  document.addEventListener("mouseup", handleUp, true);
+}
+
+function placeLine(startX, startY, endX, endY) {
+  const length = Math.max(24, Math.hypot(endX - startX, endY - startY));
+  const angle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
+  const hitHeight = 24;
+  const line = document.createElement("div");
+  line.className = "qts-floating-item qts-line";
+  line.style.left = `${startX}px`;
+  line.style.top = `${startY - hitHeight / 2}px`;
+  line.style.width = `${length}px`;
+  line.style.height = `${hitHeight}px`;
+  line.style.setProperty("--qts-line-angle", `${angle}deg`);
+  line.innerHTML = `
+    <div class="qts-line-bar" data-drag-handle></div>
+    ${visibilityControlsHtml()}
+    <button type="button" class="qts-edit-btn" title="${escapeHtml(state.t.edit)}">${ICON("edit")}</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
+  `;
+  document.body.appendChild(line);
+  wireVisibilityControls(line);
+  makeDraggable(line, line.querySelector("[data-drag-handle]"));
+  line.querySelector(".qts-remove-btn").addEventListener("click", () => { line.remove(); updateClearAllVisibility(); });
+  line.querySelector(".qts-edit-btn").addEventListener("click", () => toggleLineStyleEditor(line));
+  updateClearAllVisibility();
+}
+
+function toggleLineStyleEditor(line) {
+  const existing = line.querySelector(".qts-shape-editor");
+  if (existing) { existing.remove(); return; }
+  const t = state.t;
+  const bar = line.querySelector(".qts-line-bar");
+  const editor = document.createElement("div");
+  editor.className = "qts-shape-editor";
+  editor.innerHTML = `
+    <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-line-color value="#ef3340" /></label>
+    <label>${escapeHtml(t.lineThickness || "Espessura")}<input type="range" min="1" max="10" value="3" data-line-thickness /></label>
+    <label>${escapeHtml(t.lineArrow || "Ponta")}<select data-line-arrow>
+      <option value="none">${escapeHtml(t.lineArrowNone || "Nenhuma")}</option>
+      <option value="end">${escapeHtml(t.lineArrowEnd || "Seta")}</option>
+    </select></label>
+  `;
+  line.appendChild(editor);
+  const apply = () => {
+    const color = editor.querySelector("[data-line-color]").value;
+    const thickness = editor.querySelector("[data-line-thickness]").value;
+    const arrow = editor.querySelector("[data-line-arrow]").value;
+    bar.style.setProperty("--qts-line-color", color);
+    bar.style.setProperty("--qts-line-thickness", `${thickness}px`);
+    line.classList.toggle("hasArrow", arrow === "end");
+  };
+  editor.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", apply));
+  apply();
 }
 
 function makeDraggable(element, handle) {
@@ -1621,6 +1786,18 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Tamanho das teclas": "Tamaño de las teclas", "Tamanho do mouse": "Tamaño del ratón", "Pequeno": "Pequeño", "Médio": "Mediano", "Grande": "Grande",
   "Posição na tela": "Posición en pantalla", "Privacidade local": "Privacidad local", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "El texto no se guarda ni se envía. Nunca se capturan campos de contraseña, tarjeta, CVV, token o secreto.",
   "Salvar configurações": "Guardar configuración", "Limpar texto": "Limpiar texto", "Configurações salvas.": "Configuración guardada.", "Texto limpo.": "Texto borrado.",
+  "Borrar elementos": "Difuminar elementos",
+  "Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.": "Haz clic en elementos de la página para difuminar información sensible antes de una captura o grabación. Vuelve a hacer clic en el mismo elemento para deshacerlo.",
+  "Selecionar elemento": "Seleccionar elemento", "Limpar todos os borrados": "Quitar todo el difuminado",
+  "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.": "Haz clic en un elemento para difuminarlo (o quitar el difuminado si ya lo tiene). Esc para detener.",
+  "Nenhum elemento borrado ainda.": "Ningún elemento difuminado todavía.",
+  "Modo Holofote": "Modo Foco",
+  "Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.": "Actívalo y mantén presionado el clic en cualquier punto de la página durante 3 segundos para encender un foco alrededor del mouse, útil para guiar la atención en demostraciones y grabaciones. Soltar el clic apaga el foco suavemente.",
+  "Ativar": "Activar", "Desativar": "Desactivar",
+  "Efeito": "Efecto", "Escurecer": "Oscurecer", "Borrar": "Difuminar",
+  "Opacidade (efeito Escurecer)": "Opacidad (efecto Oscurecer)",
+  "Intensidade do borrão (efeito Borrar)": "Intensidad del desenfoque (efecto Difuminar)",
+  "Tamanho do holofote": "Tamaño del foco",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -1631,6 +1808,18 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Tamanho das teclas": "Key size", "Tamanho do mouse": "Mouse size", "Pequeno": "Small", "Médio": "Medium", "Grande": "Large",
   "Posição na tela": "Screen position", "Privacidade local": "Local privacy", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "Text is neither saved nor sent. Password, card, CVV, token, and secret fields are never captured.",
   "Salvar configurações": "Save settings", "Limpar texto": "Clear text", "Configurações salvas.": "Settings saved.", "Texto limpo.": "Text cleared.",
+  "Borrar elementos": "Blur elements",
+  "Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.": "Click elements on the page to blur sensitive information before a screenshot or recording. Click the same element again to undo it.",
+  "Selecionar elemento": "Select element", "Limpar todos os borrados": "Clear all blurred elements",
+  "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.": "Click an element to blur it (or unblur it, if already blurred). Esc to stop.",
+  "Nenhum elemento borrado ainda.": "No elements blurred yet.",
+  "Modo Holofote": "Spotlight Mode",
+  "Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.": "Turn it on and hold the click anywhere on the page for 3 seconds to light up a spotlight around the mouse, useful for directing attention during demos and recordings. Releasing the click fades the spotlight out smoothly.",
+  "Ativar": "Enable", "Desativar": "Disable",
+  "Efeito": "Effect", "Escurecer": "Darken", "Borrar": "Blur",
+  "Opacidade (efeito Escurecer)": "Opacity (Darken effect)",
+  "Intensidade do borrão (efeito Borrar)": "Blur strength (Blur effect)",
+  "Tamanho do holofote": "Spotlight size",
 });
 
 function translateQaSurfaceText(value) {
@@ -1644,8 +1833,8 @@ function translateQaSurfaceText(value) {
     const suffix = Object.keys(translations).sort((left, right) => right.length - left.length).find((source) => core.endsWith(` ${source}`));
     if (suffix) translated = `${core.slice(0, -suffix.length)}${translations[suffix]}`;
   }
-  if (state.t.locale === "en") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 step(s)").replace(/(\d+) clique\(s\)/g, "$1 click(s)").replace(/campo\(s\)/g, "field(s)").replace(/sensível\(is\) protegido\(s\)/g, "sensitive field(s) protected");
-  if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)");
+  if (state.t.locale === "en") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 step(s)").replace(/(\d+) clique\(s\)/g, "$1 click(s)").replace(/campo\(s\)/g, "field(s)").replace(/sensível\(is\) protegido\(s\)/g, "sensitive field(s) protected").replace(/^(\d+) elemento\(s\) borrado\(s\)\.$/, "$1 element(s) blurred.");
+  if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)").replace(/^(\d+) elemento\(s\) borrado\(s\)\.$/, "$1 elemento(s) difuminado(s).");
   if (state.t.locale === "en") translated = translated.replace(/^Executando /, "Running ").replace(/^Macro concluída:/, "Macro completed:").replace(/^Macro interrompida:/, "Macro stopped:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "The macro could not be started safely.");
   if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
   if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns — check the routes/endpoints you registered.");
@@ -2328,9 +2517,9 @@ function persistHttpErrors() {
 function updateHttpErrorSurfaces() {
   const root = state.shadowRoot;
   if (!root) return;
-  const count = state.httpErrors.length;
+  const count = state.httpErrors.length + (state.showFirstRunNotification ? 1 : 0);
   const menuBadge = root.getElementById("errorMonitorBadge");
-  if (menuBadge) { menuBadge.textContent = String(count); menuBadge.style.display = count ? "inline-flex" : "none"; }
+  if (menuBadge) { menuBadge.textContent = String(state.httpErrors.length); menuBadge.style.display = state.httpErrors.length ? "inline-flex" : "none"; }
   const bellBadge = root.getElementById("notificationBellBadge");
   if (bellBadge) { bellBadge.textContent = count > 99 ? "99+" : String(count); bellBadge.classList.toggle("isVisible", count > 0); }
   if (!root.getElementById("notificationBellPanel")?.classList.contains("isHidden")) renderNotificationBellPanel();
@@ -2353,18 +2542,27 @@ function handleHttpErrorCaptured(entry) {
 function renderNotificationBellPanel() {
   const panel = state.shadowRoot?.getElementById("notificationBellPanel");
   if (!panel) return;
+  const t = state.t;
   const entries = state.httpErrors.slice(0, 20);
+  const introRow = state.showFirstRunNotification ? `
+    <button type="button" class="qts-bell-row" data-dismiss-intro>
+      <b style="color:#ffd700">${escapeHtml(t.firstRunTitle)}</b>
+      <span>${escapeHtml(t.firstRunBody)}</span>
+    </button>
+  ` : "";
   panel.innerHTML = `
     <div class="qts-bell-head"><b>Notificações</b><button type="button" id="notificationBellClear" ${state.httpErrors.length ? "" : "disabled"}>Limpar</button></div>
+    ${introRow}
     ${entries.length ? entries.map((entry) => `
       <button type="button" class="qts-bell-row" data-open-notification>
         <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)}
         <span>${escapeHtml(entry.url)}</span>
         <small>${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
       </button>
-    `).join("") : `<div class="qts-mini-empty">Nenhuma notificação.</div>`}
+    `).join("") : (introRow ? "" : `<div class="qts-mini-empty">Nenhuma notificação.</div>`)}
   `;
   panel.querySelector("#notificationBellClear")?.addEventListener("click", () => clearHttpErrors());
+  panel.querySelector("[data-dismiss-intro]")?.addEventListener("click", () => dismissFirstRunNotification());
   panel.querySelectorAll("[data-open-notification]").forEach((row) => row.addEventListener("click", () => {
     toggleNotificationBellPanel(false);
     openErrorMonitorDrawer();
@@ -3588,6 +3786,165 @@ function elementCaptureLabel(row) {
   return row.text || row.placeholder || row.name || row.testId || row.id || "";
 }
 
+// Complements the Shapes "Borrão" effect (a drawn box over an area) with a per-element blur --
+// click a real element (a name, an ID, anything sensitive) to blur it in place, click it again to
+// undo. Reuses selectPageElement's existing hover/click/Esc selection UI instead of building a
+// second one, and re-arms itself after each pick so the user can blur several elements in one go.
+function toggleElementBlur(element) {
+  if (!state.blurredElements) state.blurredElements = new Set();
+  if (state.blurredElements.has(element)) { element.classList.remove("qts-blurred-element"); state.blurredElements.delete(element); }
+  else { element.classList.add("qts-blurred-element"); state.blurredElements.add(element); }
+}
+
+function clearAllBlurredElements() {
+  if (!state.blurredElements) return;
+  for (const element of state.blurredElements) element.classList.remove("qts-blurred-element");
+  state.blurredElements.clear();
+}
+
+function openBlurElementsTool() {
+  openDrawer({
+    title: "Borrar elementos",
+    bodyHtml: `<p class="qts-tool-lead">Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.</p>
+      <div class="qts-card-actions"><button class="action primary" id="blurSelectElement" type="button">Selecionar elemento</button><button class="action" id="blurClearAll" type="button">Limpar todos os borrados</button></div>
+      <div class="qts-status" id="blurStatus"></div>`,
+    onReady(body) {
+      const status = body.querySelector("#blurStatus");
+      const updateStatus = () => {
+        const count = state.blurredElements?.size || 0;
+        status.textContent = count ? translateQaSurfaceText(`${count} elemento(s) borrado(s).`) : translateQaSurfaceText("Nenhum elemento borrado ainda.");
+      };
+      const armSelection = () => selectPageElement({
+        instruction: "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.",
+        onSelected: (element) => { toggleElementBlur(element); updateStatus(); armSelection(); },
+      });
+      body.querySelector("#blurSelectElement").addEventListener("click", armSelection);
+      body.querySelector("#blurClearAll").addEventListener("click", () => { clearAllBlurredElements(); updateStatus(); });
+      updateStatus();
+    },
+  });
+}
+
+// Holding the mouse for 3s anywhere on the page shows a spotlight around the cursor (darken or
+// blur outside a circle that follows the mouse), fading in on the way up and taking a slow 3s
+// fade back out on release -- never preventDefault's the actual mousedown/mouseup/click, so the
+// page underneath keeps working normally the whole time (this is a passive visual layer, not a
+// selection mode like Borrar/Element Capture).
+const HOLOFOTE_HOLD_MS = 3_000;
+const HOLOFOTE_FADE_MS = 3_000;
+let holofoteSettings = { effect: "darken", size: 140, opacity: 70, blur: 10 };
+let holofoteHoldTimer = null;
+let holofoteFadeTimer = null;
+
+function ensureHolofoteOverlay() {
+  let overlay = document.getElementById("qts-holofote-overlay");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "qts-holofote-overlay";
+  overlay.className = "qts-floating-item";
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function applyHolofoteSettings(overlay) {
+  overlay.style.setProperty("--qts-holofote-size", `${holofoteSettings.size}px`);
+  if (holofoteSettings.effect === "blur") {
+    overlay.style.setProperty("--qts-holofote-bg", "rgba(0,0,0,.05)");
+    overlay.style.setProperty("--qts-holofote-blur", `blur(${holofoteSettings.blur}px)`);
+  } else {
+    overlay.style.setProperty("--qts-holofote-bg", `rgba(0,0,0,${holofoteSettings.opacity / 100})`);
+    overlay.style.setProperty("--qts-holofote-blur", "none");
+  }
+}
+
+function moveHolofote(x, y) {
+  const overlay = ensureHolofoteOverlay();
+  overlay.style.setProperty("--qts-holofote-x", `${x}px`);
+  overlay.style.setProperty("--qts-holofote-y", `${y}px`);
+}
+
+function enableHolofoteMode() {
+  if (state.holofoteActive) return;
+  state.holofoteActive = true;
+  state.shadowRoot?.getElementById("holofoteMenuItem")?.classList.add("isActive");
+  let heldSince = 0;
+  const downHandler = (event) => {
+    if (isInsideToolbarUi(event.target)) return;
+    heldSince = Date.now();
+    clearTimeout(holofoteFadeTimer);
+    moveHolofote(event.clientX, event.clientY);
+    holofoteHoldTimer = setTimeout(() => {
+      const overlay = ensureHolofoteOverlay();
+      applyHolofoteSettings(overlay);
+      overlay.style.transitionDuration = "220ms";
+      overlay.classList.add("isVisible");
+    }, HOLOFOTE_HOLD_MS);
+  };
+  const moveHandler = (event) => { if (heldSince) moveHolofote(event.clientX, event.clientY); };
+  const upHandler = () => {
+    clearTimeout(holofoteHoldTimer);
+    heldSince = 0;
+    const overlay = document.getElementById("qts-holofote-overlay");
+    if (overlay?.classList.contains("isVisible")) {
+      overlay.style.transitionDuration = `${HOLOFOTE_FADE_MS}ms`;
+      overlay.classList.remove("isVisible");
+    }
+  };
+  document.addEventListener("mousedown", downHandler, true);
+  document.addEventListener("mousemove", moveHandler, true);
+  document.addEventListener("mouseup", upHandler, true);
+  state.holofoteCleanup = () => {
+    document.removeEventListener("mousedown", downHandler, true);
+    document.removeEventListener("mousemove", moveHandler, true);
+    document.removeEventListener("mouseup", upHandler, true);
+    clearTimeout(holofoteHoldTimer);
+    document.getElementById("qts-holofote-overlay")?.classList.remove("isVisible");
+  };
+}
+
+function disableHolofoteMode() {
+  state.holofoteActive = false;
+  state.shadowRoot?.getElementById("holofoteMenuItem")?.classList.remove("isActive");
+  state.holofoteCleanup?.();
+  state.holofoteCleanup = null;
+}
+
+function openHolofoteTool() {
+  openDrawer({
+    title: "Modo Holofote",
+    bodyHtml: `<p class="qts-tool-lead">Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.</p>
+      <div class="qts-card-actions"><button class="action ${state.holofoteActive ? "" : "primary"}" id="holofoteToggle" type="button">${state.holofoteActive ? "Desativar" : "Ativar"}</button></div>
+      <label>Efeito<select id="holofoteEffect">
+        <option value="darken">Escurecer</option>
+        <option value="blur">Borrar</option>
+      </select></label>
+      <label>Opacidade (efeito Escurecer)<input type="range" min="20" max="95" id="holofoteOpacity" /></label>
+      <label>Intensidade do borrão (efeito Borrar)<input type="range" min="2" max="24" id="holofoteBlur" /></label>
+      <label>Tamanho do holofote<input type="range" min="60" max="320" id="holofoteSize" /></label>`,
+    onReady(body) {
+      const toggle = body.querySelector("#holofoteToggle");
+      const effectInput = body.querySelector("#holofoteEffect");
+      const opacityInput = body.querySelector("#holofoteOpacity");
+      const blurInput = body.querySelector("#holofoteBlur");
+      const sizeInput = body.querySelector("#holofoteSize");
+      effectInput.value = holofoteSettings.effect;
+      opacityInput.value = holofoteSettings.opacity;
+      blurInput.value = holofoteSettings.blur;
+      sizeInput.value = holofoteSettings.size;
+      const applyFromInputs = () => {
+        holofoteSettings = { effect: effectInput.value, opacity: Number(opacityInput.value), blur: Number(blurInput.value), size: Number(sizeInput.value) };
+      };
+      [effectInput, opacityInput, blurInput, sizeInput].forEach((input) => input.addEventListener("input", applyFromInputs));
+      toggle.addEventListener("click", () => {
+        if (state.holofoteActive) disableHolofoteMode();
+        else enableHolofoteMode();
+        toggle.textContent = translateQaSurfaceText(state.holofoteActive ? "Desativar" : "Ativar");
+        toggle.classList.toggle("primary", !state.holofoteActive);
+      });
+    },
+  });
+}
+
 function openElementCapture() {
   if (!requirePlanFeature("elementCapture")) return;
   let rows = captureVisibleElements();
@@ -4319,15 +4676,20 @@ document.addEventListener("qts:force-http-state", (event) => {
 // produce usable evidence today.
 // ---------------------------------------------------------------------------
 
+const RECORD_PART_DURATION_MS = 30_000;
+
 const recordingState = {
   status: "idle", // idle | recording | paused
+  mode: "video", // video | parts (parts = 30s chunks, zipped together if more than one)
   stream: null,
   recorder: null,
   chunks: [],
+  parts: [], // finished segment Blobs, only used when mode === "parts"
   mimeType: "",
   elapsedMs: 0,
   segmentStartedAt: 0,
   timerId: null,
+  partTimerId: null,
 };
 
 function pickRecordingMimeType() {
@@ -4361,13 +4723,58 @@ function setRecordingUi() {
   timer?.classList.toggle("isHidden", recordingState.status === "idle");
 }
 
-async function handleRecordToggle() {
-  if (recordingState.status === "idle") { await startEvidenceRecording(); return; }
+function toggleRecordTypeMenu(forceOpen) {
+  const menu = state.shadowRoot?.getElementById("recordTypeMenu");
+  if (!menu) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : menu.classList.contains("isHidden");
+  menu.classList.toggle("isHidden", !shouldOpen);
+}
+
+function handleRecordToggle() {
+  if (recordingState.status === "idle") { toggleRecordTypeMenu(); return; }
   if (recordingState.status === "recording") { pauseEvidenceRecording(); return; }
   resumeEvidenceRecording();
 }
 
-async function startEvidenceRecording() {
+function startPartRotationTimer() {
+  if (recordingState.mode !== "parts") return;
+  recordingState.partTimerId = window.setTimeout(handlePartRotationTick, RECORD_PART_DURATION_MS);
+}
+
+function stopPartRotationTimer() {
+  if (recordingState.partTimerId) {
+    window.clearTimeout(recordingState.partTimerId);
+    recordingState.partTimerId = null;
+  }
+}
+
+async function handlePartRotationTick() {
+  if (recordingState.status !== "recording" || recordingState.mode !== "parts") return;
+  await rotateRecordingSegment();
+  if (recordingState.status === "recording") startPartRotationTimer();
+}
+
+// Finishes the current MediaRecorder segment as its own standalone playable file (a fresh
+// MediaRecorder on the same live stream, not a mid-stream split — WebM/MP4 containers need their
+// own header, so this is the only reliable way to get N independently-playable chunks) and starts
+// the next one immediately so no video time is lost between segments.
+async function rotateRecordingSegment() {
+  const recorder = recordingState.recorder;
+  if (!recorder || !recordingState.stream) return;
+  const stopped = new Promise((resolveStop) => recorder.addEventListener("stop", resolveStop, { once: true }));
+  recorder.stop();
+  await stopped;
+  recordingState.parts.push(new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" }));
+  recordingState.chunks = [];
+  if (recordingState.status !== "recording") return;
+  recordingState.recorder = new MediaRecorder(recordingState.stream, recordingState.mimeType ? { mimeType: recordingState.mimeType } : undefined);
+  recordingState.recorder.addEventListener("dataavailable", (event) => {
+    if (event.data?.size) recordingState.chunks.push(event.data);
+  });
+  recordingState.recorder.start(1000);
+}
+
+async function startEvidenceRecording(mode = "video") {
   if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
     openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
     return;
@@ -4379,8 +4786,10 @@ async function startEvidenceRecording() {
     return; // User cancelled the native picker — not an error.
   }
   const mimeType = pickRecordingMimeType();
+  recordingState.mode = mode;
   recordingState.stream = stream;
   recordingState.chunks = [];
+  recordingState.parts = [];
   recordingState.mimeType = mimeType;
   recordingState.elapsedMs = 0;
   recordingState.recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
@@ -4395,6 +4804,7 @@ async function startEvidenceRecording() {
   recordingState.status = "recording";
   recordingState.segmentStartedAt = Date.now();
   recordingState.timerId = window.setInterval(updateRecordTimerDisplay, 500);
+  startPartRotationTimer();
   setRecordingUi();
 }
 
@@ -4403,6 +4813,7 @@ function pauseEvidenceRecording() {
   recordingState.recorder.pause();
   recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
   recordingState.status = "paused";
+  stopPartRotationTimer();
   setRecordingUi();
 }
 
@@ -4411,11 +4822,55 @@ function resumeEvidenceRecording() {
   recordingState.recorder.resume();
   recordingState.segmentStartedAt = Date.now();
   recordingState.status = "recording";
+  startPartRotationTimer();
   setRecordingUi();
+}
+
+function recordingFileBaseName() {
+  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
+  return `${state.t.recordFilenamePrefix || "evidencia_tela"}_${stamp}`;
+}
+
+function triggerBlobDownload(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+}
+
+// Single segment downloads directly; 2+ segments (mode "parts", recording longer than 30s) get
+// packaged into one .zip via window.QTS_ZIP so the user gets one file to attach as evidence
+// instead of a scattered pile of part1/part2/... downloads.
+async function downloadRecordingResult(parts, extension) {
+  const baseName = recordingFileBaseName();
+  if (parts.length <= 1) {
+    triggerBlobDownload(parts[0], `${baseName}.${extension}`);
+    return;
+  }
+  const partWord = state.t.recordFilenamePart || "part";
+  const files = await Promise.all(parts.map(async (blob, index) => ({
+    name: `${baseName}_${partWord}${index + 1}.${extension}`,
+    data: new Uint8Array(await blob.arrayBuffer()),
+  })));
+  triggerBlobDownload(window.QTS_ZIP.createZip(files), `${baseName}.zip`);
+}
+
+// Entry point for the visible Stop button (as opposed to the native "stop sharing" bar, which
+// ends the capture source itself and calls stopEvidenceRecording directly below — forcing the
+// status modal there would be pointless since there'd be nothing left to actually capture).
+function handleStopRecordingClick() {
+  if (state.workspace?.preferences?.remindTestStatusOnRecording && recordingState.status !== "idle") {
+    openTestStatusModal({ forced: true, onDone: () => stopEvidenceRecording() });
+    return;
+  }
+  stopEvidenceRecording();
 }
 
 async function stopEvidenceRecording() {
   if (recordingState.status === "idle" || !recordingState.recorder) return;
+  stopPartRotationTimer();
   const recorder = recordingState.recorder;
   if (recordingState.status === "recording") recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
   window.clearInterval(recordingState.timerId);
@@ -4426,19 +4881,17 @@ async function stopEvidenceRecording() {
   await stopped;
   recordingState.stream?.getTracks().forEach((track) => track.stop());
 
-  const blob = new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" });
+  const finalBlob = new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" });
   const extension = (recordingState.mimeType || "").includes("mp4") ? "mp4" : "webm";
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = `qa-evidencia-${new Date().toISOString().replace(/[:.]/g, "-")}.${extension}`;
-  anchor.click();
-  window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
+  const parts = recordingState.mode === "parts" ? [...recordingState.parts, finalBlob] : [finalBlob];
+  await downloadRecordingResult(parts, extension);
 
   recordingState.status = "idle";
+  recordingState.mode = "video";
   recordingState.recorder = null;
   recordingState.stream = null;
   recordingState.chunks = [];
+  recordingState.parts = [];
   recordingState.elapsedMs = 0;
   setRecordingUi();
   updateRecordTimerDisplay();
