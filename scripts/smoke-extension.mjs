@@ -600,7 +600,15 @@ try {
     context.waitForEvent("page"),
     options.locator("#tutorialStartTour").click(),
   ]);
-  if (!demoTab.url().includes("demoqa.com")) throw new Error(`"Iniciar tutorial" opened an unexpected URL: ${demoTab.url()}`);
+  const demoTabUrl = demoTab.url();
+  let demoTabHost;
+  try {
+    demoTabHost = new URL(demoTabUrl).hostname;
+  } catch {
+    throw new Error(`"Iniciar tutorial" opened an unexpected URL: ${demoTabUrl}`);
+  }
+  const allowedDemoHosts = new Set(["demoqa.com", "www.demoqa.com"]);
+  if (!allowedDemoHosts.has(demoTabHost)) throw new Error(`"Iniciar tutorial" opened an unexpected URL: ${demoTabUrl}`);
   await demoTab.close();
   const clientCountAfterTourButton = await options.evaluate(async () => (await chrome.storage.local.get("qtsWorkspaceV1")).qtsWorkspaceV1?.clients?.length || 0);
   if (clientCountAfterTourButton !== clientCountBeforeTourButton) throw new Error(`"Iniciar tutorial" modified the existing workspace: ${clientCountBeforeTourButton} -> ${clientCountAfterTourButton}`);
