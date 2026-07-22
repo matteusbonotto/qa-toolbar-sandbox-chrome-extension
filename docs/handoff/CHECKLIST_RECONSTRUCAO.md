@@ -212,15 +212,14 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       Verificado ao vivo: extensão carrega, ID e caminho do service worker aparecem no terminal, e o
       processo Chromium isolado (perfil próprio do Playwright, distinto do Chrome do usuário) encerra
       ao fechar a janela.
-- [x] Arquivo de importação (`apps/extension/fixtures/cinemark-import-example.json`) com o
-      cenário real: Cliente Cinemark (sigla "C") / Projeto WebApp (sigla "WEB") / Produto AR,
+- [x] Arquivo de importação (`apps/extension/fixtures/cineluna-import-example.json`) com o
+      cenário fictício: Cliente Cineluna (sigla "C") / Projeto WebApp (sigla "WEB") / Produto AR,
       4 ambientes com as cores pedidas (Dev cinza, QA amarelo, Beta verde, Produção vermelho),
       1 conta de teste genérica (sandbox, sem dados reais).
-- [x] `npm run verify:cinemark` — testa a importação de ponta a ponta no Chrome real (clica em
+- [x] `npm run verify:cineluna` — testa a importação de ponta a ponta no Chrome real (clica em
       "Importar JSON" pela UI de verdade, confirma contagens/badges/nomes). Rodado 3x seguidas,
-      estável, 0 erros de console. Evidência em `artifacts/runtime-evidence/cinemark-import-workspace.png`.
-      **Não naveguei para os domínios reais do Cinemark** (não seria apropriado bater num site
-      de produção de terceiros num teste automatizado) — a cobertura de "breadcrumb reage à
+      estável, 0 erros de console. Evidência em `artifacts/runtime-evidence/cineluna-import-workspace.png`.
+      Domínios do fixture são fictícios (`*.cineluna.example`) — a cobertura de "breadcrumb reage à
       URL certa" já existe de forma genérica em `smoke-extension.mjs`.
 - [x] Pacote `v1.0.1` inspecionado: 22 arquivos, sem `manifest.key`, arquivos proibidos ou padrões
       de segredo. Empacotador local e workflow manual usam a mesma whitelist/verificação por
