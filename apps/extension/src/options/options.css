@@ -350,4 +350,13 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .imageLightbox { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; background:rgba(4,5,8,.88); padding:32px; cursor:zoom-out; }
 .imageLightbox img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
 .imageLightboxClose { position:absolute; top:18px; right:22px; width:36px; height:36px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:20px; cursor:pointer; }
+
+.settingsTourSpotlight { position:fixed; pointer-events:none; border-radius:10px; box-shadow:0 0 0 9999px rgba(4,5,8,.72), 0 0 0 3px var(--accent-2); transition:top .2s ease,left .2s ease,width .2s ease,height .2s ease; z-index:300; animation:settingsTourPulse 1.4s ease-in-out infinite; }
+@keyframes settingsTourPulse { 0%,100% { box-shadow:0 0 0 9999px rgba(4,5,8,.72), 0 0 0 3px var(--accent-2); } 50% { box-shadow:0 0 0 9999px rgba(4,5,8,.72), 0 0 0 6px var(--accent-2); } }
+.settingsTourBalloon { position:fixed; z-index:301; width:300px; max-width:calc(100vw - 24px); padding:14px; border-radius:12px; background:#0b0b0b; border:1px solid #333; box-shadow:0 16px 34px rgba(0,0,0,.5); color:#fff; font-size:13px; line-height:1.45; }
+.settingsTourStepLabel { color:var(--accent-2); font-size:11px; font-weight:800; letter-spacing:.02em; }
+.settingsTourBalloon b { display:block; margin:4px 0 6px; font-size:14px; }
+.settingsTourBalloon p { margin:0 0 12px; color:#ccc; }
+.settingsTourActions { display:flex; gap:8px; }
+.settingsTourActions button { flex:1; }
 @media (max-width:720px) { .shell { display:block; } .nav { position:static; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--border); } .nav nav { grid-template-columns:repeat(2,minmax(0,1fr)); } .brand { padding-bottom:10px; } .langSwitch { margin-top:8px; } .content { padding:22px 14px; } .checkGrid,.compactEntityGrid,.formGrid2,.imageEditorControls { grid-template-columns:1fr; } .workspacePane { padding:14px; } .workspaceTabs { padding:7px; } .paneIntro { align-items:flex-start; } .chipInputRow { flex-direction:column; } .rowActions { flex-wrap:wrap; justify-content:flex-end; } }

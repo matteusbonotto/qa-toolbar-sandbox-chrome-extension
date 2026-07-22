@@ -32,8 +32,9 @@
   "package:extension:sideload": "node scripts/package-extension-sideload.mjs",
     "release:chrome:update": "npm run security:repo && npm run security:extension && npm run test:chrome && npm run package:extension",
     "chrome-webstore:oauth-setup": "node scripts/chrome-webstore-oauth-setup.mjs",
-    "release:chrome:upload": "npm run security:repo && npm run security:extension && npm run test:chrome && node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip && node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip",
-    "release:chrome:publish": "npm run security:repo && npm run security:extension && npm run test:chrome && node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip && node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip --publish",
+    "bump:extension": "node scripts/bump-extension-version.mjs",
+    "release:chrome:upload": "npm run security:repo && npm run security:extension && npm run test:chrome && npm run bump:extension && node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip && node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip",
+    "release:chrome:publish": "npm run security:repo && npm run security:extension && npm run test:chrome && npm run bump:extension && node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip && node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip --publish",
     "verify:cineluna": "node scripts/verify-cineluna-import.mjs",
     "tutorial:capture": "node scripts/capture-tutorial-media.mjs",
     "prepare": "node scripts/install-git-hooks.mjs"

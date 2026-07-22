@@ -1619,6 +1619,69 @@ function renderTutorialBanner() {
 document.getElementById("tutorialStartTour").addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "qts:start-tutorial-tour" });
 });
+
+// Settings-screen tour: a spotlight + balloon walk through the 8 nav sections, right here on
+// options.html -- same visual language as the live tour in toolbar.js, but simpler (no shadow
+// DOM, no menu-opening step, just the always-visible nav buttons) since this is meant as a quick
+// "here's what each screen does" orientation, not a per-field walkthrough.
+const SETTINGS_TOUR_STEPS = [
+  { tab: "account", title: "Minha conta", text: "Entre, aplique um voucher e veja seu plano aqui. Sem login, o resto da tela fica bloqueado." },
+  { tab: "general", title: "Barra e aparência", text: "Escolha onde a barra aparece no site, o que fica visível nela e a ordem das ferramentas no menu." },
+  { tab: "workspace", title: "Workspace", text: "O coração da extensão: cadastre cliente, projeto, produto, ambiente e URL aqui — é isso que faz a barra aparecer." },
+  { tab: "test-data", title: "Dados de teste", text: "Contas de teste e cartões sandbox, organizados por ambiente e sempre mascarados." },
+  { tab: "integrations", title: "Inspectors e recursos", text: "Configure quais respostas de API o Inspectors acompanha, APIs internas e links úteis do projeto." },
+  { tab: "data", title: "Importar / Exportar", text: "Faça backup do seu workspace em JSON, ou importe um workspace já pronto de outro lugar." },
+  { tab: "tutorial", title: "Tutorial", text: "Reveja qualquer passo a passo em vídeo, ou refaça o tour ao vivo na barra quando quiser." },
+  { tab: "faq", title: "FAQ", text: "Respostas rápidas e diretas pra qualquer dúvida sobre a extensão." },
+];
+let settingsTourIndex = -1;
+function settingsTourHost() {
+  let host = document.getElementById("settingsTourOverlay");
+  if (!host) {
+    host = document.createElement("div");
+    host.id = "settingsTourOverlay";
+    document.body.appendChild(host);
+  }
+  return host;
+}
+function startSettingsTour() {
+  if (!accessState?.active) return;
+  settingsTourIndex = 0;
+  renderSettingsTourStep();
+}
+function renderSettingsTourStep() {
+  const step = SETTINGS_TOUR_STEPS[settingsTourIndex];
+  const host = settingsTourHost();
+  if (!step) { endSettingsTour(); return; }
+  switchTab(step.tab);
+  const target = document.querySelector(`.navItem[data-tab="${step.tab}"]`);
+  if (!target) { settingsTourIndex += 1; renderSettingsTourStep(); return; }
+  const rect = target.getBoundingClientRect();
+  const pad = 5;
+  const isLast = settingsTourIndex >= SETTINGS_TOUR_STEPS.length - 1;
+  const balloonLeft = Math.min(rect.right + 16, window.innerWidth - 340);
+  host.innerHTML = `
+    <div class="settingsTourSpotlight" style="top:${rect.top - pad}px;left:${rect.left - pad}px;width:${rect.width + pad * 2}px;height:${rect.height + pad * 2}px"></div>
+    <div class="settingsTourBalloon" style="top:${Math.max(12, rect.top)}px;left:${balloonLeft}px">
+      <span class="settingsTourStepLabel">${t("Passo {current} de {total}", { current: settingsTourIndex + 1, total: SETTINGS_TOUR_STEPS.length })}</span>
+      <b>${escapeHtml(t(step.title))}</b>
+      <p>${escapeHtml(t(step.text))}</p>
+      <div class="settingsTourActions">
+        <button type="button" class="button" id="settingsTourSkip">${escapeHtml(t("Pular tutorial"))}</button>
+        <button type="button" class="button primary" id="settingsTourNext">${isLast ? escapeHtml(t("Concluir")) : escapeHtml(t("Próximo"))}</button>
+      </div>
+    </div>
+  `;
+  document.getElementById("settingsTourSkip").addEventListener("click", endSettingsTour);
+  document.getElementById("settingsTourNext").addEventListener("click", () => { settingsTourIndex += 1; renderSettingsTourStep(); });
+}
+function endSettingsTour() {
+  settingsTourIndex = -1;
+  document.getElementById("settingsTourOverlay")?.remove();
+}
+window.addEventListener("resize", () => { if (settingsTourIndex >= 0) renderSettingsTourStep(); });
+document.getElementById("settingsTourStart").addEventListener("click", startSettingsTour);
+document.getElementById("tutorialStartSettingsTour").addEventListener("click", startSettingsTour);
 document.getElementById("tutorialSkipAll").addEventListener("click", async () => {
   const modules = window.QTS_TUTORIAL_DATA || [];
   for (const module of modules) {

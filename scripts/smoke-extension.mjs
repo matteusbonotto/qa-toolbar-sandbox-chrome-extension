@@ -632,6 +632,20 @@ try {
   if (clientCountAfterTourButton !== clientCountBeforeTourButton) throw new Error(`"Iniciar tutorial" modified the existing workspace: ${clientCountBeforeTourButton} -> ${clientCountAfterTourButton}`);
   trace("tutorial start button verified (opens demo tab, never overwrites an existing workspace)");
 
+  // Settings-screen tour: spotlight + balloon walking through the 8 nav sections, right here on
+  // options.html (separate engine from the toolbar's live tour -- no shadow DOM involved).
+  await options.getByRole("button", { name: "Minha conta" }).click();
+  await options.locator("#settingsTourStart").click();
+  await options.locator(".settingsTourBalloon").waitFor();
+  const settingsTourFirstTitle = await options.locator(".settingsTourBalloon b").innerText();
+  await options.locator("#settingsTourNext").click();
+  const settingsTourSecondTitle = await options.locator(".settingsTourBalloon b").innerText();
+  if (settingsTourSecondTitle === settingsTourFirstTitle) throw new Error("Settings tour did not advance to the next section");
+  if (await options.locator('[data-panel="general"].isActive').count() !== 1) throw new Error("Settings tour did not switch to the section it's pointing at");
+  await options.locator("#settingsTourSkip").click();
+  if (await options.locator(".settingsTourBalloon").count()) throw new Error("Settings tour overlay did not close");
+  trace("settings-screen tour verified");
+
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();
   await host.waitForTimeout(500);

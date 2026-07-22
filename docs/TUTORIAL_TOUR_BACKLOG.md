@@ -21,10 +21,12 @@ qualquer item ainda `[ ]` é o que falta retomar.
 
 ## Prioridade 2 — tour de Configurações (a parte mais importante, segundo o usuário)
 
-- [ ] Tour guiado **dentro da tela de Configurações** (hoje só existe o tour ao vivo na barra sobre
-      o site) — reaproveitar o mesmo padrão de spotlight/balão.
-- [ ] Vídeo-tutorial também para a tela de Configurações (fundamentos: criar cliente/projeto/
-      produto/ambiente/URL, contas de teste, pagamentos, recursos, aparência, import/export).
+- [x] Tour guiado **dentro da tela de Configurações** — spotlight + balão nos 8 itens de navegação
+      (Minha conta, Barra e aparência, Workspace, Dados de teste, Inspectors e recursos, Importar/
+      Exportar, Tutorial, FAQ), acionável pelo banner "Novo por aqui?" ou pelo botão "🧭 Tour das
+      Configurações" no painel Tutorial (sempre visível, não depende do banner).
+- [ ] Vídeo-tutorial dedicado só da navegação/telas de Configurações (o tour guiado acima já cobre
+      isso em texto; um vídeo é um reforço, não bloqueante).
 - [x] Agrupar a lista de módulos do Tutorial/FAQ em **accordions por seção** (Fundamentos,
       Evidências de teste, Inspeção e depuração, Produtividade, Dados de sandbox).
 
@@ -45,8 +47,14 @@ qualquer item ainda `[ ]` é o que falta retomar.
 
 ## Prioridade 4 — infraestrutura / lançamento
 
-- [ ] Automatizar o bump de versão da extensão (manifest.json) e manter a LP mostrando a versão
-      certa — hoje ambos travados em 1.2.0.
+- [x] Automatizar o bump de versão da extensão: novo `npm run bump:extension`
+      (`scripts/bump-extension-version.mjs`), já encadeado em `release:chrome:upload`/`:publish` —
+      roda sozinho antes de empacotar. Versão corrigida de 1.2.0 para 1.2.1 nesta rodada. *(Não
+      mexi no workflow do GitHub Actions do auto-publish em si — fazer o bump commitar de volta pro
+      `main` sozinho precisa de permissão extra na Action, não quis arriscar sem supervisão; quem
+      roda o release script localmente já ganha o bump automático.)* Não encontrei nenhum lugar na
+      LP mostrando "v1.2.0" — se souber onde isso aparece pra você, me avisa que eu ligo na versão
+      real do manifest.
 
 ## Prioridade 5 — novas ferramentas (funcionalidades novas, não tutorial)
 
