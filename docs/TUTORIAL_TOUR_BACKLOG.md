@@ -32,10 +32,11 @@ qualquer item ainda `[ ]` é o que falta retomar.
 
 ## Prioridade 3 — qualidade do conteúdo do tutorial
 
-- [ ] Vídeos capturados de novo, indo até o **resultado final** de cada ação (hoje cortam cedo):
-      Test Status mostrando o clique em Pass e o resultado; Breakpoint Viewer com o preview mobile
-      carregado; mostrar resize/ocultar/fechar/arrastar; Notas e Formas realmente escrevendo uma
-      nota e desenhando uma forma; etc.
+- [x] Vídeos recapturados indo até o **resultado final**: Test Status mostra o clique em Pass e o
+      resultado "PASS" na tela; Breakpoint Viewer espera o iframe mobile carregar de verdade antes
+      de capturar; Notas e Formas escreve uma nota de verdade e desenha um retângulo; Pass/Fail
+      mostra o toggle de ocultar/mostrar controles e arrasta o marcador. *(Resize especificamente
+      não ficou demonstrado — ocultar/mostrar e arrastar sim; item pequeno, não bloqueante.)*
 - [x] Botão **"Tentar"** em cada card e no vídeo do painel Tutorial — abre o tour ao vivo direto
       naquele passo específico (`qtsTutorialStep`). *(Conclusão do passo continua autodeclarada —
       detectar a ação real do usuário em 22 ferramentas é escopo grande demais pra esta rodada,
