@@ -315,7 +315,7 @@ function applyPinnedTools() {
   const pinned = new Set(state.workspace?.preferences?.pinnedTools || []);
   const groups = {
     passFail: ["testStatusButton", "passButton", "failButton"],
-    notes: ["noteButton", "shapeButton"],
+    notes: ["noteButton", "shapeButton", "lineButton"],
     screenshot: ["screenshotButton"],
     record: ["recordToggleButton", "recordStopButton", "recordTimer"],
   };
@@ -505,6 +505,7 @@ function buildShadowHost() {
         <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
         <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
         <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
+        <button id="lineButton" class="iconOnly" type="button" title="${escapeHtml(t.line || "Linha")}">${ICON("arrowLeft")}</button>
         <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
         <button id="hideAllButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.hideAllTitle)}">${ICON("eye")}</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">${ICON("camera")}</button>
@@ -532,6 +533,7 @@ function buildShadowHost() {
               <button type="button" id="mobileFailItem" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
               <button type="button" id="mobileNoteItem" role="menuitem">${escapeHtml(t.note)}</button>
               <button type="button" id="mobileShapeItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
+              <button type="button" id="mobileLineItem" role="menuitem">${ICON("arrowLeft")} ${escapeHtml(t.line || "Linha")}</button>
               <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
@@ -589,6 +591,7 @@ function buildShadowHost() {
   shadow.getElementById("failButton").addEventListener("click", (event) => enablePlacementMode("fail", event.currentTarget));
   shadow.getElementById("noteButton").addEventListener("click", () => addFloatingTextNote());
   shadow.getElementById("shapeButton").addEventListener("click", (event) => enablePlacementMode("shape", event.currentTarget));
+  shadow.getElementById("lineButton").addEventListener("click", (event) => enablePlacementMode("line", event.currentTarget));
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
   shadow.getElementById("hideAllButton").addEventListener("click", () => toggleAllFloatingItemsVisibility());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
@@ -607,6 +610,7 @@ function buildShadowHost() {
   shadow.getElementById("mobileFailItem").addEventListener("click", () => { enablePlacementMode("fail", shadow.getElementById("failButton")); closeToolsMenu(); });
   shadow.getElementById("mobileNoteItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
   shadow.getElementById("mobileShapeItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileLineItem").addEventListener("click", () => { enablePlacementMode("line", shadow.getElementById("lineButton")); closeToolsMenu(); });
   shadow.getElementById("mobileScreenshotItem").addEventListener("click", () => { captureScreenshot(); closeToolsMenu(); });
   shadow.getElementById("mobileRecordItem").addEventListener("click", () => { handleRecordToggle(); closeToolsMenu(); });
 
@@ -1077,6 +1081,7 @@ function cancelPlacementMode() {
   state.placementMode = null;
   document.removeEventListener("click", handlePlacementClick, true);
   document.removeEventListener("mousedown", handleShapeMouseDown, true);
+  document.removeEventListener("mousedown", handleLineMouseDown, true);
   document.removeEventListener("keydown", handlePlacementEscape, true);
 }
 
@@ -1091,6 +1096,7 @@ function enablePlacementMode(mode, triggerButton) {
   triggerButton.classList.add("isActive");
   document.addEventListener("keydown", handlePlacementEscape, true);
   if (mode === "shape") document.addEventListener("mousedown", handleShapeMouseDown, true);
+  else if (mode === "line") document.addEventListener("mousedown", handleLineMouseDown, true);
   else document.addEventListener("click", handlePlacementClick, true);
 }
 
@@ -1371,6 +1377,92 @@ function hexToRgba(hex, alpha) {
   const g = parseInt(normalized.slice(2, 4), 16) || 0;
   const b = parseInt(normalized.slice(4, 6), 16) || 0;
   return `rgba(${r},${g},${b},${alpha})`;
+}
+
+// A line is created from two literal points (not a drag-to-size box like Shapes), so it gets its
+// own placement mode. The outer floating-item stays axis-aligned (so its edit/remove/visibility
+// controls stay readable) sized to the straight-line distance; only the inner bar rotates around
+// its own left edge to point at the second click point, with an optional arrowhead at that end.
+function handleLineMouseDown(event) {
+  if (event.button !== 0 || isInsideToolbarUi(event.target)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const startX = event.clientX;
+  const startY = event.clientY;
+  const preview = document.createElement("div");
+  preview.className = "qts-line-preview";
+  preview.style.left = `${startX}px`;
+  preview.style.top = `${startY}px`;
+  document.body.appendChild(preview);
+  const updatePreview = (endX, endY) => {
+    const length = Math.hypot(endX - startX, endY - startY);
+    const angle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
+    preview.style.width = `${length}px`;
+    preview.style.transform = `rotate(${angle}deg)`;
+  };
+  const handleMove = (moveEvent) => updatePreview(moveEvent.clientX, moveEvent.clientY);
+  const handleUp = (upEvent) => {
+    document.removeEventListener("mousemove", handleMove, true);
+    document.removeEventListener("mouseup", handleUp, true);
+    preview.remove();
+    placeLine(startX, startY, upEvent.clientX, upEvent.clientY);
+    cancelPlacementMode();
+  };
+  document.addEventListener("mousemove", handleMove, true);
+  document.addEventListener("mouseup", handleUp, true);
+}
+
+function placeLine(startX, startY, endX, endY) {
+  const length = Math.max(24, Math.hypot(endX - startX, endY - startY));
+  const angle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
+  const hitHeight = 24;
+  const line = document.createElement("div");
+  line.className = "qts-floating-item qts-line";
+  line.style.left = `${startX}px`;
+  line.style.top = `${startY - hitHeight / 2}px`;
+  line.style.width = `${length}px`;
+  line.style.height = `${hitHeight}px`;
+  line.style.setProperty("--qts-line-angle", `${angle}deg`);
+  line.innerHTML = `
+    <div class="qts-line-bar" data-drag-handle></div>
+    ${visibilityControlsHtml()}
+    <button type="button" class="qts-edit-btn" title="${escapeHtml(state.t.edit)}">${ICON("edit")}</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
+  `;
+  document.body.appendChild(line);
+  wireVisibilityControls(line);
+  makeDraggable(line, line.querySelector("[data-drag-handle]"));
+  line.querySelector(".qts-remove-btn").addEventListener("click", () => { line.remove(); updateClearAllVisibility(); });
+  line.querySelector(".qts-edit-btn").addEventListener("click", () => toggleLineStyleEditor(line));
+  updateClearAllVisibility();
+}
+
+function toggleLineStyleEditor(line) {
+  const existing = line.querySelector(".qts-shape-editor");
+  if (existing) { existing.remove(); return; }
+  const t = state.t;
+  const bar = line.querySelector(".qts-line-bar");
+  const editor = document.createElement("div");
+  editor.className = "qts-shape-editor";
+  editor.innerHTML = `
+    <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-line-color value="#ef3340" /></label>
+    <label>${escapeHtml(t.lineThickness || "Espessura")}<input type="range" min="1" max="10" value="3" data-line-thickness /></label>
+    <label>${escapeHtml(t.lineArrow || "Ponta")}<select data-line-arrow>
+      <option value="none">${escapeHtml(t.lineArrowNone || "Nenhuma")}</option>
+      <option value="end">${escapeHtml(t.lineArrowEnd || "Seta")}</option>
+    </select></label>
+  `;
+  line.appendChild(editor);
+  const apply = () => {
+    const color = editor.querySelector("[data-line-color]").value;
+    const thickness = editor.querySelector("[data-line-thickness]").value;
+    const arrow = editor.querySelector("[data-line-arrow]").value;
+    bar.style.setProperty("--qts-line-color", color);
+    bar.style.setProperty("--qts-line-thickness", `${thickness}px`);
+    line.classList.toggle("hasArrow", arrow === "end");
+  };
+  editor.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", apply));
+  apply();
 }
 
 function makeDraggable(element, handle) {

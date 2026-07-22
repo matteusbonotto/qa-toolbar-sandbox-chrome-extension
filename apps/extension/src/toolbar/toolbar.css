@@ -298,6 +298,33 @@ body.qts-placement-mode, body.qts-placement-mode * {
   backdrop-filter: var(--qts-shape-blur, none) !important;
   -webkit-backdrop-filter: var(--qts-shape-blur, none) !important;
 }
+.qts-line-preview {
+  position: fixed !important; z-index: 2147483644 !important; height: 3px !important;
+  background: #ffd700 !important; transform-origin: left center !important; pointer-events: none !important;
+}
+.qts-line { min-width: 24px !important; }
+.qts-line-bar {
+  position: absolute !important; left: 0 !important; top: 50% !important; width: 100% !important;
+  height: var(--qts-line-thickness, 3px) !important; background: var(--qts-line-color, #ef3340) !important;
+  transform: translateY(-50%) rotate(var(--qts-line-angle, 0deg)) !important; transform-origin: left center !important;
+  cursor: grab !important;
+}
+.qts-line.hasArrow .qts-line-bar::after {
+  content: "" !important; position: absolute !important; right: -2px !important; top: 50% !important;
+  transform: translateY(-50%) !important; width: 0 !important; height: 0 !important;
+  border-style: solid !important; border-width: 6px 0 6px 10px !important;
+  border-color: transparent transparent transparent var(--qts-line-color, #ef3340) !important;
+}
+.qts-line .qts-visibility-btn, .qts-line .qts-hide-content-btn, .qts-line .qts-edit-btn, .qts-line .qts-remove-btn {
+  position: absolute !important; top: -26px !important;
+}
+.qts-line .qts-visibility-btn { left: 0 !important; }
+.qts-line .qts-hide-content-btn { left: 26px !important; }
+.qts-line .qts-edit-btn { left: 52px !important; }
+.qts-line .qts-remove-btn { left: 78px !important; }
+.qts-line.isContentHidden .qts-line-bar { visibility: hidden !important; }
+.qts-line .qts-shape-editor { position: fixed !important; margin-top: 0 !important; }
+
 .qts-shape-editor {
   /* .qts-shape-box (a sibling, appended before this) is position:absolute;inset:0 — an
      absolutely-positioned box paints/hit-tests above a static sibling regardless of DOM order,

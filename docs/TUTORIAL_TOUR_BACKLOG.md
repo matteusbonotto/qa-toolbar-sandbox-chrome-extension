@@ -71,9 +71,9 @@ qualquer item ainda `[ ]` é o que falta retomar.
       por clique já usado no Capturar Elementos (`selectPageElement`), registrado como ferramenta
       de verdade (lista de ferramentas padrão + checkbox em Configurações + migração de schema
       para quem já tinha workspace salvo + tradução completa pt/es/en + cobertura no smoke test).
-- [ ] Linha com ponta configurável (seta ou nenhuma) — não comecei; é um tipo de forma
-      genuinamente novo (dois pontos + rotação + marcador de seta), não uma variação da caixa
-      atual como quadrado/círculo/borrão foram.
+- [x] **Linha com ponta configurável**: novo botão fixo ao lado de Formas (mesmo grupo "notas" de
+      visibilidade), desenhada arrastando de um ponto a outro (não é uma variação da caixa de
+      Formas — usa rotação real), com estilo próprio (cor, espessura, ponta Nenhuma/Seta).
 - [ ] **Modo Holofote**: segurar o clique por 3s cria um círculo de destaque ao redor do mouse com
       o entorno escurecido; soltar leva 3s pra voltar ao normal; configurável (escurecer, borrar,
       opacidade, tamanho); animação de entrada/saída. Não comecei — é uma ferramenta nova do zero.

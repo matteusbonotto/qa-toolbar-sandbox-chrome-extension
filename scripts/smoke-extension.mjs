@@ -266,6 +266,23 @@ try {
   await host.locator("#drawerClose").click();
   trace("borrar elementos tool verified (select, toggle, re-arm, clear all)");
 
+  // Linha: drawn from two literal points (not a drag-to-size box), width matches the real
+  // distance between them, and enabling the arrow endpoint adds the CSS class that renders it.
+  await host.locator("#lineButton").click();
+  await host.mouse.move(200, 200);
+  await host.mouse.down();
+  await host.mouse.move(400, 200, { steps: 6 });
+  await host.mouse.up();
+  const lineWidth = await host.locator(".qts-line").evaluate((line) => line.offsetWidth);
+  if (Math.abs(lineWidth - 200) > 5) throw new Error(`Line width did not match the drawn distance: ${lineWidth}`);
+  await host.locator(".qts-line [data-visibility-toggle]").click();
+  await host.locator(".qts-line .qts-edit-btn").click();
+  await host.locator("[data-line-arrow]").selectOption("end");
+  if (!(await host.locator(".qts-line").evaluate((line) => line.classList.contains("hasArrow")))) throw new Error("Line arrow endpoint option did not apply");
+  await host.locator(".qts-line .qts-remove-btn").click();
+  if (await host.locator(".qts-line").count()) throw new Error("Removing the line did not remove it from the page");
+  trace("linha com ponta de seta verified");
+
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
   await host.locator("#jsonStudioMenuItem").click();
