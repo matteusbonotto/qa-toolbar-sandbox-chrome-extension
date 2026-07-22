@@ -239,6 +239,11 @@
         <div class="card"><div class="actions"><button type="button" class="button" id="faqExpandAll">Expandir tudo</button><button type="button" class="button" id="faqCollapseAll">Recolher tudo</button></div></div>
         <div id="faqAccordions"></div>
       </section>
+
+      <div class="imageLightbox" id="imageLightbox" hidden>
+        <button type="button" class="imageLightboxClose" id="imageLightboxClose" aria-label="Fechar">×</button>
+        <img id="imageLightboxImg" alt="" />
+      </div>
     </main>
   </div>
   <dialog class="imageEditorDialog" id="imageEditorDialog" aria-labelledby="imageEditorTitle">
@@ -309,7 +314,7 @@
     <div class="formDialogHead"><div><span class="eyebrow">Tutorial</span><h2 id="tutorialVideoTitle"></h2></div><button type="button" class="dialogClose" id="tutorialVideoClose" data-close-composer aria-label="Fechar">×</button></div>
     <video id="tutorialVideoPlayer" controls autoplay muted></video>
     <p class="cardLead" id="tutorialVideoInstructions"></p>
-    <div class="formActions"><button type="button" class="button primary" id="tutorialVideoComplete">Marcar como concluído</button></div>
+    <div class="formActions"><button type="button" class="button" id="tutorialVideoTry">▶ Tentar</button><button type="button" class="button primary" id="tutorialVideoComplete">Marcar como concluído</button></div>
   </dialog>
 
   <dialog class="formDialog" id="tutorialStepDoneDialog" aria-labelledby="tutorialStepDoneTitle">

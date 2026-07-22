@@ -161,7 +161,7 @@ const TUTORIAL_DEMO_URL = "https://demoqa.com/text-box?qtsTutorial=1";
 // site used for tutorial captures) so the toolbar has something real to mount on, then opens that
 // demo page in a new tab for the live tour in toolbar.js to take over. Never overwrites a
 // workspace that already has real data -- if the user already set one up, this just opens the tab.
-async function seedDemoWorkspaceAndOpenTour() {
+async function seedDemoWorkspaceAndOpenTour(stepKey) {
   const workspace = await getWorkspace();
   if (!workspace.clients.length) {
     await saveWorkspace({
@@ -173,7 +173,10 @@ async function seedDemoWorkspaceAndOpenTour() {
     });
     await applyContentScriptRegistration();
   }
-  await chrome.tabs.create({ url: TUTORIAL_DEMO_URL });
+  // "Tentar" (options.js Tutorial panel / video dialog) passes the specific step so the tour jumps
+  // straight there instead of starting from the first one -- toolbar.js reads it back off the URL.
+  const url = stepKey ? `${TUTORIAL_DEMO_URL}&qtsTutorialStep=${encodeURIComponent(stepKey)}` : TUTORIAL_DEMO_URL;
+  await chrome.tabs.create({ url });
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
@@ -232,7 +235,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === "qts:start-tutorial-tour" && isOwnOptionsPage(sender)) {
-    void seedDemoWorkspaceAndOpenTour();
+    void seedDemoWorkspaceAndOpenTour(typeof message.stepKey === "string" ? message.stepKey : undefined);
     return undefined;
   }
   if (message.type === "qts:auth-recover-password" && isOwnOptionsPage(sender)) {

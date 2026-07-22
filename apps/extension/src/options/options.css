@@ -316,6 +316,10 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .tutorialProgressBar { height:8px; border-radius:999px; background:var(--surface-2); overflow:hidden; }
 .tutorialProgressFill { height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); transition:width .3s ease; }
 .tutorialModules { display:grid; gap:12px; margin-top:14px; }
+.tutorialGroupAccordion { margin-top:14px; }
+.tutorialGroupAccordion summary b { font-size:14px; }
+.tutorialGroupCount { margin-left:auto; padding:1px 8px; border-radius:999px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:750; }
+.tutorialGroupAccordion .tutorialModules { margin-top:0; }
 .tutorialModule { display:grid; grid-template-columns:160px 1fr; gap:16px; padding:16px; border:1px solid var(--border); border-radius:14px; background:linear-gradient(145deg,rgba(26,29,39,.96),rgba(18,20,27,.96)); }
 .tutorialModule.isDone { border-color:rgba(66,213,194,.5); }
 .tutorialModuleMedia { width:160px; height:100px; border-radius:10px; overflow:hidden; background:var(--surface-2); display:flex; align-items:center; justify-content:center; color:var(--muted); font-size:11px; border:0; padding:0; cursor:default; position:relative; }
@@ -337,7 +341,13 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 
 .faqAccordion .list { display:block; }
 .faqAccordion p { margin:0; color:var(--muted); font-size:12px; line-height:1.6; }
+.faqGroupAccordion { margin-bottom:10px; background:rgba(118,87,255,.06); }
+.faqGroupAccordion summary b { font-size:14px; }
+.faqGroupAccordion > .list { display:grid; gap:8px; }
 .faqAnswer.list { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
-.faqAnswer img { width:180px; max-width:100%; border-radius:8px; flex:none; display:block; }
+.faqAnswer img { width:180px; max-width:100%; border-radius:8px; flex:none; display:block; cursor:zoom-in; }
 .faqAnswer p { flex:1; min-width:220px; }
+.imageLightbox { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; background:rgba(4,5,8,.88); padding:32px; cursor:zoom-out; }
+.imageLightbox img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
+.imageLightboxClose { position:absolute; top:18px; right:22px; width:36px; height:36px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:20px; cursor:pointer; }
 @media (max-width:720px) { .shell { display:block; } .nav { position:static; width:100%; height:auto; border-right:0; border-bottom:1px solid var(--border); } .nav nav { grid-template-columns:repeat(2,minmax(0,1fr)); } .brand { padding-bottom:10px; } .langSwitch { margin-top:8px; } .content { padding:22px 14px; } .checkGrid,.compactEntityGrid,.formGrid2,.imageEditorControls { grid-template-columns:1fr; } .workspacePane { padding:14px; } .workspaceTabs { padding:7px; } .paneIntro { align-items:flex-start; } .chipInputRow { flex-direction:column; } .rowActions { flex-wrap:wrap; justify-content:flex-end; } }

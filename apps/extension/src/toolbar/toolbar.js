@@ -724,16 +724,19 @@ let tourResizeHandler = null;
 async function maybeStartLiveTour() {
   const url = new URL(window.location.href);
   if (url.searchParams.get("qtsTutorial") !== "1") return;
+  const requestedStep = url.searchParams.get("qtsTutorialStep");
   url.searchParams.delete("qtsTutorial");
+  url.searchParams.delete("qtsTutorialStep");
   window.history.replaceState({}, "", url.toString());
-  startTutorialTour();
+  startTutorialTour(requestedStep);
 }
 
-function startTutorialTour() {
+function startTutorialTour(startAtKey) {
   if (!state.shadowRoot) return;
   tourSteps = (window.QTS_TUTORIAL_DATA || []).filter((module) => TOUR_TARGETS[module.key]);
-  tourStepIndex = 0;
   if (!tourSteps.length) return;
+  const requestedIndex = startAtKey ? tourSteps.findIndex((module) => module.key === startAtKey) : -1;
+  tourStepIndex = requestedIndex >= 0 ? requestedIndex : 0;
   ensureTourHost();
   renderTourStep();
   tourResizeHandler = () => renderTourStep();
@@ -747,7 +750,8 @@ function ensureTourHost() {
   host.innerHTML = `
     <style>
       #tourOverlay { all: initial; }
-      .qts-tour-spotlight { position: fixed; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; z-index: 2147483646; }
+      .qts-tour-spotlight { position: fixed; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; z-index: 2147483646; animation: qts-tour-pulse 1.4s ease-in-out infinite; }
+      @keyframes qts-tour-pulse { 0%, 100% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; } 50% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 6px #ffd700; } }
       .qts-tour-balloon {
         position: fixed; z-index: 2147483647; width: min(320px, calc(100vw - 24px)); padding: 14px;
         border-radius: 12px; background: #0b0b0b; border: 1px solid #333; box-shadow: 0 16px 34px rgba(0,0,0,.5);
@@ -780,13 +784,21 @@ function tourHost() {
   return state.shadowRoot?.getElementById("tourOverlay") || null;
 }
 
-function renderTourStep() {
+async function renderTourStep() {
   const host = tourHost();
   const module = tourSteps[tourStepIndex];
   if (!host || !module) return;
   host.querySelectorAll(".qts-tour-spotlight, .qts-tour-balloon, .qts-tour-card").forEach((node) => node.remove());
   const config = TOUR_TARGETS[module.key];
-  if (config.menu) { state.shadowRoot.getElementById("toolsMenu")?.classList.add("isOpen"); }
+  if (config.menu) {
+    state.shadowRoot.getElementById("toolsMenu")?.classList.add("isOpen");
+    // #toolsMenu opens via a 140ms opacity/transform transition (toolbar.js's own CSS) -- reading
+    // getBoundingClientRect() in the same tick as toggling .isOpen can still see the pre-transition
+    // (closed, translateY(-6px)) geometry, which threw the spotlight off the real button just
+    // enough to look like nothing was highlighted. Wait the transition out before measuring.
+    await new Promise((resolveDelay) => setTimeout(resolveDelay, 180));
+    if (tourSteps[tourStepIndex] !== module) return; // tour moved on while we were waiting
+  }
   const targetEl = state.shadowRoot.querySelector(config.selector);
   if (!targetEl) { advanceTourStep(); return; }
   const rect = targetEl.getBoundingClientRect();
@@ -868,52 +880,22 @@ function endTour({ redirectToWorkspace }) {
   if (redirectToWorkspace) chrome.runtime.sendMessage({ type: "qts:open-options", tab: "workspace" });
 }
 
-// One-time callout the very first time the bar ever mounts on any authorized site — after
-// that, chrome.storage.local remembers it was seen and it never shows again. Lives inside the
-// shadow root (not document.body) since it only ever needs to point at our own bar, not overlay
-// arbitrary page content.
+// First-run callout used to be a popup card at the bottom of the screen — founder feedback: it
+// sat right where the tour balloon and evidence recordings needed that space, so it now queues as
+// a normal entry in the notification bell instead (dismiss = same hasSeenToolbarIntro flag as
+// before, just read/written from updateHttpErrorSurfaces/renderNotificationBellPanel below).
 async function maybeShowFirstRunIntro() {
   if (!state.shadowRoot) return;
   const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
-  if (stored[STORAGE_KEYS.uiState]?.hasSeenToolbarIntro) return;
-  if (state.shadowRoot.getElementById("firstRunIntro")) return;
-  const t = state.t;
-  const host = document.createElement("div");
-  host.id = "firstRunIntro";
-  host.innerHTML = `
-    <style>
-      #firstRunIntroCard {
-        position: fixed; bottom: 20px; left: 50%; z-index: 2147483647; transform: translateX(-50%);
-        width: min(320px, calc(100vw - 24px)); padding: 14px; border-radius: 12px;
-        background: #0b0b0b; border: 1px solid #333; box-shadow: 0 16px 34px rgba(0,0,0,.45);
-        color: #fff; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        animation: qts-intro-in 180ms ease;
-      }
-      /* Bottom-center, matching showQaToast's proven-safe spot — anywhere near the bar itself
-         risks sitting on top of the tools dropdown (it did, and blocked clicking menu items).
-         The "to" state must match the base transform exactly, or it snaps sideways once the
-         (non-forwards) animation ends and the base rule's transform takes back over. */
-      @keyframes qts-intro-in { from { opacity: 0; transform: translate(-50%, 6px); } to { opacity: 1; transform: translateX(-50%); } }
-      #firstRunIntroCard .qts-intro-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-      #firstRunIntroCard b { color: #ffd700; font-size: 13px; }
-      #firstRunIntroCard p { margin: 0 0 10px; color: #ccc; }
-      #firstRunIntroCard button.qts-intro-close { flex: none; width: 22px; height: 22px; border: 0; border-radius: 999px; background: #b20808; color: #fff; cursor: pointer; }
-      #firstRunIntroCard button.qts-intro-cta { width: 100%; height: 32px; border: 0; border-radius: 8px; background: #ffd700; color: #111; font-weight: 800; cursor: pointer; }
-    </style>
-    <div id="firstRunIntroCard">
-      <div class="qts-intro-head"><b>${escapeHtml(t.firstRunTitle)}</b><button type="button" class="qts-intro-close" title="${escapeHtml(t.close)}">×</button></div>
-      <p>${escapeHtml(t.firstRunBody)}</p>
-      <button type="button" class="qts-intro-cta">${escapeHtml(t.firstRunCta)}</button>
-    </div>
-  `;
-  state.shadowRoot.appendChild(host);
-  const dismiss = async () => {
-    host.remove();
-    const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
-    await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...(current[STORAGE_KEYS.uiState] || {}), hasSeenToolbarIntro: true } });
-  };
-  host.querySelector(".qts-intro-close").addEventListener("click", dismiss);
-  host.querySelector(".qts-intro-cta").addEventListener("click", dismiss);
+  state.showFirstRunNotification = !stored[STORAGE_KEYS.uiState]?.hasSeenToolbarIntro;
+  updateHttpErrorSurfaces();
+}
+
+async function dismissFirstRunNotification() {
+  state.showFirstRunNotification = false;
+  const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...(current[STORAGE_KEYS.uiState] || {}), hasSeenToolbarIntro: true } });
+  updateHttpErrorSurfaces();
 }
 
 function removeToolbar({ disableBridge = false } = {}) {
@@ -2328,9 +2310,9 @@ function persistHttpErrors() {
 function updateHttpErrorSurfaces() {
   const root = state.shadowRoot;
   if (!root) return;
-  const count = state.httpErrors.length;
+  const count = state.httpErrors.length + (state.showFirstRunNotification ? 1 : 0);
   const menuBadge = root.getElementById("errorMonitorBadge");
-  if (menuBadge) { menuBadge.textContent = String(count); menuBadge.style.display = count ? "inline-flex" : "none"; }
+  if (menuBadge) { menuBadge.textContent = String(state.httpErrors.length); menuBadge.style.display = state.httpErrors.length ? "inline-flex" : "none"; }
   const bellBadge = root.getElementById("notificationBellBadge");
   if (bellBadge) { bellBadge.textContent = count > 99 ? "99+" : String(count); bellBadge.classList.toggle("isVisible", count > 0); }
   if (!root.getElementById("notificationBellPanel")?.classList.contains("isHidden")) renderNotificationBellPanel();
@@ -2353,18 +2335,27 @@ function handleHttpErrorCaptured(entry) {
 function renderNotificationBellPanel() {
   const panel = state.shadowRoot?.getElementById("notificationBellPanel");
   if (!panel) return;
+  const t = state.t;
   const entries = state.httpErrors.slice(0, 20);
+  const introRow = state.showFirstRunNotification ? `
+    <button type="button" class="qts-bell-row" data-dismiss-intro>
+      <b style="color:#ffd700">${escapeHtml(t.firstRunTitle)}</b>
+      <span>${escapeHtml(t.firstRunBody)}</span>
+    </button>
+  ` : "";
   panel.innerHTML = `
     <div class="qts-bell-head"><b>Notificações</b><button type="button" id="notificationBellClear" ${state.httpErrors.length ? "" : "disabled"}>Limpar</button></div>
+    ${introRow}
     ${entries.length ? entries.map((entry) => `
       <button type="button" class="qts-bell-row" data-open-notification>
         <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)}
         <span>${escapeHtml(entry.url)}</span>
         <small>${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
       </button>
-    `).join("") : `<div class="qts-mini-empty">Nenhuma notificação.</div>`}
+    `).join("") : (introRow ? "" : `<div class="qts-mini-empty">Nenhuma notificação.</div>`)}
   `;
   panel.querySelector("#notificationBellClear")?.addEventListener("click", () => clearHttpErrors());
+  panel.querySelector("[data-dismiss-intro]")?.addEventListener("click", () => dismissFirstRunNotification());
   panel.querySelectorAll("[data-open-notification]").forEach((row) => row.addEventListener("click", () => {
     toggleNotificationBellPanel(false);
     openErrorMonitorDrawer();

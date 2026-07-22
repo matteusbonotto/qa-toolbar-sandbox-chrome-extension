@@ -214,6 +214,16 @@ try {
   await passSoundRequestPromise;
   trace("toolbar hierarchy verified");
 
+  // The first-run callout moved from a popup card (which sat right where the tour balloon and
+  // evidence recordings needed that space) into the notification bell.
+  if (await host.locator("#firstRunIntro").count()) throw new Error("First-run intro still renders as a popup card instead of a bell notification");
+  await host.locator("#notificationBellButton").click();
+  await host.getByText("A barra está pronta").waitFor({ timeout: 5_000 });
+  await host.locator('[data-dismiss-intro]').click();
+  if (await host.locator("#notificationBellBadge.isVisible").count()) throw new Error("Notification bell badge stayed visible after dismissing the first-run entry");
+  await host.locator("#notificationBellButton").click();
+  trace("first-run notification moved to the bell");
+
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
   await host.locator("#jsonStudioMenuItem").click();
@@ -524,6 +534,16 @@ try {
   if (tutorialModuleCount < 20) throw new Error(`Tutorial panel rendered too few modules: ${tutorialModuleCount}`);
   if (await options.locator(".tutorialLockBadge").count() !== 0) throw new Error("A tool showed a plan lock badge despite every plan feature being enabled in this mock");
   if (await options.locator("[data-tutorial-play]:not([disabled])").count() < 20) throw new Error("Tutorial cards did not expose a playable video thumbnail");
+  const tutorialGroupCount = await options.locator(".tutorialGroupAccordion").count();
+  if (tutorialGroupCount < 3) throw new Error(`Tutorial panel did not group modules into accordion sections: ${tutorialGroupCount}`);
+  if (await options.locator('[data-tutorial-try="testStatus"]').count() !== 1) throw new Error('Tutorial card is missing the "Tentar" button');
+  const [tryTourTab] = await Promise.all([
+    context.waitForEvent("page"),
+    options.locator('[data-tutorial-try="testStatus"]').click(),
+  ]);
+  if (!tryTourTab.url().includes("qtsTutorialStep=testStatus")) throw new Error(`"Tentar" did not target the requested step: ${tryTourTab.url()}`);
+  await tryTourTab.close();
+  trace('tutorial "Tentar" button verified (jumps the live tour straight to the requested step)');
 
   // Video dialog: opens with a real source, "Marcar como concluído" closes it and chains straight
   // into the completion modal, whose "Próximo" opens the following module's video.
@@ -561,9 +581,15 @@ try {
   await options.locator("#faqExpandAll").click();
   if (await options.locator(".faqAccordion:not([open])").count() !== 0) throw new Error("Expandir tudo did not open every FAQ entry");
   if (await options.locator(".faqAnswer img").count() < 20) throw new Error("FAQ entries did not render illustrative screenshots");
+  if (await options.locator(".faqGroupAccordion").count() < 4) throw new Error("FAQ panel did not group entries into accordion sections");
+  await options.locator(".faqAnswer img").first().click();
+  await options.locator("#imageLightbox:not([hidden])").waitFor();
+  if (!(await options.locator("#imageLightboxImg").getAttribute("src"))) throw new Error("Image lightbox did not load the clicked screenshot");
+  await options.locator("#imageLightboxClose").click();
+  if (!(await options.locator("#imageLightbox").isHidden())) throw new Error("Image lightbox did not close");
   await options.locator("#faqCollapseAll").click();
   if (await options.locator(".faqAccordion[open]").count() !== 0) throw new Error("Recolher tudo did not close every FAQ entry");
-  trace("FAQ accordions verified");
+  trace("FAQ accordions + image lightbox verified");
 
   // Live tutorial tour: same overlay code path as the real demoqa.com launch (background.js only
   // hardcodes that URL for the actual seed-and-open flow, tested separately below) -- toolbar.js
