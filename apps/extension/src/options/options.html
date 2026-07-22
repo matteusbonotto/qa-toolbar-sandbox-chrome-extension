@@ -222,9 +222,10 @@
       </section>
 
       <section data-panel="tutorial" class="panel protectedPanel">
-        <header class="panelHead"><h1>Tutorial</h1><p>Um passo a passo guiado que você pode pular e retomar quando quiser, pela ordem que preferir.</p></header>
+        <header class="panelHead"><h1>Tutorial</h1><p>Um passo a passo guiado ao vivo, num ambiente de exemplo, ou veja os vídeos de cada ferramenta no seu ritmo.</p></header>
         <div class="card tutorialProgressCard">
           <div class="tutorialProgressHead">
+            <button type="button" class="button primary" id="tutorialStartTour">▶ Iniciar tutorial</button>
             <strong id="tutorialProgressLabel">0 de 0 concluídos</strong>
             <div class="actions"><button type="button" class="button" id="tutorialSkipAll">Pular tudo</button><button type="button" class="button linkButton" id="tutorialReset">Reiniciar</button></div>
           </div>
@@ -302,6 +303,19 @@
     <div class="formDialogHead"><div><span class="eyebrow">Excluir</span><h2 id="deleteConfirmTitle">Confirmar exclusão</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
     <p class="cardLead" id="deleteConfirmBody"></p>
     <div class="formActions"><button type="button" class="button" id="deleteConfirmCancel">Cancelar</button><button type="button" class="button danger" id="deleteConfirmAccept">Excluir</button></div>
+  </dialog>
+
+  <dialog class="formDialog tutorialVideoDialog" id="tutorialVideoDialog" aria-labelledby="tutorialVideoTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Tutorial</span><h2 id="tutorialVideoTitle"></h2></div><button type="button" class="dialogClose" id="tutorialVideoClose" data-close-composer aria-label="Fechar">×</button></div>
+    <video id="tutorialVideoPlayer" controls autoplay muted></video>
+    <p class="cardLead" id="tutorialVideoInstructions"></p>
+    <div class="formActions"><button type="button" class="button primary" id="tutorialVideoComplete">Marcar como concluído</button></div>
+  </dialog>
+
+  <dialog class="formDialog" id="tutorialStepDoneDialog" aria-labelledby="tutorialStepDoneTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">🏆 Conquista desbloqueada</span><h2 id="tutorialStepDoneTitle"></h2></div></div>
+    <p class="cardLead" id="tutorialStepDoneBody">Passo concluído! Quer repetir, seguir para o próximo ou encerrar por aqui?</p>
+    <div class="formActions"><button type="button" class="button" id="tutorialStepRepeat">Repetir</button><button type="button" class="button" id="tutorialStepClose">Fechar</button><button type="button" class="button primary" id="tutorialStepNext">Próximo</button></div>
   </dialog>
 
   <script src="../lib/storage-content.js"></script><script src="../lib/i18n-content.js"></script><script src="../lib/avatar-content.js"></script><script src="../lib/icons-content.js"></script><script src="../lib/legal-content.js"></script><script src="../lib/sound-content.js"></script><script src="tutorial-data.js"></script><script src="faq-data.js"></script><script src="options-i18n.js"></script><script src="options.js"></script>
