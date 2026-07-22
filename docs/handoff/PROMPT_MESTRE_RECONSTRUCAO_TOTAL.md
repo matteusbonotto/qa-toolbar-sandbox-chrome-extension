@@ -25,7 +25,7 @@ Leia integralmente, nesta ordem:
 4. todo o repositório atual, incluindo `apps/extension`, `apps/landing`, `packages/domain`, `supabase`, `scripts`, `docs` e testes;
 5. screenshots e evidências fornecidas pelo proprietário.
 
-Em divergência funcional, prevalece o comportamento observável do userscript, exceto quando o prompt pai introduzir requisito novo explícito ou quando Manifest V3 exigir adaptação documentada. Não transforme exemplos Cinemark em hardcode ou identidade comercial.
+Em divergência funcional, prevalece o comportamento observável do userscript, exceto quando o prompt pai introduzir requisito novo explícito ou quando Manifest V3 exigir adaptação documentada. Não transforme exemplos de clientes reais em hardcode ou identidade comercial.
 
 ## Regras inegociáveis
 

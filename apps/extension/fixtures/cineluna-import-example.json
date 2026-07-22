@@ -3,8 +3,8 @@
   "updatedAt": "2026-07-19T00:00:00.000Z",
   "clients": [
     {
-      "id": "client-cinemark",
-      "name": "Cinemark",
+      "id": "client-cineluna",
+      "name": "Cineluna",
       "abbreviation": "C",
       "showLabel": true
     }
@@ -12,7 +12,7 @@
   "projects": [
     {
       "id": "project-webapp",
-      "clientId": "client-cinemark",
+      "clientId": "client-cineluna",
       "name": "WebApp",
       "abbreviation": "WEB",
       "showLabel": true
@@ -31,37 +31,37 @@
       "id": "env-dev",
       "productId": "product-ar",
       "projectId": "project-webapp",
-      "clientId": "client-cinemark",
+      "clientId": "client-cineluna",
       "name": "Dev",
       "color": "#6b7280",
-      "urlPatterns": ["https://ar-dev-www-ext.cinemark.com.ar/*"]
+      "urlPatterns": ["https://ar-dev-www-ext.cineluna.example/*"]
     },
     {
       "id": "env-qa",
       "productId": "product-ar",
       "projectId": "project-webapp",
-      "clientId": "client-cinemark",
+      "clientId": "client-cineluna",
       "name": "QA",
       "color": "#eab308",
-      "urlPatterns": ["https://ar-qa-www-ext.cinemark.com.ar/*"]
+      "urlPatterns": ["https://ar-qa-www-ext.cineluna.example/*"]
     },
     {
       "id": "env-beta",
       "productId": "product-ar",
       "projectId": "project-webapp",
-      "clientId": "client-cinemark",
+      "clientId": "client-cineluna",
       "name": "Beta",
       "color": "#22c55e",
-      "urlPatterns": ["https://www-beta.cinemark.com.ar/*"]
+      "urlPatterns": ["https://www-beta.cineluna.example/*"]
     },
     {
       "id": "env-prod",
       "productId": "product-ar",
       "projectId": "project-webapp",
-      "clientId": "client-cinemark",
+      "clientId": "client-cineluna",
       "name": "Produção",
       "color": "#ef4444",
-      "urlPatterns": ["https://www.cinemark.com.ar/*"]
+      "urlPatterns": ["https://www.cineluna.example/*"]
     }
   ],
   "testAccounts": [
@@ -70,7 +70,7 @@
       "environmentId": "env-qa",
       "label": "Conta comum",
       "accountType": "Comum",
-      "username": "qa.comum@cinemark.test",
+      "username": "qa.comum@cineluna.test",
       "password": "Sandbox@123",
       "notes": "Conta de teste genérica — sem vínculo com dados reais de cliente.",
       "customFields": [
@@ -94,7 +94,7 @@
     {
       "id": "api-ar",
       "label": "API AR (sandbox)",
-      "baseUrl": "https://ar-qa-api.cinemark.com.ar",
+      "baseUrl": "https://ar-qa-api.cineluna.example",
       "token": "sandbox-token-demo"
     }
   ],
@@ -109,7 +109,7 @@
     {
       "id": "resource-runbook",
       "label": "Runbook de QA",
-      "url": "https://example.com/runbook-qa-cinemark",
+      "url": "https://example.com/runbook-qa-cineluna",
       "category": "Documentação"
     }
   ],
@@ -121,7 +121,7 @@
       "steps": [
         { "action": "click", "selector": "#login-button" },
         { "action": "wait", "ms": 500 },
-        { "action": "fill", "selector": "#email", "value": "qa.comum@cinemark.test" },
+        { "action": "fill", "selector": "#email", "value": "qa.comum@cineluna.test" },
         { "action": "press", "selector": "#email", "value": "Tab" }
       ]
     }
