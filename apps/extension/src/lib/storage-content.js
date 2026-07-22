@@ -165,5 +165,27 @@
   async function getSiteScope() { const stored = await chrome.storage.local.get(STORAGE_KEYS.siteScope); const scope = stored[STORAGE_KEYS.siteScope]; return scope && typeof scope === "object" ? { mode: scope.mode === "custom" ? "custom" : "environments", patterns: normalizeUrlPatterns(scope.patterns) } : createDefaultSiteScope(); }
   async function saveSiteScope(scope) { const next = { mode: scope?.mode === "custom" ? "custom" : "environments", patterns: normalizeUrlPatterns(scope?.patterns) }; await chrome.storage.local.set({ [STORAGE_KEYS.siteScope]: next }); return next; }
   function onStorageChanged(callback) { const listener = (changes, areaName) => { if (areaName === "local") callback(changes); }; chrome.storage.onChanged.addListener(listener); return () => chrome.storage.onChanged.removeListener(listener); }
-  window.QTS_STORAGE = Object.freeze({ STORAGE_KEYS, DEFAULT_ENABLED_TOOLS, createEmptyWorkspace, normalizeWorkspace, normalizeUrlPatterns, getWorkspace, saveWorkspace, createDefaultSiteScope, getSiteScope, saveSiteScope, onStorageChanged });
+  async function getTutorialProgress() {
+    const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+    const tutorial = stored[STORAGE_KEYS.uiState]?.tutorial;
+    return { completedSteps: Array.isArray(tutorial?.completedSteps) ? tutorial.completedSteps : [], dismissedBannerAt: text(tutorial?.dismissedBannerAt, 40) || null };
+  }
+  async function saveTutorialCompletedStep(stepKey) {
+    const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+    const uiState = current[STORAGE_KEYS.uiState] || {};
+    const tutorial = uiState.tutorial || {};
+    const completedSteps = Array.isArray(tutorial.completedSteps) ? tutorial.completedSteps : [];
+    const nextCompletedSteps = completedSteps.includes(stepKey) ? completedSteps : [...completedSteps, stepKey];
+    const nextTutorial = { ...tutorial, completedSteps: nextCompletedSteps };
+    await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...uiState, tutorial: nextTutorial } });
+    return nextTutorial;
+  }
+  async function saveTutorialBannerDismissed() {
+    const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+    const uiState = current[STORAGE_KEYS.uiState] || {};
+    const nextTutorial = { ...(uiState.tutorial || {}), dismissedBannerAt: new Date().toISOString() };
+    await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...uiState, tutorial: nextTutorial } });
+    return nextTutorial;
+  }
+  window.QTS_STORAGE = Object.freeze({ STORAGE_KEYS, DEFAULT_ENABLED_TOOLS, createEmptyWorkspace, normalizeWorkspace, normalizeUrlPatterns, getWorkspace, saveWorkspace, createDefaultSiteScope, getSiteScope, saveSiteScope, onStorageChanged, getTutorialProgress, saveTutorialCompletedStep, saveTutorialBannerDismissed });
 })();

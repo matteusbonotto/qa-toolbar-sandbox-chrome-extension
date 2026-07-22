@@ -185,6 +185,8 @@ async function loadAccess(force = false) {
   }
   if (!active) switchTab("account");
   loadPreferenceUi(); // keeps the Key View plan-gate hint in sync with the freshest access state
+  renderTutorialPanel(); // plan-gated lock badges depend on accessState.features, refreshed here too
+  renderTutorialBanner();
   return active;
 }
 
@@ -1430,6 +1432,117 @@ document.getElementById("importFile").addEventListener("change", async (event) =
   } catch (error) { workspace = previousWorkspace; renderWorkspace(); document.getElementById("dataHint").textContent = t("Falha ao importar: {error}. O workspace anterior foi preservado.", { error: t(error.message) }); }
   event.target.value = "";
 });
+// Tutorial + FAQ (Part B). Maps each tutorial-data.js module key to an icon already in
+// window.QTS_ICONS (extension's own icon set, not the LP's bootstrap-icons names) -- falls back
+// to no icon for the couple of keys without a dedicated one (jsonStudio) rather than guessing wrong.
+const TUTORIAL_ICON_BY_KEY = {
+  workspace: "settings", testStatus: "checkSquare", passFail: "checkSquare", notesShapes: "square",
+  screenshot: "camera", recording: "recordStart", clickSpy: "mouse", freezeClock: "freezeClock",
+  forceHttp: "warning", errorMonitor: "errorMonitor", inspectors: "braces", breakpoints: "breakpointViewer",
+  characterCounter: "characterCounter", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill",
+  macroStudio: "macroStudio", keyView: "keyView", elementCapture: "elementCapture", testAccounts: "key",
+  paymentMethods: "paymentMethods", resources: "resources",
+};
+let tutorialProgress = { completedSteps: [], dismissedBannerAt: null };
+let achievementToastTimer = null;
+
+function showAchievementToast(title) {
+  let toast = document.getElementById("tutorialAchievementToast");
+  if (!toast) {
+    toast = document.createElement("div");
+    toast.id = "tutorialAchievementToast";
+    toast.className = "tutorialAchievementToast";
+    document.body.appendChild(toast);
+  }
+  toast.textContent = `🏆 ${t("Conquista desbloqueada")}: ${title}`;
+  toast.classList.add("isVisible");
+  clearTimeout(achievementToastTimer);
+  achievementToastTimer = setTimeout(() => toast.classList.remove("isVisible"), 2600);
+}
+
+function renderTutorialPanel() {
+  const modules = window.QTS_TUTORIAL_DATA || [];
+  const total = modules.length;
+  const done = modules.filter((module) => tutorialProgress.completedSteps.includes(module.key)).length;
+  document.getElementById("tutorialProgressLabel").textContent = t("{done} de {total} concluídos", { done, total });
+  document.getElementById("tutorialProgressFill").style.width = total ? `${Math.round((done / total) * 100)}%` : "0%";
+  document.getElementById("tutorialModules").innerHTML = modules.map((module) => {
+    const isDone = tutorialProgress.completedSteps.includes(module.key);
+    const locked = module.planFeature && accessState?.features?.[module.planFeature] !== true;
+    const iconName = TUTORIAL_ICON_BY_KEY[module.key];
+    return `
+      <article class="tutorialModule${isDone ? " isDone" : ""}" data-tutorial-module="${escapeHtml(module.key)}">
+        <div class="tutorialModuleMedia">${module.screenshot ? `<img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />` : `<span>${escapeHtml(t("Prévia em breve"))}</span>`}</div>
+        <div class="tutorialModuleBody">
+          <div class="tutorialModuleHead">
+            <h3>${iconName ? ICON(iconName) : ""} ${escapeHtml(t(module.title))}</h3>
+            ${locked ? `<span class="tutorialLockBadge">🔒 ${escapeHtml(t("Recurso do plano"))}</span>` : ""}
+          </div>
+          <p class="tutorialModuleShort">${escapeHtml(t(module.short))}</p>
+          <p class="tutorialModuleInstructions">${escapeHtml(t(module.instructions))}</p>
+          <div class="actions"><button type="button" class="button${isDone ? "" : " primary"}" data-tutorial-complete="${escapeHtml(module.key)}">${isDone ? `✓ ${escapeHtml(t("Concluído"))}` : escapeHtml(t("Marcar como concluído"))}</button></div>
+        </div>
+      </article>
+    `;
+  }).join("");
+  document.querySelectorAll("[data-tutorial-complete]").forEach((button) => {
+    button.addEventListener("click", () => completeTutorialStep(button.dataset.tutorialComplete));
+  });
+}
+
+async function completeTutorialStep(key) {
+  const module = (window.QTS_TUTORIAL_DATA || []).find((item) => item.key === key);
+  if (!module || tutorialProgress.completedSteps.includes(key)) return;
+  await window.QTS_STORAGE.saveTutorialCompletedStep(key);
+  tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
+  window.QTS_SOUND.playSound("achievement", workspace);
+  renderTutorialPanel();
+  const row = document.querySelector(`[data-tutorial-module="${key}"]`);
+  if (row) { row.classList.add("justCompleted"); setTimeout(() => row.classList.remove("justCompleted"), 500); }
+  showAchievementToast(t(module.title));
+}
+
+function renderFaqPanel() {
+  const general = window.QTS_FAQ_DATA?.general || [];
+  const modules = (window.QTS_TUTORIAL_DATA || []).filter((module) => module.key !== "workspace");
+  const generalHtml = general.map((item) => `
+    <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t(item.question))}</b></summary><div class="list"><p>${escapeHtml(t(item.answer))}</p></div></details>
+  `).join("");
+  const toolsHtml = modules.map((module) => `
+    <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t("Para que serve {tool}?", { tool: t(module.title) }))}</b></summary><div class="list"><p>${escapeHtml(t(module.short))} ${escapeHtml(t(module.instructions))}</p></div></details>
+  `).join("");
+  document.getElementById("faqAccordions").innerHTML = generalHtml + toolsHtml;
+}
+
+function renderTutorialBanner() {
+  document.getElementById("tutorialBanner").hidden = !accessState?.active || !!tutorialProgress.dismissedBannerAt;
+}
+
+document.getElementById("tutorialSkipAll").addEventListener("click", async () => {
+  const modules = window.QTS_TUTORIAL_DATA || [];
+  for (const module of modules) {
+    if (!tutorialProgress.completedSteps.includes(module.key)) await window.QTS_STORAGE.saveTutorialCompletedStep(module.key);
+  }
+  tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
+  renderTutorialPanel();
+});
+document.getElementById("tutorialReset").addEventListener("click", async () => {
+  if (!(await confirmDialog(t("Reiniciar o progresso do tutorial? Nenhum dado do seu workspace é afetado.")))) return;
+  const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  const uiState = current[STORAGE_KEYS.uiState] || {};
+  await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...uiState, tutorial: { ...(uiState.tutorial || {}), completedSteps: [] } } });
+  tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
+  renderTutorialPanel();
+});
+document.getElementById("tutorialBannerOpen").addEventListener("click", () => switchTab("tutorial"));
+document.getElementById("tutorialBannerDismiss").addEventListener("click", async () => {
+  await window.QTS_STORAGE.saveTutorialBannerDismissed();
+  tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
+  renderTutorialBanner();
+});
+document.getElementById("faqExpandAll").addEventListener("click", () => document.querySelectorAll(".faqAccordion").forEach((details) => { details.open = true; }));
+document.getElementById("faqCollapseAll").addEventListener("click", () => document.querySelectorAll(".faqAccordion").forEach((details) => { details.open = false; }));
+
 async function loadLegalStatus() {
   const record = await window.QTS_LEGAL.fetchLegalRegistration();
   if (!record) {
@@ -1450,8 +1563,10 @@ document.getElementById("resetButton").addEventListener("click", async () => {
 (async () => {
   await loadLocale();
   workspace = await getWorkspace();
+  tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
   await loadScopeUi();
   renderWorkspace();
+  renderFaqPanel();
   await loadAccess(true);
   void loadLegalStatus();
   onStorageChanged(async (changes) => {
