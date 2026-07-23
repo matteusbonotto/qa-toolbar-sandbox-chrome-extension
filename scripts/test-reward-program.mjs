@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 
 const migration = await readFile(new URL("../supabase/migrations/20260723010000_reward_points_wheel.sql", import.meta.url), "utf8");
 const retirement = await readFile(new URL("../supabase/migrations/20260723020000_retire_legacy_30_day_rewards.sql", import.meta.url), "utf8");
+const activation = await readFile(new URL("../supabase/migrations/20260723030000_activate_qa_rewards.sql", import.meta.url), "utf8");
 const webhook = await readFile(new URL("../supabase/functions/stripe-webhook/index.ts", import.meta.url), "utf8");
 const checkout = await readFile(new URL("../supabase/functions/checkout-create-session/index.ts", import.meta.url), "utf8");
 const landing = await readFile(new URL("../apps/landing/src/sections/CommunityCampaignSection.tsx", import.meta.url), "utf8");
@@ -25,6 +26,8 @@ assert.match(webhook, /qualify_paid_referral/);
 assert.match(webhook, /reverse_referral_points/);
 assert.doesNotMatch(webhook, /rpc\("reward_referral"/);
 assert.match(retirement, /drop function if exists public\.reward_referral\(uuid\)/);
+assert.match(activation, /prize_count<>5 or top_tier_weight<>100/);
+assert.match(activation, /update public\.reward_programs set enabled=true/);
 assert.match(checkout, /reserve_best_reward_discount/);
 assert.match(checkout, /reward-coupon:/);
 assert.doesNotMatch(landing, /ganharem? 30 dias|earn 30|consigue 30|\+30 dias/i);
