@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>QA Toolbar Sandbox — Ambiente de testes</title>
+<link rel="icon" href="../qa-toolbar-sandbox-logo.png" />
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header id="siteHeader">
+    <img src="../qa-toolbar-sandbox-logo.png" alt="QA Toolbar Sandbox" />
+    <div class="titles">
+      <h1>QA Toolbar Sandbox</h1>
+      <p>Ambiente de testes — feito para o tour e o tutorial da extensão</p>
+    </div>
+    <span class="badge">Sandbox</span>
+  </header>
+
+  <main>
+    <section class="card" id="usersSection">
+      <div class="toolbar-row">
+        <div>
+          <h2>Tabela de usuários</h2>
+          <p class="lead">Cadastre, edite e remova registros — útil pra testar seletores, XPath e fluxos de CRUD.</p>
+        </div>
+        <button class="btn" type="button" id="addUserBtn">+ Novo registro</button>
+      </div>
+      <table class="data-table" id="usersTable">
+        <thead>
+          <tr>
+            <th>Nome</th><th>Sobrenome</th><th>E-mail</th><th>Idade</th><th>Departamento</th><th>Ações</th>
+          </tr>
+        </thead>
+        <tbody id="usersBody"></tbody>
+      </table>
+      <p id="usersEmpty" hidden>Nenhum registro cadastrado ainda.</p>
+      <div class="alert success" id="usersSuccess" role="status" aria-live="polite" hidden></div>
+      <div class="alert error" id="usersError" role="alert" aria-live="assertive" hidden></div>
+    </section>
+
+    <section class="card" id="formSection">
+      <h2>Formulário de contato</h2>
+      <p class="lead">Vários tipos de campo num só lugar — texto, senha, área de texto, seleção, data, arquivo, checkbox e rádio.</p>
+      <form id="contactForm" novalidate>
+        <div class="field-grid">
+          <label class="field" id="contactName-label">Nome completo<input id="contactName" name="name" type="text" maxlength="80" required /></label>
+          <label class="field">E-mail<input id="contactEmail" name="email" type="email" required /></label>
+          <label class="field">Senha<input id="contactPassword" name="password" type="password" minlength="6" /></label>
+          <label class="field">Telefone<input id="contactPhone" name="phone" type="tel" placeholder="(11) 90000-0000" /></label>
+          <label class="field">Data de nascimento<input id="contactBirthdate" name="birthdate" type="date" /></label>
+          <label class="field">Faixa de satisfação<input id="contactRange" name="satisfaction" type="range" min="0" max="10" value="5" /></label>
+          <label class="field">Departamento<select id="contactDepartment" name="department">
+            <option value="">Selecione</option>
+            <option value="qa">QA</option>
+            <option value="dev">Desenvolvimento</option>
+            <option value="product">Produto</option>
+            <option value="design">Design</option>
+          </select></label>
+          <label class="field">Anexo<input id="contactFile" name="file" type="file" /></label>
+        </div>
+        <label class="field" style="margin-top:14px">Mensagem<textarea id="contactMessage" name="message" rows="4" maxlength="500"></textarea></label>
+        <div class="radio-group" style="margin-top:14px">
+          <span style="font-size:12px;color:var(--text-muted);font-weight:600">Contato preferido:</span>
+          <label class="field radio"><input type="radio" name="preferredContact" value="email" checked /> E-mail</label>
+          <label class="field radio"><input type="radio" name="preferredContact" value="phone" /> Telefone</label>
+        </div>
+        <label class="field checkbox" style="margin-top:10px"><input type="checkbox" id="contactConsent" required /> Concordo em receber contato</label>
+        <div class="toolbar-row" style="margin-top:16px">
+          <button class="btn" type="submit" id="contactSubmit">Enviar formulário</button>
+          <button class="btn ghost" type="reset" id="contactReset">Limpar</button>
+        </div>
+      </form>
+      <div class="alert success" id="formSuccess" role="status" aria-live="polite" hidden></div>
+      <div class="alert error" id="formError" role="alert" aria-live="assertive" hidden></div>
+    </section>
+
+    <section class="card" id="actionsSection">
+      <h2>Ações e alertas</h2>
+      <p class="lead">Dispare mensagens de sucesso, erro e falhas de rede/console sob demanda — ótimo pra testar Error Monitor, Freeze Clock e Force HTTP.</p>
+      <div class="toolbar-row">
+        <button class="btn" type="button" id="triggerSuccess">Simular sucesso</button>
+        <button class="btn danger" type="button" id="triggerError">Simular erro</button>
+        <button class="btn ghost" type="button" id="triggerConsoleError">Gerar erro no console</button>
+        <button class="btn ghost" type="button" id="triggerNetworkError">Simular falha de rede</button>
+        <button class="btn ghost" type="button" id="triggerModal">Abrir modal de confirmação</button>
+      </div>
+    </section>
+  </main>
+
+  <footer>QA Toolbar Sandbox — página de demonstração própria, sem dependência de sites de terceiros.</footer>
+
+  <dialog id="recordDialog">
+    <form id="recordForm" method="dialog">
+      <h3 id="recordDialogTitle">Novo registro</h3>
+      <div class="field-grid">
+        <label class="field">Nome<input id="recordFirstName" name="firstName" required maxlength="60" /></label>
+        <label class="field">Sobrenome<input id="recordLastName" name="lastName" required maxlength="60" /></label>
+        <label class="field">E-mail<input id="recordEmail" name="email" type="email" required /></label>
+        <label class="field">Idade<input id="recordAge" name="age" type="number" min="1" max="120" required /></label>
+        <label class="field">Departamento<select id="recordDepartment" name="department">
+          <option value="QA">QA</option>
+          <option value="Desenvolvimento">Desenvolvimento</option>
+          <option value="Produto">Produto</option>
+          <option value="Design">Design</option>
+        </select></label>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" id="recordCancel">Cancelar</button>
+        <button type="submit" class="btn" id="recordSubmit">Salvar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="confirmDialog">
+    <form method="dialog" style="padding:22px;display:grid;gap:14px">
+      <h3 style="margin:0">Confirmar ação</h3>
+      <p style="margin:0;color:var(--text-muted);font-size:13px">Tem certeza que deseja continuar com essa ação de teste?</p>
+      <div class="dialog-actions">
+        <button type="button" class="btn ghost" id="confirmCancel">Cancelar</button>
+        <button type="submit" class="btn" id="confirmOk" value="ok">Confirmar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div class="toast-stack" id="toastStack"></div>
+
+  <script src="script.js"></script>
+</body>
+</html>

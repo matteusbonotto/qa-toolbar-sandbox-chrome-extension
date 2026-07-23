@@ -7,7 +7,7 @@
     authSession: "qtsAuthSessionV1",
     accessStatus: "qtsAccessStatusV1",
   });
-  const DEFAULT_ENABLED_TOOLS = Object.freeze(["clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio", "breakpoints", "testAccounts", "paymentMethods", "resources", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "elementCapture", "blurElements", "holofote", "stepsRecorder"]);
+  const DEFAULT_ENABLED_TOOLS = Object.freeze(["clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio", "breakpoints", "testAccounts", "paymentMethods", "resources", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "elementCapture", "blurElements", "holofote", "stepsRecorder", "pixelPerfect"]);
   const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
   const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
   const SCHEMA_4_TOOLS = ["keyView"];
@@ -16,6 +16,10 @@
   const SCHEMA_7_TOOLS = ["blurElements"];
   const SCHEMA_8_TOOLS = ["holofote"];
   const SCHEMA_11_TOOLS = ["stepsRecorder"];
+  const SCHEMA_12_TOOLS = ["pixelPerfect"];
+  const DEMO_CLIENT_ID = "qts-demo-client";
+  const DEMO_PROJECT_ID = "qts-demo-project";
+  const DEMO_PRODUCT_ID = "qts-demo-product";
   const KEY_VIEW_POSITIONS = new Set(["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"]);
   const KEY_VIEW_SIZES = new Set(["small", "medium", "large"]);
   const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
@@ -38,6 +42,14 @@
       showLabel: item?.showLabel !== false,
       active: item?.active !== false,
     };
+  };
+  // See storage.js's twin of this function for the full rationale: re-asserted on every
+  // normalization pass (edit, delete attempt, or a whole-workspace import) so the demo
+  // Toolbar/Sandbox/STAGE entities can never actually disappear once seeded.
+  const ensureLockedEntity = (list, entityId, fields) => {
+    const existing = list.find((item) => item.id === entityId);
+    if (existing) Object.assign(existing, fields, { locked: true });
+    else list.unshift({ id: entityId, ...appearance({}), ...fields, locked: true });
   };
   const CUSTOM_FIELD_TYPES = new Set(["string", "boolean", "number"]);
   function normalizeCustomFields(input) {
@@ -97,7 +109,7 @@
   }
   function createEmptyWorkspace() {
     return {
-      schemaVersion: 11,
+      schemaVersion: 12,
       updatedAt: new Date().toISOString(),
       clients: [],
       projects: [],
@@ -122,6 +134,9 @@
         pinnedMacroIds: [],
         enabledTools: [...DEFAULT_ENABLED_TOOLS],
         toolsMenuOrder: [...DEFAULT_ENABLED_TOOLS],
+        toolsSortMode: "custom",
+        toolUsageCounts: {},
+        demoWorkspaceSeeded: false,
         soundEffects: true,
         remindTestStatusOnRecording: false,
         breadcrumbVisibility: {
@@ -212,6 +227,19 @@
     const order = (Array.isArray(value) ? value : []).filter((key) => DEFAULT_ENABLED_TOOLS.includes(key) && !seen.has(key) && seen.add(key));
     for (const key of DEFAULT_ENABLED_TOOLS) if (!order.includes(key)) order.push(key);
     return order;
+  }
+  const TOOLS_SORT_MODES = new Set(["custom", "az", "za", "mostUsed"]);
+  function normalizeToolsSortMode(value) {
+    return TOOLS_SORT_MODES.has(value) ? value : "custom";
+  }
+  function normalizeToolUsageCounts(value) {
+    const source = value && typeof value === "object" ? value : {};
+    const counts = {};
+    for (const key of DEFAULT_ENABLED_TOOLS) {
+      const count = Number(source[key]);
+      if (Number.isFinite(count) && count > 0) counts[key] = Math.min(Math.floor(count), 1_000_000);
+    }
+    return counts;
   }
   function normalizeKeyView(value) {
     const source = value && typeof value === "object" ? value : {};
@@ -308,6 +336,11 @@
         ...appearance(item),
       }))
       .filter((item) => projects.some((project) => project.id === item.projectId));
+    if (source.preferences?.demoWorkspaceSeeded === true) {
+      ensureLockedEntity(clients, DEMO_CLIENT_ID, { name: "Toolbar" });
+      ensureLockedEntity(projects, DEMO_PROJECT_ID, { name: "Sandbox", clientId: DEMO_CLIENT_ID });
+      ensureLockedEntity(products, DEMO_PRODUCT_ID, { name: "STAGE", projectId: DEMO_PROJECT_ID });
+    }
     const environments = (Array.isArray(source.environments) ? source.environments : []).map((item, index) => {
       const rawColor = text(item?.color ?? item?.backgroundColor, 7);
       return {
@@ -333,9 +366,10 @@
     if (Number(source.schemaVersion || 0) < 7) for (const tool of SCHEMA_7_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 8) for (const tool of SCHEMA_8_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 11) for (const tool of SCHEMA_11_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    if (Number(source.schemaVersion || 0) < 12) for (const tool of SCHEMA_12_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     return {
       ...empty,
-      schemaVersion: 11,
+      schemaVersion: 12,
       updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
       clients,
       projects,
@@ -382,6 +416,9 @@
           : [],
         enabledTools: normalizedEnabledTools,
         toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),
+        toolsSortMode: normalizeToolsSortMode(preferences.toolsSortMode),
+        toolUsageCounts: normalizeToolUsageCounts(preferences.toolUsageCounts),
+        demoWorkspaceSeeded: preferences.demoWorkspaceSeeded === true,
         soundEffects: preferences.soundEffects !== false,
         remindTestStatusOnRecording: preferences.remindTestStatusOnRecording === true,
         breadcrumbVisibility: {

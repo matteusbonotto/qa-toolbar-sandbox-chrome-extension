@@ -100,15 +100,15 @@ try {
   for (let attempt = 0; attempt < 40 && installDemoTabs.length === 0; attempt += 1) {
     await new Promise((resolveInstallTab) => setTimeout(resolveInstallTab, 100));
     installDemoTabs = context.pages().filter((page) => {
-      try { return ["demoqa.com", "www.demoqa.com"].includes(new URL(page.url()).hostname); } catch { return false; }
+      try { return ["matteusbonotto.github.io"].includes(new URL(page.url()).hostname); } catch { return false; }
     });
   }
   installDemoTabs = context.pages().filter((page) => {
-    try { return ["demoqa.com", "www.demoqa.com"].includes(new URL(page.url()).hostname); } catch { return false; }
+    try { return ["matteusbonotto.github.io"].includes(new URL(page.url()).hostname); } catch { return false; }
   });
-  if (installDemoTabs.length !== 1) throw new Error(`Fresh install should open exactly one DemoQA tab, found ${installDemoTabs.length}`);
+  if (installDemoTabs.length !== 1) throw new Error(`Fresh install should open exactly one demo-site tab, found ${installDemoTabs.length}`);
   await installDemoTabs[0].close();
-  trace("fresh-install onboarding opens exactly one DemoQA tab");
+  trace("fresh-install onboarding opens exactly one demo-site tab");
 
   const host = await context.newPage();
   const hostErrors = [];
@@ -137,10 +137,10 @@ try {
   for (let attempt = 0; attempt < 50 && firstAccessTourTabs.length === 0; attempt += 1) {
     await new Promise((resolveTourTab) => setTimeout(resolveTourTab, 100));
     firstAccessTourTabs = context.pages().filter((page) => {
-      try { return ["demoqa.com", "www.demoqa.com"].includes(new URL(page.url()).hostname); } catch { return false; }
+      try { return ["matteusbonotto.github.io"].includes(new URL(page.url()).hostname); } catch { return false; }
     });
   }
-  if (firstAccessTourTabs.length !== 1) throw new Error(`First successful login should open exactly one DemoQA tour tab, found ${firstAccessTourTabs.length}`);
+  if (firstAccessTourTabs.length !== 1) throw new Error(`First successful login should open exactly one demo-site tour tab, found ${firstAccessTourTabs.length}`);
   await firstAccessTourTabs[0].close();
   trace("first-login onboarding opens exactly one tour tab");
   // The onboarding assertion above intentionally seeds the demo workspace. Reset only this
@@ -364,6 +364,13 @@ try {
   await host.locator("#shapesMenuItem").click();
   trace("line: shape menu opened");
   await host.locator('#shapeTypeMenu:not(.isHidden)').waitFor({ timeout: 2_000 });
+  // Regression guard: the shape-type flyout used to just get appended as the LAST child of the
+  // whole Tools list (position:static), landing far below "Desenhar forma" instead of next to it.
+  // It must now open flush against that exact row, vertically aligned within a few pixels.
+  const shapesRowBox = await host.locator("#shapesMenuItem").boundingBox();
+  const submenuBox = await host.locator("#shapeTypeMenu").boundingBox();
+  if (Math.abs(submenuBox.y - shapesRowBox.y) > 6) throw new Error(`Shape-type flyout did not open aligned with "Desenhar forma": row at y=${shapesRowBox.y}, menu at y=${submenuBox.y}`);
+  if (submenuBox.x > shapesRowBox.x && submenuBox.x < shapesRowBox.x + shapesRowBox.width) throw new Error("Shape-type flyout overlapped the Tools list instead of opening beside it");
   await host.locator('[data-shape-pick="rectangle"]').click();
   await host.mouse.move(300, 300);
   await host.mouse.down();
@@ -503,6 +510,68 @@ try {
   await host.locator("#holofoteToggle").click();
   await host.locator("#drawerClose").click();
   trace("modo holofote verified (2s Ctrl hold, follows release fade, page stays interactive)");
+
+  // Pixel Perfect: crosshair lines track the real mouse position (read back off the overlay's own
+  // CSS custom properties), a click anchors a smart-ruler measurement to the next mouse position,
+  // and a second click releases it. Never preventDefault's real clicks, so the page stays usable.
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerClose").click();
+  await host.mouse.move(300, 260);
+  const ppPos1 = await host.locator("#qts-pixelperfect-overlay").evaluate((el) => [el.style.getPropertyValue("--qts-pp-x"), el.style.getPropertyValue("--qts-pp-y")]);
+  if (ppPos1[0] !== "300px" || ppPos1[1] !== "260px") throw new Error(`Pixel Perfect crosshair did not track the mouse position: ${ppPos1}`);
+  if (await host.locator(".qts-pp-measure-line:not(.isHidden)").count()) throw new Error("Pixel Perfect showed a measurement line before any anchor was set");
+  await host.mouse.click(300, 260);
+  await host.mouse.move(500, 400, { steps: 8 });
+  await host.locator(".qts-pp-measure-line:not(.isHidden)").waitFor({ timeout: 2_000 });
+  const measureLabel = await host.locator(".qts-pp-measure-label").innerText();
+  if (!/^\d+×\d+px · \d+px$/.test(measureLabel)) throw new Error(`Pixel Perfect measurement label had an unexpected format: ${measureLabel}`);
+  await host.mouse.click(500, 400);
+  if (await host.locator(".qts-pp-measure-line:not(.isHidden)").count()) throw new Error("Second click did not release the Pixel Perfect measurement");
+  if (!(await host.locator("h1").isVisible())) throw new Error("Pixel Perfect mode blocked normal page interaction");
+  trace("pixel perfect verified (crosshair tracks the mouse, click-anchor smart ruler measures and releases)");
+
+  // Pixel Perfect "bounds" mode: hovering snaps a box to the real element under the cursor and
+  // shows its exact pixel size, the wheel walks the box up the DOM ancestor chain (bigger
+  // container per notch), and a click pins it without triggering the underlying element's own
+  // click behavior (a link/button under the cursor must not activate).
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  await host.locator("#pixelPerfectMode").selectOption("bounds");
+  await host.locator("#drawerClose").click();
+  await host.locator("#qaName").hover();
+  await host.locator(".qts-pp-bounds-box:not(.isHidden)").waitFor({ timeout: 2_000 });
+  const boundsLabel1 = await host.locator(".qts-pp-bounds-label").innerText();
+  if (!/^\S+ · \d+×\d+px$/.test(boundsLabel1)) throw new Error(`Pixel Perfect bounds label had an unexpected format: ${boundsLabel1}`);
+  await host.mouse.wheel(0, 120);
+  await host.waitForTimeout(150);
+  const boundsLabel2 = await host.locator(".qts-pp-bounds-label").innerText();
+  if (boundsLabel2 === boundsLabel1) throw new Error("Pixel Perfect bounds scroll did not move to a different DOM ancestor");
+  await host.locator("#qaName").click();
+  if (!(await host.locator(".qts-pp-bounds-box").evaluate((el) => el.classList.contains("isPinned")))) throw new Error("Pixel Perfect bounds click did not pin the box");
+  await host.locator("#qaName").click();
+  if (await host.locator(".qts-pp-bounds-box").evaluate((el) => el.classList.contains("isPinned"))) throw new Error("Second click did not unpin the Pixel Perfect bounds box");
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerClose").click();
+  trace("pixel perfect bounds mode verified (hover shows real element size, scroll walks the ancestor chain, click pins without activating the element)");
+
+  // Right-click "Inspecionar com Pixel Perfect" pins the inspector on the clicked element in one
+  // step, same relay mechanism as "Borrar / desborrar este elemento" above.
+  await host.locator("#qaEmail").click({ button: "right" });
+  await worker.evaluate(() => new Promise((resolve) => {
+    chrome.tabs.query({ url: "http://127.0.0.1:43117/*" }, (tabs) => {
+      chrome.tabs.sendMessage(tabs[0].id, { type: "qts:context-action", action: "pixel-perfect-inspect" }, () => resolve());
+    });
+  }));
+  await host.locator(".qts-pp-bounds-box.isPinned").waitFor({ timeout: 2_000 });
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerClose").click();
+  trace("pixel perfect context-menu inspect verified (right-click pins the inspector on the clicked element immediately)");
 
   // Recording type menu offers a normal seekable video and a real locally encoded GIF mode. GIF
   // recordings are split into independent 15-second files and zipped only when there is >1 part.
@@ -940,7 +1009,7 @@ try {
   if (await options.locator(".faqAccordion[open]").count() !== 0) throw new Error("Recolher tudo did not close every FAQ entry");
   trace("FAQ accordions + image lightbox verified");
 
-  // Live tutorial tour: same overlay code path as the real demoqa.com launch (background.js only
+  // Live tutorial tour: same overlay code path as the real demo-site launch (background.js only
   // hardcodes that URL for the actual seed-and-open flow, tested separately below) -- toolbar.js
   // reacts to the exact same ?qtsTutorial=1 query param regardless of host, so pointing it at the
   // local fixture page keeps this a zero-external-network check while exercising the real code.
@@ -1018,7 +1087,7 @@ try {
   } catch {
     throw new Error(`"Iniciar tutorial" opened an unexpected URL: ${demoTabUrl}`);
   }
-  const allowedDemoHosts = new Set(["demoqa.com", "www.demoqa.com"]);
+  const allowedDemoHosts = new Set(["matteusbonotto.github.io"]);
   if (!allowedDemoHosts.has(demoTabHost)) throw new Error(`"Iniciar tutorial" opened an unexpected URL: ${demoTabUrl}`);
   await demoTab.close();
   const clientCountAfterTourButton = await options.evaluate(async () => (await chrome.storage.local.get("qtsWorkspaceV1")).qtsWorkspaceV1?.clients?.length || 0);

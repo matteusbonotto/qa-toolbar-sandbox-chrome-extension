@@ -113,6 +113,17 @@
       planFeature: null,
     },
     {
+      key: "pixelPerfect",
+      group: "inspection",
+      title: "Pixel Perfect",
+      short: "Linhas guia, régua inteligente e um inspetor de elementos — veja o tamanho exato de qualquer coisa na tela.",
+      instructions: "Abra \"Pixel Perfect\" no menu Tools e escolha um modo. Nas linhas guia (cruz, horizontal ou vertical, cor e espessura configuráveis), clique em qualquer ponto da página para fixar uma régua inteligente que mede a distância até o cursor; role o scroll para ajustar o ponto fixado com precisão de 1px. No modo \"Inspecionar elemento\", passe o mouse sobre qualquer elemento da página para ver seu tamanho exato em pixels; role o scroll para subir até o elemento pai (caixa maior) ou voltar para o filho mais interno, e clique para fixar a seleção. Também dá pra abrir direto no elemento clicado com o botão direito do mouse, em \"Inspecionar com Pixel Perfect\". Esc solta a régua ou a fixação, em qualquer modo.",
+      tip: "Inspirado no Screen Ruler do PowerToys: use pra conferir se dois elementos estão realmente alinhados ou têm o mesmo tamanho antes de reportar um bug de layout, sem precisar estimar a olho.",
+      screenshot: "tutorial-assets/pixelPerfect.png",
+      video: "tutorial-assets/pixelPerfect.webm",
+      planFeature: null,
+    },
+    {
       key: "screenshot",
       group: "evidence",
       title: "Screenshot",

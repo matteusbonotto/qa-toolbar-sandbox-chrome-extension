@@ -14,11 +14,19 @@ const COLLECTION_KEYS = [
   "paymentMethods", "apis", "inspectors", "resources", "macros", "stepRecordings",
 ];
 
+// Fixed ids for the Cliente=Toolbar/Projeto=Sandbox/Produto=STAGE demo entities the onboarding
+// flow seeds (see background.js `seedDemoWorkspaceAndOpenTour`) so the tour/tutorial always has
+// somewhere real to point at without depending on a third-party site. Exported so background.js
+// can seed the exact same ids this file locks below.
+export const DEMO_CLIENT_ID = "qts-demo-client";
+export const DEMO_PROJECT_ID = "qts-demo-project";
+export const DEMO_PRODUCT_ID = "qts-demo-product";
+
 export const DEFAULT_ENABLED_TOOLS = Object.freeze([
   "clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio",
   "breakpoints", "testAccounts", "paymentMethods", "resources",
   "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "elementCapture",
-  "blurElements", "holofote", "stepsRecorder",
+  "blurElements", "holofote", "stepsRecorder", "pixelPerfect",
 ]);
 const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
 const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
@@ -28,6 +36,7 @@ const SCHEMA_6_TOOLS = ["elementCapture"];
 const SCHEMA_7_TOOLS = ["blurElements"];
 const SCHEMA_8_TOOLS = ["holofote"];
 const SCHEMA_11_TOOLS = ["stepsRecorder"];
+const SCHEMA_12_TOOLS = ["pixelPerfect"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -53,6 +62,17 @@ function id(value, prefix, index) {
 // 300k chars (~225KB binary) comfortably covers a small uploaded icon as a data: URL — plain
 // http(s) logo URLs are always far under this, so the cap only really bites oversized uploads.
 const IMAGE_VALUE_MAX_CHARS = 300_000;
+
+// Re-asserts a locked demo entity's id/parent/name/locked flag every single normalization pass
+// (manual edit, delete attempt, or a whole-workspace import) -- re-inserted at the front of the
+// list if an import dropped it entirely, or corrected in place if present but tampered with
+// (renamed, unlocked, reparented). This is the one place that can't be bypassed by any UI path,
+// since every write eventually flows through normalizeWorkspace.
+function ensureLockedEntity(list, entityId, fields) {
+  const existing = list.find((item) => item.id === entityId);
+  if (existing) Object.assign(existing, fields, { locked: true });
+  else list.unshift({ id: entityId, ...entityAppearance({}), ...fields, locked: true });
+}
 
 function entityAppearance(item) {
   const logoUrl = text(item?.logoUrl ?? item?.logo ?? item?.imageUrl, IMAGE_VALUE_MAX_CHARS);
@@ -215,7 +235,7 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 11,
+    schemaVersion: 12,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], stepRecordings: [],
@@ -230,6 +250,9 @@ export function createEmptyWorkspace() {
       pinnedMacroIds: [],
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
       toolsMenuOrder: [...DEFAULT_ENABLED_TOOLS],
+      toolsSortMode: "custom",
+      toolUsageCounts: {},
+      demoWorkspaceSeeded: false,
       soundEffects: true,
       remindTestStatusOnRecording: false,
       breadcrumbVisibility: { client: true, project: true, product: true, environment: true },
@@ -266,6 +289,24 @@ function normalizeToolsMenuOrder(value) {
   const order = (Array.isArray(value) ? value : []).filter((key) => DEFAULT_ENABLED_TOOLS.includes(key) && !seen.has(key) && seen.add(key));
   for (const key of DEFAULT_ENABLED_TOOLS) if (!order.includes(key)) order.push(key);
   return order;
+}
+
+const TOOLS_SORT_MODES = new Set(["custom", "az", "za", "mostUsed"]);
+function normalizeToolsSortMode(value) {
+  return TOOLS_SORT_MODES.has(value) ? value : "custom";
+}
+
+// Click counters that back "mais usados" sorting — same missing/unknown-key tolerance as every
+// other preference here (a stale count for a tool that no longer exists is just dropped), plus a
+// sane numeric floor so a corrupted value can never make a tool jump to the top forever.
+function normalizeToolUsageCounts(value) {
+  const source = value && typeof value === "object" ? value : {};
+  const counts = {};
+  for (const key of DEFAULT_ENABLED_TOOLS) {
+    const count = Number(source[key]);
+    if (Number.isFinite(count) && count > 0) counts[key] = Math.min(Math.floor(count), 1_000_000);
+  }
+  return counts;
 }
 
 function normalizeKeyViewPreferences(value) {
@@ -360,6 +401,16 @@ export function normalizeWorkspace(rawWorkspace) {
     id: id(item?.id, "product", index), projectId: id(item?.projectId ?? item?.project_id, "project", 0),
     name: text(item?.name ?? item?.label, 120) || `Produto ${index + 1}`, ...entityAppearance(item),
   })).filter((item) => projects.some((project) => project.id === item.projectId));
+  // Once the onboarding tour has seeded the demo workspace (preferences.demoWorkspaceSeeded),
+  // Cliente=Toolbar/Projeto=Sandbox/Produto=STAGE must survive forever -- neither a manual delete
+  // (blocked in options.js's UI itself, but re-asserted here as the real source of truth) nor an
+  // imported config file that omits or edits them can make them disappear, since every write path
+  // ends up back through this function.
+  if (source.preferences?.demoWorkspaceSeeded === true) {
+    ensureLockedEntity(clients, DEMO_CLIENT_ID, { name: "Toolbar" });
+    ensureLockedEntity(projects, DEMO_PROJECT_ID, { name: "Sandbox", clientId: DEMO_CLIENT_ID });
+    ensureLockedEntity(products, DEMO_PRODUCT_ID, { name: "STAGE", projectId: DEMO_PROJECT_ID });
+  }
   // Reusable tiers only (name + color) — no product/project/client reference. Which
   // product(s)/country(ies) an environment is actually deployed to lives entirely in
   // `urlBindings` now, so the same "DEV" environment can serve every country without being
@@ -400,9 +451,12 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 11) {
     for (const tool of SCHEMA_11_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 12) {
+    for (const tool of SCHEMA_12_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 11,
+    schemaVersion: 12,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
@@ -438,6 +492,9 @@ export function normalizeWorkspace(rawWorkspace) {
       pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
       enabledTools: normalizedEnabledTools,
       toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),
+      toolsSortMode: normalizeToolsSortMode(preferences.toolsSortMode),
+      toolUsageCounts: normalizeToolUsageCounts(preferences.toolUsageCounts),
+      demoWorkspaceSeeded: preferences.demoWorkspaceSeeded === true,
       soundEffects: preferences.soundEffects !== false,
       remindTestStatusOnRecording: preferences.remindTestStatusOnRecording === true,
       breadcrumbVisibility: {

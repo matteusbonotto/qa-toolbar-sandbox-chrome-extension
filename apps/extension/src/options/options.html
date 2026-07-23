@@ -152,8 +152,18 @@
               <label><input type="checkbox" data-tool="elementCapture" /> Capturar elementos</label>
               <label><input type="checkbox" data-tool="blurElements" /> Borrar elementos</label>
               <label><input type="checkbox" data-tool="holofote" /> Modo Holofote</label>
+              <label><input type="checkbox" data-tool="pixelPerfect" /> Pixel Perfect</label>
             </div></fieldset>
-            <fieldset><legend>Ordem no menu Tools</legend><p class="cardLead">Arraste ou use as setas para definir a ordem das ferramentas no menu.</p><ol class="breadcrumbOrderList toolsMenuOrderList" id="toolsMenuOrderList"></ol></fieldset>
+            <fieldset><legend>Ordem no menu Tools</legend>
+              <label>Ordenar por<select id="toolsSortMode">
+                <option value="custom">Personalizado (a ordem definida abaixo)</option>
+                <option value="az">Nome, A-Z</option>
+                <option value="za">Nome, Z-A</option>
+                <option value="mostUsed">Mais usados primeiro</option>
+              </select></label>
+              <p class="cardLead" id="toolsMenuOrderHint">Arraste ou use as setas para definir a ordem das ferramentas no menu.</p>
+              <ol class="breadcrumbOrderList toolsMenuOrderList" id="toolsMenuOrderList"></ol>
+            </fieldset>
           </div>
         </div>
         <div class="stickySaveBar"><span class="savedHint" id="generalSavedHint"></span><button type="button" class="button primary" id="saveGeneralSettings">Salvar</button></div>
