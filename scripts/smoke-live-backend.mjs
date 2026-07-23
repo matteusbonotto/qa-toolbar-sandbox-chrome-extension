@@ -209,21 +209,21 @@ async function smokeCheckoutReferralAndWebhook(planId, priceId) {
 
   const completedSession = await unwrap(admin.from("checkout_sessions").select("status").eq("user_id", referred.id).single(), "read Checkout session");
   assert(completedSession.status === "complete", "checkout.session.completed did not mark the local Checkout session complete");
-  const rewarded = await poll("referral reward", async () => {
+  const rewarded = await poll("referral points", async () => {
     const result = await admin.from("referrals").select("status,reward_reference").eq("referred_user_id", referred.id).single();
     if (result.error) throw result.error;
-    return result.data.status === "rewarded" ? result.data : null;
+    return result.data.status === "qualified" ? result.data : null;
   });
-  assert(rewarded.reward_reference, "Referral was rewarded without a grant reference");
-  const rewardGrant = await unwrap(admin.from("entitlement_grants").select("user_id,source,expires_at").eq("id", rewarded.reward_reference).single(), "read referral reward grant");
-  assert(rewardGrant.user_id === referrer.id && rewardGrant.source === "manual" && new Date(rewardGrant.expires_at) > new Date(), "Referral reward grant is invalid");
+  assert(rewarded.reward_reference === "points:100", "Referral did not record the 100-point reward");
+  const rewardWallet = await unwrap(admin.from("reward_wallets").select("available_points,lifetime_points").eq("user_id", referrer.id).single(), "read referral reward wallet");
+  assert(rewardWallet.available_points === 100 && rewardWallet.lifetime_points === 100, "Referral points are invalid");
 
   const access = await edge("access-status", referred.token, {});
   assert(access.response.status === 200 && access.payload.active === true, "access-status did not release paid access after the webhook");
   const invoiceEvent = await unwrap(admin.from("payment_events").select("id").eq("user_id", referred.id).eq("event_type", "invoice.paid").limit(1).maybeSingle(), "read invoice event");
   assert(invoiceEvent, "A real invoice.paid event was not persisted");
   console.log("[x] checkout + Stripe payment + signed webhooks + access-status validated live");
-  console.log("[x] referral-track + first-payment reward validated live");
+  console.log("[x] referral-track + first-payment points validated live");
 }
 
 async function cleanup() {

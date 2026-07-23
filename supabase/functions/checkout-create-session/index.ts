@@ -47,6 +47,7 @@ serve(async (request) => {
     amountOffMinor: number | null;
     discountCurrency: string | null;
   } | null = null;
+  let rewardDiscount: { benefitId: string; percentOff: number } | null = null;
 
   if (input.voucherCode) {
     const voucherHash = createHash("sha256").update(input.voucherCode).digest("hex");
@@ -111,6 +112,16 @@ serve(async (request) => {
     .eq("is_active", true).maybeSingle();
   if (priceError || !price) throw new ApiError(409, "price_not_configured");
 
+  if (!voucherDiscount && !input.voucherCode) {
+    const reserved = await admin.rpc("reserve_best_reward_discount", {
+      target_user_id: user.id,
+      request_id_input: input.requestId,
+    });
+    if (reserved.error) throw new Error("Could not reserve reward discount");
+    const benefit = reserved.data?.[0];
+    if (benefit) rewardDiscount = { benefitId: benefit.benefit_id, percentOff: benefit.percent_off };
+  }
+
   let { data: customer } = await admin.from("payment_customers").select("provider_customer_id")
     .eq("user_id", user.id).maybeSingle();
   const stripe = stripeClient();
@@ -144,6 +155,11 @@ serve(async (request) => {
           duration: "once",
         }, { idempotencyKey: `voucher-coupon-amt:${input.voucherCode}` });
       discounts = [{ coupon: coupon.id }];
+    } else if (rewardDiscount) {
+      const coupon = await stripe.coupons.create({ percent_off: rewardDiscount.percentOff, duration: "once" }, {
+        idempotencyKey: `reward-coupon:${rewardDiscount.benefitId}`,
+      });
+      discounts = [{ coupon: coupon.id }];
     }
     session = await stripe.checkout.sessions.create({
       mode: "subscription",
@@ -151,7 +167,7 @@ serve(async (request) => {
       client_reference_id: user.id,
       line_items: [{ price: price.provider_price_id, quantity: 1 }],
       // A voucher discount is never combined with a manually typed Stripe promo code.
-      allow_promotion_codes: voucherDiscount ? false : true,
+      allow_promotion_codes: voucherDiscount || rewardDiscount ? false : true,
       ...(discounts ? { discounts } : {}),
       ...(voucherDiscount ? { expires_at: Math.floor(Date.now() / 1000) + 30 * 60 } : {}),
       success_url: config.checkoutSuccessUrl,
@@ -159,15 +175,18 @@ serve(async (request) => {
       metadata: {
         supabase_user_id: user.id, plan_key: plan.key, billing_cycle: input.billingCycle,
         ...(voucherDiscount ? { voucher_request_id: input.requestId } : {}),
+        ...(rewardDiscount ? { reward_request_id: input.requestId } : {}),
       },
       subscription_data: { metadata: { supabase_user_id: user.id, plan_key: plan.key } },
     }, { idempotencyKey: `checkout:${user.id}:${input.requestId}` });
   } catch (error) {
     if (voucherDiscount) await admin.rpc("release_voucher_reservation", { request_id_input: input.requestId });
+    if (rewardDiscount) await admin.rpc("release_reward_discount", { request_id_input: input.requestId });
     throw error;
   }
   if (!session.url?.startsWith("https://checkout.stripe.com/")) {
     if (voucherDiscount) await admin.rpc("release_voucher_reservation", { request_id_input: input.requestId });
+    if (rewardDiscount) await admin.rpc("release_reward_discount", { request_id_input: input.requestId });
     throw new Error("Stripe returned an invalid Checkout URL");
   }
 

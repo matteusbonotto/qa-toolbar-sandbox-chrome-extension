@@ -324,6 +324,27 @@ export async function manageAffiliateProfile(userId:string, enabled:boolean, not
   if (error) throw error;
 }
 
+export interface RewardProgram { id:string; key:string; name:string; points_per_spin:number; enabled:boolean; max_spins_per_user_per_day:number; starts_at:string|null; ends_at:string|null; }
+export interface RewardPrize { id:string; program_id:string; key:string; label_pt:string; kind:"discount_percent"|"plan_days"; discount_percent:number|null; grant_days:number|null; weight:number; minimum_lifetime_points:number; maximum_global_awards:number|null; awarded_count:number; enabled:boolean; display_order:number; }
+export interface RewardWallet { user_id:string; available_points:number; pending_points:number; lifetime_points:number; spent_points:number; debt_points:number; updated_at:string; }
+export interface RewardPointEntry { id:string; user_id:string; event_kind:string; points:number; status:string; source_type:string; source_reference:string; reason:string|null; created_at:string; }
+export interface RewardSpin { id:string; user_id:string; points_spent:number; prize_snapshot:Record<string,unknown>; random_digest:string; created_at:string; }
+export interface RewardBenefit { id:string; user_id:string; kind:string; discount_percent:number|null; grant_days:number|null; status:string; expires_at:string; created_at:string; }
+export async function getRewardAdminData(){
+  const client=requireClient(); const [programs,prizes,wallets,entries,spins,benefits]=await Promise.all([
+    client.from("reward_programs").select("*").order("created_at",{ascending:false}),
+    client.from("reward_prizes").select("*").order("display_order"),
+    client.from("reward_wallets").select("*").order("lifetime_points",{ascending:false}).limit(500),
+    client.from("reward_point_entries").select("*").order("created_at",{ascending:false}).limit(1000),
+    client.from("reward_spins").select("*").order("created_at",{ascending:false}).limit(500),
+    client.from("reward_benefits").select("*").order("created_at",{ascending:false}).limit(500),
+  ]); for(const result of [programs,prizes,wallets,entries,spins,benefits])if(result.error)throw result.error;
+  return {programs:(programs.data||[]) as RewardProgram[],prizes:(prizes.data||[]) as RewardPrize[],wallets:(wallets.data||[]) as RewardWallet[],entries:(entries.data||[]) as RewardPointEntry[],spins:(spins.data||[]) as RewardSpin[],benefits:(benefits.data||[]) as RewardBenefit[]};
+}
+export async function updateRewardProgram(id:string,input:Partial<Pick<RewardProgram,"enabled"|"points_per_spin"|"max_spins_per_user_per_day"|"starts_at"|"ends_at">>){const {error}=await requireClient().from("reward_programs").update({...input,updated_at:new Date().toISOString()}).eq("id",id);if(error)throw error;}
+export async function updateRewardPrize(id:string,input:Partial<Pick<RewardPrize,"weight"|"minimum_lifetime_points"|"maximum_global_awards"|"enabled">>){const {error}=await requireClient().from("reward_prizes").update({...input,updated_at:new Date().toISOString()}).eq("id",id);if(error)throw error;}
+export async function adjustRewardPoints(userId:string,points:number,reason:string){const {error}=await requireClient().rpc("credit_reward_points",{target_user_id:userId,event_kind_input:"admin_adjustment",points_input:points,source_type_input:"admin",source_reference_input:crypto.randomUUID(),metadata_input:{reason}});if(error)throw error;}
+
 export async function listAuditLogs(limit = 100): Promise<AuditLogEntry[]> {
   const { data, error } = await requireClient().from("audit_logs").select("*").order("created_at", { ascending: false }).limit(limit);
   if (error) throw error;
