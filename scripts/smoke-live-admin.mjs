@@ -112,7 +112,7 @@ async function assertMfaBoundary(noMfa, founder, planId) {
   const noProofDirectory = await noMfa.rpc("admin_list_users");
   assert(noProofDirectory.error, "admin_list_users worked without MFA proof");
   const noProofInsert = await noMfa.from("vouchers").insert({
-    code_hash: sha256(`${label}-negative`), label: `${label}-negative`, plan_id: planId, grant_days: 1,
+    code_hash: sha256(`${label}-negative`), label: `${label}-negative`, plan_id: planId, kind: "days", grant_days: 1,
   });
   assert(noProofInsert.error, "Protected voucher mutation worked without MFA proof");
   const expiresAt = await unwrap(founder.rpc("admin_mfa_expires_at"), "verify live MFA expiry");
@@ -122,7 +122,7 @@ async function assertMfaBoundary(noMfa, founder, planId) {
 
 async function smokeAdminCrud(founder, founderId, planId) {
   const voucher = await unwrap(founder.from("vouchers").insert({
-    code_hash: sha256(`${label}-voucher`), label: `${label}-voucher`, plan_id: planId, grant_days: null,
+    code_hash: sha256(`${label}-voucher`), label: `${label}-voucher`, plan_id: planId, kind: "lifetime", grant_days: null,
   }).select("id").single(), "founder creates voucher");
   created.voucher = voucher.id;
   await unwrap(founder.from("vouchers").update({ label: `${label}-voucher-edited`, status: "disabled" }).eq("id", voucher.id).select("id").single(), "founder edits voucher");
@@ -130,7 +130,7 @@ async function smokeAdminCrud(founder, founderId, planId) {
 
   const campaign = await unwrap(founder.from("voucher_campaigns").insert({
     code_hash: sha256(`${label}-campaign`), label: `${label}-campaign`, plan_id: planId,
-    grant_days: 30, maximum_redemptions: 2, enabled: true,
+    kind: "days", grant_days: 30, maximum_redemptions: 2, enabled: true,
   }).select("id").single(), "founder creates campaign");
   created.campaign = campaign.id;
   await unwrap(founder.from("voucher_campaigns").update({ label: `${label}-campaign-edited`, enabled: false }).eq("id", campaign.id).select("id").single(), "founder edits campaign");

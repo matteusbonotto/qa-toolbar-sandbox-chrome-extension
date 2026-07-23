@@ -65,7 +65,7 @@ async function removeToolbarFromOpenTabs() {
 // unlike a plain setTimeout) so a genuine lapse still gets caught shortly after.
 const ACCESS_RETRY_ALARM = "qts-access-retry";
 
-async function applyContentScriptRegistration({ forceAccess = false } = {}) {
+async function applyContentScriptRegistrationNow({ forceAccess = false } = {}) {
   const access = await getAccessState({ force: forceAccess });
   let effectiveActive = access.active;
   if (access.reason === "access_unavailable") {
@@ -95,9 +95,19 @@ async function applyContentScriptRegistration({ forceAccess = false } = {}) {
     // allFrames:true so the bar also renders inside the Breakpoint Viewer's own device-preview
     // iframes (same-origin, matching these same URL patterns) — boot()'s tiny-frame guard in
     // toolbar.js keeps this from mounting in incidental small embedded widgets on normal pages.
-    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: true },
+    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/lib/gif-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: true },
   ]);
   await injectIntoOpenTabs(matches);
+}
+
+// Workspace/auth/install events can arrive almost together. Serialize registration so two runs
+// never both conclude that a tab needs injection and execute the same classic scripts twice
+// (which would redeclare their top-level const bindings).
+let registrationQueue = Promise.resolve();
+function applyContentScriptRegistration(options = {}) {
+  const run = registrationQueue.catch(() => {}).then(() => applyContentScriptRegistrationNow(options));
+  registrationQueue = run;
+  return run;
 }
 
 async function injectIntoOpenTabs(matches) {
@@ -110,7 +120,7 @@ async function injectIntoOpenTabs(matches) {
       if (existing?.present) return;
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", files: ["src/pagebridge/pagebridge.js"] });
       await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["src/toolbar/toolbar.css"] });
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/lib/gif-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"] });
     } catch {}
   }));
 }
@@ -125,7 +135,9 @@ const CONTEXT_MENU_ACTIONS = [
   { id: "qts-char-counter", action: "char-counter", title: "Contar caracteres" },
   { id: "qts-reveal-locators", action: "reveal-locators", title: "Revelar test-id, seletor e XPath" },
   { id: "qts-fill-fake-data", action: "fill-fake-data", title: "Preencher com dado fake" },
-  { id: "qts-check-limits", action: "check-limits", title: "Conferir limites do campo" },
+  { id: "qts-check-limits", action: "check-limits", title: "Abrir Input Lab neste campo" },
+  { id: "qts-multi-click", action: "multi-click", title: "Configurar Multiclick neste elemento" },
+  { id: "qts-toggle-blur", action: "toggle-blur", title: "Borrar / desborrar este elemento" },
 ];
 
 function setupContextMenus() {
@@ -161,7 +173,7 @@ const TUTORIAL_DEMO_URL = "https://demoqa.com/text-box?qtsTutorial=1";
 // site used for tutorial captures) so the toolbar has something real to mount on, then opens that
 // demo page in a new tab for the live tour in toolbar.js to take over. Never overwrites a
 // workspace that already has real data -- if the user already set one up, this just opens the tab.
-async function seedDemoWorkspaceAndOpenTour(stepKey) {
+async function seedDemoWorkspaceAndOpenTour(stepKey, reuseTabId) {
   const workspace = await getWorkspace();
   if (!workspace.clients.length) {
     await saveWorkspace({
@@ -171,18 +183,84 @@ async function seedDemoWorkspaceAndOpenTour(stepKey) {
       environments: [{ id: "demo-env", name: "QA", color: "#5b21b6" }],
       urlBindings: [{ id: "demo-binding", productId: "demo-product", environmentIds: ["demo-env"], patterns: ["https://demoqa.com/*"] }],
     });
-    await applyContentScriptRegistration();
+    // saveWorkspace triggers the central onStorageChanged registration path below. Starting a
+    // second registration here races that listener and can fail with a duplicate script ID before
+    // the tour tab is opened.
   }
   // "Tentar" (options.js Tutorial panel / video dialog) passes the specific step so the tour jumps
   // straight there instead of starting from the first one -- toolbar.js reads it back off the URL.
   const url = stepKey ? `${TUTORIAL_DEMO_URL}&qtsTutorialStep=${encodeURIComponent(stepKey)}` : TUTORIAL_DEMO_URL;
+  if (reuseTabId) {
+    try { await chrome.tabs.update(reuseTabId, { url, active: true }); return; } catch {}
+  }
   await chrome.tabs.create({ url });
+}
+
+async function startPendingFirstAccessTour() {
+  const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  const uiState = current[STORAGE_KEYS.uiState] || {};
+  if (uiState.pendingFirstAccessTour !== true) return false;
+  const reuseTabId = Number.isInteger(uiState.pendingFirstAccessTabId)
+    && Number(uiState.pendingFirstAccessReuseUntil) > Date.now() ? uiState.pendingFirstAccessTabId : undefined;
+  await chrome.storage.local.set({
+    [STORAGE_KEYS.uiState]: {
+      ...uiState,
+      pendingFirstAccessTour: false,
+      pendingFirstAccessTabId: null,
+      pendingFirstAccessReuseUntil: null,
+      firstAccessTourStartedAt: new Date().toISOString(),
+    },
+  });
+  await seedDemoWorkspaceAndOpenTour(undefined, reuseTabId);
+  return true;
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
   void applyContentScriptRegistration({ forceAccess: true });
   setupContextMenus();
-  if (details.reason === "install") chrome.runtime.openOptionsPage();
+  if (details.reason === "install") {
+    // Open the public tutorial target immediately, even before authentication. Once a session is
+    // handed off by the landing page (or the user signs in through options), the one-shot flag
+    // below seeds the demo workspace and opens the authenticated live tour.
+    void chrome.tabs.create({ url: TUTORIAL_DEMO_URL }).then(async (installTab) => {
+      const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+      const uiState = current[STORAGE_KEYS.uiState] || {};
+      await chrome.storage.local.set({
+        [STORAGE_KEYS.uiState]: {
+          ...uiState,
+          pendingFirstAccessTour: true,
+          pendingFirstAccessTabId: installTab.id,
+          pendingFirstAccessReuseUntil: Date.now() + 30_000,
+        },
+      });
+      // Covers the small race where an already-open, logged-in landing page hands its session off
+      // while the install event is still persisting the first-access flag.
+      const access = await getAccessState({ force: true });
+      if (access.active) {
+        await applyContentScriptRegistration();
+        await startPendingFirstAccessTour();
+      }
+    });
+  } else if (details.reason === "update") {
+    // Chrome Web Store updates the package automatically. Persist a one-shot release note so
+    // every previously installed workspace learns what changed without losing any local data.
+    // Existing page contexts keep their old content script until navigation/reload (Chrome's
+    // normal extension lifecycle); the NEW action badge makes that visible immediately.
+    void chrome.storage.local.get(STORAGE_KEYS.uiState).then((current) => chrome.storage.local.set({
+      [STORAGE_KEYS.uiState]: {
+        ...(current[STORAGE_KEYS.uiState] || {}),
+        pendingReleaseNote: {
+          version: chrome.runtime.getManifest().version,
+          previousVersion: details.previousVersion || null,
+          installedAt: new Date().toISOString(),
+        },
+      },
+    })).then(() => Promise.all([
+      chrome.action.setBadgeBackgroundColor({ color: "#ef3340" }),
+      chrome.action.setBadgeText({ text: "NEW" }),
+      chrome.action.setTitle({ title: `QA Toolbar Sandbox ${chrome.runtime.getManifest().version} — veja o que mudou` }),
+    ]));
+  }
 });
 chrome.runtime.onStartup.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); setupContextMenus(); });
 
@@ -228,7 +306,10 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     signIn(message.email, message.password)
       .then(() => getAccessState({ force: true }))
       .then(async (access) => {
-        if (access.active) await applyContentScriptRegistration();
+        if (access.active) {
+          await applyContentScriptRegistration();
+          void startPendingFirstAccessTour().catch(() => {});
+        }
         sendResponse({ ok: access.active, access });
       })
       .catch((error) => sendResponse({ ok: false, error: String(error?.message || "authentication_failed") }));
@@ -274,7 +355,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // openOptionsPage() has no way to pass a query param, so the live tutorial tour (toolbar.js),
     // which needs to land the user directly on the Workspace tab after "Pular tutorial", opens the
     // page URL directly instead; every other caller keeps using the plain openOptionsPage() path.
-    if (message.tab) chrome.tabs.create({ url: chrome.runtime.getURL(`src/options/options.html?tab=${encodeURIComponent(message.tab)}`) });
+    if (message.tab) {
+      const query = new URLSearchParams({ tab: String(message.tab) });
+      if (message.settingsTour) {
+        query.set("settingsTour", "1");
+        query.set("trustedHandoff", "toolbar");
+      }
+      chrome.tabs.create({ url: chrome.runtime.getURL(`src/options/options.html?${query.toString()}`) });
+    }
     else chrome.runtime.openOptionsPage();
     return undefined;
   }
@@ -287,7 +375,13 @@ chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => 
   if (!LANDING_ORIGINS.has(origin) || message?.type !== "qts:landing-session-handoff") return undefined;
   acceptSessionHandoff(message.session)
     .then(() => getAccessState({ force: true }))
-    .then(async (access) => { if (access.active) await applyContentScriptRegistration(); sendResponse({ accepted: access.active }); })
+    .then(async (access) => {
+      if (access.active) {
+        await applyContentScriptRegistration();
+        void startPendingFirstAccessTour().catch(() => {});
+      }
+      sendResponse({ accepted: access.active });
+    })
     .catch(() => sendResponse({ accepted: false }));
   return true;
 });

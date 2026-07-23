@@ -1,0 +1,3 @@
+# Copie para .env.test.local e preencha somente com o backend de TESTE.
+VITE_SUPABASE_URL=http://127.0.0.1:54321
+VITE_SUPABASE_PUBLISHABLE_KEY=COLE_A_CHAVE_ANON_DO_SUPABASE_LOCAL

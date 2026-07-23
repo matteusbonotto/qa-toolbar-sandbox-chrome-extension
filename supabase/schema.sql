@@ -333,6 +333,8 @@ create table if not exists public.referral_profiles (
   user_id uuid primary key references auth.users(id) on delete cascade,
   referral_code text not null unique check (referral_code ~ '^QTS-[A-F0-9]{8}$'),
   qualified_referrals integer not null default 0 check (qualified_referrals >= 0),
+  enabled boolean not null default true,
+  internal_notes text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -349,6 +351,19 @@ create table if not exists public.referrals (
   created_at timestamptz not null default now(),
   check (referrer_user_id <> referred_user_id)
 );
+
+create table if not exists public.engagement_campaign_submissions (
+  id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
+  campaign_key text not null, social_post_url text not null, linkedin_post_url text not null,
+  product_feedback text not null, disclosure_confirmed boolean not null default false,
+  status text not null default 'pending' check (status in ('pending','approved','rejected')),
+  review_notes text, submitted_at timestamptz not null default now(), reviewed_at timestamptz,
+  reviewed_by uuid references auth.users(id), reward_grant_id uuid references public.entitlement_grants(id),
+  review_criteria jsonb not null default '{}'::jsonb,
+  resubmission_count integer not null default 0 check (resubmission_count >= 0),
+  unique(user_id,campaign_key)
+);
+create unique index if not exists idx_engagement_campaign_one_reward_per_user on public.engagement_campaign_submissions(user_id) where reward_grant_id is not null;
 
 -- ============================================================================
 -- 8. Operational tables: audit, versions, notices, feature flags, rate limits,
@@ -1045,7 +1060,7 @@ declare
   referrer_id uuid;
 begin
   select user_id into referrer_id from public.referral_profiles
-  where public.referral_profiles.referral_code = upper(trim(referral_code_input));
+  where public.referral_profiles.referral_code = upper(trim(referral_code_input)) and enabled;
   if referrer_id is null or referrer_id = target_user_id then return false; end if;
   if exists (select 1 from public.referrals where referred_user_id = target_user_id) then return false; end if;
   insert into public.referrals (referrer_user_id, referred_user_id, status)
@@ -1059,6 +1074,17 @@ end;
 $$;
 revoke all on function public.register_referral(uuid, text) from public, anon, authenticated;
 grant execute on function public.register_referral(uuid, text) to service_role;
+
+create or replace function public.manage_affiliate_profile(target_user_id uuid, is_enabled boolean, notes text default null)
+returns void language plpgsql security definer set search_path = public, pg_temp as $$
+begin
+  if auth.role()<>'service_role' and not public.is_founder() then raise exception 'forbidden'; end if;
+  update public.referral_profiles set enabled=is_enabled,internal_notes=nullif(left(trim(notes),1000),''),updated_at=now() where user_id=target_user_id;
+  if not found then raise exception 'affiliate_not_found'; end if;
+  insert into public.audit_logs(actor_id,action,target_type,target_id,reason,metadata) values(auth.uid(),case when is_enabled then 'affiliate.enabled' else 'affiliate.disabled' end,'referral_profile',target_user_id::text,nullif(left(trim(notes),1000),''),jsonb_build_object('enabled',is_enabled));
+end; $$;
+revoke all on function public.manage_affiliate_profile(uuid,boolean,text) from public,anon;
+grant execute on function public.manage_affiliate_profile(uuid,boolean,text) to authenticated,service_role;
 
 create or replace function public.reward_referral(referred_user_id_input uuid)
 returns boolean
@@ -1090,6 +1116,34 @@ end;
 $$;
 revoke all on function public.reward_referral(uuid) from public, anon, authenticated;
 grant execute on function public.reward_referral(uuid) to service_role;
+
+drop function if exists public.review_engagement_campaign(uuid,boolean,text);
+create or replace function public.review_engagement_campaign(submission_id_input uuid, approve boolean, notes text default null, criteria jsonb default '{}'::jsonb)
+returns uuid language plpgsql security definer set search_path = public, pg_temp as $$
+declare submission public.engagement_campaign_submissions%rowtype; full_plan_id uuid; grant_id uuid; all_met boolean;
+begin
+  if auth.role() <> 'service_role' and not public.is_founder() then raise exception 'forbidden'; end if;
+  select * into submission from public.engagement_campaign_submissions where id=submission_id_input for update;
+  if submission.id is null then raise exception 'campaign_submission_not_found'; end if;
+  if submission.status='approved' then return submission.reward_grant_id; end if;
+  all_met := coalesce((criteria->>'socialPostPublic')::boolean,false) and coalesce((criteria->>'socialPostDescribesUse')::boolean,false) and coalesce((criteria->>'linkedinPostPublic')::boolean,false) and coalesce((criteria->>'linkedinPostDescribesUse')::boolean,false) and coalesce((criteria->>'campaignDisclosureVisible')::boolean,false) and coalesce((criteria->>'productFeedbackUseful')::boolean,false) and coalesce((criteria->>'identityConsistent')::boolean,false);
+  if approve and not all_met then raise exception 'campaign_requirements_incomplete'; end if;
+  if approve and exists(select 1 from public.engagement_campaign_submissions where user_id=submission.user_id and reward_grant_id is not null and id<>submission.id) then raise exception 'campaign_reward_already_claimed'; end if;
+  if not approve then
+    if nullif(trim(notes),'') is null then raise exception 'campaign_review_notes_required'; end if;
+    update public.engagement_campaign_submissions set status='rejected',review_notes=left(trim(notes),1000),review_criteria=criteria,reviewed_at=now(),reviewed_by=auth.uid() where id=submission.id;
+    insert into public.audit_logs(actor_id,action,target_type,target_id,reason,metadata) values(auth.uid(),'campaign.changes_requested','engagement_campaign_submission',submission.id::text,left(trim(notes),1000),jsonb_build_object('criteria',criteria));
+    return null;
+  end if;
+  select id into full_plan_id from public.plans where key='release-manager' and is_active;
+  if full_plan_id is null then raise exception 'full_plan_missing'; end if;
+  insert into public.entitlement_grants(user_id,plan_id,source,source_reference,expires_at) values(submission.user_id,full_plan_id,'manual','campaign:'||submission.id::text,now()+interval '30 days') returning id into grant_id;
+  update public.engagement_campaign_submissions set status='approved',review_notes=coalesce(nullif(left(trim(notes),1000),''),'Todos os requisitos foram comprovados.'),review_criteria=criteria,reviewed_at=now(),reviewed_by=auth.uid(),reward_grant_id=grant_id where id=submission.id;
+  insert into public.audit_logs(actor_id,action,target_type,target_id,reason,metadata) values(auth.uid(),'campaign.approved','engagement_campaign_submission',submission.id::text,'Initial community campaign',jsonb_build_object('rewardGrantId',grant_id,'days',30,'criteria',criteria));
+  return grant_id;
+end; $$;
+revoke all on function public.review_engagement_campaign(uuid,boolean,text,jsonb) from public,anon;
+grant execute on function public.review_engagement_campaign(uuid,boolean,text,jsonb) to authenticated,service_role;
 
 create or replace function public.sync_stripe_subscription(
   target_user_id uuid,
@@ -1215,6 +1269,7 @@ alter table public.voucher_campaign_redemptions enable row level security;
 alter table public.voucher_reservations enable row level security;
 alter table public.referrals enable row level security;
 alter table public.referral_profiles enable row level security;
+alter table public.engagement_campaign_submissions enable row level security;
 alter table public.audit_logs enable row level security;
 alter table public.app_versions enable row level security;
 alter table public.store_listing_status enable row level security;
@@ -1307,6 +1362,10 @@ create policy "user reads own referrals" on public.referrals for select using (a
 create policy "founder manages referrals" on public.referrals for all using (public.is_founder()) with check (public.is_founder());
 create policy "user reads own referral_profile" on public.referral_profiles for select using (auth.uid() = user_id or public.is_founder());
 create policy "founder manages referral_profiles" on public.referral_profiles for all using (public.is_founder()) with check (public.is_founder());
+create policy "user reads own campaign submission" on public.engagement_campaign_submissions for select using (auth.uid()=user_id or public.is_founder());
+create policy "user creates own campaign submission" on public.engagement_campaign_submissions for insert with check (auth.uid()=user_id and status='pending' and reward_grant_id is null);
+create policy "user updates pending campaign submission" on public.engagement_campaign_submissions for update using (auth.uid()=user_id and status in ('pending','rejected') and reward_grant_id is null) with check (auth.uid()=user_id and status='pending' and reward_grant_id is null);
+create policy "founder manages campaign submissions" on public.engagement_campaign_submissions for all using (public.is_founder()) with check (public.is_founder());
 
 -- audit logs: founder-only read; inserts only via SECURITY DEFINER functions (no direct
 -- client insert policy at all, intentionally)
@@ -1506,6 +1565,23 @@ from (values
   ('regression-runner', 'elementCapture.enabled', 'false'),
   ('root-cause-analyst', 'elementCapture.enabled', 'true'),
   ('release-manager', 'elementCapture.enabled', 'true')
+) as v(plan_key, feature_key, value)
+join public.plans p on p.key = v.plan_key
+join public.features f on f.key = v.feature_key
+on conflict (plan_id, feature_id) do update set value = excluded.value;
+
+-- Gravador de Passos: available from the entry Smoke Test plan upward.
+insert into public.features (key, value_type, description) values
+  ('stepsRecorder.enabled', 'boolean', 'Gravador de Passos: numbered/Gherkin behavior capture and CSV export')
+on conflict (key) do update set value_type = excluded.value_type, description = excluded.description;
+
+insert into public.plan_features (plan_id, feature_id, value)
+select p.id, f.id, v.value::jsonb
+from (values
+  ('smoke-test', 'stepsRecorder.enabled', 'true'),
+  ('regression-runner', 'stepsRecorder.enabled', 'true'),
+  ('root-cause-analyst', 'stepsRecorder.enabled', 'true'),
+  ('release-manager', 'stepsRecorder.enabled', 'true')
 ) as v(plan_key, feature_key, value)
 join public.plans p on p.key = v.plan_key
 join public.features f on f.key = v.feature_key

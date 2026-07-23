@@ -25,6 +25,18 @@ import iconRecordCircle from "bootstrap-icons/icons/record-circle.svg?raw";
 import iconSquare from "bootstrap-icons/icons/square.svg?raw";
 import iconStars from "bootstrap-icons/icons/stars.svg?raw";
 import iconSunFill from "bootstrap-icons/icons/sun-fill.svg?raw";
+import iconCheckLg from "bootstrap-icons/icons/check-lg.svg?raw";
+import iconXLg from "bootstrap-icons/icons/x-lg.svg?raw";
+import iconSlashCircle from "bootstrap-icons/icons/slash-circle.svg?raw";
+import iconTriangle from "bootstrap-icons/icons/triangle.svg?raw";
+import iconBoundingBox from "bootstrap-icons/icons/bounding-box.svg?raw";
+import iconStopCircle from "bootstrap-icons/icons/stop-circle.svg?raw";
+import iconGear from "bootstrap-icons/icons/gear.svg?raw";
+import iconRulers from "bootstrap-icons/icons/rulers.svg?raw";
+import iconChevronUp from "bootstrap-icons/icons/chevron-up.svg?raw";
+import iconLockFill from "bootstrap-icons/icons/lock-fill.svg?raw";
+import iconClock from "bootstrap-icons/icons/clock.svg?raw";
+import iconPencil from "bootstrap-icons/icons/pencil.svg?raw";
 
 const ICONS = {
   aspectRatio: iconAspectRatio,
@@ -52,6 +64,18 @@ const ICONS = {
   square: iconSquare,
   stars: iconStars,
   sunFill: iconSunFill,
+  checkLg: iconCheckLg,
+  xLg: iconXLg,
+  slashCircle: iconSlashCircle,
+  triangle: iconTriangle,
+  boundingBox: iconBoundingBox,
+  stopCircle: iconStopCircle,
+  gear: iconGear,
+  rulers: iconRulers,
+  chevronUp: iconChevronUp,
+  lockFill: iconLockFill,
+  clock: iconClock,
+  pencil: iconPencil,
 } as const;
 
 export type IconName = keyof typeof ICONS;

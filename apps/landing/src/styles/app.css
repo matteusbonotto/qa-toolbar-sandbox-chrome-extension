@@ -1409,8 +1409,7 @@
   position: relative;
 }
 
-.qts-plan-features li::before {
-  content: "✓";
+.qts-plan-features li > span:first-child {
   position: absolute;
   left: 0;
   color: var(--qts-teal);
@@ -1963,3 +1962,37 @@
     opacity: 0;
   }
 }
+
+.qts-community { overflow:clip; }
+.qts-community-grid { display:grid; grid-template-columns:minmax(0,.82fr) minmax(0,1.18fr); align-items:start; gap:24px; margin-top:32px; }
+.qts-community-card { min-width:0; padding:clamp(20px,3vw,32px); border:1px solid var(--qts-border); border-radius:20px; background:var(--qts-bg-card); color:var(--qts-text); box-shadow:var(--qts-shadow-sm); }
+.qts-community-card h3 { margin:0 0 10px; }
+.qts-community-card label { display:grid; gap:7px; margin-top:13px; font-size:.9rem; }
+.qts-community-card input:not([type=checkbox]), .qts-community-card textarea { width:100%; box-sizing:border-box; padding:11px 12px; border:1px solid var(--qts-border); border-radius:10px; background:var(--qts-bg); color:var(--qts-text); font:inherit; }
+.qts-community-card input:focus-visible, .qts-community-card textarea:focus-visible { border-color:var(--qts-accent); outline:3px solid var(--qts-accent-soft); }
+.qts-community-card fieldset { min-width:0; padding:0; border:0; }
+.qts-community-card fieldset:disabled { opacity:.62; }
+.qts-copy-field { display:flex; gap:8px; }
+.qts-copy-field input { min-width:0; flex:1; }
+.qts-copy-field button { border:0; border-radius:10px; padding:0 14px; background:var(--qts-accent); color:#fff; font-weight:800; cursor:pointer; }
+.qts-campaign-stats { margin-top:18px; color:var(--qts-text-muted); }
+.qts-affiliate-value { display:grid; gap:10px; margin:18px 0; }
+.qts-affiliate-value > div { padding:14px 16px; border:1px solid var(--qts-border); border-radius:14px; background:var(--qts-bg-card-hover); }
+.qts-affiliate-value dt { margin:0 0 5px; color:var(--qts-text); font-weight:800; }
+.qts-affiliate-value dd { margin:0; color:var(--qts-text-muted); line-height:1.55; }
+.qts-affiliate-rules { margin:14px 0 18px; padding-left:12px; border-left:3px solid var(--qts-accent); color:var(--qts-text-muted); font-size:.88rem; line-height:1.55; }
+.qts-mission-list { display:grid; gap:4px; margin:16px 0; }
+.qts-mission-list .qts-disclosure { display:flex; align-items:flex-start; gap:8px; color:var(--qts-text-muted); }
+.qts-mission-list .qts-disclosure input { margin-top:3px; }
+.qts-requirements { margin:18px 0; padding:16px; border:1px solid var(--qts-border); border-radius:14px; background:var(--qts-bg-card-hover); }
+.qts-requirements ul { margin:10px 0 0; padding-left:20px; color:var(--qts-text-muted); }
+.qts-requirements li + li { margin-top:7px; }
+.qts-campaign-status { margin-top:14px; padding:14px 16px; border:1px solid var(--qts-border); border-radius:12px; background:var(--qts-bg-card-hover); }
+.qts-campaign-status strong { display:block; }
+.qts-campaign-status p { margin:6px 0 0; color:inherit; white-space:pre-wrap; overflow-wrap:anywhere; }
+.qts-campaign-status.is-pending { border-color:#d9a514; color:#9a6b00; }
+.qts-campaign-status.is-approved { color:#74e7a5; }
+.qts-campaign-status.is-rejected { color:#ff9b9b; }
+.qts-optional-review { margin:18px 0 0; color:var(--qts-text-muted); text-align:center; }
+.qts-optional-review a { color:var(--qts-accent); font-weight:800; }
+@media (max-width:860px) { .qts-community-grid { grid-template-columns:1fr; } .qts-copy-field { flex-direction:column; } .qts-copy-field button { min-height:42px; } }

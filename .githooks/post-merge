@@ -1,0 +1,14 @@
+#!/usr/bin/env sh
+
+# Um merge/pull em main cria localmente a fotografia técnica correspondente ao novo HEAD.
+# A falha é avisada, mas não desfaz nem bloqueia o merge já concluído.
+branch="$(git branch --show-current 2>/dev/null || true)"
+if [ "$branch" != "main" ]; then
+  exit 0
+fi
+
+echo "[INPI] main atualizada; gerando documentação técnica e SHA-256 em Downloads..."
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File scripts/generate-inpi-package.ps1 || {
+  echo "[INPI] AVISO: não foi possível gerar o pacote. Execute: npm run inpi:package"
+  exit 0
+}

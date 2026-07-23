@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { PlacementMode } from "./MockToolbar";
 import { useI18n } from "../i18n/I18nProvider";
+import { Icon } from "./Icon";
 
 export interface MarkerItem {
   id: string;
@@ -133,7 +134,7 @@ export function MockPage({
 
       {freezeClockActive ? (
         <div className="qts-mock-page-clock">
-          🕒 {clock.toLocaleTimeString(clockLocaleTag)} {t.mockToolbar.frozenSuffix}
+          <Icon name="clock" /> {clock.toLocaleTimeString(clockLocaleTag)} {t.mockToolbar.frozenSuffix}
         </div>
       ) : null}
 
@@ -144,7 +145,7 @@ export function MockPage({
           style={{ left: marker.x, top: marker.y }}
           onMouseDown={(event) => startDrag(event, "marker", marker.id, marker.x, marker.y)}
         >
-          {marker.kind === "fail" ? "✕" : "✓"}
+          <Icon name={marker.kind === "fail" ? "xLg" : "checkLg"} />
           <button
             type="button"
             className="qts-mock-item-remove"
@@ -154,7 +155,7 @@ export function MockPage({
               onRemove("marker", marker.id);
             }}
           >
-            ×
+            <Icon name="xLg" />
           </button>
         </div>
       ))}
@@ -175,7 +176,7 @@ export function MockPage({
               onRemove("shape", shape.id);
             }}
           >
-            ×
+            <Icon name="xLg" />
           </button>
         </div>
       ))}
@@ -191,7 +192,7 @@ export function MockPage({
             <div className="qts-mock-note-head" onMouseDown={(event) => startDrag(event, "note", note.id, note.x, note.y)}>
               <span>{t.mockToolbar.note}</span>
               <button type="button" className="qts-mock-item-remove" title={t.mockToolbar.remove} onClick={() => onRemove("note", note.id)}>
-                ×
+                <Icon name="xLg" />
               </button>
             </div>
             <textarea
@@ -212,10 +213,10 @@ export function MockPage({
           >
             <span className="qts-mock-note-text">{note.text}</span>
             <button type="button" className="qts-mock-item-edit" title={t.mockToolbar.edit} onClick={() => onNoteEdit(note.id)}>
-              ✎
+              <Icon name="pencil" />
             </button>
             <button type="button" className="qts-mock-item-remove" title={t.mockToolbar.remove} onClick={() => onRemove("note", note.id)}>
-              ×
+              <Icon name="xLg" />
             </button>
           </div>
         ),

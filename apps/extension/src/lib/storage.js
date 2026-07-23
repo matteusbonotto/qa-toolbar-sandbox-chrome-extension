@@ -11,21 +11,23 @@ export const STORAGE_KEYS = Object.freeze({
 
 const COLLECTION_KEYS = [
   "clients", "projects", "products", "environments", "urlBindings", "testAccounts",
-  "paymentMethods", "apis", "inspectors", "resources", "macros",
+  "paymentMethods", "apis", "inspectors", "resources", "macros", "stepRecordings",
 ];
 
 export const DEFAULT_ENABLED_TOOLS = Object.freeze([
   "clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio",
   "breakpoints", "testAccounts", "paymentMethods", "resources",
   "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "elementCapture",
-  "blurElements", "holofote",
+  "blurElements", "holofote", "stepsRecorder",
 ]);
+const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
 const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
 const SCHEMA_4_TOOLS = ["keyView"];
 const SCHEMA_5_TOOLS = ["errorMonitor"];
 const SCHEMA_6_TOOLS = ["elementCapture"];
 const SCHEMA_7_TOOLS = ["blurElements"];
 const SCHEMA_8_TOOLS = ["holofote"];
+const SCHEMA_11_TOOLS = ["stepsRecorder"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -35,6 +37,9 @@ const KEY_VIEW_SIZES = new Set(["small", "medium", "large"]);
 
 const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
 const SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
+const STEP_ACTIONS = new Set(["start", "click", "contextmenu", "input", "submit", "navigation", "manual"]);
+const STEP_KEYWORDS = new Set(["given", "and", "when", "then"]);
+const STEP_LOCALES = new Set(["pt-BR", "es", "en"]);
 
 function text(value, maximum = 500) {
   return String(value ?? "").trim().slice(0, maximum);
@@ -210,17 +215,18 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 10,
+    schemaVersion: 11,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
-    paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [],
+    paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], stepRecordings: [],
     preferences: {
       language: "pt-BR",
+      appearanceTheme: "dark",
       pushSiteContent: true,
       compactMode: false,
       compactEntities: { client: false, project: false, product: false },
       avatarShape: "square",
-      pinnedTools: ["passFail", "screenshot", "notes", "record"],
+      pinnedTools: [],
       pinnedMacroIds: [],
       enabledTools: [...DEFAULT_ENABLED_TOOLS],
       toolsMenuOrder: [...DEFAULT_ENABLED_TOOLS],
@@ -308,6 +314,37 @@ function normalizeMacros(input) {
   }));
 }
 
+function normalizeStepRecordingStep(item, index) {
+  if (!item || typeof item !== "object") return null;
+  const action = STEP_ACTIONS.has(item.action) ? item.action : "manual";
+  const target = text(item.target ?? item.selector, 1_000);
+  const sensitive = item.sensitive === true || SENSITIVE_HINT.test(target);
+  return {
+    id: id(item.id, "step", index),
+    keyword: STEP_KEYWORDS.has(item.keyword) ? item.keyword : (index === 0 ? "given" : "and"),
+    action,
+    text: sensitive && action === "input" ? "[valor protegido]" : text(item.text, 2_000),
+    expectedResult: text(item.expectedResult, 2_000),
+    url: text(item.url, 2_048),
+    createdAt: text(item.createdAt, 40) || new Date().toISOString(),
+    ...(target ? { target } : {}),
+    ...(sensitive ? { sensitive: true } : {}),
+  };
+}
+
+function normalizeStepRecordings(input) {
+  return (Array.isArray(input) ? input : []).slice(0, 100).map((item, index) => ({
+    id: id(item?.id, "stepRecording", index),
+    name: text(item?.name, 120) || `Roteiro ${index + 1}`,
+    mode: item?.mode === "gherkin" ? "gherkin" : "numbered",
+    locale: STEP_LOCALES.has(item?.locale) ? item.locale : "pt-BR",
+    createdAt: text(item?.createdAt, 40) || new Date().toISOString(),
+    updatedAt: text(item?.updatedAt, 40) || new Date().toISOString(),
+    steps: (Array.isArray(item?.steps) ? item.steps : []).slice(0, 200)
+      .map(normalizeStepRecordingStep).filter(Boolean),
+  }));
+}
+
 export function normalizeWorkspace(rawWorkspace) {
   const source = rawWorkspace && typeof rawWorkspace === "object" ? rawWorkspace : {};
   const empty = createEmptyWorkspace();
@@ -360,9 +397,12 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 8) {
     for (const tool of SCHEMA_8_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 11) {
+    for (const tool of SCHEMA_11_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 10,
+    schemaVersion: 11,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
@@ -379,6 +419,7 @@ export function normalizeWorkspace(rawWorkspace) {
     inspectors: copyCollection("inspectors"),
     resources: copyCollection("resources").map((item) => ({ ...item, category: text(item?.category, 60) })),
     macros: normalizeMacros(source.macros),
+    stepRecordings: normalizeStepRecordings(source.stepRecordings),
     preferences: {
       ...empty.preferences,
       ...preferences,
@@ -390,7 +431,10 @@ export function normalizeWorkspace(rawWorkspace) {
       },
       pushSiteContent: preferences.pushSiteContent !== false,
       avatarShape: preferences.avatarShape === "round" ? "round" : "square",
-      pinnedTools: Array.isArray(preferences.pinnedTools) ? preferences.pinnedTools.map((value) => text(value, 40)).filter(Boolean) : empty.preferences.pinnedTools,
+      appearanceTheme: ["light", "dark"].includes(preferences.appearanceTheme) ? preferences.appearanceTheme : empty.preferences.appearanceTheme,
+      pinnedTools: Array.isArray(preferences.pinnedTools)
+        ? [...new Set(preferences.pinnedTools.map((value) => text(value, 40)).map((value) => ({ blurMode: "blurElements", holofoteMode: "holofote" })[value] || value).filter((value) => PINNABLE_TOOLS.has(value)))].slice(0, 4)
+        : empty.preferences.pinnedTools,
       pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
       enabledTools: normalizedEnabledTools,
       toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),

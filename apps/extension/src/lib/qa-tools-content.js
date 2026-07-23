@@ -79,26 +79,52 @@
     return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
   }
 
+  const FAKE_FIRST_NAMES = ["Ana", "Beatriz", "Camila", "Diego", "Eduardo", "Fernanda", "Gabriel", "Helena", "João", "Larissa", "Marina", "Rafael"];
+  const FAKE_LAST_NAMES = ["Almeida", "Barbosa", "Costa", "Lima", "Martins", "Oliveira", "Pereira", "Ribeiro", "Santos", "Souza"];
+  const FAKE_CITIES = ["Belo Horizonte", "Campinas", "Curitiba", "Fortaleza", "Porto Alegre", "Recife", "Rio de Janeiro", "Salvador", "São Paulo"];
+  const FAKE_STREETS = ["Rua das Flores", "Avenida Central", "Rua do Mercado", "Alameda dos Testes", "Travessa da Qualidade"];
+  const FAKE_COMPANIES = ["Aurora Tecnologia", "Horizonte Digital", "Nexo Sistemas", "Orbe Labs", "Ponto QA"];
+
+  function randomInt(min, max) {
+    const floorMin = Math.ceil(min); const floorMax = Math.floor(max);
+    if (floorMax <= floorMin) return floorMin;
+    const values = new Uint32Array(1); crypto.getRandomValues(values);
+    return floorMin + (values[0] % (floorMax - floorMin + 1));
+  }
+  function pick(values) { return values[randomInt(0, values.length - 1)]; }
+  function digits(length) { return Array.from({ length }, () => randomInt(0, 9)).join(""); }
+  function fitTextValue(element, value) {
+    const maximum = Number(element.maxLength);
+    return maximum >= 0 ? [...String(value)].slice(0, maximum).join("") : String(value);
+  }
+
   function fakeValueFor(element, seed = Date.now()) {
     const hint = sensitiveFingerprint(element).toLowerCase();
-    const suffix = String(seed).slice(-6);
-    if (element instanceof HTMLSelectElement) return [...element.options].find((option) => !option.disabled && option.value)?.value ?? "";
+    const suffix = `${String(seed).slice(-4)}${digits(3)}`;
+    const firstName = pick(FAKE_FIRST_NAMES); const lastName = pick(FAKE_LAST_NAMES);
+    if (element instanceof HTMLSelectElement) {
+      const options = [...element.options].filter((option) => !option.disabled && option.value);
+      return options.length ? pick(options).value : "";
+    }
     if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) return true;
-    if (element instanceof HTMLInputElement && element.type === "email" || /e-?mail/.test(hint)) return `qa.teste+${suffix}@example.com`;
-    if (/first|primeiro|nome/.test(hint) && !/user|login/.test(hint)) return "Pessoa Teste";
-    if (/last|sobrenome/.test(hint)) return "Automação";
-    if (/phone|tel|celular|telefone/.test(hint)) return "11999990000";
-    if (/cep|postal|zip/.test(hint)) return "01001000";
-    if (/city|cidade/.test(hint)) return "São Paulo";
+    if ((element instanceof HTMLInputElement && element.type === "email") || /e-?mail/.test(hint)) return fitTextValue(element, `${firstName}.${lastName}.${suffix}@example.com`.toLowerCase());
+    if (/user(?:name)?|usu[aá]rio|login/.test(hint)) return fitTextValue(element, `${firstName}.${lastName}${suffix}`.toLowerCase());
+    if (/last|sobrenome/.test(hint)) return fitTextValue(element, lastName);
+    if (/first|primeiro|nome|name/.test(hint)) return fitTextValue(element, `${firstName} ${lastName}`);
+    if (/phone|tel|celular|telefone/.test(hint)) return fitTextValue(element, `11${digits(9)}`);
+    if (/cpf/.test(hint)) return fitTextValue(element, digits(11));
+    if (/cnpj/.test(hint)) return fitTextValue(element, digits(14));
+    if (/cep|postal|zip/.test(hint)) return fitTextValue(element, digits(8));
+    if (/city|cidade/.test(hint)) return fitTextValue(element, pick(FAKE_CITIES));
     if (/state|estado|uf/.test(hint)) return "SP";
     if (/country|pa[ií]s/.test(hint)) return "Brasil";
-    if (/address|endere[cç]o|street|rua/.test(hint)) return "Rua de Teste, 100";
-    if (/company|empresa/.test(hint)) return "Empresa Sandbox QA";
-    if (/url|site|website/.test(hint)) return "https://example.com/qa";
+    if (/address|endere[cç]o|street|rua/.test(hint)) return fitTextValue(element, `${pick(FAKE_STREETS)}, ${randomInt(10, 1999)}`);
+    if (/company|empresa|organization/.test(hint)) return fitTextValue(element, pick(FAKE_COMPANIES));
+    if (/url|site|website/.test(hint)) return fitTextValue(element, `https://example.com/qa-${suffix}`);
     if (element instanceof HTMLInputElement && ["number", "range"].includes(element.type)) {
       const min = Number.isFinite(element.minAsNumber) ? element.minAsNumber : 1;
       const max = Number.isFinite(element.maxAsNumber) ? element.maxAsNumber : min + 100;
-      return String(Math.round(Math.min(max, min + Math.max(1, (max - min) / 2))));
+      return String(randomInt(Math.ceil(min), Math.floor(Math.max(min, max))));
     }
     if (element instanceof HTMLInputElement && element.type === "date") return "2030-06-15";
     if (element instanceof HTMLInputElement && element.type === "datetime-local") return "2030-06-15T10:30";
@@ -106,22 +132,30 @@
     if (element instanceof HTMLInputElement && element.type === "time") return "10:30";
     if (element instanceof HTMLInputElement && element.type === "week") return "2030-W24";
     if (element instanceof HTMLInputElement && element.type === "color") return "#7357ff";
-    return `Teste QA ${suffix}`;
+    if (/description|descri[cç][aã]o|observa|comment|message|mensagem|notes?/.test(hint) || element instanceof HTMLTextAreaElement) return fitTextValue(element, `Cenário de teste ${suffix}: validar o comportamento esperado com dados sintéticos.`);
+    return fitTextValue(element, `Teste QA ${suffix}`);
+  }
+
+  function fieldReport(element, value) {
+    const label = element.labels ? [...element.labels].map((item) => item.textContent?.trim()).filter(Boolean).join(" / ") : "";
+    return { selector: uniqueSelector(element), label: (label || element.getAttribute("aria-label") || element.getAttribute("placeholder") || element.getAttribute("name") || element.id || element.tagName.toLowerCase()).replace(/\s+/g, " ").slice(0, 100), type: element instanceof HTMLInputElement ? element.type : element.tagName.toLowerCase(), value: String(value ?? ""), status: "filled" };
   }
 
   function fillWithFakeData(root = document) {
     const fields = [...root.querySelectorAll(EDITABLE_SELECTOR)].filter((element) => visible(element) && !element.readOnly && !isSensitiveElement(element));
     let filled = 0;
     let protectedCount = 0;
+    const report = [];
     for (const element of [...root.querySelectorAll("input,textarea,select")]) if (isSensitiveElement(element)) protectedCount += 1;
     for (const [index, element] of fields.entries()) {
       const value = fakeValueFor(element, Date.now() + index);
       if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) {
         if (!element.checked) element.click();
       } else if (value !== "") setNativeValue(element, value);
+      report.push(fieldReport(element, element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type) ? element.checked : element.value));
       filled += 1;
     }
-    return { filled, protectedCount };
+    return { filled, protectedCount, fields: report };
   }
 
   // Single-field counterpart to fillWithFakeData, used by the right-click "Preencher com dado
@@ -133,11 +167,11 @@
     if (element.readOnly || element.disabled) return { filled: 0, protectedCount: 0 };
     if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) {
       if (!element.checked) element.click();
-      return { filled: 1, protectedCount: 0 };
+      return { filled: 1, protectedCount: 0, fields: [fieldReport(element, element.checked)] };
     }
     const value = fakeValueFor(element);
     if (value !== "") setNativeValue(element, value);
-    return { filled: 1, protectedCount: 0 };
+    return { filled: 1, protectedCount: 0, fields: [fieldReport(element, element.value)] };
   }
 
   function inspectInput(element) {
@@ -163,7 +197,7 @@
     const overLimit = element.maxLength > 0 ? "A".repeat(Math.min(2_100, element.maxLength + 1)) : "A".repeat(257);
     return [
       ["vazio", ""], ["texto", "Texto QA"], ["número", "12345"],
-      ["especial", "!@#$%&*"], ["unicode", "ação 🚀"], ["acima do limite", overLimit],
+      ["especial", "!@#$%&*"], ["unicode", "ação 漢字 Ω"], ["acima do limite", overLimit],
     ];
   }
 

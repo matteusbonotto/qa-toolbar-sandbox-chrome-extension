@@ -11,8 +11,9 @@ import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
-const extensionPath = resolve(root, "apps/extension");
-const profilePath = resolve(root, "artifacts/chrome-dev-profile");
+const argument = (name) => process.argv.find((value) => value.startsWith(`--${name}=`))?.slice(name.length + 3);
+const extensionPath = resolve(root, argument("extension-path") || "apps/extension");
+const profilePath = resolve(root, argument("profile-path") || "artifacts/chrome-dev-profile");
 await mkdir(profilePath, { recursive: true });
 
 const context = await chromium.launchPersistentContext(profilePath, {

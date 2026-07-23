@@ -12,7 +12,7 @@ const workspace = normalizeWorkspace({
   preferences: { compactMode: true },
 });
 
-assert.equal(workspace.schemaVersion, 10);
+assert.equal(workspace.schemaVersion, 11);
 assert.equal(workspace.environments[0].name, "QA");
 assert.equal(workspace.environments[0].productId, undefined);
 assert.equal(workspace.urlBindings.length, 1);
@@ -27,6 +27,7 @@ assert.equal(workspace.preferences.enabledTools.includes("keyView"), true);
 assert.equal(workspace.preferences.enabledTools.includes("elementCapture"), true);
 assert.equal(workspace.preferences.enabledTools.includes("blurElements"), true);
 assert.equal(workspace.preferences.enabledTools.includes("holofote"), true);
+assert.equal(workspace.preferences.enabledTools.includes("stepsRecorder"), true);
 assert.deepEqual(workspace.preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" });
 
 const macroWorkspace = normalizeWorkspace({
@@ -50,14 +51,50 @@ assert.equal(macroWorkspace.macros[0].steps[2].interval, 5_000);
 assert.deepEqual(macroWorkspace.preferences.pinnedMacroIds, ["checkout"]);
 assert.equal(JSON.stringify(macroWorkspace).includes("must-not-survive"), false);
 
-const filteredTools = normalizeWorkspace({ schemaVersion: 10, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
+const stepsWorkspace = normalizeWorkspace({
+  schemaVersion: 11,
+  stepRecordings: [{
+    id: "checkout-steps", name: "Checkout", mode: "gherkin", locale: "en",
+    steps: [
+      { id: "open", action: "start", keyword: "given", text: "Open checkout", url: "https://example.com/checkout" },
+      { id: "email", action: "input", keyword: "when", text: "Type qa@example.com", target: "#email", expectedResult: "Email accepted" },
+      { id: "password", action: "input", text: "super-secret", target: "input[name=password]" },
+      { id: "manual", action: "unsupported", keyword: "invalid", text: "Review result" },
+    ],
+  }],
+});
+assert.equal(stepsWorkspace.stepRecordings.length, 1);
+assert.equal(stepsWorkspace.stepRecordings[0].mode, "gherkin");
+assert.equal(stepsWorkspace.stepRecordings[0].locale, "en");
+assert.equal(stepsWorkspace.stepRecordings[0].steps[2].text, "[valor protegido]");
+assert.equal(stepsWorkspace.stepRecordings[0].steps[2].sensitive, true);
+assert.equal(stepsWorkspace.stepRecordings[0].steps[3].action, "manual");
+assert.equal(stepsWorkspace.stepRecordings[0].steps[3].keyword, "and");
+assert.equal(JSON.stringify(stepsWorkspace).includes("super-secret"), false);
+
+const cappedSteps = normalizeWorkspace({ stepRecordings: [{ steps: Array.from({ length: 250 }, (_, index) => ({ action: "manual", text: `Step ${index}` })) }] });
+assert.equal(cappedSteps.stepRecordings[0].steps.length, 200);
+
+const filteredTools = normalizeWorkspace({ schemaVersion: 11, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
 assert.deepEqual(filteredTools.preferences.enabledTools, ["inspectors"]);
 
+assert.deepEqual(normalizeWorkspace({}).preferences.pinnedTools, [], "additional shortcuts are optional");
+assert.deepEqual(
+  normalizeWorkspace({ preferences: { pinnedTools: ["clickSpy", "freezeClock", "forceHttp", "inspectors", "fakerFill"] } }).preferences.pinnedTools,
+  ["clickSpy", "freezeClock", "forceHttp", "inspectors"],
+  "at most four additional Tools shortcuts survive normalization",
+);
+assert.deepEqual(
+  normalizeWorkspace({ preferences: { pinnedTools: ["passFail", "screenshot", "record", "unknown-tool", "blurMode", "holofoteMode"] } }).preferences.pinnedTools,
+  ["blurElements", "holofote"],
+  "mandatory and unknown legacy buttons are not stored; renamed tools migrate",
+);
+
 const upgradedTools = normalizeWorkspace({ schemaVersion: 2, preferences: { enabledTools: ["inspectors"] } });
-assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote"]);
+assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder"]);
 
 const schemaThreeUpgrade = normalizeWorkspace({ schemaVersion: 3, preferences: { enabledTools: ["inspectors"], keyView: { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false } } });
-assert.deepEqual(schemaThreeUpgrade.preferences.enabledTools, ["inspectors", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote"]);
+assert.deepEqual(schemaThreeUpgrade.preferences.enabledTools, ["inspectors", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder"]);
 assert.deepEqual(schemaThreeUpgrade.preferences.keyView, { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false, keySize: "medium", mouseSize: "medium" });
 assert.equal(normalizeWorkspace({ schemaVersion: 4, preferences: { keyView: { position: "outside", theme: "pink" } } }).preferences.keyView.position, "bottom-center");
 assert.deepEqual(normalizeWorkspace({ preferences: { keyView: { keySize: "large", mouseSize: "small" } } }).preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "large", mouseSize: "small" });

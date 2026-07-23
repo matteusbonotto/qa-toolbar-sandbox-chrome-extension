@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { to: "/usuarios", label: "Usuários", end: false },
   { to: "/auditoria", label: "Auditoria", end: false },
   { to: "/juridico", label: "Jurídico", end: false },
+  { to: "/campanhas", label: "Campanhas", end: false },
 ];
 
 export function Layout({ children }: { children: ReactNode }) {

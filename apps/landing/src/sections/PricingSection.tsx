@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { Icon } from "../components/Icon";
 import type { Session } from "@supabase/supabase-js";
 import { pricingPlans, type PlanId } from "../data/pricingData";
 import {
@@ -132,6 +133,24 @@ export function PricingSection() {
       setAccess(null);
       return;
     }
+    // Keep the extension session aligned with the website as soon as Supabase restores or creates
+    // it. Retry briefly because a user can download/install the extension while this page is
+    // already open; installing it does not cause React or Supabase to emit another session event.
+    let handoffAttempts = 0;
+    let handoffTimer: number | undefined;
+    const syncExtensionSession = async () => {
+      handoffAttempts += 1;
+      const accepted = await handoffSessionToExtension(session);
+      if (accepted && handoffTimer !== undefined) {
+        window.clearInterval(handoffTimer);
+        handoffTimer = undefined;
+      }
+    };
+    void syncExtensionSession();
+    handoffTimer = window.setInterval(() => {
+      if (handoffAttempts >= 60) window.clearInterval(handoffTimer);
+      else void syncExtensionSession();
+    }, 5_000);
     let stopped = false;
     let timer: number | undefined;
     // Only a genuine Stripe-redirect-back (`?checkout=success`) is a "step" the visitor is
@@ -149,7 +168,6 @@ export function PricingSection() {
         if (stopped) return;
         setAccess(nextAccess);
         if (nextAccess.active) {
-          void handoffSessionToExtension(session);
           if (isCheckoutReturn) {
             setStatusError(false);
             setStatusMessage(t.pricing.accessActive);
@@ -175,6 +193,7 @@ export function PricingSection() {
     return () => {
       stopped = true;
       if (timer !== undefined) window.clearTimeout(timer);
+      if (handoffTimer !== undefined) window.clearInterval(handoffTimer);
     };
   }, [checkoutReturn, session, t.pricing.accessActive, t.pricing.checkoutFailed, t.pricing.paymentProcessing]);
 
@@ -390,7 +409,7 @@ export function PricingSection() {
             if (event.target === event.currentTarget) closeAuthModal();
           }}>
             <div className="qts-auth-modal" role="dialog" aria-modal="true" aria-labelledby="qts-auth-title">
-              <button type="button" className="qts-auth-close" aria-label={t.pricing.closeModal} onClick={closeAuthModal}>×</button>
+              <button type="button" className="qts-auth-close" aria-label={t.pricing.closeModal} onClick={closeAuthModal}><Icon name="xLg" /></button>
               <span className="qts-eyebrow">QA Toolbar Sandbox</span>
               <h3 id="qts-auth-title">{t.pricing.accountTitle}</h3>
               <p>{t.pricing.accountLead}</p>
@@ -561,7 +580,7 @@ export function PricingSection() {
                   <span>{plan.isFree ? t.pricing.freeNote : billingCycle === "yearly" ? t.pricing.perYear : t.pricing.perMonth}</span>
                 </div>
                 <ul className="qts-plan-features">
-                  {planText.features.map((feature) => <li key={feature}>{feature}</li>)}
+                  {planText.features.map((feature) => <li key={feature}><Icon name="checkLg" />{feature}</li>)}
                 </ul>
                 <button
                   type="button"

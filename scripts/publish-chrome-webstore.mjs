@@ -11,7 +11,8 @@
 // CHROME_WEBSTORE_REFRESH_TOKEN (see scripts/chrome-webstore-oauth-setup.mjs and
 // docs/DEPLOY_CHROME_WEBSTORE.md for how to obtain them once).
 import { readFileSync, existsSync } from "node:fs";
-import { resolve } from "node:path";
+import { execFileSync } from "node:child_process";
+import { basename, resolve } from "node:path";
 
 const DEFAULT_EXTENSION_ID = "ddaapjklnfjhjigeglgmjmadjnmdodfe";
 
@@ -53,7 +54,15 @@ const refreshToken = secretEnvValue("CHROME_WEBSTORE_REFRESH_TOKEN");
 const extensionId = argValue("extension-id") ?? process.env.CHROME_WEBSTORE_EXTENSION_ID ?? DEFAULT_EXTENSION_ID;
 const zipPath = argValue("zip");
 const shouldPublish = process.argv.includes("--publish");
+const productionConfirmed = process.argv.includes("--confirm-production");
 const publishTarget = argValue("target") ?? "default";
+
+const currentBranch = process.env.GITHUB_REF_NAME || (() => {
+  try { return execFileSync("git", ["branch", "--show-current"], { cwd: resolve(import.meta.dirname, ".."), encoding: "utf8" }).trim(); }
+  catch { return ""; }
+})();
+if (!productionConfirmed) throw new Error("PUBLICAÇÃO BLOQUEADA: informe --confirm-production após aprovar o ambiente de TESTE.");
+if (currentBranch !== "main") throw new Error(`PUBLICAÇÃO BLOQUEADA: a Chrome Web Store só aceita releases vindos da main (branch atual: ${currentBranch || "desconhecida"}).`);
 
 if (!clientId || !clientSecret || !refreshToken) {
   throw new Error(
@@ -66,6 +75,7 @@ if (!clientId || !clientSecret || !refreshToken) {
 if (!zipPath) throw new Error("Passe --zip=<caminho do .zip empacotado> (ex.: gerado por scripts/package-extension.mjs).");
 const resolvedZipPath = resolve(zipPath);
 if (!existsSync(resolvedZipPath)) throw new Error(`Arquivo não encontrado: ${resolvedZipPath}`);
+if (/(?:teste|test|staging)/i.test(basename(resolvedZipPath))) throw new Error("PUBLICAÇÃO BLOQUEADA: um pacote de TESTE nunca pode ser enviado à Chrome Web Store.");
 
 const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
   method: "POST",

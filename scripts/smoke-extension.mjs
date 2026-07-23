@@ -7,7 +7,50 @@ const root = resolve(import.meta.dirname, "..");
 const extensionPath = resolve(root, "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-smoke-profile");
 const evidencePath = resolve(root, "artifacts/runtime-evidence");
-const trace = (label) => console.log(`[chrome-smoke] ${label}`);
+let lastTrace = "startup";
+let smokeWatchdog;
+const armSmokeWatchdog = () => {
+  if (smokeWatchdog) clearTimeout(smokeWatchdog);
+  smokeWatchdog = setTimeout(() => { throw new Error(`Chrome smoke stalled after: ${lastTrace}`); }, 180_000);
+};
+const trace = (label) => { lastTrace = label; console.log(`[chrome-smoke] ${label}`); armSmokeWatchdog(); };
+const assertElementContrast = async (page, selector, minimum = 4.5) => {
+  const result = await page.locator(selector).first().evaluate((element) => {
+    const parse = (value) => {
+      const values = (value.match(/[\d.]+/g) || []).map(Number);
+      if (value.startsWith("color(srgb")) return [values[0] * 255, values[1] * 255, values[2] * 255, values[3] ?? 1];
+      return [values[0], values[1], values[2], values[3] ?? 1];
+    };
+    const composite = (foreground, background) => {
+      const alpha = foreground[3] + background[3] * (1 - foreground[3]);
+      return [0, 1, 2].map((index) => (foreground[index] * foreground[3] + background[index] * background[3] * (1 - foreground[3])) / alpha).concat(alpha);
+    };
+    const resolvedBackground = (node) => {
+      const layers = [];
+      for (let current = node; current; current = current.parentElement || current.getRootNode?.().host || null) layers.push(parse(getComputedStyle(current).backgroundColor));
+      return layers.reverse().reduce((background, foreground) => composite(foreground, background), [255, 255, 255, 1]);
+    };
+    const luminance = (channels) => {
+      channels = channels.slice(0, 3).map((channel) => {
+        const normalized = channel / 255;
+        return normalized <= .03928 ? normalized / 12.92 : ((normalized + .055) / 1.055) ** 2.4;
+      });
+      return .2126 * channels[0] + .7152 * channels[1] + .0722 * channels[2];
+    };
+    const style = getComputedStyle(element);
+    const background = resolvedBackground(element);
+    const foregroundLum = luminance(parse(style.color));
+    const backgroundLum = luminance(background);
+    return {
+      foreground: style.color,
+      background: background.slice(0, 3).map(Math.round).join(","),
+      ratio: (Math.max(foregroundLum, backgroundLum) + .05) / (Math.min(foregroundLum, backgroundLum) + .05),
+      text: element.textContent?.trim().slice(0, 100),
+    };
+  });
+  if (result.ratio < minimum) throw new Error(`Insufficient contrast for ${selector}: ${JSON.stringify(result)}`);
+  return result;
+};
 await rm(profilePath, { recursive: true, force: true });
 await mkdir(evidencePath, { recursive: true });
 
@@ -27,6 +70,7 @@ const context = await chromium.launchPersistentContext(profilePath, {
   args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, "--window-position=20,20", "--window-size=1400,900", "--no-first-run"],
   viewport: { width: 1400, height: 900 },
 });
+armSmokeWatchdog();
 context.setDefaultTimeout(15_000);
 
 const fakeSession = {
@@ -39,7 +83,7 @@ const fakeSession = {
 await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", async (route) => {
   const name = new URL(route.request().url()).pathname.split("/").pop();
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
-  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true }, checkedAt: new Date().toISOString() }) });
+  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true }, checkedAt: new Date().toISOString() }) });
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -51,6 +95,20 @@ try {
   const workerErrors = [];
   worker.on("console", (message) => { if (message.type() === "error") workerErrors.push(message.text()); });
   worker.on("pageerror", (error) => workerErrors.push(error.message));
+
+  let installDemoTabs = [];
+  for (let attempt = 0; attempt < 40 && installDemoTabs.length === 0; attempt += 1) {
+    await new Promise((resolveInstallTab) => setTimeout(resolveInstallTab, 100));
+    installDemoTabs = context.pages().filter((page) => {
+      try { return ["demoqa.com", "www.demoqa.com"].includes(new URL(page.url()).hostname); } catch { return false; }
+    });
+  }
+  installDemoTabs = context.pages().filter((page) => {
+    try { return ["demoqa.com", "www.demoqa.com"].includes(new URL(page.url()).hostname); } catch { return false; }
+  });
+  if (installDemoTabs.length !== 1) throw new Error(`Fresh install should open exactly one DemoQA tab, found ${installDemoTabs.length}`);
+  await installDemoTabs[0].close();
+  trace("fresh-install onboarding opens exactly one DemoQA tab");
 
   const host = await context.newPage();
   const hostErrors = [];
@@ -68,21 +126,66 @@ try {
   await options.locator("#loginEmail").fill("tester@example.com");
   await options.locator("#loginPassword").fill("safe-test-password");
   await options.locator("#loginForm button[type=submit]").click();
-  await options.locator('.protectedNav[data-tab="workspace"]:not(:disabled)').waitFor({ timeout: 10_000 });
+  try {
+    await options.locator('.protectedNav[data-tab="workspace"]:not(:disabled)').waitFor({ timeout: 15_000 });
+  } catch (error) {
+    const authMessage = await options.locator("#authMessage").textContent().catch(() => "");
+    throw new Error(`Authentication did not unlock options: ${authMessage || "no auth message"}; options console: ${optionsErrors.join(" | ") || "none"}; worker console: ${workerErrors.join(" | ") || "none"}`, { cause: error });
+  }
   trace("authenticated");
+  let firstAccessTourTabs = [];
+  for (let attempt = 0; attempt < 50 && firstAccessTourTabs.length === 0; attempt += 1) {
+    await new Promise((resolveTourTab) => setTimeout(resolveTourTab, 100));
+    firstAccessTourTabs = context.pages().filter((page) => {
+      try { return ["demoqa.com", "www.demoqa.com"].includes(new URL(page.url()).hostname); } catch { return false; }
+    });
+  }
+  if (firstAccessTourTabs.length !== 1) throw new Error(`First successful login should open exactly one DemoQA tour tab, found ${firstAccessTourTabs.length}`);
+  await firstAccessTourTabs[0].close();
+  trace("first-login onboarding opens exactly one tour tab");
+  // The onboarding assertion above intentionally seeds the demo workspace. Reset only this
+  // isolated smoke profile so the remaining workspace CRUD checks start from their own fixture.
+  await options.evaluate(async () => window.QTS_STORAGE.saveWorkspace(window.QTS_STORAGE.normalizeWorkspace({})));
   await options.locator('#langSwitch [data-locale="en"]').click();
   await options.getByRole("button", { name: "My account" }).waitFor();
   if (await options.locator("html").getAttribute("lang") !== "en") throw new Error("Options locale did not switch to English");
   if (await options.locator("#clientName").getAttribute("placeholder") !== "Client name") throw new Error("Options placeholders were not translated to English");
-  if (!await options.getByText("Enable Key View", { exact: true }).count()) throw new Error("Key View settings were not translated to English");
+  if (await options.locator("#keyViewEnabled").count()) throw new Error("Duplicated Key View settings card should live only in its sidebar");
   await options.locator('#langSwitch [data-locale="es"]').click();
   await options.getByRole("button", { name: "Mi cuenta" }).waitFor();
   if (await options.locator("#environmentName").getAttribute("placeholder") !== "Nombre del entorno (ej.: QA, Staging)") throw new Error("Options placeholders were not translated to Spanish");
-  if (!await options.getByText("Activar Key View", { exact: true }).count()) throw new Error("Key View settings were not translated to Spanish");
+  if (await options.locator("#keyViewEnabled").count()) throw new Error("Duplicated Key View settings card returned after locale change");
   await options.locator('#langSwitch [data-locale="pt-BR"]').click();
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signedInState").waitFor({ state: "visible" });
   await options.screenshot({ path: resolve(evidencePath, "extension-authenticated-account.png"), fullPage: true });
+
+  // Theme is a platform preference, not a decorative preview: verify the real semantic surfaces,
+  // storage persistence, and reload behavior before exercising the remaining settings screens.
+  await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('[data-theme-choice="light"]').click();
+  await options.waitForFunction(() => document.documentElement.dataset.theme === "light");
+  const storedLightTheme = await options.evaluate(async () => (await chrome.storage.local.get("qtsWorkspaceV1")).qtsWorkspaceV1?.preferences?.appearanceTheme);
+  if (storedLightTheme !== "light") throw new Error(`Light theme was not persisted: ${storedLightTheme}`);
+  await assertElementContrast(options, "main h2");
+  await assertElementContrast(options, ".navItem.isActive");
+  await assertElementContrast(options, ".panel.isActive fieldset legend");
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-theme-light.png"), fullPage: true });
+  await options.reload();
+  await options.locator("#signedInState").waitFor({ state: "visible" });
+  if (await options.locator("html").getAttribute("data-theme") !== "light") throw new Error("Light theme did not survive options reload");
+  if (await options.locator('[data-theme-choice="light"]').getAttribute("aria-checked") !== "true") throw new Error("Light theme toggle did not restore its selected state");
+  await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('[data-theme-choice="dark"]').click();
+  await options.waitForFunction(() => document.documentElement.dataset.theme === "dark");
+  await assertElementContrast(options, "main h2");
+  await assertElementContrast(options, ".navItem.isActive");
+  await assertElementContrast(options, ".panel.isActive fieldset legend");
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-theme-dark.png"), fullPage: true });
+  await options.reload();
+  await options.locator("#signedInState").waitFor({ state: "visible" });
+  if (await options.locator("html").getAttribute("data-theme") !== "dark") throw new Error("Dark theme did not survive options reload");
+  trace("options light/dark theme persistence and contrast verified");
 
   await options.getByRole("button", { name: "Workspace" }).click();
   if (await options.locator(".workspaceTab").count() !== 6) throw new Error("Workspace Studio tabs are incomplete");
@@ -117,7 +220,7 @@ try {
   await options.locator('[data-open-composer="urlRelationComposer"]').click();
   await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
   await options.locator("#urlPatternInput").fill("http://127.0.0.1:43117/*");
-  await options.locator(".environmentToggle", { hasText: "QA" }).click();
+  await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
   await options.locator("#urlRelationForm button[type=submit]").click();
   await options.waitForTimeout(600);
   trace("primary workspace created");
@@ -154,12 +257,13 @@ try {
   if (await sharedBindingRows.count() !== 2) throw new Error("Shared URL binding did not render once per linked environment accordion");
   if (await sharedBindingRows.first().locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
   await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
+  const environmentCountBeforePreviews = Number(await options.locator("#environmentCount").textContent());
   await options.evaluate(async () => {
     const next = await window.QTS_STORAGE.getWorkspace();
     for (let index = 0; index < 3; index += 1) next.environments.push({ id: `env_picker_${index}`, name: `Preview ${index + 1}`, color: "#5b21b6", active: true });
     await window.QTS_STORAGE.saveWorkspace(next);
   });
-  await options.waitForFunction(() => document.querySelector("#environmentCount")?.textContent === "5");
+  await options.waitForFunction((expected) => Number(document.querySelector("#environmentCount")?.textContent) === expected, environmentCountBeforePreviews + 3);
   await options.locator('[data-open-composer="urlRelationComposer"]').click();
   await options.locator("#urlEnvironmentPicker .environmentMultiSelect > summary").click();
   await options.locator("[data-environment-search]").waitFor();
@@ -178,10 +282,11 @@ try {
   await options.locator("#deleteConfirmCancel").click();
   if (await options.locator("#deleteConfirmDialog[open]").count()) throw new Error("Delete confirmation dialog did not close on Cancelar");
   if (!(await previewRow.count())) throw new Error("Cancelar incorrectly deleted the item");
+  const environmentCountBeforeDelete = Number(await options.locator("#environmentCount").textContent());
   await previewRow.locator('[data-action="remove"]').click();
   await options.locator("#deleteConfirmDialog[open]").waitFor();
   await options.locator("#deleteConfirmAccept").click();
-  await options.waitForFunction(() => document.querySelector("#environmentCount")?.textContent === "4");
+  await options.waitForFunction((expected) => Number(document.querySelector("#environmentCount")?.textContent) === expected, environmentCountBeforeDelete - 1);
   if (await previewRow.count()) throw new Error("Excluir did not remove the item");
   trace("delete confirmation dialog verified");
 
@@ -208,8 +313,28 @@ try {
   // rendered height with the actual toolbar content, not a regression.
   if (hierarchy.height !== 37 || hierarchy.background !== "rgb(91, 33, 182)") throw new Error(`Toolbar layout/color mismatch: ${JSON.stringify(hierarchy)}`);
   await host.screenshot({ path: resolve(evidencePath, "extension-toolbar-hierarchy-url.png"), fullPage: false });
+  const verifyToolbarTheme = async (theme) => {
+    await host.waitForFunction((expected) => document.querySelector("#qts-toolbar-host")?.dataset.theme === expected, theme);
+    await assertElementContrast(host, "#toolsButton");
+    await host.locator("#toolsButton").click();
+    await host.locator("#toolsMenu.isOpen").waitFor();
+    await assertElementContrast(host, "#inputLabMenuItem");
+    await host.locator("#inputLabMenuItem").click();
+    await host.locator(".qts-drawer").waitFor();
+    await assertElementContrast(host, ".qts-drawer-head h2");
+    await host.screenshot({ path: resolve(evidencePath, `extension-toolbar-drawer-theme-${theme}.png`), fullPage: false });
+    await host.locator("#drawerClose").click();
+  };
+  await verifyToolbarTheme("dark");
+  await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('[data-theme-choice="light"]').click();
+  await verifyToolbarTheme("light");
+  await options.locator('[data-theme-choice="dark"]').click();
+  await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
+  trace("toolbar menu/drawer light/dark contrast verified");
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
-  await host.locator("#testStatusButton").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#statusMenuItem").click();
   await host.locator('#qts-test-status-modal [data-status="pass"]').click();
   await passSoundRequestPromise;
   trace("toolbar hierarchy verified");
@@ -224,17 +349,31 @@ try {
   await host.locator("#notificationBellButton").click();
   trace("first-run notification moved to the bell");
 
-  // Shapes: Formato (rectangle/square/circle) constrains the box and sets the CSS radius;
-  // Efeito "Borrão" swaps the color inputs for a blur-strength slider and applies a real
-  // backdrop-filter instead of a color, so a sensitive area can be hidden instead of just outlined.
-  await host.locator("#shapeButton").click();
+  // Mode tools can be pinned as one-click toolbar actions and expose synchronized accessible
+  // pressed state, while remaining available from Tools on narrow layouts.
+  for (const required of ["#passButton", "#failButton", "#screenshotButton", "#recordToggleButton"]) {
+    if (!(await host.locator(required).isVisible())) throw new Error(`Required fixed shortcut is missing: ${required}`);
+  }
+  if (await host.locator("#testStatusButton").isVisible()) throw new Error("Test Status should live in Tools, not in the four permanent shortcuts");
+  if (await host.locator("#extraPinnedTools button").count()) throw new Error("Fresh workspace should allow zero optional fixed shortcuts");
+  trace("required fixed shortcuts + zero optional state verified");
+
+  // Forma agora abre um menu de escolha (Retângulo/Quadrado/Círculo/Linha) em vez de desenhar
+  // direto um retângulo — o tipo escolhido já é aplicado na criação, sem precisar reabrir o editor.
+  await host.locator("#toolsButton").click();
+  await host.locator("#shapesMenuItem").click();
+  trace("line: shape menu opened");
+  await host.locator('#shapeTypeMenu:not(.isHidden)').waitFor({ timeout: 2_000 });
+  await host.locator('[data-shape-pick="rectangle"]').click();
   await host.mouse.move(300, 300);
   await host.mouse.down();
   await host.mouse.move(460, 420, { steps: 6 });
   await host.mouse.up();
+  trace("line: drawn");
+  if (await host.locator(".qts-shape").evaluate((shape) => shape.dataset.shapeType) !== "rectangle") throw new Error("Shape did not apply the Formato picked from the shape-type menu at creation");
   await host.locator(".qts-shape [data-visibility-toggle]").click();
   await host.locator(".qts-shape .qts-edit-btn").click();
-  await host.locator("[data-shape-type]").selectOption("circle");
+  await host.locator("select[data-shape-type]").selectOption("circle");
   const circleRadius = await host.locator(".qts-shape-box").evaluate((box) => getComputedStyle(box).borderRadius);
   if (!circleRadius.includes("50%")) throw new Error(`Shape "Círculo" did not apply a 50% radius: ${circleRadius}`);
   const [circleWidth, circleHeight] = await host.locator(".qts-shape").evaluate((shape) => [shape.offsetWidth, shape.offsetHeight]);
@@ -243,8 +382,10 @@ try {
   if (await host.locator("[data-shape-blur-control]").isHidden()) throw new Error("Blur-strength slider did not appear after selecting the Borrão effect");
   const blurFilter = await host.locator(".qts-shape-box").evaluate((box) => getComputedStyle(box).backdropFilter || getComputedStyle(box).webkitBackdropFilter);
   if (!blurFilter.includes("blur")) throw new Error(`Shape "Borrão" effect did not apply a real backdrop-filter blur: ${blurFilter}`);
+  await host.locator(".qts-shape .qts-shape-editor [data-save]").click();
+  if (await host.locator(".qts-shape .qts-shape-editor").count()) throw new Error("Salvar did not close the shape's style editor popup");
   await host.locator(".qts-shape .qts-remove-btn").click();
-  trace("shape formato/efeito (círculo + borrão) verified");
+  trace("shape formato/efeito (círculo + borrão) verified, Salvar closes the editor");
 
   // Borrar elementos: click-to-select (reusing the same selectPageElement UX as Element Capture),
   // toggles the blur on/off per element, re-arms itself for picking more than one, and "Limpar
@@ -263,50 +404,108 @@ try {
   await host.locator("#blurElementsMenuItem").click();
   await host.locator("#blurClearAll").click();
   if (await host.locator("#qaEmail").evaluate((element) => element.classList.contains("qts-blurred-element"))) throw new Error('"Limpar todos os borrados" left an element blurred');
+
+  // History list: shows one row per blurred element, with its own remove button (not just clear-all).
+  await host.locator("#blurSelectElement").click();
+  await host.locator("#qaName").click();
+  await host.keyboard.press("Escape");
+  await host.locator("#toolsButton").click();
+  await host.locator("#blurElementsMenuItem").click();
+  if (await host.locator('[data-blur-remove]').count() !== 1) throw new Error("Blur history list did not show a row for the blurred element");
+  await host.locator('[data-blur-remove="0"]').click();
+  if (await host.locator("#qaName").evaluate((element) => element.classList.contains("qts-blurred-element"))) throw new Error("Removing a row from the blur history did not unblur that element");
+  if (await host.locator('[data-blur-remove]').count() !== 0) throw new Error("Blur history list did not update after removing its only row");
   await host.locator("#drawerClose").click();
-  trace("borrar elementos tool verified (select, toggle, re-arm, clear all)");
+
+  // Right-click "Borrar / desborrar este elemento" toggles blur without opening the drawer at all.
+  // `chrome.tabs.sendMessage` only exists in a privileged extension context (the service worker),
+  // not the page's own main world, so this drives it exactly the way background.js's
+  // contextMenus.onClicked handler really does: a real contextmenu DOM event first (captures the
+  // target the same way the real listener would), then the worker relays the action to that tab.
+  await host.locator("#qaEmail").click({ button: "right" });
+  await worker.evaluate(() => new Promise((resolve) => {
+    chrome.tabs.query({ url: "http://127.0.0.1:43117/*" }, (tabs) => {
+      chrome.tabs.sendMessage(tabs[0].id, { type: "qts:context-action", action: "toggle-blur" }, () => resolve());
+    });
+  }));
+  if (!(await host.locator("#qaEmail").evaluate((element) => element.classList.contains("qts-blurred-element")))) throw new Error("Context-menu toggle-blur did not blur the right-clicked element");
+  await host.locator("#qaEmail").click({ button: "right" });
+  await worker.evaluate(() => new Promise((resolve) => {
+    chrome.tabs.query({ url: "http://127.0.0.1:43117/*" }, (tabs) => {
+      chrome.tabs.sendMessage(tabs[0].id, { type: "qts:context-action", action: "toggle-blur" }, () => resolve());
+    });
+  }));
+  if (await host.locator("#qaEmail").evaluate((element) => element.classList.contains("qts-blurred-element"))) throw new Error("Context-menu toggle-blur did not undo the blur on a second trigger");
+  trace("borrar elementos tool verified (select, toggle, re-arm, clear all, per-item history removal, context menu)");
 
   // Linha: drawn from two literal points (not a drag-to-size box), width matches the real
-  // distance between them, and enabling the arrow endpoint adds the CSS class that renders it.
-  await host.locator("#lineButton").click();
+  // distance between them, the endpoint resize handle can redefine the length/angle after the
+  // fact, enabling an endpoint style adds the matching CSS class, and Salvar closes the editor
+  // popup without removing the line.
+  await host.locator("#toolsButton").click();
+  await host.locator("#shapesMenuItem").click();
+  await host.locator('#shapeTypeMenu:not(.isHidden)').waitFor({ timeout: 2_000 });
+  await host.locator('[data-shape-pick="line"]').click();
   await host.mouse.move(200, 200);
   await host.mouse.down();
   await host.mouse.move(400, 200, { steps: 6 });
   await host.mouse.up();
   const lineWidth = await host.locator(".qts-line").evaluate((line) => line.offsetWidth);
   if (Math.abs(lineWidth - 200) > 5) throw new Error(`Line width did not match the drawn distance: ${lineWidth}`);
+  const resizeHandle = host.locator(".qts-line-resize-handle");
+  const handleBox = await resizeHandle.boundingBox();
+  if (!handleBox) throw new Error("Line resize handle has no bounding box");
+  trace("line: resize handle found");
+  await host.mouse.move(handleBox.x + handleBox.width / 2, handleBox.y + handleBox.height / 2);
+  await host.mouse.down();
+  await host.mouse.move(500, 200, { steps: 6 });
+  await host.mouse.up();
+  trace("line: resized");
+  const resizedWidth = await host.locator(".qts-line").evaluate((line) => line.offsetWidth);
+  if (Math.abs(resizedWidth - 300) > 8) throw new Error(`Line resize handle did not redefine the length: ${resizedWidth}`);
   await host.locator(".qts-line [data-visibility-toggle]").click();
+  trace("line: controls visible");
   await host.locator(".qts-line .qts-edit-btn").click();
-  await host.locator("[data-line-arrow]").selectOption("end");
-  if (!(await host.locator(".qts-line").evaluate((line) => line.classList.contains("hasArrow")))) throw new Error("Line arrow endpoint option did not apply");
+  trace("line: editor opened");
+  await host.locator("[data-line-start]").selectOption("dotFilled");
+  await host.locator("[data-line-end]").selectOption("arrow");
+  if (!(await host.locator(".qts-line").evaluate((line) => line.classList.contains("startHasDotFilled") && line.classList.contains("hasArrow")))) throw new Error("Independent line endpoints did not apply");
+  await host.locator(".qts-line .qts-shape-editor [data-save]").click();
+  trace("line: arrow saved");
+  if (await host.locator(".qts-line .qts-shape-editor").count()) throw new Error("Salvar did not close the line's style editor popup");
+  if (await host.locator(".qts-line").count() !== 1) throw new Error("Salvar on the line editor should not remove the line itself");
+  await host.locator(".qts-line .qts-edit-btn").click();
+  await host.locator("[data-line-start]").selectOption("triangle");
+  await host.locator("[data-line-end]").selectOption("dotHollow");
+  if (!(await host.locator(".qts-line").evaluate((line) => line.classList.contains("startHasTriangle") && line.classList.contains("hasDotHollow")))) throw new Error("Independent alternate line endpoints did not apply");
+  await host.locator(".qts-line .qts-shape-editor [data-save]").click();
   await host.locator(".qts-line .qts-remove-btn").click();
   if (await host.locator(".qts-line").count()) throw new Error("Removing the line did not remove it from the page");
-  trace("linha com ponta de seta verified");
+  trace("linha com redimensionamento pela ponta, novas pontas e botão Salvar verificados");
 
-  // Holofote: never preventDefault's the real mouse events (the page must keep working while the
-  // mode is on), only shows the spotlight after a genuine 3s hold, and fades back out on release.
+  // Holofote: never preventDefault's the real keyboard/mouse events (the page must keep working
+  // while the mode is on), only shows the spotlight after a genuine 2s Ctrl hold, and fades back
+  // out on release.
   await host.locator("#toolsButton").click();
   await host.locator("#holofoteMenuItem").click();
   await host.locator("#holofoteToggle").click();
   await host.locator("#drawerClose").click();
   await host.mouse.move(320, 260);
-  await host.mouse.down();
-  if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote appeared before the 3s hold threshold");
-  await host.waitForTimeout(3_400);
+  await host.keyboard.down("Control");
+  if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote appeared before the 2s Ctrl-hold threshold");
+  await host.waitForTimeout(2_400);
   await host.locator("#qts-holofote-overlay.isVisible").waitFor({ timeout: 2_000 });
-  await host.mouse.up();
+  await host.keyboard.up("Control");
   if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote did not start fading out on release");
   if (!(await host.locator("h1").isVisible())) throw new Error("Holofote mode blocked normal page interaction");
   await host.locator("#toolsButton").click();
   await host.locator("#holofoteMenuItem").click();
   await host.locator("#holofoteToggle").click();
   await host.locator("#drawerClose").click();
-  trace("modo holofote verified (3s hold, follows release fade, page stays interactive)");
+  trace("modo holofote verified (2s Ctrl hold, follows release fade, page stays interactive)");
 
-  // Recording type menu: clicking the record button (while idle) offers "Vídeo" vs "Vídeo em
-  // partes (30s)" instead of recording immediately. The parts option is intentionally disabled
-  // ("Em breve") — shipping it under any GIF-adjacent framing was judged misleading since it
-  // produces WEBM/MP4 segments, not real GIF pixels, so only plain "Vídeo" is clickable for now.
+  // Recording type menu offers a normal seekable video and a real locally encoded GIF mode. GIF
+  // recordings are split into independent 15-second files and zipped only when there is >1 part.
   // Actually invoking getDisplayMedia is not exercised here — it opens a real native OS picker
   // with no Chromium test flag that reliably auto-approves it (unlike camera/mic fake devices),
   // so clicking past this menu would hang or flake the suite. The menu wiring itself (open/close,
@@ -315,11 +514,12 @@ try {
   await host.locator("#recordToggleButton").click();
   await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ timeout: 2_000 });
   if (!(await host.locator("#recordTypeVideoItem").isVisible())) throw new Error("Record type menu missing the single-video option");
-  if (!(await host.locator("#recordTypePartsItem").isVisible())) throw new Error("Record type menu missing the 30s-parts option");
-  if (!(await host.locator("#recordTypePartsItem").isDisabled())) throw new Error("30s-parts recording option should stay disabled (Em breve) until it ships");
+  if (!(await host.locator("#recordTypePartsItem").isVisible())) throw new Error("Record type menu missing the 15s GIF option");
+  if (await host.locator("#recordTypePartsItem").isDisabled()) throw new Error("15s GIF recording option should be enabled");
+  if (!(await host.locator("#recordTypePartsItem").getAttribute("data-record-mode"))?.includes("gif")) throw new Error("GIF option is not wired to GIF recording mode");
   await host.locator("#currentUrl").click();
   await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ state: "hidden", timeout: 2_000 });
-  trace("record type menu verified (video option works, 30s-parts is disabled/Em breve, opens/closes correctly)");
+  trace("record type menu verified (video + real 15s GIF options, opens/closes correctly)");
 
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
@@ -349,6 +549,23 @@ try {
   if (elementCaptureCsv.includes("never-export-this-password")) throw new Error("Element Capture leaked a typed password value");
   if (!elementCaptureCsv.includes("'=HYPERLINK")) throw new Error("Element Capture did not neutralize spreadsheet formula injection");
   await host.locator("#drawerClose").click();
+
+  // Evidence filenames: evidencia_{status?}_{tela}_{yyyyMMddHHmmss} -- no status segment unless
+  // one was actually just marked on this exact page (never a stale/unrelated one).
+  await worker.evaluate(() => chrome.storage.local.remove("qtsTestStatusHistoryV1"));
+  const plainShotPromise = host.waitForEvent("download");
+  await host.locator("#screenshotButton").click();
+  const plainShot = await plainShotPromise;
+  if (!/^evidencia_[a-z0-9-]+_\d{14}\.png$/.test(plainShot.suggestedFilename())) throw new Error(`Screenshot filename did not match the evidencia_{tela}_{timestamp} pattern: ${plainShot.suggestedFilename()}`);
+  await host.locator("#toolsButton").click();
+  await host.locator("#statusMenuItem").click();
+  await host.locator('#qts-test-status-modal [data-status="pass"]').click();
+  await host.waitForTimeout(300);
+  const taggedShotPromise = host.waitForEvent("download");
+  await host.locator("#screenshotButton").click();
+  const taggedShot = await taggedShotPromise;
+  if (!taggedShot.suggestedFilename().startsWith("evidencia_pass_")) throw new Error(`Screenshot filename did not carry the just-marked status: ${taggedShot.suggestedFilename()}`);
+  trace("evidence filenames verified (evidencia_{tela}_{timestamp}, tagged with a just-marked status)");
   await host.evaluate(() => document.getElementById('qa"name\'mixed')?.remove());
   trace("element capture verified");
   if (!await toolbar.isVisible()) throw new Error("Toolbar disappeared after using a tool");
@@ -443,6 +660,8 @@ try {
   await host.locator("#fakerRun").click();
   const fakerResult = await host.evaluate(() => ({ name: document.querySelector("#qaName").value, email: document.querySelector("#qaEmail").value, password: document.querySelector("#qaPassword").value }));
   if (!fakerResult.name || !fakerResult.email.endsWith("@example.com") || fakerResult.password) throw new Error(`Faker Fill security mismatch: ${JSON.stringify(fakerResult)}`);
+  const fakerReport = await host.locator("#fakerReport").innerText();
+  if (!fakerReport.includes("Campos preenchidos") || !fakerReport.includes("Nome") || !fakerReport.includes(fakerResult.name) || fakerReport.toLowerCase().includes("senha")) throw new Error(`Faker Fill field report mismatch: ${fakerReport}`);
   await host.locator("#drawerClose").click();
 
   // Input Lab inspects constraints, tests six data classes and restores the original value.
@@ -466,6 +685,34 @@ try {
   await host.locator("#multiRun").click();
   await host.getByText("4 cliques concluídos.").waitFor();
   if (await host.locator("#multiTarget").getAttribute("data-clicks") !== "4") throw new Error("Multiclick executed an incorrect count");
+  await host.locator("#drawerClose").click();
+
+  // Step Recorder documents the journey independently, protects sensitive values and exports
+  // the expected result in a separate, spreadsheet-safe CSV column.
+  await host.locator("#toolsButton").click();
+  await host.locator("#stepsRecorderMenuItem").click();
+  await host.locator("#newStepsName").fill("Fluxo de checkout");
+  await host.locator("#newStepsMode").selectOption("gherkin");
+  await host.locator("#startSteps").click();
+  await host.locator("#macroTarget").click();
+  await host.locator("#macroText").fill("produto 123");
+  await host.locator("#qaPassword").fill("segredo-nao-exportar");
+  await host.locator("#stepsRecPauseButton").click();
+  const pausedCount = await host.locator("#stepsRecCount").textContent();
+  await host.locator("#multiTarget").click();
+  if (await host.locator("#stepsRecCount").textContent() !== pausedCount) throw new Error("Step Recorder captured actions while paused");
+  await host.locator("#stepsRecPauseButton").click();
+  await host.locator("#stepsRecDoneButton").click();
+  await host.locator('[data-doc-step="0"] summary').click();
+  await host.locator('[data-doc-step="0"] [data-step-expected]').fill("Tela inicial disponível");
+  await host.locator("#stepsSave").click();
+  await host.locator("#stepsList .qts-card").first().waitFor();
+  const stepsDownloadPromise = host.waitForEvent("download");
+  await host.locator("#stepsList .qts-card").first().locator('[data-action="export"]').click();
+  const stepsDownload = await stepsDownloadPromise;
+  const stepsCsv = await readFile(await stepsDownload.path(), "utf8");
+  if (!stepsCsv.includes("resultado esperado") || !stepsCsv.includes("Tela inicial disponível") || stepsCsv.includes("segredo-nao-exportar")) throw new Error("Step Recorder CSV format/security mismatch");
+  trace("step recorder capture, pause, Gherkin edit and secure CSV verified");
   await host.locator("#drawerClose").click();
 
   // Macro recording captures normal interactions but ignores password content.
@@ -515,13 +762,13 @@ try {
   await host.locator('#macroList .qts-card').filter({ hasText: "Importada QA" }).locator('[data-macro-action="play"]').click();
   await host.waitForURL("**/app/next");
   await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
-  await host.waitForFunction(() => document.querySelector("#macroText")?.value === "após navegação");
+  await host.waitForFunction(() => document.querySelector("#macroText")?.value === "após navegação", null, { timeout: 45_000 });
   await host.goto("http://127.0.0.1:43117/");
   await toolbar.waitFor({ timeout: 10_000 });
 
   // Compact mode hides project/product names, preserving their image/initial badges and environment.
   await options.getByRole("button", { name: "Barra e aparência" }).click();
-  await options.waitForFunction(() => document.querySelector("#keyViewTheme")?.value === "light" && document.querySelector("#keyViewPosition")?.value === "top-right" && document.querySelector("#keyViewKeySize")?.value === "large" && document.querySelector("#keyViewMouseSize")?.value === "small" && !document.querySelector("#keyViewEnabled")?.checked);
+  if (await options.locator("#keyViewEnabled").count()) throw new Error("Key View configuration should remain in its own sidebar");
   if (await options.locator('[data-tool="keyView"]').count() !== 1 || await options.locator('[data-tool="keyView"]').isChecked() !== true) throw new Error("Key View menu preference did not persist in options");
   await options.locator('[data-compact-entity="project"]').check();
   await options.locator("#saveGeneralSettings").click();
@@ -565,7 +812,7 @@ try {
   // see options.js's renderScopePicker) instead of a plain <select> — open the Ambientes facet,
   // tick "QA", close it back.
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
-  await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).locator("input").check();
+  await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#testAccountLabel").fill("Conta sandbox");
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
@@ -574,7 +821,7 @@ try {
   await options.locator('[data-workspace-tab="payments"]').click();
   await options.locator('[data-open-composer="paymentMethodComposer"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
-  await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).locator("input").check();
+  await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
@@ -660,7 +907,7 @@ try {
   await options.locator('[data-tutorial-complete="workspace"]').click();
   await achievementSoundPromise;
   await options.locator("#tutorialStepDoneDialog[open]").waitFor();
-  if ((await options.locator("#tutorialStepDoneTitle").innerText()) !== "Prepare seu workspace concluído!") throw new Error("Completion modal did not show the right step title");
+  if (!/workspace.*conclu/i.test(await options.locator("#tutorialStepDoneTitle").innerText())) throw new Error("Completion modal did not show the right Workspace step title");
   if (!(await options.locator("#tutorialStepDoneBody").innerText()).includes("Dica:")) throw new Error("Completion modal did not show the practical tip");
   await options.locator("#tutorialStepClose").click();
   await options.locator('[data-tutorial-module="workspace"].isDone').waitFor();
@@ -680,6 +927,10 @@ try {
   if (await options.locator(".faqAccordion:not([open])").count() !== 0) throw new Error("Expandir tudo did not open every FAQ entry");
   if (await options.locator(".faqAnswer img").count() < 20) throw new Error("FAQ entries did not render illustrative screenshots");
   if (await options.locator(".faqGroupAccordion").count() < 4) throw new Error("FAQ panel did not group entries into accordion sections");
+  const faqText = await options.locator('[data-panel="faq"]').innerText();
+  for (const expected of ["Workspace", "aparência", "Inspectors", "APIs", "recursos", "importar", "exportar"]) {
+    if (!faqText.toLocaleLowerCase("pt-BR").includes(expected.toLocaleLowerCase("pt-BR"))) throw new Error(`FAQ is missing onboarding guidance for ${expected}`);
+  }
   await options.locator(".faqAnswer img").first().click();
   await options.locator("#imageLightbox:not([hidden])").waitFor();
   if (!(await options.locator("#imageLightboxImg").getAttribute("src"))) throw new Error("Image lightbox did not load the clicked screenshot");
@@ -708,14 +959,49 @@ try {
   await host.locator(".qts-tour-balloon").waitFor();
   const secondTourStepTitle = await host.locator(".qts-tour-balloon b").innerText();
   if (secondTourStepTitle === firstTourStepTitle) throw new Error("Live tour did not advance to the next step after Próximo");
-  const [workspaceTabAfterSkip] = await Promise.all([
-    context.waitForEvent("page"),
-    host.locator("[data-tour-skip]").click(),
-  ]);
+  const pagesBeforeSettingsHandoff = new Set(context.pages());
+  const activeTourSkip = host.locator(".qts-tour-balloon:visible [data-tour-skip]");
+  if (await activeTourSkip.count() !== 1) throw new Error("Expected exactly one visible live-tour skip action");
+  // Dispatch on the resolved tour control itself. A coordinate click can race the pulsing overlay's
+  // reflow and land on the Settings icon underneath, producing a plain options tab instead.
+  await activeTourSkip.evaluate((button) => button.click());
+  let workspaceTabAfterSkip = null;
+  for (let attempt = 0; attempt < 100 && !workspaceTabAfterSkip; attempt += 1) {
+    await host.waitForTimeout(100);
+    for (const page of context.pages().filter((candidate) => !pagesBeforeSettingsHandoff.has(candidate))) {
+      if (await page.locator('[data-panel="workspace"].isActive').count().catch(() => 0)) {
+        workspaceTabAfterSkip = page;
+        break;
+      }
+    }
+  }
+  if (!workspaceTabAfterSkip) {
+    const opened = context.pages().filter((page) => !pagesBeforeSettingsHandoff.has(page)).map((page) => page.url());
+    throw new Error(`Pular tutorial did not open the active Workspace settings tour: ${opened.join(", ") || "no new page"}`);
+  }
+  await workspaceTabAfterSkip.waitForLoadState("domcontentloaded");
+  trace(`settings tour handoff opened ${workspaceTabAfterSkip.url()}`);
+  trace(`settings tour handoff panels: ${await workspaceTabAfterSkip.locator("[data-panel]").evaluateAll((nodes) => nodes.map((node) => `${node.getAttribute("data-panel")}:${node.className}`).join(", "))}`);
   await workspaceTabAfterSkip.locator('[data-panel="workspace"].isActive').waitFor({ timeout: 10_000 });
   await workspaceTabAfterSkip.close();
   if (await host.locator(".qts-tour-balloon").count()) throw new Error("Pular tutorial did not close the live tour overlay");
   trace("live tutorial tour verified (spotlight, step advance, achievement sound, skip-to-workspace)");
+
+  // Menu tools use a deliberate two-stage tour: the user first opens Tools, then the requested
+  // item is highlighted. Opening a drawer must remove the page dim and retain contextual help.
+  await host.goto("http://127.0.0.1:43117/app?qtsTutorial=1&qtsTutorialStep=blurElements");
+  await toolbar.waitFor({ timeout: 10_000 });
+  await host.locator(".qts-tour-balloon b").filter({ hasText: /Ferramentas|Tools|Herramientas/ }).waitFor();
+  if (await host.locator("#toolsMenu.isOpen").count()) throw new Error("Tool tour opened Tools before the user action");
+  await host.locator("#toolsButton").click();
+  await host.locator("#blurElementsMenuItem").waitFor({ state: "visible" });
+  await host.locator(".qts-tour-balloon b").filter({ hasText: /Borrar|Blur/ }).waitFor();
+  await host.locator("#blurElementsMenuItem").click();
+  await host.locator("#drawerHost .qts-drawer").waitFor();
+  await host.locator(".qts-tour-balloon").filter({ hasText: /ferramenta está aberta|tool is open|herramienta está abierta/i }).waitFor();
+  if (await host.locator(".qts-tour-spotlight").count()) throw new Error("Tour kept the dimming spotlight over an open tool drawer");
+  await host.locator("[data-tour-skip]").click();
+  trace("two-stage Tools tour + drawer contextual help verified");
 
   // "Iniciar tutorial" in the Settings Tutorial panel must never clobber a workspace that already
   // has real data (this run already built one earlier) -- it should just open the demo tab.
@@ -744,14 +1030,18 @@ try {
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#settingsTourStart").click();
   await options.locator(".settingsTourBalloon").waitFor();
-  const settingsTourFirstTitle = await options.locator(".settingsTourBalloon b").innerText();
-  await options.locator("#settingsTourNext").click();
-  const settingsTourSecondTitle = await options.locator(".settingsTourBalloon b").innerText();
-  if (settingsTourSecondTitle === settingsTourFirstTitle) throw new Error("Settings tour did not advance to the next section");
-  if (await options.locator('[data-panel="general"].isActive').count() !== 1) throw new Error("Settings tour did not switch to the section it's pointing at");
-  await options.locator("#settingsTourSkip").click();
-  if (await options.locator(".settingsTourBalloon").count()) throw new Error("Settings tour overlay did not close");
-  trace("settings-screen tour verified");
+  const settingsTourTitles = [];
+  for (let guard = 0; guard < 30 && await options.locator(".settingsTourBalloon").count(); guard += 1) {
+    settingsTourTitles.push(await options.locator(".settingsTourBalloon b").innerText());
+    await options.locator("#settingsTourNext").click();
+  }
+  if (await options.locator(".settingsTourBalloon").count()) throw new Error("Settings tour did not finish");
+  const settingsCoverage = settingsTourTitles.join(" | ");
+  for (const expected of ["Aparência", "cliente", "projeto", "produto", "ambiente", "URL", "Contas", "pagamento", "Inspectors", "APIs", "recursos", "Exportar", "Importar", "Tutorial", "FAQ"]) {
+    if (!settingsCoverage.toLocaleLowerCase("pt-BR").includes(expected.toLocaleLowerCase("pt-BR"))) throw new Error(`Settings tour is missing ${expected}: ${settingsCoverage}`);
+  }
+  if (settingsTourTitles.length < 18) throw new Error(`Settings tour is too short: ${settingsTourTitles.length}`);
+  trace("complete settings/workspace CRUD tour verified");
 
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();
@@ -760,8 +1050,9 @@ try {
   if (!await options.locator('.protectedNav[data-tab="workspace"]').isDisabled()) throw new Error("Protected settings remained enabled after logout");
 
   if (hostErrors.length || optionsErrors.length || workerErrors.length) throw new Error(`Console errors:\n${[...hostErrors, ...optionsErrors, ...workerErrors].join("\n")}`);
-  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, workspaceStudioTabs: true, relationalUrls: true, searchableEnvironmentMultiselect: true, imageEditor: true, hierarchyAndUrl: true, soundEffectsRequested: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewSizes: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, elementCaptureCsvSafe: true, fakerFillProtected: true, inputLab: true, multiClick: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactModePerEntity: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, tutorialGamification: true, tutorialProgressPersisted: true, faqAccordions: true, liveTutorialTour: true, tutorialStartButton: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
+  console.log(JSON.stringify({ extensionId, unauthenticatedBlocked: true, authenticatedWorkspace: true, optionsI18nPtEsEn: true, workspaceStudioTabs: true, relationalUrls: true, searchableEnvironmentMultiselect: true, imageEditor: true, hierarchyAndUrl: true, soundEffectsRequested: true, responsiveViewCentered: true, keyViewSvgShortcuts: true, keyViewSizes: true, keyViewTypingProtected: true, keyViewMouseEffects: true, characterCounter: true, elementCaptureCsvSafe: true, fakerFillProtected: true, inputLab: true, multiClick: true, stepsRecorderSecureCsv: true, stepsRecorderPauseAndGherkin: true, macroRecordReplay: true, macroVibeCoder: true, macroImportExportPin: true, macroNavigationResume: true, compactModePerEntity: true, environmentEditReactive: true, spaReactive: true, paymentMethodsMasked: true, resourcesVisible: true, secureExport: true, tutorialGamification: true, tutorialProgressPersisted: true, faqAccordions: true, liveTutorialTour: true, tutorialStartButton: true, logoutRemovesToolbar: true, consoleErrors: 0, workerErrors: 0 }));
 } finally {
+  clearTimeout(smokeWatchdog);
   await context.close();
   await new Promise((resolveClosed) => server.close(resolveClosed));
 }

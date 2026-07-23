@@ -7,7 +7,7 @@ Integração completa de **privacidade de dados**, **automação de deploy**, **
 ### 1. **Publicação automatizada na Chrome Web Store** (`docs/DEPLOY_CHROME_WEBSTORE.md`)
 - Novo fluxo OAuth com Google Cloud para autorização permanente
 - Scripts `publish-chrome-webstore.mjs` e `chrome-webstore-oauth-setup.mjs` para automação completa
-- Workflow do GitHub Actions (`chrome-store-package.yml`) que **já publica automaticamente em `main`** rodando security scans + smoke test em Chrome real
+- Workflow do GitHub Actions (`chrome-store-package.yml`) que gera o pacote em `main`, mas só publica após promoção manual confirmada
 - Opção manual via `npm run release:chrome:upload` (rascunho) ou `npm run release:chrome:publish` (revisão)
 - Nenhuma alteração acidental possível — ID da extensão fixo (`ddaapjklnfjhjigeglgmjmadjnmdodfe`)
 
@@ -56,7 +56,7 @@ Integração completa de **privacidade de dados**, **automação de deploy**, **
 
 **CI/CD**:
 - Todos os checks já passam: package, verify, analyze
-- Novo workflow de publish é automático mas requer 3 repository secrets (cliente/admin configura uma vez)
+- Publicação exige confirmação manual na `main` e 3 repository secrets (cliente/admin configura uma vez)
 - Smoke test roda em Chromium real com display virtual no runner
 
 **Testado**:

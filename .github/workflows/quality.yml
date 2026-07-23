@@ -25,6 +25,8 @@ jobs:
       - run: npm ci
       - run: npm run typecheck
       - run: npm run test
+      - name: Build isolated extension test package
+        run: npm run package:extension:test
       - run: npm audit --omit=dev --audit-level=critical
       - name: Record full development-tool audit
         continue-on-error: true

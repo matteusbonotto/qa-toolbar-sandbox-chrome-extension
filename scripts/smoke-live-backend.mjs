@@ -159,11 +159,11 @@ async function smokeVoucherAndCampaign(planId) {
 
   const voucher = await unwrap(admin.from("vouchers").insert({
     code_hash: sha256(voucherCode), label: `${label}-voucher`, plan_id: planId,
-    grant_days: null, status: "available",
+    kind: "lifetime", grant_days: null, status: "available",
   }).select("id").single(), "insert live voucher");
   const campaign = await unwrap(admin.from("voucher_campaigns").insert({
     code_hash: sha256(campaignCode), label: `${label}-campaign`, plan_id: planId,
-    grant_days: 30, maximum_redemptions: 1, enabled: true,
+    kind: "days", grant_days: 30, maximum_redemptions: 1, enabled: true,
   }).select("id").single(), "insert live campaign");
 
   const redeemed = await edge("voucher-redeem", voucherUser.token, { code: voucherCode });
