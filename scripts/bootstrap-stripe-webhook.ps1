@@ -4,7 +4,9 @@ param(
   [ValidatePattern('^[a-z0-9]{20}$')]
   [string]$ProjectRef,
 
-  [string]$SecretsFile = '.env.edge.local'
+  [string]$SecretsFile = '.env.edge.local',
+
+  [switch]$ConfirmLive
 )
 
 $ErrorActionPreference = 'Stop'
@@ -21,10 +23,9 @@ if (-not $secretsPath.StartsWith($workspacePrefix, [StringComparison]::OrdinalIg
   throw 'SecretsFile must be inside this repository.'
 }
 
-$nodeOutput = (& node (Join-Path $PSScriptRoot 'bootstrap-stripe-webhook.mjs') `
-  --env-file $secretsPath `
-  --project-ref $ProjectRef `
-  --emit-signing-secret) -join "`n"
+$arguments = @((Join-Path $PSScriptRoot 'bootstrap-stripe-webhook.mjs'), '--env-file', $secretsPath, '--project-ref', $ProjectRef, '--emit-signing-secret')
+if ($ConfirmLive) { $arguments += '--confirm-live' }
+$nodeOutput = (& node @arguments) -join "`n"
 if ($LASTEXITCODE -ne 0) { throw 'Stripe webhook provisioning failed.' }
 
 try {
@@ -45,15 +46,17 @@ if ($result.created) {
   }
 
   $source = [IO.File]::ReadAllText($secretsPath)
-  $secretLine = "STRIPE_WEBHOOK_SECRET=$signingSecret"
-  $updated = if ($source -match '(?m)^STRIPE_WEBHOOK_SECRET=.*$') {
-    [regex]::Replace($source, '(?m)^STRIPE_WEBHOOK_SECRET=.*$', $secretLine)
+  $secretName = if ($ConfirmLive) { 'STRIPE_LIVE_WEBHOOK_SECRET' } else { 'STRIPE_TEST_WEBHOOK_SECRET' }
+  $secretLine = "$secretName=$signingSecret"
+  $updated = if ($source -match "(?m)^$secretName=.*$") {
+    [regex]::Replace($source, "(?m)^$secretName=.*$", $secretLine)
   } else {
     "$($source.TrimEnd())`r`n$secretLine`r`n"
   }
-  $endpointLine = "STRIPE_WEBHOOK_ENDPOINT_ID=$($result.endpointId)"
-  $updated = if ($updated -match '(?m)^STRIPE_WEBHOOK_ENDPOINT_ID=.*$') {
-    [regex]::Replace($updated, '(?m)^STRIPE_WEBHOOK_ENDPOINT_ID=.*$', $endpointLine)
+  $endpointName = if ($ConfirmLive) { 'STRIPE_LIVE_WEBHOOK_ENDPOINT_ID' } else { 'STRIPE_TEST_WEBHOOK_ENDPOINT_ID' }
+  $endpointLine = "$endpointName=$($result.endpointId)"
+  $updated = if ($updated -match "(?m)^$endpointName=.*$") {
+    [regex]::Replace($updated, "(?m)^$endpointName=.*$", $endpointLine)
   } else {
     "$($updated.TrimEnd())`r`n$endpointLine`r`n"
   }

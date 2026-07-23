@@ -1,5 +1,28 @@
 # Publicar na Chrome Web Store por script/CI
 
+## Atualização das instalações antigas
+
+Quando uma versão com número maior é aprovada e publicada no mesmo item da Chrome Web Store,
+o próprio Chrome distribui a atualização automaticamente às instalações existentes. Normalmente
+ele verifica na inicialização e depois periodicamente; a aplicação pode ocorrer quando a extensão
+fica ociosa ou após reiniciar o navegador.
+
+Ao receber a atualização, a extensão agora:
+
+- preserva e normaliza o workspace antigo pelo schema atual;
+- grava a versão anterior e a nova versão localmente;
+- mostra o selo `NEW` no ícone;
+- adiciona “Atualizado para a versão X” ao sino da toolbar;
+- exibe um resumo traduzido das novidades na toolbar ou nas Configurações;
+- remove o selo somente depois da confirmação do usuário.
+
+Instalações carregadas manualmente com **Carregar sem compactação** são ambientes de desenvolvimento
+e não recebem atualização da Chrome Web Store. Elas devem ser atualizadas pelo pacote de teste e
+pelo botão **Atualizar** de `chrome://extensions`.
+
+Antes de cada release, revise o conteúdo de `releaseNotesCopy()` em `toolbar.js` e
+`showPendingReleaseNotes()` em `options.js`, para que o resumo corresponda à versão publicada.
+
 Automatiza o que hoje é feito manualmente arrastando o `.zip` no painel do desenvolvedor
 (`chrome.google.com/webstore/devconsole`), usando a [Chrome Web Store Publish API](https://developer.chrome.com/docs/webstore/using-api)
 oficial do Google. Nunca cria um item novo: o alvo é sempre o item já publicado
@@ -38,21 +61,24 @@ O refresh token não expira por tempo (só se você revogar o acesso em
 `myaccount.google.com/permissions` ou trocar a senha da conta Google). Não precisa repetir esse
 passo depois — é literalmente único.
 
-## Automático a cada merge em `main`
+## Seguro a cada merge em `main`
 
-O workflow `chrome-store-package.yml` dispara sozinho em todo `push` em `main` que toque
-`apps/extension/**` (ou os scripts de empacotamento/smoke). Ele builda, roda os scanners de
-segurança, faz o smoke em Chrome real (com display virtual no runner) e, se tudo passar, **já
-publica direto para revisão da Google** — sem clique manual no meio. Essa foi uma escolha
-deliberada: todo commit que chega em `main` por esse caminho é tratado como pronto para ir para
-revisão. Se algum scanner ou o smoke falhar, o job para e nada é enviado.
+O workflow `chrome-store-package.yml` dispara em todo `push` em `main` que toque a extensão. Ele
+gera o artefato de produção, mas **não envia nada automaticamente à Chrome Web Store**. A promoção
+é manual para impedir que código ainda em avaliação chegue aos usuários por engano.
 
 Pré-requisito: os três repository secrets (`CHROME_WEBSTORE_CLIENT_ID`,
 `CHROME_WEBSTORE_CLIENT_SECRET`, `CHROME_WEBSTORE_REFRESH_TOKEN`) precisam estar configurados em
-**Settings → Secrets and variables → Actions** antes do primeiro push com mudanças na extensão,
-senão o job falha cedo com uma mensagem clara (não falha silenciosamente).
+**Settings → Secrets and variables → Actions** antes da primeira publicação manual. Um push ou
+merge comum não usa esses segredos e nunca envia o pacote à Store.
 
-## Uso manual (sob demanda, sem precisar de um novo commit)
+## Publicação manual depois da aprovação
+
+No GitHub Actions, execute `Build Chrome Web Store package` somente na branch `main` e digite
+`PUBLICAR PRODUCAO`. O job usa o environment protegido `production`; configure revisores
+obrigatórios em `Settings → Environments → production` para obter uma segunda confirmação.
+
+Uso local, também restrito à `main` e com confirmação explícita:
 
 - **Local, só enviar como rascunho**:
   ```
@@ -62,13 +88,13 @@ senão o job falha cedo com uma mensagem clara (não falha silenciosamente).
   ```
   npm run release:chrome:publish
   ```
-- **Pelo GitHub Actions**: workflow `Build Chrome Web Store package` → *Run workflow* → marque
-  `upload_to_store` (e opcionalmente `publish_live`). Útil para reenviar sem esperar um novo push
-  em `main` (ex.: depois de corrigir algo que a Store rejeitou).
+- **Pelo GitHub Actions**: workflow `Build Chrome Web Store package` → *Run workflow* → branch
+  `main` → confirmação `PUBLICAR PRODUCAO` → opcionalmente enviar para revisão.
 
 Tanto os scripts locais quanto o job de CI rodam os scanners de segurança (`security:repo`,
 `security:extension`) e o smoke em Chrome real (`test:chrome`) antes de empacotar e enviar — nada
-é enviado se algum desses passos falhar.
+é enviado se algum desses passos falhar. Veja também o guia para iniciantes
+[`AMBIENTES_TESTE_E_PRODUCAO.md`](./AMBIENTES_TESTE_E_PRODUCAO.md).
 
 ## Se algo der errado
 

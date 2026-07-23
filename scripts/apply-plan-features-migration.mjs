@@ -37,6 +37,7 @@ const FEATURES = [
   { key: "macroStudio.enabled", value_type: "boolean", description: "Macro Studio: record/replay, Vibe Code, Playwright export" },
   { key: "keyView.enabled", value_type: "boolean", description: "Key View: on-screen keystroke/typing/mouse visualizer" },
   { key: "elementCapture.enabled", value_type: "boolean", description: "Capturar Elementos: exports a CSV of interactive elements with CSS selector/XPath for automation" },
+  { key: "stepsRecorder.enabled", value_type: "boolean", description: "Gravador de Passos: numbered/Gherkin behavior capture and CSV export" },
 ];
 
 // Same tiered distribution as the migration and docs/GUIA_FERRAMENTAS_QA.md.
@@ -48,6 +49,7 @@ const MATRIX = {
   "macroStudio.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
   "keyView.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": false, "release-manager": true },
   "elementCapture.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
+  "stepsRecorder.enabled": { "smoke-test": true, "regression-runner": true, "root-cause-analyst": true, "release-manager": true },
 };
 
 async function main() {

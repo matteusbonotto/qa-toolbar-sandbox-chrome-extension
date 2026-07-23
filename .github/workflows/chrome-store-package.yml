@@ -1,11 +1,7 @@
 name: Build Chrome Web Store package
 
 on:
-  # Auto-publish path: any push to main that touches the extension source builds, scans,
-  # smoke-tests in a real (virtually-displayed) Chrome, and publishes straight to Chrome Web
-  # Store review — no manual approval step. Chosen deliberately: every commit reaching main on
-  # this path is trusted to ship. Google's own human review still happens after this runs; this
-  # only replaces the manual "drag the zip into the dashboard" step.
+  # A merge to main builds the production artifact, but NEVER uploads it automatically.
   push:
     branches: [main]
     paths:
@@ -14,16 +10,15 @@ on:
       - "scripts/check-extension-bundle.mjs"
       - "scripts/publish-chrome-webstore.mjs"
       - "scripts/smoke-extension.mjs"
-  # Manual path: build the downloadable artifact any time, and optionally upload/publish on
-  # demand (e.g. re-running after fixing a rejected submission, without needing a new commit).
+  # Store upload is an explicit production promotion from main only.
   workflow_dispatch:
     inputs:
-      upload_to_store:
-        description: "Também enviar o pacote para a Chrome Web Store (fica como rascunho até revisão)"
-        type: boolean
-        default: false
+      confirm_production:
+        description: "Digite PUBLICAR PRODUCAO para liberar o envio à Chrome Web Store"
+        type: string
+        required: true
       publish_live:
-        description: "Além do upload, enviar para revisão/publicação imediata (só tem efeito se 'upload_to_store' estiver marcado)"
+        description: "Enviar para revisão da Store após criar o rascunho"
         type: boolean
         default: false
 
@@ -51,9 +46,8 @@ jobs:
 
   publish-to-store:
     needs: package
-    if: >-
-      github.event_name == 'push' ||
-      (github.event_name == 'workflow_dispatch' && inputs.upload_to_store)
+    if: github.event_name == 'workflow_dispatch' && inputs.confirm_production == 'PUBLICAR PRODUCAO' && github.ref_name == 'main'
+    environment: production
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -84,7 +78,7 @@ jobs:
         run: xvfb-run --auto-servernum -- npm run test:chrome
       - name: Build whitelisted package
         run: node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip
-      - name: Upload to Chrome Web Store (and publish on push, or when requested manually)
+      - name: Upload approved production package to Chrome Web Store
         run: >-
           node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip
-          ${{ (github.event_name == 'push' || inputs.publish_live) && '--publish' || '' }}
+          --confirm-production ${{ inputs.publish_live && '--publish' || '' }}

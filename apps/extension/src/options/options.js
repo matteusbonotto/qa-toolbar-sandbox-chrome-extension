@@ -1,8 +1,34 @@
 const { getWorkspace, saveWorkspace, getSiteScope, saveSiteScope, normalizeWorkspace, normalizeUrlPatterns, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 const ICON = window.QTS_ICONS.svg;
+document.querySelectorAll("[data-qts-icon]").forEach((slot) => {
+  slot.innerHTML = ICON(slot.dataset.qtsIcon);
+});
 
 let imageEditorTarget = null;
 let imageEditorImage = null;
+
+function applyAppearanceTheme(theme) {
+  const normalized = theme === "light" ? "light" : "dark";
+  document.documentElement.dataset.theme = normalized;
+  const select = document.getElementById("appearanceTheme");
+  if (select) select.value = normalized;
+  document.querySelectorAll("[data-theme-choice]").forEach((button) => {
+    const selected = button.dataset.themeChoice === normalized;
+    button.classList.toggle("isSelected", selected);
+    button.setAttribute("aria-checked", String(selected));
+  });
+}
+
+document.getElementById("appearanceThemeToggle")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-theme-choice]");
+  if (!button) return;
+  const theme = button.dataset.themeChoice;
+  applyAppearanceTheme(theme);
+  if (!workspace) return;
+  workspace.preferences = { ...(workspace.preferences || {}), appearanceTheme: theme };
+  await saveWorkspace(workspace);
+  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+});
 
 function drawImageEditorPreview() {
   const canvas = document.getElementById("imageEditorCanvas");
@@ -142,8 +168,8 @@ function activateWorkspaceTab(tabName, { syncNavigation = false } = {}) {
   if (syncNavigation) document.querySelectorAll(".navItem").forEach((item) => item.classList.toggle("isActive", item.dataset.tab === "workspace"));
 }
 
-function switchTab(tabName) {
-  if (tabName !== "account" && !accessState?.active) tabName = "account";
+function switchTab(tabName, { allowInactive = false } = {}) {
+  if (tabName !== "account" && !accessState?.active && !allowInactive) tabName = "account";
   document.querySelectorAll(".navItem").forEach((item) => item.classList.toggle("isActive", item.dataset.tab === tabName));
   const workspaceRoute = NAV_WORKSPACE_ROUTES[tabName];
   const panelName = workspaceRoute ? "workspace" : tabName;
@@ -313,12 +339,10 @@ document.querySelectorAll('input[name="scopeMode"]').forEach((input) => input.ad
   document.getElementById("scopePatterns").disabled = input.value !== "custom";
 }));
 
-function hasKeyViewPlanAccess() {
-  return accessState?.features?.["keyView.enabled"] === true;
-}
-
 function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
+  document.getElementById("appearanceTheme").value = preferences.appearanceTheme === "light" ? "light" : "dark";
+  applyAppearanceTheme(document.getElementById("appearanceTheme").value);
   document.getElementById("compactMode").checked = preferences.compactMode === true;
   const compactEntities = preferences.compactEntities || { project: preferences.compactMode === true, product: preferences.compactMode === true };
   document.querySelectorAll("[data-compact-entity]").forEach((checkbox) => { checkbox.checked = compactEntities[checkbox.dataset.compactEntity] === true; });
@@ -326,22 +350,6 @@ function loadPreferenceUi() {
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
   document.getElementById("remindTestStatusOnRecording").checked = preferences.remindTestStatusOnRecording === true;
   document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
-  const keyView = preferences.keyView || {};
-  document.getElementById("keyViewEnabled").checked = keyView.enabled === true;
-  document.getElementById("keyViewTypingMode").checked = keyView.typingMode === true;
-  document.getElementById("keyViewMouseEffects").checked = keyView.mouseEffects !== false;
-  document.getElementById("keyViewTheme").value = keyView.theme === "light" ? "light" : "dark";
-  document.getElementById("keyViewPosition").value = keyView.position || "bottom-center";
-  document.getElementById("keyViewKeySize").value = keyView.keySize || "medium";
-  document.getElementById("keyViewMouseSize").value = keyView.mouseSize || "medium";
-  // Toggling these while the plan doesn't include Key View would save cleanly but never take
-  // visible effect on the bar (hasPlanFeature() in toolbar.js gates it) — disabling here instead
-  // of letting the user "turn it on" and then wondering why nothing happened.
-  const keyViewGated = !hasKeyViewPlanAccess();
-  ["keyViewEnabled", "keyViewTypingMode", "keyViewMouseEffects", "keyViewTheme", "keyViewPosition", "keyViewKeySize", "keyViewMouseSize"].forEach((id) => {
-    document.getElementById(id).disabled = keyViewGated;
-  });
-  document.getElementById("keyViewPlanHint").hidden = !keyViewGated;
   const pinned = new Set(preferences.pinnedTools || []);
   document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
   const enabledTools = new Set(preferences.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
@@ -353,6 +361,20 @@ function loadPreferenceUi() {
   breadcrumbOrderDraft = normalizeBreadcrumbOrderDraft(preferences.breadcrumbOrder);
   renderBreadcrumbOrderList();
 }
+
+const PINNED_TOOLS_LIMIT = 4;
+document.querySelectorAll("[data-pinned]").forEach((checkbox) => checkbox.addEventListener("change", () => {
+  const checked = [...document.querySelectorAll("[data-pinned]:checked")];
+  const hint = document.getElementById("pinnedToolsLimitHint");
+  if (checked.length > PINNED_TOOLS_LIMIT) {
+    checkbox.checked = false;
+    hint.hidden = false;
+    hint.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    window.setTimeout(() => { hint.hidden = true; }, 6_000);
+    return;
+  }
+  hint.hidden = true;
+}));
 
 // Cliente/Projeto/Produto priority in the breadcrumb — a local draft array (not saved until
 // "Salvar", the sticky bottom button) so drag/arrow reordering and the live preview stay instant without writing
@@ -491,20 +513,12 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
   workspace.preferences = {
     ...(workspace.preferences || {}),
     compactMode: compactEntities.project === true && compactEntities.product === true,
+    appearanceTheme: document.getElementById("appearanceTheme").value,
     compactEntities,
     pushSiteContent: document.getElementById("pushSiteContent").checked,
     soundEffects: document.getElementById("soundEffects").checked,
     remindTestStatusOnRecording: document.getElementById("remindTestStatusOnRecording").checked,
     avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
-    keyView: {
-      enabled: document.getElementById("keyViewEnabled").checked,
-      typingMode: document.getElementById("keyViewTypingMode").checked,
-      mouseEffects: document.getElementById("keyViewMouseEffects").checked,
-      theme: document.getElementById("keyViewTheme").value,
-      position: document.getElementById("keyViewPosition").value,
-      keySize: document.getElementById("keyViewKeySize").value,
-      mouseSize: document.getElementById("keyViewMouseSize").value,
-    },
     pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
     breadcrumbVisibility: Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked])),
@@ -588,7 +602,7 @@ let urlPatternsDraft = [];
 function renderUrlPatternsPicker() {
   const container = document.getElementById("urlPatternsPicker");
   container.innerHTML = urlPatternsDraft.length
-    ? urlPatternsDraft.map((pattern, index) => `<span class="patternPill">${escapeHtml(pattern)}<button type="button" data-remove-pattern="${index}" aria-label="${escapeHtml(t("Remover"))}">×</button></span>`).join("")
+    ? urlPatternsDraft.map((pattern, index) => `<span class="patternPill">${escapeHtml(pattern)}<button type="button" data-remove-pattern="${index}" aria-label="${escapeHtml(t("Remover"))}">${ICON("fail")}</button></span>`).join("")
     : `<div class="listEmpty">${escapeHtml(t("Adicione ao menos uma URL ou padrão."))}</div>`;
   container.querySelectorAll("[data-remove-pattern]").forEach((button) => button.addEventListener("click", () => {
     urlPatternsDraft.splice(Number(button.dataset.removePattern), 1);
@@ -886,7 +900,7 @@ function renderWorkspace() {
   renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "—")}</small>`);
   renderRows("environments", (item) => {
     const products = environmentBoundProductNames(item.id);
-    return `<b style="color:${escapeHtml(item.color)}">● ${escapeHtml(item.name)}</b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
+    return `<b style="color:${escapeHtml(item.color)}">${ICON("dot")} ${escapeHtml(item.name)}</b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
   });
   renderUrlRelationList();
   renderUrlEnvironmentPicker();
@@ -1443,7 +1457,7 @@ const TUTORIAL_ICON_BY_KEY = {
   screenshot: "camera", recording: "recordStart", clickSpy: "mouse", freezeClock: "freezeClock",
   forceHttp: "warning", errorMonitor: "errorMonitor", inspectors: "braces", breakpoints: "breakpointViewer",
   characterCounter: "characterCounter", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill",
-  macroStudio: "macroStudio", keyView: "keyView", elementCapture: "elementCapture", testAccounts: "key",
+  macroStudio: "macroStudio", stepsRecorder: "stepsRecorder", keyView: "keyView", elementCapture: "elementCapture", testAccounts: "key",
   paymentMethods: "paymentMethods", resources: "resources",
 };
 let tutorialProgress = { completedSteps: [], dismissedBannerAt: null };
@@ -1463,18 +1477,18 @@ function renderTutorialPanel() {
       <article class="tutorialModule${isDone ? " isDone" : ""}" data-tutorial-module="${escapeHtml(module.key)}">
         <button type="button" class="tutorialModuleMedia" data-tutorial-play="${escapeHtml(module.key)}" ${module.video ? "" : "disabled"}>
           <img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />
-          ${module.video ? `<span class="tutorialPlayBadge">▶</span>` : ""}
+          ${module.video ? `<span class="tutorialPlayBadge">${ICON("play")}</span>` : ""}
         </button>
         <div class="tutorialModuleBody">
           <div class="tutorialModuleHead">
             <h3>${iconName ? ICON(iconName) : ""} ${escapeHtml(t(module.title))}</h3>
-            ${locked ? `<span class="tutorialLockBadge">🔒 ${escapeHtml(t("Recurso do plano"))}</span>` : ""}
+            ${locked ? `<span class="tutorialLockBadge">${ICON("lock")} ${escapeHtml(t("Recurso do plano"))}</span>` : ""}
           </div>
           <p class="tutorialModuleShort">${escapeHtml(t(module.short))}</p>
           <p class="tutorialModuleInstructions">${escapeHtml(t(module.instructions))}</p>
           <div class="actions">
-            ${module.key !== "workspace" ? `<button type="button" class="button" data-tutorial-try="${escapeHtml(module.key)}">${escapeHtml(t("▶ Tentar"))}</button>` : ""}
-            <button type="button" class="button${isDone ? "" : " primary"}" data-tutorial-complete="${escapeHtml(module.key)}">${isDone ? `✓ ${escapeHtml(t("Concluído"))}` : escapeHtml(t("Marcar como concluído"))}</button>
+            ${module.key !== "workspace" ? `<button type="button" class="button" data-tutorial-try="${escapeHtml(module.key)}">${ICON("play")} ${escapeHtml(t("Tentar"))}</button>` : ""}
+            <button type="button" class="button${isDone ? "" : " primary"}" data-tutorial-complete="${escapeHtml(module.key)}">${isDone ? `${ICON("pass")} ${escapeHtml(t("Concluído"))}` : escapeHtml(t("Marcar como concluído"))}</button>
           </div>
         </div>
       </article>
@@ -1517,7 +1531,7 @@ function openTutorialVideo(key) {
   player.src = module.video;
   const isDone = tutorialProgress.completedSteps.includes(key);
   const completeButton = document.getElementById("tutorialVideoComplete");
-  completeButton.textContent = isDone ? `✓ ${t("Concluído")}` : t("Marcar como concluído");
+  completeButton.innerHTML = isDone ? `${ICON("pass")} ${escapeHtml(t("Concluído"))}` : escapeHtml(t("Marcar como concluído"));
   completeButton.disabled = isDone;
   document.getElementById("tutorialVideoDialog").showModal();
 }
@@ -1624,21 +1638,31 @@ document.getElementById("tutorialStartTour").addEventListener("click", () => {
   chrome.runtime.sendMessage({ type: "qts:start-tutorial-tour" });
 });
 
-// Settings-screen tour: a spotlight + balloon walk through the 8 nav sections, right here on
-// options.html -- same visual language as the live tour in toolbar.js, but simpler (no shadow
-// DOM, no menu-opening step, just the always-visible nav buttons) since this is meant as a quick
-// "here's what each screen does" orientation, not a per-field walkthrough.
+// Full settings onboarding. Each step can select a top-level panel and a Workspace subtab before
+// highlighting the exact control the user will operate. The tour explains the real CRUD without
+// creating sample records or changing the user's data.
 const SETTINGS_TOUR_STEPS = [
-  { tab: "account", title: "Minha conta", text: "Entre, aplique um voucher e veja seu plano aqui. Sem login, o resto da tela fica bloqueado." },
-  { tab: "general", title: "Barra e aparência", text: "Escolha onde a barra aparece no site, o que fica visível nela e a ordem das ferramentas no menu." },
-  { tab: "workspace", title: "Workspace", text: "O coração da extensão: cadastre cliente, projeto, produto, ambiente e URL aqui — é isso que faz a barra aparecer." },
-  { tab: "test-data", title: "Dados de teste", text: "Contas de teste e cartões sandbox, organizados por ambiente e sempre mascarados." },
-  { tab: "integrations", title: "Inspectors e recursos", text: "Configure quais respostas de API o Inspectors acompanha, APIs internas e links úteis do projeto." },
-  { tab: "data", title: "Importar / Exportar", text: "Faça backup do seu workspace em JSON, ou importe um workspace já pronto de outro lugar." },
-  { tab: "tutorial", title: "Tutorial", text: "Reveja qualquer passo a passo em vídeo, ou refaça o tour ao vivo na barra quando quiser." },
-  { tab: "faq", title: "FAQ", text: "Respostas rápidas e diretas pra qualquer dúvida sobre a extensão." },
+  { tab: "account", selector: '.navItem[data-tab="account"]', title: "Minha conta", text: "Consulte seu acesso, plano e vouchers. Seus cadastros continuam locais no navegador." },
+  { tab: "general", selector: "#appearanceThemeToggle", title: "Tema claro ou escuro", text: "Escolha Sol para o tema claro ou Lua para o escuro. A preferência é salva e também altera a toolbar." },
+  { tab: "general", selector: "#barPreview", title: "Aparência da barra", text: "Use a prévia para conferir breadcrumb, imagens, modo compacto, formato e itens visíveis antes de salvar." },
+  { tab: "general", selector: "#toolsMenuOrderList", title: "Ferramentas e ordem", text: "Escolha as ferramentas disponíveis e organize a ordem do menu Tools. Termine usando Salvar, no rodapé fixo." },
+  { tab: "workspace", workspaceTab: "structure", selector: '[data-open-composer="clientComposer"]', title: "1. Criar cliente", text: "Clique em Adicionar cliente, informe nome e imagem opcional e salve. O cliente é o primeiro nível da estrutura." },
+  { tab: "workspace", workspaceTab: "structure", selector: '[data-open-composer="projectComposer"]', title: "2. Criar projeto", text: "Clique em Adicionar projeto, selecione o cliente responsável, preencha os dados e salve." },
+  { tab: "workspace", workspaceTab: "structure", selector: '[data-open-composer="productComposer"]', title: "3. Criar produto", text: "Clique em Adicionar produto e vincule-o ao projeto. A sequência cliente → projeto → produto mantém o contexto correto." },
+  { tab: "workspace", workspaceTab: "environments", selector: '[data-open-composer="environmentComposer"]', title: "4. Criar ambiente", text: "Cadastre DEV, QA, Beta ou Produção com nome e cor. Um ambiente pode ser reutilizado nas URLs." },
+  { tab: "workspace", workspaceTab: "urls", selector: '[data-open-composer="urlRelationComposer"]', title: "5. Vincular URL", text: "Adicione a URL, escolha o produto e seus ambientes. Essa associação determina em quais páginas a toolbar aparece." },
+  { tab: "workspace", workspaceTab: "accounts", selector: '[data-open-composer="testAccountComposer"]', title: "Contas de teste", text: "Adicione apenas credenciais sandbox, defina o escopo e salve. Valores sensíveis são mascarados e não entram na exportação." },
+  { tab: "workspace", workspaceTab: "payments", selector: '[data-open-composer="paymentMethodComposer"]', title: "Meios de pagamento", text: "Cadastre cartões e métodos exclusivamente sandbox. Número, valor sensível e CVV recebem proteção especial." },
+  { tab: "workspace", workspaceTab: "integrations", selector: '[data-open-composer="inspectorComposer"]', title: "Configurar Inspectors", text: "Adicione regras para reconhecer respostas de rede pelo nome, método ou URL. O monitor usa essas regras na página testada." },
+  { tab: "workspace", workspaceTab: "integrations", selector: '[data-open-composer="apiComposer"]', title: "Cadastrar APIs", text: "Registre endpoints úteis do projeto para consulta rápida, sem executar JavaScript fornecido pelo usuário." },
+  { tab: "workspace", workspaceTab: "integrations", selector: '[data-open-composer="resourceComposer"]', title: "Integrações, recursos e links", text: "Adicione documentação, dashboards e links da equipe. Ao salvar, o novo recurso fica disponível imediatamente na sidebar." },
+  { tab: "data", selector: "#exportButton", title: "Exportar backup seguro", text: "Exporte o workspace em JSON com checksum. Segredos e valores sensíveis não são incluídos no arquivo." },
+  { tab: "data", selector: "#importButton", title: "Importar e restaurar", text: "Importe um JSON válido ou baixe o template. A extensão valida e normaliza os vínculos antes de substituir os dados atuais." },
+  { tab: "tutorial", selector: "#tutorialStartSettingsTour", title: "Tutorial sempre disponível", text: "Volte aqui quando quiser rever vídeos, acompanhar o progresso ou reiniciar este tour das Configurações." },
+  { tab: "faq", selector: "#faqExpandAll", title: "FAQ e suporte", text: "Consulte respostas sobre Workspace, aparência, Inspectors, backup e cada ferramenta. Use Expandir tudo para pesquisar visualmente." },
 ];
 let settingsTourIndex = -1;
+let settingsTourTrustedHandoff = false;
 function settingsTourHost() {
   let host = document.getElementById("settingsTourOverlay");
   if (!host) {
@@ -1649,7 +1673,7 @@ function settingsTourHost() {
   return host;
 }
 function startSettingsTour() {
-  if (!accessState?.active) return;
+  if (!accessState?.active && !settingsTourTrustedHandoff) return;
   settingsTourIndex = 0;
   renderSettingsTourStep();
 }
@@ -1657,16 +1681,19 @@ function renderSettingsTourStep() {
   const step = SETTINGS_TOUR_STEPS[settingsTourIndex];
   const host = settingsTourHost();
   if (!step) { endSettingsTour(); return; }
-  switchTab(step.tab);
-  const target = document.querySelector(`.navItem[data-tab="${step.tab}"]`);
+  switchTab(step.tab, { allowInactive: settingsTourTrustedHandoff });
+  if (step.workspaceTab) activateWorkspaceTab(step.workspaceTab, { syncNavigation: true });
+  const target = document.querySelector(step.selector || `.navItem[data-tab="${step.tab}"]`);
   if (!target) { settingsTourIndex += 1; renderSettingsTourStep(); return; }
+  target.scrollIntoView({ block: "center", inline: "nearest", behavior: "instant" });
   const rect = target.getBoundingClientRect();
   const pad = 5;
   const isLast = settingsTourIndex >= SETTINGS_TOUR_STEPS.length - 1;
-  const balloonLeft = Math.min(rect.right + 16, window.innerWidth - 340);
+  const balloonLeft = rect.right + 332 <= window.innerWidth ? rect.right + 16 : Math.max(12, rect.left - 316);
+  const balloonTop = Math.min(Math.max(12, rect.top), Math.max(12, window.innerHeight - 260));
   host.innerHTML = `
     <div class="settingsTourSpotlight" style="top:${rect.top - pad}px;left:${rect.left - pad}px;width:${rect.width + pad * 2}px;height:${rect.height + pad * 2}px"></div>
-    <div class="settingsTourBalloon" style="top:${Math.max(12, rect.top)}px;left:${balloonLeft}px">
+    <div class="settingsTourBalloon" style="top:${balloonTop}px;left:${balloonLeft}px">
       <span class="settingsTourStepLabel">${t("Passo {current} de {total}", { current: settingsTourIndex + 1, total: SETTINGS_TOUR_STEPS.length })}</span>
       <b>${escapeHtml(t(step.title))}</b>
       <p>${escapeHtml(t(step.text))}</p>
@@ -1725,25 +1752,63 @@ async function loadLegalStatus() {
   document.getElementById("legalStatusBody").textContent = `${copy.body}${copy.disclaimer ? ` ${copy.disclaimer}` : ""}${staleNote}`;
 }
 
+async function showPendingReleaseNotes() {
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  const note = stored[STORAGE_KEYS.uiState]?.pendingReleaseNote;
+  if (!note) return;
+  const texts = currentLocale.startsWith("en")
+    ? { title: `Updated to version ${note.version}`, intro: "Your previous data and settings were preserved.", done: "Got it", items: ["Playable MP4 and real 15-second GIF parts", "Numbered/Gherkin Step Recorder and CSV", "Onboarding and visual-tool improvements", "Affiliate and community campaign"] }
+    : currentLocale.startsWith("es")
+      ? { title: `Actualizado a la versión ${note.version}`, intro: "Tus datos y configuraciones se conservaron.", done: "Entendido", items: ["MP4 reproducible y GIF real en partes de 15 segundos", "Grabador de pasos numerado/Gherkin y CSV", "Mejoras de onboarding y herramientas visuales", "Afiliados y campaña comunitaria"] }
+      : { title: `Atualizado para a versão ${note.version}`, intro: "Seus dados e configurações anteriores foram preservados.", done: "Entendi", items: ["MP4 reproduzível e GIF real em partes de 15 segundos", "Gravador de Passos numerado/Gherkin e CSV", "Melhorias de onboarding e ferramentas visuais", "Afiliados e campanha da comunidade"] };
+  const dialog = document.createElement("dialog");
+  dialog.className = "composerDialog";
+  dialog.innerHTML = `<div class="dialogHead"><h2>${escapeHtml(texts.title)}</h2></div><div class="dialogBody"><p>${escapeHtml(texts.intro)}</p><ul>${texts.items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div><div class="dialogActions"><button class="primary" type="button">${escapeHtml(texts.done)}</button></div>`;
+  document.body.appendChild(dialog);
+  dialog.querySelector("button").addEventListener("click", async () => {
+    const current = await chrome.storage.local.get(STORAGE_KEYS.uiState); const uiState = { ...(current[STORAGE_KEYS.uiState] || {}) };
+    delete uiState.pendingReleaseNote; uiState.lastSeenReleaseVersion = note.version;
+    await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: uiState }); await chrome.action.setBadgeText({ text: "" });
+    dialog.close(); dialog.remove();
+  });
+  dialog.showModal();
+}
+
 document.getElementById("resetButton").addEventListener("click", async () => {
   if (!(await confirmDialog(t("Apagar somente o workspace local? Sua conta e assinatura não serão removidas.")))) return;
   workspace = window.QTS_STORAGE.createEmptyWorkspace(); await persistWorkspace(); document.getElementById("dataHint").textContent = t("Workspace local resetado.");
 });
 
 (async () => {
+  const launchParams = new URLSearchParams(window.location.search);
+  settingsTourTrustedHandoff = launchParams.get("settingsTour") === "1";
   await loadLocale();
   workspace = await getWorkspace();
   tutorialProgress = await window.QTS_STORAGE.getTutorialProgress();
   await loadScopeUi();
   renderWorkspace();
   renderFaqPanel();
-  await loadAccess(true);
+  // Opening Settings must use the access state already validated by the background worker. A
+  // forced network refresh here can transiently demote an authenticated user and break deep links
+  // (including the Workspace settings-tour handoff). The explicit refresh button still forces it.
+  let activeOnLaunch = await loadAccess(false);
+  // A settings-tour handoff can arrive just after the service worker restarted, before its access
+  // cache was restored. Retry once against the backend instead of silently abandoning the tour.
+  if (!activeOnLaunch && launchParams.get("settingsTour") === "1") activeOnLaunch = await loadAccess(true);
+  await showPendingReleaseNotes();
   void loadLegalStatus();
-  const requestedTab = new URLSearchParams(window.location.search).get("tab");
+  const requestedTab = launchParams.get("tab");
   if (requestedTab) {
-    switchTab(requestedTab);
-    window.history.replaceState({}, "", window.location.pathname);
+    switchTab(requestedTab, { allowInactive: settingsTourTrustedHandoff });
   }
+  if (launchParams.get("settingsTour") === "1") {
+    startSettingsTour();
+    // Keep the handoff deterministic even if an access refresh briefly selected My account while
+    // this async initializer was running. Backend authorization remains enforced independently.
+    switchTab("workspace", { allowInactive: true });
+    activateWorkspaceTab("structure", { syncNavigation: true });
+  }
+  if (requestedTab || launchParams.has("settingsTour")) window.history.replaceState({}, "", window.location.pathname);
   onStorageChanged(async (changes) => {
     if (!changes[STORAGE_KEYS.workspace]) return;
     workspace = await getWorkspace();

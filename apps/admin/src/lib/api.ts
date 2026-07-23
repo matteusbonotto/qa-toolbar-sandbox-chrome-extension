@@ -303,6 +303,27 @@ export async function listReferrals(): Promise<Referral[]> {
   return data ?? [];
 }
 
+export interface CampaignSubmission { id:string; user_id:string; campaign_key:string; social_post_url:string; linkedin_post_url:string; product_feedback:string; disclosure_confirmed:boolean; status:"pending"|"approved"|"rejected"; submitted_at:string; reviewed_at:string|null; review_notes:string|null; review_criteria:Record<string,boolean>; reward_grant_id:string|null; resubmission_count:number; }
+export async function listCampaignSubmissions(): Promise<CampaignSubmission[]> {
+  const { data, error } = await requireClient().from("engagement_campaign_submissions").select("*").order("submitted_at", { ascending: false });
+  if (error) throw error; return data ?? [];
+}
+export type CampaignReviewCriteria = { socialPostPublic:boolean; socialPostDescribesUse:boolean; linkedinPostPublic:boolean; linkedinPostDescribesUse:boolean; campaignDisclosureVisible:boolean; productFeedbackUseful:boolean; identityConsistent:boolean };
+export async function reviewCampaignSubmission(id:string, approve:boolean, notes:string, criteria:CampaignReviewCriteria) {
+  const { error } = await requireClient().rpc("review_engagement_campaign", { submission_id_input:id, approve, notes, criteria });
+  if (error) throw error;
+}
+
+export interface ReferralProfile { user_id:string; referral_code:string; qualified_referrals:number; enabled:boolean; internal_notes:string|null; created_at:string; updated_at:string; }
+export async function listReferralProfiles(): Promise<ReferralProfile[]> {
+  const { data, error } = await requireClient().from("referral_profiles").select("*").order("created_at", { ascending:false });
+  if (error) throw error; return data ?? [];
+}
+export async function manageAffiliateProfile(userId:string, enabled:boolean, notes:string) {
+  const { error } = await requireClient().rpc("manage_affiliate_profile", { target_user_id:userId, is_enabled:enabled, notes });
+  if (error) throw error;
+}
+
 export async function listAuditLogs(limit = 100): Promise<AuditLogEntry[]> {
   const { data, error } = await requireClient().from("audit_logs").select("*").order("created_at", { ascending: false }).limit(limit);
   if (error) throw error;

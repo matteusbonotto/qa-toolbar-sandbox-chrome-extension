@@ -116,18 +116,16 @@ body.qts-placement-mode, body.qts-placement-mode * {
   padding: 4px 10px !important; border-radius: 999px !important; background: #111 !important; color: #ffd700 !important;
   font: 800 12px/1 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; border: 1px solid #ffd700 !important;
   box-shadow: 0 6px 16px rgba(0,0,0,.35) !important; pointer-events: auto !important;
+  opacity: 1 !important; transition: opacity 1s ease !important;
 }
-/* Edit/remove/resize/hide-content all stay hidden until the always-visible eye toggle is
-   clicked — previously every one of these sat exposed on the page at all times, cluttering
-   screenshots and getting in the way of whatever the marker/note/shape was pointing at. */
-.qts-remove-btn, .qts-edit-btn, .qts-resize-handle, .qts-hide-content-btn { display: none !important; }
+.qts-char-counter-badge.isFading { opacity: 0 !important; pointer-events: none !important; }
+/* Edit/remove/resize all stay hidden until the always-visible eye toggle is clicked —
+   previously every one of these sat exposed on the page at all times, cluttering screenshots and
+   getting in the way of whatever the marker/note/shape was pointing at. */
+.qts-remove-btn, .qts-edit-btn, .qts-resize-handle { display: none !important; }
 .qts-floating-item.isControlsVisible .qts-remove-btn,
 .qts-floating-item.isControlsVisible .qts-edit-btn,
-.qts-floating-item.isControlsVisible .qts-resize-handle,
-.qts-floating-item.isControlsVisible .qts-hide-content-btn { display: flex !important; }
-.qts-floating-item.isContentHidden .qts-marker-body,
-.qts-floating-item.isContentHidden .qts-note-content,
-.qts-floating-item.isContentHidden .qts-shape-box { visibility: hidden !important; }
+.qts-floating-item.isControlsVisible .qts-resize-handle { display: flex !important; }
 .qts-remove-btn {
   position: absolute !important; top: -8px !important; right: -8px !important; width: 20px !important; height: 20px !important;
   border: 0 !important; border-radius: 999px !important; background: #b20808 !important; color: #fff !important;
@@ -138,20 +136,12 @@ body.qts-placement-mode, body.qts-placement-mode * {
   border: 0 !important; border-radius: 999px !important; background: #ffd700 !important; color: #111 !important;
   font-size: 11px !important; cursor: pointer !important; align-items: center !important; justify-content: center !important;
 }
-/* Left-side mirror of the remove/edit/resize cluster: the eye toggle sits at -8 (always shown)
-   and the hide-content button at 18 (shown only once controls are revealed) — same slot pattern
-   as the right side, just facing the other way, so the two clusters never collide. */
 .qts-visibility-btn {
   position: absolute !important; top: -8px !important; left: -8px !important; width: 20px !important; height: 20px !important;
   border: 0 !important; border-radius: 999px !important; background: #3a3a3a !important; color: #fff !important;
   font-size: 11px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 2 !important;
 }
-.qts-hide-content-btn {
-  position: absolute !important; top: -8px !important; left: 18px !important; width: 20px !important; height: 20px !important;
-  border: 0 !important; border-radius: 999px !important; background: #3a3a3a !important; color: #fff !important;
-  font-size: 11px !important; cursor: pointer !important; align-items: center !important; justify-content: center !important;
-}
-.qts-visibility-btn svg, .qts-hide-content-btn svg { width: 11px !important; height: 11px !important; }
+.qts-visibility-btn svg { width: 11px !important; height: 11px !important; }
 
 /* No !important on size: these are set inline by JS (initial placement and drag-resize) and
    the qts- prefixed class is never realistically targeted by a host page's own CSS, unlike the
@@ -202,7 +192,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-note-content {
   position: relative !important; width: 100% !important; height: 100% !important; min-width: 80px !important; padding: 10px 36px 10px 12px !important;
   border-radius: 10px !important; cursor: grab !important;
-  line-height: 1.4 !important; white-space: pre-wrap !important; overflow: auto !important; box-shadow: 0 10px 22px rgba(0,0,0,.3) !important;
+  line-height: 1.4 !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: break-word !important; overflow: auto !important; box-shadow: 0 10px 22px rgba(0,0,0,.3) !important;
   /* Custom-property indirection (same reason as .qts-shape-box): the earlier
      `.qts-floating-item * { all: revert !important }` rule resets plain inline color/font-size/
      background right back off, since author !important always beats non-important inline styles
@@ -332,17 +322,60 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-line.hasArrow .qts-line-bar::after {
   content: "" !important; position: absolute !important; right: -2px !important; top: 50% !important;
   transform: translateY(-50%) !important; width: 0 !important; height: 0 !important;
-  border-style: solid !important; border-width: 6px 0 6px 10px !important;
+  border-style: solid !important;
+  border-width: calc(5px + var(--qts-line-thickness, 3px) * .65) 0 calc(5px + var(--qts-line-thickness, 3px) * .65) calc(8px + var(--qts-line-thickness, 3px) * 1.1) !important;
   border-color: transparent transparent transparent var(--qts-line-color, #ef3340) !important;
 }
-.qts-line .qts-visibility-btn, .qts-line .qts-hide-content-btn, .qts-line .qts-edit-btn, .qts-line .qts-remove-btn {
+.qts-line.hasTriangle .qts-line-bar::after {
+  content: "" !important; position: absolute !important; right: -1px !important; top: 50% !important;
+  transform: translateY(-50%) rotate(90deg) !important; width: 0 !important; height: 0 !important;
+  border-style: solid !important; border-width: calc(4px + var(--qts-line-thickness, 3px) * .65) calc(4px + var(--qts-line-thickness, 3px) * .65) 0 calc(4px + var(--qts-line-thickness, 3px) * .65) !important;
+  border-color: var(--qts-line-color, #ef3340) transparent transparent transparent !important;
+}
+.qts-line.hasDotFilled .qts-line-bar::after {
+  content: "" !important; position: absolute !important; right: -4px !important; top: 50% !important;
+  transform: translateY(-50%) !important; width: calc(7px + var(--qts-line-thickness, 3px)) !important; height: calc(7px + var(--qts-line-thickness, 3px)) !important; border-radius: 50% !important;
+  background: var(--qts-line-color, #ef3340) !important;
+}
+.qts-line.hasDotHollow .qts-line-bar::after {
+  content: "" !important; position: absolute !important; right: -4px !important; top: 50% !important;
+  transform: translateY(-50%) !important; width: calc(7px + var(--qts-line-thickness, 3px)) !important; height: calc(7px + var(--qts-line-thickness, 3px)) !important; border-radius: 50% !important;
+  background: transparent !important; border: 2px solid var(--qts-line-color, #ef3340) !important;
+}
+/* Sits at the bar's own right edge, inside .qts-line-bar so it inherits the bar's rotation and
+   always visually tracks the true endpoint regardless of angle. */
+.qts-line-resize-handle {
+  position: absolute !important; right: -7px !important; top: 50% !important; transform: translateY(-50%) !important;
+  width: 14px !important; height: 14px !important; border-radius: 999px !important; cursor: pointer !important;
+  background: #fff !important; border: 2px solid var(--qts-line-color, #ef3340) !important; z-index: 3 !important;
+  opacity: 0 !important; transition: opacity .15s ease !important;
+}
+.qts-line.startHasArrow .qts-line-bar::before {
+  content:"" !important; position:absolute !important; left:-2px !important; top:50% !important;
+  transform:translateY(-50%) !important; width:0 !important; height:0 !important; border-style:solid !important;
+  border-width:calc(5px + var(--qts-line-thickness, 3px) * .65) calc(8px + var(--qts-line-thickness, 3px) * 1.1) calc(5px + var(--qts-line-thickness, 3px) * .65) 0 !important;
+  border-color:transparent var(--qts-line-color, #ef3340) transparent transparent !important;
+}
+.qts-line.startHasTriangle .qts-line-bar::before {
+  content:"" !important; position:absolute !important; left:-1px !important; top:50% !important;
+  transform:translateY(-50%) rotate(-90deg) !important; width:0 !important; height:0 !important; border-style:solid !important;
+  border-width:calc(4px + var(--qts-line-thickness, 3px) * .65) calc(4px + var(--qts-line-thickness, 3px) * .65) 0 calc(4px + var(--qts-line-thickness, 3px) * .65) !important;
+  border-color:var(--qts-line-color, #ef3340) transparent transparent transparent !important;
+}
+.qts-line.startHasDotFilled .qts-line-bar::before,
+.qts-line.startHasDotHollow .qts-line-bar::before {
+  content:"" !important; position:absolute !important; left:-4px !important; top:50% !important; transform:translateY(-50%) !important;
+  width:calc(7px + var(--qts-line-thickness, 3px)) !important; height:calc(7px + var(--qts-line-thickness, 3px)) !important; border-radius:50% !important;
+}
+.qts-line.startHasDotFilled .qts-line-bar::before { background:var(--qts-line-color, #ef3340) !important; }
+.qts-line.startHasDotHollow .qts-line-bar::before { background:transparent !important; border:2px solid var(--qts-line-color, #ef3340) !important; }
+.qts-line:hover .qts-line-resize-handle, .qts-line-resize-handle:focus-visible { opacity: 1 !important; }
+.qts-line .qts-visibility-btn, .qts-line .qts-edit-btn, .qts-line .qts-remove-btn {
   position: absolute !important; top: -26px !important;
 }
 .qts-line .qts-visibility-btn { left: 0 !important; }
-.qts-line .qts-hide-content-btn { left: 26px !important; }
-.qts-line .qts-edit-btn { left: 52px !important; }
-.qts-line .qts-remove-btn { left: 78px !important; }
-.qts-line.isContentHidden .qts-line-bar { visibility: hidden !important; }
+.qts-line .qts-edit-btn { left: 26px !important; }
+.qts-line .qts-remove-btn { left: 52px !important; }
 .qts-line .qts-shape-editor { position: fixed !important; margin-top: 0 !important; }
 
 .qts-shape-editor {
@@ -436,3 +469,38 @@ body.qts-placement-mode, body.qts-placement-mode * {
 #qts-mouse-view-overlay[data-action="left"] .qts-mouse-left, #qts-mouse-view-overlay[data-action="right"] .qts-mouse-right { fill: #ef3340 !important; }
 #qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: #ffd700 !important; }
 #qts-mouse-view-overlay[data-action="scroll-up"] .qts-mouse-arrow-up, #qts-mouse-view-overlay[data-action="scroll-down"] .qts-mouse-arrow-down { display: block !important; }
+
+/* Floating editors live outside the toolbar Shadow DOM so they can be dragged over the page.
+   Tie them to the selected platform theme through the host that remains in the light DOM. */
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-modal,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-editor-head,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-editor-body,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-clickspy-tooltip,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-locator-reveal,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor {
+  background:#fff !important; color:#171a24 !important; border-color:#b8c2d3 !important;
+  box-shadow:0 16px 36px rgba(30,43,67,.24) !important;
+}
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-modal header,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-clickspy-head,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-locator-head { border-color:#d2d9e5 !important; }
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-modal header h2 { color:#171a24 !important; }
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-editor-body textarea,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-note-style-row select,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor select,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor input[type="color"] {
+  background:#f4f6fb !important; color:#171a24 !important; border-color:#b8c2d3 !important;
+}
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-note-style-row select option,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor select option { background:#fff !important; color:#171a24 !important; }
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-clickspy-label,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-locator-row small,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor label,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-note-style-row label { color:#536078 !important; }
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-clickspy-event,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-locator-value code,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-clickspy-actions button,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-locator-copy {
+  background:#f0f3f8 !important; color:#263249 !important; border-color:#b8c2d3 !important;
+}
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-clickspy-event span { color:#263249 !important; }

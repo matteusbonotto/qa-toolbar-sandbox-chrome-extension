@@ -110,7 +110,11 @@ export async function signUp(email: string, password: string): Promise<Session |
 // scripts/package-extension-sideload.mjs). A visitor could have either installed, and
 // chrome.runtime.sendMessage only reaches an extension ID that's actually running, so both are
 // tried; whichever one is installed accepts the handoff, the other just no-ops.
-const candidateExtensionIds = ["ddaapjklnfjhjigeglgmjmadjnmdodfe", "piiiagolpefgheemlppmnpoiniddibjd"];
+const candidateExtensionIds = [
+  "ddaapjklnfjhjigeglgmjmadjnmdodfe",
+  "piiiagolpefgheemlppmnpoiniddibjd",
+  "dppfhjpccijidcpbmmcdlbhoknkdjoll", // isolated [TESTE] package
+];
 
 export async function handoffSessionToExtension(session: Session): Promise<boolean> {
   if (!session.access_token || !session.refresh_token || !session.expires_at) return false;

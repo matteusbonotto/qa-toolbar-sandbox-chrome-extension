@@ -4,6 +4,7 @@ import { SemiAutoSection } from "./sections/SemiAutoSection";
 import { FeaturesSection } from "./sections/FeaturesSection";
 import { PricingSection } from "./sections/PricingSection";
 import { SupportSection } from "./sections/SupportSection";
+import { CommunityCampaignSection } from "./sections/CommunityCampaignSection";
 import { Footer } from "./sections/Footer";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { IntellectualPropertyPage } from "./pages/IntellectualPropertyPage";
@@ -69,6 +70,7 @@ export default function App() {
           <SemiAutoSection />
           <FeaturesSection />
           <PricingSection />
+          <CommunityCampaignSection />
           <SupportSection />
         </main>
         <Footer />

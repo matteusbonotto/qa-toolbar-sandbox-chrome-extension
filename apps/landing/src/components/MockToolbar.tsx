@@ -1,5 +1,6 @@
 import { useI18n } from "../i18n/I18nProvider";
 import { EntityBadge } from "./EntityBadge";
+import { Icon } from "./Icon";
 
 export type PlacementMode = "pass" | "fail" | "shape" | null;
 export type RecordState = "idle" | "recording";
@@ -92,9 +93,9 @@ export function MockToolbar({
         </span>
         <div className="qts-mock-bar-breadcrumb">
           <EntityBadge name={project.name} abbreviation={project.abbreviation} showLabel={project.showLabel} size={19} maxChars={16} />
-          <span className="qts-mock-bar-sep">›</span>
+          <Icon name="chevronDown" className="qts-mock-bar-sep" />
           <EntityBadge name={product.name} abbreviation={product.abbreviation} showLabel={product.showLabel} size={19} maxChars={16} />
-          <span className="qts-mock-bar-sep">›</span>
+          <Icon name="chevronDown" className="qts-mock-bar-sep" />
           <strong>{environmentName}</strong>
         </div>
       </div>
@@ -116,7 +117,7 @@ export function MockToolbar({
           title={t.mockToolbar.pass}
           onClick={() => onSelectPlacement("pass")}
         >
-          ✓
+          <Icon name="checkLg" />
         </button>
         <button
           type="button"
@@ -125,7 +126,7 @@ export function MockToolbar({
           title={t.mockToolbar.fail}
           onClick={() => onSelectPlacement("fail")}
         >
-          ✕
+          <Icon name="xLg" />
         </button>
         <button type="button" className="qts-mock-bar-btn" style={btnStyle} title={t.mockToolbar.note} onClick={onAddNote}>
           T
@@ -137,7 +138,7 @@ export function MockToolbar({
           title={t.mockToolbar.shape}
           onClick={() => onSelectPlacement("shape")}
         >
-          ▭
+          <Icon name="boundingBox" />
         </button>
         {hasAnnotations ? (
           <button type="button" className="qts-mock-bar-btn" style={btnStyle} title={t.mockToolbar.clearAll} onClick={onClearAll}>
@@ -145,7 +146,7 @@ export function MockToolbar({
           </button>
         ) : null}
         <button type="button" className="qts-mock-bar-btn" style={btnStyle} title={t.mockToolbar.screenshot} onClick={onScreenshot}>
-          📷
+          <Icon name="camera" />
         </button>
         <button
           type="button"
@@ -154,7 +155,7 @@ export function MockToolbar({
           title={recordState === "recording" ? t.mockToolbar.recordStop : t.mockToolbar.recordStart}
           onClick={onToggleRecord}
         >
-          {recordState === "recording" ? "⏹" : "⏺"}
+          <Icon name={recordState === "recording" ? "stopCircle" : "recordCircle"} />
         </button>
         {recordState === "recording" ? <span className="qts-mock-bar-timer">{recordElapsed}</span> : null}
       </div>
@@ -168,28 +169,28 @@ export function MockToolbar({
             title={t.mockToolbar.tools}
             onClick={onToggleTools}
           >
-            ⚙
+            <Icon name="gear" />
           </button>
           {toolsOpen ? (
             <div className="qts-mock-tools-menu" role="menu">
               <button type="button" className={clickSpyActive ? "is-active" : ""} onClick={onToggleClickSpy}>
-                🖱 {t.mockToolbar.clickSpy}
+                <Icon name="mouse2" /> {t.mockToolbar.clickSpy}
               </button>
               <button type="button" className={freezeClockActive ? "is-active" : ""} onClick={onToggleFreezeClock}>
-                ⏸ {t.mockToolbar.freezeClock}
+                <Icon name="pauseCircle" /> {t.mockToolbar.freezeClock}
               </button>
               <button type="button" onClick={onForceHttp}>
-                ⚠ {t.mockToolbar.forceHttp}
+                <Icon name="exclamationTriangle" /> {t.mockToolbar.forceHttp}
               </button>
               <button type="button" onClick={onOpenInspectors}>
-                {"{ }"} {t.mockToolbar.inspectors}
+                <Icon name="braces" /> {t.mockToolbar.inspectors}
                 {inspectorsCount > 0 ? <span className="qts-mock-badge">{inspectorsCount}</span> : null}
               </button>
               <button type="button" onClick={onOpenJsonStudio}>
-                🧪 {t.mockToolbar.jsonStudio}
+                <Icon name="codeSlash" /> {t.mockToolbar.jsonStudio}
               </button>
               <button type="button" onClick={onOpenBreakpoint}>
-                📐 {t.mockToolbar.breakpointViewer}
+                <Icon name="rulers" /> {t.mockToolbar.breakpointViewer}
               </button>
             </div>
           ) : null}
@@ -201,7 +202,7 @@ export function MockToolbar({
           title={t.mockToolbar.minimize}
           onClick={onMinimize}
         >
-          ▲
+          <Icon name="chevronUp" />
         </button>
       </div>
     </div>

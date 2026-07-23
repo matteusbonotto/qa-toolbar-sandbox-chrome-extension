@@ -57,6 +57,11 @@ export const featureGroups: FeatureGroup[] = [
     items: [{ key: "macroStudio", icon: "puzzle" }],
   },
   {
+    key: "stepsRecorder",
+    icon: "checkSquare",
+    items: [{ key: "stepsRecorder", icon: "checkSquare" }],
+  },
+  {
     key: "keyView",
     icon: "keyboard",
     items: [{ key: "keyView", icon: "keyboard" }],

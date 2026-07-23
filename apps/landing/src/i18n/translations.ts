@@ -369,6 +369,10 @@ const pt: Dictionary = {
         title: "Automação declarativa",
         description: "Grave uma vez, reproduza sempre, sem escrever uma linha de código.",
       },
+      stepsRecorder: {
+        title: "Documentação de testes",
+        description: "Registre passos numerados ou Gherkin e exporte resultados esperados em CSV.",
+      },
       keyView: {
         title: "Key View",
         description: "Mostre na tela o que você está digitando e clicando, em tempo real.",
@@ -386,12 +390,12 @@ const pt: Dictionary = {
       testStatus: {
         title: "Test Status",
         short: "Marca Pass, Fail, Blocked ou Limitation em um clique.",
-        details: "Um menu com quatro status (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) registra o resultado do caso de teste direto na página, com a URL e o horário, sem precisar copiar isso à mão para uma planilha ou ferramenta externa enquanto o contexto ainda está fresco na tela.",
+        details: "Um menu com quatro status (Pass, Fail, Blocked e Limitation) registra o resultado do caso de teste direto na página, com a URL e o horário, sem precisar copiar isso à mão para uma planilha ou ferramenta externa enquanto o contexto ainda está fresco na tela.",
       },
       passFail: {
         title: "Marcadores Pass/Fail",
         short: "Aponte exatamente onde um elemento passou ou falhou.",
-        details: "Clique em qualquer ponto da página para deixar um marcador visual de ✓ ou ✕ ali mesmo, ótimo para apontar precisamente qual botão, campo ou seção falhou antes de tirar o screenshot de evidência, sem precisar desenhar isso depois numa ferramenta de imagem.",
+        details: "Clique em qualquer ponto da página para deixar um marcador visual de aprovação ou falha ali mesmo, ótimo para apontar precisamente qual botão, campo ou seção falhou antes de tirar o screenshot de evidência, sem precisar desenhar isso depois numa ferramenta de imagem.",
       },
       notesShapes: {
         title: "Notas e formas",
@@ -401,17 +405,17 @@ const pt: Dictionary = {
       line: {
         title: "Linha com seta",
         short: "Desenhe uma linha apontando exatamente para o que importa.",
-        details: "Arraste de um ponto a outro da página para desenhar uma linha reta, com ponta de seta opcional, ideal para apontar a relação entre dois elementos numa evidência (o campo errado e a mensagem de erro, por exemplo).",
+        details: "Escolha Linha no menu Forma e arraste de um ponto a outro. Depois, redimensione pela extremidade e escolha entre seta, triângulo, bolinha preenchida, vazada ou nenhuma ponta — ideal para relacionar dois elementos na mesma evidência.",
       },
       blurElements: {
         title: "Borrar elementos",
         short: "Oculte dado sensível na tela sem esconder o layout ao redor.",
-        details: "Clique em qualquer elemento real da página para borrá-lo (dado pessoal, valor financeiro, informação de outro cliente) antes de tirar um print ou gravar, mantendo o resto da tela visível e o contexto do teste intacto.",
+        details: "Borre qualquer elemento pela ferramenta ou pelo menu de contexto antes de capturar ou gravar. O histórico mostra o que está protegido e permite remover cada borrão individualmente, mantendo o restante da tela e o contexto do teste visíveis.",
       },
       holofote: {
         title: "Modo Holofote",
         short: "Escureça a tela ao redor do cursor para guiar a atenção.",
-        details: "Segure o clique por 3 segundos em qualquer ponto da página para acender um holofote que acompanha o mouse, com tamanho, escurecimento e borrão configuráveis — perfeito para apresentações e demonstrações em vídeo.",
+        details: "Segure a tecla Ctrl por 2 segundos em qualquer momento para acender um holofote que acompanha o mouse, com tamanho, escurecimento e borrão configuráveis — perfeito para apresentações e demonstrações em vídeo.",
       },
       screenshot: {
         title: "Screenshot",
@@ -421,7 +425,7 @@ const pt: Dictionary = {
       recording: {
         title: "Gravação de evidências",
         short: "Grava a tela em vídeo enquanto você testa.",
-        details: "Inicia e para a gravação de vídeo direto da barra, sem precisar de um software de gravação separado nem de serviço externo — a evidência sai pronta pra anexar. (Gravação em partes automáticas, em breve.)",
+        details: "Escolha MP4 navegável, com áudio e controles de duração, ou GIF sem áudio otimizado: até 15 segundos ele baixa direto; acima disso, a extensão gera um ZIP com partes de 15 segundos nomeadas e ordenadas. Se o Chrome não oferecer MP4 real, o arquivo é salvo corretamente como WebM.",
       },
       inspectors: {
         title: "Inspectors",
@@ -482,6 +486,11 @@ const pt: Dictionary = {
         title: "Macro Studio",
         short: "Grava uma sequência de ações e reproduz depois, quando quiser.",
         details: "Grava clique, digitação, seleção, checkbox e tecla enquanto você navega normalmente; revise o fluxo no modo Vibe Code (arrastar e soltar), salve, fixe no menu para reexecutar em um clique, e use o Coder para copiar a mesma sequência como um teste Playwright real, sem escrever nenhuma linha de código para gravar e reproduzir.",
+      },
+      stepsRecorder: {
+        title: "Gravador de Passos",
+        short: "Documenta o caminho do teste em passos numerados ou Gherkin.",
+        details: "Registra tela atual, cliques, clique direito, preenchimento, seleção e envio; permite editar ou criar etapas manualmente, adicionar o resultado esperado e exportar um CSV seguro. Funciona sozinho ou junto com MP4/GIF, a partir do Smoke Test.",
       },
       keyView: {
         title: "Key View",
@@ -659,7 +668,7 @@ const pt: Dictionary = {
     usageBody: "O uso da QA Toolbar Sandbox é regido pelos Termos de Uso do produto. Salvo autorização expressa, é vedada a cópia, redistribuição, revenda, sublicenciamento, engenharia reversa além do permitido em lei, ou criação de produto derivado a partir do código-fonte ou da identidade visual da QA Toolbar Sandbox.",
     registrationTitle: "Registro de programa de computador",
     thirdPartyTitle: "Conteúdo de terceiros",
-    thirdPartyBody: "Bibliotecas, frameworks, ícones, fontes e demais componentes de terceiros utilizados na QA Toolbar Sandbox permanecem sujeitos às respectivas licenças originais.",
+    thirdPartyBody: "A QA Toolbar Sandbox utiliza componentes gratuitos e publicamente disponíveis, principalmente React e React DOM (interface), React Router (navegação), Supabase JS (autenticação e dados), Bootstrap Icons (ícones), além de Vite, TypeScript, Vitest, Playwright e Archiver no desenvolvimento, testes e empacotamento. Esses projetos são open source e distribuídos sob licenças permissivas, principalmente MIT ou Apache-2.0. Gratuito e público não significa domínio público: cada componente, marca e autoria continua pertencendo aos respectivos titulares e sujeito à licença original. A interface usa fontes do próprio sistema operacional, sem incorporar uma fonte comercial externa. Serviços como Google Chrome, Chrome Web Store, GitHub, Supabase e Stripe pertencem aos respectivos titulares e seguem seus próprios termos. A QA Toolbar Sandbox reconhece e agradece publicamente a contribuição dessas comunidades e fornecedores; nenhum crédito implica patrocínio, parceria ou endosso.",
     contactTitle: "Contato jurídico",
     contactBody: "Dúvidas sobre propriedade intelectual, licenciamento ou denúncias de uso não autorizado podem ser enviadas para contato@matheusbonotto.com.br.",
     languageNote: "A versão em português prevalecerá em caso de divergência de interpretação relacionada ao registro brasileiro.",
@@ -684,7 +693,7 @@ const pt: Dictionary = {
     },
   },
   privacy: {
-    back: "← Voltar para a página inicial",
+    back: "Voltar para a página inicial",
     eyebrow: "Política de Privacidade",
     title: "O que o QA Toolbar Sandbox pede ao seu navegador",
     lead: "Esta página explica, em linguagem direta, quais permissões a extensão solicita, por que cada uma é necessária, e como tratamos os dados que você insere no seu workspace.",
@@ -698,7 +707,7 @@ const pt: Dictionary = {
     dataTitle: "Onde ficam seus dados",
     dataBody: "Clientes, projetos, produtos, ambientes e evidências que você cria ficam armazenados localmente no seu navegador (chrome.storage.local), atrelados ao seu perfil de usuário do Chrome. Não coletamos nem transmitimos o conteúdo do seu workspace para nossos servidores.",
     accountTitle: "Conta e cobrança",
-    accountBody: "Ao criar uma conta (seja pela landing page ou pela extensão), coletamos seu e-mail e informações de pagamento processadas diretamente pelo Stripe (nunca armazenamos dados de cartão em nossos servidores). Ao continuar, você consente com esta política e com os termos de uso. Você pode excluir sua conta a qualquer momento em Configurações → Minha conta: isso cancela imediatamente uma assinatura ativa e apaga seus dados pessoais; registros financeiros são mantidos apenas de forma anonimizada, pelo tempo exigido por obrigação fiscal.",
+    accountBody: "Ao criar uma conta (seja pela landing page ou pela extensão), coletamos seu e-mail e informações de pagamento processadas diretamente pelo Stripe (nunca armazenamos dados de cartão em nossos servidores). Se você participar voluntariamente de campanhas, também armazenamos os links públicos e o feedback enviados, o status da análise e a recompensa concedida; esses dados são usados somente para validar a campanha, prevenir fraude e administrar o benefício. Ao continuar, você consente com esta política e com os termos de uso. Você pode excluir sua conta a qualquer momento na seção Minha conta das Configurações: isso cancela imediatamente uma assinatura ativa e apaga seus dados pessoais; registros financeiros são mantidos apenas de forma anonimizada, pelo tempo exigido por obrigação fiscal.",
     contactTitle: "Contato",
     contactBody: "Dúvidas sobre privacidade? Escreva para contato@matheusbonotto.com.br.",
   },
@@ -839,6 +848,10 @@ const es: Dictionary = {
         title: "Automatización declarativa",
         description: "Graba una vez, reproduce siempre, sin escribir una línea de código.",
       },
+      stepsRecorder: {
+        title: "Documentación de pruebas",
+        description: "Registra pasos numerados o Gherkin y exporta resultados esperados en CSV.",
+      },
       keyView: {
         title: "Key View",
         description: "Muestra en pantalla lo que estás escribiendo y clicando, en tiempo real.",
@@ -856,12 +869,12 @@ const es: Dictionary = {
       testStatus: {
         title: "Test Status",
         short: "Marca Pass, Fail, Blocked o Limitation con un clic.",
-        details: "Un menú con cuatro estados (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) registra el resultado del caso de prueba directo en la página, con la URL y la hora, sin copiarlo a mano a una hoja de cálculo mientras el contexto sigue fresco en pantalla.",
+        details: "Un menú con cuatro estados (Pass, Fail, Blocked y Limitation) registra el resultado del caso de prueba directo en la página, con la URL y la hora, sin copiarlo a mano a una hoja de cálculo mientras el contexto sigue fresco en pantalla.",
       },
       passFail: {
         title: "Marcadores Pass/Fail",
         short: "Señala exactamente dónde un elemento pasó o falló.",
-        details: "Haz clic en cualquier punto de la página para dejar un marcador visual de ✓ o ✕ ahí mismo, ideal para apuntar con precisión qué botón, campo o sección falló antes de tomar la captura de evidencia.",
+        details: "Haz clic en cualquier punto de la página para dejar un marcador visual de aprobación o fallo ahí mismo, ideal para apuntar con precisión qué botón, campo o sección falló antes de tomar la captura de evidencia.",
       },
       notesShapes: {
         title: "Notas y formas",
@@ -871,17 +884,17 @@ const es: Dictionary = {
       line: {
         title: "Línea con flecha",
         short: "Dibuja una línea apuntando exactamente a lo que importa.",
-        details: "Arrastra de un punto a otro de la página para dibujar una línea recta, con punta de flecha opcional, ideal para señalar la relación entre dos elementos en una evidencia (el campo equivocado y el mensaje de error, por ejemplo).",
+        details: "Elige Línea en el menú Forma y arrastra de un punto a otro. Después, redimensiona desde el extremo y elige flecha, triángulo, punto relleno, hueco o sin punta — ideal para relacionar dos elementos en una misma evidencia.",
       },
       blurElements: {
         title: "Difuminar elementos",
         short: "Oculta datos sensibles en pantalla sin esconder el resto del diseño.",
-        details: "Haz clic en cualquier elemento real de la página para difuminarlo (dato personal, valor financiero, información de otro cliente) antes de capturar o grabar, manteniendo el resto de la pantalla visible y el contexto de la prueba intacto.",
+        details: "Difumina cualquier elemento desde la herramienta o el menú contextual antes de capturar o grabar. El historial muestra lo que está protegido y permite quitar cada difuminado individualmente, manteniendo visible el resto de la pantalla.",
       },
       holofote: {
         title: "Modo Foco",
         short: "Oscurece la pantalla alrededor del cursor para guiar la atención.",
-        details: "Mantén el clic 3 segundos en cualquier punto de la página para encender un foco que sigue al mouse, con tamaño, oscurecimiento y desenfoque configurables — perfecto para presentaciones y demostraciones en video.",
+        details: "Mantén presionada la tecla Ctrl durante 2 segundos en cualquier momento para encender un foco que sigue al mouse, con tamaño, oscurecimiento y desenfoque configurables — perfecto para presentaciones y demostraciones en video.",
       },
       screenshot: {
         title: "Captura de pantalla",
@@ -891,7 +904,7 @@ const es: Dictionary = {
       recording: {
         title: "Grabación de evidencias",
         short: "Graba la pantalla en video mientras pruebas.",
-        details: "Inicia y detiene la grabación de video directo desde la barra, sin necesitar un software aparte ni un servicio externo — la evidencia queda lista para adjuntar. (Grabación en partes automáticas, próximamente.)",
+        details: "Elige MP4 navegable, con audio y controles de duración, o GIF optimizado sin audio: hasta 15 segundos se descarga directamente; por encima, la extensión genera un ZIP con partes de 15 segundos nombradas y ordenadas. Si Chrome no ofrece MP4 real, se guarda correctamente como WebM.",
       },
       inspectors: {
         title: "Inspectors",
@@ -952,6 +965,11 @@ const es: Dictionary = {
         title: "Macro Studio",
         short: "Graba una secuencia de acciones y repítela cuando quieras.",
         details: "Graba clic, escritura, selección, checkbox y tecla mientras navegas normalmente; revisa el flujo en modo Vibe Code (arrastrar y soltar), guárdalo, fíjalo en el menú para reejecutarlo con un clic, y usa Coder para copiar la misma secuencia como una prueba Playwright real.",
+      },
+      stepsRecorder: {
+        title: "Grabador de pasos",
+        short: "Documenta el recorrido de prueba en pasos numerados o Gherkin.",
+        details: "Registra pantalla actual, clics, clic derecho, escritura, selección y envío; permite editar o crear pasos manualmente, agregar el resultado esperado y exportar un CSV seguro. Funciona solo o junto con MP4/GIF, desde Smoke Test.",
       },
       keyView: {
         title: "Key View",
@@ -1129,7 +1147,7 @@ const es: Dictionary = {
     usageBody: "El uso de QA Toolbar Sandbox se rige por los Términos de Uso del producto. Salvo autorización expresa, está prohibida la copia, redistribución, reventa, sublicenciamiento, ingeniería inversa más allá de lo permitido por ley, o la creación de un producto derivado a partir del código fuente o la identidad visual de QA Toolbar Sandbox.",
     registrationTitle: "Registro de programa de computador",
     thirdPartyTitle: "Contenido de terceros",
-    thirdPartyBody: "Las bibliotecas, frameworks, íconos, fuentes y demás componentes de terceros utilizados en QA Toolbar Sandbox permanecen sujetos a sus respectivas licencias originales.",
+    thirdPartyBody: "QA Toolbar Sandbox utiliza componentes gratuitos y disponibles públicamente, principalmente React y React DOM (interfaz), React Router (navegación), Supabase JS (autenticación y datos), Bootstrap Icons (íconos), además de Vite, TypeScript, Vitest, Playwright y Archiver para desarrollo, pruebas y empaquetado. Son proyectos open source con licencias permisivas, principalmente MIT o Apache-2.0. Gratuito y público no significa dominio público: cada componente, marca y autoría pertenece a sus titulares y está sujeto a su licencia original. La interfaz utiliza fuentes del sistema operativo y no incorpora una fuente comercial externa. Google Chrome, Chrome Web Store, GitHub, Supabase y Stripe pertenecen a sus respectivos titulares y se rigen por sus propios términos. QA Toolbar Sandbox reconoce y agradece sus contribuciones; este crédito no implica patrocinio, asociación ni respaldo.",
     contactTitle: "Contacto legal",
     contactBody: "Dudas sobre propiedad intelectual, licenciamiento o denuncias de uso no autorizado pueden enviarse a contato@matheusbonotto.com.br.",
     languageNote: "La versión en portugués prevalecerá en caso de divergencia de interpretación relacionada con el registro brasileño.",
@@ -1154,7 +1172,7 @@ const es: Dictionary = {
     },
   },
   privacy: {
-    back: "← Volver a la página de inicio",
+    back: "Volver a la página de inicio",
     eyebrow: "Política de Privacidad",
     title: "Qué le pide QA Toolbar Sandbox a tu navegador",
     lead: "Esta página explica, en lenguaje directo, qué permisos solicita la extensión, por qué cada uno es necesario, y cómo tratamos los datos que introduces en tu workspace.",
@@ -1168,7 +1186,7 @@ const es: Dictionary = {
     dataTitle: "Dónde están tus datos",
     dataBody: "Clientes, proyectos, productos, entornos y evidencias que creas se almacenan localmente en tu navegador (chrome.storage.local), vinculados a tu perfil de usuario de Chrome. No recopilamos ni transmitimos el contenido de tu workspace a nuestros servidores.",
     accountTitle: "Cuenta y facturación",
-    accountBody: "Al crear una cuenta (sea desde la landing page o desde la extensión), recopilamos tu correo e información de pago procesada directamente por Stripe (nunca almacenamos datos de tarjetas en nuestros servidores). Al continuar, aceptas esta política y los términos de uso. Puedes eliminar tu cuenta en cualquier momento en Configuración → Mi cuenta: esto cancela de inmediato una suscripción activa y borra tus datos personales; los registros financieros se conservan solo de forma anonimizada, por el tiempo exigido por obligación fiscal.",
+    accountBody: "Al crear una cuenta recopilamos tu correo e información de pago procesada por Stripe (nunca almacenamos tarjetas). Si participas voluntariamente en campañas, también guardamos los enlaces públicos y feedback enviados, el estado de revisión y la recompensa, solo para validar la campaña, prevenir fraude y administrar el beneficio. Al continuar, aceptas esta política y los términos de uso. Puedes eliminar tu cuenta en la sección Mi cuenta de Configuración; los registros financieros se conservan anonimizados cuando exista obligación fiscal.",
     contactTitle: "Contacto",
     contactBody: "¿Dudas sobre privacidad? Escribe a contato@matheusbonotto.com.br.",
   },
@@ -1309,6 +1327,10 @@ const en: Dictionary = {
         title: "Declarative automation",
         description: "Record once, replay any time, without writing a line of code.",
       },
+      stepsRecorder: {
+        title: "Test documentation",
+        description: "Record numbered or Gherkin steps and export expected results as CSV.",
+      },
       keyView: {
         title: "Key View",
         description: "Show what you're typing and clicking on screen, live.",
@@ -1326,12 +1348,12 @@ const en: Dictionary = {
       testStatus: {
         title: "Test Status",
         short: "Mark Pass, Fail, Blocked or Limitation in one click.",
-        details: "A four-state menu (✓ Pass, ✕ Fail, ⛔ Blocked, △ Limitation) records the test case result right on the page, with the URL and timestamp, no copying it by hand into a spreadsheet while the context is still fresh on screen.",
+        details: "A four-state menu (Pass, Fail, Blocked, and Limitation) records the test case result right on the page, with the URL and timestamp, no copying it by hand into a spreadsheet while the context is still fresh on screen.",
       },
       passFail: {
         title: "Pass/Fail markers",
         short: "Point exactly where an element passed or failed.",
-        details: "Click anywhere on the page to drop a visual ✓ or ✕ marker right there, great for pinpointing exactly which button, field or section failed before taking the evidence screenshot.",
+        details: "Click anywhere on the page to drop a visual pass or fail marker right there, great for pinpointing exactly which button, field or section failed before taking the evidence screenshot.",
       },
       notesShapes: {
         title: "Notes and shapes",
@@ -1341,17 +1363,17 @@ const en: Dictionary = {
       line: {
         title: "Line with arrow",
         short: "Draw a line pointing exactly at what matters.",
-        details: "Drag from one point to another on the page to draw a straight line, with an optional arrowhead — great for pointing out the relationship between two elements in a piece of evidence (the wrong field and the error message, for example).",
+        details: "Choose Line from the Shape menu and drag between two points. Then resize it from the endpoint and choose an arrow, triangle, filled dot, hollow dot, or no endpoint — ideal for relating two elements in one piece of evidence.",
       },
       blurElements: {
         title: "Blur elements",
         short: "Hide sensitive data on screen without hiding the layout around it.",
-        details: "Click any real element on the page to blur it (personal data, a financial value, another customer's information) before taking a screenshot or recording, keeping the rest of the screen visible and the test context intact.",
+        details: "Blur any element from the tool or context menu before capturing or recording. The history shows what is protected and lets you remove each blur individually while keeping the rest of the screen and test context visible.",
       },
       holofote: {
         title: "Spotlight Mode",
         short: "Dim the screen around the cursor to guide attention.",
-        details: "Hold the click for 3 seconds anywhere on the page to light up a spotlight that follows the mouse, with configurable size, dimming, and blur — perfect for presentations and video demos.",
+        details: "Hold the Ctrl key for 2 seconds at any moment to light up a spotlight that follows the mouse, with configurable size, dimming, and blur — perfect for presentations and video demos.",
       },
       screenshot: {
         title: "Screenshot",
@@ -1361,7 +1383,7 @@ const en: Dictionary = {
       recording: {
         title: "Evidence recording",
         short: "Records your screen on video while you test.",
-        details: "Starts and stops video recording right from the bar, no separate screen-recording software or third-party service needed — the evidence comes out ready to attach. (Automatic segmented recording is coming soon.)",
+        details: "Choose seekable MP4 with audio and duration controls, or optimized GIF without audio: up to 15 seconds downloads directly; longer recordings generate a ZIP with ordered, named 15-second parts. If Chrome cannot provide real MP4, the file is correctly saved as WebM.",
       },
       inspectors: {
         title: "Inspectors",
@@ -1422,6 +1444,11 @@ const en: Dictionary = {
         title: "Macro Studio",
         short: "Records a sequence of actions and replays it any time you want.",
         details: "Records clicks, typing, selects, checkboxes and key presses while you browse normally; review the flow in Vibe Code mode (drag and drop), save it, pin it to the menu to re-run it in one click, and use Coder to copy that same sequence as a real Playwright test, no code needed to record or replay.",
+      },
+      stepsRecorder: {
+        title: "Step Recorder",
+        short: "Documents a test journey as numbered or Gherkin steps.",
+        details: "Records the current screen, clicks, right-clicks, typing, selections and submits; lets you edit or manually create steps, add expected results and export a safe CSV. It runs alone or alongside MP4/GIF, starting with Smoke Test.",
       },
       keyView: {
         title: "Key View",
@@ -1599,7 +1626,7 @@ const en: Dictionary = {
     usageBody: "Use of QA Toolbar Sandbox is governed by the product's Terms of Use. Unless expressly authorized, copying, redistributing, reselling, sublicensing, reverse engineering beyond what's permitted by law, or creating a derivative product from QA Toolbar Sandbox's source code or visual identity is prohibited.",
     registrationTitle: "Computer program registration",
     thirdPartyTitle: "Third-party content",
-    thirdPartyBody: "Libraries, frameworks, icons, fonts, and other third-party components used in QA Toolbar Sandbox remain subject to their respective original licenses.",
+    thirdPartyBody: "QA Toolbar Sandbox uses free and publicly available components, primarily React and React DOM (UI), React Router (navigation), Supabase JS (authentication and data), Bootstrap Icons (icons), plus Vite, TypeScript, Vitest, Playwright, and Archiver for development, testing, and packaging. These are open-source projects under permissive licenses, mainly MIT or Apache-2.0. Free and public does not mean public domain: each component, trademark, and work remains owned by its respective holder and subject to its original license. The UI uses operating-system fonts and does not bundle an external commercial font. Google Chrome, Chrome Web Store, GitHub, Supabase, and Stripe belong to their respective owners and are governed by their own terms. QA Toolbar Sandbox publicly acknowledges and thanks these communities and providers; this credit does not imply sponsorship, partnership, or endorsement.",
     contactTitle: "Legal contact",
     contactBody: "Questions about intellectual property, licensing, or reports of unauthorized use can be sent to contato@matheusbonotto.com.br.",
     languageNote: "The Portuguese version will prevail in case of interpretation divergence related to the Brazilian registration.",
@@ -1624,7 +1651,7 @@ const en: Dictionary = {
     },
   },
   privacy: {
-    back: "← Back to the homepage",
+    back: "Back to the homepage",
     eyebrow: "Privacy Policy",
     title: "What QA Toolbar Sandbox asks from your browser",
     lead: "This page explains, in plain language, which permissions the extension requests, why each one is needed, and how we handle the data you enter into your workspace.",
@@ -1638,7 +1665,7 @@ const en: Dictionary = {
     dataTitle: "Where your data lives",
     dataBody: "Clients, projects, products, environments and evidence you create are stored locally in your browser (chrome.storage.local), tied to your Chrome user profile. We don't collect or transmit your workspace content to our servers.",
     accountTitle: "Account and billing",
-    accountBody: "When you create an account (whether from the landing page or the extension), we collect your email and payment information processed directly by Stripe (we never store card data on our servers). By continuing, you consent to this policy and the terms of use. You can delete your account at any time in Settings → My account: this immediately cancels an active subscription and erases your personal data; financial records are kept only in anonymized form, for as long as required by fiscal obligations.",
+    accountBody: "When you create an account, we collect your email and payment information processed by Stripe (we never store card data). If you voluntarily join a campaign, we also store submitted public links and feedback, review status, and the granted reward, solely to validate the campaign, prevent fraud, and administer the benefit. By continuing, you consent to this policy and the terms of use. You may delete your account in the My account section of Settings; financial records remain anonymized where legally required.",
     contactTitle: "Contact",
     contactBody: "Questions about privacy? Write to contato@matheusbonotto.com.br.",
   },

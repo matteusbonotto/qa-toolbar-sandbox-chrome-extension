@@ -5,6 +5,7 @@ import { MockToolbar, type PlacementMode, type RecordState } from "./MockToolbar
 import { MockPage, type MarkerItem, type NoteItem, type ShapeItem } from "./MockPage";
 import { useI18n } from "../i18n/I18nProvider";
 import type { Dictionary } from "../i18n/translations";
+import { Icon, type IconName } from "./Icon";
 
 let idCounter = 0;
 function nextId(): string {
@@ -13,10 +14,10 @@ function nextId(): string {
 }
 
 const STATUS_OPTIONS = [
-  { key: "pass", icon: "✓", color: "#179153" },
-  { key: "fail", icon: "✕", color: "#c70e0e" },
-  { key: "blocked", icon: "⛔", color: "#a34b05" },
-  { key: "limitation", icon: "△", color: "#5b21b6" },
+  { key: "pass", icon: "checkLg", color: "#179153" },
+  { key: "fail", icon: "xLg", color: "#c70e0e" },
+  { key: "blocked", icon: "slashCircle", color: "#a34b05" },
+  { key: "limitation", icon: "triangle", color: "#5b21b6" },
 ] as const;
 
 function statusLabel(t: Dictionary, key: (typeof STATUS_OPTIONS)[number]["key"]): string {
@@ -96,7 +97,7 @@ export function ToolbarSimulator() {
   const [recordSeconds, setRecordSeconds] = useState(0);
   const [toolsOpen, setToolsOpen] = useState(false);
   const [testStatusOpen, setTestStatusOpen] = useState(false);
-  const [resultOverlay, setResultOverlay] = useState<{ icon: string; color: string; label: string } | null>(null);
+  const [resultOverlay, setResultOverlay] = useState<{ icon: IconName; color: string; label: string } | null>(null);
   const [minimized, setMinimized] = useState(false);
   const [clickSpyActive, setClickSpyActive] = useState(false);
   const [freezeClockActive, setFreezeClockActive] = useState(false);
@@ -270,14 +271,14 @@ export function ToolbarSimulator() {
             <span />
           </div>
           <div className="qts-mock-browser-address">
-            <span className="qts-mock-browser-lock">🔒</span>
+            <Icon name="lockFill" className="qts-mock-browser-lock" />
             {environment.url}
           </div>
         </div>
 
         {minimized ? (
           <button type="button" className="qts-mock-restore" title={t.mockToolbar.restore} onClick={() => setMinimized(false)}>
-            ▼
+            <Icon name="chevronDown" />
           </button>
         ) : (
           <MockToolbar
@@ -322,7 +323,7 @@ export function ToolbarSimulator() {
                 style={{ "--qts-status-color": option.color } as React.CSSProperties}
                 onClick={() => handleSelectStatus(option.key)}
               >
-                <span className="qts-status-icon">{option.icon}</span>
+                <Icon name={option.icon} className="qts-status-icon" />
                 <span>{statusLabel(t, option.key)}</span>
               </button>
             ))}
@@ -347,7 +348,7 @@ export function ToolbarSimulator() {
         {screenshotFlash ? <div className="qts-mock-flash" /> : null}
         {resultOverlay ? (
           <div className="qts-result-overlay" style={{ "--qts-status-color": resultOverlay.color } as React.CSSProperties}>
-            <div className="qts-result-icon">{resultOverlay.icon}</div>
+            <div className="qts-result-icon"><Icon name={resultOverlay.icon} /></div>
             <div className="qts-result-text">{resultOverlay.label}</div>
           </div>
         ) : null}

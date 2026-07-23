@@ -367,6 +367,23 @@ a {
   border-radius: 10px;
 }
 
+.qa-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:14px; }
+.qa-dim { margin-top:4px; color:var(--dim); font-size:.8rem; }
+.qa-table-wrap { max-width:100%; overflow-x:auto; }
+.qa-review-feedback { padding:14px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); }
+.qa-review-feedback p { margin:8px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
+.qa-review-checklist { display:grid; gap:9px; margin:18px 0; padding:16px; border:1px solid var(--border); border-radius:12px; }
+.qa-review-checklist legend { padding:0 7px; font-weight:800; }
+.qa-review-checklist label { display:flex; align-items:flex-start; gap:9px; color:var(--muted); }
+.qa-review-checklist input { margin-top:3px; accent-color:var(--accent); }
+.qa-review-notes { display:grid; gap:7px; margin:16px 0; font-weight:700; }
+.qa-review-notes textarea { width:100%; box-sizing:border-box; resize:vertical; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+.qa-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
+.qa-alert { margin:14px 0; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); overflow-wrap:anywhere; }
+.qa-alert.is-error { border-color:rgba(255,107,107,.5); color:var(--danger); }
+.qa-badge.approved, .qa-badge.rewarded, .qa-badge.qualified { background:rgba(51,214,176,.15); color:var(--accent-2); }
+.qa-badge.rejected { background:rgba(255,107,107,.15); color:var(--danger); }
+
 .qa-error {
   padding: 12px 14px;
   border: 1px solid rgba(255, 107, 107, 0.4);

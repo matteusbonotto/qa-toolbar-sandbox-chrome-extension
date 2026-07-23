@@ -4,12 +4,15 @@ import path from "node:path";
 const envArgIndex = process.argv.indexOf("--env-file");
 const envPath = path.resolve(envArgIndex >= 0 ? process.argv[envArgIndex + 1] : ".env.edge.local");
 const archiveLegacy = process.argv.includes("--archive-legacy");
+const confirmLive = process.argv.includes("--confirm-live");
 if (!fs.existsSync(envPath)) throw new Error(`Environment file not found: ${envPath}`);
 const env = Object.fromEntries(fs.readFileSync(envPath, "utf8").split(/\r?\n/)
   .map((line) => line.trim()).filter((line) => line && !line.startsWith("#") && line.includes("="))
-  .map((line) => { const at = line.indexOf("="); return [line.slice(0, at).trim(), line.slice(at + 1).trim()]; }));
-const secretKey = env.STRIPE_SECRET_KEY;
-if (!secretKey?.startsWith("sk_test_")) throw new Error("Catalog bootstrap requires a Stripe test-mode secret key.");
+  .map((line) => { const at = line.indexOf("="); const value = line.slice(at + 1).trim().replace(/^(["'])(.*)\1$/, "$2"); return [line.slice(0, at).trim(), value]; }));
+const secretKey = confirmLive ? (env.STRIPE_LIVE_SECRET_KEY ?? env.STRIP_SECRET_PROD ?? env.STRIP_SECRET_PRD) : (env.STRIPE_TEST_SECRET_KEY ?? env.STRIPE_SECRET_KEY ?? env.STRIP_SECRET);
+const liveMode = secretKey?.startsWith("sk_live_");
+if (!liveMode && !secretKey?.startsWith("sk_test_")) throw new Error("Catalog bootstrap requires a valid Stripe secret key.");
+if (liveMode && !confirmLive) throw new Error("Live Stripe changes require --confirm-live.");
 
 async function stripeRequest(method, endpoint, values, idempotencyKey) {
   const headers = { Authorization: `Bearer ${secretKey}` };

@@ -11,6 +11,7 @@ const ICON = window.QTS_ICONS.svg;
 const TOOLBAR_HEIGHT = 37;
 const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
+const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
 
 const state = {
   workspace: null,
@@ -32,6 +33,7 @@ const state = {
   locationInterval: null,
   lastHref: window.location.href,
   macroRecording: null,
+  stepsRecording: null,
   macroPlaying: false,
   selectionCleanup: null,
   keyView: {
@@ -290,6 +292,7 @@ function playSound(key) {
 const PLAN_GATED_TOOLS = {
   characterCounter: "characterCounter.enabled",
   macroStudio: "macroStudio.enabled",
+  stepsRecorder: "stepsRecorder.enabled",
   multiClick: "multiClick.enabled",
   inputLab: "inputLab.enabled",
   fakerFill: "fakerFill.enabled",
@@ -312,28 +315,28 @@ function requirePlanFeature(toolKey) {
 function applyPinnedTools() {
   const root = state.shadowRoot;
   if (!root) return;
-  const pinned = new Set(state.workspace?.preferences?.pinnedTools || []);
-  const groups = {
-    passFail: ["testStatusButton", "passButton", "failButton"],
-    notes: ["noteButton", "shapeButton", "lineButton"],
-    screenshot: ["screenshotButton"],
-    record: ["recordToggleButton", "recordStopButton", "recordTimer"],
-  };
-  for (const [key, ids] of Object.entries(groups)) {
-    for (const id of ids) root.getElementById(id)?.classList.toggle("isPreferenceHidden", !pinned.has(key));
-  }
+  const pinned = [...new Set(state.workspace?.preferences?.pinnedTools || [])].slice(0, 4);
   const enabledTools = new Set(state.workspace?.preferences?.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
+  ["passButton", "failButton", "screenshotButton", "recordToggleButton"].forEach((id) => root.getElementById(id)?.classList.remove("isPreferenceHidden"));
+  ["testStatusButton", "noteButton", "shapeWrapper", "blurQuickButton", "holofoteQuickButton"].forEach((id) => root.getElementById(id)?.classList.add("isPreferenceHidden"));
   const menuItems = {
     clickSpy: "clickSpyMenuItem", freezeClock: "freezeClockMenuItem", forceHttp: "forceHttpMenuItem",
     errorMonitor: "errorMonitorMenuItem",
     inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
     testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
-    characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", multiClick: "multiClickMenuItem",
+    characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", stepsRecorder: "stepsRecorderMenuItem", multiClick: "multiClickMenuItem",
     inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
     elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem", holofote: "holofoteMenuItem",
   };
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
+  }
+  const labels = { clickSpy: "Click Spy", freezeClock: "Freeze Clock", forceHttp: "Force HTTP", errorMonitor: "Error Monitor", inspectors: "Inspectors", jsonStudio: "JSON Studio", breakpoints: "Breakpoints", testAccounts: "Contas de teste", paymentMethods: "Meios de pagamento", resources: "Recursos e links", characterCounter: "Contador de caracteres", macroStudio: "Macro Studio", stepsRecorder: "Gravador de Passos", multiClick: "Multiclick", inputLab: "Input Lab", fakerFill: "Faker Fill", keyView: "Key View", elementCapture: "Capturar elementos", blurElements: "Borrar elementos", holofote: "Modo Holofote" };
+  const icons = { clickSpy: "mouse", freezeClock: "freezeClock", forceHttp: "warning", errorMonitor: "errorMonitor", inspectors: "braces", jsonStudio: "braces", breakpoints: "breakpointViewer", testAccounts: "key", paymentMethods: "paymentMethods", resources: "resources", characterCounter: "characterCounter", macroStudio: "macroStudio", stepsRecorder: "recordStart", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill", keyView: "keyView", elementCapture: "elementCapture", blurElements: "eyeSlash", holofote: "lightbulb" };
+  const quickContainer = root.getElementById("extraPinnedTools");
+  if (quickContainer) {
+    quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}</button>`).join("");
+    quickContainer.querySelectorAll("[data-pinned-tool]").forEach((button) => button.addEventListener("click", () => root.getElementById(menuItems[button.dataset.pinnedTool])?.click()));
   }
   // Re-append each menu item in the founder's chosen order (preferences.toolsMenuOrder) —
   // appendChild on an already-attached node *moves* it, so iterating in order and re-appending
@@ -346,6 +349,8 @@ function applyPinnedTools() {
 }
 
 function render() {
+  const host = document.getElementById(HOST_ID);
+  if (host) host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
   const root = state.shadowRoot;
   if (!root) return;
 
@@ -376,11 +381,14 @@ function buildShadowHost() {
   const host = document.createElement("div");
   host.id = HOST_ID;
   host.style.all = "initial";
+  host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
   const shadow = host.attachShadow({ mode: "open" });
 
   shadow.innerHTML = `
     <style>
-      :host { all: initial; }
+      :host { all: initial; --qts-ui-surface:#0c0c0c; --qts-ui-surface-2:#171717; --qts-ui-border:#343434; --qts-ui-text:#fff; --qts-ui-muted:#aaa; --qts-ui-shadow:rgba(0,0,0,.48); }
+      :host([data-theme="light"]) { --qts-ui-surface:#fff; --qts-ui-surface-2:#f0f3f8; --qts-ui-border:#b8c2d3; --qts-ui-text:#171a24; --qts-ui-muted:#58647a; --qts-ui-shadow:rgba(30,43,67,.22); }
+      @media (prefers-color-scheme:light) { :host([data-theme="system"]) { --qts-ui-surface:#fff; --qts-ui-surface-2:#f0f3f8; --qts-ui-border:#b8c2d3; --qts-ui-text:#171a24; --qts-ui-muted:#58647a; --qts-ui-shadow:rgba(30,43,67,.22); } }
       * { box-sizing: border-box; }
       #bar {
         position: fixed; top: 0; left: 0; right: 0; z-index: 2147483647;
@@ -392,6 +400,7 @@ function buildShadowHost() {
       #bar.isMinimized { transform: translateY(-110%); }
       #left { min-width: 0; flex: 1 1 auto; height: 100%; display: flex; flex-direction: row; align-items: center; gap: 8px; }
       #right { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; }
+      #extraPinnedTools { display: flex; align-items: center; gap: 6px; }
       #textStack { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
@@ -419,6 +428,7 @@ function buildShadowHost() {
         -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 1.5c.69 0 1.58 1.45 1.94 4.044H6.06C6.42 2.95 7.31 1.5 8 1.5ZM1.5 8c0-.323.024-.64.07-.95h3.37A15.7 15.7 0 0 0 4.9 8c0 .323.014.64.04.95H1.57A6.6 6.6 0 0 1 1.5 8Zm4.52 0c0-.326.015-.644.044-.95h3.872c.029.306.044.624.044.95 0 .326-.015.644-.044.95H6.064A10.5 10.5 0 0 1 6.02 8Zm5.04-.95h3.37c.046.31.07.627.07.95 0 .323-.024.64-.07.95h-3.37c.026-.31.04-.627.04-.95 0-.323-.014-.64-.04-.95ZM2.146 10.456H5.1c.15.866.38 1.676.67 2.386a6.5 6.5 0 0 1-3.624-2.386Zm3.914 0h3.88C9.58 13.05 8.69 14.5 8 14.5c-.69 0-1.58-1.45-1.94-4.044Z'/%3E%3C/svg%3E") center/contain no-repeat;
         mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M8 0a8 8 0 1 0 0 16A8 8 0 0 0 8 0Zm0 1.5c.69 0 1.58 1.45 1.94 4.044H6.06C6.42 2.95 7.31 1.5 8 1.5ZM1.5 8c0-.323.024-.64.07-.95h3.37A15.7 15.7 0 0 0 4.9 8c0 .323.014.64.04.95H1.57A6.6 6.6 0 0 1 1.5 8Zm4.52 0c0-.326.015-.644.044-.95h3.872c.029.306.044.624.044.95 0 .326-.015.644-.044.95H6.064A10.5 10.5 0 0 1 6.02 8Zm5.04-.95h3.37c.046.31.07.627.07.95 0 .323-.024.64-.07.95h-3.37c.026-.31.04-.627.04-.95 0-.323-.014-.64-.04-.95ZM2.146 10.456H5.1c.15.866.38 1.676.67 2.386a6.5 6.5 0 0 1-3.624-2.386Zm3.914 0h3.88C9.58 13.05 8.69 14.5 8 14.5c-.69 0-1.58-1.45-1.94-4.044Z'/%3E%3C/svg%3E") center/contain no-repeat;
       }
+      .qts-test-environment-badge { padding: 4px 8px; border-radius: 999px; background: #111; color: #ffd700; border: 2px solid #ffd700; font-size: 10px; letter-spacing: .06em; }
       button {
         all: unset; box-sizing: border-box; cursor: pointer; height: 24px; padding: 0 9px;
         display: inline-flex; align-items: center; gap: 5px; border-radius: 7px;
@@ -458,6 +468,8 @@ function buildShadowHost() {
       .qts-tutorial-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #42d5c2; box-shadow: 0 0 0 2px #171717; }
       #macroRecordingBar { position: relative; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 9px; background: #8f0909; border: 1px solid #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
       #macroRecordingBar.isPaused { background: #7a5b00; animation: none; }
+      #stepsRecordingBar { position: relative; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 9px; background: #8f0909; border: 1px solid #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
+      #stepsRecordingBar.isPaused { background: #7a5b00; animation: none; }
       #macroRecHistoryPanel { position: absolute; top: 30px; right: 0; width: 260px; max-height: 260px; overflow: auto; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; }
       .qts-macro-hist-row { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 6px; background: #171717; font-size: 11px; color: #fff; }
       .qts-macro-hist-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -474,8 +486,13 @@ function buildShadowHost() {
       .qts-bell-head button:disabled { color: #555; cursor: default; }
       .qts-bell-row { all: unset; display: block; box-sizing: border-box; width: 100%; padding: 7px; border-radius: 7px; background: #171717; cursor: pointer; font-size: 11px; }
       .qts-bell-row:hover { background: #232323; }
-      .qts-bell-row span { display: block; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #ddd; }
-      .qts-bell-row small { display: block; margin-top: 2px; color: #777; }
+      .qts-bell-row span { display: -webkit-box; margin-top: 2px; overflow: hidden; overflow-wrap: anywhere; white-space: normal; color: #ddd; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 1.35; max-height: 4.05em; }
+      .qts-bell-row small { display: block; margin-top: 2px; color: #999; overflow-wrap: anywhere; }
+      #shapeWrapper { position: relative; }
+      #shapeTypeMenu { position: absolute; top: 30px; left: 0; width: 180px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
+      #shapeTypeMenu button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; border-radius: 7px; background: #171717; border: 1px solid #2c2c2c; font-size: 12px; }
+      #shapeTypeMenu button:hover { background: #232323; border-color: #ffd700; }
+      #shapeTypeMenu.asToolsSubmenu { position: static; width: auto; margin: 2px 4px 6px; box-shadow: none; }
       #recordWrapper { position: relative; }
       #recordTypeMenu { position: absolute; top: 30px; right: 0; width: 240px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
       #recordTypeMenuTitle { margin: 2px 4px 4px; font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: .04em; }
@@ -489,6 +506,34 @@ function buildShadowHost() {
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
+      /* Theme bridge for every toolbar popup.  These surfaces predate the platform theme and
+         used literal dark colours, which made the "Claro" toggle appear to do nothing. */
+      #toolsMenu, #shapeTypeMenu, #recordTypeMenu, #macroRecHistoryPanel, #notificationBellPanel {
+        background: var(--qts-ui-surface); color: var(--qts-ui-text); border-color: var(--qts-ui-border);
+        box-shadow: 0 16px 40px var(--qts-ui-shadow);
+      }
+      #toolsMenu button, #shapeTypeMenu button, #recordTypeMenu button,
+      .qts-macro-hist-row, .qts-bell-row {
+        background: var(--qts-ui-surface-2); color: var(--qts-ui-text); border-color: var(--qts-ui-border);
+      }
+      #toolsMenu button:hover, #shapeTypeMenu button:hover, #recordTypeMenu button:hover,
+      .qts-bell-row:hover { filter: brightness(.94); border-color: #ffd700; }
+      #recordTypeMenuTitle, #recordTypeMenu button span, .qts-mini-empty,
+      .qts-bell-row small { color: var(--qts-ui-muted); }
+      .qts-bell-row span { color: var(--qts-ui-text); }
+      .qts-bell-head, #pinnedMacrosMenu { border-color: var(--qts-ui-border); }
+      :host([data-theme="light"]) .qts-bell-head button { color:#9f1d29; }
+      :host([data-theme="light"]) .qts-coming-soon-badge { background:#e4e8f1; color:#5637bf; }
+      /* Theme every toolbar-owned popup, not just the right drawer. These surfaces used to
+         retain literal black backgrounds when light mode was selected. */
+      #toolsMenu, #shapeTypeMenu, #recordTypeMenu, #notificationBellPanel, #macroRecHistoryPanel,
+      #stepsRecHistoryPanel { background:var(--qts-ui-surface); border-color:var(--qts-ui-border); color:var(--qts-ui-text); box-shadow:0 16px 40px var(--qts-ui-shadow); }
+      #toolsMenu button, #shapeTypeMenu button, #recordTypeMenu button, .qts-bell-row,
+      .qts-macro-hist-row { background:var(--qts-ui-surface-2); border-color:var(--qts-ui-border); color:var(--qts-ui-text); }
+      #toolsMenu button:hover, #shapeTypeMenu button:hover, #recordTypeMenu button:hover,
+      .qts-bell-row:hover { background:color-mix(in srgb,var(--qts-ui-surface-2) 72%,#7657ff); }
+      #recordTypeMenuTitle, #recordTypeMenu button span, .qts-bell-row small, .qts-mini-empty { color:var(--qts-ui-muted); }
+      .qts-bell-row span { color:var(--qts-ui-text); }
       /* On a real phone width, #right's pinned quick-action buttons (flex:0 0 auto, never
          shrink) add up to wider than the whole bar, which squeezes #left (breadcrumb) down to
          zero width — client/project/product don't just get cramped, they vanish entirely, and
@@ -496,8 +541,18 @@ function buildShadowHost() {
          way back. Below this width those pinned buttons hide and the same actions move into the
          Tools menu instead (#mobileActionsMenu), which stays reachable regardless of width. */
       @media (max-width: 560px) {
-        #testStatusButton, #passButton, #failButton, #noteButton, #shapeButton, #lineButton, #clearAllButton,
-        #screenshotButton, #recordWrapper, #recordStopButton, #recordTimer { display: none !important; }
+        #left { gap: 3px; overflow: hidden; }
+        #textStack { flex: 1 1 auto; overflow: hidden; }
+        #breadcrumb { max-width: 100%; gap: 3px; }
+        #currentUrl { display: none; }
+        .qts-badge-name { display: none; }
+        .qts-badge-avatar { display: inline-flex !important; width: 18px !important; height: 18px !important; }
+        .qts-client-label { max-width: 22px; opacity: 1; }
+        .qts-client-label .qts-badge-avatar { width: 14px !important; height: 14px !important; }
+        .qts-crumb-sep { font-size: 9px; }
+        #testStatusButton, #passButton, #failButton, #noteButton, #shapeWrapper, #clearAllButton, #extraPinnedTools,
+        #screenshotButton, #recordWrapper, #recordStopButton, #recordTimer, #blurQuickButton,
+        #holofoteQuickButton { display: none !important; }
         #mobileActionsMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       }
     </style>
@@ -508,16 +563,23 @@ function buildShadowHost() {
           <span id="breadcrumb"></span>
         </div>
         <span id="currentUrl"></span>
+        ${IS_TEST_BUILD ? '<span class="qts-test-environment-badge" title="Ambiente isolado — não publicar">TESTE</span>' : ""}
       </div>
       <div id="right">
         <button id="testStatusButton" type="button" title="${escapeHtml(t.testStatusTitle)}">${escapeHtml(t.testStatus)}</button>
         <button id="passButton" class="iconOnly" type="button" title="${escapeHtml(t.pass)}">${ICON("pass")}</button>
         <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
         <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
-        <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
-        <button id="lineButton" class="iconOnly" type="button" title="${escapeHtml(t.line || "Linha")}">${ICON("arrowLeft")}</button>
+        <div id="shapeWrapper">
+          <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
+          <div id="shapeTypeMenu" class="isHidden" role="menu">
+            <button type="button" data-shape-pick="rectangle" role="menuitem">${ICON("rectangle")} ${escapeHtml(t.shapeTypeRectangle)}</button>
+            <button type="button" data-shape-pick="square" role="menuitem">${ICON("square")} ${escapeHtml(t.shapeTypeSquare)}</button>
+            <button type="button" data-shape-pick="circle" role="menuitem">${ICON("circle")} ${escapeHtml(t.shapeTypeCircle)}</button>
+            <button type="button" data-shape-pick="line" role="menuitem">${ICON("arrowLeft")} ${escapeHtml(t.line)}</button>
+          </div>
+        </div>
         <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
-        <button id="hideAllButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.hideAllTitle)}">${ICON("eye")}</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">${ICON("camera")}</button>
         <div id="recordWrapper">
           <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
@@ -527,14 +589,17 @@ function buildShadowHost() {
               <strong>${escapeHtml(t.recordTypeVideoLabel)}</strong>
               <span>${escapeHtml(t.recordTypeVideoHint)}</span>
             </button>
-            <button type="button" id="recordTypePartsItem" role="menuitem" data-record-mode="parts" class="isComingSoon" disabled aria-disabled="true">
-              <strong>${escapeHtml(t.recordTypePartsLabel)} <span class="qts-coming-soon-badge">${escapeHtml(t.comingSoonBadge)}</span></strong>
-              <span>${escapeHtml(t.recordTypePartsHint)}</span>
+            <button type="button" id="recordTypePartsItem" role="menuitem" data-record-mode="gif">
+              <strong>${escapeHtml(t.recordTypeGifLabel || "GIF em partes (15s)")}</strong>
+              <span>${escapeHtml(t.recordTypeGifHint || "Gera GIFs sem áudio de até 15 segundos. Uma parte baixa direto; duas ou mais são organizadas em um ZIP.")}</span>
             </button>
           </div>
         </div>
         <button id="recordStopButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.recordStop)}">${ICON("recordStop")}</button>
         <span id="recordTimer" class="isHidden">00:00</span>
+        <div id="extraPinnedTools" aria-label="Atalhos fixados personalizados"></div>
+        <button id="blurQuickButton" class="iconOnly" type="button" aria-pressed="false" title="${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}">${ICON("eyeSlash")}</button>
+        <button id="holofoteQuickButton" class="iconOnly" type="button" aria-pressed="false" title="${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}">${ICON("lightbulb")}</button>
         <div id="macroRecordingBar" class="isHidden">
           <button id="macroRecHistoryButton" type="button" title="Ver ações gravadas">${ICON("dot")} <span id="macroStepCount">0</span></button>
           <button id="macroRecPauseButton" class="iconOnly" type="button" title="Pausar gravação">${ICON("pause")}</button>
@@ -542,6 +607,14 @@ function buildShadowHost() {
           <button id="macroRecCancelButton" class="iconOnly" type="button" title="Cancelar gravação">${ICON("fail")}</button>
           <button id="macroRecDoneButton" class="iconOnly" type="button" title="Concluir e editar">${ICON("pass")}</button>
           <div id="macroRecHistoryPanel" class="isHidden"></div>
+        </div>
+        <div id="stepsRecordingBar" class="isHidden">
+          <button id="stepsRecHistoryButton" type="button" title="${escapeHtml(t.stepsRecorderHistory || "Ver passos gravados")}">${ICON("dot")} <span id="stepsRecCount">0</span></button>
+          <button id="stepsRecPauseButton" class="iconOnly" type="button" title="${escapeHtml(t.stepsRecorderPause || "Pausar passos")}">${ICON("pause")}</button>
+          <button id="stepsRecUndoButton" class="iconOnly" type="button" title="${escapeHtml(t.stepsRecorderUndo || "Desfazer último passo")}">${ICON("undo")}</button>
+          <button id="stepsRecCancelButton" class="iconOnly" type="button" title="${escapeHtml(t.stepsRecorderCancel || "Cancelar")}">${ICON("fail")}</button>
+          <button id="stepsRecDoneButton" class="iconOnly" type="button" title="${escapeHtml(t.stepsRecorderStop || "Parar e revisar")}">${ICON("pass")}</button>
+          <div id="stepsRecHistoryPanel" class="isHidden"></div>
         </div>
         <div id="notificationBellWrapper">
           <button id="notificationBellButton" class="iconOnly" type="button" title="Notificações">${ICON("bell")}<span id="notificationBellBadge" class="qts-bell-badge">0</span></button>
@@ -555,13 +628,19 @@ function buildShadowHost() {
               <button type="button" id="mobilePassItem" role="menuitem">${ICON("pass")} ${escapeHtml(t.pass)}</button>
               <button type="button" id="mobileFailItem" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
               <button type="button" id="mobileNoteItem" role="menuitem">${escapeHtml(t.note)}</button>
-              <button type="button" id="mobileShapeItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
-              <button type="button" id="mobileLineItem" role="menuitem">${ICON("arrowLeft")} ${escapeHtml(t.line || "Linha")}</button>
+              <button type="button" id="mobileShapeRectangleItem" role="menuitem">${ICON("rectangle")} ${escapeHtml(t.shapeTypeRectangle)}</button>
+              <button type="button" id="mobileShapeSquareItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shapeTypeSquare)}</button>
+              <button type="button" id="mobileShapeCircleItem" role="menuitem">${ICON("circle")} ${escapeHtml(t.shapeTypeCircle)}</button>
+              <button type="button" id="mobileLineItem" role="menuitem">${ICON("arrowLeft")} ${escapeHtml(t.line)}</button>
               <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
             <div id="pinnedMacrosMenu"></div>
+            <button type="button" id="statusMenuItem" role="menuitem">${escapeHtml(t.testStatus)}</button>
+            <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
+            <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
+            <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.stepsRecorderMenuLabel || "Gravador de Passos")}</button>
             <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(t.characterCounterMenuLabel)}</button>
             <button type="button" id="multiClickMenuItem" role="menuitem">${ICON("multiClick")} ${escapeHtml(t.multiClickMenuLabel)}</button>
             <button type="button" id="inputLabMenuItem" role="menuitem">${ICON("inputLab")} ${escapeHtml(t.inputLabMenuLabel)}</button>
@@ -579,7 +658,7 @@ function buildShadowHost() {
             <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(t.resourcesMenuLabel)}</button>
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
             <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
-            <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("eye")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
+            <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("lightbulb")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}<span id="tutorialDot" class="qts-tutorial-dot" hidden></span></button>
@@ -614,26 +693,54 @@ function buildShadowHost() {
   shadow.getElementById("passButton").addEventListener("click", (event) => enablePlacementMode("pass", event.currentTarget));
   shadow.getElementById("failButton").addEventListener("click", (event) => enablePlacementMode("fail", event.currentTarget));
   shadow.getElementById("noteButton").addEventListener("click", () => addFloatingTextNote());
-  shadow.getElementById("shapeButton").addEventListener("click", (event) => enablePlacementMode("shape", event.currentTarget));
-  shadow.getElementById("lineButton").addEventListener("click", (event) => enablePlacementMode("line", event.currentTarget));
+  shadow.getElementById("shapeButton").addEventListener("click", (event) => { event.stopPropagation(); toggleShapeTypeMenu(); });
+  shadow.getElementById("shapeTypeMenu").addEventListener("click", (event) => event.stopPropagation());
+  shadow.querySelectorAll("#shapeTypeMenu [data-shape-pick]").forEach((button) => {
+    button.addEventListener("click", () => {
+      toggleShapeTypeMenu(false);
+      closeToolsMenu();
+      const pick = button.dataset.shapePick;
+      const shapeButton = shadow.getElementById("shapeButton");
+      if (pick === "line") enablePlacementMode("line", shapeButton);
+      else enablePlacementMode("shape", shapeButton, pick);
+    });
+  });
+  shadow.getElementById("notesMenuItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
+  shadow.getElementById("shapesMenuItem").addEventListener("click", (event) => {
+    event.stopPropagation();
+    const submenu = shadow.getElementById("shapeTypeMenu");
+    const toolsMenu = shadow.getElementById("toolsMenu");
+    if (submenu.parentElement !== toolsMenu) toolsMenu.appendChild(submenu);
+    submenu.classList.add("asToolsSubmenu");
+    submenu.classList.toggle("isHidden");
+  });
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
-  shadow.getElementById("hideAllButton").addEventListener("click", () => toggleAllFloatingItemsVisibility());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
   shadow.getElementById("recordStopButton").addEventListener("click", () => handleStopRecordingClick());
+  shadow.getElementById("blurQuickButton").addEventListener("click", () => toggleBlurSelectionMode());
+  shadow.getElementById("holofoteQuickButton").addEventListener("click", () => toggleHolofoteMode());
   shadow.getElementById("macroRecHistoryButton").addEventListener("click", () => toggleMacroHistoryPanel());
   shadow.getElementById("macroRecPauseButton").addEventListener("click", () => toggleMacroRecordingPause());
   shadow.getElementById("macroRecUndoButton").addEventListener("click", () => undoLastMacroStep());
   shadow.getElementById("macroRecCancelButton").addEventListener("click", () => cancelMacroRecording());
   shadow.getElementById("macroRecDoneButton").addEventListener("click", () => stopMacroRecording());
+  shadow.getElementById("stepsRecHistoryButton").addEventListener("click", toggleStepsHistory);
+  shadow.getElementById("stepsRecPauseButton").addEventListener("click", toggleStepsPause);
+  shadow.getElementById("stepsRecUndoButton").addEventListener("click", undoStepsRecording);
+  shadow.getElementById("stepsRecCancelButton").addEventListener("click", cancelStepsRecording);
+  shadow.getElementById("stepsRecDoneButton").addEventListener("click", stopStepsRecording);
 
   // Same handlers as the pinned bar buttons above — this is the narrow-viewport fallback path
   // for them (see the #mobileActionsMenu media query), not a separate feature.
   shadow.getElementById("mobileTestStatusItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
+  shadow.getElementById("statusMenuItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
   shadow.getElementById("mobilePassItem").addEventListener("click", (event) => { enablePlacementMode("pass", shadow.getElementById("passButton")); closeToolsMenu(); });
   shadow.getElementById("mobileFailItem").addEventListener("click", () => { enablePlacementMode("fail", shadow.getElementById("failButton")); closeToolsMenu(); });
   shadow.getElementById("mobileNoteItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
-  shadow.getElementById("mobileShapeItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton")); closeToolsMenu(); });
-  shadow.getElementById("mobileLineItem").addEventListener("click", () => { enablePlacementMode("line", shadow.getElementById("lineButton")); closeToolsMenu(); });
+  shadow.getElementById("mobileShapeRectangleItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton"), "rectangle"); closeToolsMenu(); });
+  shadow.getElementById("mobileShapeSquareItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton"), "square"); closeToolsMenu(); });
+  shadow.getElementById("mobileShapeCircleItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton"), "circle"); closeToolsMenu(); });
+  shadow.getElementById("mobileLineItem").addEventListener("click", () => { enablePlacementMode("line", shadow.getElementById("shapeButton")); closeToolsMenu(); });
   shadow.getElementById("mobileScreenshotItem").addEventListener("click", () => { captureScreenshot(); closeToolsMenu(); });
   shadow.getElementById("mobileRecordItem").addEventListener("click", () => {
     if (recordingState.status === "idle") startEvidenceRecording("video");
@@ -649,15 +756,14 @@ function buildShadowHost() {
   shadow.getElementById("recordToggleButton").addEventListener("click", (event) => { event.stopPropagation(); handleRecordToggle(); });
   shadow.getElementById("recordTypeMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.getElementById("recordTypeVideoItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("video"); });
-  // "Vídeo em partes" stays implemented (segmentation + zip packaging both work and are tested —
-  // see startPartRotationTimer/downloadRecordingResult below) but disabled in the UI: shipping it
-  // under any framing close to "GIF" was judged misleading since it produces WEBM/MP4 segments,
-  // not real GIF pixels, so it's held back as "Em breve" until there's a real answer for that gap.
-  shadow.getElementById("recordTypePartsItem").addEventListener("click", (event) => event.preventDefault());
+  // GIF mode is local and bounded: each independently playable part contains at most 15 seconds;
+  // one part downloads directly and multiple parts are packaged in their original order.
+  shadow.getElementById("recordTypePartsItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("gif"); });
   shadow.addEventListener("click", () => {
     shadow.getElementById("toolsMenu").classList.remove("isOpen");
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
     toggleRecordTypeMenu(false);
+    toggleShapeTypeMenu(false);
   });
   shadow.getElementById("toolsMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.getElementById("notificationBellPanel").addEventListener("click", (event) => event.stopPropagation());
@@ -677,6 +783,7 @@ function buildShadowHost() {
   shadow.getElementById("holofoteMenuItem").addEventListener("click", () => { openHolofoteTool(); closeToolsMenu(); });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
+  shadow.getElementById("stepsRecorderMenuItem").addEventListener("click", () => { openStepsRecorder(); closeToolsMenu(); });
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
   shadow.getElementById("inputLabMenuItem").addEventListener("click", () => { openInputLab(); closeToolsMenu(); });
   shadow.getElementById("fakerFillMenuItem").addEventListener("click", () => { openFakerFill(); closeToolsMenu(); });
@@ -737,10 +844,10 @@ async function maybeShowTutorialDot() {
 // content-script context) — adding a tool there and to TOUR_TARGETS below is the only wiring a
 // future tool needs to join the live tour, same "one array" principle as the Tutorial/FAQ panels.
 const TOUR_TARGETS = {
-  testStatus: { selector: "#testStatusButton" },
+  testStatus: { selector: "#statusMenuItem", menu: true },
   passFail: { selector: "#passButton" },
-  notesShapes: { selector: "#noteButton" },
-  line: { selector: "#lineButton" },
+  notesShapes: { selector: "#notesMenuItem", menu: true },
+  line: { selector: "#shapesMenuItem", menu: true },
   blurElements: { selector: "#blurElementsMenuItem", menu: true },
   holofote: { selector: "#holofoteMenuItem", menu: true },
   screenshot: { selector: "#screenshotButton" },
@@ -766,6 +873,13 @@ const TOUR_TARGETS = {
 let tourSteps = [];
 let tourStepIndex = -1;
 let tourResizeHandler = null;
+let tourScrollHandler = null;
+let tourKeyHandler = null;
+let tourInteractionHandler = null;
+let tourMenuPhase = false;
+let tourRenderVersion = 0;
+let tourSurfacePhase = false;
+let breakpointTourSubstep = 0;
 
 async function maybeStartLiveTour() {
   const url = new URL(window.location.href);
@@ -779,14 +893,26 @@ async function maybeStartLiveTour() {
 
 function startTutorialTour(startAtKey) {
   if (!state.shadowRoot) return;
+  if (tourResizeHandler) window.removeEventListener("resize", tourResizeHandler);
+  if (tourScrollHandler) window.removeEventListener("scroll", tourScrollHandler, true);
+  if (tourKeyHandler) document.removeEventListener("keydown", tourKeyHandler, true);
+  if (tourInteractionHandler) state.shadowRoot.removeEventListener("click", tourInteractionHandler, true);
   tourSteps = (window.QTS_TUTORIAL_DATA || []).filter((module) => TOUR_TARGETS[module.key]);
   if (!tourSteps.length) return;
   const requestedIndex = startAtKey ? tourSteps.findIndex((module) => module.key === startAtKey) : -1;
   tourStepIndex = requestedIndex >= 0 ? requestedIndex : 0;
+  tourMenuPhase = Boolean(TOUR_TARGETS[tourSteps[tourStepIndex]?.key]?.menu);
+  tourSurfacePhase = false;
   ensureTourHost();
   renderTourStep();
   tourResizeHandler = () => renderTourStep();
+  tourScrollHandler = () => renderTourStep();
+  tourKeyHandler = (event) => { if (event.key === "Escape") endTour({ redirectToWorkspace: false }); };
   window.addEventListener("resize", tourResizeHandler);
+  window.addEventListener("scroll", tourScrollHandler, true);
+  document.addEventListener("keydown", tourKeyHandler, true);
+  tourInteractionHandler = (event) => handleTourInteraction(event);
+  state.shadowRoot.addEventListener("click", tourInteractionHandler, true);
 }
 
 function ensureTourHost() {
@@ -795,13 +921,13 @@ function ensureTourHost() {
   host.id = "tourOverlay";
   host.innerHTML = `
     <style>
-      #tourOverlay { all: initial; }
+      #tourOverlay { all: initial; position: fixed; inset: 0; z-index: 2147483647; pointer-events: none; }
       .qts-tour-spotlight { position: fixed; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; z-index: 2147483646; animation: qts-tour-pulse 1.4s ease-in-out infinite; }
       @keyframes qts-tour-pulse { 0%, 100% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; } 50% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 6px #ffd700; } }
       .qts-tour-balloon {
         position: fixed; z-index: 2147483647; width: min(320px, calc(100vw - 24px)); padding: 14px;
         border-radius: 12px; background: #0b0b0b; border: 1px solid #333; box-shadow: 0 16px 34px rgba(0,0,0,.5);
-        color: #fff; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #fff; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; pointer-events: auto;
       }
       .qts-tour-balloon .qts-tour-step { color: #ffd700; font-size: 11px; font-weight: 800; letter-spacing: .02em; }
       .qts-tour-balloon b { display: block; margin: 4px 0 6px; font-size: 14px; }
@@ -814,7 +940,7 @@ function ensureTourHost() {
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2147483647;
         width: min(340px, calc(100vw - 24px)); padding: 18px; border-radius: 14px; background: #0b0b0b;
         border: 1px solid #333; box-shadow: 0 20px 48px rgba(0,0,0,.55); color: #fff; text-align: center;
-        font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; pointer-events: auto;
       }
       .qts-tour-card .qts-tour-trophy { font-size: 30px; margin-bottom: 6px; }
       .qts-tour-card b { display: block; font-size: 15px; margin-bottom: 4px; }
@@ -822,6 +948,17 @@ function ensureTourHost() {
       .qts-tour-card .qts-tour-card-actions { display: flex; gap: 8px; margin-top: 14px; }
       .qts-tour-card .qts-tour-card-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; height: 32px; line-height: 32px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12px; background: #232323; color: #ccc; }
       .qts-tour-card .qts-tour-card-actions button.qts-tour-primary { background: #ffd700; color: #111; }
+      :host([data-theme="light"]) .qts-tour-balloon,
+      :host([data-theme="light"]) .qts-tour-card { background:#fff; border-color:#b8c2d3; color:#171a24; box-shadow:0 18px 44px rgba(30,43,67,.24); }
+      :host([data-theme="light"]) .qts-tour-balloon p,
+      :host([data-theme="light"]) .qts-tour-card-tip { color:#536078; }
+      :host([data-theme="light"]) .qts-tour-balloon .qts-tour-step { color:#5637bf; }
+      :host([data-theme="light"]) .qts-tour-skip,
+      :host([data-theme="light"]) .qts-tour-card .qts-tour-card-actions button { background:#e9edf6; color:#29344a; }
+      @media (prefers-color-scheme:light) {
+        :host([data-theme="system"]) .qts-tour-balloon, :host([data-theme="system"]) .qts-tour-card { background:#fff; border-color:#b8c2d3; color:#171a24; }
+        :host([data-theme="system"]) .qts-tour-balloon p, :host([data-theme="system"]) .qts-tour-card-tip { color:#536078; }
+      }
     </style>
   `;
   state.shadowRoot.appendChild(host);
@@ -832,21 +969,28 @@ function tourHost() {
 }
 
 async function renderTourStep() {
+  const renderVersion = ++tourRenderVersion;
   const host = tourHost();
   const module = tourSteps[tourStepIndex];
   if (!host || !module) return;
+  if (tourSurfacePhase) {
+    renderTourPanelContext(module);
+    return;
+  }
   host.querySelectorAll(".qts-tour-spotlight, .qts-tour-balloon, .qts-tour-card").forEach((node) => node.remove());
   const config = TOUR_TARGETS[module.key];
-  if (config.menu) {
-    state.shadowRoot.getElementById("toolsMenu")?.classList.add("isOpen");
+  const toolsMenu = state.shadowRoot.getElementById("toolsMenu");
+  if (!config.menu || tourMenuPhase) toolsMenu?.classList.remove("isOpen");
+  if (config.menu && !tourMenuPhase) {
+    toolsMenu?.classList.add("isOpen");
     // #toolsMenu opens via a 140ms opacity/transform transition (toolbar.js's own CSS) -- reading
     // getBoundingClientRect() in the same tick as toggling .isOpen can still see the pre-transition
     // (closed, translateY(-6px)) geometry, which threw the spotlight off the real button just
     // enough to look like nothing was highlighted. Wait the transition out before measuring.
     await new Promise((resolveDelay) => setTimeout(resolveDelay, 180));
-    if (tourSteps[tourStepIndex] !== module) return; // tour moved on while we were waiting
+    if (tourSteps[tourStepIndex] !== module || renderVersion !== tourRenderVersion) return;
   }
-  const targetEl = state.shadowRoot.querySelector(config.selector);
+  const targetEl = state.shadowRoot.querySelector(config.menu && tourMenuPhase ? "#toolsButton" : config.selector);
   if (!targetEl) { advanceTourStep(); return; }
   const rect = targetEl.getBoundingClientRect();
   const pad = 6;
@@ -863,8 +1007,8 @@ async function renderTourStep() {
   const t = state.t;
   balloon.innerHTML = `
     <span class="qts-tour-step">${escapeHtml(t.tourStepLabel ? t.tourStepLabel(tourStepIndex + 1, tourSteps.length) : `${tourStepIndex + 1}/${tourSteps.length}`)}</span>
-    <b>${escapeHtml(module.title)}</b>
-    <p>${escapeHtml(module.instructions)}</p>
+    <b>${escapeHtml(config.menu && tourMenuPhase ? (state.t.tools || "Ferramentas") : module.title)}</b>
+    <p>${escapeHtml(config.menu && tourMenuPhase ? tourOpenToolsInstruction() : module.instructions)}</p>
     <div class="qts-tour-actions">
       <button type="button" class="qts-tour-skip" data-tour-skip>${escapeHtml(t.tourSkip || "Pular tutorial")}</button>
       <button type="button" class="qts-tour-next" data-tour-done>${escapeHtml(t.tourComplete || "Concluir passo")}</button>
@@ -872,18 +1016,128 @@ async function renderTourStep() {
   `;
   host.appendChild(balloon);
   const balloonWidth = balloon.offsetWidth || 320;
-  const top = Math.min(window.innerHeight - 140, rect.bottom + 14);
+  const balloonHeight = balloon.offsetHeight || 140;
+  const belowTop = rect.bottom + 14;
+  const aboveTop = rect.top - balloonHeight - 14;
+  const top = belowTop + balloonHeight <= window.innerHeight - 12 ? belowTop : Math.max(12, aboveTop);
   const left = Math.min(Math.max(12, rect.left), window.innerWidth - balloonWidth - 12);
   balloon.style.top = `${top}px`;
   balloon.style.left = `${left}px`;
-  balloon.querySelector("[data-tour-skip]").addEventListener("click", () => endTour({ redirectToWorkspace: true }));
+  balloon.querySelector("[data-tour-skip]").addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); endTour({ redirectToSettingsTour: true }); });
   balloon.querySelector("[data-tour-done]").addEventListener("click", () => completeCurrentTourStep());
+}
+
+function tourLanguage() {
+  return String(state.workspace?.language || navigator.language || "pt").toLowerCase();
+}
+
+function tourOpenToolsInstruction() {
+  const language = tourLanguage();
+  if (language.startsWith("es")) return "Primero, abre el menú Herramientas. Después destacaremos exactamente dónde hacer clic.";
+  if (language.startsWith("en")) return "First, open the Tools menu. We will then highlight exactly where to click.";
+  return "Primeiro, abra o menu Ferramentas. Em seguida, vamos destacar exatamente onde clicar.";
+}
+
+function tourPanelInstruction() {
+  const language = tourLanguage();
+  if (language.startsWith("es")) return "La herramienta está abierta. Sigue las instrucciones en este panel y, cuando termines, concluye el paso.";
+  if (language.startsWith("en")) return "The tool is open. Follow the instructions in this panel, then complete the step.";
+  return "A ferramenta está aberta. Siga as instruções neste painel e, quando terminar, conclua o passo.";
+}
+
+function handleTourInteraction(event) {
+  const module = tourSteps[tourStepIndex];
+  const config = module && TOUR_TARGETS[module.key];
+  if (!config) return;
+  if (config.menu && tourMenuPhase && event.target.closest("#toolsButton")) {
+    tourMenuPhase = false;
+    window.setTimeout(renderTourStep, 190);
+    return;
+  }
+  if (!event.target.closest(config.selector)) return;
+  // Restore the page immediately while the real action runs. If that action opens a panel,
+  // replace the dimming with a small contextual explanation attached to the open surface.
+  tourHost()?.querySelectorAll(".qts-tour-spotlight, .qts-tour-balloon").forEach((node) => node.remove());
+  tourSurfacePhase = true;
+  breakpointTourSubstep = 0;
+  // Some tools open synchronously, while others wait for a MAIN-world response before their
+  // drawer exists (Freeze Clock is the common example). Keep the tour alive in both cases and
+  // re-attach its explanation as soon as the real surface becomes available.
+  [80, 240, 600, 1200].forEach((delay) => window.setTimeout(() => renderTourPanelContext(module), delay));
+}
+
+function renderTourPanelContext(module) {
+  if (tourSteps[tourStepIndex] !== module) return;
+  const panel = state.shadowRoot.querySelector("#drawerHost .qts-drawer, #drawerHost .qts-bp-overlay, #testStatusModal:not(.isHidden), #shapeTypeMenu:not(.isHidden), #recordTypeMenu:not(.isHidden)");
+  const host = tourHost();
+  if (!host) return;
+  // Drawers are created after the tour host and use the same maximum z-index. Move the host to
+  // the end so the contextual balloon remains visible without blocking the panel itself.
+  state.shadowRoot.appendChild(host);
+  host.querySelectorAll(".qts-tour-spotlight, .qts-tour-balloon").forEach((node) => node.remove());
+  if (module.key === "breakpoints" && panel?.classList.contains("qts-bp-overlay")) {
+    renderBreakpointTourContext(module, host);
+    return;
+  }
+  const balloon = document.createElement("div");
+  balloon.className = "qts-tour-balloon";
+  balloon.style.right = "18px";
+  balloon.style.bottom = "18px";
+  balloon.innerHTML = `<span class="qts-tour-step">${escapeHtml(state.t.tourStepLabel ? state.t.tourStepLabel(tourStepIndex + 1, tourSteps.length) : `${tourStepIndex + 1}/${tourSteps.length}`)}</span><b>${escapeHtml(module.title)}</b><p>${escapeHtml(tourPanelInstruction())}</p><div class="qts-tour-actions"><button type="button" class="qts-tour-skip" data-tour-skip>${escapeHtml(state.t.tourSkip || "Pular tutorial")}</button><button type="button" class="qts-tour-next" data-tour-done>${escapeHtml(state.t.tourComplete || "Concluir passo")}</button></div>`;
+  host.appendChild(balloon);
+  balloon.querySelector("[data-tour-skip]").addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); endTour({ redirectToSettingsTour: true }); });
+  balloon.querySelector("[data-tour-done]").addEventListener("click", completeCurrentTourStep);
+}
+
+const BREAKPOINT_TOUR_STEPS = [
+  { selector: "#bpUrl", title: "URL de teste", text: "Confira ou informe a URL que será comparada nas duas visualizações." },
+  { selector: "#bpDeviceA", title: "Primeiro dispositivo", text: "Escolha o primeiro tamanho de tela para a comparação responsiva." },
+  { selector: "#bpDeviceB", title: "Segundo dispositivo", text: "Escolha o segundo dispositivo. As duas telas mantêm a proporção real entre si." },
+  { selector: "#bpReload", title: "Recarregar previews", text: "Use Recarregar depois de alterar a URL ou quando quiser repetir o cenário nas duas telas." },
+  { selector: "#bpZoom", title: "Zoom", text: "Ajuste somente a visualização; a resolução emulada de cada dispositivo não é alterada." },
+  { selector: "#bpSyncScroll", title: "Sincronizar scroll", text: "Ative para rolar as duas páginas juntas e comparar o mesmo trecho." },
+  { selector: "#bpSyncClick", title: "Sincronizar clique", text: "Ative para repetir o clique na posição equivalente da outra tela quando a página permitir." },
+];
+
+function renderBreakpointTourContext(module, host) {
+  const step = BREAKPOINT_TOUR_STEPS[Math.min(breakpointTourSubstep, BREAKPOINT_TOUR_STEPS.length - 1)];
+  const target = state.shadowRoot.querySelector(`#drawerHost ${step.selector}`);
+  if (!target) return;
+  const rect = target.getBoundingClientRect();
+  const spotlight = document.createElement("div");
+  spotlight.className = "qts-tour-spotlight";
+  spotlight.style.cssText = `top:${rect.top - 5}px;left:${rect.left - 5}px;width:${rect.width + 10}px;height:${rect.height + 10}px`;
+  host.appendChild(spotlight);
+  const balloon = document.createElement("div");
+  balloon.className = "qts-tour-balloon";
+  balloon.style.left = `${Math.min(Math.max(12, rect.left), window.innerWidth - 332)}px`;
+  balloon.style.top = `${rect.bottom + 170 < window.innerHeight ? rect.bottom + 12 : Math.max(12, rect.top - 170)}px`;
+  const last = breakpointTourSubstep >= BREAKPOINT_TOUR_STEPS.length - 1;
+  balloon.innerHTML = `<span class="qts-tour-step">Breakpoint ${breakpointTourSubstep + 1}/${BREAKPOINT_TOUR_STEPS.length}</span><b>${escapeHtml(step.title)}</b><p>${escapeHtml(step.text)}</p><div class="qts-tour-actions"><button type="button" class="qts-tour-skip" data-tour-skip>${escapeHtml(state.t.tourSkip || "Pular tutorial")}</button><button type="button" class="qts-tour-next" data-bp-next>${last ? escapeHtml(state.t.tourComplete || "Concluir passo") : escapeHtml(state.t.tourNext || "Próximo")}</button></div>`;
+  host.appendChild(balloon);
+  balloon.querySelector("[data-tour-skip]").addEventListener("click", (event) => { event.preventDefault(); event.stopPropagation(); endTour({ redirectToSettingsTour: true }); });
+  balloon.querySelector("[data-bp-next]").addEventListener("click", () => {
+    if (last) completeCurrentTourStep();
+    else { breakpointTourSubstep += 1; renderTourPanelContext(module); }
+  });
+}
+
+function closeCurrentTourSurface() {
+  cleanupBreakpointViewer();
+  closeDrawer();
+  state.shadowRoot?.getElementById("toolsMenu")?.classList.remove("isOpen");
+  ["testStatusModal", "shapeTypeMenu", "recordTypeMenu"].forEach((id) => state.shadowRoot?.getElementById(id)?.classList.add("isHidden"));
+  tourSurfacePhase = false;
+  breakpointTourSubstep = 0;
 }
 
 async function completeCurrentTourStep() {
   const module = tourSteps[tourStepIndex];
   if (!module) return;
   await window.QTS_STORAGE.saveTutorialCompletedStep(module.key);
+  // A completed tool must never cover the target for the next step. This also cleans up the
+  // full-screen Responsive View and its listeners before showing the achievement card.
+  closeCurrentTourSurface();
   playSound("achievement");
   showTourStepDoneCard(module);
 }
@@ -898,7 +1152,7 @@ function showTourStepDoneCard(module) {
   card.className = "qts-tour-card";
   const tipLine = module.tip ? `${module.short} ${t.tourTip || "Dica"}: ${module.tip}` : module.short;
   card.innerHTML = `
-    <div class="qts-tour-trophy">🏆</div>
+    <div class="qts-tour-trophy">${ICON("trophy")}</div>
     <b>${escapeHtml(module.title)} ${escapeHtml(t.tourDone || "concluído!")}</b>
     <p class="qts-tour-card-tip">${escapeHtml(tipLine)}</p>
     <div class="qts-tour-card-actions">
@@ -914,19 +1168,29 @@ function showTourStepDoneCard(module) {
 }
 
 function advanceTourStep() {
+  closeCurrentTourSurface();
   tourStepIndex += 1;
-  if (tourStepIndex >= tourSteps.length) { endTour({ redirectToWorkspace: true }); return; }
+  if (tourStepIndex >= tourSteps.length) { endTour({ redirectToSettingsTour: true }); return; }
+  tourMenuPhase = Boolean(TOUR_TARGETS[tourSteps[tourStepIndex]?.key]?.menu);
   renderTourStep();
 }
 
-function endTour({ redirectToWorkspace }) {
+function endTour({ redirectToWorkspace = false, redirectToSettingsTour = false }) {
+  closeCurrentTourSurface();
   tourHost()?.remove();
   tourSteps = [];
   tourStepIndex = -1;
+  tourRenderVersion += 1;
   state.shadowRoot?.getElementById("toolsMenu")?.classList.remove("isOpen");
   if (tourResizeHandler) { window.removeEventListener("resize", tourResizeHandler); tourResizeHandler = null; }
+  if (tourScrollHandler) { window.removeEventListener("scroll", tourScrollHandler, true); tourScrollHandler = null; }
+  if (tourKeyHandler) { document.removeEventListener("keydown", tourKeyHandler, true); tourKeyHandler = null; }
+  if (tourInteractionHandler && state.shadowRoot) { state.shadowRoot.removeEventListener("click", tourInteractionHandler, true); tourInteractionHandler = null; }
   void window.QTS_STORAGE.saveTutorialBannerDismissed();
   if (redirectToWorkspace) chrome.runtime.sendMessage({ type: "qts:open-options", tab: "workspace" });
+  // The settings tour starts in Workspace. Deep-link there as the stable fallback as well, so a
+  // delayed access refresh never leaves the user on Tutorial without the promised next step.
+  if (redirectToSettingsTour) chrome.runtime.sendMessage({ type: "qts:open-options", tab: "workspace", settingsTour: true });
 }
 
 // First-run callout used to be a popup card at the bottom of the screen — founder feedback: it
@@ -937,7 +1201,32 @@ async function maybeShowFirstRunIntro() {
   if (!state.shadowRoot) return;
   const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
   state.showFirstRunNotification = !stored[STORAGE_KEYS.uiState]?.hasSeenToolbarIntro;
+  state.pendingReleaseNote = stored[STORAGE_KEYS.uiState]?.pendingReleaseNote || null;
   updateHttpErrorSurfaces();
+}
+
+function releaseNotesCopy() {
+  const language = state.workspace?.preferences?.language || "pt-BR";
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Vídeos MP4 reproducibles y GIF real en partes de 15 segundos.", "Nuevo Grabador de pasos numerado/Gherkin con resultado esperado y CSV.", "Mejoras de onboarding, tour, Línea, Desenfoque y Foco.", "Entornos de prueba y producción separados.", "Programa inicial de afiliados y campaña comunitaria."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Playable MP4 and real GIF split into 15-second parts.", "New numbered/Gherkin Step Recorder with expected results and CSV.", "Onboarding, tour, Line, Blur, and Spotlight improvements.", "Separated test and production environments.", "Initial affiliate program and community campaign."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Vídeos MP4 reproduzíveis e GIF real dividido em partes de 15 segundos.", "Novo Gravador de Passos numerado/Gherkin com resultado esperado e CSV.", "Melhorias no onboarding, tour, Linha, Borrar e Holofote.", "Ambientes de teste e produção separados.", "Programa inicial de afiliados e campanha da comunidade."], action: "Entendi" };
+}
+
+async function dismissReleaseNote() {
+  state.pendingReleaseNote = null;
+  const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  const uiState = { ...(current[STORAGE_KEYS.uiState] || {}) };
+  delete uiState.pendingReleaseNote;
+  uiState.lastSeenReleaseVersion = chrome.runtime.getManifest().version;
+  await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: uiState });
+  await chrome.action.setBadgeText({ text: "" });
+  await chrome.action.setTitle({ title: "QA Toolbar Sandbox — abrir configurações" });
+  updateHttpErrorSurfaces();
+}
+
+function openReleaseNotes() {
+  const copy = releaseNotesCopy();
+  openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<p class="qts-tool-lead">${escapeHtml(copy.intro)}</p><ul style="display:grid;gap:10px;padding-left:22px">${copy.items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul><div class="qts-toolbar-row" style="justify-content:flex-end"><button id="releaseNotesDone" class="action primary" type="button">${escapeHtml(copy.action)}</button></div>`, onReady(body) { body.querySelector("#releaseNotesDone").addEventListener("click", async () => { await dismissReleaseNote(); closeDrawer(); }); } });
 }
 
 async function dismissFirstRunNotification() {
@@ -952,6 +1241,8 @@ function removeToolbar({ disableBridge = false } = {}) {
   stopKeyView();
   state.macroRecording?.cleanup?.();
   state.macroRecording = null;
+  state.stepsRecording?.cleanup?.();
+  state.stepsRecording = null;
   state.integrityObserver?.disconnect();
   state.integrityObserver = null;
   if (state.integrityInterval) window.clearInterval(state.integrityInterval);
@@ -1067,7 +1358,7 @@ function openTestStatusModal({ forced = false, onDone = null } = {}) {
   modal.className = "qts-modal-backdrop";
   modal.innerHTML = `
     <div class="qts-modal">
-      <header><h2>${escapeHtml(state.t.testStatus)}</h2>${forced ? "" : `<button type="button" data-close>×</button>`}</header>
+      <header><h2>${escapeHtml(state.t.testStatus)}</h2>${forced ? "" : `<button type="button" data-close>${ICON("fail")}</button>`}</header>
       ${forced ? `<p class="qts-modal-forced-hint">${escapeHtml(state.t.recordForceStatusHint)}</p>` : ""}
       <div class="qts-status-grid">
         ${statusOptions.map((option) => `
@@ -1092,7 +1383,7 @@ function openTestStatusModal({ forced = false, onDone = null } = {}) {
       showResultOverlay(option);
       playSound(key);
       void recordTestStatus(option);
-      if (onDone) window.setTimeout(onDone, 3_000);
+      if (onDone) window.setTimeout(() => onDone(option), 3_000);
     });
   });
 }
@@ -1137,15 +1428,32 @@ function handlePlacementEscape(event) {
   if (event.key === "Escape") cancelPlacementMode();
 }
 
-function enablePlacementMode(mode, triggerButton) {
+// shapeType is only meaningful for mode "shape" — it's the Formato the user already picked from
+// the shape-type menu (rectangle/square/circle), applied immediately on drop instead of defaulting
+// to rectangle and making the user reopen the style editor just to fix the shape they already chose.
+let pendingShapeType = "rectangle";
+
+function enablePlacementMode(mode, triggerButton, shapeType) {
   cancelPlacementMode();
   state.placementMode = mode;
+  if (mode === "shape") pendingShapeType = shapeType || "rectangle";
   document.body.classList.add("qts-placement-mode");
   triggerButton.classList.add("isActive");
   document.addEventListener("keydown", handlePlacementEscape, true);
   if (mode === "shape") document.addEventListener("mousedown", handleShapeMouseDown, true);
   else if (mode === "line") document.addEventListener("mousedown", handleLineMouseDown, true);
   else document.addEventListener("click", handlePlacementClick, true);
+}
+
+// Founder feedback: Linha used to be a separate pinned button; it now lives inside the same
+// "Forma" entry point as a 4th choice (alongside Retângulo/Quadrado/Círculo) in a small popover,
+// so drawing starts immediately with the right shape already picked instead of drawing a rectangle
+// and fixing the type afterward in the style editor.
+function toggleShapeTypeMenu(forceOpen) {
+  const menu = state.shadowRoot?.getElementById("shapeTypeMenu");
+  if (!menu) return;
+  const shouldOpen = typeof forceOpen === "boolean" ? forceOpen : menu.classList.contains("isHidden");
+  menu.classList.toggle("isHidden", !shouldOpen);
 }
 
 function isInsideToolbarUi(target) {
@@ -1169,26 +1477,16 @@ function handlePlacementClick(event) {
 // screenshot can be taken without deleting the annotation — on demand.
 function visibilityControlsHtml() {
   const t = state.t;
-  return `<button type="button" class="qts-visibility-btn" data-visibility-toggle title="${escapeHtml(t.showControls)}">${ICON("eye")}</button>
-    <button type="button" class="qts-hide-content-btn" data-hide-content-toggle title="${escapeHtml(t.hideElement)}">${ICON("eyeSlash")}</button>`;
+  return `<button type="button" class="qts-visibility-btn" data-visibility-toggle title="${escapeHtml(t.showControls)}">${ICON("eye")}</button>`;
 }
 
 function wireVisibilityControls(item) {
   const t = state.t;
   const visibilityBtn = item.querySelector("[data-visibility-toggle]");
-  const hideBtn = item.querySelector("[data-hide-content-toggle]");
   visibilityBtn.addEventListener("click", () => {
     const visible = item.classList.toggle("isControlsVisible");
     visibilityBtn.innerHTML = ICON(visible ? "eyeSlash" : "eye");
     visibilityBtn.title = visible ? t.hideControls : t.showControls;
-  });
-  hideBtn.addEventListener("click", () => {
-    const hidden = item.classList.toggle("isContentHidden");
-    hideBtn.innerHTML = ICON(hidden ? "eye" : "eyeSlash");
-    hideBtn.title = hidden ? t.showElement : t.hideElement;
-    // Keeps the "hide/show all" master button's own icon (eye vs eyeSlash) truthful even when
-    // items are toggled one at a time instead of all at once.
-    updateClearAllVisibility();
   });
 }
 
@@ -1203,7 +1501,7 @@ function placeMarker(kind, clientX, clientY) {
   marker.innerHTML = `
     <div class="qts-marker-body ${kind === "fail" ? "isFail" : "isPass"}" data-drag-handle>${kind === "fail" ? ICON("fail") : ICON("pass")}</div>
     ${visibilityControlsHtml()}
-    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button>
     <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
   `;
   document.body.appendChild(marker);
@@ -1229,7 +1527,7 @@ function renderSavedNote(note, text, style) {
     <div class="qts-note-content" data-drag-handle>${escapeHtml(text)}</div>
     ${visibilityControlsHtml()}
     <button type="button" class="qts-edit-btn" title="${escapeHtml(t.edit)}">${ICON("edit")}</button>
-    <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">${ICON("fail")}</button>
     <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(t.resize)}">${ICON("resize")}</div>
   `;
   const content = note.querySelector(".qts-note-content");
@@ -1258,12 +1556,12 @@ function renderEditingNote(note, currentText, currentStyle) {
   note.className = "qts-floating-item qts-note isEditing";
   note.style.height = "";
   note.innerHTML = `
-    <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">×</button></div>
+    <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">${ICON("fail")}</button></div>
     <div class="qts-editor-body">
-      <textarea placeholder="${escapeHtml(t.notePlaceholder)}">${escapeHtml(currentText)}</textarea>
+      <textarea placeholder="${escapeHtml(t.notePlaceholder)}"></textarea>
       <div class="qts-note-style-row">
-        <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color value="${safeColor}" /></label>
-        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" value="${safeFontSize}" data-note-size /></label>
+        <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color /></label>
+        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" data-note-size /></label>
         <label>${escapeHtml(t.noteBackground)}<select data-note-bg>
           <option value="translucent" ${safeBackground === "translucent" ? "selected" : ""}>${escapeHtml(t.noteBackgroundTranslucent)}</option>
           <option value="solid" ${safeBackground === "solid" ? "selected" : ""}>${escapeHtml(t.noteBackgroundSolid)}</option>
@@ -1273,6 +1571,10 @@ function renderEditingNote(note, currentText, currentStyle) {
       <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
     </div>
   `;
+  // Page-derived text must remain text, never markup.
+  note.querySelector("textarea").value = String(currentText || "");
+  note.querySelector("[data-note-color]").value = safeColor;
+  note.querySelector("[data-note-size]").value = String(safeFontSize);
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {
@@ -1338,11 +1640,12 @@ function placeShape(left, top, width, height) {
   shape.style.top = `${top}px`;
   shape.style.width = `${width}px`;
   shape.style.height = `${height}px`;
+  shape.dataset.shapeType = pendingShapeType;
   shape.innerHTML = `
     <div class="qts-shape-box" data-drag-handle></div>
     ${visibilityControlsHtml()}
     <button type="button" class="qts-edit-btn" title="${escapeHtml(state.t.edit)}">${ICON("edit")}</button>
-    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button>
     <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
   `;
   document.body.appendChild(shape);
@@ -1351,6 +1654,16 @@ function placeShape(left, top, width, height) {
   makeResizable(shape, shape.querySelector("[data-resize-handle]"), { minWidth: 30, minHeight: 30 });
   shape.querySelector(".qts-remove-btn").addEventListener("click", () => { shape.remove(); updateClearAllVisibility(); });
   shape.querySelector(".qts-edit-btn").addEventListener("click", () => toggleShapeStyleEditor(shape));
+  // Applies the Formato already picked from the shape-type menu right away — the user shouldn't
+  // have to reopen the style editor just to set the type they already chose before drawing.
+  const box = shape.querySelector(".qts-shape-box");
+  const isSquarish = pendingShapeType === "square" || pendingShapeType === "circle";
+  if (isSquarish) {
+    const size = Math.max(30, Math.min(shape.offsetWidth, shape.offsetHeight));
+    shape.style.width = `${size}px`;
+    shape.style.height = `${size}px`;
+  }
+  box.style.setProperty("--qts-shape-radius", pendingShapeType === "circle" ? "50%" : isSquarish ? "0px" : "8px");
   updateClearAllVisibility();
 }
 
@@ -1384,10 +1697,14 @@ function toggleShapeStyleEditor(shape) {
     </div>
     <label data-shape-blur-control hidden>${escapeHtml(t.shapeEditorBlurStrength)}<input type="range" min="2" max="24" value="10" data-shape-blur /></label>
     <label data-shape-radius-control>${escapeHtml(t.shapeEditorRadius)}<input type="range" min="0" max="48" value="8" data-shape-radius /></label>
+    <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
   `;
   shape.appendChild(editor);
+  editor.querySelector("[data-shape-type]").value = shape.dataset.shapeType || "rectangle";
+  editor.querySelector("[data-save]").addEventListener("click", () => editor.remove());
   const apply = () => {
     const type = editor.querySelector("[data-shape-type]").value;
+    shape.dataset.shapeType = type;
     const effect = editor.querySelector("[data-shape-effect]").value;
     const isSquarish = type === "square" || type === "circle";
     if (isSquarish) {
@@ -1472,14 +1789,17 @@ function placeLine(startX, startY, endX, endY) {
   line.style.height = `${hitHeight}px`;
   line.style.setProperty("--qts-line-angle", `${angle}deg`);
   line.innerHTML = `
-    <div class="qts-line-bar" data-drag-handle></div>
+    <div class="qts-line-bar" data-drag-handle>
+      <div class="qts-line-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}"></div>
+    </div>
     ${visibilityControlsHtml()}
     <button type="button" class="qts-edit-btn" title="${escapeHtml(state.t.edit)}">${ICON("edit")}</button>
-    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">×</button>
+    <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button>
   `;
   document.body.appendChild(line);
   wireVisibilityControls(line);
   makeDraggable(line, line.querySelector("[data-drag-handle]"));
+  makeLineResizable(line, line.querySelector("[data-resize-handle]"));
   line.querySelector(".qts-remove-btn").addEventListener("click", () => { line.remove(); updateClearAllVisibility(); });
   line.querySelector(".qts-edit-btn").addEventListener("click", () => toggleLineStyleEditor(line));
   updateClearAllVisibility();
@@ -1494,22 +1814,44 @@ function toggleLineStyleEditor(line) {
   editor.className = "qts-shape-editor";
   editor.innerHTML = `
     <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-line-color value="#ef3340" /></label>
-    <label>${escapeHtml(t.lineThickness || "Espessura")}<input type="range" min="1" max="10" value="3" data-line-thickness /></label>
-    <label>${escapeHtml(t.lineArrow || "Ponta")}<select data-line-arrow>
-      <option value="none">${escapeHtml(t.lineArrowNone || "Nenhuma")}</option>
-      <option value="end">${escapeHtml(t.lineArrowEnd || "Seta")}</option>
+    <label>${escapeHtml(t.lineThickness)}<input type="range" min="1" max="10" value="3" data-line-thickness /></label>
+    <label>${escapeHtml(t.lineArrowStart || "Ponta esquerda")}<select data-line-start>
+      <option value="none">${escapeHtml(t.lineArrowNone)}</option>
+      <option value="arrow">${escapeHtml(t.lineArrowArrow)}</option>
+      <option value="triangle">${escapeHtml(t.lineArrowTriangle)}</option>
+      <option value="dotFilled">${escapeHtml(t.lineArrowDotFilled)}</option>
+      <option value="dotHollow">${escapeHtml(t.lineArrowDotHollow)}</option>
     </select></label>
+    <label>${escapeHtml(t.lineArrowEnd || "Ponta direita")}<select data-line-end>
+      <option value="none">${escapeHtml(t.lineArrowNone)}</option>
+      <option value="arrow">${escapeHtml(t.lineArrowArrow)}</option>
+      <option value="triangle">${escapeHtml(t.lineArrowTriangle)}</option>
+      <option value="dotFilled">${escapeHtml(t.lineArrowDotFilled)}</option>
+      <option value="dotHollow">${escapeHtml(t.lineArrowDotHollow)}</option>
+    </select></label>
+    <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
   `;
   line.appendChild(editor);
+  const endClasses = ["hasArrow", "hasTriangle", "hasDotFilled", "hasDotHollow"];
+  const startClasses = ["startHasArrow", "startHasTriangle", "startHasDotFilled", "startHasDotHollow"];
+  const endClassByValue = { arrow: "hasArrow", triangle: "hasTriangle", dotFilled: "hasDotFilled", dotHollow: "hasDotHollow" };
+  const startClassByValue = { arrow: "startHasArrow", triangle: "startHasTriangle", dotFilled: "startHasDotFilled", dotHollow: "startHasDotHollow" };
+  const valueFromClasses = (classes, mapping) => Object.entries(mapping).find(([, className]) => classes.contains(className))?.[0] || "none";
+  editor.querySelector("[data-line-start]").value = valueFromClasses(line.classList, startClassByValue);
+  editor.querySelector("[data-line-end]").value = valueFromClasses(line.classList, endClassByValue);
   const apply = () => {
     const color = editor.querySelector("[data-line-color]").value;
     const thickness = editor.querySelector("[data-line-thickness]").value;
-    const arrow = editor.querySelector("[data-line-arrow]").value;
+    const start = editor.querySelector("[data-line-start]").value;
+    const end = editor.querySelector("[data-line-end]").value;
     bar.style.setProperty("--qts-line-color", color);
     bar.style.setProperty("--qts-line-thickness", `${thickness}px`);
-    line.classList.toggle("hasArrow", arrow === "end");
+    line.classList.remove(...startClasses, ...endClasses);
+    if (startClassByValue[start]) line.classList.add(startClassByValue[start]);
+    if (endClassByValue[end]) line.classList.add(endClassByValue[end]);
   };
   editor.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", apply));
+  editor.querySelector("[data-save]").addEventListener("click", () => editor.remove());
   apply();
 }
 
@@ -1531,7 +1873,11 @@ function makeDraggable(element, handle) {
   document.addEventListener("mousemove", (event) => {
     if (!dragging) return;
     element.style.left = `${Math.max(0, event.clientX - offsetX)}px`;
-    element.style.top = `${Math.max(getCurrentHeight(), event.clientY - offsetY)}px`;
+    // A bare getCurrentHeight() clamp (no gap) let an item land flush against the bar's bottom
+    // edge — the bar itself sits at the very top of the z-index stack (see #bar below), so a
+    // flush item's own drag handle could end up hairline-overlapped and un-grabbable on the next
+    // attempt ("fica colado", per founder feedback). A few px of buffer keeps a real gap.
+    element.style.top = `${Math.max(getCurrentHeight() + 6, event.clientY - offsetY)}px`;
   });
   document.addEventListener("mouseup", () => { dragging = false; });
 }
@@ -1574,27 +1920,33 @@ function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAsp
   document.addEventListener("mouseup", () => { resizing = false; });
 }
 
-function clearAllFloatingItems() {
-  document.querySelectorAll(".qts-floating-item").forEach((item) => item.remove());
-  updateClearAllVisibility();
+// Lines don't fit the SE-corner resize above (there's no fixed box, just a start point + length +
+// angle) — dragging this handle (sitting at the line's own endpoint, rotating with the bar) keeps
+// the start point fixed and recomputes length/angle from it, the same math placeLine used to draw
+// it in the first place.
+function makeLineResizable(line, handle) {
+  let resizing = false;
+  const hitHeight = 24;
+  handle.addEventListener("mousedown", (event) => {
+    if (event.button !== 0) return;
+    resizing = true;
+    event.preventDefault();
+    event.stopPropagation();
+  });
+  document.addEventListener("mousemove", (event) => {
+    if (!resizing) return;
+    const startX = parseFloat(line.style.left) || 0;
+    const startY = (parseFloat(line.style.top) || 0) + hitHeight / 2;
+    const length = Math.max(24, Math.hypot(event.clientX - startX, event.clientY - startY));
+    const angle = Math.atan2(event.clientY - startY, event.clientX - startX) * (180 / Math.PI);
+    line.style.width = `${length}px`;
+    line.style.setProperty("--qts-line-angle", `${angle}deg`);
+  });
+  document.addEventListener("mouseup", () => { resizing = false; });
 }
 
-// Founder feedback: the per-item eye toggle (which reveals edit/remove/resize/hide-content on one
-// marker/note/shape at a time) was welcome, but there was no quick way to blank every annotation's
-// content at once before a screenshot — this mirrors "Limpar" (remove all) with a non-destructive
-// "hide/show all" sibling, toggling every item's own isContentHidden class in one click.
-function toggleAllFloatingItemsVisibility() {
-  const items = [...document.querySelectorAll(".qts-floating-item")];
-  if (!items.length) return;
-  const shouldHide = items.some((item) => !item.classList.contains("isContentHidden"));
-  for (const item of items) {
-    item.classList.toggle("isContentHidden", shouldHide);
-    const hideButton = item.querySelector("[data-hide-content-toggle]");
-    if (hideButton) {
-      hideButton.innerHTML = ICON(shouldHide ? "eye" : "eyeSlash");
-      hideButton.title = shouldHide ? state.t.showElement : state.t.hideElement;
-    }
-  }
+function clearAllFloatingItems() {
+  document.querySelectorAll(".qts-floating-item").forEach((item) => item.remove());
   updateClearAllVisibility();
 }
 
@@ -1603,13 +1955,6 @@ function updateClearAllVisibility() {
   const hasItems = items.length > 0;
   const notesPinned = (state.workspace?.preferences?.pinnedTools || []).includes("notes");
   state.shadowRoot?.getElementById("clearAllButton")?.classList.toggle("isHidden", !hasItems || !notesPinned);
-  const hideAllButton = state.shadowRoot?.getElementById("hideAllButton");
-  if (hideAllButton) {
-    hideAllButton.classList.toggle("isHidden", !hasItems || !notesPinned);
-    const allHidden = hasItems && [...items].every((item) => item.classList.contains("isContentHidden"));
-    hideAllButton.innerHTML = ICON(allHidden ? "eyeSlash" : "eye");
-    hideAllButton.title = allHidden ? state.t.showAllTitle : state.t.hideAllTitle;
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -1617,7 +1962,8 @@ function updateClearAllVisibility() {
 // context allowed to call chrome.tabs.captureVisibleTab.
 // ---------------------------------------------------------------------------
 
-function captureScreenshot() {
+async function captureScreenshot() {
+  const statusKey = await resolveRecentStatusKeyForCurrentPage();
   chrome.runtime.sendMessage({ type: "qts:capture-visible-tab" }, (response) => {
     if (!response?.ok) {
       console.error("QA Toolbar Sandbox: screenshot failed", response?.error);
@@ -1625,7 +1971,7 @@ function captureScreenshot() {
     }
     const anchor = document.createElement("a");
     anchor.href = response.dataUrl;
-    anchor.download = `qa-screenshot-${new Date().toISOString().replace(/[:.]/g, "-")}.png`;
+    anchor.download = `${buildEvidenceFileBaseName(statusKey)}.png`;
     anchor.click();
   });
 }
@@ -1648,12 +1994,15 @@ function ensureDrawerHost() {
 
 function drawerStyles() {
   return `
+    .qts-drawer { --qts-panel:#0b0b0b; --qts-panel-2:#141414; --qts-panel-text:#fff; --qts-panel-muted:#aaa; --qts-panel-border:#333; --qts-panel-accent:#ffd700; }
+    :host([data-theme="light"]) .qts-drawer { --qts-panel:#fff; --qts-panel-2:#f2f4f8; --qts-panel-text:#171a24; --qts-panel-muted:#58647a; --qts-panel-border:#b8c2d3; --qts-panel-accent:#5b35e8; }
+    @media (prefers-color-scheme: light) { :host([data-theme="system"]) .qts-drawer { --qts-panel:#fff; --qts-panel-2:#f2f4f8; --qts-panel-text:#171a24; --qts-panel-border:#cbd3e2; } }
     .qts-drawer-backdrop {
       position: fixed; inset: 0; z-index: 2147483647; display: flex; justify-content: flex-end;
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      width: min(400px, 92vw); height: 100%; background: #0b0b0b; color: #fff; border-left: 2px solid #b20808;
+      width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid #b20808;
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
     }
     /* Macro Studio's founder feedback: a right-edge sidebar felt cramped/ugly for something with
@@ -1664,22 +2013,22 @@ function drawerStyles() {
       width: min(920px, 94vw); height: min(760px, 90vh); border-left: 0; border-radius: 16px;
       border: 1px solid #292929; box-shadow: 0 30px 80px rgba(0,0,0,.55);
     }
-    .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid #262626; }
+    .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
     .qts-drawer-body { flex: 1; overflow: auto; padding: 14px 16px; }
     .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
-      width: 100%; padding: 8px 10px; border: 1px solid #2c2c2c; border-radius: 8px; background: #141414; color: #fff; font: inherit;
+      width: 100%; padding: 8px 10px; border: 1px solid var(--qts-panel-border,#2c2c2c); border-radius: 8px; background: var(--qts-panel-2,#141414); color: var(--qts-panel-text,#fff); font: inherit;
     }
-    .qts-drawer button.action { height: 32px; padding: 0 12px; border: 1px solid #333; border-radius: 8px; background: #1c1c1c; color: #fff; cursor: pointer; font-weight: 700; }
+    .qts-drawer button.action { min-height: 40px; padding: 0 14px; border: 1px solid var(--qts-panel-border,#333); border-radius: 8px; background: var(--qts-panel-2,#1c1c1c); color: var(--qts-panel-text,#fff); cursor: pointer; font-weight: 800; }
     .qts-drawer button.action.primary { background: #b20808; border-color: #b20808; }
-    .qts-empty { padding: 24px; text-align: center; color: #888; border: 1px dashed #333; border-radius: 10px; }
-    .qts-net-item { padding: 8px 10px; margin-bottom: 6px; border: 1px solid #262626; border-radius: 8px; background: #131313; cursor: pointer; }
-    .qts-net-item b { color: #ffd700; }
-    .qts-net-item small { display: block; color: #888; word-break: break-all; }
+    .qts-empty { padding: 24px; text-align: center; color: var(--qts-panel-muted); border: 1px dashed var(--qts-panel-border); border-radius: 10px; }
+    .qts-net-item { padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--qts-panel-border); border-radius: 8px; background: var(--qts-panel-2); cursor: pointer; }
+    .qts-net-item b { color: var(--qts-panel-accent); }
+    .qts-net-item small { display: block; color: var(--qts-panel-muted); word-break: break-all; }
     .qts-json-tree { font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
-    .qts-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: #1c1c1c; border: 1px solid #292929; font-size: 10px; color: #ccc; }
-    .qts-chip b { color: #ffd700; font-weight: 800; }
+    .qts-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--qts-panel-2); border: 1px solid var(--qts-panel-border); font-size: 10px; color: var(--qts-panel-text); }
+    .qts-chip b { color: var(--qts-panel-accent); font-weight: 800; }
 
     /* Toolbar shared by every data-listing drawer: search + smart filters + collapse-to-minimal. */
     .qts-toolbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
@@ -1739,7 +2088,16 @@ function drawerStyles() {
     .qts-step:not(:last-child)::after { content: "↓"; position: absolute; left: 14px; bottom: -18px; color: #ffd700; }
     .qts-step-index { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #b20808; font-weight: 900; }
     .qts-code { min-height: 350px; padding: 14px; border: 1px solid #2c2c2c; border-radius: 10px; background: #080808; color: #9bffb0; font: 12px/1.55 ui-monospace, Consolas, monospace; white-space: pre; overflow: auto; }
-    .qts-status { min-height: 18px; margin-top: 8px; color: #ffd700; }
+    .qts-status { min-height: 18px; margin-top: 8px; color: #ffd700; overflow-wrap: anywhere; }
+    .qts-faker-report { display:grid; gap:7px; margin-top:10px; max-height:45vh; overflow:auto; }
+    .qts-faker-report-row { display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,1.4fr); gap:10px; align-items:center; border-top:1px solid #2a2a2a; padding-top:7px; }
+    .qts-faker-report-row span, .qts-faker-report-row code { min-width:0; overflow-wrap:anywhere; white-space:normal; }
+    .qts-faker-report-row small { display:block; color:#999; margin-top:2px; }
+    .qts-faker-report-row code { color:#74e7a5; }
+    .qts-list { display: grid; gap: 6px; margin-top: 8px; max-height: 220px; overflow: auto; }
+    .qts-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border: 1px solid #292929; border-radius: 8px; background: #141414; font-size: 12px; }
+    .qts-list-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .qts-list-row button { all: unset; cursor: pointer; color: #ff7078; font-weight: 800; padding: 0 4px; flex: none; }
     .qts-result-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .qts-result-table th, .qts-result-table td { padding: 7px; border-bottom: 1px solid #292929; text-align: left; }
     .qts-key-view-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
@@ -1764,6 +2122,48 @@ function drawerStyles() {
     .qts-key-view-preview[data-theme="light"] .qts-keycap-shine { stroke: rgba(255,255,255,.9); }
     .qts-key-view-preview[data-theme="light"] .qts-keycap text { fill: #111; }
     .qts-privacy-note p { margin: 5px 0 0; color: #aaa; }
+    /* Semantic theme bridge for every reusable drawer component. It intentionally comes last
+       so older feature-specific literal colors cannot break the selected platform theme. */
+    .qts-drawer-backdrop.isModal .qts-drawer,
+    .qts-toolbar-row input, .qts-toolbar-row select, .qts-toolbar-row textarea,
+    .qts-icon-btn, .qts-toggle-group, .qts-combo, .qts-combo-panel,
+    .qts-view-switch, .qts-view-switch button, .qts-locate-btn,
+    .qts-friendly-section, .qts-friendly-section > summary, .qts-metric,
+    .qts-card, .qts-tabs, .qts-palette button, .qts-flow, .qts-step,
+    .qts-list-row, .qts-switch-row, .qts-position-grid button {
+      background:var(--qts-panel-2); color:var(--qts-panel-text); border-color:var(--qts-panel-border);
+    }
+    .qts-tool-lead, .qts-metric small, .qts-tabs button, .qts-toggle-group button,
+    .qts-combo summary, .qts-switch-row small, .qts-key-view-status small,
+    .qts-privacy-note p { color:var(--qts-panel-muted); }
+    .qts-net-item b, .qts-chip b, .qts-friendly-field .qts-field-label,
+    .qts-metric strong, .qts-status { color:var(--qts-panel-accent); }
+    .qts-friendly-field, .qts-friendly-section, .qts-result-table th,
+    .qts-result-table td, .qts-faker-report-row { border-color:var(--qts-panel-border); }
+    .qts-toggle-group button.isSelected, .qts-view-switch button.isSelected,
+    .qts-tabs button.isSelected { background:#b20808; color:#fff; }
+    .qts-icon-btn, .qts-toggle-group, .qts-combo, .qts-combo-panel,
+    .qts-view-switch, .qts-view-switch button, .qts-locate-btn,
+    .qts-friendly-section > summary, .qts-palette button, .qts-position-grid button {
+      color:var(--qts-panel-text); background-color:var(--qts-panel-2); border-color:var(--qts-panel-border);
+    }
+    .qts-combo summary, .qts-tool-lead, .qts-metric small, .qts-tabs button,
+    .qts-toggle-group button, .qts-key-view-status small, .qts-switch-row small,
+    .qts-faker-report-row small { color:var(--qts-panel-muted); }
+    .qts-friendly-section > summary, .qts-field-label { color:var(--qts-panel-text); }
+    .qts-list-row span { color:var(--qts-panel-text); }
+    .qts-drawer select option { background:var(--qts-panel); color:var(--qts-panel-text); }
+    .qts-drawer input::placeholder, .qts-drawer textarea::placeholder { color:var(--qts-panel-muted); opacity:1; }
+    .qts-drawer input:focus-visible, .qts-drawer select:focus-visible,
+    .qts-drawer textarea:focus-visible, .qts-drawer button:focus-visible {
+      outline:3px solid color-mix(in srgb,var(--qts-panel-accent) 42%,transparent); outline-offset:2px;
+    }
+    :host([data-theme="light"]) .qts-code { background:#f6f8fc; color:#146b35; border-color:var(--qts-panel-border); }
+    :host([data-theme="light"]) .qts-step-index { color:#fff; }
+    :host([data-theme="light"]) .qts-faker-report-row code { color:#087f4d; }
+    :host([data-theme="light"]) .qts-list-row button,
+    :host([data-theme="light"]) .qts-combo-clear { color:#a61f2b; }
+    :host([data-theme="light"]) .qts-key-view-preview:not([data-theme="dark"]) { background:#eef1f6; color:#444; border-color:var(--qts-panel-border); }
     @media (max-width: 680px) { .qts-macro-layout, .qts-key-view-size-grid { grid-template-columns: 1fr; } .qts-palette { grid-template-columns: repeat(2,minmax(0,1fr)); } .qts-step { grid-template-columns: 28px 95px minmax(0,1fr) 32px; } }
   `;
 }
@@ -1787,12 +2187,12 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Posição na tela": "Posición en pantalla", "Privacidade local": "Privacidad local", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "El texto no se guarda ni se envía. Nunca se capturan campos de contraseña, tarjeta, CVV, token o secreto.",
   "Salvar configurações": "Guardar configuración", "Limpar texto": "Limpiar texto", "Configurações salvas.": "Configuración guardada.", "Texto limpo.": "Texto borrado.",
   "Borrar elementos": "Difuminar elementos",
-  "Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.": "Haz clic en elementos de la página para difuminar información sensible antes de una captura o grabación. Vuelve a hacer clic en el mismo elemento para deshacerlo.",
+  "Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação, ou clique com o botão direito num elemento e escolha \"Borrar / desborrar este elemento\" no menu QA Sandbox.": "Haz clic en elementos de la página para difuminar información sensible antes de una captura o grabación, o haz clic derecho en un elemento y elige \"Borrar / desborrar este elemento\" en el menú QA Sandbox.",
   "Selecionar elemento": "Seleccionar elemento", "Limpar todos os borrados": "Quitar todo el difuminado",
   "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.": "Haz clic en un elemento para difuminarlo (o quitar el difuminado si ya lo tiene). Esc para detener.",
   "Nenhum elemento borrado ainda.": "Ningún elemento difuminado todavía.",
   "Modo Holofote": "Modo Foco",
-  "Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.": "Actívalo y mantén presionado el clic en cualquier punto de la página durante 3 segundos para encender un foco alrededor del mouse, útil para guiar la atención en demostraciones y grabaciones. Soltar el clic apaga el foco suavemente.",
+  "Ative e segure Ctrl por 2 segundos em qualquer momento para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar Ctrl apaga o holofote suavemente.": "Actívalo y mantén presionado Ctrl durante 2 segundos en cualquier momento para encender un foco alrededor del mouse, útil para guiar la atención en demostraciones y grabaciones. Soltar Ctrl apaga el foco suavemente.",
   "Ativar": "Activar", "Desativar": "Desactivar",
   "Efeito": "Efecto", "Escurecer": "Oscurecer", "Borrar": "Difuminar",
   "Opacidade (efeito Escurecer)": "Opacidad (efecto Oscurecer)",
@@ -1809,12 +2209,12 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Posição na tela": "Screen position", "Privacidade local": "Local privacy", "O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.": "Text is neither saved nor sent. Password, card, CVV, token, and secret fields are never captured.",
   "Salvar configurações": "Save settings", "Limpar texto": "Clear text", "Configurações salvas.": "Settings saved.", "Texto limpo.": "Text cleared.",
   "Borrar elementos": "Blur elements",
-  "Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.": "Click elements on the page to blur sensitive information before a screenshot or recording. Click the same element again to undo it.",
+  "Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação, ou clique com o botão direito num elemento e escolha \"Borrar / desborrar este elemento\" no menu QA Sandbox.": "Click elements on the page to blur sensitive information before a screenshot or recording, or right-click an element and choose \"Borrar / desborrar este elemento\" in the QA Sandbox menu.",
   "Selecionar elemento": "Select element", "Limpar todos os borrados": "Clear all blurred elements",
   "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.": "Click an element to blur it (or unblur it, if already blurred). Esc to stop.",
   "Nenhum elemento borrado ainda.": "No elements blurred yet.",
   "Modo Holofote": "Spotlight Mode",
-  "Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.": "Turn it on and hold the click anywhere on the page for 3 seconds to light up a spotlight around the mouse, useful for directing attention during demos and recordings. Releasing the click fades the spotlight out smoothly.",
+  "Ative e segure Ctrl por 2 segundos em qualquer momento para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar Ctrl apaga o holofote suavemente.": "Turn it on and hold Ctrl for 2 seconds at any moment to light up a spotlight around the mouse, useful for directing attention during demos and recordings. Releasing Ctrl fades the spotlight out smoothly.",
   "Ativar": "Enable", "Desativar": "Disable",
   "Efeito": "Effect", "Escurecer": "Darken", "Borrar": "Blur",
   "Opacidade (efeito Escurecer)": "Opacity (Darken effect)",
@@ -1923,7 +2323,7 @@ function openDrawer({ title, bodyHtml, onReady, view = "", variant = "" }) {
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
     <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop">
       <div class="qts-drawer">
-        <div class="qts-drawer-head"><h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">×</button></div>
+        <div class="qts-drawer-head"><h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">${ICON("fail")}</button></div>
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
     </div>`;
@@ -2148,7 +2548,7 @@ function showClickSpyTooltip(target, clientX, clientY) {
   const tooltip = document.createElement("div");
   tooltip.className = "qts-clickspy-tooltip";
   tooltip.innerHTML = `
-    <div class="qts-clickspy-head"><span>${escapeHtml(t.clickSpyResultTitle)}</span><button type="button" class="qts-remove-btn" data-clickspy-close title="${escapeHtml(t.remove)}">×</button></div>
+    <div class="qts-clickspy-head"><span>${escapeHtml(t.clickSpyResultTitle)}</span><button type="button" class="qts-remove-btn" data-clickspy-close title="${escapeHtml(t.remove)}">${ICON("fail")}</button></div>
     <div class="qts-clickspy-body">${description.map(([label, value]) => `
       <div><div class="qts-clickspy-label">${escapeHtml(label)}</div><div class="qts-clickspy-value">${escapeHtml(value)}</div></div>
     `).join("")}</div>
@@ -2387,7 +2787,7 @@ function renderInspectorDashboard(listBody) {
         <b>${escapeHtml(inspector.label || inspector.id)}</b>
         <small>${escapeHtml((inspector.patterns || []).join(", "))}</small>
         ${entry
-          ? `<small style="display:block;margin-top:3px;color:#42d5c2">✓ ${escapeHtml(entry.method)} ${entry.status || "—"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>`
+          ? `<small style="display:block;margin-top:3px;color:#42d5c2">${ICON("pass")} ${escapeHtml(entry.method)} ${entry.status || "—"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>`
           : `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
               <small style="color:#ffb020">Aguardando resposta...</small>
               <button type="button" class="qts-icon-btn" data-retry-inspector="${escapeHtml(inspector.id)}" title="Tentar novamente">${ICON("undo")}</button>
@@ -2447,7 +2847,7 @@ function renderInspectorsList() {
         <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
           <div style="min-width:0;flex:1">
             <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
-            ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">★ ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
+            ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">${ICON("star")} ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
           </div>
           <button type="button" class="qts-icon-btn" data-mark-inspector="${escapeHtml(entry.id)}" title="Marcar como meu inspector" style="width:26px;height:26px;flex:0 0 auto">${ICON("pin")}</button>
         </div>
@@ -2517,7 +2917,7 @@ function persistHttpErrors() {
 function updateHttpErrorSurfaces() {
   const root = state.shadowRoot;
   if (!root) return;
-  const count = state.httpErrors.length + (state.showFirstRunNotification ? 1 : 0);
+  const count = state.httpErrors.length + (state.showFirstRunNotification ? 1 : 0) + (state.pendingReleaseNote ? 1 : 0);
   const menuBadge = root.getElementById("errorMonitorBadge");
   if (menuBadge) { menuBadge.textContent = String(state.httpErrors.length); menuBadge.style.display = state.httpErrors.length ? "inline-flex" : "none"; }
   const bellBadge = root.getElementById("notificationBellBadge");
@@ -2550,19 +2950,23 @@ function renderNotificationBellPanel() {
       <span>${escapeHtml(t.firstRunBody)}</span>
     </button>
   ` : "";
+  const releaseCopy = state.pendingReleaseNote ? releaseNotesCopy() : null;
+  const releaseRow = releaseCopy ? `<button type="button" class="qts-bell-row" data-open-release-notes><b style="color:#74e7a5">${escapeHtml(releaseCopy.title)}</b><span>${escapeHtml(releaseCopy.intro)}</span></button>` : "";
   panel.innerHTML = `
     <div class="qts-bell-head"><b>Notificações</b><button type="button" id="notificationBellClear" ${state.httpErrors.length ? "" : "disabled"}>Limpar</button></div>
     ${introRow}
+    ${releaseRow}
     ${entries.length ? entries.map((entry) => `
       <button type="button" class="qts-bell-row" data-open-notification>
         <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)}
         <span>${escapeHtml(entry.url)}</span>
         <small>${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
       </button>
-    `).join("") : (introRow ? "" : `<div class="qts-mini-empty">Nenhuma notificação.</div>`)}
+    `).join("") : (introRow || releaseRow ? "" : `<div class="qts-mini-empty">Nenhuma notificação.</div>`)}
   `;
   panel.querySelector("#notificationBellClear")?.addEventListener("click", () => clearHttpErrors());
   panel.querySelector("[data-dismiss-intro]")?.addEventListener("click", () => dismissFirstRunNotification());
+  panel.querySelector("[data-open-release-notes]")?.addEventListener("click", () => { toggleNotificationBellPanel(false); openReleaseNotes(); });
   panel.querySelectorAll("[data-open-notification]").forEach((row) => row.addEventListener("click", () => {
     toggleNotificationBellPanel(false);
     openErrorMonitorDrawer();
@@ -2711,13 +3115,15 @@ function renderTestAccountsList() {
   if (!body) return;
 
   if (!state.environment) {
-    body.innerHTML = `<div class="qts-empty">${escapeHtml(t.testAccountsNoEnvironment)}</div>`;
+    body.innerHTML = `<div class="qts-toolbar-row" style="justify-content:flex-end">${drawerAddButton("testAccount", "Adicionar conta")}</div><div class="qts-empty">${escapeHtml(t.testAccountsNoEnvironment)}</div>`;
+    wireDrawerAddButton(body, "testAccount");
     return;
   }
 
   const allAccounts = (state.workspace.testAccounts || []).filter((account) => (account.environmentIds || []).includes(state.environment.id) && (!account.productIds?.length || account.productIds.includes(state.environment.productId)));
   if (!allAccounts.length) {
-    body.innerHTML = `<div class="qts-empty">${escapeHtml(t.testAccountsEmptyForEnv)}</div>`;
+    body.innerHTML = `<div class="qts-toolbar-row" style="justify-content:flex-end">${drawerAddButton("testAccount", "Adicionar conta")}</div><div class="qts-empty">${escapeHtml(t.testAccountsEmptyForEnv)}</div>`;
+    wireDrawerAddButton(body, "testAccount");
     return;
   }
   const fields = buildTestAccountFilterFields(allAccounts);
@@ -2727,6 +3133,7 @@ function renderTestAccountsList() {
     <div class="qts-toolbar-row">
       <input type="search" placeholder="${escapeHtml(t.testAccountsSearchPlaceholder)}" id="testAccountsSearch" value="${escapeHtml(testAccountsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${testAccountsFilterState.collapsed ? "isActive" : ""}" id="testAccountsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
+      ${drawerAddButton("testAccount", "Adicionar")}
     </div>
     <div class="qts-filter-bar ${testAccountsFilterState.collapsed ? "isCollapsed" : ""}" id="testAccountsFilterBar">
       ${fields.map((field) => renderSmartFilter(field, testAccountsFilterState[field.key], null)).join("")}
@@ -2753,6 +3160,7 @@ function renderTestAccountsList() {
       `;
     }).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
   `;
+  wireDrawerAddButton(body, "testAccount");
 
   body.querySelector("#testAccountsSearch").addEventListener("input", (event) => {
     testAccountsFilterState.query = event.target.value;
@@ -2830,7 +3238,8 @@ function renderPaymentMethodsList() {
   if (!body) return;
   const allMethods = (state.workspace.paymentMethods || []).filter((method) => method.active !== false && (!method.environmentIds?.length || method.environmentIds.includes(state.environment?.id)) && (!method.productIds?.length || method.productIds.includes(state.environment?.productId)));
   if (!allMethods.length) {
-    body.innerHTML = `<div class="qts-empty">${escapeHtml(state.t.paymentMethodsEmptyForEnv)}</div>`;
+    body.innerHTML = `<div class="qts-toolbar-row" style="justify-content:flex-end">${drawerAddButton("paymentMethod", "Adicionar pagamento")}</div><div class="qts-empty">${escapeHtml(state.t.paymentMethodsEmptyForEnv)}</div>`;
+    wireDrawerAddButton(body, "paymentMethod");
     return;
   }
   const types = [...new Set(allMethods.map((method) => method.type || "other"))].sort();
@@ -2841,6 +3250,7 @@ function renderPaymentMethodsList() {
     <div class="qts-toolbar-row">
       <input type="search" placeholder="Buscar meio de pagamento..." id="paymentMethodsSearch" value="${escapeHtml(paymentMethodsFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${paymentMethodsFilterState.collapsed ? "isActive" : ""}" id="paymentMethodsCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
+      ${drawerAddButton("paymentMethod", "Adicionar")}
     </div>
     <div class="qts-filter-bar ${paymentMethodsFilterState.collapsed ? "isCollapsed" : ""}" id="paymentMethodsFilterBar">
       ${fields.map((field) => renderSmartFilter(field, paymentMethodsFilterState[field.key], null)).join("")}
@@ -2871,6 +3281,7 @@ function renderPaymentMethodsList() {
     </div>`;
   }).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
   `;
+  wireDrawerAddButton(body, "paymentMethod");
   body.querySelector("#paymentMethodsSearch").addEventListener("input", (event) => { paymentMethodsFilterState.query = event.target.value; renderPaymentMethodsList(); });
   body.querySelector("#paymentMethodsCollapseToggle").addEventListener("click", () => { paymentMethodsFilterState.collapsed = !paymentMethodsFilterState.collapsed; renderPaymentMethodsList(); });
   wireSmartFilter(body.querySelector("#paymentMethodsFilterBar"), (key, value, isSelected) => {
@@ -2921,7 +3332,8 @@ function renderResourcesList() {
   if (!body) return;
   const allResources = (state.workspace.resources || []).filter((resource) => resource.active !== false).map((resource) => ({ ...resource, safeUrl: safeExternalUrl(resource.url) })).filter((resource) => resource.safeUrl);
   if (!allResources.length) {
-    body.innerHTML = `<div class="qts-empty">${escapeHtml(t.resourcesEmpty)}</div>`;
+    body.innerHTML = `<div class="qts-toolbar-row" style="justify-content:flex-end">${drawerAddButton("resource", "Adicionar recurso")}</div><div class="qts-empty">${escapeHtml(t.resourcesEmpty)}</div>`;
+    wireDrawerAddButton(body, "resource");
     return;
   }
   const categories = [...new Set(allResources.map((resource) => resource.category).filter(Boolean))].sort();
@@ -2932,6 +3344,7 @@ function renderResourcesList() {
     <div class="qts-toolbar-row">
       <input type="search" placeholder="${escapeHtml(t.resourcesSearchPlaceholder)}" id="resourcesSearch" value="${escapeHtml(resourcesFilterState.query)}" class="qts-toolbar-search" />
       <button type="button" class="qts-icon-btn ${resourcesFilterState.collapsed ? "isActive" : ""}" id="resourcesCollapseToggle" title="${escapeHtml(t.toggleFilters)}">${ICON("collapse")}</button>
+      ${drawerAddButton("resource", "Adicionar")}
     </div>
     <div class="qts-filter-bar ${resourcesFilterState.collapsed ? "isCollapsed" : ""}" id="resourcesFilterBar">
       ${fields.map((field) => renderSmartFilter(field, resourcesFilterState[field.key], null)).join("")}
@@ -2943,6 +3356,7 @@ function renderResourcesList() {
       </a>
     `).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
   `;
+  wireDrawerAddButton(body, "resource");
   body.querySelector("#resourcesSearch").addEventListener("input", (event) => { resourcesFilterState.query = event.target.value; renderResourcesList(); });
   body.querySelector("#resourcesCollapseToggle").addEventListener("click", () => { resourcesFilterState.collapsed = !resourcesFilterState.collapsed; renderResourcesList(); });
   wireSmartFilter(body.querySelector("#resourcesFilterBar"), (key, value, isSelected) => {
@@ -3107,31 +3521,33 @@ function buildDeviceFrameHtml(pane, device) {
 
 function breakpointStyles() {
   return `
-    .qts-bp-overlay { position: fixed; inset: 0; z-index: 2147483647; background: #050505; display: flex; flex-direction: column; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #fff; }
-    .qts-bp-topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid #262626; background: #111; flex-wrap: wrap; }
-    .qts-bp-topbar input[type="url"] { flex: 1 1 220px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #fff; }
-    .qts-bp-topbar select { height: 34px; padding: 0 8px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #fff; }
-    .qts-bp-toggle { height: 34px; padding: 0 12px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; color: #ccc; cursor: pointer; font-weight: 700; }
-    .qts-bp-zoom { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border: 1px solid #333; border-radius: 8px; background: #1a1a1a; }
+    .qts-bp-overlay { --bp-bg:#050505;--bp-surface:#111;--bp-control:#1a1a1a;--bp-border:#333;--bp-text:#fff;--bp-muted:#ccc; position: fixed; inset: 0; z-index: 2147483647; background: var(--bp-bg); display: flex; flex-direction: column; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--bp-text); }
+    :host([data-theme="light"]) .qts-bp-overlay { --bp-bg:#eef1f6;--bp-surface:#fff;--bp-control:#f7f9fc;--bp-border:#b8c2d3;--bp-text:#171a24;--bp-muted:#536078; }
+    @media (prefers-color-scheme:light) { :host([data-theme="system"]) .qts-bp-overlay { --bp-bg:#eef1f6;--bp-surface:#fff;--bp-control:#f7f9fc;--bp-border:#b8c2d3;--bp-text:#171a24;--bp-muted:#536078; } }
+    .qts-bp-topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--bp-border); background: var(--bp-surface); flex-wrap: wrap; }
+    .qts-bp-topbar input[type="url"] { flex: 1 1 220px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--bp-border); border-radius: 8px; background: var(--bp-control); color: var(--bp-text); }
+    .qts-bp-topbar select { height: 34px; padding: 0 8px; border: 1px solid var(--bp-border); border-radius: 8px; background: var(--bp-control); color: var(--bp-text); }
+    .qts-bp-toggle { height: 34px; padding: 0 12px; border: 1px solid var(--bp-border); border-radius: 8px; background: var(--bp-control); color: var(--bp-muted); cursor: pointer; font-weight: 700; }
+    .qts-bp-zoom { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border: 1px solid var(--bp-border); border-radius: 8px; background: var(--bp-control); }
     .qts-bp-zoom-btn { all: unset; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: #262626; color: #fff; cursor: pointer; font-weight: 900; }
     .qts-bp-zoom-btn:hover { background: #333; }
     .qts-bp-zoom input[type="range"] { width: 90px; }
-    #bpZoomLabel { min-width: 38px; text-align: center; color: #ccc; font-variant-numeric: tabular-nums; }
+    #bpZoomLabel { min-width: 38px; text-align: center; color: var(--bp-muted); font-variant-numeric: tabular-nums; }
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
     .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
     .qts-bp-pane { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
-    .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: #1a1a1a; border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.5); }
+    .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: var(--bp-control); border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.25); }
     .qts-bp-frame.kind-phone { border-radius: 34px; padding: 14px 8px; border: 2px solid #2c2c2c; }
     .qts-bp-laptop-bar { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
     .qts-bp-laptop-bar .dot { width: 8px; height: 8px; border-radius: 50%; }
     .qts-bp-laptop-bar .dot.r { background: #ff5f57; } .qts-bp-laptop-bar .dot.y { background: #febc2e; } .qts-bp-laptop-bar .dot.g { background: #28c840; }
-    .qts-bp-address { margin-left: 8px; padding: 3px 10px; border-radius: 6px; background: #262626; color: #999; font-size: 10px; }
-    .qts-bp-phone-status { width: 100%; display: flex; justify-content: space-between; padding: 4px 14px; color: #ccc; font-size: 10px; }
+    .qts-bp-address { margin-left: 8px; padding: 3px 10px; border-radius: 6px; background: var(--bp-surface); color: var(--bp-muted); font-size: 10px; }
+    .qts-bp-phone-status { width: 100%; display: flex; justify-content: space-between; padding: 4px 14px; color: var(--bp-muted); font-size: 10px; }
     .qts-bp-viewport-wrap { position: relative; overflow: hidden; background: #fff; border-radius: 4px; }
     .qts-bp-viewport-wrap iframe { position: absolute; top: 0; left: 0; transform-origin: top left; border: 0; }
     .qts-bp-home-indicator { width: 90px; height: 4px; border-radius: 99px; background: #444; margin-top: 8px; }
-    .qts-bp-scale-label { color: #888; font-size: 10px; }
+    .qts-bp-scale-label { color: var(--bp-muted); font-size: 10px; }
   `;
 }
 
@@ -3154,6 +3570,7 @@ function openBreakpointViewer() {
         <input type="url" id="bpUrl" value="${escapeHtml(initialUrl)}" placeholder="https://..." />
         <select id="bpDeviceA">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 0 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
         <select id="bpDeviceB">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 3 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
+        <button type="button" class="qts-bp-toggle" id="bpReload" title="Recarregar as duas visualizações">${ICON("undo")} Recarregar</button>
         <div class="qts-bp-zoom">
           <button type="button" class="qts-bp-zoom-btn" id="bpZoomOut" title="Reduzir zoom">−</button>
           <input type="range" id="bpZoom" min="50" max="200" step="10" value="100" title="Zoom" />
@@ -3162,7 +3579,7 @@ function openBreakpointViewer() {
         </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
-        <button type="button" class="qts-bp-close" id="bpClose">×</button>
+        <button type="button" class="qts-bp-close" id="bpClose">${ICON("fail")}</button>
       </div>
       <div class="qts-bp-stage" id="bpStage"></div>
     </div>`;
@@ -3294,12 +3711,21 @@ function openBreakpointViewer() {
   function showToolbarToast(message) {
     const toast = document.createElement("div");
     toast.textContent = message;
-    toast.style.cssText = "position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#101010;color:#fff;border:1px solid #ffd700;border-radius:999px;padding:10px 16px;z-index:2147483647;font-size:12px;max-width:80vw;text-align:center";
+    const light = state.workspace?.preferences?.appearanceTheme === "light";
+    toast.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${light ? "#fff" : "#101010"};color:${light ? "#171a24" : "#fff"};border:1px solid ${light ? "#5b35e8" : "#ffd700"};border-radius:999px;padding:10px 16px;z-index:2147483647;font-size:12px;max-width:80vw;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.24)`;
     drawerHost.appendChild(toast);
     window.setTimeout(() => toast.remove(), 3500);
   }
 
   urlInput.addEventListener("change", fitAndLoad);
+  drawerHost.querySelector("#bpReload").addEventListener("click", () => {
+    const url = normalizedPreviewUrl();
+    if (!url) { showToolbarToast("Informe uma URL HTTP ou HTTPS válida."); return; }
+    stage.querySelectorAll("[data-bp-iframe]").forEach((iframe) => {
+      iframe.src = "about:blank";
+      window.setTimeout(() => { iframe.src = url; }, 0);
+    });
+  });
   selectA.addEventListener("change", layout);
   selectB.addEventListener("change", layout);
   drawerHost.querySelector("#bpSyncScroll").addEventListener("click", (event) => {
@@ -3659,7 +4085,8 @@ function showQaToast(message, tone = "info") {
   if (!state.shadowRoot) return;
   const toast = document.createElement("div");
   toast.textContent = translateQaSurfaceText(message);
-  toast.style.cssText = `position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483647;max-width:min(620px,88vw);padding:10px 16px;border:1px solid ${tone === "error" ? "#ff6767" : "#ffd700"};border-radius:999px;background:#0b0b0b;color:#fff;font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.45)`;
+  const light = state.workspace?.preferences?.appearanceTheme === "light";
+  toast.style.cssText = `position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483647;max-width:min(620px,88vw);padding:10px 16px;border:1px solid ${tone === "error" ? (light ? "#c92331" : "#ff6767") : (light ? "#5b35e8" : "#ffd700")};border-radius:999px;background:${light ? "#fff" : "#0b0b0b"};color:${light ? "#171a24" : "#fff"};font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.28)`;
   state.shadowRoot.appendChild(toast);
   window.setTimeout(() => toast.remove(), 3_500);
 }
@@ -3796,6 +4223,73 @@ function toggleElementBlur(element) {
   else { element.classList.add("qts-blurred-element"); state.blurredElements.add(element); }
 }
 
+function drawerAddButton(kind, label) {
+  return `<button type="button" class="action primary" data-add-workspace-item="${escapeHtml(kind)}">+ ${escapeHtml(label)}</button>`;
+}
+
+function wireDrawerAddButton(body, kind) {
+  body.querySelector(`[data-add-workspace-item="${kind}"]`)?.addEventListener("click", () => openWorkspaceQuickComposer(kind));
+}
+
+function openWorkspaceQuickComposer(kind) {
+  const definitions = {
+    testAccount: { title: "Adicionar conta de teste", collection: "testAccounts", reopen: openTestAccountsDrawer,
+      fields: `<label>Nome<input name="label" required maxlength="120" /></label><label>Tipo<input name="accountType" maxlength="60" /></label><label>Usuário / e-mail<input name="username" maxlength="200" autocomplete="off" /></label><label>Senha sandbox<input name="password" type="password" maxlength="200" autocomplete="new-password" /></label><label>Observações<textarea name="notes" maxlength="1000"></textarea></label>`,
+      build: v => ({ id: crypto.randomUUID(), environmentIds: [state.environment.id], productIds: state.environment.productId ? [state.environment.productId] : [], label: v.label, accountType: v.accountType, username: v.username, password: v.password, notes: v.notes, customFields: [], active: true }) },
+    paymentMethod: { title: "Adicionar pagamento sandbox", collection: "paymentMethods", reopen: openPaymentMethodsDrawer,
+      fields: `<label>Nome<input name="label" required maxlength="120" /></label><label>Tipo<select name="type"><option value="card">Cartão</option><option value="pix">PIX</option><option value="bank">Conta bancária</option><option value="other">Outro</option></select></label><label>Número ou token sandbox<input name="value" maxlength="240" autocomplete="off" /></label><label>Titular<input name="holder" maxlength="120" /></label><label>Validade<input name="expiry" maxlength="20" placeholder="MM/AA" /></label><label>CVV sandbox<input name="cvv" maxlength="20" autocomplete="off" /></label><label>Observações<textarea name="notes" maxlength="1000"></textarea></label>`,
+      build: v => ({ id: crypto.randomUUID(), environmentIds: state.environment ? [state.environment.id] : [], productIds: state.environment?.productId ? [state.environment.productId] : [], label: v.label, type: v.type, value: v.value, holder: v.holder, expiry: v.expiry, cvv: v.cvv, notes: v.notes, active: true }) },
+    resource: { title: "Adicionar recurso ou link", collection: "resources", reopen: openResourcesDrawer,
+      fields: `<label>Nome<input name="label" required maxlength="120" /></label><label>URL<input name="url" type="url" required maxlength="2048" placeholder="https://..." /></label><label>Categoria<input name="category" maxlength="60" /></label>`,
+      build: v => ({ id: crypto.randomUUID(), label: v.label, url: v.url, category: v.category, active: true }) },
+  };
+  const definition = definitions[kind];
+  if (!definition) return;
+  if (kind === "testAccount" && !state.environment) { showQaToast("Vincule esta página a um ambiente antes de criar uma conta.", "error"); return; }
+  openDrawer({ title: definition.title, variant: "modal", bodyHtml: `<p class="qts-tool-lead">Salvo no mesmo workspace das Configurações e carregado imediatamente.</p><form id="workspaceQuickComposer" style="display:grid;gap:12px">${definition.fields}<div class="qts-toolbar-row" style="justify-content:flex-end"><button type="button" class="action" id="quickComposerCancel">Cancelar</button><button type="submit" class="action primary">Salvar</button></div></form>`, onReady(body) {
+    body.querySelector("#quickComposerCancel").addEventListener("click", definition.reopen);
+    body.querySelector("#workspaceQuickComposer").addEventListener("submit", async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries()); state.workspace[definition.collection] = [...(state.workspace[definition.collection] || []), definition.build(values)]; state.workspace = await saveWorkspace(state.workspace); definition.reopen(); showQaToast("Item salvo e carregado no sidebar."); });
+  } });
+}
+
+function syncModeShortcutStates() {
+  const blurActive = state.blurSelectionActive === true;
+  const blurQuick = state.shadowRoot?.getElementById("blurQuickButton");
+  blurQuick?.classList.toggle("isActive", blurActive);
+  blurQuick?.setAttribute("aria-pressed", String(blurActive));
+  state.shadowRoot?.getElementById("blurElementsMenuItem")?.classList.toggle("isActive", blurActive);
+  const holofoteQuick = state.shadowRoot?.getElementById("holofoteQuickButton");
+  holofoteQuick?.classList.toggle("isActive", state.holofoteActive === true);
+  holofoteQuick?.setAttribute("aria-pressed", String(state.holofoteActive === true));
+}
+
+function armBlurSelection(onChanged) {
+  selectPageElement({
+    instruction: "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.",
+    onSelected: (element) => {
+      toggleElementBlur(element);
+      onChanged?.();
+      armBlurSelection(onChanged);
+    },
+    onCleanup: () => {
+      state.blurSelectionActive = false;
+      syncModeShortcutStates();
+    },
+  });
+  state.blurSelectionActive = true;
+  syncModeShortcutStates();
+}
+
+function toggleBlurSelectionMode() {
+  if (state.blurSelectionActive) {
+    cancelElementSelection();
+    state.blurSelectionActive = false;
+    syncModeShortcutStates();
+    return;
+  }
+  armBlurSelection();
+}
+
 function clearAllBlurredElements() {
   if (!state.blurredElements) return;
   for (const element of state.blurredElements) element.classList.remove("qts-blurred-element");
@@ -3805,22 +4299,33 @@ function clearAllBlurredElements() {
 function openBlurElementsTool() {
   openDrawer({
     title: "Borrar elementos",
-    bodyHtml: `<p class="qts-tool-lead">Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação. Clique de novo no mesmo elemento para desfazer.</p>
+    bodyHtml: `<p class="qts-tool-lead">Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação, ou clique com o botão direito num elemento e escolha "Borrar / desborrar este elemento" no menu QA Sandbox.</p>
       <div class="qts-card-actions"><button class="action primary" id="blurSelectElement" type="button">Selecionar elemento</button><button class="action" id="blurClearAll" type="button">Limpar todos os borrados</button></div>
-      <div class="qts-status" id="blurStatus"></div>`,
+      <div class="qts-status" id="blurStatus"></div>
+      <div class="qts-list" id="blurList"></div>`,
     onReady(body) {
       const status = body.querySelector("#blurStatus");
-      const updateStatus = () => {
-        const count = state.blurredElements?.size || 0;
-        status.textContent = count ? translateQaSurfaceText(`${count} elemento(s) borrado(s).`) : translateQaSurfaceText("Nenhum elemento borrado ainda.");
+      const list = body.querySelector("#blurList");
+      const render = () => {
+        const elements = [...(state.blurredElements || [])];
+        status.textContent = elements.length ? translateQaSurfaceText(`${elements.length} elemento(s) borrado(s).`) : translateQaSurfaceText("Nenhum elemento borrado ainda.");
+        list.innerHTML = elements.map((element, index) => `
+          <div class="qts-list-row" data-blur-row="${index}">
+            <span>${escapeHtml(describeElementForMacro(element))}</span>
+            <button type="button" data-blur-remove="${index}" title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button>
+          </div>
+        `).join("");
+        list.querySelectorAll("[data-blur-remove]").forEach((button) => {
+          button.addEventListener("click", () => {
+            const element = elements[Number(button.dataset.blurRemove)];
+            if (element) toggleElementBlur(element);
+            render();
+          });
+        });
       };
-      const armSelection = () => selectPageElement({
-        instruction: "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.",
-        onSelected: (element) => { toggleElementBlur(element); updateStatus(); armSelection(); },
-      });
-      body.querySelector("#blurSelectElement").addEventListener("click", armSelection);
-      body.querySelector("#blurClearAll").addEventListener("click", () => { clearAllBlurredElements(); updateStatus(); });
-      updateStatus();
+      body.querySelector("#blurSelectElement").addEventListener("click", () => armBlurSelection(render));
+      body.querySelector("#blurClearAll").addEventListener("click", () => { clearAllBlurredElements(); render(); });
+      render();
     },
   });
 }
@@ -3830,7 +4335,7 @@ function openBlurElementsTool() {
 // fade back out on release -- never preventDefault's the actual mousedown/mouseup/click, so the
 // page underneath keeps working normally the whole time (this is a passive visual layer, not a
 // selection mode like Borrar/Element Capture).
-const HOLOFOTE_HOLD_MS = 3_000;
+const HOLOFOTE_HOLD_MS = 2_000;
 const HOLOFOTE_FADE_MS = 3_000;
 let holofoteSettings = { effect: "darken", size: 140, opacity: 70, blur: 10 };
 let holofoteHoldTimer = null;
@@ -3863,41 +4368,67 @@ function moveHolofote(x, y) {
   overlay.style.setProperty("--qts-holofote-y", `${y}px`);
 }
 
+// Activation moved from click-and-hold to Ctrl-and-hold after founder feedback that click-hold
+// felt wrong for a passive visual aid (it competed with actually clicking things on the page).
+// Holding Ctrl has real collisions with browser/OS shortcuts (Ctrl+C, Ctrl+F, Ctrl+Tab...), so the
+// hold timer is cancelled the moment any other key goes down alongside it, or when focus is in a
+// text field where Ctrl shortcuts are routine — a stray shortcut should never light up the overlay.
+function isEditableFocus() {
+  const active = document.activeElement;
+  return Boolean(active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable));
+}
+
 function enableHolofoteMode() {
   if (state.holofoteActive) return;
   state.holofoteActive = true;
   state.shadowRoot?.getElementById("holofoteMenuItem")?.classList.add("isActive");
-  let heldSince = 0;
-  const downHandler = (event) => {
-    if (isInsideToolbarUi(event.target)) return;
-    heldSince = Date.now();
-    clearTimeout(holofoteFadeTimer);
-    moveHolofote(event.clientX, event.clientY);
-    holofoteHoldTimer = setTimeout(() => {
-      const overlay = ensureHolofoteOverlay();
-      applyHolofoteSettings(overlay);
-      overlay.style.transitionDuration = "220ms";
-      overlay.classList.add("isVisible");
-    }, HOLOFOTE_HOLD_MS);
-  };
-  const moveHandler = (event) => { if (heldSince) moveHolofote(event.clientX, event.clientY); };
-  const upHandler = () => {
+  syncModeShortcutStates();
+  let lastMouseX = window.innerWidth / 2;
+  let lastMouseY = window.innerHeight / 2;
+  const clearHold = () => {
     clearTimeout(holofoteHoldTimer);
-    heldSince = 0;
+    holofoteHoldTimer = null;
+  };
+  const fadeOut = () => {
     const overlay = document.getElementById("qts-holofote-overlay");
     if (overlay?.classList.contains("isVisible")) {
       overlay.style.transitionDuration = `${HOLOFOTE_FADE_MS}ms`;
       overlay.classList.remove("isVisible");
     }
   };
-  document.addEventListener("mousedown", downHandler, true);
+  const moveHandler = (event) => { lastMouseX = event.clientX; lastMouseY = event.clientY; moveHolofote(lastMouseX, lastMouseY); };
+  const keyDownHandler = (event) => {
+    if (event.key !== "Control" || event.repeat || holofoteHoldTimer || isEditableFocus()) return;
+    clearTimeout(holofoteFadeTimer);
+    holofoteHoldTimer = setTimeout(() => {
+      const overlay = ensureHolofoteOverlay();
+      applyHolofoteSettings(overlay);
+      moveHolofote(lastMouseX, lastMouseY);
+      overlay.style.transitionDuration = "220ms";
+      overlay.classList.add("isVisible");
+    }, HOLOFOTE_HOLD_MS);
+  };
+  // Any other key pressed while Ctrl is down means this is a real shortcut (Ctrl+C, Ctrl+F...),
+  // not someone holding Ctrl on its own to summon the spotlight — cancel the pending hold.
+  const otherKeyHandler = (event) => { if (event.key !== "Control" && event.ctrlKey) clearHold(); };
+  const keyUpHandler = (event) => {
+    if (event.key !== "Control") return;
+    clearHold();
+    fadeOut();
+  };
+  const blurHandler = () => { clearHold(); fadeOut(); };
   document.addEventListener("mousemove", moveHandler, true);
-  document.addEventListener("mouseup", upHandler, true);
+  document.addEventListener("keydown", keyDownHandler, true);
+  document.addEventListener("keydown", otherKeyHandler, true);
+  document.addEventListener("keyup", keyUpHandler, true);
+  window.addEventListener("blur", blurHandler);
   state.holofoteCleanup = () => {
-    document.removeEventListener("mousedown", downHandler, true);
     document.removeEventListener("mousemove", moveHandler, true);
-    document.removeEventListener("mouseup", upHandler, true);
-    clearTimeout(holofoteHoldTimer);
+    document.removeEventListener("keydown", keyDownHandler, true);
+    document.removeEventListener("keydown", otherKeyHandler, true);
+    document.removeEventListener("keyup", keyUpHandler, true);
+    window.removeEventListener("blur", blurHandler);
+    clearHold();
     document.getElementById("qts-holofote-overlay")?.classList.remove("isVisible");
   };
 }
@@ -3907,12 +4438,18 @@ function disableHolofoteMode() {
   state.shadowRoot?.getElementById("holofoteMenuItem")?.classList.remove("isActive");
   state.holofoteCleanup?.();
   state.holofoteCleanup = null;
+  syncModeShortcutStates();
+}
+
+function toggleHolofoteMode() {
+  if (state.holofoteActive) disableHolofoteMode();
+  else enableHolofoteMode();
 }
 
 function openHolofoteTool() {
   openDrawer({
     title: "Modo Holofote",
-    bodyHtml: `<p class="qts-tool-lead">Ative e segure o clique em qualquer ponto da página por 3 segundos para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar o clique apaga o holofote suavemente.</p>
+    bodyHtml: `<p class="qts-tool-lead">Ative e segure Ctrl por 2 segundos em qualquer momento para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar Ctrl apaga o holofote suavemente.</p>
       <div class="qts-card-actions"><button class="action ${state.holofoteActive ? "" : "primary"}" id="holofoteToggle" type="button">${state.holofoteActive ? "Desativar" : "Ativar"}</button></div>
       <label>Efeito<select id="holofoteEffect">
         <option value="darken">Escurecer</option>
@@ -4054,7 +4591,7 @@ function attachCharacterCounterBadge(element) {
   if (existingCleanup) { existingCleanup(); characterCounterOverlays.delete(element); return; }
   const badge = document.createElement("div");
   badge.className = "qts-floating-item qts-char-counter-badge";
-  badge.innerHTML = `<span data-count>0</span> car.<button type="button" class="qts-remove-btn" data-close aria-label="Remover">×</button>`;
+  badge.innerHTML = `<span data-count>0</span> car.<button type="button" class="qts-remove-btn" data-close aria-label="Remover">${ICON("fail")}</button>`;
   document.body.appendChild(badge);
   const reposition = () => {
     const rect = element.getBoundingClientRect();
@@ -4067,7 +4604,10 @@ function attachCharacterCounterBadge(element) {
     if (!badge.isConnected || !element.isConnected) { window.clearInterval(timer); characterCounterOverlays.delete(element); return; }
     reposition();
   }, 200);
-  const cleanup = () => { badge.remove(); window.clearInterval(timer); };
+  let fadeTimer = 0; let removeTimer = 0;
+  const cleanup = () => { badge.remove(); window.clearInterval(timer); window.clearTimeout(fadeTimer); window.clearTimeout(removeTimer); };
+  fadeTimer = window.setTimeout(() => badge.classList.add("isFading"), 4_000);
+  removeTimer = window.setTimeout(() => { cleanup(); characterCounterOverlays.delete(element); }, 5_000);
   badge.querySelector("[data-close]").addEventListener("click", () => { cleanup(); characterCounterOverlays.delete(element); });
   characterCounterOverlays.set(element, cleanup);
   reposition();
@@ -4098,7 +4638,7 @@ function openCharacterCounter(initialText = null) {
         instruction: "Clique num campo de texto da página para acompanhar a contagem ao lado dele.",
         onSelected: (element) => {
           attachCharacterCounterBadge(element);
-          showQaToast("Contador anexado ao campo. Clique no × do badge para remover.");
+          showQaToast("Contador anexado ao campo. Clique no botão Remover do indicador para excluí-lo.");
         },
       }));
       update();
@@ -4117,7 +4657,7 @@ function cancelElementSelection() {
 // smaller <input>) to still resolve to the real <input>, not reject it outright. Defaults to
 // identity so callers that already accept the raw target (Multiclick, Faker Fill's own
 // `.closest("form")` check) are unaffected.
-function selectPageElement({ accepts = () => true, resolve = (target) => target, onSelected, instruction }) {
+function selectPageElement({ accepts = () => true, resolve = (target) => target, onSelected, onCleanup, instruction }) {
   closeDrawer();
   cancelElementSelection();
   const style = document.createElement("style");
@@ -4141,6 +4681,7 @@ function selectPageElement({ accepts = () => true, resolve = (target) => target,
     document.removeEventListener("mouseover", onOver, true);
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("keydown", onKey, true);
+    onCleanup?.();
   };
   const onOver = (event) => {
     if (event.target.closest?.(`#${HOST_ID}`)) return;
@@ -4243,12 +4784,13 @@ function openFakerFill(selectedRoot = null) {
     title: "Faker Fill",
     bodyHtml: `<p class="qts-tool-lead">Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.</p>
       <div class="qts-card"><b>Escopo</b><p>${selectedRoot ? "Formulário selecionado" : "Página atual"}</p></div>
-      <div class="qts-card-actions"><button class="action" id="fakerSelectForm" type="button">Selecionar formulário</button><button class="action primary" id="fakerRun" type="button">Preencher agora</button></div><div class="qts-status" id="fakerStatus"></div>`,
+      <div class="qts-card-actions"><button class="action" id="fakerSelectForm" type="button">Selecionar formulário</button><button class="action primary" id="fakerRun" type="button">Preencher agora</button></div><div class="qts-status" id="fakerStatus"></div><div id="fakerReport"></div>`,
     onReady(body) {
       body.querySelector("#fakerSelectForm").addEventListener("click", () => selectPageElement({ accepts: (element) => Boolean(element.closest("form")), onSelected: (element) => openFakerFill(element.closest("form")), instruction: "Clique dentro do formulário que deseja preencher." }));
       body.querySelector("#fakerRun").addEventListener("click", () => {
         const result = window.QTS_QA_TOOLS.fillWithFakeData(selectedRoot || document);
         body.querySelector("#fakerStatus").textContent = `${result.filled} campo(s) preenchido(s); ${result.protectedCount} sensível(is) protegido(s).`;
+        body.querySelector("#fakerReport").innerHTML = result.fields?.length ? `<div class="qts-card" style="margin-top:12px"><b>Campos preenchidos</b><div class="qts-faker-report">${result.fields.map((field) => `<div class="qts-faker-report-row"><span><b>${escapeHtml(field.label)}</b><small>${escapeHtml(field.type)}</small></span><code>${escapeHtml(field.value)}</code></div>`).join("")}</div></div>` : `<div class="qts-mini-empty">Nenhum campo compatível e visível foi encontrado.</div>`;
       });
     },
   });
@@ -4290,7 +4832,7 @@ function showLocatorReveal(element, clientX, clientY) {
   panel.style.top = `${Math.max(getCurrentHeight() + 4, clientY)}px`;
   const sensitive = window.QTS_QA_TOOLS.isSensitiveElement(element);
   panel.innerHTML = `
-    <div class="qts-locator-head"><span>Locators</span><button type="button" class="qts-remove-btn" data-close title="${escapeHtml(state.t.remove)}">×</button></div>
+    <div class="qts-locator-head"><span>Locators</span><button type="button" class="qts-remove-btn" data-close title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button></div>
     <div class="qts-locator-body">
       ${sensitive ? `<p class="qts-locator-warning">${ICON("warning")} Campo sensível — valor não exibido.</p>` : ""}
       ${elementLocatorRows(element).map(([label, value]) => `<div class="qts-locator-row"><small>${escapeHtml(label)}</small><div class="qts-locator-value"><code>${escapeHtml(String(value))}</code><button type="button" class="qts-locator-copy" data-copy="${escapeHtml(String(value))}" title="Copiar">${ICON("copy")}</button></div></div>`).join("")}
@@ -4310,7 +4852,7 @@ function handleContextAction(action) {
     if (field && !window.QTS_QA_TOOLS.isSensitiveElement(field)) {
       if (!requirePlanFeature("characterCounter")) return;
       attachCharacterCounterBadge(field);
-      showQaToast("Contador anexado ao campo. Clique no × do badge para remover.");
+      showQaToast("Contador anexado ao campo. Clique no botão Remover do indicador para excluí-lo.");
       return;
     }
     openCharacterCounter(String(target?.innerText || target?.textContent || "").trim());
@@ -4336,6 +4878,15 @@ function handleContextAction(action) {
   }
   if (action === "check-limits") {
     openInputLab(resolveFormControlTarget(target));
+  }
+  if (action === "multi-click") {
+    if (!target) { showQaToast("Nenhum elemento selecionado.", "error"); return; }
+    openMultiClick(target);
+  }
+  if (action === "toggle-blur") {
+    if (!target) { showQaToast("Nenhum elemento selecionado.", "error"); return; }
+    toggleElementBlur(target);
+    showQaToast(target.classList.contains("qts-blurred-element") ? "Elemento borrado." : "Borrão removido do elemento.");
   }
 }
 
@@ -4369,7 +4920,7 @@ function renderMacroHistoryPanel() {
   if (!panel) return;
   const steps = state.macroRecording?.steps || [];
   panel.innerHTML = steps.length
-    ? steps.map((step, index) => `<div class="qts-macro-hist-row"><span>${index + 1}. ${escapeHtml(macroStepLabel(step))}</span><button type="button" data-remove-history-step="${index}" title="Remover esta ação">×</button></div>`).join("")
+    ? steps.map((step, index) => `<div class="qts-macro-hist-row"><span>${index + 1}. ${escapeHtml(macroStepLabel(step))}</span><button type="button" data-remove-history-step="${index}" title="Remover esta ação">${ICON("fail")}</button></div>`).join("")
     : `<div class="qts-macro-hist-empty">Nenhuma ação gravada ainda.</div>`;
   panel.querySelectorAll("[data-remove-history-step]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -4525,7 +5076,7 @@ function macroStepFields(step) {
 
 function renderMacroFlow(container, steps, refreshCode) {
   const actions = [["click", "Clique"], ["fill", "Escrever"], ["select", "Selecionar"], ["check", "Checkbox"], ["press", "Tecla"], ["wait", "Esperar"], ["scroll", "Scroll"], ["multiClick", "Multiclick"], ["fakerFill", "Faker Fill"]];
-  container.innerHTML = steps.length ? steps.map((step, index) => `<div class="qts-step" draggable="true" data-step-index="${index}"><span class="qts-step-index">${index + 1}</span><select data-field="action">${actions.map(([value, label]) => `<option value="${value}" ${step.action === value ? "selected" : ""}>${label}</option>`).join("")}</select><div data-step-fields>${macroStepFields(step)}</div><button class="qts-icon-btn" type="button" data-remove-step title="Remover">×</button></div>`).join("") : `<div class="qts-empty">Arraste uma função para cá ou clique em uma opção da paleta.</div>`;
+  container.innerHTML = steps.length ? steps.map((step, index) => `<div class="qts-step" draggable="true" data-step-index="${index}"><span class="qts-step-index">${index + 1}</span><select data-field="action">${actions.map(([value, label]) => `<option value="${value}" ${step.action === value ? "selected" : ""}>${label}</option>`).join("")}</select><div data-step-fields>${macroStepFields(step)}</div><button class="qts-icon-btn" type="button" data-remove-step title="Remover">${ICON("fail")}</button></div>`).join("") : `<div class="qts-empty">Arraste uma função para cá ou clique em uma opção da paleta.</div>`;
   container.querySelectorAll("[data-step-index]").forEach((row) => {
     const index = Number(row.dataset.stepIndex);
     row.addEventListener("dragstart", (event) => event.dataTransfer.setData("text/qts-step", String(index)));
@@ -4672,15 +5223,18 @@ document.addEventListener("qts:force-http-state", (event) => {
 // stop, download as MP4 when the browser's MediaRecorder supports it,
 // falling back to WebM otherwise (documented limitation, not a silent one —
 // the download filename extension always matches what was actually
-// recorded). GIF/Convertio conversion is a follow-up, not required to
-// produce usable evidence today.
+// recorded). GIF capture uses a local bounded encoder and 15-second standalone segments.
 // ---------------------------------------------------------------------------
 
 const RECORD_PART_DURATION_MS = 30_000;
+const GIF_PART_DURATION_MS = 15_000;
+const GIF_FPS = 5;
+const GIF_MAX_WIDTH = 640;
+const GIF_MAX_HEIGHT = 360;
 
 const recordingState = {
   status: "idle", // idle | recording | paused
-  mode: "video", // video | parts (parts = 30s chunks, zipped together if more than one)
+  mode: "video", // video | parts | gif
   stream: null,
   recorder: null,
   chunks: [],
@@ -4690,11 +5244,147 @@ const recordingState = {
   segmentStartedAt: 0,
   timerId: null,
   partTimerId: null,
+  gifVideo: null,
+  gifCanvas: null,
+  gifEncoder: null,
+  gifCaptureId: null,
+  gifSegmentStartedAt: 0,
+  gifLastFrameAt: 0,
+  gifPausedAt: 0,
 };
 
 function pickRecordingMimeType() {
-  const candidates = ["video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
+  const candidates = ["video/mp4;codecs=avc1.42E01E", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
   return candidates.find((type) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) || "";
+}
+
+const STEPS_COPY = {
+  "pt-BR": { title: "Gravador de Passos", intro: "Documente o caminho executado e o resultado esperado de cada etapa.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Início — Tela atual", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher", select: "Selecionar", check: "Marcar", uncheck: "Desmarcar", submit: "Submeter", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "Resultado esperado", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado" },
+  "es": { title: "Grabador de pasos", intro: "Documenta el camino ejecutado y el resultado esperado de cada etapa.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Inicio — Pantalla actual", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar", select: "Seleccionar", check: "Marcar", uncheck: "Desmarcar", submit: "Enviar", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Resultado esperado", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado" },
+  "en": { title: "Step Recorder", intro: "Document the path taken and the expected result of each step.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "Start — Current screen", click: "Click", contextmenu: "Right-click", input: "Fill", select: "Select", check: "Check", uncheck: "Uncheck", submit: "Submit", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "Expected result", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result" },
+};
+
+function stepsCopy() {
+  const language = state.workspace?.preferences?.language || "pt-BR";
+  return STEPS_COPY[language] || STEPS_COPY[language.split("-")[0]] || STEPS_COPY["pt-BR"];
+}
+
+function stepsTargetName(element) {
+  const target = element instanceof Element ? element : null;
+  if (!target) return "elemento";
+  const label = target.labels?.[0]?.innerText || target.getAttribute("aria-label") || target.getAttribute("title") || target.innerText || target.getAttribute("placeholder") || target.name || target.id || target.tagName.toLowerCase();
+  return String(label).replace(/\s+/g, " ").trim().slice(0, 120) || "elemento";
+}
+
+function makeDocumentedStep(action, text, source = "recorded") {
+  return { id: crypto.randomUUID(), keyword: action === "start" ? "given" : "when", action, text: String(text).slice(0, 500), expectedResult: "", url: safeCurrentUrl(), createdAt: new Date().toISOString(), source };
+}
+
+function appendDocumentedStep(step) {
+  const recording = state.stepsRecording;
+  if (!recording || recording.paused || recording.steps.length >= 200) return;
+  const previous = recording.steps.at(-1);
+  if (previous && previous.action === step.action && previous.targetKey && previous.targetKey === step.targetKey && step.action === "input") Object.assign(previous, step, { id: previous.id });
+  else recording.steps.push(step);
+  recording.lastActionAt = Date.now();
+  updateStepsRecordingUi();
+}
+
+function updateStepsRecordingUi() {
+  const root = state.shadowRoot;
+  if (!root) return;
+  const recording = state.stepsRecording;
+  const bar = root.getElementById("stepsRecordingBar");
+  bar?.classList.toggle("isHidden", !recording);
+  if (!recording) { root.getElementById("stepsRecHistoryPanel")?.classList.add("isHidden"); return; }
+  bar.classList.toggle("isPaused", recording.paused);
+  root.getElementById("stepsRecCount").textContent = String(recording.steps.length);
+  const pause = root.getElementById("stepsRecPauseButton");
+  pause.innerHTML = recording.paused ? ICON("play") : ICON("pause");
+  if (!root.getElementById("stepsRecHistoryPanel").classList.contains("isHidden")) renderStepsHistory();
+}
+
+function renderStepsHistory() {
+  const panel = state.shadowRoot?.getElementById("stepsRecHistoryPanel");
+  if (!panel) return;
+  const steps = state.stepsRecording?.steps || [];
+  panel.innerHTML = steps.map((step, index) => `<div class="qts-macro-hist-row"><span>${index + 1}. ${escapeHtml(step.text)}</span></div>`).join("") || `<div class="qts-macro-hist-empty">${escapeHtml(stepsCopy().empty)}</div>`;
+}
+
+function toggleStepsHistory() { const panel = state.shadowRoot?.getElementById("stepsRecHistoryPanel"); if (!panel) return; panel.classList.toggle("isHidden"); renderStepsHistory(); }
+function toggleStepsPause() { if (!state.stepsRecording) return; state.stepsRecording.paused = !state.stepsRecording.paused; updateStepsRecordingUi(); showQaToast(state.stepsRecording.paused ? stepsCopy().paused : stepsCopy().resumed); }
+function undoStepsRecording() { state.stepsRecording?.steps.pop(); updateStepsRecordingUi(); }
+function cancelStepsRecording() { if (!state.stepsRecording || !confirm(stepsCopy().discard)) return; state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); }
+
+function startStepsRecording({ name, mode }) {
+  if (!requirePlanFeature("stepsRecorder") || state.stepsRecording) return;
+  closeDrawer();
+  const copy = stepsCopy();
+  const inputTimers = new WeakMap();
+  const addInput = (element) => {
+    if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) return;
+    const sensitive = window.QTS_QA_TOOLS.isSensitiveElement(element);
+    const targetName = stepsTargetName(element);
+    const action = element instanceof HTMLSelectElement ? "select" : "input";
+    const value = sensitive ? "" : String(element.value || "").slice(0, 160);
+    const text = sensitive ? copy.protected : `${action === "select" ? copy.select : copy.input} ${targetName}${value ? `: ${value}` : ""}`;
+    appendDocumentedStep({ ...makeDocumentedStep(action, text), targetKey: window.QTS_QA_TOOLS.uniqueSelector(element) || targetName });
+  };
+  const onInput = (event) => { const element = event.target; clearTimeout(inputTimers.get(element)); inputTimers.set(element, setTimeout(() => addInput(element), 350)); };
+  const onChange = (event) => {
+    const element = event.target;
+    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) appendDocumentedStep(makeDocumentedStep("check", `${element.checked ? copy.check : copy.uncheck} ${stepsTargetName(element)}`));
+    else addInput(element);
+  };
+  const onClick = (event) => { const element = event.target; if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || element.matches("input,textarea,select,option")) return; const target = element.closest("button,a,[role=button],label") || element; const label = stepsTargetName(target); const submit = target.matches("button[type=submit],input[type=submit]"); appendDocumentedStep(makeDocumentedStep(submit ? "submit" : "click", `${submit ? copy.submit : copy.click} ${label}`)); };
+  const onContext = (event) => { const element = event.target; if (element instanceof Element && !element.closest(`#${HOST_ID}`)) appendDocumentedStep(makeDocumentedStep("contextmenu", `${copy.contextmenu} ${stepsTargetName(element)}`)); };
+  const onSubmit = (event) => appendDocumentedStep(makeDocumentedStep("submit", `${copy.submit} ${stepsTargetName(event.target)}`));
+  const onKey = (event) => { if (["Enter", "Tab"].includes(event.key) && event.target instanceof Element && !window.QTS_QA_TOOLS.isSensitiveElement(event.target)) appendDocumentedStep(makeDocumentedStep("key", `${copy.key} ${event.key} — ${stepsTargetName(event.target)}`)); };
+  const onNavigate = () => appendDocumentedStep(makeDocumentedStep("navigation", `${copy.navigation} ${document.title || safeCurrentUrl()}`));
+  const resultObserver = new MutationObserver((mutations) => {
+    const recording = state.stepsRecording;
+    if (!recording || recording.paused || Date.now() - Number(recording.lastActionAt || 0) > 3_000) return;
+    const step = recording.steps.at(-1);
+    if (!step || step.action === "start" || step.expectedResult) return;
+    for (const mutation of mutations) {
+      const raw = mutation.target instanceof Element ? mutation.target : mutation.target.parentElement;
+      const candidate = raw?.closest?.('[role="alert"],[role="status"],[aria-live],.alert,.toast,.notification,.success,.error,#output') || [...mutation.addedNodes].find(node => node instanceof Element && node.innerText?.trim());
+      if (!(candidate instanceof Element) || candidate.closest(`#${HOST_ID}`) || window.QTS_QA_TOOLS.isSensitiveElement(candidate)) continue;
+      const style = getComputedStyle(candidate); const rect = candidate.getBoundingClientRect();
+      if (style.display === "none" || style.visibility === "hidden" || rect.width < 1 || rect.height < 1) continue;
+      const result = String(candidate.innerText || candidate.textContent || "").replace(/\s+/g, " ").trim().slice(0, 500);
+      if (result.length < 2 || result === step.text) continue;
+      step.expectedResult = result;
+      updateStepsRecordingUi();
+      break;
+    }
+  });
+  document.addEventListener("input", onInput, true); document.addEventListener("change", onChange, true); document.addEventListener("click", onClick, true); document.addEventListener("contextmenu", onContext, true); document.addEventListener("submit", onSubmit, true); document.addEventListener("keydown", onKey, true); window.addEventListener("popstate", onNavigate); window.addEventListener("hashchange", onNavigate); resultObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
+  state.stepsRecording = { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", paused: false, lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start}: ${document.title || safeCurrentUrl()}`)], cleanup() { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); } };
+  updateStepsRecordingUi(); showQaToast(copy.recording);
+}
+
+function stopStepsRecording() { const recording = state.stepsRecording; if (!recording) return; recording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); openStepsEditor({ id: recording.id, name: recording.name, mode: recording.mode, locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: recording.steps }); }
+
+function csvCell(value) { let text = String(value ?? "").replace(/^([=+\-@\t\r])/, "'$1"); return `"${text.replaceAll('"', '""')}"`; }
+function exportStepsCsv(recording) { const copy = stepsCopy(); const keywords = { given: ["Dado que", "Dado que", "Given"], and: ["E", "Y", "And"], when: ["Quando", "Cuando", "When"], then: ["Então", "Entonces", "Then"] }; const localeIndex = (state.workspace.preferences.language || "pt-BR").startsWith("en") ? 2 : (state.workspace.preferences.language || "").startsWith("es") ? 1 : 0; const rows = [["id", copy.csvSteps, copy.csvExpected], ...recording.steps.map((step, index) => [index + 1, `${recording.mode === "gherkin" ? `${keywords[step.keyword]?.[localeIndex] || keywords.when[localeIndex]} ` : ""}${step.text}`, step.expectedResult])]; const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`; const filename = String(recording.name || copy.title).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 100) || "passos"; triggerBlobDownload(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${filename}-passos.csv`); }
+
+function openStepsEditor(recording) {
+  const copy = stepsCopy(); const draft = structuredClone(recording); draft.steps ||= [];
+  const renderRows = (body) => { const list = body.querySelector("#stepsEditorList"); list.innerHTML = draft.steps.map((step, index) => `<article class="qts-card" data-doc-step="${index}"><div class="qts-toolbar-row"><b>${index + 1}.</b><select data-step-keyword ${draft.mode === "gherkin" ? "" : "hidden"}>${[["given","Dado que / Given"],["and","E / And"],["when","Quando / When"],["then","Então / Then"]].map(([value,label]) => `<option value="${value}" ${step.keyword === value ? "selected" : ""}>${label}</option>`).join("")}</select><input data-step-text value="${escapeHtml(step.text)}" style="flex:1"/><button class="action" data-duplicate-step type="button">${escapeHtml(copy.duplicate)}</button><button class="action" data-remove-step type="button">${escapeHtml(copy.remove)}</button></div><details><summary>${escapeHtml(copy.expected)}</summary><textarea data-step-expected rows="2" placeholder="${escapeHtml(copy.expected)}">${escapeHtml(step.expectedResult || "")}</textarea></details></article>`).join("") || `<div class="qts-empty">${escapeHtml(copy.empty)}</div>`; list.querySelectorAll("[data-doc-step]").forEach((row) => { const index = Number(row.dataset.docStep); row.querySelector("[data-step-text]").addEventListener("input", e => draft.steps[index].text = e.target.value.slice(0,500)); row.querySelector("[data-step-expected]").addEventListener("input", e => draft.steps[index].expectedResult = e.target.value.slice(0,2000)); row.querySelector("[data-step-keyword]").addEventListener("change", e => draft.steps[index].keyword = e.target.value); row.querySelector("[data-remove-step]").addEventListener("click", () => { draft.steps.splice(index,1); renderRows(body); }); row.querySelector("[data-duplicate-step]").addEventListener("click", () => { draft.steps.splice(index+1,0,{...structuredClone(draft.steps[index]),id:crypto.randomUUID(),source:"manual"}); renderRows(body); }); }); };
+  openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<div class="qts-toolbar-row"><button id="stepsBack" class="action" type="button">${escapeHtml(copy.back)}</button><input id="stepsName" value="${escapeHtml(draft.name || "")}" placeholder="${escapeHtml(copy.name)}" style="flex:1"/><select id="stepsMode"><option value="numbered" ${draft.mode !== "gherkin" ? "selected" : ""}>${escapeHtml(copy.numbered)}</option><option value="gherkin" ${draft.mode === "gherkin" ? "selected" : ""}>${escapeHtml(copy.gherkin)}</option></select><button id="stepsExport" class="action" type="button">${escapeHtml(copy.export)}</button><button id="stepsSave" class="action primary" type="button">${escapeHtml(copy.save)}</button></div><div id="stepsEditorList"></div><button id="stepsAdd" class="action" type="button">+ ${escapeHtml(copy.add)}</button>`, onReady(body) { renderRows(body); body.querySelector("#stepsBack").addEventListener("click", openStepsRecorder); body.querySelector("#stepsMode").addEventListener("change", e => { draft.mode=e.target.value; renderRows(body); }); body.querySelector("#stepsAdd").addEventListener("click", () => { draft.steps.push(makeDocumentedStep("manual", "", "manual")); renderRows(body); }); body.querySelector("#stepsExport").addEventListener("click", () => { draft.name=body.querySelector("#stepsName").value; exportStepsCsv(draft); }); body.querySelector("#stepsSave").addEventListener("click", async () => { draft.name=body.querySelector("#stepsName").value.trim() || copy.title; draft.updatedAt=new Date().toISOString(); const index=(state.workspace.stepRecordings || []).findIndex(item=>item.id===draft.id); if(index>=0) state.workspace.stepRecordings[index]=draft; else state.workspace.stepRecordings.push(draft); await persistWorkspaceState(); openStepsRecorder(); showQaToast(copy.saved); }); } });
+}
+
+function openStepsRecorder() {
+  if (!requirePlanFeature("stepsRecorder")) return; const copy=stepsCopy(); const recordings=state.workspace.stepRecordings || [];
+  openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<p class="qts-tool-lead">${escapeHtml(copy.intro)}</p><div class="qts-toolbar-row"><input id="newStepsName" placeholder="${escapeHtml(copy.name)}"/><select id="newStepsMode"><option value="numbered">${escapeHtml(copy.numbered)}</option><option value="gherkin">${escapeHtml(copy.gherkin)}</option></select><button id="startSteps" class="action primary" type="button">${ICON("recordStart")} ${escapeHtml(copy.record)}</button><button id="manualSteps" class="action" type="button">+ ${escapeHtml(copy.manual)}</button></div><div id="stepsList">${recordings.length ? recordings.map(item=>`<article class="qts-card" data-recording-id="${escapeHtml(item.id)}"><div class="qts-card-head"><b>${escapeHtml(item.name)}</b><small>${item.steps.length} ${escapeHtml(copy.steps)}</small></div><div class="qts-card-actions"><button class="action" data-action="edit">${escapeHtml(copy.edit)}</button><button class="action" data-action="export">${escapeHtml(copy.export)}</button><button class="action" data-action="delete">${escapeHtml(copy.remove)}</button></div></article>`).join("") : `<div class="qts-empty">${escapeHtml(copy.empty)}</div>`}</div>`, onReady(body) { const data=()=>({name:body.querySelector("#newStepsName").value.trim()||`${copy.title} ${new Date().toLocaleTimeString().slice(0,5)}`,mode:body.querySelector("#newStepsMode").value}); body.querySelector("#startSteps").addEventListener("click",()=>startStepsRecording(data())); body.querySelector("#manualSteps").addEventListener("click",()=>openStepsEditor({id:crypto.randomUUID(),...data(),locale:state.workspace.preferences.language,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),steps:[]})); body.querySelectorAll("[data-recording-id]").forEach(card=>card.addEventListener("click",async event=>{const action=event.target.dataset.action;if(!action)return;const item=state.workspace.stepRecordings.find(value=>value.id===card.dataset.recordingId);if(action==="edit")openStepsEditor(item);if(action==="export")exportStepsCsv(item);if(action==="delete"&&confirm(copy.delete)){state.workspace.stepRecordings=state.workspace.stepRecordings.filter(value=>value.id!==item.id);await persistWorkspaceState();openStepsRecorder();}})); } });
+}
+
+function createEvidenceMediaRecorder(stream, mimeType) {
+  return new MediaRecorder(stream, {
+    ...(mimeType ? { mimeType } : {}),
+    videoBitsPerSecond: 4_000_000,
+  });
 }
 
 function formatDuration(ms) {
@@ -4767,15 +5457,65 @@ async function rotateRecordingSegment() {
   recordingState.parts.push(new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" }));
   recordingState.chunks = [];
   if (recordingState.status !== "recording") return;
-  recordingState.recorder = new MediaRecorder(recordingState.stream, recordingState.mimeType ? { mimeType: recordingState.mimeType } : undefined);
+  recordingState.recorder = createEvidenceMediaRecorder(recordingState.stream, recordingState.mimeType);
   recordingState.recorder.addEventListener("dataavailable", (event) => {
     if (event.data?.size) recordingState.chunks.push(event.data);
   });
-  recordingState.recorder.start(1000);
+  // Do not request one Blob every second. In Chromium's MP4 recorder those are media fragments;
+  // rebuilding a file by concatenating them can leave duration/index metadata unusable in common
+  // players. Let stop() finalize one complete, seekable container for each recording segment.
+  recordingState.recorder.start();
+}
+
+function stopGifCaptureTimer() {
+  if (recordingState.gifCaptureId) window.clearTimeout(recordingState.gifCaptureId);
+  recordingState.gifCaptureId = null;
+}
+
+function createGifEncoder() {
+  return new window.QTS_GIF.GifEncoder(recordingState.gifCanvas.width, recordingState.gifCanvas.height, Math.round(100 / GIF_FPS));
+}
+
+function captureGifFrame() {
+  if (recordingState.status !== "recording" || recordingState.mode !== "gif") return;
+  const started = performance.now();
+  const canvas = recordingState.gifCanvas;
+  const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
+  context.drawImage(recordingState.gifVideo, 0, 0, canvas.width, canvas.height);
+  const now = Date.now();
+  const delayCs = recordingState.gifLastFrameAt ? Math.round((now - recordingState.gifLastFrameAt) / 10) : Math.round(100 / GIF_FPS);
+  recordingState.gifEncoder.addFrame(context.getImageData(0, 0, canvas.width, canvas.height), delayCs);
+  recordingState.gifLastFrameAt = now;
+  if (Date.now() - recordingState.gifSegmentStartedAt >= GIF_PART_DURATION_MS) {
+    recordingState.parts.push(recordingState.gifEncoder.finish());
+    recordingState.gifEncoder = createGifEncoder();
+    recordingState.gifSegmentStartedAt = Date.now();
+    recordingState.gifLastFrameAt = 0;
+  }
+  // Serial scheduling provides backpressure: a slow device drops capture FPS instead of piling up
+  // callbacks and exhausting the page's memory. The GIF remains playable at its declared cadence.
+  const remaining = Math.max(0, 1000 / GIF_FPS - (performance.now() - started));
+  recordingState.gifCaptureId = window.setTimeout(captureGifFrame, remaining);
+}
+
+async function initializeGifCapture(stream) {
+  if (!window.QTS_GIF?.GifEncoder) throw new Error("GIF encoder unavailable");
+  const video = document.createElement("video");
+  video.muted = true; video.playsInline = true; video.srcObject = stream;
+  await video.play();
+  const scale = Math.min(1, GIF_MAX_WIDTH / video.videoWidth, GIF_MAX_HEIGHT / video.videoHeight);
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.max(2, Math.round(video.videoWidth * scale / 2) * 2);
+  canvas.height = Math.max(2, Math.round(video.videoHeight * scale / 2) * 2);
+  recordingState.gifVideo = video;
+  recordingState.gifCanvas = canvas;
+  recordingState.gifEncoder = createGifEncoder();
+  recordingState.gifSegmentStartedAt = Date.now();
+  recordingState.gifLastFrameAt = 0;
 }
 
 async function startEvidenceRecording(mode = "video") {
-  if (!navigator.mediaDevices?.getDisplayMedia || typeof MediaRecorder === "undefined") {
+  if (!navigator.mediaDevices?.getDisplayMedia || (mode !== "gif" && typeof MediaRecorder === "undefined")) {
     openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
     return;
   }
@@ -4792,43 +5532,105 @@ async function startEvidenceRecording(mode = "video") {
   recordingState.parts = [];
   recordingState.mimeType = mimeType;
   recordingState.elapsedMs = 0;
-  recordingState.recorder = new MediaRecorder(stream, mimeType ? { mimeType } : undefined);
-  recordingState.recorder.addEventListener("dataavailable", (event) => {
-    if (event.data?.size) recordingState.chunks.push(event.data);
-  });
+  if (mode === "gif") {
+    try { await initializeGifCapture(stream); }
+    catch (error) {
+      stream.getTracks().forEach((track) => track.stop());
+      openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(error.message)}</p>` });
+      return;
+    }
+    recordingState.recorder = null;
+  } else {
+    recordingState.recorder = createEvidenceMediaRecorder(stream, mimeType);
+    recordingState.mimeType = recordingState.recorder.mimeType || mimeType;
+    recordingState.recorder.addEventListener("dataavailable", (event) => {
+      if (event.data?.size) recordingState.chunks.push(event.data);
+    });
+  }
   stream.getVideoTracks()[0]?.addEventListener("ended", () => {
     if (recordingState.status !== "idle") stopEvidenceRecording();
   }, { once: true });
 
-  recordingState.recorder.start(1000);
   recordingState.status = "recording";
   recordingState.segmentStartedAt = Date.now();
+  if (mode === "gif") captureGifFrame();
+  else recordingState.recorder.start();
   recordingState.timerId = window.setInterval(updateRecordTimerDisplay, 500);
   startPartRotationTimer();
   setRecordingUi();
 }
 
 function pauseEvidenceRecording() {
-  if (recordingState.status !== "recording" || !recordingState.recorder) return;
-  recordingState.recorder.pause();
+  if (recordingState.status !== "recording") return;
+  if (recordingState.mode === "gif") stopGifCaptureTimer();
+  else if (recordingState.recorder) recordingState.recorder.pause();
   recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
   recordingState.status = "paused";
+  if (recordingState.mode === "gif") recordingState.gifPausedAt = Date.now();
   stopPartRotationTimer();
   setRecordingUi();
 }
 
 function resumeEvidenceRecording() {
-  if (recordingState.status !== "paused" || !recordingState.recorder) return;
-  recordingState.recorder.resume();
+  if (recordingState.status !== "paused") return;
+  if (recordingState.mode !== "gif" && recordingState.recorder) recordingState.recorder.resume();
   recordingState.segmentStartedAt = Date.now();
   recordingState.status = "recording";
+  if (recordingState.mode === "gif") {
+    recordingState.gifSegmentStartedAt += Date.now() - recordingState.gifPausedAt;
+    recordingState.gifPausedAt = 0;
+    recordingState.gifLastFrameAt = 0;
+    captureGifFrame();
+  }
   startPartRotationTimer();
   setRecordingUi();
 }
 
-function recordingFileBaseName() {
-  const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-  return `${state.t.recordFilenamePrefix || "evidencia_tela"}_${stamp}`;
+// Screen name segment: the current page's own URL path is a far more stable, meaningful label
+// than the page <title> (which often carries a site name/suffix noise), and matches what testers
+// actually think of as "which screen was this evidence from" (e.g. "/checkout" -> "checkout").
+function currentScreenNameSlug() {
+  const path = window.location.pathname.replace(/\/+$/, "");
+  const segments = path.split("/").filter(Boolean);
+  const last = segments[segments.length - 1] || "";
+  const slug = last.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug || "pagina";
+}
+
+function compactTimestamp() {
+  const now = new Date();
+  const pad = (value) => String(value).padStart(2, "0");
+  return `${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}${pad(now.getHours())}${pad(now.getMinutes())}${pad(now.getSeconds())}`;
+}
+
+// evidencia_{status}_{tela}_{yyyyMMddHHmmss} (status segment only present when one was actually
+// attributed to this specific piece of evidence -- never guessed, never left stale from an
+// unrelated earlier action).
+function buildEvidenceFileBaseName(statusKey) {
+  const prefix = state.t.recordFilenamePrefix || "evidencia";
+  const segments = [prefix];
+  if (statusKey) segments.push(statusKey);
+  segments.push(currentScreenNameSlug());
+  segments.push(compactTimestamp());
+  return segments.join("_");
+}
+
+// Fallback for evidence captured without the forced status-reminder flow (screenshots always,
+// recordings when the "lembrar de atribuir status" preference is off): reuses a status the user
+// already marked on this exact page moments ago instead of just leaving the filename unlabeled,
+// but only if it's recent and for this URL -- a stale or unrelated status must never get attached.
+async function resolveRecentStatusKeyForCurrentPage() {
+  try {
+    const stored = await chrome.storage.local.get(TEST_STATUS_HISTORY_KEY);
+    const history = Array.isArray(stored[TEST_STATUS_HISTORY_KEY]) ? stored[TEST_STATUS_HISTORY_KEY] : [];
+    const latest = history[0];
+    if (!latest || latest.url !== window.location.href) return null;
+    const ageMs = Date.now() - new Date(latest.at).getTime();
+    if (!Number.isFinite(ageMs) || ageMs < 0 || ageMs > 5 * 60_000) return null;
+    return latest.status || null;
+  } catch {
+    return null;
+  }
 }
 
 function triggerBlobDownload(blob, filename) {
@@ -4843,8 +5645,8 @@ function triggerBlobDownload(blob, filename) {
 // Single segment downloads directly; 2+ segments (mode "parts", recording longer than 30s) get
 // packaged into one .zip via window.QTS_ZIP so the user gets one file to attach as evidence
 // instead of a scattered pile of part1/part2/... downloads.
-async function downloadRecordingResult(parts, extension) {
-  const baseName = recordingFileBaseName();
+async function downloadRecordingResult(parts, extension, statusKey) {
+  const baseName = buildEvidenceFileBaseName(statusKey);
   if (parts.length <= 1) {
     triggerBlobDownload(parts[0], `${baseName}.${extension}`);
     return;
@@ -4857,34 +5659,58 @@ async function downloadRecordingResult(parts, extension) {
   triggerBlobDownload(window.QTS_ZIP.createZip(files), `${baseName}.zip`);
 }
 
+async function recordingContainerExtension(blob) {
+  const header = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
+  const ascii = String.fromCharCode(...header);
+  // ISO Base Media File Format starts with a size followed by the `ftyp` box. This verifies the
+  // bytes instead of trusting a requested MIME type that a browser may silently substitute.
+  if (header.length >= 12 && ascii.slice(4, 8) === "ftyp") return "mp4";
+  // WebM is EBML (1A 45 DF A3). Never label this output .mp4.
+  if (header[0] === 0x1a && header[1] === 0x45 && header[2] === 0xdf && header[3] === 0xa3) return "webm";
+  return "webm";
+}
+
 // Entry point for the visible Stop button (as opposed to the native "stop sharing" bar, which
 // ends the capture source itself and calls stopEvidenceRecording directly below — forcing the
 // status modal there would be pointless since there'd be nothing left to actually capture).
 function handleStopRecordingClick() {
   if (state.workspace?.preferences?.remindTestStatusOnRecording && recordingState.status !== "idle") {
-    openTestStatusModal({ forced: true, onDone: () => stopEvidenceRecording() });
+    openTestStatusModal({ forced: true, onDone: (option) => stopEvidenceRecording(option.key) });
     return;
   }
   stopEvidenceRecording();
 }
 
-async function stopEvidenceRecording() {
-  if (recordingState.status === "idle" || !recordingState.recorder) return;
+async function stopEvidenceRecording(statusKey) {
+  if (!["recording", "paused"].includes(recordingState.status) || (!recordingState.recorder && recordingState.mode !== "gif")) return;
   stopPartRotationTimer();
+  stopGifCaptureTimer();
   const recorder = recordingState.recorder;
   if (recordingState.status === "recording") recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
+  recordingState.status = "stopping";
   window.clearInterval(recordingState.timerId);
   recordingState.timerId = null;
 
-  const stopped = new Promise((resolveStop) => recorder.addEventListener("stop", resolveStop, { once: true }));
-  recorder.stop();
-  await stopped;
+  if (recorder) {
+    const stopped = new Promise((resolveStop) => recorder.addEventListener("stop", resolveStop, { once: true }));
+    recorder.stop();
+    await stopped;
+  }
   recordingState.stream?.getTracks().forEach((track) => track.stop());
 
-  const finalBlob = new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" });
-  const extension = (recordingState.mimeType || "").includes("mp4") ? "mp4" : "webm";
-  const parts = recordingState.mode === "parts" ? [...recordingState.parts, finalBlob] : [finalBlob];
-  await downloadRecordingResult(parts, extension);
+  const isGif = recordingState.mode === "gif";
+  const finalBlob = isGif
+    ? (recordingState.gifEncoder.frameCount ? recordingState.gifEncoder.finish() : null)
+    : new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" });
+  const parts = (recordingState.mode === "parts" || isGif) ? [...recordingState.parts, finalBlob] : [finalBlob];
+  const nonEmptyParts = parts.filter((blob) => blob?.size > 50);
+  if (nonEmptyParts.length) {
+    const extension = isGif ? "gif" : await recordingContainerExtension(finalBlob);
+    const resolvedStatusKey = statusKey || await resolveRecentStatusKeyForCurrentPage();
+    await downloadRecordingResult(nonEmptyParts, extension, resolvedStatusKey);
+  } else {
+    showQaToast("A gravação terminou antes de capturar um quadro válido.", "error");
+  }
 
   recordingState.status = "idle";
   recordingState.mode = "video";
@@ -4892,6 +5718,12 @@ async function stopEvidenceRecording() {
   recordingState.stream = null;
   recordingState.chunks = [];
   recordingState.parts = [];
+  if (recordingState.gifVideo) { recordingState.gifVideo.srcObject = null; recordingState.gifVideo.remove(); }
+  recordingState.gifVideo = null;
+  recordingState.gifCanvas = null;
+  recordingState.gifEncoder = null;
+  recordingState.gifLastFrameAt = 0;
+  recordingState.gifPausedAt = 0;
   recordingState.elapsedMs = 0;
   setRecordingUi();
   updateRecordTimerDisplay();

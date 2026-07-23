@@ -2,6 +2,27 @@ import { STORAGE_KEYS } from "../lib/storage.js";
 
 const FUNCTIONS_BASE_URL = "https://xhusvkylbouwtpcevgri.supabase.co/functions/v1";
 const ACCESS_CACHE_MS = 30_000;
+const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
+const TEST_DEMO_USER_ID = "00000000-0000-4000-8000-000000000014";
+
+function testDemoSession(email) {
+  return {
+    accessToken: `test-demo-access-${"x".repeat(48)}`,
+    refreshToken: `test-demo-refresh-${"x".repeat(24)}`,
+    expiresAt: Math.floor(Date.now() / 1_000) + 24 * 60 * 60,
+    user: { id: TEST_DEMO_USER_ID, email: String(email || "teste@qa-toolbar.local") },
+  };
+}
+
+function testDemoAccess(session) {
+  return {
+    authenticated: true, active: true,
+    plan: { key: "release-manager", name: "Release Manager — DEMO TESTE" },
+    source: "test-demo", expiresAt: new Date(Date.now() + 24 * 60 * 60_000).toISOString(), billing: null,
+    features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true },
+    user: { id: session.user.id, email: session.user.email }, checkedAt: new Date().toISOString(), cachedAt: Date.now(), reason: null,
+  };
+}
 
 function isRecord(value) {
   return Boolean(value) && typeof value === "object" && !Array.isArray(value);
@@ -69,6 +90,12 @@ async function storeSession(session) {
 }
 
 export async function signIn(email, password) {
+  // Test packages must remain usable even when Docker/Supabase local is stopped. This branch is
+  // impossible in the production manifest and never calls or impersonates the production backend.
+  if (IS_TEST_BUILD && /^(?:https?:\/\/)?(?:127\.0\.0\.1|localhost)(?::|\/)/i.test(FUNCTIONS_BASE_URL)) {
+    await chrome.storage.local.remove(STORAGE_KEYS.accessStatus);
+    return storeSession(testDemoSession(String(email ?? "").trim()));
+  }
   const session = await post("auth-sign-in", { email: String(email ?? "").trim(), password: String(password ?? "") });
   await chrome.storage.local.remove(STORAGE_KEYS.accessStatus);
   return storeSession(session);
@@ -125,6 +152,12 @@ export async function getSession() {
 export async function getAccessState({ force = false } = {}) {
   const session = await getSession();
   if (!session) return { authenticated: false, active: false, reason: "authentication_required" };
+  if (IS_TEST_BUILD && session.user.id === TEST_DEMO_USER_ID) {
+    const demo = testDemoAccess(session);
+    await chrome.storage.local.set({ [STORAGE_KEYS.accessStatus]: demo });
+    updateBadge(demo);
+    return demo;
+  }
 
   if (!force) {
     const stored = await chrome.storage.local.get(STORAGE_KEYS.accessStatus);

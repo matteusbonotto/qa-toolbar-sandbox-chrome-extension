@@ -21,6 +21,7 @@ const profilePath = resolve(root, "artifacts/chrome-tutorial-capture-profile");
 const videoTmpPath = resolve(root, "artifacts/tutorial-video-tmp");
 const assetsPath = resolve(root, "apps/extension/src/options/tutorial-assets");
 const DEMO_URL = "https://demoqa.com/text-box";
+const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
 const trace = (label) => console.log(`[tutorial-capture] ${label}`);
 await rm(profilePath, { recursive: true, force: true });
 await rm(videoTmpPath, { recursive: true, force: true });
@@ -46,7 +47,7 @@ await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", 
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
   // All plan-gated features enabled -- this run is about capturing what each tool looks like in
   // action, not about exercising the lock/upgrade UI (that's covered by the real smoke test).
-  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true }, checkedAt: new Date().toISOString() }) });
+  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true }, checkedAt: new Date().toISOString() }) });
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -75,6 +76,7 @@ async function closeDrawer(page) {
 // of one long video covering the whole session -- Playwright's recordVideo is context-scoped, so a
 // page's own clip is finalized (and renameable via page.video().saveAs) once that page closes.
 async function captureTool(key, action) {
+  if (captureOnly && captureOnly !== key) return;
   const page = await context.newPage();
   try {
     await waitForToolbar(page);
@@ -103,6 +105,7 @@ try {
   await options.locator("#loginPassword").fill("safe-test-password");
   await options.locator("#loginForm button[type=submit]").click();
   await options.locator('.protectedNav[data-tab="workspace"]:not(:disabled)').waitFor({ timeout: 10_000 });
+  await options.locator("#settingsTourSkip").click({ force: true }).catch(() => {});
   trace("authenticated");
 
   await options.getByRole("button", { name: "Workspace" }).click();
@@ -129,12 +132,13 @@ try {
     await options.locator("#urlRelationProduct").selectOption({ label: "Produto Demo" });
     await options.locator("#urlPatternInput").fill(pattern);
     await options.locator("#urlPatternAdd").click();
-    await options.locator(".environmentToggle", { hasText: "QA" }).click();
+    await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
     await options.locator("#urlRelationForm button[type=submit]").click();
   }
 
   // Seed a test account, a payment method and a resource too, so the corresponding tools have
   // something real to display instead of an empty drawer.
+  if (!captureOnly) {
   await options.locator('[data-workspace-tab="accounts"]').click();
   await options.locator('[data-open-composer="testAccountComposer"]').click();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
@@ -157,23 +161,47 @@ try {
   await options.locator("#resourceLabel").fill("Runbook QA");
   await options.locator("#resourceUrl").fill("https://example.com/runbook");
   await options.locator("#resourceForm button[type=submit]").click();
+  }
   trace("workspace ready (client/project/product/environment/URLs/account/payment/resource)");
 
   await options.locator('[data-workspace-tab="structure"]').click();
   await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
   trace("captured workspace-setup.png");
 
-  // Short walkthrough of every Settings section, for the "workspace" tutorial module's video --
-  // reuses this same already-authenticated page (recordVideo is context-scoped, so it's already
-  // being recorded) instead of opening a fresh one just for this.
-  for (const tab of ["account", "general", "workspace", "test-data", "integrations", "data", "tutorial", "faq"]) {
-    await options.locator(`.navItem[data-tab="${tab}"]`).click();
-    await options.waitForTimeout(900);
-  }
-  const optionsVideo = options.video();
+  // Close the long setup page without publishing its recording. A fresh page below records only
+  // the concise demonstration, keeping the shipped tutorial clip small and easy to follow.
   await options.close();
-  if (optionsVideo) await optionsVideo.saveAs(resolve(assetsPath, "workspace-setup.webm"));
-  trace("captured workspace-setup.webm (Settings navigation walkthrough)");
+  const walkthrough = await context.newPage();
+  await walkthrough.goto(`chrome-extension://${extensionId}/src/options/options.html`);
+  await walkthrough.locator('.protectedNav[data-tab="general"]:not(:disabled)').waitFor();
+  await walkthrough.locator('.navItem[data-tab="general"]').click();
+  await walkthrough.waitForTimeout(700);
+  await walkthrough.locator('[data-theme-choice="light"]').click();
+  await walkthrough.waitForTimeout(550);
+  await walkthrough.locator('[data-theme-choice="dark"]').click();
+  await walkthrough.locator('.navItem[data-tab="workspace"]').click();
+  const demos = [
+    ["structure", "clientComposer"], ["structure", "projectComposer"], ["structure", "productComposer"],
+    ["environments", "environmentComposer"], ["urls", "urlRelationComposer"], ["accounts", "testAccountComposer"],
+    ["payments", "paymentMethodComposer"], ["integrations", "inspectorComposer"], ["integrations", "apiComposer"],
+    ["integrations", "resourceComposer"],
+  ];
+  for (const [tab, composer] of demos) {
+    await walkthrough.locator(`[data-workspace-tab="${tab}"]`).click();
+    await walkthrough.locator(`[data-open-composer="${composer}"]`).first().click();
+    await walkthrough.waitForTimeout(500);
+    await walkthrough.locator(`#${composer} [data-close-composer]`).first().click();
+  }
+  await walkthrough.locator('.navItem[data-tab="data"]').click();
+  await walkthrough.waitForTimeout(1_000);
+  await walkthrough.locator('.navItem[data-tab="tutorial"]').click();
+  await walkthrough.waitForTimeout(700);
+  await walkthrough.locator('.navItem[data-tab="faq"]').click();
+  await walkthrough.waitForTimeout(700);
+  const walkthroughVideo = walkthrough.video();
+  await walkthrough.close();
+  if (walkthroughVideo) await walkthroughVideo.saveAs(resolve(assetsPath, "workspace-setup.webm"));
+  trace("captured workspace-setup.webm (appearance + complete Workspace CRUD walkthrough)");
 
   await captureTool("testStatus", async (page) => {
     await page.locator("#testStatusButton").click();
@@ -206,6 +234,7 @@ try {
     await page.locator(".qts-note [data-save]").click();
     await page.waitForTimeout(400);
     await page.locator("#shapeButton").click();
+    await page.locator('[data-shape-pick="rectangle"]').click();
     await page.mouse.move(300, 420);
     await page.mouse.down();
     await page.mouse.move(520, 560, { steps: 10 });
@@ -214,14 +243,16 @@ try {
   });
 
   await captureTool("line", async (page) => {
-    await page.locator("#lineButton").click();
+    await page.locator("#shapeButton").click();
+    await page.locator('[data-shape-pick="line"]').click();
     await page.mouse.move(280, 420);
     await page.mouse.down();
     await page.mouse.move(560, 420, { steps: 10 });
     await page.mouse.up();
     await page.locator(".qts-line [data-visibility-toggle]").click();
     await page.locator(".qts-line .qts-edit-btn").click();
-    await page.locator("[data-line-arrow]").selectOption("end");
+    await page.locator("[data-line-end]").selectOption("arrow");
+    await page.locator(".qts-line .qts-shape-editor [data-save]").click();
     await page.waitForTimeout(600);
   });
 
@@ -324,6 +355,24 @@ try {
     await page.locator("#macroRecDoneButton").click();
     await page.locator("#macroSave").click();
     await page.locator("#macroList .qts-card").first().waitFor();
+  });
+
+  await captureTool("stepsRecorder", async (page) => {
+    await openToolByMenu(page, "stepsRecorderMenuItem");
+    await page.locator("#newStepsName").fill("Validar cadastro de usuário");
+    await page.locator("#newStepsMode").selectOption("gherkin");
+    await page.locator("#startSteps").click();
+    await page.locator("#userName").fill("Matheus QA");
+    await page.locator("#userEmail").fill("qa@example.com");
+    await page.locator("#stepsRecPauseButton").click();
+    await page.waitForTimeout(700);
+    await page.locator("#stepsRecPauseButton").click();
+    await page.locator("#submit").click();
+    await page.waitForTimeout(900);
+    await page.locator("#stepsRecDoneButton").click();
+    await page.locator('[data-doc-step="0"] summary').click();
+    await page.locator('[data-doc-step="0"] [data-step-expected]').fill("Formulário disponível para preenchimento");
+    await page.waitForTimeout(1_200);
   });
 
   await captureTool("keyView", async (page) => {

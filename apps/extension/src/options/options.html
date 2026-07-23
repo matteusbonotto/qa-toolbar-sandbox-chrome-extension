@@ -35,7 +35,7 @@
         </div>
         <div class="card tutorialBanner" id="tutorialBanner" hidden>
           <div><strong>Novo por aqui?</strong><p>Faça o tour guiado e conheça cada ferramenta no seu ritmo.</p></div>
-          <div class="actions"><button type="button" class="button primary" id="tutorialBannerOpen">Fazer o tour</button><button type="button" class="button" id="settingsTourStart">🧭 Tour das Configurações</button><button type="button" class="button linkButton" id="tutorialBannerDismiss">Dispensar</button></div>
+          <div class="actions"><button type="button" class="button primary" id="tutorialBannerOpen">Fazer o tour</button><button type="button" class="button" id="settingsTourStart"><span data-qts-icon="compass" aria-hidden="true"></span> Tour das Configurações</button><button type="button" class="button linkButton" id="tutorialBannerDismiss">Dispensar</button></div>
         </div>
         <div class="card accountCard">
           <div id="signedOutState">
@@ -83,6 +83,14 @@
           </div>
           <div class="card">
             <div class="cardHead"><h2>Exibição</h2></div>
+            <fieldset class="themeFieldset"><legend>Tema da plataforma</legend>
+              <div class="themeToggle" id="appearanceThemeToggle" role="radiogroup" aria-label="Tema da plataforma">
+                <button type="button" data-theme-choice="light" role="radio" aria-checked="false"><span data-qts-icon="sun" aria-hidden="true"></span> Claro</button>
+                <button type="button" data-theme-choice="dark" role="radio" aria-checked="false"><span data-qts-icon="moon" aria-hidden="true"></span> Escuro</button>
+              </div>
+              <select id="appearanceTheme" class="visuallyHidden" aria-hidden="true" tabindex="-1"><option value="dark">Escuro</option><option value="light">Claro</option></select>
+              <small class="cardLead">A alteração é aplicada e salva imediatamente na configuração e na toolbar.</small>
+            </fieldset>
             <div class="barPreviewWrap"><div class="barPreview" id="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia da barra com as configurações atuais (atualiza antes de salvar).</small></div>
             <input id="compactMode" type="checkbox" hidden />
             <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
@@ -97,12 +105,32 @@
               <label><input type="checkbox" data-breadcrumb="environment" /> Ambiente</label>
             </div></fieldset>
             <fieldset><legend>Ordem no breadcrumb</legend><p class="cardLead">Arraste ou use as setas para definir a prioridade de cliente, projeto e produto.</p><ol class="breadcrumbOrderList" id="breadcrumbOrderList"></ol></fieldset>
-            <fieldset><legend>Atalhos fixados</legend><div class="checkGrid">
-              <label><input type="checkbox" data-pinned="passFail" /> Status e marcações</label>
-              <label><input type="checkbox" data-pinned="screenshot" /> Screenshot</label>
-              <label><input type="checkbox" data-pinned="notes" /> Notas e formas</label>
-              <label><input type="checkbox" data-pinned="record" /> Gravação</label>
-            </div></fieldset>
+            <fieldset><legend>Atalhos fixados</legend>
+              <p class="cardLead">Pass, Fail, Screenshot e Gravação ficam sempre visíveis. Escolha de 0 a 4 ferramentas adicionais do menu Tools.</p>
+              <p class="formMessage isError" id="pinnedToolsLimitHint" role="alert" hidden>Você só pode ter 4 atalhos adicionais por vez. Desmarque um atalho para escolher outro.</p>
+              <div class="checkGrid">
+                <label><input type="checkbox" data-pinned="clickSpy" /> Click Spy</label>
+                <label><input type="checkbox" data-pinned="freezeClock" /> Freeze Clock</label>
+                <label><input type="checkbox" data-pinned="forceHttp" /> Force HTTP</label>
+                <label><input type="checkbox" data-pinned="errorMonitor" /> Error Monitor</label>
+                <label><input type="checkbox" data-pinned="inspectors" /> Inspectors</label>
+                <label><input type="checkbox" data-pinned="jsonStudio" /> JSON Studio</label>
+                <label><input type="checkbox" data-pinned="breakpoints" /> Breakpoints</label>
+                <label><input type="checkbox" data-pinned="testAccounts" /> Contas de teste</label>
+                <label><input type="checkbox" data-pinned="paymentMethods" /> Meios de pagamento</label>
+                <label><input type="checkbox" data-pinned="resources" /> Recursos e links</label>
+                <label><input type="checkbox" data-pinned="characterCounter" /> Contador de caracteres</label>
+                <label><input type="checkbox" data-pinned="macroStudio" /> Macro Studio</label>
+                <label><input type="checkbox" data-pinned="stepsRecorder" /> Gravador de Passos</label>
+                <label><input type="checkbox" data-pinned="multiClick" /> Multiclick</label>
+                <label><input type="checkbox" data-pinned="inputLab" /> Input Lab</label>
+                <label><input type="checkbox" data-pinned="fakerFill" /> Faker Fill</label>
+                <label><input type="checkbox" data-pinned="keyView" /> Key View</label>
+                <label><input type="checkbox" data-pinned="elementCapture" /> Capturar elementos</label>
+                <label><input type="checkbox" data-pinned="blurElements" /> Borrar elementos</label>
+                <label><input type="checkbox" data-pinned="holofote" /> Modo Holofote</label>
+              </div>
+            </fieldset>
             <fieldset><legend>Ferramentas no menu</legend><div class="checkGrid">
               <label><input type="checkbox" data-tool="clickSpy" /> Click Spy</label>
               <label><input type="checkbox" data-tool="freezeClock" /> Freeze Clock</label>
@@ -116,6 +144,7 @@
               <label><input type="checkbox" data-tool="resources" /> Recursos e links</label>
               <label><input type="checkbox" data-tool="characterCounter" /> Contador de caracteres</label>
               <label><input type="checkbox" data-tool="macroStudio" /> Macro Studio</label>
+              <label><input type="checkbox" data-tool="stepsRecorder" /> Gravador de Passos</label>
               <label><input type="checkbox" data-tool="multiClick" /> Multiclick</label>
               <label><input type="checkbox" data-tool="inputLab" /> Input Lab</label>
               <label><input type="checkbox" data-tool="fakerFill" /> Faker Fill</label>
@@ -125,21 +154,6 @@
               <label><input type="checkbox" data-tool="holofote" /> Modo Holofote</label>
             </div></fieldset>
             <fieldset><legend>Ordem no menu Tools</legend><p class="cardLead">Arraste ou use as setas para definir a ordem das ferramentas no menu.</p><ol class="breadcrumbOrderList toolsMenuOrderList" id="toolsMenuOrderList"></ol></fieldset>
-          </div>
-          <div class="card">
-            <div class="cardHead"><h2>Key View</h2></div>
-            <p class="cardLead">Visualize atalhos de teclado, digitação e ações do mouse em demonstrações e gravações.</p>
-            <p class="formMessage isError" id="keyViewPlanHint" hidden>Key View não está incluído no seu plano atual.</p>
-            <label class="toggleRow"><input id="keyViewEnabled" type="checkbox" /><span><b>Ativar Key View</b><small>Exibe os atalhos por 3 segundos e ativa os efeitos escolhidos.</small></span></label>
-            <label class="toggleRow"><input id="keyViewTypingMode" type="checkbox" /><span><b>Modo Typing</b><small>Mantém o texto digitado visível até clicar em Limpar.</small></span></label>
-            <label class="toggleRow"><input id="keyViewMouseEffects" type="checkbox" /><span><b>Visualizar mouse</b><small>Destaca clique esquerdo, direito, meio e direção do scroll.</small></span></label>
-            <div class="formGrid2">
-              <label>Aparência<select id="keyViewTheme"><option value="dark">Tecla preta · texto branco</option><option value="light">Tecla branca · texto preto</option></select></label>
-              <label>Posição<select id="keyViewPosition"><option value="top-left">Superior esquerdo</option><option value="top-center">Superior centro</option><option value="top-right">Superior direito</option><option value="middle-left">Centro esquerdo</option><option value="middle-center">Centro</option><option value="middle-right">Centro direito</option><option value="bottom-left">Inferior esquerdo</option><option value="bottom-center">Inferior centro</option><option value="bottom-right">Inferior direito</option></select></label>
-              <label>Tamanho das teclas<select id="keyViewKeySize"><option value="small">Pequeno</option><option value="medium">Médio</option><option value="large">Grande</option></select></label>
-              <label>Tamanho do mouse<select id="keyViewMouseSize"><option value="small">Pequeno</option><option value="medium">Médio</option><option value="large">Grande</option></select></label>
-            </div>
-            <p class="securityHint">O buffer de digitação fica somente na memória. Senhas, cartões, CVV, tokens e segredos não são capturados.</p>
           </div>
         </div>
         <div class="stickySaveBar"><span class="savedHint" id="generalSavedHint"></span><button type="button" class="button primary" id="saveGeneralSettings">Salvar</button></div>
@@ -227,8 +241,8 @@
         <header class="panelHead"><h1>Tutorial</h1><p>Um passo a passo guiado ao vivo, num ambiente de exemplo, ou veja os vídeos de cada ferramenta no seu ritmo.</p></header>
         <div class="card tutorialProgressCard">
           <div class="tutorialProgressHead">
-            <button type="button" class="button primary" id="tutorialStartTour">▶ Iniciar tutorial</button>
-            <button type="button" class="button" id="tutorialStartSettingsTour">🧭 Tour das Configurações</button>
+            <button type="button" class="button primary" id="tutorialStartTour"><span data-qts-icon="play" aria-hidden="true"></span> Iniciar tutorial</button>
+            <button type="button" class="button" id="tutorialStartSettingsTour"><span data-qts-icon="compass" aria-hidden="true"></span> Tour das Configurações</button>
             <strong id="tutorialProgressLabel">0 de 0 concluídos</strong>
             <div class="actions"><button type="button" class="button" id="tutorialSkipAll">Pular tudo</button><button type="button" class="button linkButton" id="tutorialReset">Reiniciar</button></div>
           </div>
@@ -244,13 +258,13 @@
       </section>
 
       <div class="imageLightbox" id="imageLightbox" hidden>
-        <button type="button" class="imageLightboxClose" id="imageLightboxClose" aria-label="Fechar">×</button>
+        <button type="button" class="imageLightboxClose" id="imageLightboxClose" aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button>
         <img id="imageLightboxImg" alt="" />
       </div>
     </main>
   </div>
   <dialog class="imageEditorDialog" id="imageEditorDialog" aria-labelledby="imageEditorTitle">
-    <div class="imageEditorHead"><div><span class="eyebrow">Editor de imagem</span><h2 id="imageEditorTitle">Recortar e centralizar</h2></div><button type="button" class="dialogClose" id="imageEditorClose" aria-label="Fechar">×</button></div>
+    <div class="imageEditorHead"><div><span class="eyebrow">Editor de imagem</span><h2 id="imageEditorTitle">Recortar e centralizar</h2></div><button type="button" class="dialogClose" id="imageEditorClose" aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <div class="imageEditorStage"><canvas id="imageEditorCanvas" width="320" height="320"></canvas></div>
     <div class="imageEditorControls"><label>Zoom<input type="range" id="imageEditorZoom" min="1" max="3" step="0.01" value="1" /></label><label>Horizontal<input type="range" id="imageEditorX" min="-100" max="100" step="1" value="0" /></label><label>Vertical<input type="range" id="imageEditorY" min="-100" max="100" step="1" value="0" /></label></div>
     <p class="hint" id="imageEditorHint" role="status">A prévia já representa o recorte final usado na barra.</p>
@@ -258,48 +272,48 @@
   </dialog>
 
   <dialog class="formDialog" id="clientComposer" aria-labelledby="clientComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Cliente</span><h2 id="clientComposerTitle">Adicionar cliente</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Cliente</span><h2 id="clientComposerTitle">Adicionar cliente</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm formWide" id="clientForm"><input type="hidden" id="clientEditId" /><input type="text" placeholder="Nome do cliente" required id="clientName" /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="URL do logo (opcional)" id="clientLogoUrl" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><input type="text" placeholder="Sigla" maxlength="4" class="abbrevInput" id="clientAbbreviation" /><label class="checkRow"><input type="checkbox" class="switch" id="clientShowLabel" checked /> Mostrar nome</label><div class="formActions"><button type="submit" class="button primary">Salvar</button><button type="button" class="button cancelEdit" data-cancel="client" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog" id="projectComposer" aria-labelledby="projectComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Projeto</span><h2 id="projectComposerTitle">Adicionar projeto</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Projeto</span><h2 id="projectComposerTitle">Adicionar projeto</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm formWide" id="projectForm"><input type="hidden" id="projectEditId" /><select id="projectClient" required></select><input type="text" placeholder="Nome do projeto" required id="projectName" /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="URL do logo (opcional)" id="projectLogoUrl" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><input type="text" placeholder="Sigla" maxlength="4" class="abbrevInput" id="projectAbbreviation" /><label class="checkRow"><input type="checkbox" class="switch" id="projectShowLabel" checked /> Mostrar nome</label><div class="formActions"><button type="submit" class="button primary">Salvar</button><button type="button" class="button cancelEdit" data-cancel="project" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog" id="productComposer" aria-labelledby="productComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Produto</span><h2 id="productComposerTitle">Adicionar produto</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Produto</span><h2 id="productComposerTitle">Adicionar produto</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm formWide" id="productForm"><input type="hidden" id="productEditId" /><select id="productProject" required></select><input type="text" placeholder="Nome do produto" required id="productName" /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="URL do logo (opcional)" id="productLogoUrl" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><input type="text" placeholder="Sigla" maxlength="4" class="abbrevInput" id="productAbbreviation" /><label class="checkRow"><input type="checkbox" class="switch" id="productShowLabel" checked /> Mostrar nome</label><div class="formActions"><button type="submit" class="button primary">Salvar</button><button type="button" class="button cancelEdit" data-cancel="product" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog" id="environmentComposer" aria-labelledby="environmentComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Ambiente</span><h2 id="environmentComposerTitle">Adicionar ambiente</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Ambiente</span><h2 id="environmentComposerTitle">Adicionar ambiente</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm formWide" id="environmentForm"><input type="hidden" id="environmentEditId" /><div class="formGrid2 fullRow"><label class="field">Nome<input type="text" placeholder="Nome do ambiente (ex.: QA, Staging)" required id="environmentName" /></label><label class="field colorField">Cor da barra<input type="color" id="environmentColor" value="#3a3a3a" title="Cor da barra" /></label></div><div class="formActions"><button type="submit" class="button primary">Salvar ambiente</button><button type="button" class="button cancelEdit" data-cancel="environment" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog formDialogWide" id="urlRelationComposer" aria-labelledby="urlRelationComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">URL</span><h2 id="urlRelationComposerTitle">Adicionar URL</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">URL</span><h2 id="urlRelationComposerTitle">Adicionar URL</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm formWide" id="urlRelationForm"><input type="hidden" id="urlRelationEditId" /><fieldset class="environmentPicker fullRow"><legend class="legendWithAction">Ambiente<button type="button" class="button linkButton" id="urlRelationAddEnvironment" data-open-composer="environmentComposer">+ Novo ambiente</button></legend><div id="urlEnvironmentPicker"></div></fieldset><fieldset class="environmentPicker fullRow"><legend>URLs deste ambiente</legend><div id="urlPatternsPicker" class="environmentToggles"></div><div class="patternAddRow"><input id="urlPatternInput" type="text" placeholder="*.com.br ou https://app.exemplo.com/*" /><button type="button" class="button" id="urlPatternAdd">+ Adicionar URL</button></div><p class="fieldHint">A primeira URL adicionada vira a URL principal (aberta ao clicar no breadcrumb).</p></fieldset><label class="field fullRow">Produto<select id="urlRelationProduct" required></select></label><div class="formActions"><button type="submit" class="button primary">Salvar relação</button><button type="button" class="button cancelEdit" data-cancel="urlRelation" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog formDialogWide" id="testAccountComposer" aria-labelledby="testAccountComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Conta de teste</span><h2 id="testAccountComposerTitle">Adicionar conta</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Conta de teste</span><h2 id="testAccountComposerTitle">Adicionar conta</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm formWide" id="testAccountForm"><input type="hidden" id="testAccountEditId" /><div class="scopePicker fullRow" id="testAccountScopePicker"></div><p class="hint isError fullRow" id="testAccountScopeError" hidden>Selecione ao menos um ambiente.</p><input type="text" placeholder="Nome da conta" required id="testAccountLabel" /><input type="text" placeholder="Tipo de conta (ex.: VIP, Gold)" id="testAccountType" /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone do tipo (opcional)" id="testAccountTypeImage" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><input type="text" placeholder="Usuário / e-mail" id="testAccountUsername" /><input type="password" placeholder="Senha" id="testAccountPassword" autocomplete="new-password" /><input type="text" placeholder="Observações" id="testAccountNotes" /><div class="fieldSuggestions fullRow" id="testAccountFieldSuggestions"></div><div class="customFieldsEditor" id="testAccountCustomFields"></div><div class="actions fullRow"><button type="button" class="button" id="testAccountAddField">+ Campo personalizado</button></div><div class="formActions"><button type="submit" class="button primary">Salvar conta</button><button type="button" class="button cancelEdit" data-cancel="testAccount" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog formDialogWide" id="paymentMethodComposer" aria-labelledby="paymentMethodComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Pagamento</span><h2 id="paymentMethodComposerTitle">Adicionar pagamento</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Pagamento</span><h2 id="paymentMethodComposerTitle">Adicionar pagamento</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm formWide" id="paymentMethodForm"><input type="hidden" id="paymentMethodEditId" /><div class="scopePicker fullRow" id="paymentMethodScopePicker"></div><input type="text" id="paymentMethodLabel" placeholder="Nome (ex.: Visa aprovado)" required /><select id="paymentMethodType"><option value="card">Cartão</option><option value="pix">PIX</option><option value="bank">Conta bancária</option><option value="other">Outro</option></select><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone/bandeira (opcional)" id="paymentMethodIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><input type="text" id="paymentMethodValue" placeholder="Número/token sandbox" /><input type="text" id="paymentMethodHolder" placeholder="Titular (opcional)" /><input type="text" id="paymentMethodExpiry" placeholder="Validade MM/AA (opcional)" /><input type="text" id="paymentMethodCvv" placeholder="CVV sandbox (opcional)" /><input type="text" id="paymentMethodNotes" placeholder="Observações" /><div class="formActions"><button type="submit" class="button primary">Salvar pagamento</button><button type="button" class="button cancelEdit" data-cancel="paymentMethod" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog" id="inspectorComposer" aria-labelledby="inspectorComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Inspector</span><h2 id="inspectorComposerTitle">Adicionar Inspector</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Inspector</span><h2 id="inspectorComposerTitle">Adicionar Inspector</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm" id="inspectorForm"><input type="hidden" id="inspectorEditId" /><input id="inspectorLabel" placeholder="Nome" required /><textarea id="inspectorPatterns" rows="3" placeholder="Rotas/endpoints, um por linha" required></textarea><div class="formActions"><button class="button primary" type="submit">Salvar</button><button type="button" class="button cancelEdit" data-cancel="inspector" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog" id="apiComposer" aria-labelledby="apiComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">API</span><h2 id="apiComposerTitle">Adicionar API</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">API</span><h2 id="apiComposerTitle">Adicionar API</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm" id="apiForm"><input type="hidden" id="apiEditId" /><input id="apiLabel" placeholder="Nome" required /><input id="apiBaseUrl" type="url" placeholder="https://api.exemplo.com" required /><input id="apiToken" type="password" placeholder="Token local (opcional)" autocomplete="new-password" /><div class="formActions"><button class="button primary" type="submit">Salvar</button><button type="button" class="button cancelEdit" data-cancel="api" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog" id="resourceComposer" aria-labelledby="resourceComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Recurso</span><h2 id="resourceComposerTitle">Adicionar recurso</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Recurso</span><h2 id="resourceComposerTitle">Adicionar recurso</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm" id="resourceForm"><input type="hidden" id="resourceEditId" /><input id="resourceLabel" placeholder="Nome" required /><input id="resourceUrl" type="url" placeholder="https://..." required /><input id="resourceCategory" placeholder="Categoria (opcional)" /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone (opcional)" id="resourceIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><div class="formActions"><button type="submit" class="button primary">Salvar</button><button type="button" class="button cancelEdit" data-cancel="resource" hidden>Cancelar</button></div></form>
   </dialog>
 
   <dialog class="formDialog" id="deleteAccountDialog" aria-labelledby="deleteAccountDialogTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Excluir conta</span><h2 id="deleteAccountDialogTitle">Tem certeza?</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Excluir conta</span><h2 id="deleteAccountDialogTitle">Tem certeza?</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <p class="cardLead">Isso cancela sua assinatura ativa imediatamente e apaga seu perfil, workspace e dados pessoais. Não é possível desfazer. Digite sua senha para confirmar.</p>
     <form id="deleteAccountForm" class="inlineForm">
       <label>Senha<input id="deleteAccountPassword" type="password" autocomplete="current-password" minlength="8" required /></label>
@@ -308,20 +322,20 @@
     </form>
   </dialog>
   <dialog class="formDialog" id="deleteConfirmDialog" aria-labelledby="deleteConfirmTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Excluir</span><h2 id="deleteConfirmTitle">Confirmar exclusão</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Excluir</span><h2 id="deleteConfirmTitle">Confirmar exclusão</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <p class="cardLead" id="deleteConfirmBody"></p>
     <div class="formActions"><button type="button" class="button" id="deleteConfirmCancel">Cancelar</button><button type="button" class="button danger" id="deleteConfirmAccept">Excluir</button></div>
   </dialog>
 
   <dialog class="formDialog tutorialVideoDialog" id="tutorialVideoDialog" aria-labelledby="tutorialVideoTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Tutorial</span><h2 id="tutorialVideoTitle"></h2></div><button type="button" class="dialogClose" id="tutorialVideoClose" data-close-composer aria-label="Fechar">×</button></div>
+    <div class="formDialogHead"><div><span class="eyebrow">Tutorial</span><h2 id="tutorialVideoTitle"></h2></div><button type="button" class="dialogClose" id="tutorialVideoClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <video id="tutorialVideoPlayer" controls autoplay muted></video>
     <p class="cardLead" id="tutorialVideoInstructions"></p>
-    <div class="formActions"><button type="button" class="button" id="tutorialVideoTry">▶ Tentar</button><button type="button" class="button primary" id="tutorialVideoComplete">Marcar como concluído</button></div>
+    <div class="formActions"><button type="button" class="button" id="tutorialVideoTry"><span data-qts-icon="play" aria-hidden="true"></span> Tentar</button><button type="button" class="button primary" id="tutorialVideoComplete">Marcar como concluído</button></div>
   </dialog>
 
   <dialog class="formDialog" id="tutorialStepDoneDialog" aria-labelledby="tutorialStepDoneTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">🏆 Conquista desbloqueada</span><h2 id="tutorialStepDoneTitle"></h2></div></div>
+    <div class="formDialogHead"><div><span class="eyebrow"><span data-qts-icon="trophy" aria-hidden="true"></span> Conquista desbloqueada</span><h2 id="tutorialStepDoneTitle"></h2></div></div>
     <p class="cardLead" id="tutorialStepDoneBody">Passo concluído! Quer repetir, seguir para o próximo ou encerrar por aqui?</p>
     <div class="formActions"><button type="button" class="button" id="tutorialStepRepeat">Repetir</button><button type="button" class="button" id="tutorialStepClose">Fechar</button><button type="button" class="button primary" id="tutorialStepNext">Próximo</button></div>
   </dialog>
