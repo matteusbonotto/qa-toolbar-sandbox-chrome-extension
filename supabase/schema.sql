@@ -1589,6 +1589,7 @@ on conflict (plan_id, feature_id) do update set value = excluded.value;
 
 -- QA Rewards: points, secure wheel, benefits, anti-abuse and administrative controls.
 drop function if exists public.reward_referral(uuid);
+update public.reward_programs set enabled=true,updated_at=now() where key='qa-rewards-2026';
 +-- Sustainable referral/community rewards: auditable points and a server-side wheel.
 create extension if not exists pgcrypto;
 
