@@ -14,10 +14,29 @@ const testManifestKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsXVhjoTGRVA
 const backendArg = process.argv.find((value) => value.startsWith("--backend-url="))?.slice(14);
 const backendUrl = String(backendArg || process.env.QTS_TEST_FUNCTIONS_BASE_URL || "http://127.0.0.1:54321/functions/v1").replace(/\/+$/, "");
 
-if (!(backendUrl.startsWith("http://127.0.0.1:") || backendUrl.startsWith("http://localhost:") || /^https:\/\/[a-z0-9]+\.supabase\.co\/functions\/v1$/i.test(backendUrl))) {
+let parsedBackendUrl;
+try {
+  parsedBackendUrl = new URL(backendUrl);
+} catch {
+  parsedBackendUrl = null;
+}
+const isLocalBackend = parsedBackendUrl
+  && parsedBackendUrl.protocol === "http:"
+  && ["127.0.0.1", "localhost"].includes(parsedBackendUrl.hostname)
+  && /^\/functions\/v1\/?$/.test(parsedBackendUrl.pathname);
+const isSeparateSupabaseBackend = parsedBackendUrl
+  && parsedBackendUrl.protocol === "https:"
+  && /^[a-z0-9]+\.supabase\.co$/i.test(parsedBackendUrl.hostname)
+  && /^\/functions\/v1\/?$/.test(parsedBackendUrl.pathname);
+const isProductionBackend = parsedBackendUrl
+  && parsedBackendUrl.protocol === "https:"
+  && parsedBackendUrl.hostname === "xhusvkylbouwtpcevgri.supabase.co"
+  && /^\/functions\/v1\/?$/.test(parsedBackendUrl.pathname);
+
+if (!(isLocalBackend || isSeparateSupabaseBackend)) {
   throw new Error("Backend de teste inválido. Use Supabase local ou um projeto Supabase separado.");
 }
-if (backendUrl === productionBackend) throw new Error("SEGURANÇA: o pacote TESTE não pode usar o backend de produção.");
+if (isProductionBackend) throw new Error("SEGURANÇA: o pacote TESTE não pode usar o backend de produção.");
 if (relative(artifactsDir, outputDir).startsWith("..")) throw new Error("Diretório de teste fora de artifacts/.");
 
 await rm(outputDir, { recursive: true, force: true });

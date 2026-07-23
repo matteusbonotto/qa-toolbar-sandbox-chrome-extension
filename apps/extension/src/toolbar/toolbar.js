@@ -1558,7 +1558,7 @@ function renderEditingNote(note, currentText, currentStyle) {
   note.innerHTML = `
     <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">${ICON("fail")}</button></div>
     <div class="qts-editor-body">
-      <textarea placeholder="${escapeHtml(t.notePlaceholder)}">${escapeHtml(currentText)}</textarea>
+      <textarea placeholder="${escapeHtml(t.notePlaceholder)}"></textarea>
       <div class="qts-note-style-row">
         <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color value="${safeColor}" /></label>
         <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" value="${safeFontSize}" data-note-size /></label>
@@ -1571,6 +1571,8 @@ function renderEditingNote(note, currentText, currentStyle) {
       <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
     </div>
   `;
+  // Page-derived text must remain text, never markup.
+  note.querySelector("textarea").value = String(currentText || "");
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {
