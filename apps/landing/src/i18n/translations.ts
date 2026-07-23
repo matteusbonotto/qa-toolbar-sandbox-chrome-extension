@@ -462,6 +462,11 @@ const pt: Dictionary = {
         short: "Veja a mesma página em vários tamanhos de tela ao mesmo tempo.",
         details: "Renderiza a página lado a lado em molduras de laptop e celular sincronizadas, pra pegar problema de layout responsivo sem precisar redimensionar a janela do navegador nem alternar entre dispositivos no DevTools.",
       },
+      pixelPerfect: {
+        title: "Pixel Perfect",
+        short: "Linhas guia e uma régua inteligente para conferir alinhamentos pixel a pixel.",
+        details: "Ative para ver linhas guia (cruz, horizontal ou vertical, cor e espessura configuráveis) acompanhando o mouse, e clique em qualquer ponto pra fixar uma régua inteligente que mede a distância exata até o cursor — ajustável com precisão de 1px pelo scroll. Inspirado no Screen Ruler do PowerToys.",
+      },
       characterCounter: {
         title: "Contador de caracteres",
         short: "Conta caracteres, palavras, linhas e bytes UTF-8.",
@@ -941,6 +946,11 @@ const es: Dictionary = {
         short: "Mira la misma página en varios tamaños de pantalla a la vez.",
         details: "Renderiza la página lado a lado en marcos de laptop y celular sincronizados, para detectar problemas de diseño responsivo sin redimensionar la ventana ni alternar dispositivos en el DevTools.",
       },
+      pixelPerfect: {
+        title: "Pixel Perfect",
+        short: "Líneas guía y una regla inteligente para verificar alineaciones píxel a píxel.",
+        details: "Actívalo para ver líneas guía (cruz, horizontal o vertical, color y grosor configurables) siguiendo al mouse, y haz clic en cualquier punto para fijar una regla inteligente que mide la distancia exacta hasta el cursor — ajustable con precisión de 1px con el scroll. Inspirado en Screen Ruler de PowerToys.",
+      },
       characterCounter: {
         title: "Contador de caracteres",
         short: "Cuenta caracteres, palabras, líneas y bytes UTF-8.",
@@ -1419,6 +1429,11 @@ const en: Dictionary = {
         title: "Breakpoint Viewer (Responsive View)",
         short: "See the same page at several screen sizes at once.",
         details: "Renders the page side by side in synced laptop and phone frames, to catch responsive layout issues without resizing the browser window or switching devices in DevTools.",
+      },
+      pixelPerfect: {
+        title: "Pixel Perfect",
+        short: "Guide lines and a smart ruler for checking pixel-perfect alignment.",
+        details: "Turn it on to see guide lines (cross, horizontal, or vertical, with configurable color and thickness) following the mouse, and click anywhere to anchor a smart ruler that measures the exact distance to the cursor — fine-tunable to 1px with the scroll wheel. Inspired by PowerToys' Screen Ruler.",
       },
       characterCounter: {
         title: "Character counter",

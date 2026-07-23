@@ -196,6 +196,13 @@
   background: var(--qts-bg-card-hover);
 }
 
+.qts-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+  transform: none;
+  box-shadow: none;
+}
+
 /* Hero */
 
 .qts-hero {

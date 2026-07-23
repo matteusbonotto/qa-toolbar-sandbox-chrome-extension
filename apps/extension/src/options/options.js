@@ -356,6 +356,8 @@ function loadPreferenceUi() {
   document.querySelectorAll("[data-tool]").forEach((checkbox) => { checkbox.checked = enabledTools.has(checkbox.dataset.tool); });
   toolsMenuOrderDraft = normalizeToolsMenuOrderDraft(preferences.toolsMenuOrder);
   renderToolsMenuOrderList();
+  document.getElementById("toolsSortMode").value = ["custom", "az", "za", "mostUsed"].includes(preferences.toolsSortMode) ? preferences.toolsSortMode : "custom";
+  updateToolsMenuOrderVisibility();
   const breadcrumbVisibility = preferences.breadcrumbVisibility || {};
   document.querySelectorAll("[data-breadcrumb]").forEach((checkbox) => { checkbox.checked = breadcrumbVisibility[checkbox.dataset.breadcrumb] !== false; });
   breadcrumbOrderDraft = normalizeBreadcrumbOrderDraft(preferences.breadcrumbOrder);
@@ -465,6 +467,16 @@ function toolsMenuItemLabel(key) {
   return checkbox?.parentElement?.textContent?.trim() || key;
 }
 
+// The manual drag/arrow order only has any visible effect in "Personalizado" mode -- A-Z/Z-A/mais
+// usados always compute their own order at render time in the toolbar itself, so showing an
+// editable list the user just picked "A-Z" over would be actively misleading (it'd look ignored).
+function updateToolsMenuOrderVisibility() {
+  const isCustom = document.getElementById("toolsSortMode").value === "custom";
+  document.getElementById("toolsMenuOrderHint").toggleAttribute("hidden", !isCustom);
+  document.getElementById("toolsMenuOrderList").toggleAttribute("hidden", !isCustom);
+}
+document.getElementById("toolsSortMode").addEventListener("change", updateToolsMenuOrderVisibility);
+
 function renderToolsMenuOrderList() {
   const list = document.getElementById("toolsMenuOrderList");
   list.innerHTML = toolsMenuOrderDraft.map((key, index) => `
@@ -524,6 +536,7 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
     breadcrumbVisibility: Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked])),
     breadcrumbOrder: [...breadcrumbOrderDraft],
     toolsMenuOrder: [...toolsMenuOrderDraft],
+    toolsSortMode: document.getElementById("toolsSortMode").value,
   };
   await persistWorkspace();
   document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
@@ -568,13 +581,19 @@ function matchesSearch(item) {
 
 function rowActions(collection, item, { reveal = false } = {}) {
   const reorderable = ["clients", "projects", "products"].includes(collection) && (workspace[collection] || []).length > 1;
+  // Toolbar/Sandbox/STAGE (the seeded demo entities the tour/tutorial points at) are fixed on
+  // purpose -- no delete button at all, just a padlock explaining why, instead of a button that
+  // would visibly do nothing (or worse, look broken) if clicked.
+  const removeControl = item.locked
+    ? `<span class="lockedBadge" title="${escapeHtml(t("Item fixo do ambiente de demonstração — não pode ser excluído"))}">🔒 ${escapeHtml(t("Fixo"))}</span>`
+    : `<button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Excluir"))}">${escapeHtml(t("Excluir"))}</button>`;
   return `<div class="rowActions">
     ${reveal ? `<button type="button" data-action="reveal" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mostrar/ocultar senha"))}">${escapeHtml(t(revealedAccountIds.has(item.id) ? "Ocultar" : "Ver"))}</button>` : ""}
     ${reorderable ? `<button type="button" data-action="move-up" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para cima"))}">↑</button><button type="button" data-action="move-down" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para baixo"))}">↓</button>` : ""}
     <button type="button" data-action="edit" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Editar"))}">${escapeHtml(t("Editar"))}</button>
     <button type="button" data-action="duplicate" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Duplicar"))}">${escapeHtml(t("Duplicar"))}</button>
     <button type="button" data-action="toggle" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Ativar/desativar"))}">${escapeHtml(t(item.active === false ? "Ativar" : "Pausar"))}</button>
-    <button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Excluir"))}">${escapeHtml(t("Excluir"))}</button>
+    ${removeControl}
   </div>`;
 }
 
@@ -1349,7 +1368,7 @@ document.addEventListener("click", async (event) => {
   if (action === "edit") { editItem(collection, item); return; }
   if (action === "duplicate") { workspace[collection].push({ ...structuredClone(item), id: uid(COLLECTION_UI[collection].prefix), name: item.name ? `${item.name} (${t("cópia")})` : undefined, label: item.label ? `${item.label} (${t("cópia")})` : undefined }); await persistWorkspace(); return; }
   if (action === "toggle") { item.active = item.active === false; await persistWorkspace(); return; }
-  if (action === "remove") { if (!(await confirmDialog(t("Excluir este item? Itens dependentes também serão removidos.")))) return; cascadeRemove(collection, id); await persistWorkspace(); }
+  if (action === "remove") { if (item.locked) return; if (!(await confirmDialog(t("Excluir este item? Itens dependentes também serão removidos.")))) return; cascadeRemove(collection, id); await persistWorkspace(); }
 });
 
 async function sha256Hex(value) {
@@ -1443,6 +1462,11 @@ document.getElementById("importFile").addEventListener("change", async (event) =
       if (actualChecksum !== String(parsed.checksum).toLowerCase()) throw new Error("checksum não confere; o arquivo pode ter sido alterado");
     }
     validateImportShape(candidate);
+    // Once this profile's demo Toolbar/Sandbox/STAGE entities exist, they must survive an import
+    // too -- even one from a teammate's export (or an older export from before this flag existed)
+    // that has no idea they exist. Carrying the flag forward from the workspace being replaced
+    // (not from the file) is what makes normalizeWorkspace's lock below unconditional on import.
+    candidate.preferences = { ...(candidate.preferences || {}), demoWorkspaceSeeded: candidate.preferences?.demoWorkspaceSeeded === true || previousWorkspace.preferences?.demoWorkspaceSeeded === true };
     workspace = normalizeWorkspace(candidate);
     await persistWorkspace();
     document.getElementById("dataHint").textContent = t("Importado: {clients} cliente(s), {environments} ambiente(s). URLs e vínculos foram normalizados.", { clients: workspace.clients.length, environments: workspace.environments.length });

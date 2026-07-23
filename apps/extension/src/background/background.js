@@ -1,4 +1,4 @@
-import { getSiteScope, getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS } from "../lib/storage.js";
+import { getSiteScope, getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID } from "../lib/storage.js";
 import { acceptSessionHandoff, deleteAccount, getAccessState, redeemVoucher, requestPasswordReset, signIn, signOut } from "./auth.js";
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
@@ -138,6 +138,7 @@ const CONTEXT_MENU_ACTIONS = [
   { id: "qts-check-limits", action: "check-limits", title: "Abrir Input Lab neste campo" },
   { id: "qts-multi-click", action: "multi-click", title: "Configurar Multiclick neste elemento" },
   { id: "qts-toggle-blur", action: "toggle-blur", title: "Borrar / desborrar este elemento" },
+  { id: "qts-pixel-perfect-inspect", action: "pixel-perfect-inspect", title: "Inspecionar com Pixel Perfect (tamanho em pixels)" },
 ];
 
 function setupContextMenus() {
@@ -167,21 +168,28 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // automatic on login, so it can't hijack a returning user's tab or interrupt an unrelated flow
 // (this was tried and reverted: it also fired mid-flow for anyone whose workspace happened to
 // still be empty, stealing focus into a new tab right when they didn't ask for it).
-const TUTORIAL_DEMO_URL = "https://demoqa.com/text-box?qtsTutorial=1";
+// Our own demo/tutorial site (apps/landing/public/sandbox) -- a small self-contained page with a
+// CRUD table, a multi-field form and simulated success/error/network-failure triggers, replacing
+// the earlier dependency on a third-party site (demoqa.com) for onboarding and tutorial captures.
+const TUTORIAL_DEMO_URL = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/index.html?qtsTutorial=1";
+const TUTORIAL_DEMO_ORIGIN_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
 
 // Seeds a starter workspace (client/project/product/environment/URL pointing at the public demo
 // site used for tutorial captures) so the toolbar has something real to mount on, then opens that
 // demo page in a new tab for the live tour in toolbar.js to take over. Never overwrites a
 // workspace that already has real data -- if the user already set one up, this just opens the tab.
+// Cliente=Toolbar/Projeto=Sandbox/Produto=STAGE use fixed ids and preferences.demoWorkspaceSeeded
+// so normalizeWorkspace (storage.js) locks them permanently -- see the comment there for why.
 async function seedDemoWorkspaceAndOpenTour(stepKey, reuseTabId) {
   const workspace = await getWorkspace();
   if (!workspace.clients.length) {
     await saveWorkspace({
-      clients: [{ id: "demo-client", name: "Cliente Exemplo" }],
-      projects: [{ id: "demo-project", clientId: "demo-client", name: "Projeto Exemplo" }],
-      products: [{ id: "demo-product", projectId: "demo-project", name: "Produto Exemplo" }],
+      clients: [{ id: DEMO_CLIENT_ID, name: "Toolbar", locked: true }],
+      projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Sandbox", locked: true }],
+      products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE", locked: true }],
       environments: [{ id: "demo-env", name: "QA", color: "#5b21b6" }],
-      urlBindings: [{ id: "demo-binding", productId: "demo-product", environmentIds: ["demo-env"], patterns: ["https://demoqa.com/*"] }],
+      urlBindings: [{ id: "demo-binding", productId: DEMO_PRODUCT_ID, environmentIds: ["demo-env"], patterns: [TUTORIAL_DEMO_ORIGIN_PATTERN] }],
+      preferences: { demoWorkspaceSeeded: true },
     });
     // saveWorkspace triggers the central onStorageChanged registration path below. Starting a
     // second registration here races that listener and can fail with a duplicate script ID before

@@ -289,6 +289,73 @@ body.qts-placement-mode, body.qts-placement-mode * {
 }
 #qts-holofote-overlay.isVisible { opacity: 1 !important; }
 
+/* Custom properties are set on the overlay itself and read by its (inheriting) children -- same
+   indirection trick as the Holofote overlay above, just for line/label position instead of a mask. */
+#qts-pixelperfect-overlay {
+  position: fixed !important; inset: 0 !important; z-index: 2147483643 !important; pointer-events: none !important;
+  opacity: 0 !important; transition: opacity 120ms ease !important;
+}
+#qts-pixelperfect-overlay.isVisible { opacity: 1 !important; }
+.qts-pp-line-h {
+  position: fixed !important; left: 0 !important; right: 0 !important; top: var(--qts-pp-y, -100px) !important;
+  height: var(--qts-pp-thickness, 1px) !important; background: var(--qts-pp-color, #ffd700) !important;
+}
+.qts-pp-line-v {
+  position: fixed !important; top: 0 !important; bottom: 0 !important; left: var(--qts-pp-x, -100px) !important;
+  width: var(--qts-pp-thickness, 1px) !important; background: var(--qts-pp-color, #ffd700) !important;
+}
+.qts-pp-coords {
+  position: fixed !important; left: calc(var(--qts-pp-x, 0px) + 12px) !important; top: calc(var(--qts-pp-y, 0px) + 10px) !important;
+  padding: 3px 7px !important; border-radius: 6px !important; background: #0b0b0b !important; color: var(--qts-pp-color, #ffd700) !important;
+  font: 700 11px ui-monospace, SFMono-Regular, Consolas, monospace !important; white-space: nowrap !important;
+}
+/* display:none stays the default via a class (not a bare !important rule) precisely so the JS
+   below can flip it back on with a plain element.style.display -- a stylesheet !important always
+   beats a plain inline style, which silently defeated the very first version of this. */
+.qts-pp-measure-line.isHidden, .qts-pp-measure-label.isHidden, .qts-pp-bounds-box.isHidden { display: none !important; }
+/* left/top/width/transform used to be plain inline styles -- but every descendant of
+   .qts-floating-item is hit by `.qts-floating-item *:where(...) { all: revert !important; }`
+   (see the reset near the top of this file), and since that rule is also !important with the
+   same specificity, it wins ties by source order and silently reverted this element's inline
+   width/left/top/transform back to their initial values (an empty fixed-position div then has
+   zero width), leaving the line permanently invisible despite the DOM showing "correct" inline
+   styles. Custom properties are excluded from `all`, so -- same trick as the crosshair lines and
+   Holofote overlay above -- every geometry value here is piped through one instead. */
+.qts-pp-measure-line {
+  position: fixed !important; left: var(--qts-pp-line-left, 0px) !important; top: var(--qts-pp-line-top, 0px) !important;
+  width: var(--qts-pp-line-width, 0px) !important; height: 2px !important; background: #fff !important;
+  transform-origin: left center !important; transform: rotate(var(--qts-pp-line-angle, 0deg)) !important;
+  box-shadow: 0 0 0 1px rgba(0,0,0,.5) !important;
+}
+.qts-pp-measure-label {
+  position: fixed !important; left: var(--qts-pp-label-left, 0px) !important; top: var(--qts-pp-label-top, 0px) !important;
+  transform: translate(-50%,-50%) !important; padding: 3px 7px !important; border-radius: 6px !important;
+  background: #0b0b0b !important; color: #fff !important; font: 700 11px ui-monospace, SFMono-Regular, Consolas, monospace !important;
+  white-space: nowrap !important; border: 1px solid #ffd700 !important;
+}
+/* Element-inspector mode (hover/scroll-cycle bounds, PowerToys' "Screen Ruler" style): a single
+   rectangle outline that snaps to whatever element/ancestor is currently selected, plus a label
+   with its real pixel size. Same custom-property indirection as the measure line above. */
+.qts-pp-bounds-box {
+  position: fixed !important; left: var(--qts-pp-bounds-left, 0px) !important; top: var(--qts-pp-bounds-top, 0px) !important;
+  width: var(--qts-pp-bounds-width, 0px) !important; height: var(--qts-pp-bounds-height, 0px) !important;
+  border: 2px solid var(--qts-pp-color, #ffd700) !important; background: color-mix(in srgb, var(--qts-pp-color, #ffd700) 14%, transparent) !important;
+  box-sizing: border-box !important; transition: left 60ms ease, top 60ms ease, width 60ms ease, height 60ms ease !important;
+}
+.qts-pp-bounds-box.isPinned { border-style: solid !important; box-shadow: 0 0 0 2px rgba(0,0,0,.55) !important; }
+.qts-pp-bounds-label {
+  position: fixed !important; left: var(--qts-pp-bounds-label-left, 0px) !important; top: var(--qts-pp-bounds-label-top, 0px) !important;
+  transform: translate(-50%,-100%) !important; padding: 3px 7px !important; border-radius: 6px !important;
+  background: #0b0b0b !important; color: var(--qts-pp-color, #ffd700) !important; font: 700 11px ui-monospace, SFMono-Regular, Consolas, monospace !important;
+  white-space: nowrap !important; border: 1px solid var(--qts-pp-color, #ffd700) !important;
+}
+.qts-pp-bounds-hint {
+  position: fixed !important; left: 50% !important; bottom: 18px !important; transform: translateX(-50%) !important;
+  padding: 6px 12px !important; border-radius: 999px !important; background: rgba(11,11,11,.92) !important; color: #fff !important;
+  font: 600 11px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important; white-space: nowrap !important;
+  border: 1px solid rgba(255,255,255,.25) !important; pointer-events: none !important;
+}
+
 .qts-blurred-element { filter: blur(6px) !important; transition: filter .15s ease !important; }
 
 .qts-shape-preview {

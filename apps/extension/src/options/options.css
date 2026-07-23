@@ -110,6 +110,7 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .rowActions button { min-width:27px; height:27px; padding:0 6px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; font-size:11px; font-weight:850; }
 .rowActions button:hover { border-color:var(--border); color:var(--hover-text); background:var(--surface-2); }
 .rowActions button[data-action="remove"] { color:var(--danger); }
+.lockedBadge { display:inline-flex; align-items:center; gap:4px; height:27px; padding:0 8px; border-radius:7px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap; }
 .listEmpty { padding:15px; text-align:center; color:var(--muted); font-size:12px; border:1px dashed var(--border); border-radius:10px; }
 .inlineForm { display:flex; flex-wrap:wrap; gap:8px; align-items:center; border-top:1px solid var(--border); padding-top:13px; }
 .inlineForm input,.inlineForm select,.inlineForm textarea { flex:1 1 150px; min-width:0; }

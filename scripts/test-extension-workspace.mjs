@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { DEFAULT_ENABLED_TOOLS, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
+import { DEFAULT_ENABLED_TOOLS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
 
 assert.deepEqual(normalizeUrlPatterns("https://example.com"), ["https://example.com/*"]);
 assert.deepEqual(normalizeUrlPatterns("example.com\nhttps://example.com/app"), ["*://example.com/*", "https://example.com/app*"]);
@@ -12,7 +12,7 @@ const workspace = normalizeWorkspace({
   preferences: { compactMode: true },
 });
 
-assert.equal(workspace.schemaVersion, 11);
+assert.equal(workspace.schemaVersion, 12);
 assert.equal(workspace.environments[0].name, "QA");
 assert.equal(workspace.environments[0].productId, undefined);
 assert.equal(workspace.urlBindings.length, 1);
@@ -28,6 +28,7 @@ assert.equal(workspace.preferences.enabledTools.includes("elementCapture"), true
 assert.equal(workspace.preferences.enabledTools.includes("blurElements"), true);
 assert.equal(workspace.preferences.enabledTools.includes("holofote"), true);
 assert.equal(workspace.preferences.enabledTools.includes("stepsRecorder"), true);
+assert.equal(workspace.preferences.enabledTools.includes("pixelPerfect"), true);
 assert.deepEqual(workspace.preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" });
 
 const macroWorkspace = normalizeWorkspace({
@@ -52,7 +53,7 @@ assert.deepEqual(macroWorkspace.preferences.pinnedMacroIds, ["checkout"]);
 assert.equal(JSON.stringify(macroWorkspace).includes("must-not-survive"), false);
 
 const stepsWorkspace = normalizeWorkspace({
-  schemaVersion: 11,
+  schemaVersion: 12,
   stepRecordings: [{
     id: "checkout-steps", name: "Checkout", mode: "gherkin", locale: "en",
     steps: [
@@ -75,7 +76,7 @@ assert.equal(JSON.stringify(stepsWorkspace).includes("super-secret"), false);
 const cappedSteps = normalizeWorkspace({ stepRecordings: [{ steps: Array.from({ length: 250 }, (_, index) => ({ action: "manual", text: `Step ${index}` })) }] });
 assert.equal(cappedSteps.stepRecordings[0].steps.length, 200);
 
-const filteredTools = normalizeWorkspace({ schemaVersion: 11, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
+const filteredTools = normalizeWorkspace({ schemaVersion: 12, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
 assert.deepEqual(filteredTools.preferences.enabledTools, ["inspectors"]);
 
 assert.deepEqual(normalizeWorkspace({}).preferences.pinnedTools, [], "additional shortcuts are optional");
@@ -91,10 +92,10 @@ assert.deepEqual(
 );
 
 const upgradedTools = normalizeWorkspace({ schemaVersion: 2, preferences: { enabledTools: ["inspectors"] } });
-assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder"]);
+assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder", "pixelPerfect"]);
 
 const schemaThreeUpgrade = normalizeWorkspace({ schemaVersion: 3, preferences: { enabledTools: ["inspectors"], keyView: { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false } } });
-assert.deepEqual(schemaThreeUpgrade.preferences.enabledTools, ["inspectors", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder"]);
+assert.deepEqual(schemaThreeUpgrade.preferences.enabledTools, ["inspectors", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder", "pixelPerfect"]);
 assert.deepEqual(schemaThreeUpgrade.preferences.keyView, { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false, keySize: "medium", mouseSize: "medium" });
 assert.equal(normalizeWorkspace({ schemaVersion: 4, preferences: { keyView: { position: "outside", theme: "pink" } } }).preferences.keyView.position, "bottom-center");
 assert.deepEqual(normalizeWorkspace({ preferences: { keyView: { keySize: "large", mouseSize: "small" } } }).preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "large", mouseSize: "small" });
@@ -256,5 +257,45 @@ assert.deepEqual(legacyPayment.productIds, ["product-ar"]);
 const unscopedPayment = scopeWorkspace.paymentMethods.find((method) => method.id === "payment-unscoped");
 assert.deepEqual(unscopedPayment.environmentIds, [], "empty environmentIds means \"all environments\" for payment methods, unlike test accounts");
 assert.deepEqual(unscopedPayment.productIds, []);
+
+// Locked demo entities (Cliente=Toolbar/Projeto=Sandbox/Produto=STAGE, the tutorial/tour seed):
+// without preferences.demoWorkspaceSeeded, nothing is injected -- existing/unrelated workspaces
+// must never see this appear out of nowhere.
+const noSeedFlag = normalizeWorkspace({ clients: [{ id: "client-a", name: "Cliente" }] });
+assert.equal(noSeedFlag.clients.some((client) => client.id === DEMO_CLIENT_ID), false, "demo client is never injected without the seeded flag");
+
+// Once seeded, a raw input that already has the three entities gets them locked in place.
+const seededPresent = normalizeWorkspace({
+  clients: [{ id: DEMO_CLIENT_ID, name: "Toolbar" }, { id: "client-a", name: "Cliente" }],
+  projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Sandbox" }],
+  products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE" }],
+  preferences: { demoWorkspaceSeeded: true },
+});
+assert.equal(seededPresent.clients.find((client) => client.id === DEMO_CLIENT_ID)?.locked, true);
+assert.equal(seededPresent.projects.find((project) => project.id === DEMO_PROJECT_ID)?.locked, true);
+assert.equal(seededPresent.products.find((product) => product.id === DEMO_PRODUCT_ID)?.locked, true);
+assert.equal(seededPresent.clients.length, 2, "a real client alongside the demo one survives untouched");
+
+// Simulates the exact threat the founder called out: importing a config file that has no idea
+// the demo entities exist (an older export, or a teammate's real workspace) must not delete them
+// -- they get re-inserted, still locked, once the seeded flag is set.
+const importWithoutDemo = normalizeWorkspace({
+  clients: [{ id: "client-a", name: "Cliente" }],
+  preferences: { demoWorkspaceSeeded: true },
+});
+assert.equal(importWithoutDemo.clients.find((client) => client.id === DEMO_CLIENT_ID)?.name, "Toolbar", "demo client is re-created if an import dropped it");
+assert.equal(importWithoutDemo.clients.find((client) => client.id === DEMO_CLIENT_ID)?.locked, true);
+assert.equal(importWithoutDemo.projects.find((project) => project.id === DEMO_PROJECT_ID)?.name, "Sandbox");
+assert.equal(importWithoutDemo.products.find((product) => product.id === DEMO_PRODUCT_ID)?.name, "STAGE");
+
+// Tampering (renamed, unlocked) is corrected back on the very next normalization pass.
+const tampered = normalizeWorkspace({
+  clients: [{ id: DEMO_CLIENT_ID, name: "Renamed", locked: false }],
+  projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Renamed" }],
+  products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "Renamed" }],
+  preferences: { demoWorkspaceSeeded: true },
+});
+assert.equal(tampered.clients.find((client) => client.id === DEMO_CLIENT_ID)?.name, "Toolbar");
+assert.equal(tampered.clients.find((client) => client.id === DEMO_CLIENT_ID)?.locked, true);
 
 console.log("Extension workspace normalization tests passed.");

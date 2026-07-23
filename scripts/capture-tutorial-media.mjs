@@ -2,7 +2,8 @@
 // already-validated pattern in scripts/smoke-extension.mjs (launchPersistentContext + route mocks
 // for the Edge Functions + extensionId extraction via serviceWorkers(), and the exact tool
 // interaction selectors already proven there) -- the novelty here is aiming the bar at a real
-// external site (demoqa.com) instead of the local fixture server, recording a short video per tool
+// external site instead of the local fixture server -- our own demo site (apps/landing/public/
+// sandbox), recording a short video per tool
 // (Playwright's native recordVideo, one fresh page per tool so each clip stays short and focused),
 // and saving everything into a VERSIONED directory (apps/extension/src/options/tutorial-assets/)
 // since artifacts/ is gitignored and can't be the final destination for assets the Tutorial panel
@@ -20,7 +21,7 @@ const extensionPath = resolve(root, "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-tutorial-capture-profile");
 const videoTmpPath = resolve(root, "artifacts/tutorial-video-tmp");
 const assetsPath = resolve(root, "apps/extension/src/options/tutorial-assets");
-const DEMO_URL = "https://demoqa.com/text-box";
+const DEMO_URL = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/index.html";
 const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
 const trace = (label) => console.log(`[tutorial-capture] ${label}`);
 await rm(profilePath, { recursive: true, force: true });
@@ -127,7 +128,7 @@ try {
   await options.locator("#environmentColor").fill("#5b21b6");
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-tab="urls"]').click();
-  for (const pattern of ["https://demoqa.com/*", "https://www.saucedemo.com/*"]) {
+  for (const pattern of ["https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*"]) {
     await options.locator('[data-open-composer="urlRelationComposer"]').click();
     await options.locator("#urlRelationProduct").selectOption({ label: "Produto Demo" });
     await options.locator("#urlPatternInput").fill(pattern);
@@ -213,7 +214,7 @@ try {
 
   await captureTool("passFail", async (page) => {
     await page.locator("#passButton").click();
-    await page.locator("#userName-label").click({ force: true });
+    await page.locator("#contactName-label").click({ force: true });
     // Reveal the marker's own controls (resize/hide/remove/drag) so the clip shows what's
     // available on a placed marker, not just the marker itself.
     await page.locator(".qts-marker [data-visibility-toggle]").click();
@@ -259,7 +260,7 @@ try {
   await captureTool("blurElements", async (page) => {
     await openToolByMenu(page, "blurElementsMenuItem");
     await page.locator("#blurSelectElement").click();
-    await page.locator("#userName").click();
+    await page.locator("#contactName").click();
     await page.waitForTimeout(600);
   });
 
@@ -270,6 +271,16 @@ try {
     await page.mouse.move(420, 380);
     await page.mouse.down();
     await page.waitForTimeout(3_400);
+  });
+
+  await captureTool("pixelPerfect", async (page) => {
+    await openToolByMenu(page, "pixelPerfectMenuItem");
+    await page.locator("#pixelPerfectToggle").click();
+    await closeDrawer(page);
+    await page.mouse.move(280, 260);
+    await page.mouse.click(280, 260);
+    await page.mouse.move(560, 420, { steps: 12 });
+    await page.waitForTimeout(600);
   });
 
   await captureTool("screenshot", async (page) => {
@@ -285,7 +296,7 @@ try {
 
   await captureTool("clickSpy", async (page) => {
     await openToolByMenu(page, "clickSpyMenuItem");
-    await page.locator("#userName").hover();
+    await page.locator("#contactName").hover();
   });
 
   await captureTool("freezeClock", async (page) => {
@@ -327,7 +338,7 @@ try {
   await captureTool("multiClick", async (page) => {
     await openToolByMenu(page, "multiClickMenuItem");
     await page.locator("#multiSelect").click();
-    await page.locator("#submit").click();
+    await page.locator("#contactSubmit").click();
     await page.locator("#multiCount").fill("3");
     await page.locator("#multiInterval").fill("150");
     await page.locator("#multiRun").click();
@@ -335,8 +346,8 @@ try {
 
   await captureTool("inputLab", async (page) => {
     await openToolByMenu(page, "inputLabMenuItem");
-    await page.locator("#inputSelect").click();
-    await page.locator("#userName").click();
+    await page.locator("#contactDepartment").click();
+    await page.locator("#contactName").click();
     await page.locator("#inputRun").click();
     await page.locator("#inputResults tbody tr").first().waitFor();
   });
@@ -349,9 +360,9 @@ try {
   await captureTool("macroStudio", async (page) => {
     await openToolByMenu(page, "macroStudioMenuItem");
     await page.locator("#startMacroRecording").click();
-    await page.locator("#userName").click();
+    await page.locator("#contactName").click();
     await page.keyboard.type("QA Toolbar Sandbox");
-    await page.locator("#userName").press("Tab");
+    await page.locator("#contactName").press("Tab");
     await page.locator("#macroRecDoneButton").click();
     await page.locator("#macroSave").click();
     await page.locator("#macroList .qts-card").first().waitFor();
@@ -362,12 +373,12 @@ try {
     await page.locator("#newStepsName").fill("Validar cadastro de usuário");
     await page.locator("#newStepsMode").selectOption("gherkin");
     await page.locator("#startSteps").click();
-    await page.locator("#userName").fill("Matheus QA");
-    await page.locator("#userEmail").fill("qa@example.com");
+    await page.locator("#contactName").fill("Matheus QA");
+    await page.locator("#contactEmail").fill("qa@example.com");
     await page.locator("#stepsRecPauseButton").click();
     await page.waitForTimeout(700);
     await page.locator("#stepsRecPauseButton").click();
-    await page.locator("#submit").click();
+    await page.locator("#contactSubmit").click();
     await page.waitForTimeout(900);
     await page.locator("#stepsRecDoneButton").click();
     await page.locator('[data-doc-step="0"] summary').click();

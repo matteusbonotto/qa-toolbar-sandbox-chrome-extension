@@ -178,6 +178,13 @@ function offsetSiteFixedHeaders() {
   document.body?.querySelectorAll("*").forEach((element) => {
     if (element === host || host?.contains(element)) return;
     if (element.id === SPACER_ID || element.hasAttribute(HEADER_OFFSET_ATTR)) return;
+    // Our own light-DOM overlays (Pixel Perfect's crosshair/measure line, Holofote's spotlight,
+    // markers/notes/shapes/lines...) are also position:fixed and can sit close to the top of the
+    // viewport, which made this scanner mistake them for a site header fighting for the same
+    // space and start rewriting their top/z-index -- fighting with these tools' own positioning
+    // logic instead of a real host-page header. None of them are ever the thing this offset exists
+    // to fix, so they're excluded outright.
+    if (element.closest(".qts-floating-item")) return;
     const computed = getComputedStyle(element);
     if (computed.position !== "fixed" && computed.position !== "sticky") return;
     const currentTop = Number.parseFloat(computed.top);
@@ -312,6 +319,48 @@ function requirePlanFeature(toolKey) {
   return false;
 }
 
+const TOOLS_MENU_ITEM_IDS = {
+  clickSpy: "clickSpyMenuItem", freezeClock: "freezeClockMenuItem", forceHttp: "forceHttpMenuItem",
+  errorMonitor: "errorMonitorMenuItem",
+  inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
+  testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
+  characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", stepsRecorder: "stepsRecorderMenuItem", multiClick: "multiClickMenuItem",
+  inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
+  elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem", holofote: "holofoteMenuItem", pixelPerfect: "pixelPerfectMenuItem",
+};
+const TOOLS_MENU_LABELS = { clickSpy: "Click Spy", freezeClock: "Freeze Clock", forceHttp: "Force HTTP", errorMonitor: "Error Monitor", inspectors: "Inspectors", jsonStudio: "JSON Studio", breakpoints: "Breakpoints", testAccounts: "Contas de teste", paymentMethods: "Meios de pagamento", resources: "Recursos e links", characterCounter: "Contador de caracteres", macroStudio: "Macro Studio", stepsRecorder: "Gravador de Passos", multiClick: "Multiclick", inputLab: "Input Lab", fakerFill: "Faker Fill", keyView: "Key View", elementCapture: "Capturar elementos", blurElements: "Borrar elementos", holofote: "Modo Holofote", pixelPerfect: "Pixel Perfect" };
+const TOOLS_MENU_ITEM_KEY_BY_ID = Object.fromEntries(Object.entries(TOOLS_MENU_ITEM_IDS).map(([key, id]) => [id, key]));
+
+// "Mais usados" sort needs a click count per tool; recorded on every menu-item activation
+// regardless of the active sort mode (so switching into "mais usados" later already has real
+// history instead of starting from zero) but only triggers a re-render when that count could
+// actually change what's currently visible.
+async function recordToolMenuUsage(key) {
+  if (!key) return;
+  const counts = { ...(state.workspace.preferences.toolUsageCounts || {}) };
+  counts[key] = (counts[key] || 0) + 1;
+  state.workspace.preferences = { ...state.workspace.preferences, toolUsageCounts: counts };
+  state.workspace = await saveWorkspace(state.workspace);
+  if (state.workspace.preferences.toolsSortMode === "mostUsed") applyPinnedTools();
+}
+
+function sortedToolsMenuOrder(baseOrder) {
+  const preferences = state.workspace?.preferences || {};
+  const mode = preferences.toolsSortMode || "custom";
+  if (mode === "custom") return baseOrder;
+  if (mode === "az" || mode === "za") {
+    const collator = new Intl.Collator(preferences.language || "pt-BR", { sensitivity: "base" });
+    const sorted = [...baseOrder].sort((a, b) => collator.compare(TOOLS_MENU_LABELS[a] || a, TOOLS_MENU_LABELS[b] || b));
+    return mode === "za" ? sorted.reverse() : sorted;
+  }
+  if (mode === "mostUsed") {
+    const counts = preferences.toolUsageCounts || {};
+    const originalIndex = new Map(baseOrder.map((key, index) => [key, index]));
+    return [...baseOrder].sort((a, b) => (counts[b] || 0) - (counts[a] || 0) || originalIndex.get(a) - originalIndex.get(b));
+  }
+  return baseOrder;
+}
+
 function applyPinnedTools() {
   const root = state.shadowRoot;
   if (!root) return;
@@ -319,32 +368,28 @@ function applyPinnedTools() {
   const enabledTools = new Set(state.workspace?.preferences?.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
   ["passButton", "failButton", "screenshotButton", "recordToggleButton"].forEach((id) => root.getElementById(id)?.classList.remove("isPreferenceHidden"));
   ["testStatusButton", "noteButton", "shapeWrapper", "blurQuickButton", "holofoteQuickButton"].forEach((id) => root.getElementById(id)?.classList.add("isPreferenceHidden"));
-  const menuItems = {
-    clickSpy: "clickSpyMenuItem", freezeClock: "freezeClockMenuItem", forceHttp: "forceHttpMenuItem",
-    errorMonitor: "errorMonitorMenuItem",
-    inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
-    testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
-    characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", stepsRecorder: "stepsRecorderMenuItem", multiClick: "multiClickMenuItem",
-    inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
-    elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem", holofote: "holofoteMenuItem",
-  };
+  const menuItems = TOOLS_MENU_ITEM_IDS;
   for (const [key, id] of Object.entries(menuItems)) {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
   }
-  const labels = { clickSpy: "Click Spy", freezeClock: "Freeze Clock", forceHttp: "Force HTTP", errorMonitor: "Error Monitor", inspectors: "Inspectors", jsonStudio: "JSON Studio", breakpoints: "Breakpoints", testAccounts: "Contas de teste", paymentMethods: "Meios de pagamento", resources: "Recursos e links", characterCounter: "Contador de caracteres", macroStudio: "Macro Studio", stepsRecorder: "Gravador de Passos", multiClick: "Multiclick", inputLab: "Input Lab", fakerFill: "Faker Fill", keyView: "Key View", elementCapture: "Capturar elementos", blurElements: "Borrar elementos", holofote: "Modo Holofote" };
+  const labels = TOOLS_MENU_LABELS;
   const icons = { clickSpy: "mouse", freezeClock: "freezeClock", forceHttp: "warning", errorMonitor: "errorMonitor", inspectors: "braces", jsonStudio: "braces", breakpoints: "breakpointViewer", testAccounts: "key", paymentMethods: "paymentMethods", resources: "resources", characterCounter: "characterCounter", macroStudio: "macroStudio", stepsRecorder: "recordStart", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill", keyView: "keyView", elementCapture: "elementCapture", blurElements: "eyeSlash", holofote: "lightbulb" };
   const quickContainer = root.getElementById("extraPinnedTools");
   if (quickContainer) {
     quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}</button>`).join("");
     quickContainer.querySelectorAll("[data-pinned-tool]").forEach((button) => button.addEventListener("click", () => root.getElementById(menuItems[button.dataset.pinnedTool])?.click()));
   }
-  // Re-append each menu item in the founder's chosen order (preferences.toolsMenuOrder) —
-  // appendChild on an already-attached node *moves* it, so iterating in order and re-appending
-  // sequentially reorders the whole menu without rebuilding it. #pinnedMacrosMenu (a separate,
-  // dynamically rendered list of pinned macros) is intentionally left alone at the top.
+  // Re-append each menu item in the effective order -- appendChild on an already-attached node
+  // *moves* it, so iterating in order and re-appending sequentially reorders the whole menu
+  // without rebuilding it. #pinnedMacrosMenu (a separate, dynamically rendered list of pinned
+  // macros) is intentionally left alone at the top. The base order is always the founder's
+  // manually dragged preferences.toolsMenuOrder; A-Z/Z-A/"mais usados" (preferences.toolsSortMode)
+  // are a display-time re-sort of that same list, so switching back to "Personalizado" instantly
+  // restores the exact manual order without losing it.
   const menu = root.getElementById("toolsMenu");
   const toolsMenuOrder = state.workspace?.preferences?.toolsMenuOrder || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS;
-  if (menu) for (const key of toolsMenuOrder) { const item = menuItems[key] && root.getElementById(menuItems[key]); if (item) menu.appendChild(item); }
+  const effectiveOrder = sortedToolsMenuOrder(toolsMenuOrder);
+  if (menu) for (const key of effectiveOrder) { const item = menuItems[key] && root.getElementById(menuItems[key]); if (item) menu.appendChild(item); }
   renderPinnedMacros();
 }
 
@@ -474,6 +519,7 @@ function buildShadowHost() {
       .qts-macro-hist-row { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 6px; background: #171717; font-size: 11px; color: #fff; }
       .qts-macro-hist-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .qts-macro-hist-row button { all: unset; cursor: pointer; color: #ff7078; font-weight: 800; padding: 0 4px; }
+      .qts-macro-hist-result { margin-left: 14px; background: transparent; color: #9fd8a8; font-style: italic; }
       .qts-mini-empty { padding: 8px; color: #999; font-size: 11px; text-align: center; }
       #notificationBellWrapper { position: relative; }
       #notificationBellButton { position: relative; }
@@ -492,7 +538,16 @@ function buildShadowHost() {
       #shapeTypeMenu { position: absolute; top: 30px; left: 0; width: 180px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
       #shapeTypeMenu button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; border-radius: 7px; background: #171717; border: 1px solid #2c2c2c; font-size: 12px; }
       #shapeTypeMenu button:hover { background: #232323; border-color: #ffd700; }
-      #shapeTypeMenu.asToolsSubmenu { position: static; width: auto; margin: 2px 4px 6px; box-shadow: none; }
+      /* Opened from the "Desenhar forma" row inside the Tools dropdown (as opposed to the pinned
+         shapeButton icon, which has its own #shapeWrapper-relative flyout above): used to just
+         flow inline (position:static) as the LAST child of #toolsMenu, landing far below "Desenhar
+         forma" itself at the bottom of an unrelated, much longer list -- confusing since nothing
+         visually tied it back to the row that opened it. This instead flies out beside that exact
+         row (top set in JS from its offsetTop within #toolsMenu), preferring the left like a
+         native nested menu; .opensRight is added at open time only when there isn't enough room
+         on the left of the toolbar so it doesn't get clipped off-screen. */
+      #shapeTypeMenu.asToolsSubmenu { position: absolute; right: 100%; margin-right: 8px; width: 190px; }
+      #shapeTypeMenu.asToolsSubmenu.opensRight { right: auto; left: 100%; margin-right: 0; margin-left: 8px; }
       #recordWrapper { position: relative; }
       #recordTypeMenu { position: absolute; top: 30px; right: 0; width: 240px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
       #recordTypeMenuTitle { margin: 2px 4px 4px; font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: .04em; }
@@ -659,6 +714,7 @@ function buildShadowHost() {
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
             <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
             <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("lightbulb")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
+            <button type="button" id="pixelPerfectMenuItem" role="menuitem">${ICON("ruler")} ${escapeHtml(t.pixelPerfectMenuLabel || "Pixel Perfect")}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}<span id="tutorialDot" class="qts-tutorial-dot" hidden></span></button>
@@ -693,7 +749,19 @@ function buildShadowHost() {
   shadow.getElementById("passButton").addEventListener("click", (event) => enablePlacementMode("pass", event.currentTarget));
   shadow.getElementById("failButton").addEventListener("click", (event) => enablePlacementMode("fail", event.currentTarget));
   shadow.getElementById("noteButton").addEventListener("click", () => addFloatingTextNote());
-  shadow.getElementById("shapeButton").addEventListener("click", (event) => { event.stopPropagation(); toggleShapeTypeMenu(); });
+  shadow.getElementById("shapeButton").addEventListener("click", (event) => {
+    event.stopPropagation();
+    // The submenu may currently live inside #toolsMenu from the "Desenhar forma" row path below --
+    // move it back under the pinned icon's own wrapper and drop that path's positioning leftovers
+    // (an inline top and the asToolsSubmenu/opensRight classes), otherwise it would keep rendering
+    // wherever #toolsMenu last placed it instead of under this icon.
+    const submenu = shadow.getElementById("shapeTypeMenu");
+    const shapeWrapper = shadow.getElementById("shapeWrapper");
+    if (submenu.parentElement !== shapeWrapper) shapeWrapper.appendChild(submenu);
+    submenu.classList.remove("asToolsSubmenu", "opensRight");
+    submenu.style.top = "";
+    toggleShapeTypeMenu();
+  });
   shadow.getElementById("shapeTypeMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.querySelectorAll("#shapeTypeMenu [data-shape-pick]").forEach((button) => {
     button.addEventListener("click", () => {
@@ -710,9 +778,20 @@ function buildShadowHost() {
     event.stopPropagation();
     const submenu = shadow.getElementById("shapeTypeMenu");
     const toolsMenu = shadow.getElementById("toolsMenu");
+    const trigger = event.currentTarget;
     if (submenu.parentElement !== toolsMenu) toolsMenu.appendChild(submenu);
     submenu.classList.add("asToolsSubmenu");
+    const willOpen = submenu.classList.contains("isHidden");
     submenu.classList.toggle("isHidden");
+    if (willOpen) {
+      // Vertically aligns the flyout with the exact row that opened it (offsetTop is relative to
+      // #toolsMenu here, since that's this button's nearest positioned ancestor) instead of the
+      // top of the whole Tools list. opensRight only kicks in when the Tools dropdown itself sits
+      // too close to the left edge of the viewport for a left-opening flyout to fit.
+      submenu.style.top = `${trigger.offsetTop}px`;
+      const toolsMenuRect = toolsMenu.getBoundingClientRect();
+      submenu.classList.toggle("opensRight", toolsMenuRect.left < 210);
+    }
   });
   shadow.getElementById("clearAllButton").addEventListener("click", () => clearAllFloatingItems());
   shadow.getElementById("screenshotButton").addEventListener("click", () => captureScreenshot());
@@ -752,6 +831,14 @@ function buildShadowHost() {
     event.stopPropagation();
     shadow.getElementById("toolsMenu").classList.toggle("isOpen");
   });
+  // Feeds "mais usados" sorting -- a single delegated listener instead of touching every
+  // individual tool's own click handler. Fires on the way down (capture) so it always sees the
+  // click even though "Desenhar forma"'s handler above calls stopPropagation() on its own submenu.
+  shadow.getElementById("toolsMenu").addEventListener("click", (event) => {
+    const button = event.target.closest("button[id]");
+    const key = button && TOOLS_MENU_ITEM_KEY_BY_ID[button.id];
+    if (key) void recordToolMenuUsage(key);
+  }, true);
   shadow.getElementById("notificationBellButton").addEventListener("click", (event) => { event.stopPropagation(); toggleNotificationBellPanel(); });
   shadow.getElementById("recordToggleButton").addEventListener("click", (event) => { event.stopPropagation(); handleRecordToggle(); });
   shadow.getElementById("recordTypeMenu").addEventListener("click", (event) => event.stopPropagation());
@@ -781,6 +868,7 @@ function buildShadowHost() {
   shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
   shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => { openBlurElementsTool(); closeToolsMenu(); });
   shadow.getElementById("holofoteMenuItem").addEventListener("click", () => { openHolofoteTool(); closeToolsMenu(); });
+  shadow.getElementById("pixelPerfectMenuItem").addEventListener("click", () => { openPixelPerfectTool(); closeToolsMenu(); });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("stepsRecorderMenuItem").addEventListener("click", () => { openStepsRecorder(); closeToolsMenu(); });
@@ -850,6 +938,7 @@ const TOUR_TARGETS = {
   line: { selector: "#shapesMenuItem", menu: true },
   blurElements: { selector: "#blurElementsMenuItem", menu: true },
   holofote: { selector: "#holofoteMenuItem", menu: true },
+  pixelPerfect: { selector: "#pixelPerfectMenuItem", menu: true },
   screenshot: { selector: "#screenshotButton" },
   recording: { selector: "#recordToggleButton" },
   clickSpy: { selector: "#clickSpyMenuItem", menu: true },
@@ -2122,6 +2211,14 @@ function drawerStyles() {
     .qts-key-view-preview[data-theme="light"] .qts-keycap-shine { stroke: rgba(255,255,255,.9); }
     .qts-key-view-preview[data-theme="light"] .qts-keycap text { fill: #111; }
     .qts-privacy-note p { margin: 5px 0 0; color: #aaa; }
+    /* A bare native <input type=color> renders as a ~16px swatch with no border in some engines --
+       easy to miss entirely as "this is a color picker". Wrapping it with a visible frame and a
+       readable hex readout next to it (same idea as the shape/note editors' color inputs) makes
+       it unambiguous. */
+    .qts-pp-color-row { display: flex; align-items: center; gap: 10px; }
+    .qts-pp-color-row input[type="color"] { width: 46px; height: 34px; padding: 2px; border: 2px solid #444; border-radius: 8px; background: #000; cursor: pointer; }
+    .qts-pp-color-row input[type="color"]:hover { border-color: #ffd700; }
+    .qts-pp-color-hex { font: 800 12px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .04em; color: #ddd; }
     /* Semantic theme bridge for every reusable drawer component. It intentionally comes last
        so older feature-specific literal colors cannot break the selected platform theme. */
     .qts-drawer-backdrop.isModal .qts-drawer,
@@ -2198,6 +2295,12 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Opacidade (efeito Escurecer)": "Opacidad (efecto Oscurecer)",
   "Intensidade do borrão (efeito Borrar)": "Intensidad del desenfoque (efecto Difuminar)",
   "Tamanho do holofote": "Tamaño del foco",
+  "Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos — passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em \"Inspecionar com Pixel Perfect\".": "Actívalo y elige un modo: líneas guía que siguen al mouse (cruz, horizontal o vertical) con una regla inteligente de clic-para-medir, o el inspector de elementos — pasa el mouse para ver el tamaño exacto de cualquier elemento de la página, usa el scroll para subir/bajar entre padre e hijo, y haz clic para fijarlo. También disponible con el botón derecho del mouse, en \"Inspeccionar con Pixel Perfect\".",
+  "Modo": "Modo", "Linhas guia — cruz (horizontal + vertical)": "Líneas guía — cruz (horizontal + vertical)", "Linhas guia — somente horizontal": "Líneas guía — solo horizontal", "Linhas guia — somente vertical": "Líneas guía — solo vertical",
+  "Inspecionar elemento (tamanho em pixels)": "Inspeccionar elemento (tamaño en píxeles)",
+  "Cor": "Color", "Espessura da linha": "Grosor de la línea",
+  "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Usa el scroll para ir al elemento padre/hijo · Haz clic para fijarlo",
+  "Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar.": "Pixel Perfect: usa el scroll para cambiar de elemento, haz clic para soltarlo.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -2220,6 +2323,12 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Opacidade (efeito Escurecer)": "Opacity (Darken effect)",
   "Intensidade do borrão (efeito Borrar)": "Blur strength (Blur effect)",
   "Tamanho do holofote": "Spotlight size",
+  "Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos — passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em \"Inspecionar com Pixel Perfect\".": "Turn it on and pick a mode: guide lines following the mouse (cross, horizontal, or vertical) with a click-to-measure smart ruler, or the element inspector — hover to see the exact size of any element on the page, scroll to walk up/down between parent and child, and click to pin it. Also reachable with a right-click, via \"Inspect with Pixel Perfect\".",
+  "Modo": "Mode", "Linhas guia — cruz (horizontal + vertical)": "Guide lines — cross (horizontal + vertical)", "Linhas guia — somente horizontal": "Guide lines — horizontal only", "Linhas guia — somente vertical": "Guide lines — vertical only",
+  "Inspecionar elemento (tamanho em pixels)": "Inspect element (pixel size)",
+  "Cor": "Color", "Espessura da linha": "Line thickness",
+  "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Scroll to go to the parent/child element · Click to pin it",
+  "Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar.": "Pixel Perfect: scroll to switch elements, click to release.",
 });
 
 function translateQaSurfaceText(value) {
@@ -4482,6 +4591,300 @@ function openHolofoteTool() {
   });
 }
 
+// Pixel Perfect: crosshair/horizontal/vertical guide lines that follow the mouse (color and
+// thickness configurable) with a click-to-anchor "smart ruler" that measures the distance from
+// the anchor to the live cursor position, plus a dedicated element-inspector "bounds" mode --
+// hover snaps a box to whatever real element sits under the cursor and shows its exact pixel
+// size, and the scroll wheel walks that box up/down the DOM ancestor chain (bigger container per
+// notch one way, back down toward the innermost element the other) -- modeled directly on
+// PowerToys' Screen Ruler, referenced per the founder's request. Never preventDefault's real
+// clicks in the line modes (same passive-layer philosophy as Holofote/Click Spy); bounds mode
+// does swallow clicks while active, same as every other click-to-select tool here (Borrar
+// elementos, Multiclick), since a click there means "pin this element", not "activate it".
+let pixelPerfectSettings = { mode: "cross", color: "#ffd700", thickness: 1 };
+let pixelPerfectMeasureAnchor = null;
+let pixelPerfectBoundsChain = [];
+let pixelPerfectBoundsIndex = 0;
+let pixelPerfectBoundsPinned = false;
+
+function ensurePixelPerfectOverlay() {
+  let overlay = document.getElementById("qts-pixelperfect-overlay");
+  if (overlay) return overlay;
+  overlay = document.createElement("div");
+  overlay.id = "qts-pixelperfect-overlay";
+  overlay.className = "qts-floating-item";
+  overlay.innerHTML = `
+    <div class="qts-pp-line-h"></div>
+    <div class="qts-pp-line-v"></div>
+    <div class="qts-pp-coords"></div>
+    <div class="qts-pp-measure-line isHidden"></div>
+    <div class="qts-pp-measure-label isHidden"></div>
+    <div class="qts-pp-bounds-box isHidden"></div>
+    <div class="qts-pp-bounds-label isHidden"></div>
+    <div class="qts-pp-bounds-hint isHidden"></div>
+  `;
+  document.body.appendChild(overlay);
+  return overlay;
+}
+
+function applyPixelPerfectSettings(overlay) {
+  overlay.style.setProperty("--qts-pp-color", pixelPerfectSettings.color);
+  overlay.style.setProperty("--qts-pp-thickness", `${pixelPerfectSettings.thickness}px`);
+  const isBounds = pixelPerfectSettings.mode === "bounds";
+  overlay.querySelector(".qts-pp-line-h").style.display = !isBounds && pixelPerfectSettings.mode !== "vertical" ? "block" : "none";
+  overlay.querySelector(".qts-pp-line-v").style.display = !isBounds && pixelPerfectSettings.mode !== "horizontal" ? "block" : "none";
+  overlay.querySelector(".qts-pp-coords").style.display = isBounds ? "none" : "block";
+  const hint = overlay.querySelector(".qts-pp-bounds-hint");
+  if (isBounds) {
+    hint.classList.remove("isHidden");
+    hint.textContent = translateQaSurfaceText("Role o scroll para ir ao elemento pai/filho · Clique para fixar");
+  } else {
+    hint.classList.add("isHidden");
+    overlay.querySelector(".qts-pp-bounds-box").classList.add("isHidden");
+    overlay.querySelector(".qts-pp-bounds-label").classList.add("isHidden");
+    pixelPerfectBoundsChain = [];
+    pixelPerfectBoundsIndex = 0;
+    pixelPerfectBoundsPinned = false;
+  }
+}
+
+function updatePixelPerfectCrosshair(x, y) {
+  const overlay = ensurePixelPerfectOverlay();
+  overlay.style.setProperty("--qts-pp-x", `${x}px`);
+  overlay.style.setProperty("--qts-pp-y", `${y}px`);
+  const coords = overlay.querySelector(".qts-pp-coords");
+  coords.textContent = `X: ${Math.round(x)}px  Y: ${Math.round(y)}px`;
+  const line = overlay.querySelector(".qts-pp-measure-line");
+  const label = overlay.querySelector(".qts-pp-measure-label");
+  if (pixelPerfectMeasureAnchor) {
+    const dx = Math.round(x - pixelPerfectMeasureAnchor.x);
+    const dy = Math.round(y - pixelPerfectMeasureAnchor.y);
+    const length = Math.hypot(x - pixelPerfectMeasureAnchor.x, y - pixelPerfectMeasureAnchor.y);
+    const angle = (Math.atan2(y - pixelPerfectMeasureAnchor.y, x - pixelPerfectMeasureAnchor.x) * 180) / Math.PI;
+    line.classList.remove("isHidden");
+    line.style.setProperty("--qts-pp-line-left", `${pixelPerfectMeasureAnchor.x}px`);
+    line.style.setProperty("--qts-pp-line-top", `${pixelPerfectMeasureAnchor.y}px`);
+    line.style.setProperty("--qts-pp-line-width", `${length}px`);
+    line.style.setProperty("--qts-pp-line-angle", `${angle}deg`);
+    label.classList.remove("isHidden");
+    label.style.setProperty("--qts-pp-label-left", `${(x + pixelPerfectMeasureAnchor.x) / 2}px`);
+    label.style.setProperty("--qts-pp-label-top", `${(y + pixelPerfectMeasureAnchor.y) / 2}px`);
+    label.textContent = `${Math.abs(dx)}×${Math.abs(dy)}px · ${Math.round(length)}px`;
+  } else {
+    line.classList.add("isHidden");
+    label.classList.add("isHidden");
+  }
+}
+
+// Only real page content is a valid inspection target -- our own overlay is pointer-events:none
+// so elementFromPoint already passes through it, but the toolbar's actual clickable chrome
+// (button/menu/drawer) is not, and would otherwise get boxed as if it were page content.
+function resolvePixelPerfectHoverElement(x, y) {
+  const element = document.elementFromPoint(x, y);
+  if (!element || element === document.documentElement || element === document.body) return null;
+  if (isInsideToolbarUi(element)) return null;
+  return element;
+}
+
+function buildPixelPerfectBoundsChain(element) {
+  const chain = [];
+  let node = element;
+  while (node instanceof Element) {
+    chain.push(node);
+    if (node === document.documentElement) break;
+    node = node.parentElement;
+  }
+  return chain;
+}
+
+function renderPixelPerfectBounds(overlay) {
+  const box = overlay.querySelector(".qts-pp-bounds-box");
+  const label = overlay.querySelector(".qts-pp-bounds-label");
+  const element = pixelPerfectBoundsChain[pixelPerfectBoundsIndex];
+  if (!element) {
+    box.classList.add("isHidden");
+    label.classList.add("isHidden");
+    return;
+  }
+  const rect = element.getBoundingClientRect();
+  box.classList.remove("isHidden");
+  box.classList.toggle("isPinned", pixelPerfectBoundsPinned);
+  box.style.setProperty("--qts-pp-bounds-left", `${rect.left}px`);
+  box.style.setProperty("--qts-pp-bounds-top", `${rect.top}px`);
+  box.style.setProperty("--qts-pp-bounds-width", `${rect.width}px`);
+  box.style.setProperty("--qts-pp-bounds-height", `${rect.height}px`);
+  label.classList.remove("isHidden");
+  label.style.setProperty("--qts-pp-bounds-label-left", `${rect.left + rect.width / 2}px`);
+  label.style.setProperty("--qts-pp-bounds-label-top", `${Math.max(rect.top - 8, 22)}px`);
+  const identity = element.id ? `#${element.id}` : (typeof element.className === "string" && element.className.trim() ? `.${element.className.trim().split(/\s+/)[0]}` : "");
+  label.textContent = `${element.tagName.toLowerCase()}${identity} · ${Math.round(rect.width)}×${Math.round(rect.height)}px`;
+}
+
+function updatePixelPerfectBounds(x, y) {
+  const overlay = ensurePixelPerfectOverlay();
+  if (!pixelPerfectBoundsPinned) {
+    const hovered = resolvePixelPerfectHoverElement(x, y);
+    if (!hovered) {
+      pixelPerfectBoundsChain = [];
+      pixelPerfectBoundsIndex = 0;
+    } else if (pixelPerfectBoundsChain[0] !== hovered) {
+      pixelPerfectBoundsChain = buildPixelPerfectBoundsChain(hovered);
+      pixelPerfectBoundsIndex = 0;
+    }
+  }
+  renderPixelPerfectBounds(overlay);
+}
+
+// Pins the inspector on a specific element right away (skips hover) -- used by the "Inspecionar
+// com Pixel Perfect" right-click action so a single click on the target is enough to see its size.
+function pinPixelPerfectBounds(element) {
+  pixelPerfectSettings = { ...pixelPerfectSettings, mode: "bounds" };
+  pixelPerfectBoundsChain = buildPixelPerfectBoundsChain(element);
+  pixelPerfectBoundsIndex = 0;
+  pixelPerfectBoundsPinned = true;
+  const overlay = ensurePixelPerfectOverlay();
+  applyPixelPerfectSettings(overlay);
+  renderPixelPerfectBounds(overlay);
+}
+
+function enablePixelPerfectMode() {
+  if (state.pixelPerfectActive) return;
+  state.pixelPerfectActive = true;
+  state.shadowRoot?.getElementById("pixelPerfectMenuItem")?.classList.add("isActive");
+  pixelPerfectMeasureAnchor = null;
+  const overlay = ensurePixelPerfectOverlay();
+  applyPixelPerfectSettings(overlay);
+  overlay.classList.add("isVisible");
+  const moveHandler = (event) => {
+    if (pixelPerfectSettings.mode === "bounds") updatePixelPerfectBounds(event.clientX, event.clientY);
+    else updatePixelPerfectCrosshair(event.clientX, event.clientY);
+  };
+  const clickHandler = (event) => {
+    if (isInsideToolbarUi(event.target)) return;
+    if (pixelPerfectSettings.mode === "bounds") {
+      if (!pixelPerfectBoundsChain.length) return;
+      event.preventDefault();
+      event.stopPropagation();
+      pixelPerfectBoundsPinned = !pixelPerfectBoundsPinned;
+      renderPixelPerfectBounds(ensurePixelPerfectOverlay());
+      return;
+    }
+    pixelPerfectMeasureAnchor = pixelPerfectMeasureAnchor ? null : { x: event.clientX, y: event.clientY };
+    updatePixelPerfectCrosshair(event.clientX, event.clientY);
+  };
+  // Bounds mode: each notch walks the highlighted box one level up (bigger, toward the root) or
+  // down (smaller, back toward the innermost element under the cursor) the DOM ancestor chain --
+  // this is the "scroll migrates between elements, walls within walls" behavior modeled on
+  // PowerToys. Line modes: once an anchor is set, the wheel instead nudges it 1px per notch, a
+  // fine-adjustment for lining an edge up exactly since chasing a single pixel with the mouse
+  // alone is unreliable.
+  const wheelHandler = (event) => {
+    if (pixelPerfectSettings.mode === "bounds") {
+      if (!pixelPerfectBoundsChain.length) return;
+      event.preventDefault();
+      pixelPerfectBoundsIndex = Math.min(Math.max(pixelPerfectBoundsIndex + (event.deltaY > 0 ? 1 : -1), 0), pixelPerfectBoundsChain.length - 1);
+      renderPixelPerfectBounds(ensurePixelPerfectOverlay());
+      return;
+    }
+    if (!pixelPerfectMeasureAnchor) return;
+    event.preventDefault();
+    pixelPerfectMeasureAnchor = { x: pixelPerfectMeasureAnchor.x, y: pixelPerfectMeasureAnchor.y + (event.deltaY > 0 ? 1 : -1) };
+    updatePixelPerfectCrosshair(event.clientX, event.clientY);
+  };
+  const keyHandler = (event) => {
+    if (event.key !== "Escape") return;
+    if (pixelPerfectSettings.mode === "bounds") {
+      if (!pixelPerfectBoundsPinned) return;
+      pixelPerfectBoundsPinned = false;
+      return;
+    }
+    if (!pixelPerfectMeasureAnchor) return;
+    pixelPerfectMeasureAnchor = null;
+    const rect = overlay.getBoundingClientRect();
+    updatePixelPerfectCrosshair(rect.width / 2, rect.height / 2);
+  };
+  document.addEventListener("mousemove", moveHandler, true);
+  document.addEventListener("click", clickHandler, true);
+  document.addEventListener("wheel", wheelHandler, { passive: false, capture: true });
+  document.addEventListener("keydown", keyHandler, true);
+  state.pixelPerfectCleanup = () => {
+    document.removeEventListener("mousemove", moveHandler, true);
+    document.removeEventListener("click", clickHandler, true);
+    document.removeEventListener("wheel", wheelHandler, true);
+    document.removeEventListener("keydown", keyHandler, true);
+    document.getElementById("qts-pixelperfect-overlay")?.remove();
+    pixelPerfectMeasureAnchor = null;
+    pixelPerfectBoundsChain = [];
+    pixelPerfectBoundsIndex = 0;
+    pixelPerfectBoundsPinned = false;
+  };
+}
+
+function disablePixelPerfectMode() {
+  state.pixelPerfectActive = false;
+  state.shadowRoot?.getElementById("pixelPerfectMenuItem")?.classList.remove("isActive");
+  state.pixelPerfectCleanup?.();
+  state.pixelPerfectCleanup = null;
+}
+
+// Right-click "Inspecionar com Pixel Perfect": turns the tool on already pinned to whatever
+// element was right-clicked, so the size shows up after a single click -- no need to open the
+// drawer, switch to bounds mode and hover it manually first.
+function inspectElementWithPixelPerfect(element) {
+  if (!element) { showQaToast(translateQaSurfaceText("Nenhum elemento selecionado."), "error"); return; }
+  if (!state.pixelPerfectActive) enablePixelPerfectMode();
+  pinPixelPerfectBounds(element);
+  showQaToast(translateQaSurfaceText("Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar."));
+}
+
+function openPixelPerfectTool() {
+  openDrawer({
+    title: "Pixel Perfect",
+    bodyHtml: `<p class="qts-tool-lead">Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos — passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em "Inspecionar com Pixel Perfect".</p>
+      <div class="qts-card-actions"><button class="action ${state.pixelPerfectActive ? "" : "primary"}" id="pixelPerfectToggle" type="button">${state.pixelPerfectActive ? "Desativar" : "Ativar"}</button></div>
+      <label>Modo<select id="pixelPerfectMode">
+        <option value="cross">Linhas guia — cruz (horizontal + vertical)</option>
+        <option value="horizontal">Linhas guia — somente horizontal</option>
+        <option value="vertical">Linhas guia — somente vertical</option>
+        <option value="bounds">Inspecionar elemento (tamanho em pixels)</option>
+      </select></label>
+      <label>Cor
+        <div class="qts-pp-color-row">
+          <input type="color" id="pixelPerfectColor" />
+          <span class="qts-pp-color-hex" id="pixelPerfectColorHex"></span>
+        </div>
+      </label>
+      <label data-pp-thickness-row>Espessura da linha<input type="range" min="1" max="5" id="pixelPerfectThickness" /></label>`,
+    onReady(body) {
+      const toggle = body.querySelector("#pixelPerfectToggle");
+      const modeInput = body.querySelector("#pixelPerfectMode");
+      const colorInput = body.querySelector("#pixelPerfectColor");
+      const colorHex = body.querySelector("#pixelPerfectColorHex");
+      const thicknessInput = body.querySelector("#pixelPerfectThickness");
+      const thicknessRow = body.querySelector("[data-pp-thickness-row]");
+      modeInput.value = pixelPerfectSettings.mode;
+      colorInput.value = pixelPerfectSettings.color;
+      colorHex.textContent = pixelPerfectSettings.color.toUpperCase();
+      thicknessInput.value = pixelPerfectSettings.thickness;
+      thicknessRow.style.display = pixelPerfectSettings.mode === "bounds" ? "none" : "grid";
+      const applyFromInputs = () => {
+        pixelPerfectSettings = { mode: modeInput.value, color: colorInput.value, thickness: Number(thicknessInput.value) };
+        colorHex.textContent = colorInput.value.toUpperCase();
+        thicknessRow.style.display = pixelPerfectSettings.mode === "bounds" ? "none" : "grid";
+        const overlay = document.getElementById("qts-pixelperfect-overlay");
+        if (overlay) applyPixelPerfectSettings(overlay);
+      };
+      [modeInput, colorInput, thicknessInput].forEach((input) => input.addEventListener("input", applyFromInputs));
+      toggle.addEventListener("click", () => {
+        if (state.pixelPerfectActive) disablePixelPerfectMode();
+        else enablePixelPerfectMode();
+        toggle.textContent = translateQaSurfaceText(state.pixelPerfectActive ? "Desativar" : "Ativar");
+        toggle.classList.toggle("primary", !state.pixelPerfectActive);
+      });
+    },
+  });
+}
+
 function openElementCapture() {
   if (!requirePlanFeature("elementCapture")) return;
   let rows = captureVisibleElements();
@@ -4888,6 +5291,9 @@ function handleContextAction(action) {
     toggleElementBlur(target);
     showQaToast(target.classList.contains("qts-blurred-element") ? "Elemento borrado." : "Borrão removido do elemento.");
   }
+  if (action === "pixel-perfect-inspect") {
+    inspectElementWithPixelPerfect(target);
+  }
 }
 
 function appendRecordedStep(step) {
@@ -5259,10 +5665,31 @@ function pickRecordingMimeType() {
 }
 
 const STEPS_COPY = {
-  "pt-BR": { title: "Gravador de Passos", intro: "Documente o caminho executado e o resultado esperado de cada etapa.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Início — Tela atual", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher", select: "Selecionar", check: "Marcar", uncheck: "Desmarcar", submit: "Submeter", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "Resultado esperado", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado" },
-  "es": { title: "Grabador de pasos", intro: "Documenta el camino ejecutado y el resultado esperado de cada etapa.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Inicio — Pantalla actual", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar", select: "Seleccionar", check: "Marcar", uncheck: "Desmarcar", submit: "Enviar", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Resultado esperado", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado" },
-  "en": { title: "Step Recorder", intro: "Document the path taken and the expected result of each step.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "Start — Current screen", click: "Click", contextmenu: "Right-click", input: "Fill", select: "Select", check: "Check", uncheck: "Uncheck", submit: "Submit", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "Expected result", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result" },
+  "pt-BR": { title: "Gravador de Passos", intro: "Cada clique, campo preenchido e mensagem de retorno vira um passo — simples de ler, fácil de repetir.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Estou na tela", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher o campo", select: "no menu suspenso", check: "Marcar a caixa", uncheck: "Desmarcar a caixa", submit: "Enviar o formulário", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "O que apareceu na tela", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "com", selectWord: "Selecionar", onWord: "em", occurs: "acontece" },
+  "es": { title: "Grabador de pasos", intro: "Cada clic, campo completado y mensaje de retorno se vuelve un paso — simple de leer, fácil de repetir.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Estoy en la pantalla", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar el campo", select: "en el menú desplegable", check: "Marcar la casilla", uncheck: "Desmarcar la casilla", submit: "Enviar el formulario", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Qué apareció en la pantalla", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "con", selectWord: "Seleccionar", onWord: "en", occurs: "ocurre" },
+  "en": { title: "Step Recorder", intro: "Every click, filled field and returned message becomes one step — easy to read, easy to repeat.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "I am on the screen", click: "Click", contextmenu: "Right-click", input: "Fill the field", select: "in the dropdown menu", check: "Check the box", uncheck: "Uncheck the box", submit: "Submit the form", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "What appeared on the screen", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result", withWord: "with", selectWord: "Select", onWord: "on", occurs: "happens" },
 };
+
+// Keeps every recorded step in the right Gherkin bucket automatically -- setup actions (filling
+// fields, checking boxes) before the first real interaction stay under "Dado"/"E", the first
+// click/submit/key/context-menu switches into "Quando", further interactions continue as "E" under
+// it, and once a result message is picked up by the DOM observer below the next fresh interaction
+// re-opens a new "Quando". The dropdown in the step editor (data-step-keyword) always lets the
+// user override a wrong guess by hand, so this only has to be directionally right, not perfect.
+const STEPS_TRIGGER_ACTIONS = new Set(["click", "submit", "contextmenu", "key"]);
+// `recording` is only actually live while a recording is in progress (state.stepsRecording) --
+// makeDocumentedStep is also called with no active recording at all, e.g. the editor's own "+
+// Adicionar etapa" button on a manually-created or already-stopped scenario, so this must tolerate
+// null rather than assume a recording is always running.
+function nextStepsKeyword(recording, action) {
+  if (action === "start") return "given";
+  if (STEPS_TRIGGER_ACTIONS.has(action)) {
+    const keyword = recording?.phase === "when" ? "and" : "when";
+    if (recording) recording.phase = "when";
+    return keyword;
+  }
+  return "and";
+}
 
 function stepsCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
@@ -5277,7 +5704,7 @@ function stepsTargetName(element) {
 }
 
 function makeDocumentedStep(action, text, source = "recorded") {
-  return { id: crypto.randomUUID(), keyword: action === "start" ? "given" : "when", action, text: String(text).slice(0, 500), expectedResult: "", url: safeCurrentUrl(), createdAt: new Date().toISOString(), source };
+  return { id: crypto.randomUUID(), keyword: nextStepsKeyword(state.stepsRecording, action), action, text: String(text).slice(0, 500), expectedResult: "", url: safeCurrentUrl(), createdAt: new Date().toISOString(), source };
 }
 
 function appendDocumentedStep(step) {
@@ -5304,11 +5731,26 @@ function updateStepsRecordingUi() {
   if (!root.getElementById("stepsRecHistoryPanel").classList.contains("isHidden")) renderStepsHistory();
 }
 
+const STEPS_KEYWORD_LABEL = { given: ["Dado que", "Dado que", "Given"], and: ["E", "Y", "And"], when: ["Quando", "Cuando", "When"], then: ["Então", "Entonces", "Then"] };
+function stepsKeywordLabel(keyword) {
+  const localeIndex = (state.workspace.preferences.language || "pt-BR").startsWith("en") ? 2 : (state.workspace.preferences.language || "").startsWith("es") ? 1 : 0;
+  return STEPS_KEYWORD_LABEL[keyword]?.[localeIndex] || STEPS_KEYWORD_LABEL.when[localeIndex];
+}
+
+// Minimal, single-line-per-fact preview: one row per action, and -- only in Gherkin mode, since
+// numbered mode has no keyword to justify it -- a second row right under it for the outcome that
+// was picked up automatically, so what's on screen while recording matches the exported result.
 function renderStepsHistory() {
   const panel = state.shadowRoot?.getElementById("stepsRecHistoryPanel");
   if (!panel) return;
-  const steps = state.stepsRecording?.steps || [];
-  panel.innerHTML = steps.map((step, index) => `<div class="qts-macro-hist-row"><span>${index + 1}. ${escapeHtml(step.text)}</span></div>`).join("") || `<div class="qts-macro-hist-empty">${escapeHtml(stepsCopy().empty)}</div>`;
+  const recording = state.stepsRecording;
+  const steps = recording?.steps || [];
+  const isGherkin = recording?.mode === "gherkin";
+  panel.innerHTML = steps.map((step, index) => {
+    const prefix = isGherkin ? `${stepsKeywordLabel(step.keyword)} ` : `${index + 1}. `;
+    const resultRow = isGherkin && step.expectedResult ? `<div class="qts-macro-hist-row qts-macro-hist-result"><span>${escapeHtml(stepsKeywordLabel("then"))} ${escapeHtml(step.expectedResult)} ${escapeHtml(stepsCopy().occurs)}</span></div>` : "";
+    return `<div class="qts-macro-hist-row"><span>${escapeHtml(prefix)}${escapeHtml(step.text)}</span></div>${resultRow}`;
+  }).join("") || `<div class="qts-macro-hist-empty">${escapeHtml(stepsCopy().empty)}</div>`;
 }
 
 function toggleStepsHistory() { const panel = state.shadowRoot?.getElementById("stepsRecHistoryPanel"); if (!panel) return; panel.classList.toggle("isHidden"); renderStepsHistory(); }
@@ -5325,9 +5767,16 @@ function startStepsRecording({ name, mode }) {
     if (!(element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement || element instanceof HTMLSelectElement)) return;
     const sensitive = window.QTS_QA_TOOLS.isSensitiveElement(element);
     const targetName = stepsTargetName(element);
-    const action = element instanceof HTMLSelectElement ? "select" : "input";
-    const value = sensitive ? "" : String(element.value || "").slice(0, 160);
-    const text = sensitive ? copy.protected : `${action === "select" ? copy.select : copy.input} ${targetName}${value ? `: ${value}` : ""}`;
+    const isSelect = element instanceof HTMLSelectElement;
+    const action = isSelect ? "select" : "input";
+    // Selects read out the visible option text ("Mr."), not the raw <option value>, since that's
+    // what a human actually sees and picks -- far more readable than an internal value string.
+    const value = sensitive ? "" : String((isSelect ? element.selectedOptions[0]?.text : element.value) || "").slice(0, 160);
+    const text = sensitive
+      ? copy.protected
+      : isSelect
+        ? (value ? `${copy.selectWord} "${value}" ${copy.select} ${targetName}` : `${copy.selectWord} ${targetName}`)
+        : (value ? `${copy.input} ${targetName} ${copy.withWord} "${value}"` : `${copy.input} ${targetName}`);
     appendDocumentedStep({ ...makeDocumentedStep(action, text), targetKey: window.QTS_QA_TOOLS.uniqueSelector(element) || targetName });
   };
   const onInput = (event) => { const element = event.target; clearTimeout(inputTimers.get(element)); inputTimers.set(element, setTimeout(() => addInput(element), 350)); };
@@ -5339,8 +5788,11 @@ function startStepsRecording({ name, mode }) {
   const onClick = (event) => { const element = event.target; if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || element.matches("input,textarea,select,option")) return; const target = element.closest("button,a,[role=button],label") || element; const label = stepsTargetName(target); const submit = target.matches("button[type=submit],input[type=submit]"); appendDocumentedStep(makeDocumentedStep(submit ? "submit" : "click", `${submit ? copy.submit : copy.click} ${label}`)); };
   const onContext = (event) => { const element = event.target; if (element instanceof Element && !element.closest(`#${HOST_ID}`)) appendDocumentedStep(makeDocumentedStep("contextmenu", `${copy.contextmenu} ${stepsTargetName(element)}`)); };
   const onSubmit = (event) => appendDocumentedStep(makeDocumentedStep("submit", `${copy.submit} ${stepsTargetName(event.target)}`));
-  const onKey = (event) => { if (["Enter", "Tab"].includes(event.key) && event.target instanceof Element && !window.QTS_QA_TOOLS.isSensitiveElement(event.target)) appendDocumentedStep(makeDocumentedStep("key", `${copy.key} ${event.key} — ${stepsTargetName(event.target)}`)); };
+  const onKey = (event) => { if (["Enter", "Tab"].includes(event.key) && event.target instanceof Element && !window.QTS_QA_TOOLS.isSensitiveElement(event.target)) appendDocumentedStep(makeDocumentedStep("key", `${copy.key} "${event.key}" ${copy.onWord} ${stepsTargetName(event.target)}`)); };
   const onNavigate = () => appendDocumentedStep(makeDocumentedStep("navigation", `${copy.navigation} ${document.title || safeCurrentUrl()}`));
+  // Once a result message is picked up here, the recording's phase resets so the *next*
+  // click/submit/key opens a fresh "Quando" instead of continuing to chain onto the one that just
+  // got its outcome -- each interaction-then-result pair reads as its own Given/When/Then beat.
   const resultObserver = new MutationObserver((mutations) => {
     const recording = state.stepsRecording;
     if (!recording || recording.paused || Date.now() - Number(recording.lastActionAt || 0) > 3_000) return;
@@ -5355,19 +5807,37 @@ function startStepsRecording({ name, mode }) {
       const result = String(candidate.innerText || candidate.textContent || "").replace(/\s+/g, " ").trim().slice(0, 500);
       if (result.length < 2 || result === step.text) continue;
       step.expectedResult = result;
+      recording.phase = "then";
       updateStepsRecordingUi();
       break;
     }
   });
   document.addEventListener("input", onInput, true); document.addEventListener("change", onChange, true); document.addEventListener("click", onClick, true); document.addEventListener("contextmenu", onContext, true); document.addEventListener("submit", onSubmit, true); document.addEventListener("keydown", onKey, true); window.addEventListener("popstate", onNavigate); window.addEventListener("hashchange", onNavigate); resultObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
-  state.stepsRecording = { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", paused: false, lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start}: ${document.title || safeCurrentUrl()}`)], cleanup() { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); } };
+  state.stepsRecording = { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", paused: false, phase: "given", lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start} ${document.title || safeCurrentUrl()}`)], cleanup() { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); } };
   updateStepsRecordingUi(); showQaToast(copy.recording);
 }
 
 function stopStepsRecording() { const recording = state.stepsRecording; if (!recording) return; recording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); openStepsEditor({ id: recording.id, name: recording.name, mode: recording.mode, locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: recording.steps }); }
 
 function csvCell(value) { let text = String(value ?? "").replace(/^([=+\-@\t\r])/, "'$1"); return `"${text.replaceAll('"', '""')}"`; }
-function exportStepsCsv(recording) { const copy = stepsCopy(); const keywords = { given: ["Dado que", "Dado que", "Given"], and: ["E", "Y", "And"], when: ["Quando", "Cuando", "When"], then: ["Então", "Entonces", "Then"] }; const localeIndex = (state.workspace.preferences.language || "pt-BR").startsWith("en") ? 2 : (state.workspace.preferences.language || "").startsWith("es") ? 1 : 0; const rows = [["id", copy.csvSteps, copy.csvExpected], ...recording.steps.map((step, index) => [index + 1, `${recording.mode === "gherkin" ? `${keywords[step.keyword]?.[localeIndex] || keywords.when[localeIndex]} ` : ""}${step.text}`, step.expectedResult])]; const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`; const filename = String(recording.name || copy.title).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 100) || "passos"; triggerBlobDownload(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${filename}-passos.csv`); }
+// In Gherkin mode, a captured result ("Cadastro realizado com sucesso") becomes its own real
+// "Entao ... acontece" line instead of hiding in a side column -- Given/When/Then only reads as a
+// scenario if the outcome is actually one of the numbered lines.
+function exportStepsCsv(recording) {
+  const copy = stepsCopy();
+  const keywords = { given: ["Dado que", "Dado que", "Given"], and: ["E", "Y", "And"], when: ["Quando", "Cuando", "When"], then: ["Então", "Entonces", "Then"] };
+  const localeIndex = (state.workspace.preferences.language || "pt-BR").startsWith("en") ? 2 : (state.workspace.preferences.language || "").startsWith("es") ? 1 : 0;
+  const isGherkin = recording.mode === "gherkin";
+  const prefixed = (keyword, text) => `${isGherkin ? `${keywords[keyword]?.[localeIndex] || keywords.when[localeIndex]} ` : ""}${text}`;
+  const rows = [["id", copy.csvSteps, copy.csvExpected]];
+  for (const step of recording.steps) {
+    rows.push([rows.length, prefixed(step.keyword, step.text), isGherkin ? "" : step.expectedResult]);
+    if (isGherkin && step.expectedResult) rows.push([rows.length, prefixed("then", `${step.expectedResult} ${copy.occurs}`), ""]);
+  }
+  const csv = `\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\r\n")}`;
+  const filename = String(recording.name || copy.title).normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9_-]+/gi, "-").replace(/^-+|-+$/g, "").slice(0, 100) || "passos";
+  triggerBlobDownload(new Blob([csv], { type: "text/csv;charset=utf-8" }), `${filename}-passos.csv`);
+}
 
 function openStepsEditor(recording) {
   const copy = stepsCopy(); const draft = structuredClone(recording); draft.steps ||= [];
