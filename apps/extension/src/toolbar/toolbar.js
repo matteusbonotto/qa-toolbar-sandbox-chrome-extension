@@ -1560,8 +1560,8 @@ function renderEditingNote(note, currentText, currentStyle) {
     <div class="qts-editor-body">
       <textarea placeholder="${escapeHtml(t.notePlaceholder)}"></textarea>
       <div class="qts-note-style-row">
-        <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color value="${safeColor}" /></label>
-        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" value="${safeFontSize}" data-note-size /></label>
+        <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color /></label>
+        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" data-note-size /></label>
         <label>${escapeHtml(t.noteBackground)}<select data-note-bg>
           <option value="translucent" ${safeBackground === "translucent" ? "selected" : ""}>${escapeHtml(t.noteBackgroundTranslucent)}</option>
           <option value="solid" ${safeBackground === "solid" ? "selected" : ""}>${escapeHtml(t.noteBackgroundSolid)}</option>
@@ -1573,6 +1573,8 @@ function renderEditingNote(note, currentText, currentStyle) {
   `;
   // Page-derived text must remain text, never markup.
   note.querySelector("textarea").value = String(currentText || "");
+  note.querySelector("[data-note-color]").value = safeColor;
+  note.querySelector("[data-note-size]").value = String(safeFontSize);
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {

@@ -54,8 +54,12 @@ await writeFile(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`, "utf8");
 
 const authPath = resolve(outputDir, "src/background/auth.js");
 const authSource = await readFile(authPath, "utf8");
-if (!authSource.includes(productionBackend)) throw new Error("Não foi possível localizar o backend de produção no auth.js.");
-await writeFile(authPath, authSource.replace(productionBackend, backendUrl), "utf8");
+const authBackendPattern = /^const FUNCTIONS_BASE_URL = "[^"]+";$/m;
+const authBackendDeclaration = authSource.match(authBackendPattern)?.[0];
+if (!authBackendDeclaration) throw new Error("Não foi possível localizar o backend de produção no auth.js.");
+const declaredBackend = authBackendDeclaration.slice(authBackendDeclaration.indexOf('"') + 1, -2);
+if (declaredBackend !== productionBackend) throw new Error("O auth.js não aponta para o backend de produção esperado.");
+await writeFile(authPath, authSource.replace(authBackendPattern, `const FUNCTIONS_BASE_URL = "${backendUrl}";`), "utf8");
 
 const outputArg = process.argv.find((value) => value.startsWith("--output="))?.slice(9);
 const zipPath = resolve(root, outputArg || `artifacts/qa-toolbar-sandbox-TESTE-v${manifest.version}.zip`);
