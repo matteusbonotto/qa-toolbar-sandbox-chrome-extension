@@ -113,12 +113,21 @@ Deno.serve(async (request) => {
       if (session.metadata?.voucher_request_id) {
         await admin.rpc("finalize_voucher_reservation", { request_id_input: session.metadata.voucher_request_id });
       }
+      if (session.metadata?.reward_request_id) {
+        await admin.rpc("finalize_reward_discount", {
+          request_id_input: session.metadata.reward_request_id,
+          checkout_session_id_input: session.id,
+        });
+      }
     } else if (event.type === "checkout.session.expired") {
       const session = event.data.object as Stripe.Checkout.Session;
       await admin.from("checkout_sessions").update({ status: "expired" })
         .eq("provider_session_id", session.id);
       if (session.metadata?.voucher_request_id) {
         await admin.rpc("release_voucher_reservation", { request_id_input: session.metadata.voucher_request_id });
+      }
+      if (session.metadata?.reward_request_id) {
+        await admin.rpc("release_reward_discount", { request_id_input: session.metadata.reward_request_id });
       }
     } else if ([
       "customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted",
@@ -133,7 +142,12 @@ Deno.serve(async (request) => {
 
     if (subscription) userId = await synchronizeSubscription(subscription, event.created);
     if (event.type === "invoice.paid" && userId && Number(object.amount_paid ?? 0) > 0) {
-      await admin.rpc("reward_referral", { referred_user_id_input: userId });
+      const invoice = event.data.object as Stripe.Invoice;
+      await admin.rpc("qualify_paid_referral", {
+        referred_user_id_input: userId,
+        stripe_invoice_id_input: invoice.id,
+        amount_minor_input: Number(object.amount_paid),
+      });
     }
     if (event.type === "invoice.payment_failed" && userId) {
       // Best-effort — a Resend outage or a missing/misconfigured secret must never fail the whole
@@ -150,6 +164,18 @@ Deno.serve(async (request) => {
     if (event.type === "charge.dispute.created" && userId) {
       await admin.from("entitlement_grants").update({ revoked_at: new Date().toISOString() })
         .eq("user_id", userId).eq("source", "subscription").is("revoked_at", null);
+      await admin.rpc("reverse_referral_points", {
+        referred_user_id_input: userId,
+        provider_reference_input: event.id,
+        reason_input: "charge_dispute",
+      });
+    }
+    if (event.type === "charge.refunded" && userId && Number(object.amount_refunded ?? 0) > 0) {
+      await admin.rpc("reverse_referral_points", {
+        referred_user_id_input: userId,
+        provider_reference_input: event.id,
+        reason_input: "charge_refunded",
+      });
     }
 
     const amount = typeof object.amount_paid === "number" ? object.amount_paid
