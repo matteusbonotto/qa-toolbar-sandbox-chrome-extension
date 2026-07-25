@@ -2597,12 +2597,18 @@ function locateValueOnPage(rawValue) {
  * plus a search box that filters the friendly view, and a "minimizar" toggle
  * that collapses everything down to just the header for a minimal view.
  */
-function renderJsonDetail(container, value) {
+// method/url are optional -- only the three network-entry detail views (Inspectors x2, Error
+// Monitor) have a real request to rebuild, so the cURL button only renders when both are given.
+// Request headers/body were never captured (pagebridge.js only records method/url/status/response
+// payload), so this is deliberately method+URL only rather than guessing at headers that don't
+// exist -- still useful to quickly re-hit the same endpoint, just not a byte-exact replay.
+function renderJsonDetail(container, value, method, url) {
   const t = state.t;
   container.innerHTML = `
     <div class="qts-toolbar-row">
       <div class="qts-view-switch"><button type="button" data-mode="friendly" class="isSelected">${escapeHtml(t.friendly)}</button><button type="button" data-mode="raw">${escapeHtml(t.raw)}</button></div>
       <input type="search" placeholder="${escapeHtml(t.jsonSearchPlaceholder)}" data-json-search />
+      ${method && url ? `<button type="button" class="qts-icon-btn" data-json-copy-curl title="${escapeHtml(t.copyAsCurl)}">${ICON("copy")}</button>` : ""}
       <button type="button" class="qts-icon-btn" data-json-minimize title="${escapeHtml(t.minimizeTitle)}">${ICON("collapse")}</button>
     </div>
     <div data-json-content></div>
@@ -2612,6 +2618,13 @@ function renderJsonDetail(container, value) {
   content.addEventListener("click", (event) => {
     const button = event.target.closest("[data-locate-value]");
     if (button) locateValueOnPage(button.dataset.locateValue);
+  });
+  container.querySelector("[data-json-copy-curl]")?.addEventListener("click", () => {
+    // Single-quote the URL for POSIX shells; escape any literal single quote inside it the
+    // standard way ('\'' closes the quote, inserts an escaped quote, reopens it).
+    const safeUrl = String(url).replace(/'/g, "'\\''");
+    const curl = method.toUpperCase() === "GET" ? `curl '${safeUrl}'` : `curl -X ${method.toUpperCase()} '${safeUrl}'`;
+    navigator.clipboard?.writeText(curl).then(() => showQaToast(t.copiedAsCurl));
   });
   let mode = "friendly";
   const renderMode = () => {
@@ -2973,7 +2986,7 @@ function renderInspectorDashboard(listBody) {
     // "in-app-notifications GET200"), not just the bare method+status -- otherwise two pinned
     // Inspectors hitting different endpoints with the same verb/status look identical in the
     // drawer title.
-    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3033,7 +3046,7 @@ function renderInspectorsList() {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
     const matchedInspector = configuredInspectors().find((item) => (entry.matchedInspectorIds || []).includes(item.id));
     const title = matchedInspector ? `${matchedInspector.label || matchedInspector.id} ${entry.method}${entry.status}` : `${entry.method} ${entry.status}`;
-    openDrawer({ title, bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    openDrawer({ title, bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3216,7 +3229,7 @@ function renderErrorMonitorList() {
   body.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.httpErrors.find((item) => item.id === row.dataset.id);
     if (!entry?.payload) return;
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
