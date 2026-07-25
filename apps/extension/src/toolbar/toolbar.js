@@ -2941,7 +2941,12 @@ function renderInspectorDashboard(listBody) {
     if (event.target.closest("[data-retry-inspector]")) return;
     const entry = state.networkHistory.find((item) => (item.matchedInspectorIds || []).includes(row.dataset.inspectorId));
     if (!entry) return;
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    const inspector = configured.find((item) => item.id === row.dataset.inspectorId);
+    // Titled with the name the user gave this Inspector in Configurações (e.g.
+    // "in-app-notifications GET200"), not just the bare method+status -- otherwise two pinned
+    // Inspectors hitting different endpoints with the same verb/status look identical in the
+    // drawer title.
+    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
   listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -2999,7 +3004,9 @@ function renderInspectorsList() {
   listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", (event) => {
     if (event.target.closest("[data-mark-inspector]")) return;
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    const matchedInspector = configuredInspectors().find((item) => (entry.matchedInspectorIds || []).includes(item.id));
+    const title = matchedInspector ? `${matchedInspector.label || matchedInspector.id} ${entry.method}${entry.status}` : `${entry.method} ${entry.status}`;
+    openDrawer({ title, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
   listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
