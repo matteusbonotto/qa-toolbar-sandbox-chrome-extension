@@ -1,6 +1,8 @@
 // Bootstrap Icons (MIT), imported per-icon as raw SVG so only the ones actually used end up in
 // the bundle. `fill="currentColor"` in the source SVGs means these inherit text color via CSS.
+import iconArchive from "bootstrap-icons/icons/archive.svg?raw";
 import iconAspectRatio from "bootstrap-icons/icons/aspect-ratio.svg?raw";
+import iconAward from "bootstrap-icons/icons/award.svg?raw";
 import iconBraces from "bootstrap-icons/icons/braces.svg?raw";
 import iconBug from "bootstrap-icons/icons/bug.svg?raw";
 import iconCamera from "bootstrap-icons/icons/camera.svg?raw";
@@ -11,8 +13,11 @@ import iconCodeSlash from "bootstrap-icons/icons/code-slash.svg?raw";
 import iconCreditCard from "bootstrap-icons/icons/credit-card.svg?raw";
 import iconCrosshair from "bootstrap-icons/icons/crosshair.svg?raw";
 import iconDashLg from "bootstrap-icons/icons/dash-lg.svg?raw";
+import iconDatabase from "bootstrap-icons/icons/database.svg?raw";
 import iconDropletHalf from "bootstrap-icons/icons/droplet-half.svg?raw";
+import iconEnvelope from "bootstrap-icons/icons/envelope.svg?raw";
 import iconExclamationTriangle from "bootstrap-icons/icons/exclamation-triangle.svg?raw";
+import iconFileEarmarkText from "bootstrap-icons/icons/file-earmark-text.svg?raw";
 import iconFonts from "bootstrap-icons/icons/fonts.svg?raw";
 import iconKey from "bootstrap-icons/icons/key.svg?raw";
 import iconKeyboard from "bootstrap-icons/icons/keyboard.svg?raw";
@@ -22,6 +27,9 @@ import iconMouse2 from "bootstrap-icons/icons/mouse2.svg?raw";
 import iconPauseCircle from "bootstrap-icons/icons/pause-circle.svg?raw";
 import iconPuzzle from "bootstrap-icons/icons/puzzle.svg?raw";
 import iconRecordCircle from "bootstrap-icons/icons/record-circle.svg?raw";
+import iconShare from "bootstrap-icons/icons/share.svg?raw";
+import iconShield from "bootstrap-icons/icons/shield.svg?raw";
+import iconShieldCheck from "bootstrap-icons/icons/shield-check.svg?raw";
 import iconSquare from "bootstrap-icons/icons/square.svg?raw";
 import iconStars from "bootstrap-icons/icons/stars.svg?raw";
 import iconSunFill from "bootstrap-icons/icons/sun-fill.svg?raw";
@@ -39,7 +47,9 @@ import iconClock from "bootstrap-icons/icons/clock.svg?raw";
 import iconPencil from "bootstrap-icons/icons/pencil.svg?raw";
 
 const ICONS = {
+  archive: iconArchive,
   aspectRatio: iconAspectRatio,
+  award: iconAward,
   braces: iconBraces,
   bug: iconBug,
   camera: iconCamera,
@@ -50,8 +60,11 @@ const ICONS = {
   creditCard: iconCreditCard,
   crosshair: iconCrosshair,
   dashLg: iconDashLg,
+  database: iconDatabase,
   dropletHalf: iconDropletHalf,
+  envelope: iconEnvelope,
   exclamationTriangle: iconExclamationTriangle,
+  fileEarmarkText: iconFileEarmarkText,
   fonts: iconFonts,
   key: iconKey,
   keyboard: iconKeyboard,
@@ -61,6 +74,9 @@ const ICONS = {
   pauseCircle: iconPauseCircle,
   puzzle: iconPuzzle,
   recordCircle: iconRecordCircle,
+  share: iconShare,
+  shield: iconShield,
+  shieldCheck: iconShieldCheck,
   square: iconSquare,
   stars: iconStars,
   sunFill: iconSunFill,
