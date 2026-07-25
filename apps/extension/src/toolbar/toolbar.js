@@ -1640,7 +1640,10 @@ function placeMarker(kind, clientX, clientY) {
   document.body.appendChild(marker);
   wireVisibilityControls(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
-  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 28, minHeight: 28, lockAspectRatio: true });
+  // minWidth/minHeight must be large enough that the eye toggle (top-left) and resize handle
+  // (top-right) never collide -- below ~52px (the marker's own default size) they start to
+  // overlap since both are absolutely positioned 20px badges near opposite top corners.
+  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 52, minHeight: 52, lockAspectRatio: true });
   marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
   updateClearAllVisibility();
 }
@@ -1784,7 +1787,10 @@ function placeShape(left, top, width, height) {
   document.body.appendChild(shape);
   wireVisibilityControls(shape);
   makeDraggable(shape, shape.querySelector("[data-drag-handle]"));
-  makeResizable(shape, shape.querySelector("[data-resize-handle]"), { minWidth: 30, minHeight: 30 });
+  // Shapes carry an extra edit button (pushes the resize handle further right, see
+  // .hasEditButton), so they need more headroom than markers before the eye toggle (top-left)
+  // and resize handle (top-right) start to overlap -- 30px let the box shrink well past that.
+  makeResizable(shape, shape.querySelector("[data-resize-handle]"), { minWidth: 80, minHeight: 80 });
   shape.querySelector(".qts-remove-btn").addEventListener("click", () => { shape.remove(); updateClearAllVisibility(); });
   shape.querySelector(".qts-edit-btn").addEventListener("click", () => toggleShapeStyleEditor(shape));
   // Applies the Formato already picked from the shape-type menu right away — the user shouldn't
