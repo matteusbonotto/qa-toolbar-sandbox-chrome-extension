@@ -512,7 +512,7 @@ function buildShadowHost() {
       :host([data-toolbar-position="left"]) #toolsMenu,
       :host([data-toolbar-position="right"]) #toolsMenu {
         position:fixed; top:8px; bottom:auto; width:min(260px,calc(100vw - 70px));
-        max-height:calc(100vh - 16px); transform:translateX(-6px); scrollbar-gutter:auto;
+        max-height:min(232px,calc(100vh - 16px)); transform:translateX(-6px); scrollbar-gutter:auto;
       }
       :host([data-toolbar-position="left"]) #toolsMenu { left:60px; right:auto; }
       :host([data-toolbar-position="right"]) #toolsMenu { left:auto; right:60px; }
@@ -528,6 +528,14 @@ function buildShadowHost() {
       }
       :host([data-toolbar-position="left"]) #notificationBellPanel { left:60px; right:auto; }
       :host([data-toolbar-position="right"]) #notificationBellPanel { left:auto; right:60px; }
+      :host([data-toolbar-position="left"]) #notificationBellPanel .qts-bell-row,
+      :host([data-toolbar-position="right"]) #notificationBellPanel .qts-bell-row {
+        width:100%; min-width:0; height:auto; padding:7px; overflow:visible; white-space:normal;
+      }
+      :host([data-toolbar-position="left"]) #notificationBellPanel .qts-bell-head button,
+      :host([data-toolbar-position="right"]) #notificationBellPanel .qts-bell-head button {
+        width:auto; min-width:0; height:auto; padding:0; overflow:visible;
+      }
       :host([data-toolbar-position="left"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel),
       :host([data-toolbar-position="right"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) {
         position:fixed; top:8px; width:min(260px,calc(100vw - 70px)); max-height:calc(100vh - 16px); overflow:auto;
@@ -963,7 +971,13 @@ function buildShadowHost() {
 
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
-    shadow.getElementById("toolsMenu").classList.toggle("isOpen");
+    const menu = shadow.getElementById("toolsMenu");
+    const willOpen = !menu.classList.contains("isOpen");
+    shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
+    toggleRecordTypeMenu(false);
+    toggleShapeTypeMenu(false);
+    shadow.getElementById("markerTypeMenu")?.classList.add("isHidden");
+    menu.classList.toggle("isOpen", willOpen);
   });
   // Feeds "mais usados" sorting -- a single delegated listener instead of touching every
   // individual tool's own click handler. Fires on the way down (capture) so it always sees the
@@ -973,7 +987,14 @@ function buildShadowHost() {
     const key = button && TOOLS_MENU_ITEM_KEY_BY_ID[button.id];
     if (key) void recordToolMenuUsage(key);
   }, true);
-  shadow.getElementById("notificationBellButton").addEventListener("click", (event) => { event.stopPropagation(); toggleNotificationBellPanel(); });
+  shadow.getElementById("notificationBellButton").addEventListener("click", (event) => {
+    event.stopPropagation();
+    closeToolsMenu();
+    toggleRecordTypeMenu(false);
+    toggleShapeTypeMenu(false);
+    shadow.getElementById("markerTypeMenu")?.classList.add("isHidden");
+    toggleNotificationBellPanel();
+  });
   shadow.getElementById("recordToggleButton").addEventListener("click", (event) => { event.stopPropagation(); handleRecordToggle(); });
   shadow.getElementById("recordTypeMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.getElementById("recordTypeVideoItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("video"); });
