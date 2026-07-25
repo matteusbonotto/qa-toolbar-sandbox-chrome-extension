@@ -12,6 +12,23 @@
   transition: height 160ms ease !important;
 }
 
+/* The toolbar, its floating overlays and evidence chrome must never show up in a printed page or
+   a "save as PDF" export of the host site -- printing this along with a page is confusing to
+   whoever receives it and looks unprofessional. Hiding the shadow host removes everything inside
+   it (the bar, tools menu, restore button) in one rule; the rest are the light-DOM overlays that
+   can't live inside the shadow root (see the file header comment above). */
+@media print {
+  #qts-toolbar-host,
+  #qts-toolbar-spacer,
+  .qts-floating-item,
+  .qts-modal-backdrop,
+  .qts-result-overlay,
+  .qts-shape-preview,
+  .qts-clickspy-tooltip {
+    display: none !important;
+  }
+}
+
 html {
   scroll-padding-top: var(--qts-toolbar-height, 34px);
 }
