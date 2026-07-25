@@ -488,7 +488,7 @@ function buildShadowHost() {
       :host([data-toolbar-position="left"]) #bar,
       :host([data-toolbar-position="right"]) #bar {
         top:0; bottom:0; width:52px; min-height:100vh; right:auto; padding:8px 5px;
-        flex-direction:column; justify-content:flex-start; overflow-y:auto; overflow-x:visible;
+        flex-direction:column; justify-content:flex-start; overflow:visible;
       }
       :host([data-toolbar-position="right"]) #bar { left:auto; right:0; }
       :host([data-toolbar-position="left"]) #bar.isMinimized { transform:translateX(-110%); }
@@ -500,11 +500,40 @@ function buildShadowHost() {
       :host([data-toolbar-position="left"]) #extraPinnedTools,
       :host([data-toolbar-position="right"]) #extraPinnedTools { flex-direction:column; width:100%; }
       :host([data-toolbar-position="left"]) #right button,
-      :host([data-toolbar-position="right"]) #right button { width:34px; min-width:34px; padding:5px; overflow:hidden; }
+      :host([data-toolbar-position="right"]) #right button { width:34px; min-width:34px; padding:5px; overflow:visible; }
       :host([data-toolbar-position="left"]) #testStatusButton,
       :host([data-toolbar-position="right"]) #testStatusButton { font-size:0; }
       :host([data-toolbar-position="left"]) #testStatusButton::before,
       :host([data-toolbar-position="right"]) #testStatusButton::before { content:"✓"; font-size:14px; }
+      :host([data-toolbar-position="left"]) #toolsButton,
+      :host([data-toolbar-position="right"]) #toolsButton { font-size:0; justify-content:center; }
+      :host([data-toolbar-position="left"]) #toolsButton::before,
+      :host([data-toolbar-position="right"]) #toolsButton::before { content:"⋮"; font-size:18px; line-height:1; }
+      :host([data-toolbar-position="left"]) #toolsMenu,
+      :host([data-toolbar-position="right"]) #toolsMenu {
+        position:fixed; top:8px; bottom:auto; width:min(260px,calc(100vw - 70px));
+        max-height:calc(100vh - 16px); transform:translateX(-6px); scrollbar-gutter:auto;
+      }
+      :host([data-toolbar-position="left"]) #toolsMenu { left:60px; right:auto; }
+      :host([data-toolbar-position="right"]) #toolsMenu { left:auto; right:60px; }
+      :host([data-toolbar-position="left"]) #toolsMenu.isOpen,
+      :host([data-toolbar-position="right"]) #toolsMenu.isOpen { transform:translateX(0); }
+      :host([data-toolbar-position="left"]) .qts-bell-badge,
+      :host([data-toolbar-position="right"]) .qts-bell-badge {
+        top:-3px; right:-3px; min-width:13px; width:auto; height:13px; padding:0 3px; font-size:8px;
+      }
+      :host([data-toolbar-position="left"]) #notificationBellPanel,
+      :host([data-toolbar-position="right"]) #notificationBellPanel {
+        position:fixed; top:8px; width:min(300px,calc(100vw - 70px)); max-height:calc(100vh - 16px);
+      }
+      :host([data-toolbar-position="left"]) #notificationBellPanel { left:60px; right:auto; }
+      :host([data-toolbar-position="right"]) #notificationBellPanel { left:auto; right:60px; }
+      :host([data-toolbar-position="left"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel),
+      :host([data-toolbar-position="right"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) {
+        position:fixed; top:8px; width:min(260px,calc(100vw - 70px)); max-height:calc(100vh - 16px); overflow:auto;
+      }
+      :host([data-toolbar-position="left"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) { left:60px; right:auto; }
+      :host([data-toolbar-position="right"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) { left:auto; right:60px; }
       /* Logged-out mode: the bar still mounts (so a URL the user configured never goes silent
          about why nothing appeared), but every functional button is hidden except Settings/
          Minimize -- only the message + login CTA below show. See render()/refreshAuthorization. */
