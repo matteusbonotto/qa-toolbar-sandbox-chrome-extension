@@ -376,7 +376,10 @@ function applyPinnedTools() {
   const icons = { clickSpy: "mouse", freezeClock: "freezeClock", forceHttp: "warning", errorMonitor: "errorMonitor", inspectors: "braces", jsonStudio: "braces", breakpoints: "breakpointViewer", testAccounts: "key", paymentMethods: "paymentMethods", resources: "resources", characterCounter: "characterCounter", macroStudio: "macroStudio", stepsRecorder: "recordStart", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill", keyView: "keyView", elementCapture: "elementCapture", blurElements: "eyeSlash", holofote: "lightbulb" };
   const quickContainer = root.getElementById("extraPinnedTools");
   if (quickContainer) {
-    quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}</button>`).join("");
+    // Small pin badge in the corner distinguishes a tool the user chose to pin from the fixed
+    // default shortcuts (Pass/Fail/Screenshot/Gravação, which always show and never carry it) --
+    // otherwise both look identical and there's no visual cue which ones are user customization.
+    quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly qts-user-pinned" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}<span class="qts-pin-badge">${ICON("pin")}</span></button>`).join("");
     quickContainer.querySelectorAll("[data-pinned-tool]").forEach((button) => button.addEventListener("click", () => root.getElementById(menuItems[button.dataset.pinnedTool])?.click()));
   }
   // Re-append each menu item in the effective order -- appendChild on an already-attached node
@@ -492,6 +495,12 @@ function buildShadowHost() {
       }
       button:hover { background: rgba(0,0,0,.32); }
       button.iconOnly { width: 26px; padding: 0; justify-content: center; }
+      .qts-user-pinned { position: relative; }
+      .qts-pin-badge {
+        position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%;
+        background: #ffd700; border: 1px solid #171717; display: flex; align-items: center; justify-content: center;
+      }
+      .qts-pin-badge svg { width: 7px; height: 7px; fill: #171717; }
       button.isActive { background: #ffd700 !important; color: #111 !important; border-color: #fff !important; }
       #clearAllButton.isHidden, .isHidden, .isPreferenceHidden { display: none !important; }
       #recordToggleButton.isActive { background: #c70e0e !important; color: #fff !important; border-color: #fff !important; animation: qts-rec-pulse 1.6s ease-in-out infinite; }
@@ -2665,11 +2674,15 @@ function deactivateClickSpy() {
 function describeClickSpyTarget(target) {
   const t = state.t;
   const anchor = target.closest?.("a[href]");
+  const testId = target.getAttribute("data-testid") || target.getAttribute("data-test-id") || target.getAttribute("data-qa") || target.getAttribute("data-cy");
   return [
     [t.clickSpyElement, target.tagName.toLowerCase()],
     [t.clickSpyText, target.textContent?.trim().slice(0, 80) || "—"],
     [t.clickSpyDestination, anchor ? new URL(anchor.getAttribute("href"), window.location.href).href : "—"],
     [t.clickSpyType, anchor ? t.clickSpyNavigation : target.tagName === "BUTTON" || target.getAttribute("type") === "submit" ? t.clickSpyActionSubmit : t.clickSpyFormControl],
+    [t.clickSpyTestId, testId || "—"],
+    [t.clickSpyRole, target.getAttribute("role") || "—"],
+    [t.clickSpyElementId, target.id || "—"],
   ];
 }
 
@@ -2941,7 +2954,12 @@ function renderInspectorDashboard(listBody) {
     if (event.target.closest("[data-retry-inspector]")) return;
     const entry = state.networkHistory.find((item) => (item.matchedInspectorIds || []).includes(row.dataset.inspectorId));
     if (!entry) return;
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    const inspector = configured.find((item) => item.id === row.dataset.inspectorId);
+    // Titled with the name the user gave this Inspector in Configurações (e.g.
+    // "in-app-notifications GET200"), not just the bare method+status -- otherwise two pinned
+    // Inspectors hitting different endpoints with the same verb/status look identical in the
+    // drawer title.
+    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
   listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -2999,7 +3017,9 @@ function renderInspectorsList() {
   listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", (event) => {
     if (event.target.closest("[data-mark-inspector]")) return;
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    const matchedInspector = configuredInspectors().find((item) => (entry.matchedInspectorIds || []).includes(item.id));
+    const title = matchedInspector ? `${matchedInspector.label || matchedInspector.id} ${entry.method}${entry.status}` : `${entry.method} ${entry.status}`;
+    openDrawer({ title, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
   listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -4223,14 +4243,40 @@ function openKeyView() {
   });
 }
 
+// A shared, persistent stacking container instead of each toast positioning itself independently
+// -- previously two toasts fired close together (a common case: an action's own confirmation plus
+// a follow-up warning) landed on top of each other at the same fixed spot. column-reverse means a
+// new toast grows the stack upward from the anchored bottom position, like a real toast stack.
+function ensureToastContainer() {
+  if (!state.shadowRoot) return null;
+  let container = state.shadowRoot.getElementById("qtsToastContainer");
+  if (container) return container;
+  container = document.createElement("div");
+  container.id = "qtsToastContainer";
+  container.style.cssText = "position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column-reverse;gap:8px;align-items:center;pointer-events:none;max-width:min(620px,88vw)";
+  state.shadowRoot.appendChild(container);
+  return container;
+}
+
 function showQaToast(message, tone = "info") {
-  if (!state.shadowRoot) return;
+  const container = ensureToastContainer();
+  if (!container) return;
+  const light = state.workspace?.preferences?.appearanceTheme === "light";
   const toast = document.createElement("div");
   toast.textContent = translateQaSurfaceText(message);
-  const light = state.workspace?.preferences?.appearanceTheme === "light";
-  toast.style.cssText = `position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483647;max-width:min(620px,88vw);padding:10px 16px;border:1px solid ${tone === "error" ? (light ? "#c92331" : "#ff6767") : (light ? "#5b35e8" : "#ffd700")};border-radius:999px;background:${light ? "#fff" : "#0b0b0b"};color:${light ? "#171a24" : "#fff"};font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.28)`;
-  state.shadowRoot.appendChild(toast);
-  window.setTimeout(() => toast.remove(), 3_500);
+  toast.style.cssText = `pointer-events:auto;padding:10px 16px;border:1px solid ${tone === "error" ? (light ? "#c92331" : "#ff6767") : (light ? "#5b35e8" : "#ffd700")};border-radius:999px;background:${light ? "#fff" : "#0b0b0b"};color:${light ? "#171a24" : "#fff"};font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.28);opacity:0;transform:translateY(14px) scale(.92);transition:opacity 220ms ease,transform 260ms cubic-bezier(.34,1.56,.64,1)`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translateY(0) scale(1)";
+  });
+  const dismiss = () => {
+    toast.style.transition = "opacity 180ms ease,transform 180ms ease";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-10px) scale(.94)";
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+  };
+  window.setTimeout(dismiss, 3_500);
 }
 
 async function persistWorkspaceState() {
@@ -4288,7 +4334,8 @@ function captureVisibleElements() {
       type: element.getAttribute("type") || "",
       name: element.getAttribute("name") || "",
       id: element.id || "",
-      testId: element.getAttribute("data-testid") || "",
+      testId: element.getAttribute("data-testid") || element.getAttribute("data-test-id") || element.getAttribute("data-qa") || element.getAttribute("data-cy") || "",
+      role: element.getAttribute("role") || "",
       cssSelector: window.QTS_QA_TOOLS.uniqueSelector(element),
       xpath: buildXPath(element),
       text: String(element.getAttribute("aria-label") || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120),
@@ -4339,8 +4386,8 @@ function toCsvCell(value) {
 }
 
 function downloadElementCaptureCsv(rows) {
-  const headers = ["tag", "type", "name", "id", "test_id", "css_selector", "xpath", "text", "placeholder", "sensitive"];
-  const csvKeys = ["tag", "type", "name", "id", "testId", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
+  const headers = ["tag", "type", "name", "id", "test_id", "role", "css_selector", "xpath", "text", "placeholder", "sensitive"];
+  const csvKeys = ["tag", "type", "name", "id", "testId", "role", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
   const lines = [headers.join(","), ...rows.map((row) => csvKeys.map((key) => toCsvCell(row[key])).join(","))];
   // Leading BOM keeps accented pt-BR text readable when the CSV is opened directly in Excel.
   const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
@@ -4936,7 +4983,7 @@ function openElementCapture() {
       const searchInput = body.querySelector("#elementCaptureSearch");
       const matchesQuery = (row) => {
         if (!query) return true;
-        const haystack = `${row.tag} ${row.type} ${row.name} ${row.id} ${row.testId} ${row.cssSelector} ${row.xpath} ${row.text} ${row.placeholder}`.toLowerCase();
+        const haystack = `${row.tag} ${row.type} ${row.name} ${row.id} ${row.testId} ${row.role} ${row.cssSelector} ${row.xpath} ${row.text} ${row.placeholder}`.toLowerCase();
         return haystack.includes(query);
       };
       const renderPreview = () => {
@@ -4958,7 +5005,7 @@ function openElementCapture() {
               return `
                 <div class="qts-net-item" style="cursor:default" data-row-index="${row._index}">
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-                    <div style="min-width:0"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b> ${labelHtml}${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}${row.testId ? ` <span style="color:#42d5c2">test-id</span>` : ""}</div>
+                    <div style="min-width:0"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b> ${labelHtml}${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}${row.testId ? ` <span style="color:#42d5c2">test-id</span>` : ""}${row.role ? ` <span style="color:#42d5c2">role: ${escapeHtml(row.role)}</span>` : ""}</div>
                     <div style="display:flex;gap:4px;flex:0 0 auto">
                       <button type="button" class="qts-icon-btn" data-locate-row title="Localizar elemento" style="width:26px;height:26px">${ICON("cursor")}</button>
                       <button type="button" class="qts-icon-btn" data-state-row title="Ver estado atual" style="width:26px;height:26px">${ICON("eye")}</button>
@@ -5732,11 +5779,32 @@ function stepsCopy() {
   return STEPS_COPY[language] || STEPS_COPY[language.split("-")[0]] || STEPS_COPY["pt-BR"];
 }
 
+// Falling straight back to the bare tag name ("div", "span") once no label/text/placeholder is
+// found produced steps like "Clique em div" -- unreadable, since a bare tag says nothing about
+// which div. Test-id/role/id hooks (the same attributes Revelar test-id/seletor/XPath surfaces)
+// are tried next since they identify the element even with no visible label; a real CSS selector
+// (uniqueSelector, already used elsewhere for exactly this) is the last resort instead of the tag
+// name alone, since "div.qts-card > button:nth-child(2)" is still something a reader can act on.
 function stepsTargetName(element) {
   const target = element instanceof Element ? element : null;
   if (!target) return "elemento";
-  const label = target.labels?.[0]?.innerText || target.getAttribute("aria-label") || target.getAttribute("title") || target.innerText || target.getAttribute("placeholder") || target.name || target.id || target.tagName.toLowerCase();
-  return String(label).replace(/\s+/g, " ").trim().slice(0, 120) || "elemento";
+  const testId = target.getAttribute("data-testid") || target.getAttribute("data-test-id") || target.getAttribute("data-qa") || target.getAttribute("data-cy");
+  const label = target.labels?.[0]?.innerText
+    || target.getAttribute("aria-label")
+    || target.getAttribute("title")
+    || target.innerText
+    || target.getAttribute("placeholder")
+    || target.name
+    || testId
+    || target.id
+    || target.getAttribute("alt")
+    || target.querySelector?.("img[alt]")?.getAttribute("alt");
+  const clean = String(label || "").replace(/\s+/g, " ").trim().slice(0, 120);
+  if (clean) return clean;
+  const hook = testId || target.getAttribute("role") || target.id;
+  if (hook) return `${target.tagName.toLowerCase()} [${hook}]`;
+  const selector = window.QTS_QA_TOOLS?.uniqueSelector?.(target);
+  return selector || target.tagName.toLowerCase();
 }
 
 function makeDocumentedStep(action, text, source = "recorded") {
