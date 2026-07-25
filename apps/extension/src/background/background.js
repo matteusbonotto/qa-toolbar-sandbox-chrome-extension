@@ -80,11 +80,11 @@ async function applyContentScriptRegistrationNow({ forceAccess = false } = {}) {
   }
 
   await unregisterContentScripts();
-  if (!effectiveActive) {
-    await removeToolbarFromOpenTabs();
-    return;
-  }
-
+  // Registration itself no longer depends on `effectiveActive`: an unauthorized/expired session
+  // still needs the toolbar content script injected on its configured pages so it can render its
+  // own stripped "logged out" bar (see toolbar.js render()/mountToolbar) instead of the page
+  // staying completely silent about why nothing appeared. `effectiveActive` still flows to the
+  // content script separately via access-status, and it's the one that decides which buttons show.
   const matches = await patternsForAuthorizedWorkspace();
   if (!matches.length) {
     await removeToolbarFromOpenTabs();
