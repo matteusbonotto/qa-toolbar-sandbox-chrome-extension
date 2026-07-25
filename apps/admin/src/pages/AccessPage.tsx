@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { createEntitlementGrant, listEntitlementGrants, listPlans, revokeEntitlementGrant } from "../lib/api";
+import { createEntitlementGrant, listEntitlementGrants, listPlans, listProfiles, revokeEntitlementGrant } from "../lib/api";
+import { errorMessage } from "../lib/errors";
 import { useAsyncData } from "../lib/useAsyncData";
 import type { EntitlementSource } from "../lib/types";
 
@@ -8,6 +9,8 @@ const SOURCES: EntitlementSource[] = ["manual", "founder", "trial", "voucher", "
 export function AccessPage() {
   const plans = useAsyncData(listPlans);
   const grants = useAsyncData(listEntitlementGrants);
+  const profiles = useAsyncData(listProfiles);
+  const emailByUserId = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.email]));
 
   const [userId, setUserId] = useState("");
   const [planId, setPlanId] = useState("");
@@ -32,7 +35,7 @@ export function AccessPage() {
       setExpiresAt("");
       grants.reload();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : String(err));
+      setFormError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -90,7 +93,7 @@ export function AccessPage() {
             <tbody>
               {(grants.data ?? []).map((grant) => (
                 <tr key={grant.id}>
-                  <td title={grant.user_id}>{grant.user_id.slice(0, 8)}…</td>
+                  <td title={grant.user_id}>{emailByUserId.get(grant.user_id) || `${grant.user_id.slice(0, 8)}…`}</td>
                   <td>{grant.source}</td>
                   <td>{grant.expires_at ? new Date(grant.expires_at).toLocaleDateString("pt-BR") : "Permanente"}</td>
                   <td>

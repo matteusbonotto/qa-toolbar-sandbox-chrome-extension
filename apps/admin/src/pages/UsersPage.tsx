@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { grantRole, listProfiles, listRoles, listUserRoles, revokeRole } from "../lib/api";
+import { errorMessage } from "../lib/errors";
 import { useAsyncData } from "../lib/useAsyncData";
 import { useAuth } from "../lib/AuthProvider";
 
@@ -33,7 +34,7 @@ export function UsersPage() {
       setReason("");
       userRoles.reload();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : String(err));
+      setFormError(errorMessage(err));
     } finally {
       setBusy(false);
     }

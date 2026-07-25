@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { listFeatures, listPlanFeatures, listPlans, setPlanFeatureValue } from "../lib/api";
+import { errorMessage } from "../lib/errors";
 import { useAsyncData } from "../lib/useAsyncData";
 
 export function FeatureFlagsPage() {
@@ -21,7 +22,7 @@ export function FeatureFlagsPage() {
       await setPlanFeatureValue(planId, featureId, value);
       planFeatures.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setSavingKey(null);
     }

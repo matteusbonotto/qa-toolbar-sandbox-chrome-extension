@@ -131,15 +131,20 @@ export async function setVoucherStatus(id: string, status: "available" | "disabl
   if (error) throw error;
 }
 
+// A used single-use voucher can never be redeemed again regardless -- its `status` alone already
+// prevents a second redemption -- so relabeling or deleting the record afterward is just
+// bookkeeping and can't cause a double-grant. Previously blocked with `.neq("status", "used")`,
+// which silently no-op'd (Supabase doesn't error on a zero-row update/delete) instead of visibly
+// refusing, so admins saw "Excluir"/"Editar" just do nothing on a used voucher.
 export async function updateVoucher(id: string, input: VoucherInput) {
   const { error } = await requireClient().from("vouchers")
     .update({ label: input.label, ...voucherKindFields(input), expires_at: input.expiresAt })
-    .eq("id", id).neq("status", "used");
+    .eq("id", id);
   if (error) throw error;
 }
 
 export async function deleteVoucher(id: string) {
-  const { error } = await requireClient().from("vouchers").delete().eq("id", id).neq("status", "used");
+  const { error } = await requireClient().from("vouchers").delete().eq("id", id);
   if (error) throw error;
 }
 
@@ -258,6 +263,19 @@ export async function createLicenseKey(input: { keySuffix: string; planId: strin
 
 export async function revokeLicenseKey(id: string) {
   const { error } = await requireClient().from("license_keys").update({ revoked_at: new Date().toISOString() }).eq("id", id);
+  if (error) throw error;
+}
+
+export async function unrevokeLicenseKey(id: string) {
+  const { error } = await requireClient().from("license_keys").update({ revoked_at: null }).eq("id", id);
+  if (error) throw error;
+}
+
+// license_activations has ON DELETE CASCADE on license_key_id, so deleting a key with activations
+// would silently wipe that install history -- callers must only offer this once the caller has
+// confirmed there are no activations left (mirrors deleteVoucherCampaign's redemption_count guard).
+export async function deleteLicenseKey(id: string) {
+  const { error } = await requireClient().from("license_keys").delete().eq("id", id);
   if (error) throw error;
 }
 
