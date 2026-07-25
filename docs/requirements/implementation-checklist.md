@@ -35,6 +35,12 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 | Tema padrão | Corrigido localmente; testes de normalização aprovados | Workspace novo e ação “Restaurar padrão” usam `blue-light` (`#2563eb`) com aparência clara. Escolhas explícitas existentes são preservadas. |
 | Marcadores menores | Corrigido localmente | Pass/Fail/Warning/Question passaram de 52×52 para 40×40 px, mantendo resize proporcional a partir de 40 px. |
 | Controles compartilhados de sidebar | Parcial | Todos os `openDrawer` agora recebem busca, posição esquerda/direita/cima/baixo persistida, fixar, minimizar, fechar e resize nas quatro bordas. “Abrir em nova janela” e posições da toolbar ainda não estão implementados. |
+| Regressões do header/sidebar | Corrigido localmente | Modais não recebem mais seletor/pin/minimizar/busca de sidebar; fechar usa vermelho semântico; ícones são centralizados; minimizar remove o drawer e cria atalho destacado na toolbar; checkboxes de drawers usam toggle visual. |
+| Breakpoint Viewer | Parcial | Topbar própria ganhou “Gravar tela cheia” e fechar vermelho. Falta smoke real da captura com permissão de tela. |
+| Configuração de posição | Parcial | Posição do sidebar foi adicionada à tela Barra e aparência. Posição da toolbar ainda não está implementada. |
+| Abrir em nova aba | Pendente | Não será simulado abrindo uma página sem o conteúdo/estado real do drawer ou modal. |
+| Todos os sites | Pendente | Exige definir como a toolbar representa ambiente/workspace em URL sem binding; não basta registrar `<all_urls>`. |
+| Mídia de tutorial/tour | Pendente | Recaptura somente após estabilizar os itens visuais acima e liberar o perfil Chrome bloqueado. |
 | Erro de conexão do runtime | Corrigido localmente | `runtimeMessage` agora consome `chrome.runtime.lastError` e retorna mensagem acionável, evitando `Unchecked runtime.lastError`. |
 | CORS do backend | Parcial/operacional | O backend aceita somente IDs presentes em `ALLOWED_EXTENSION_IDS`. Extensão de produção carregada diretamente de pasta recebe ID aleatório e não deve acessar produção; usar Web Store ou pacote sideload com ID fixo. O pacote `[TESTE]` usa backend local/isolado. |
 | `legal-registration` 403 | Diagnosticado | É uma consulta paralela e tolerante a falha. O 403 indica ID/origem não autorizado e não é a autenticação em si. Não houve alteração em segredo ou função de produção. |

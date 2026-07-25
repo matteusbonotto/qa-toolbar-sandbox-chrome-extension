@@ -2218,6 +2218,8 @@ function drawerStyles() {
     .qts-drawer-head { display: flex; align-items: center; gap:6px; padding: 10px 12px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; flex: none; }
+    .qts-drawer-head button { display:inline-flex; align-items:center; justify-content:center; padding:0; }
+    .qts-drawer-head #drawerClose { background:var(--qts-ui-danger,#c70e0e); color:#fff; }
     .qts-drawer-head.hasBack h2 { flex: 1; text-align: center; }
     .qts-drawer-head h2 { flex:1; }
     .qts-drawer-head select { width:auto; max-width:92px; height:30px; padding:2px 5px; }
@@ -2232,6 +2234,16 @@ function drawerStyles() {
     .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
       width: 100%; padding: 8px 10px; border: 1px solid var(--qts-panel-border,#2c2c2c); border-radius: 8px; background: var(--qts-panel-2,#141414); color: var(--qts-panel-text,#fff); font: inherit;
     }
+    .qts-drawer input[type="checkbox"] {
+      appearance:none; width:38px !important; height:22px; padding:0; border-radius:999px;
+      background:var(--qts-panel-border); position:relative; cursor:pointer; vertical-align:middle;
+    }
+    .qts-drawer input[type="checkbox"]::after {
+      content:""; position:absolute; width:16px; height:16px; left:2px; top:2px; border-radius:50%;
+      background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.35); transition:transform 140ms ease;
+    }
+    .qts-drawer input[type="checkbox"]:checked { background:var(--qts-ui-primary,#2563eb); }
+    .qts-drawer input[type="checkbox"]:checked::after { transform:translateX(16px); }
     .qts-drawer button.action { min-height: 40px; padding: 0 14px; border: 1px solid var(--qts-panel-border,#333); border-radius: 8px; background: var(--qts-panel-2,#1c1c1c); color: var(--qts-panel-text,#fff); cursor: pointer; font-weight: 800; }
     .qts-drawer button.action.primary { background: var(--qts-ui-primary, #b20808); border-color: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-empty { padding: 24px; text-align: center; color: var(--qts-panel-muted); border: 1px dashed var(--qts-panel-border); border-radius: 10px; }
@@ -2558,33 +2570,49 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   // switching to a different panel made Inspectors content silently overwrite other drawers.
   drawerHost.dataset.view = view;
   const drawerPosition = ["left", "right", "top", "bottom"].includes(state.workspace?.preferences?.drawerPosition) ? state.workspace.preferences.drawerPosition : "right";
+  const sidebarControls = variant !== "modal";
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
     <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop" data-position="${drawerPosition}">
       <div class="qts-drawer">
-        <span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>
+        ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
         <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2>
-          <select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
+          ${sidebarControls ? `<select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
           <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
-          <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>
+          <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
           <button type="button" id="drawerClose" title="Fechar sidebar">${ICON("fail")}</button></div>
-        <div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>
+        ${sidebarControls ? `<div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>` : ""}
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
     </div>`;
   const backdrop = drawerHost.querySelector("#drawerBackdrop");
   const drawer = drawerHost.querySelector(".qts-drawer");
   const positionSelect = drawerHost.querySelector("#drawerPosition");
-  positionSelect.value = drawerPosition;
-  positionSelect.addEventListener("change", async () => {
+  if (positionSelect) positionSelect.value = drawerPosition;
+  positionSelect?.addEventListener("change", async () => {
     backdrop.dataset.position = positionSelect.value;
     state.workspace.preferences = { ...(state.workspace.preferences || {}), drawerPosition: positionSelect.value };
     state.workspace = await saveWorkspace(state.workspace);
   });
-  drawerHost.querySelector("#drawerPin").addEventListener("click", (event) => {
+  drawerHost.querySelector("#drawerPin")?.addEventListener("click", (event) => {
     const pinned = backdrop.classList.toggle("isPinned");
     event.currentTarget.setAttribute("aria-pressed", String(pinned));
   });
-  drawerHost.querySelector("#drawerMinimize").addEventListener("click", () => drawer.classList.toggle("isMinimized"));
+  drawerHost.querySelector("#drawerMinimize")?.addEventListener("click", () => {
+    const tools = state.shadowRoot?.getElementById("extraPinnedTools");
+    tools?.querySelector("#minimizedDrawerButton")?.remove();
+    const restore = document.createElement("button");
+    restore.id = "minimizedDrawerButton";
+    restore.className = "iconOnly isActive";
+    restore.type = "button";
+    restore.title = `Restaurar ${title}`;
+    restore.innerHTML = ICON(view === "jsonStudio" ? "braces" : "square");
+    restore.addEventListener("click", () => {
+      restore.remove();
+      openDrawer({ title, bodyHtml, onReady, onBack, view, variant });
+    });
+    tools?.appendChild(restore);
+    closeDrawer();
+  });
   drawerHost.querySelectorAll(".qts-drawer-resize").forEach((handle) => handle.addEventListener("pointerdown", (event) => {
     event.preventDefault();
     handle.setPointerCapture(event.pointerId);
@@ -2613,7 +2641,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   drawerHost.querySelector("#drawerClose").addEventListener("click", closeDrawer);
   if (onBack) drawerHost.querySelector("#drawerBack").addEventListener("click", onBack);
   backdrop.addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop" && !backdrop.classList.contains("isPinned")) closeDrawer(); });
-  drawerHost.querySelector("#drawerSearch").addEventListener("input", (event) => {
+  drawerHost.querySelector("#drawerSearch")?.addEventListener("input", (event) => {
     const query = event.target.value.trim().toLocaleLowerCase();
     const body = drawerHost.querySelector("#drawerBody");
     const candidates = body.querySelectorAll(".qts-card,.qts-net-item,.qts-list-row,.qts-friendly-field,.qts-switch-row,.qts-metric,.qts-step");
@@ -3850,7 +3878,7 @@ function breakpointStyles() {
     .qts-bp-zoom input[type="range"] { width: 90px; }
     #bpZoomLabel { min-width: 38px; text-align: center; color: var(--bp-muted); font-variant-numeric: tabular-nums; }
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
-    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; }
+    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--qts-ui-danger, #c70e0e); color:#fff; font-size: 18px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
     .qts-bp-pane { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
     .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: var(--bp-control); border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.25); }
@@ -3895,6 +3923,7 @@ function openBreakpointViewer() {
         </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
+        <button type="button" class="qts-bp-toggle" id="bpRecord">${ICON("recordStart")} Gravar tela cheia</button>
         <button type="button" class="qts-bp-close" id="bpClose">${ICON("fail")}</button>
       </div>
       <div class="qts-bp-stage" id="bpStage"></div>
@@ -3915,6 +3944,10 @@ function openBreakpointViewer() {
 
   const close = () => { cleanupBreakpointViewer(); closeDrawer(); };
   drawerHost.querySelector("#bpClose").addEventListener("click", close);
+  drawerHost.querySelector("#bpRecord").addEventListener("click", () => {
+    if (recordingState.status === "idle") startEvidenceRecording("video");
+    else handleRecordToggle();
+  });
   const escHandler = (event) => { if (event.key === "Escape") close(); };
   document.addEventListener("keydown", escHandler, true);
   breakpointViewerState.cleanupFns.push(() => document.removeEventListener("keydown", escHandler, true));
