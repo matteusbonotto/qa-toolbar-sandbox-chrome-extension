@@ -4234,14 +4234,40 @@ function openKeyView() {
   });
 }
 
+// A shared, persistent stacking container instead of each toast positioning itself independently
+// -- previously two toasts fired close together (a common case: an action's own confirmation plus
+// a follow-up warning) landed on top of each other at the same fixed spot. column-reverse means a
+// new toast grows the stack upward from the anchored bottom position, like a real toast stack.
+function ensureToastContainer() {
+  if (!state.shadowRoot) return null;
+  let container = state.shadowRoot.getElementById("qtsToastContainer");
+  if (container) return container;
+  container = document.createElement("div");
+  container.id = "qtsToastContainer";
+  container.style.cssText = "position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483647;display:flex;flex-direction:column-reverse;gap:8px;align-items:center;pointer-events:none;max-width:min(620px,88vw)";
+  state.shadowRoot.appendChild(container);
+  return container;
+}
+
 function showQaToast(message, tone = "info") {
-  if (!state.shadowRoot) return;
+  const container = ensureToastContainer();
+  if (!container) return;
+  const light = state.workspace?.preferences?.appearanceTheme === "light";
   const toast = document.createElement("div");
   toast.textContent = translateQaSurfaceText(message);
-  const light = state.workspace?.preferences?.appearanceTheme === "light";
-  toast.style.cssText = `position:fixed;left:50%;bottom:20px;transform:translateX(-50%);z-index:2147483647;max-width:min(620px,88vw);padding:10px 16px;border:1px solid ${tone === "error" ? (light ? "#c92331" : "#ff6767") : (light ? "#5b35e8" : "#ffd700")};border-radius:999px;background:${light ? "#fff" : "#0b0b0b"};color:${light ? "#171a24" : "#fff"};font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.28)`;
-  state.shadowRoot.appendChild(toast);
-  window.setTimeout(() => toast.remove(), 3_500);
+  toast.style.cssText = `pointer-events:auto;padding:10px 16px;border:1px solid ${tone === "error" ? (light ? "#c92331" : "#ff6767") : (light ? "#5b35e8" : "#ffd700")};border-radius:999px;background:${light ? "#fff" : "#0b0b0b"};color:${light ? "#171a24" : "#fff"};font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.28);opacity:0;transform:translateY(14px) scale(.92);transition:opacity 220ms ease,transform 260ms cubic-bezier(.34,1.56,.64,1)`;
+  container.appendChild(toast);
+  requestAnimationFrame(() => {
+    toast.style.opacity = "1";
+    toast.style.transform = "translateY(0) scale(1)";
+  });
+  const dismiss = () => {
+    toast.style.transition = "opacity 180ms ease,transform 180ms ease";
+    toast.style.opacity = "0";
+    toast.style.transform = "translateY(-10px) scale(.94)";
+    toast.addEventListener("transitionend", () => toast.remove(), { once: true });
+  };
+  window.setTimeout(dismiss, 3_500);
 }
 
 async function persistWorkspaceState() {
