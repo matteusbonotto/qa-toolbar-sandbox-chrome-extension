@@ -1,4 +1,4 @@
-const { getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
+const { getWorkspace, getSiteScope, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 const ICON = window.QTS_ICONS.svg;
 
 // The real measured height of #bar with its actual content (buttons, #currentUrl) plus a tight
@@ -36,6 +36,7 @@ function applyColorTheme() {
 
 const state = {
   workspace: null,
+  siteScope: null,
   environment: null,
   minimized: false,
   shadowRoot: null,
@@ -151,7 +152,11 @@ function contrastTextColor(hexColor) {
 }
 
 function getCurrentHeight() {
-  return state.minimized || state.workspace?.preferences?.pushSiteContent === false ? 0 : TOOLBAR_HEIGHT;
+  return state.minimized
+    || state.workspace?.preferences?.pushSiteContent === false
+    || state.workspace?.preferences?.toolbarPosition !== "top"
+    ? 0
+    : TOOLBAR_HEIGHT;
 }
 
 function setSpacerHeight() {
@@ -422,7 +427,10 @@ function applyPinnedTools() {
 
 function render() {
   const host = document.getElementById(HOST_ID);
-  if (host) host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
+  if (host) {
+    host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
+    host.dataset.toolbarPosition = state.workspace?.preferences?.toolbarPosition || "top";
+  }
   applyColorTheme();
   const root = state.shadowRoot;
   if (!root) return;
@@ -457,6 +465,7 @@ function buildShadowHost() {
   host.id = HOST_ID;
   host.style.all = "initial";
   host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
+  host.dataset.toolbarPosition = state.workspace?.preferences?.toolbarPosition || "top";
   const shadow = host.attachShadow({ mode: "open" });
 
   shadow.innerHTML = `
@@ -474,6 +483,28 @@ function buildShadowHost() {
         box-shadow: 0 2px 10px rgba(0,0,0,.25); transition: transform 160ms ease;
       }
       #bar.isMinimized { transform: translateY(-110%); }
+      :host([data-toolbar-position="bottom"]) #bar { top:auto; bottom:0; }
+      :host([data-toolbar-position="bottom"]) #bar.isMinimized { transform:translateY(110%); }
+      :host([data-toolbar-position="left"]) #bar,
+      :host([data-toolbar-position="right"]) #bar {
+        top:0; bottom:0; width:52px; min-height:100vh; right:auto; padding:8px 5px;
+        flex-direction:column; justify-content:flex-start; overflow-y:auto; overflow-x:visible;
+      }
+      :host([data-toolbar-position="right"]) #bar { left:auto; right:0; }
+      :host([data-toolbar-position="left"]) #bar.isMinimized { transform:translateX(-110%); }
+      :host([data-toolbar-position="right"]) #bar.isMinimized { transform:translateX(110%); }
+      :host([data-toolbar-position="left"]) #left,
+      :host([data-toolbar-position="right"]) #left { display:none; }
+      :host([data-toolbar-position="left"]) #right,
+      :host([data-toolbar-position="right"]) #right,
+      :host([data-toolbar-position="left"]) #extraPinnedTools,
+      :host([data-toolbar-position="right"]) #extraPinnedTools { flex-direction:column; width:100%; }
+      :host([data-toolbar-position="left"]) #right button,
+      :host([data-toolbar-position="right"]) #right button { width:34px; min-width:34px; padding:5px; overflow:hidden; }
+      :host([data-toolbar-position="left"]) #testStatusButton,
+      :host([data-toolbar-position="right"]) #testStatusButton { font-size:0; }
+      :host([data-toolbar-position="left"]) #testStatusButton::before,
+      :host([data-toolbar-position="right"]) #testStatusButton::before { content:"✓"; font-size:14px; }
       /* Logged-out mode: the bar still mounts (so a URL the user configured never goes silent
          about why nothing appeared), but every functional button is hidden except Settings/
          Minimize -- only the message + login CTA below show. See render()/refreshAuthorization. */
@@ -543,11 +574,14 @@ function buildShadowHost() {
       #toolsWrapper { position: relative; }
       #toolsMenu {
         position: absolute; top: 30px; right: 0; width: 220px; padding: 6px; display: grid; gap: 4px;
+        max-height: 276px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
         border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18);
         box-shadow: 0 16px 40px rgba(0,0,0,.45); opacity: 0; visibility: hidden; transform: translateY(-6px);
         transition: opacity 140ms ease, transform 140ms ease, visibility 140ms; color: #fff; z-index: 10;
       }
       #toolsMenu.isOpen { opacity: 1; visibility: visible; transform: translateY(0); }
+      #toolsMenu::-webkit-scrollbar { width: 9px; }
+      #toolsMenu::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 64%,transparent); border:2px solid transparent; border-radius:99px; background-clip:padding-box; }
       #toolsMenu button {
         width: 100%; justify-content: flex-start; background: #171717; border-color: #2c2c2c; font-size: 11px;
       }
@@ -997,6 +1031,36 @@ function mountToolbar() {
   void maybeShowFirstRunIntro();
   void maybeShowTutorialDot();
   void maybeStartLiveTour();
+  void maybeOpenDetachedTool();
+}
+
+function openToolInNewTab(toolKey) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("qtsDetachedTool", toolKey);
+  window.open(url.toString(), "_blank", "noopener");
+}
+
+async function maybeOpenDetachedTool() {
+  const url = new URL(window.location.href);
+  const toolKey = url.searchParams.get("qtsDetachedTool");
+  if (!toolKey || !state.authorized) return;
+  url.searchParams.delete("qtsDetachedTool");
+  window.history.replaceState({}, "", url.toString());
+  const openers = {
+    testStatus: () => openTestStatusModal(),
+    testAccounts: openTestAccountsDrawer,
+    paymentMethods: openPaymentMethodsDrawer,
+    resources: openResourcesDrawer,
+    jsonStudio: openJsonStudio,
+    keyView: openKeyView,
+    elementCapture: openElementCapture,
+    inputLab: openInputLab,
+    fakerFill: openFakerFill,
+    stepsRecorder: openStepsRecorder,
+    inspectors: openInspectorsDrawer,
+    errorMonitor: openErrorMonitorDrawer,
+  };
+  window.setTimeout(() => openers[toolKey]?.(), 150);
 }
 
 // Small dot on the settings button, separate from maybeShowFirstRunIntro's one-time card above:
@@ -1443,6 +1507,18 @@ function removeToolbar({ disableBridge = false } = {}) {
 
 function syncToolbarForCurrentLocation() {
   state.environment = findActiveEnvironment(state.workspace || { environments: [] });
+  if (!state.environment && state.siteScope?.mode === "all") {
+    state.environment = {
+      id: "qts-all-sites",
+      name: "Todos os sites",
+      color: "#2878ff",
+      productId: null,
+      projectId: null,
+      clientId: null,
+      urlPatterns: ["<all_urls>"],
+      primaryUrl: window.location.origin,
+    };
+  }
   if (!state.environment) {
     removeToolbar();
     return;
@@ -1540,7 +1616,7 @@ function openTestStatusModal({ forced = false, onDone = null } = {}) {
   modal.className = "qts-modal-backdrop";
   modal.innerHTML = `
     <div class="qts-modal">
-      <header><h2>${escapeHtml(state.t.testStatus)}</h2>${forced ? "" : `<button type="button" data-close>${ICON("fail")}</button>`}</header>
+      <header><h2>${escapeHtml(state.t.testStatus)}</h2>${forced ? "" : `<span class="qts-modal-head-actions"><button type="button" data-detach title="Abrir em nova aba">${ICON("resize")}</button><button type="button" data-close class="isDanger" title="Fechar">${ICON("fail")}</button></span>`}</header>
       ${forced ? `<p class="qts-modal-forced-hint">${escapeHtml(state.t.recordForceStatusHint)}</p>` : ""}
       <div class="qts-status-grid">
         ${statusOptions.map((option) => `
@@ -1554,6 +1630,10 @@ function openTestStatusModal({ forced = false, onDone = null } = {}) {
   document.body.appendChild(modal);
   requestAnimationFrame(() => modal.classList.add("isOpen"));
   if (!forced) {
+    modal.querySelector("[data-detach]").addEventListener("click", () => {
+      openToolInNewTab("testStatus");
+      closeTestStatusModal();
+    });
     modal.querySelector("[data-close]").addEventListener("click", closeTestStatusModal);
     modal.addEventListener("click", (event) => { if (event.target === modal) closeTestStatusModal(); });
   }
@@ -1677,7 +1757,7 @@ function wireVisibilityControls(item) {
 const MARKER_KIND_CLASS = { pass: "isPass", fail: "isFail", warning: "isWarning", question: "isQuestion" };
 
 function placeMarker(kind, clientX, clientY) {
-  const size = 40;
+  const size = 24;
   const marker = document.createElement("div");
   marker.className = "qts-floating-item qts-marker";
   marker.style.left = `${Math.max(4, clientX - size / 2)}px`;
@@ -1694,9 +1774,8 @@ function placeMarker(kind, clientX, clientY) {
   wireVisibilityControls(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
   // minWidth/minHeight must be large enough that the eye toggle (top-left) and resize handle
-  // (top-right) never collide -- below ~40px (the marker's own default size) they start to
-  // overlap since both are absolutely positioned 20px badges near opposite top corners.
-  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 40, minHeight: 40, lockAspectRatio: true });
+  // At compact sizes the control badges reflow vertically through the marker's container query.
+  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 24, minHeight: 24, lockAspectRatio: true });
   marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
   updateClearAllVisibility();
 }
@@ -1974,7 +2053,7 @@ function placeLine(startX, startY, endX, endY) {
   const angle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
   const hitHeight = 24;
   const line = document.createElement("div");
-  line.className = "qts-floating-item qts-line";
+  line.className = "qts-floating-item qts-line hasArrow";
   line.style.left = `${startX}px`;
   line.style.top = `${startY - hitHeight / 2}px`;
   line.style.width = `${length}px`;
@@ -1997,6 +2076,17 @@ function placeLine(startX, startY, endX, endY) {
   updateClearAllVisibility();
 }
 
+function lineEndpointOptions(side, label, selected, t) {
+  const options = [
+    ["none", t.lineArrowNone],
+    ["arrow", t.lineArrowArrow],
+    ["triangle", t.lineArrowTriangle],
+    ["dotFilled", t.lineArrowDotFilled],
+    ["dotHollow", t.lineArrowDotHollow],
+  ];
+  return `<fieldset class="qts-line-endpoint-field"><legend>${escapeHtml(label)}</legend><div class="qts-line-endpoint-options">${options.map(([value, text]) => `<label><input type="radio" name="line-${side}" value="${value}" ${value === selected ? "checked" : ""}/><span>${escapeHtml(text)}</span></label>`).join("")}</div></fieldset>`;
+}
+
 function toggleLineStyleEditor(line) {
   const existing = line.querySelector(".qts-shape-editor");
   if (existing) { existing.remove(); return; }
@@ -2007,20 +2097,8 @@ function toggleLineStyleEditor(line) {
   editor.innerHTML = `
     <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-line-color value="#ef3340" /></label>
     <label>${escapeHtml(t.lineThickness)}<input type="range" min="1" max="10" value="3" data-line-thickness /></label>
-    <label>${escapeHtml(t.lineArrowStart || "Ponta esquerda")}<select data-line-start>
-      <option value="none">${escapeHtml(t.lineArrowNone)}</option>
-      <option value="arrow">${escapeHtml(t.lineArrowArrow)}</option>
-      <option value="triangle">${escapeHtml(t.lineArrowTriangle)}</option>
-      <option value="dotFilled">${escapeHtml(t.lineArrowDotFilled)}</option>
-      <option value="dotHollow">${escapeHtml(t.lineArrowDotHollow)}</option>
-    </select></label>
-    <label>${escapeHtml(t.lineArrowEnd || "Ponta direita")}<select data-line-end>
-      <option value="none">${escapeHtml(t.lineArrowNone)}</option>
-      <option value="arrow">${escapeHtml(t.lineArrowArrow)}</option>
-      <option value="triangle">${escapeHtml(t.lineArrowTriangle)}</option>
-      <option value="dotFilled">${escapeHtml(t.lineArrowDotFilled)}</option>
-      <option value="dotHollow">${escapeHtml(t.lineArrowDotHollow)}</option>
-    </select></label>
+    ${lineEndpointOptions("start", t.lineArrowStart || "Ponta esquerda", "none", t)}
+    ${lineEndpointOptions("end", t.lineArrowEnd || "Ponta direita", "arrow", t)}
     <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
   `;
   line.appendChild(editor);
@@ -2029,20 +2107,20 @@ function toggleLineStyleEditor(line) {
   const endClassByValue = { arrow: "hasArrow", triangle: "hasTriangle", dotFilled: "hasDotFilled", dotHollow: "hasDotHollow" };
   const startClassByValue = { arrow: "startHasArrow", triangle: "startHasTriangle", dotFilled: "startHasDotFilled", dotHollow: "startHasDotHollow" };
   const valueFromClasses = (classes, mapping) => Object.entries(mapping).find(([, className]) => classes.contains(className))?.[0] || "none";
-  editor.querySelector("[data-line-start]").value = valueFromClasses(line.classList, startClassByValue);
-  editor.querySelector("[data-line-end]").value = valueFromClasses(line.classList, endClassByValue);
+  editor.querySelector(`[name="line-start"][value="${valueFromClasses(line.classList, startClassByValue)}"]`).checked = true;
+  editor.querySelector(`[name="line-end"][value="${valueFromClasses(line.classList, endClassByValue)}"]`).checked = true;
   const apply = () => {
     const color = editor.querySelector("[data-line-color]").value;
     const thickness = editor.querySelector("[data-line-thickness]").value;
-    const start = editor.querySelector("[data-line-start]").value;
-    const end = editor.querySelector("[data-line-end]").value;
+    const start = editor.querySelector('[name="line-start"]:checked').value;
+    const end = editor.querySelector('[name="line-end"]:checked').value;
     bar.style.setProperty("--qts-line-color", color);
     bar.style.setProperty("--qts-line-thickness", `${thickness}px`);
     line.classList.remove(...startClasses, ...endClasses);
     if (startClassByValue[start]) line.classList.add(startClassByValue[start]);
     if (endClassByValue[end]) line.classList.add(endClassByValue[end]);
   };
-  editor.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", apply));
+  editor.querySelectorAll("input").forEach((input) => input.addEventListener("input", apply));
   editor.querySelector("[data-save]").addEventListener("click", () => editor.remove());
   apply();
 }
@@ -2576,6 +2654,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
       <div class="qts-drawer">
         ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
         <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2>
+          ${view ? `<button type="button" id="drawerDetach" title="Abrir em nova aba">${ICON("square")}</button>` : ""}
           ${sidebarControls ? `<select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
           <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
@@ -2587,6 +2666,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   const backdrop = drawerHost.querySelector("#drawerBackdrop");
   const drawer = drawerHost.querySelector(".qts-drawer");
   const positionSelect = drawerHost.querySelector("#drawerPosition");
+  drawerHost.querySelector("#drawerDetach")?.addEventListener("click", () => openToolInNewTab(view));
   if (positionSelect) positionSelect.value = drawerPosition;
   positionSelect?.addEventListener("change", async () => {
     backdrop.dataset.position = positionSelect.value;
@@ -3538,7 +3618,7 @@ function renderTestAccountsList() {
 }
 
 function openTestAccountsDrawer() {
-  openDrawer({ title: state.t.testAccountsDrawerTitle, bodyHtml: "" });
+  openDrawer({ title: state.t.testAccountsDrawerTitle, bodyHtml: "", view: "testAccounts" });
   renderTestAccountsList();
 }
 
@@ -3710,7 +3790,7 @@ function renderResourcesList() {
 }
 
 function openResourcesDrawer() {
-  openDrawer({ title: state.t.resourcesDrawerTitle, bodyHtml: "" });
+  openDrawer({ title: state.t.resourcesDrawerTitle, bodyHtml: "", view: "resources" });
   renderResourcesList();
 }
 
@@ -3768,6 +3848,7 @@ function openJsonStudio() {
   const t = state.t;
   openDrawer({
     title: t.jsonStudioTitle,
+    view: "jsonStudio",
     bodyHtml: `
       <div class="qts-tabs"><button type="button" class="isSelected" data-json-mode="format">Formatar</button><button type="button" data-json-mode="diff">Comparar</button></div>
       <section id="jsonFormatMode">
@@ -4469,6 +4550,7 @@ function openKeyView() {
   let selectedPosition = preferences.position;
   openDrawer({
     title: "Key View",
+    view: "keyView",
     bodyHtml: `<p class="qts-tool-lead">Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.</p>
       <div class="qts-card qts-key-view-status"><div><b>Key View</b><small>${preferences.enabled ? "Ativo nesta página" : "Desativado"}</small></div><button class="action ${preferences.enabled ? "" : "primary"}" id="keyViewToggle" type="button">${preferences.enabled ? "Desativar" : "Ativar"}</button></div>
       <label class="qts-switch-row"><input id="keyViewTyping" type="checkbox" ${preferences.typingMode ? "checked" : ""} /><span><b>Modo Typing</b><small>Mantém o texto digitado na tela até você clicar em Limpar.</small></span></label>
@@ -5289,6 +5371,7 @@ function openElementCapture() {
   const viewFields = state.elementViewFields;
   openDrawer({
     title: "Capturar elementos",
+    view: "elementCapture",
     bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
       <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action" id="elementViewToggle" type="button">Ver elementos</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
       <div class="qts-toolbar-row" id="elementViewFilters" hidden>
@@ -5587,6 +5670,7 @@ function openInputLab(selectedElement = null) {
   const infoHtml = info ? `<div class="qts-card"><b>${escapeHtml(info.selector)}</b><div class="qts-tool-grid">${[["Tipo", info.type], ["Obrigatório", info.required ? "Sim" : "Não"], ["Mínimo", info.min ?? info.minLength ?? "—"], ["Máximo", info.max ?? info.maxLength ?? "—"], ["Pattern", info.pattern || "—"]].map(([label, value]) => `<div><small>${label}</small><br><b>${escapeHtml(value)}</b></div>`).join("")}</div></div>` : "";
   openDrawer({
     title: "Input Lab",
+    view: "inputLab",
     bodyHtml: `<p class="qts-tool-lead">Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.</p>
       <button class="action" id="inputSelect" type="button">Selecionar input na página</button>${infoHtml}
       ${info ? `<button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Rodar kit de validação</button><div id="inputResults"></div>` : ""}`,
@@ -5610,6 +5694,7 @@ function openFakerFill(selectedRoot = null) {
   if (!requirePlanFeature("fakerFill")) return;
   openDrawer({
     title: "Faker Fill",
+    view: "fakerFill",
     bodyHtml: `<p class="qts-tool-lead">Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.</p>
       <div class="qts-card"><b>Escopo</b><p>${selectedRoot ? "Formulário selecionado" : "Página atual"}</p></div>
       <div class="qts-card-actions"><button class="action" id="fakerSelectForm" type="button">Selecionar formulário</button><button class="action primary" id="fakerRun" type="button">Preencher agora</button></div><div class="qts-status" id="fakerStatus"></div><div id="fakerReport"></div>`,
@@ -6686,6 +6771,7 @@ async function boot() {
 
   state.t = await window.QTS_I18N.load();
   state.workspace = await getWorkspace();
+  state.siteScope = await getSiteScope();
   state.httpErrors = loadHttpErrorsFromSession();
   // Runs regardless of the result now: an unauthorized session still needs the location/storage
   // listeners below wired up, so the stripped "logged out" bar (see render()) keeps tracking
@@ -6693,8 +6779,9 @@ async function boot() {
   const authorizedAtBoot = await refreshAuthorization(true);
 
   onStorageChanged(async (changes) => {
-    if (!changes[STORAGE_KEYS.workspace]) return;
-    state.workspace = await getWorkspace();
+    if (!changes[STORAGE_KEYS.workspace] && !changes[STORAGE_KEYS.siteScope]) return;
+    if (changes[STORAGE_KEYS.workspace]) state.workspace = await getWorkspace();
+    if (changes[STORAGE_KEYS.siteScope]) state.siteScope = await getSiteScope();
     syncToolbarForCurrentLocation();
   });
 

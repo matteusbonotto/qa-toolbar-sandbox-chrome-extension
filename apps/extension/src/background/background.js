@@ -9,11 +9,12 @@ const LANDING_ORIGINS = new Set([
 ]);
 
 function isChromeMatchPattern(pattern) {
-  return /^(?:\*|https?|file|ftp):\/\/(?:\*|\*\.[^/*]+|[^/*]+)\/.*$/i.test(String(pattern ?? ""));
+  return pattern === "<all_urls>" || /^(?:\*|https?|file|ftp):\/\/(?:\*|\*\.[^/*]+|[^/*]+)\/.*$/i.test(String(pattern ?? ""));
 }
 
 async function patternsForAuthorizedWorkspace() {
   const scope = await getSiteScope();
+  if (scope.mode === "all") return ["<all_urls>"];
   if (scope.mode === "custom") return (scope.patterns || []).filter(isChromeMatchPattern);
   const workspace = await getWorkspace();
   return [...new Set((workspace.urlBindings || [])
@@ -24,7 +25,7 @@ async function patternsForAuthorizedWorkspace() {
 
 async function isAuthorizedContentSender(sender) {
   if (!sender?.tab?.id || !sender.tab.url) return false;
-  const [registrationPatterns, workspace] = await Promise.all([patternsForAuthorizedWorkspace(), getWorkspace()]);
+  const [registrationPatterns, workspace, scope] = await Promise.all([patternsForAuthorizedWorkspace(), getWorkspace(), getSiteScope()]);
   const matches = (patterns) => patterns.some((pattern) => {
     try { return patternToRegExp(pattern).test(sender.tab.url); } catch { return false; }
   });
@@ -32,10 +33,11 @@ async function isAuthorizedContentSender(sender) {
     .filter((binding) => binding.active !== false)
     .flatMap((binding) => binding.patterns || [])
     .filter(isChromeMatchPattern);
-  return matches(registrationPatterns) && matches(bindingPatterns);
+  return matches(registrationPatterns) && (scope.mode === "all" || matches(bindingPatterns));
 }
 
 function patternToRegExp(pattern) {
+  if (pattern === "<all_urls>") return /^(?:https?|file|ftp):/i;
   const escaped = String(pattern).replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
   return new RegExp(`^${escaped}$`, "i");
 }

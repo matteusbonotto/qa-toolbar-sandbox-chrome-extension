@@ -131,6 +131,7 @@
         appearanceTheme: "light",
         colorTheme: "blue-light",
         drawerPosition: "right",
+        toolbarPosition: "top",
         pushSiteContent: true,
         compactMode: false,
         compactEntities: { client: false, project: false, product: false },
@@ -418,6 +419,7 @@
         appearanceTheme: ["light", "dark"].includes(preferences.appearanceTheme) ? preferences.appearanceTheme : empty.preferences.appearanceTheme,
         colorTheme: text(preferences.colorTheme, 30) || empty.preferences.colorTheme,
         drawerPosition: ["left", "right", "top", "bottom"].includes(preferences.drawerPosition) ? preferences.drawerPosition : empty.preferences.drawerPosition,
+        toolbarPosition: ["top", "bottom", "left", "right"].includes(preferences.toolbarPosition) ? preferences.toolbarPosition : empty.preferences.toolbarPosition,
         pinnedTools: Array.isArray(preferences.pinnedTools)
           ? [...new Set(preferences.pinnedTools.map((value) => text(value, 40)).map((value) => ({ blurMode: "blurElements", holofoteMode: "holofote" })[value] || value).filter((value) => PINNABLE_TOOLS.has(value)))].slice(0, 4)
           : empty.preferences.pinnedTools,
@@ -463,14 +465,14 @@
     const scope = stored[STORAGE_KEYS.siteScope];
     return scope && typeof scope === "object"
       ? {
-          mode: scope.mode === "custom" ? "custom" : "environments",
+          mode: ["custom", "all"].includes(scope.mode) ? scope.mode : "environments",
           patterns: normalizeUrlPatterns(scope.patterns),
         }
       : createDefaultSiteScope();
   }
   async function saveSiteScope(scope) {
     const next = {
-      mode: scope?.mode === "custom" ? "custom" : "environments",
+      mode: ["custom", "all"].includes(scope?.mode) ? scope.mode : "environments",
       patterns: normalizeUrlPatterns(scope?.patterns),
     };
     await chrome.storage.local.set({ [STORAGE_KEYS.siteScope]: next });

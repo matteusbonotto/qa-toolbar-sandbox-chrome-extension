@@ -387,6 +387,7 @@ function loadPreferenceUi() {
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
   document.getElementById("remindTestStatusOnRecording").checked = preferences.remindTestStatusOnRecording === true;
   document.getElementById("drawerPosition").value = ["left", "right", "top", "bottom"].includes(preferences.drawerPosition) ? preferences.drawerPosition : "right";
+  document.getElementById("toolbarPosition").value = ["top", "bottom", "left", "right"].includes(preferences.toolbarPosition) ? preferences.toolbarPosition : "top";
   document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
   const pinned = new Set(preferences.pinnedTools || []);
   document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
@@ -609,6 +610,7 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
     soundEffects: document.getElementById("soundEffects").checked,
     remindTestStatusOnRecording: document.getElementById("remindTestStatusOnRecording").checked,
     drawerPosition: document.getElementById("drawerPosition").value,
+    toolbarPosition: document.getElementById("toolbarPosition").value,
     avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
     pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),

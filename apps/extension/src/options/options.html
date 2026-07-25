@@ -77,6 +77,7 @@
         <div class="grid2">
           <div class="card">
             <div class="cardHead"><h2>Onde a barra aparece</h2></div>
+            <label class="radioRow"><input type="radio" name="scopeMode" value="all" /><div><b>Todos os sites</b><small>Exibe a toolbar em qualquer site permitido pelo navegador.</small></div></label>
             <label class="radioRow"><input type="radio" name="scopeMode" value="environments" /><div><b>URLs dos ambientes</b><small>Usa as URLs configuradas em cada ambiente do Workspace.</small></div></label>
             <label class="radioRow"><input type="radio" name="scopeMode" value="custom" /><div><b>Restringir com lista personalizada</b><small>A URL também precisa pertencer a um ambiente. Use padrões como <code>https://*.exemplo.com/*</code>, um por linha.</small></div></label>
             <textarea id="scopePatterns" rows="5" placeholder="https://app.exemplo.com/*" disabled></textarea>
@@ -97,6 +98,7 @@
               <div class="actions"><button type="button" class="button" id="colorThemeReset">Restaurar padrão</button></div>
             </fieldset>
             <fieldset><legend>Posição dos sidebars</legend><label>Onde abrir<select id="drawerPosition"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label><small class="cardLead">Também pode ser alterada no cabeçalho de qualquer sidebar.</small></fieldset>
+            <fieldset><legend>Posição da toolbar</legend><label>Onde mostrar<select id="toolbarPosition"><option value="top">Horizontal — cima</option><option value="bottom">Horizontal — baixo</option><option value="left">Vertical — esquerda</option><option value="right">Vertical — direita</option></select></label></fieldset>
             <div class="barPreviewWrap"><div class="barPreview" id="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia da barra com as configurações atuais (atualiza antes de salvar).</small></div>
             <input id="compactMode" type="checkbox" hidden />
             <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
