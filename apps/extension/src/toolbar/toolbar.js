@@ -2665,11 +2665,15 @@ function deactivateClickSpy() {
 function describeClickSpyTarget(target) {
   const t = state.t;
   const anchor = target.closest?.("a[href]");
+  const testId = target.getAttribute("data-testid") || target.getAttribute("data-test-id") || target.getAttribute("data-qa") || target.getAttribute("data-cy");
   return [
     [t.clickSpyElement, target.tagName.toLowerCase()],
     [t.clickSpyText, target.textContent?.trim().slice(0, 80) || "—"],
     [t.clickSpyDestination, anchor ? new URL(anchor.getAttribute("href"), window.location.href).href : "—"],
     [t.clickSpyType, anchor ? t.clickSpyNavigation : target.tagName === "BUTTON" || target.getAttribute("type") === "submit" ? t.clickSpyActionSubmit : t.clickSpyFormControl],
+    [t.clickSpyTestId, testId || "—"],
+    [t.clickSpyRole, target.getAttribute("role") || "—"],
+    [t.clickSpyElementId, target.id || "—"],
   ];
 }
 
@@ -4295,7 +4299,8 @@ function captureVisibleElements() {
       type: element.getAttribute("type") || "",
       name: element.getAttribute("name") || "",
       id: element.id || "",
-      testId: element.getAttribute("data-testid") || "",
+      testId: element.getAttribute("data-testid") || element.getAttribute("data-test-id") || element.getAttribute("data-qa") || element.getAttribute("data-cy") || "",
+      role: element.getAttribute("role") || "",
       cssSelector: window.QTS_QA_TOOLS.uniqueSelector(element),
       xpath: buildXPath(element),
       text: String(element.getAttribute("aria-label") || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120),
@@ -4346,8 +4351,8 @@ function toCsvCell(value) {
 }
 
 function downloadElementCaptureCsv(rows) {
-  const headers = ["tag", "type", "name", "id", "test_id", "css_selector", "xpath", "text", "placeholder", "sensitive"];
-  const csvKeys = ["tag", "type", "name", "id", "testId", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
+  const headers = ["tag", "type", "name", "id", "test_id", "role", "css_selector", "xpath", "text", "placeholder", "sensitive"];
+  const csvKeys = ["tag", "type", "name", "id", "testId", "role", "cssSelector", "xpath", "text", "placeholder", "sensitive"];
   const lines = [headers.join(","), ...rows.map((row) => csvKeys.map((key) => toCsvCell(row[key])).join(","))];
   // Leading BOM keeps accented pt-BR text readable when the CSV is opened directly in Excel.
   const url = URL.createObjectURL(new Blob(["﻿" + lines.join("\r\n")], { type: "text/csv;charset=utf-8" }));
@@ -4943,7 +4948,7 @@ function openElementCapture() {
       const searchInput = body.querySelector("#elementCaptureSearch");
       const matchesQuery = (row) => {
         if (!query) return true;
-        const haystack = `${row.tag} ${row.type} ${row.name} ${row.id} ${row.testId} ${row.cssSelector} ${row.xpath} ${row.text} ${row.placeholder}`.toLowerCase();
+        const haystack = `${row.tag} ${row.type} ${row.name} ${row.id} ${row.testId} ${row.role} ${row.cssSelector} ${row.xpath} ${row.text} ${row.placeholder}`.toLowerCase();
         return haystack.includes(query);
       };
       const renderPreview = () => {
@@ -4965,7 +4970,7 @@ function openElementCapture() {
               return `
                 <div class="qts-net-item" style="cursor:default" data-row-index="${row._index}">
                   <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
-                    <div style="min-width:0"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b> ${labelHtml}${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}${row.testId ? ` <span style="color:#42d5c2">test-id</span>` : ""}</div>
+                    <div style="min-width:0"><b>${escapeHtml(row.tag)}${row.type ? `[${escapeHtml(row.type)}]` : ""}</b> ${labelHtml}${row.sensitive ? ` <span style="color:#ff6767">sensível</span>` : ""}${row.testId ? ` <span style="color:#42d5c2">test-id</span>` : ""}${row.role ? ` <span style="color:#42d5c2">role: ${escapeHtml(row.role)}</span>` : ""}</div>
                     <div style="display:flex;gap:4px;flex:0 0 auto">
                       <button type="button" class="qts-icon-btn" data-locate-row title="Localizar elemento" style="width:26px;height:26px">${ICON("cursor")}</button>
                       <button type="button" class="qts-icon-btn" data-state-row title="Ver estado atual" style="width:26px;height:26px">${ICON("eye")}</button>
