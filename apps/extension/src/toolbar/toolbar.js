@@ -885,9 +885,25 @@ function buildShadowHost() {
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
   shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
-  shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => { openBlurElementsTool(); closeToolsMenu(); });
-  shadow.getElementById("holofoteMenuItem").addEventListener("click", () => { openHolofoteTool(); closeToolsMenu(); });
-  shadow.getElementById("pixelPerfectMenuItem").addEventListener("click", () => { openPixelPerfectTool(); closeToolsMenu(); });
+  // These three keep a persistent on/off mode (unlike most Tools-menu items, which just open a
+  // drawer every time): clicking them again while already active turns the mode off directly
+  // instead of reopening the drawer just to find the Desativar button inside it — same one-click
+  // toggle the quick pinned buttons (blurQuickButton/holofoteQuickButton) already had.
+  shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => {
+    if (state.blurSelectionActive) { toggleBlurSelectionMode(); closeToolsMenu(); return; }
+    openBlurElementsTool();
+    closeToolsMenu();
+  });
+  shadow.getElementById("holofoteMenuItem").addEventListener("click", () => {
+    if (state.holofoteActive) { disableHolofoteMode(); closeToolsMenu(); return; }
+    openHolofoteTool();
+    closeToolsMenu();
+  });
+  shadow.getElementById("pixelPerfectMenuItem").addEventListener("click", () => {
+    if (state.pixelPerfectActive) { disablePixelPerfectMode(); closeToolsMenu(); return; }
+    openPixelPerfectTool();
+    closeToolsMenu();
+  });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("stepsRecorderMenuItem").addEventListener("click", () => { openStepsRecorder(); closeToolsMenu(); });
@@ -2059,10 +2075,8 @@ function clearAllFloatingItems() {
 }
 
 function updateClearAllVisibility() {
-  const items = document.querySelectorAll(".qts-floating-item");
-  const hasItems = items.length > 0;
-  const notesPinned = (state.workspace?.preferences?.pinnedTools || []).includes("notes");
-  state.shadowRoot?.getElementById("clearAllButton")?.classList.toggle("isHidden", !hasItems || !notesPinned);
+  const hasItems = document.querySelectorAll(".qts-floating-item").length > 0;
+  state.shadowRoot?.getElementById("clearAllButton")?.classList.toggle("isHidden", !hasItems);
 }
 
 // ---------------------------------------------------------------------------
