@@ -5732,11 +5732,32 @@ function stepsCopy() {
   return STEPS_COPY[language] || STEPS_COPY[language.split("-")[0]] || STEPS_COPY["pt-BR"];
 }
 
+// Falling straight back to the bare tag name ("div", "span") once no label/text/placeholder is
+// found produced steps like "Clique em div" -- unreadable, since a bare tag says nothing about
+// which div. Test-id/role/id hooks (the same attributes Revelar test-id/seletor/XPath surfaces)
+// are tried next since they identify the element even with no visible label; a real CSS selector
+// (uniqueSelector, already used elsewhere for exactly this) is the last resort instead of the tag
+// name alone, since "div.qts-card > button:nth-child(2)" is still something a reader can act on.
 function stepsTargetName(element) {
   const target = element instanceof Element ? element : null;
   if (!target) return "elemento";
-  const label = target.labels?.[0]?.innerText || target.getAttribute("aria-label") || target.getAttribute("title") || target.innerText || target.getAttribute("placeholder") || target.name || target.id || target.tagName.toLowerCase();
-  return String(label).replace(/\s+/g, " ").trim().slice(0, 120) || "elemento";
+  const testId = target.getAttribute("data-testid") || target.getAttribute("data-test-id") || target.getAttribute("data-qa") || target.getAttribute("data-cy");
+  const label = target.labels?.[0]?.innerText
+    || target.getAttribute("aria-label")
+    || target.getAttribute("title")
+    || target.innerText
+    || target.getAttribute("placeholder")
+    || target.name
+    || testId
+    || target.id
+    || target.getAttribute("alt")
+    || target.querySelector?.("img[alt]")?.getAttribute("alt");
+  const clean = String(label || "").replace(/\s+/g, " ").trim().slice(0, 120);
+  if (clean) return clean;
+  const hook = testId || target.getAttribute("role") || target.id;
+  if (hook) return `${target.tagName.toLowerCase()} [${hook}]`;
+  const selector = window.QTS_QA_TOOLS?.uniqueSelector?.(target);
+  return selector || target.tagName.toLowerCase();
 }
 
 function makeDocumentedStep(action, text, source = "recorded") {
