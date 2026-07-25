@@ -121,12 +121,24 @@ try {
   if (!(await installDemo.locator("#bar.isLoggedOut").count())) throw new Error("Fresh-install toolbar did not render its logged-out state");
   if (!(await installDemo.locator("#loggedOutLoginButton").count())) throw new Error("Fresh-install toolbar has no login action");
   if (await installDemo.locator("#toolsButton:visible").count()) throw new Error("Protected Tools action remained visible while logged out");
+  if (await installDemo.locator(".qts-tour-balloon").count()) throw new Error("Live tour started while the user was logged out");
+  let loggedOutTourOptions = null;
+  for (let attempt = 0; attempt < 40 && !loggedOutTourOptions; attempt += 1) {
+    loggedOutTourOptions = context.pages().find((page) => page.url().startsWith(`chrome-extension://${extensionId}/src/options/options.html?tab=account`)) || null;
+    if (!loggedOutTourOptions) await new Promise((resolveOptions) => setTimeout(resolveOptions, 100));
+  }
+  if (!loggedOutTourOptions) throw new Error("Logged-out tutorial request did not redirect to Minha conta");
+  await loggedOutTourOptions.waitForLoadState("domcontentloaded");
+  if (!(await loggedOutTourOptions.locator('.panel[data-panel="account"].isActive').count())) throw new Error("Logged-out tutorial redirect did not activate Minha conta");
+  await loggedOutTourOptions.close();
   const optionsOpened = context.waitForEvent("page", (page) => page.url().startsWith(`chrome-extension://${extensionId}/src/options/options.html`));
   await installDemo.locator("#loggedOutLoginButton").click();
   const options = await optionsOpened;
   await options.waitForLoadState("domcontentloaded");
   if (new URL(options.url()).searchParams.get("tab") !== "account") throw new Error(`Logged-out login action did not target Minha conta: ${options.url()}`);
   if (!(await options.locator('.panel[data-panel="account"].isActive').count())) throw new Error("Minha conta panel was not active after clicking Entrar");
+  if (await options.locator("html").getAttribute("data-theme") !== "light") throw new Error("Fresh workspace did not default to light appearance");
+  if (await options.locator('[data-color-theme="blue-light"]').getAttribute("aria-checked") !== "true") throw new Error("Fresh workspace did not default to blue-light");
   await installDemoTabs[0].close();
   trace("fresh-install logged-out toolbar and Minha conta login handoff verified");
 
@@ -417,12 +429,12 @@ try {
   await host.locator("#drawerClose").click();
   if (await options.locator('[data-color-theme="blue-dark"]').getAttribute("aria-checked") !== "true") throw new Error("Selected color theme swatch did not stay marked as checked");
   await options.locator("#colorThemeReset").click();
-  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "");
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#2563eb");
   await host.locator("#toolsButton").click();
   await host.locator("#inputLabMenuItem").click();
   await host.locator(".qts-drawer").waitFor();
   const resetDrawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
-  if (resetDrawerCloseBg !== "rgb(178, 8, 8)") throw new Error(`Color theme reset did not restore the default drawer close color: ${resetDrawerCloseBg}`);
+  if (resetDrawerCloseBg !== "rgb(37, 99, 235)") throw new Error(`Color theme reset did not restore the blue-light default drawer close color: ${resetDrawerCloseBg}`);
   await host.locator("#drawerClose").click();
   trace("24 color theme presets verified (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));

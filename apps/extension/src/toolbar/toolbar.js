@@ -1065,6 +1065,10 @@ async function maybeStartLiveTour() {
   url.searchParams.delete("qtsTutorial");
   url.searchParams.delete("qtsTutorialStep");
   window.history.replaceState({}, "", url.toString());
+  if (!state.authorized) {
+    chrome.runtime.sendMessage({ type: "qts:open-options", tab: "account" });
+    return;
+  }
   startTutorialTour(requestedStep);
 }
 

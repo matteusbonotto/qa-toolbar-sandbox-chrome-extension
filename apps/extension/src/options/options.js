@@ -433,10 +433,11 @@ document.getElementById("colorThemeGrid")?.addEventListener("click", async (even
 
 document.getElementById("colorThemeReset")?.addEventListener("click", async () => {
   if (!workspace) return;
-  applyColorThemeToPage(null);
-  workspace.preferences = { ...(workspace.preferences || {}), colorTheme: null };
+  applyAppearanceTheme("light");
+  applyColorThemeToPage("blue-light");
+  workspace.preferences = { ...(workspace.preferences || {}), colorTheme: "blue-light", appearanceTheme: "light" };
   await saveWorkspace(workspace);
-  renderColorThemeGrid(null);
+  renderColorThemeGrid("blue-light");
   document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
 });
 

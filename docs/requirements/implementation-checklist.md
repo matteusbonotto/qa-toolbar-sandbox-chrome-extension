@@ -31,6 +31,8 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 |---|---|---|
 | Login da extensão | Corrigido localmente | O background comparava `sender.url` por igualdade e descartava mensagens vindas de `options.html?tab=account` ou com hash. O smoke agora autentica a partir de um deep link. |
 | Primeiro acesso deslogado | Corrigido localmente; smoke bloqueado por perfil aberto | A instalação agora cria o workspace demo protegido e registra o content script antes de abrir o site inicial. A toolbar reduzida mostra “Entrar”, oculta Tools e abre explicitamente `Minha conta`. |
+| Tour sem autenticação | Corrigido localmente; smoke bloqueado por perfil aberto | `qtsTutorial=1` não inicia overlay quando `state.authorized` é falso; remove os parâmetros e abre `Configurações > Minha conta`. |
+| Tema padrão | Corrigido localmente; testes de normalização aprovados | Workspace novo e ação “Restaurar padrão” usam `blue-light` (`#2563eb`) com aparência clara. Escolhas explícitas existentes são preservadas. |
 | Erro de conexão do runtime | Corrigido localmente | `runtimeMessage` agora consome `chrome.runtime.lastError` e retorna mensagem acionável, evitando `Unchecked runtime.lastError`. |
 | CORS do backend | Parcial/operacional | O backend aceita somente IDs presentes em `ALLOWED_EXTENSION_IDS`. Extensão de produção carregada diretamente de pasta recebe ID aleatório e não deve acessar produção; usar Web Store ou pacote sideload com ID fixo. O pacote `[TESTE]` usa backend local/isolado. |
 | `legal-registration` 403 | Diagnosticado | É uma consulta paralela e tolerante a falha. O 403 indica ID/origem não autorizado e não é a autenticação em si. Não houve alteração em segredo ou função de produção. |

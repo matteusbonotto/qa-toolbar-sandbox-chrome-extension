@@ -128,7 +128,8 @@
       stepRecordings: [],
       preferences: {
         language: "pt-BR",
-        appearanceTheme: "dark",
+        appearanceTheme: "light",
+        colorTheme: "blue-light",
         pushSiteContent: true,
         compactMode: false,
         compactEntities: { client: false, project: false, product: false },
@@ -414,6 +415,7 @@
         pushSiteContent: preferences.pushSiteContent !== false,
         avatarShape: preferences.avatarShape === "round" ? "round" : "square",
         appearanceTheme: ["light", "dark"].includes(preferences.appearanceTheme) ? preferences.appearanceTheme : empty.preferences.appearanceTheme,
+        colorTheme: text(preferences.colorTheme, 30) || empty.preferences.colorTheme,
         pinnedTools: Array.isArray(preferences.pinnedTools)
           ? [...new Set(preferences.pinnedTools.map((value) => text(value, 40)).map((value) => ({ blurMode: "blurElements", holofoteMode: "holofote" })[value] || value).filter((value) => PINNABLE_TOOLS.has(value)))].slice(0, 4)
           : empty.preferences.pinnedTools,
