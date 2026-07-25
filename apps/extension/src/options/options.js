@@ -151,7 +151,14 @@ function escapeHtml(value) {
 }
 
 function runtimeMessage(message) {
-  return new Promise((resolve) => chrome.runtime.sendMessage(message, (response) => resolve(response ?? {})));
+  return new Promise((resolve) => chrome.runtime.sendMessage(message, (response) => {
+    const runtimeError = chrome.runtime.lastError;
+    if (runtimeError) {
+      resolve({ ok: false, error: "extension_connection_failed", detail: runtimeError.message });
+      return;
+    }
+    resolve(response ?? { ok: false, error: "extension_no_response" });
+  }));
 }
 
 const NAV_WORKSPACE_ROUTES = Object.freeze({ workspace: "structure", "test-data": "accounts", integrations: "integrations" });
@@ -231,7 +238,15 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
   document.getElementById("loginPassword").value = "";
   button.disabled = false;
   if (!response.ok) {
-    const messages = { authentication_failed: "E-mail ou senha inválidos.", rate_limit_exceeded: "Muitas tentativas. Aguarde alguns minutos.", access_required: "Conta válida, mas sem acesso ativo." };
+    const messages = {
+      authentication_failed: "E-mail ou senha inválidos.",
+      invalid_credentials: "Informe um e-mail válido e uma senha com pelo menos 8 caracteres.",
+      rate_limit_exceeded: "Muitas tentativas. Aguarde alguns minutos.",
+      access_required: "Conta válida, mas sem acesso ativo.",
+      origin_not_allowed: "Esta instalação local não está autorizada pelo servidor. Recarregue a versão oficial ou o pacote de teste identificado.",
+      extension_connection_failed: "A extensão foi atualizada, mas o processo interno ainda não recarregou. Recarregue-a em chrome://extensions e tente novamente.",
+      extension_no_response: "A extensão não respondeu. Recarregue-a em chrome://extensions e tente novamente.",
+    };
     showMessage("authMessage", messages[response.error] || "Não foi possível entrar. Confira os dados e tente novamente.", "Error");
     return;
   }

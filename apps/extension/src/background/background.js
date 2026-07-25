@@ -278,7 +278,14 @@ onStorageChanged((changes) => {
 });
 
 function isOwnOptionsPage(sender) {
-  return sender?.id === chrome.runtime.id && sender?.url === chrome.runtime.getURL("src/options/options.html");
+  if (sender?.id !== chrome.runtime.id || typeof sender.url !== "string") return false;
+  try {
+    const senderUrl = new URL(sender.url);
+    const optionsUrl = new URL(chrome.runtime.getURL("src/options/options.html"));
+    return senderUrl.origin === optionsUrl.origin && senderUrl.pathname === optionsUrl.pathname;
+  } catch {
+    return false;
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

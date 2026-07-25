@@ -122,7 +122,10 @@ try {
   const optionsErrors = [];
   options.on("console", (message) => { if (message.type() === "error") optionsErrors.push(message.text()); });
   options.on("pageerror", (error) => optionsErrors.push(error.message));
-  await options.goto(`chrome-extension://${extensionId}/src/options/options.html`);
+  // Account deep links add search/hash state. Authentication must still reach the service worker;
+  // an exact sender.url comparison used to silently drop these messages and yield
+  // "Could not establish connection. Receiving end does not exist."
+  await options.goto(`chrome-extension://${extensionId}/src/options/options.html?tab=account#login`);
   await options.locator("#loginEmail").fill("tester@example.com");
   await options.locator("#loginPassword").fill("safe-test-password");
   await options.locator("#loginForm button[type=submit]").click();
