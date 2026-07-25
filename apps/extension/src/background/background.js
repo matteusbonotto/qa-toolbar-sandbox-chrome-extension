@@ -371,6 +371,20 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+  if (message.type === "qts:open-tool-window") {
+    Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(([access, authorizedSender]) => {
+      if (!access.active || !authorizedSender || typeof message.url !== "string") {
+        return sendResponse({ ok: false, error: "authentication_required" });
+      }
+      let url;
+      try { url = new URL(message.url); } catch { return sendResponse({ ok: false, error: "invalid_url" }); }
+      if (!["http:", "https:", "file:"].includes(url.protocol)) return sendResponse({ ok: false, error: "invalid_url" });
+      return chrome.windows.create({ url: url.toString(), type: "popup", focused: true, width: 1100, height: 760 })
+        .then((createdWindow) => sendResponse({ ok: true, windowId: createdWindow.id }))
+        .catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
+    });
+    return true;
+  }
   if (message.type === "qts:open-options") {
     // openOptionsPage() has no way to pass a query param, so the live tutorial tour (toolbar.js),
     // which needs to land the user directly on the Workspace tab after "Pular tutorial", opens the

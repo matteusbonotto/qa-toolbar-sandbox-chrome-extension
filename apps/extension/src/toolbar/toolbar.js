@@ -1087,7 +1087,9 @@ function mountToolbar() {
 function openToolInNewTab(toolKey) {
   const url = new URL(window.location.href);
   url.searchParams.set("qtsDetachedTool", toolKey);
-  window.open(url.toString(), "_blank", "noopener");
+  chrome.runtime.sendMessage({ type: "qts:open-tool-window", url: url.toString() }, (response) => {
+    if (chrome.runtime.lastError || response?.ok !== true) window.open(url.toString(), "_blank", "noopener");
+  });
 }
 
 async function maybeOpenDetachedTool() {
@@ -1109,6 +1111,13 @@ async function maybeOpenDetachedTool() {
     stepsRecorder: openStepsRecorder,
     inspectors: openInspectorsDrawer,
     errorMonitor: openErrorMonitorDrawer,
+    forceHttp: openForceHttpDialog,
+    blurElements: openBlurElementsTool,
+    holofote: openHolofoteTool,
+    pixelPerfect: openPixelPerfectTool,
+    characterCounter: openCharacterCounter,
+    multiClick: openMultiClick,
+    macroStudio: openMacroStudio,
   };
   window.setTimeout(() => openers[toolKey]?.(), 150);
 }
@@ -2320,7 +2329,7 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      position:relative; width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
+      container-type:inline-size; position:relative; width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4); resize: both; overflow: hidden;
     }
     .qts-drawer-backdrop[data-position="left"] { justify-content:flex-start; }
@@ -2351,6 +2360,14 @@ function drawerStyles() {
     .qts-drawer-head.hasBack h2 { flex: 1; text-align: center; }
     .qts-drawer-head h2 { flex:1; }
     .qts-drawer-head select { width:auto; max-width:92px; height:30px; padding:2px 5px; }
+    @container (max-width: 430px) {
+      .qts-drawer-head { flex-wrap:wrap; align-items:center; }
+      .qts-drawer-head h2 {
+        flex:1 0 100%; max-width:100%; white-space:normal; overflow:visible;
+        text-overflow:clip; line-height:1.25; padding-bottom:3px;
+      }
+      .qts-drawer-head select { margin-left:auto; }
+    }
     .qts-drawer-search { padding:8px 12px; border-bottom:1px solid var(--qts-panel-border); }
     .qts-drawer-resize { position:absolute; z-index:3; }
     .qts-drawer-resize[data-edge="left"], .qts-drawer-resize[data-edge="right"] { top:0; bottom:0; width:8px; cursor:ew-resize; }
@@ -2691,6 +2708,7 @@ function wireSmartFilter(container, onChange) {
 // openDrawer has no history stack of its own; each caller that drills into a sub-view is
 // responsible for passing the one function that rebuilds its own parent view.
 function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" }) {
+  if (!view && title === stepsCopy().title) view = "stepsRecorder";
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -2704,7 +2722,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
       <div class="qts-drawer">
         ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
         <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2>
-          ${view ? `<button type="button" id="drawerDetach" title="Abrir em nova aba">${ICON("square")}</button>` : ""}
+          ${view ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
           ${sidebarControls ? `<select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
           <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
@@ -3111,6 +3129,7 @@ function openForceHttpDialog() {
   const t = state.t;
   openDrawer({
     title: t.forceHttpTitle,
+    view: "forceHttp",
     bodyHtml: `
       <p style="color:#999;margin-top:0">${escapeHtml(t.forceHttpDescription)}</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -3271,7 +3290,7 @@ function renderInspectorDashboard(listBody) {
     // "in-app-notifications GET200"), not just the bare method+status -- otherwise two pinned
     // Inspectors hitting different endpoints with the same verb/status look identical in the
     // drawer title.
-    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3331,7 +3350,7 @@ function renderInspectorsList() {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
     const matchedInspector = configuredInspectors().find((item) => (entry.matchedInspectorIds || []).includes(item.id));
     const title = matchedInspector ? `${matchedInspector.label || matchedInspector.id} ${entry.method}${entry.status}` : `${entry.method} ${entry.status}`;
-    openDrawer({ title, bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title, bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3514,7 +3533,7 @@ function renderErrorMonitorList() {
   body.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.httpErrors.find((item) => item.id === row.dataset.id);
     if (!entry?.payload) return;
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", view: "errorMonitor", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
@@ -4931,6 +4950,7 @@ function clearAllBlurredElements() {
 function openBlurElementsTool() {
   openDrawer({
     title: "Borrar elementos",
+    view: "blurElements",
     bodyHtml: `<p class="qts-tool-lead">Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação, ou clique com o botão direito num elemento e escolha "Borrar / desborrar este elemento" no menu QA Sandbox.</p>
       <div class="qts-card-actions"><button class="action primary" id="blurSelectElement" type="button">Selecionar elemento</button><button class="action" id="blurClearAll" type="button">Limpar todos os borrados</button></div>
       <div class="qts-status" id="blurStatus"></div>
@@ -5081,6 +5101,7 @@ function toggleHolofoteMode() {
 function openHolofoteTool() {
   openDrawer({
     title: "Modo Holofote",
+    view: "holofote",
     bodyHtml: `<p class="qts-tool-lead">Ative e segure Ctrl por 2 segundos em qualquer momento para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar Ctrl apaga o holofote suavemente.</p>
       <div class="qts-card-actions"><button class="action ${state.holofoteActive ? "" : "primary"}" id="holofoteToggle" type="button">${state.holofoteActive ? "Desativar" : "Ativar"}</button></div>
       <label>Efeito<select id="holofoteEffect">
@@ -5366,6 +5387,7 @@ function inspectElementWithPixelPerfect(element) {
 function openPixelPerfectTool() {
   openDrawer({
     title: "Pixel Perfect",
+    view: "pixelPerfect",
     bodyHtml: `<p class="qts-tool-lead">Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos — passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em "Inspecionar com Pixel Perfect".</p>
       <div class="qts-card-actions"><button class="action ${state.pixelPerfectActive ? "" : "primary"}" id="pixelPerfectToggle" type="button">${state.pixelPerfectActive ? "Desativar" : "Ativar"}</button></div>
       <label>Modo<select id="pixelPerfectMode">
@@ -5579,6 +5601,7 @@ function openCharacterCounter(initialText = null) {
   const selected = initialText ?? String(document.getSelection()?.toString() || "");
   openDrawer({
     title: "Contador de caracteres",
+    view: "characterCounter",
     bodyHtml: `<p class="qts-tool-lead">Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.</p>
       <textarea id="characterCounterInput" rows="9" placeholder="Digite ou cole seu texto...">${escapeHtml(selected)}</textarea>
       <div class="qts-card-actions"><button class="action" id="useSelection" type="button">Usar seleção da página</button><button class="action" id="clearCounter" type="button">Limpar</button><button class="action" id="pickCounterField" type="button">Acompanhar campo da página</button></div>
@@ -5693,6 +5716,7 @@ function openMultiClick(selectedElement = null) {
   const selector = selectedElement ? window.QTS_QA_TOOLS.uniqueSelector(selectedElement) : "";
   openDrawer({
     title: "Multiclick",
+    view: "multiClick",
     bodyHtml: `<p class="qts-tool-lead">Repita cliques em um elemento, com limite e intervalo controlados.</p>
       <label>Elemento</label><input id="multiSelector" value="${escapeHtml(selector)}" readonly placeholder="Nenhum elemento selecionado" />
       <div class="qts-card-actions"><button class="action" id="multiSelect" type="button">Selecionar na página</button></div>
@@ -6083,6 +6107,7 @@ function openMacroEditor(macro) {
   openDrawer({
     title: "Macro Studio",
     variant: "modal",
+    view: "macroStudio",
     bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
       <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
       <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
@@ -6153,6 +6178,7 @@ function openMacroStudio() {
   openDrawer({
     title: "Macro Studio",
     variant: "modal",
+    view: "macroStudio",
     bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
       <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
