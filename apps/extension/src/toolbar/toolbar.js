@@ -65,6 +65,9 @@ const state = {
     typingText: "",
     pointerX: 24,
     pointerY: 72,
+    heldKeys: new Map(), // event.code -> display label, while physically down
+    keyRepeat: { signature: null, count: 0, resetTimer: null },
+    mouseRepeat: { action: null, count: 0, resetTimer: null },
   },
 };
 
@@ -462,6 +465,7 @@ function buildShadowHost() {
       :host([data-theme="light"]) { --qts-ui-surface:#fff; --qts-ui-surface-2:#f0f3f8; --qts-ui-border:#b8c2d3; --qts-ui-text:#171a24; --qts-ui-muted:#58647a; --qts-ui-shadow:rgba(30,43,67,.22); }
       @media (prefers-color-scheme:light) { :host([data-theme="system"]) { --qts-ui-surface:#fff; --qts-ui-surface-2:#f0f3f8; --qts-ui-border:#b8c2d3; --qts-ui-text:#171a24; --qts-ui-muted:#58647a; --qts-ui-shadow:rgba(30,43,67,.22); } }
       * { box-sizing: border-box; }
+      input[type="checkbox"], input[type="radio"] { accent-color: var(--qts-ui-primary, #ef3340); }
       #bar {
         position: fixed; top: 0; left: 0; right: 0; z-index: 2147483647;
         min-height: ${TOOLBAR_HEIGHT}px; display: flex; align-items: center; justify-content: space-between;
@@ -477,7 +481,7 @@ function buildShadowHost() {
       #bar.isLoggedOut #loggedOutPanel { display: flex; }
       #bar.isLoggedOut #right > *:not(#loggedOutPanel):not(#settingsButton):not(#minimizeButton) { display: none !important; }
       #loggedOutMessage { font-size: 11px; font-weight: 800; white-space: nowrap; }
-      #loggedOutLoginButton { background: #ffd700; color: #111; border-color: #fff; }
+      #loggedOutLoginButton { background: var(--qts-ui-primary, #ffd700); color: var(--qts-ui-primary-contrast, #111); border-color: #fff; }
       #left { min-width: 0; flex: 1 1 auto; height: 100%; display: flex; flex-direction: row; align-items: center; gap: 8px; }
       #right { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; }
       #extraPinnedTools { display: flex; align-items: center; gap: 6px; }
@@ -520,19 +524,19 @@ function buildShadowHost() {
       .qts-user-pinned { position: relative; }
       .qts-pin-badge {
         position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%;
-        background: #ffd700; border: 1px solid #171717; display: flex; align-items: center; justify-content: center;
+        background: var(--qts-ui-primary, #ffd700); border: 1px solid #171717; display: flex; align-items: center; justify-content: center;
       }
       .qts-pin-badge svg { width: 7px; height: 7px; fill: #171717; }
-      button.isActive { background: #ffd700 !important; color: #111 !important; border-color: #fff !important; }
+      button.isActive { background: var(--qts-ui-primary, #ffd700) !important; color: var(--qts-ui-primary-contrast, #111) !important; border-color: #fff !important; }
       #clearAllButton.isHidden, .isHidden, .isPreferenceHidden { display: none !important; }
       #recordToggleButton.isActive { background: #c70e0e !important; color: #fff !important; border-color: #fff !important; animation: qts-rec-pulse 1.6s ease-in-out infinite; }
-      #recordToggleButton.isPaused { background: #ffd700 !important; color: #111 !important; animation: none; }
+      #recordToggleButton.isPaused { background: var(--qts-ui-primary, #ffd700) !important; color: var(--qts-ui-primary-contrast, #111) !important; animation: none; }
       @keyframes qts-rec-pulse { 0%,100% { opacity: 1 } 50% { opacity: .55 } }
       #recordTimer { font-variant-numeric: tabular-nums; opacity: .9; }
       #restoreButton {
         all: unset; box-sizing: border-box; position: fixed; top: 6px; right: 8px; z-index: 2147483647;
         width: 30px; height: 26px; display: none; align-items: center; justify-content: center;
-        border: 1px solid rgba(255,215,0,.55); border-radius: 9px; background: #0b0b0b; color: #ffd700;
+        border: 1px solid color-mix(in srgb, var(--qts-ui-primary, #ffd700) 55%, transparent); border-radius: 9px; background: #0b0b0b; color: var(--qts-ui-primary, #ffd700);
         font: 900 13px sans-serif; cursor: pointer; box-shadow: 0 8px 18px rgba(0,0,0,.34);
       }
       #restoreButton.isVisible { display: inline-flex; }
@@ -547,8 +551,8 @@ function buildShadowHost() {
       #toolsMenu button {
         width: 100%; justify-content: flex-start; background: #171717; border-color: #2c2c2c; font-size: 11px;
       }
-      #toolsMenu button:hover { background: #232323; border-color: #ffd700; }
-      #toolsMenu button.isActive { background: #ffd700 !important; color: #111 !important; }
+      #toolsMenu button:hover { background: #232323; border-color: var(--qts-ui-primary, #ffd700); }
+      #toolsMenu button.isActive { background: var(--qts-ui-primary, #ffd700) !important; color: var(--qts-ui-primary-contrast, #111) !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 9px; }
       #settingsButton { position: relative; }
       .qts-tutorial-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #42d5c2; box-shadow: 0 0 0 2px #171717; }
@@ -575,10 +579,11 @@ function buildShadowHost() {
       .qts-bell-row:hover { background: #232323; }
       .qts-bell-row span { display: -webkit-box; margin-top: 2px; overflow: hidden; overflow-wrap: anywhere; white-space: normal; color: #ddd; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-height: 1.35; max-height: 4.05em; }
       .qts-bell-row small { display: block; margin-top: 2px; color: #999; overflow-wrap: anywhere; }
-      #shapeWrapper { position: relative; }
-      #shapeTypeMenu { position: absolute; top: 30px; left: 0; width: 180px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
-      #shapeTypeMenu button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; border-radius: 7px; background: #171717; border: 1px solid #2c2c2c; font-size: 12px; }
-      #shapeTypeMenu button:hover { background: #232323; border-color: #ffd700; }
+      #shapeWrapper, #markerWrapper { position: relative; }
+      #shapeTypeMenu, #markerTypeMenu { position: absolute; top: 30px; left: 0; width: 180px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
+      #shapeTypeMenu button, #markerTypeMenu button { all: unset; box-sizing: border-box; cursor: pointer; display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px; border-radius: 7px; background: #171717; border: 1px solid #2c2c2c; font-size: 12px; }
+      #shapeTypeMenu button:hover, #markerTypeMenu button:hover { background: #232323; border-color: var(--qts-ui-primary, #ffd700); }
+      #markerMoreButton { width: 18px !important; padding: 0 !important; }
       /* Opened from the "Desenhar forma" row inside the Tools dropdown (as opposed to the pinned
          shapeButton icon, which has its own #shapeWrapper-relative flyout above): used to just
          flow inline (position:static) as the LAST child of #toolsMenu, landing far below "Desenhar
@@ -593,12 +598,12 @@ function buildShadowHost() {
       #recordTypeMenu { position: absolute; top: 30px; right: 0; width: 240px; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
       #recordTypeMenuTitle { margin: 2px 4px 4px; font-size: 11px; font-weight: 800; color: #aaa; text-transform: uppercase; letter-spacing: .04em; }
       #recordTypeMenu button { all: unset; box-sizing: border-box; cursor: pointer; display: grid; gap: 2px; width: 100%; padding: 8px; border-radius: 7px; background: #171717; border: 1px solid #2c2c2c; }
-      #recordTypeMenu button:hover { background: #232323; border-color: #ffd700; }
+      #recordTypeMenu button:hover { background: #232323; border-color: var(--qts-ui-primary, #ffd700); }
       #recordTypeMenu button strong { font-size: 12px; }
       #recordTypeMenu button span { font-size: 10px; color: #999; line-height: 1.35; }
       #recordTypeMenu button.isComingSoon { cursor: not-allowed; opacity: .55; }
       #recordTypeMenu button.isComingSoon:hover { background: #171717; border-color: #2c2c2c; }
-      .qts-coming-soon-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #3a3a3a; color: #ffd700; font-size: 9px; font-weight: 800; vertical-align: middle; }
+      .qts-coming-soon-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #3a3a3a; color: var(--qts-ui-primary, #ffd700); font-size: 9px; font-weight: 800; vertical-align: middle; }
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
@@ -613,7 +618,7 @@ function buildShadowHost() {
         background: var(--qts-ui-surface-2); color: var(--qts-ui-text); border-color: var(--qts-ui-border);
       }
       #toolsMenu button:hover, #shapeTypeMenu button:hover, #recordTypeMenu button:hover,
-      .qts-bell-row:hover { filter: brightness(.94); border-color: #ffd700; }
+      .qts-bell-row:hover { filter: brightness(.94); border-color: var(--qts-ui-primary, #ffd700); }
       #recordTypeMenuTitle, #recordTypeMenu button span, .qts-mini-empty,
       .qts-bell-row small { color: var(--qts-ui-muted); }
       .qts-bell-row span { color: var(--qts-ui-text); }
@@ -669,6 +674,13 @@ function buildShadowHost() {
         <button id="testStatusButton" type="button" title="${escapeHtml(t.testStatusTitle)}">${escapeHtml(t.testStatus)}</button>
         <button id="passButton" class="iconOnly" type="button" title="${escapeHtml(t.pass)}">${ICON("pass")}</button>
         <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
+        <div id="markerWrapper">
+          <button id="markerMoreButton" class="iconOnly" type="button" title="${escapeHtml(t.markerMore)}">${ICON("chevronDown")}</button>
+          <div id="markerTypeMenu" class="isHidden" role="menu">
+            <button type="button" data-marker-pick="warning" role="menuitem">${ICON("warning")} ${escapeHtml(t.markerWarning)}</button>
+            <button type="button" data-marker-pick="question" role="menuitem">${ICON("question")} ${escapeHtml(t.markerQuestion)}</button>
+          </div>
+        </div>
         <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
         <div id="shapeWrapper">
           <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
@@ -798,6 +810,17 @@ function buildShadowHost() {
   shadow.getElementById("testStatusButton").addEventListener("click", () => openTestStatusModal());
   shadow.getElementById("passButton").addEventListener("click", (event) => enablePlacementMode("pass", event.currentTarget));
   shadow.getElementById("failButton").addEventListener("click", (event) => enablePlacementMode("fail", event.currentTarget));
+  shadow.getElementById("markerMoreButton").addEventListener("click", (event) => {
+    event.stopPropagation();
+    shadow.getElementById("markerTypeMenu").classList.toggle("isHidden");
+  });
+  shadow.getElementById("markerTypeMenu").addEventListener("click", (event) => event.stopPropagation());
+  shadow.querySelectorAll("#markerTypeMenu [data-marker-pick]").forEach((button) => {
+    button.addEventListener("click", () => {
+      shadow.getElementById("markerTypeMenu").classList.add("isHidden");
+      enablePlacementMode(button.dataset.markerPick, shadow.getElementById("markerMoreButton"));
+    });
+  });
   shadow.getElementById("noteButton").addEventListener("click", () => addFloatingTextNote());
   shadow.getElementById("shapeButton").addEventListener("click", (event) => {
     event.stopPropagation();
@@ -901,6 +924,7 @@ function buildShadowHost() {
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
     toggleRecordTypeMenu(false);
     toggleShapeTypeMenu(false);
+    shadow.getElementById("markerTypeMenu")?.classList.add("isHidden");
   });
   shadow.getElementById("toolsMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.getElementById("notificationBellPanel").addEventListener("click", (event) => event.stopPropagation());
@@ -1077,20 +1101,20 @@ function ensureTourHost() {
   host.innerHTML = `
     <style>
       #tourOverlay { all: initial; position: fixed; inset: 0; z-index: 2147483647; pointer-events: none; }
-      .qts-tour-spotlight { position: fixed; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; z-index: 2147483646; animation: qts-tour-pulse 1.4s ease-in-out infinite; }
-      @keyframes qts-tour-pulse { 0%, 100% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px #ffd700; } 50% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 6px #ffd700; } }
+      .qts-tour-spotlight { position: fixed; pointer-events: none; border-radius: 10px; box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px var(--qts-ui-primary, #ffd700); transition: top .25s ease, left .25s ease, width .25s ease, height .25s ease; z-index: 2147483646; animation: qts-tour-pulse 1.4s ease-in-out infinite; }
+      @keyframes qts-tour-pulse { 0%, 100% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 3px var(--qts-ui-primary, #ffd700); } 50% { box-shadow: 0 0 0 9999px rgba(0,0,0,.68), 0 0 0 6px var(--qts-ui-primary, #ffd700); } }
       .qts-tour-balloon {
         position: fixed; z-index: 2147483647; width: min(320px, calc(100vw - 24px)); padding: 14px;
         border-radius: 12px; background: #0b0b0b; border: 1px solid #333; box-shadow: 0 16px 34px rgba(0,0,0,.5);
         color: #fff; font: 13px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; pointer-events: auto;
       }
-      .qts-tour-balloon .qts-tour-step { color: #ffd700; font-size: 11px; font-weight: 800; letter-spacing: .02em; }
+      .qts-tour-balloon .qts-tour-step { color: var(--qts-ui-primary, #ffd700); font-size: 11px; font-weight: 800; letter-spacing: .02em; }
       .qts-tour-balloon b { display: block; margin: 4px 0 6px; font-size: 14px; }
       .qts-tour-balloon p { margin: 0 0 12px; color: #ccc; }
       .qts-tour-actions { display: flex; gap: 8px; }
       .qts-tour-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; height: 32px; line-height: 32px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12px; }
       .qts-tour-skip { background: #232323; color: #ccc; flex: none !important; padding: 0 12px; }
-      .qts-tour-next { background: #ffd700; color: #111; }
+      .qts-tour-next { background: var(--qts-ui-primary, #ffd700); color: var(--qts-ui-primary-contrast, #111); }
       .qts-tour-card {
         position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); z-index: 2147483647;
         width: min(340px, calc(100vw - 24px)); padding: 18px; border-radius: 14px; background: #0b0b0b;
@@ -1102,7 +1126,7 @@ function ensureTourHost() {
       .qts-tour-card-tip { margin: 0; color: #ccc; font-size: 12px; line-height: 1.5; }
       .qts-tour-card .qts-tour-card-actions { display: flex; gap: 8px; margin-top: 14px; }
       .qts-tour-card .qts-tour-card-actions button { all: unset; box-sizing: border-box; flex: 1; text-align: center; height: 32px; line-height: 32px; border-radius: 8px; cursor: pointer; font-weight: 800; font-size: 12px; background: #232323; color: #ccc; }
-      .qts-tour-card .qts-tour-card-actions button.qts-tour-primary { background: #ffd700; color: #111; }
+      .qts-tour-card .qts-tour-card-actions button.qts-tour-primary { background: var(--qts-ui-primary, #ffd700); color: var(--qts-ui-primary-contrast, #111); }
       :host([data-theme="light"]) .qts-tour-balloon,
       :host([data-theme="light"]) .qts-tour-card { background:#fff; border-color:#b8c2d3; color:#171a24; box-shadow:0 18px 44px rgba(30,43,67,.24); }
       :host([data-theme="light"]) .qts-tour-balloon p,
@@ -1362,9 +1386,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Nuevo: 24 temas de color (12 claros/12 oscuros) para botones, paneles, toasts y Key View/mouse — en Configuración > Barra y apariencia.", "Sitio de práctica renovado: decenas de páginas de elementos, formularios e interacciones al estilo demoqa.com.", "Nuevo \"Ver elementos\": overlay en vivo con los selectores de cada elemento de la página.", "\"Copiar como cURL\" en las solicitudes capturadas por Inspectores/Monitor de errores.", "Corregido: la tecla Espacio ahora aparece en Key View.", "Corregido: el GIF de evidencia ya no sale corrupto.", "Corregido: los modos \"solo horizontal\"/\"solo vertical\" de Pixel Perfect ahora funcionan de verdad."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["New: 24 color themes (12 light/12 dark) for buttons, drawers, toasts, and Key View/mouse — under Settings > Bar & appearance.", "Rebuilt practice site: dozens of element, form, and interaction pages, demoqa.com-style.", "New \"Ver elementos\": a live on-page overlay showing every element's selectors.", "\"Copy as cURL\" on requests captured by the Inspectors/Error Monitor.", "Fixed: the Space key now shows up in Key View.", "Fixed: the evidence GIF no longer comes out corrupted.", "Fixed: Pixel Perfect's \"horizontal only\"/\"vertical only\" guide-line modes actually work now."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Novo: 24 temas de cor (12 claros/12 escuros) para botões, drawers, toasts e Key View/mouse — em Configurações > Barra e aparência.", "Site de prática renovado: dezenas de páginas de elementos, formulários e interações, estilo demoqa.com.", "Novo \"Ver elementos\": overlay ao vivo com os seletores de cada elemento da página.", "\"Copiar como cURL\" nas requisições capturadas pelos Inspetores/Monitor de erros.", "Corrigido: a tecla Espaço agora aparece no Key View.", "Corrigido: o GIF de evidência não sai mais corrompido.", "Corrigido: os modos \"somente horizontal\"/\"somente vertical\" do Pixel Perfect agora funcionam de verdade."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los 24 temas de color ahora se aplican a toda la barra (menús, insignias, editores, Click Spy) y también a la propia página de Configuración — antes solo cambiaba un botón.", "Mouse/Key View: estado presionado real (ya no un simple destello) y un contador ×N para clics/teclas repetidas, con animación de desvanecimiento tras 3s.", "Nuevos marcadores Warning y Question, junto a Pass/Fail (botón de flecha al lado de Fail).", "Casillas de verificación en toda la extensión ahora usan el color del tema en vez del estilo nativo del navegador."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["The 24 color themes now reach the whole toolbar (menus, badges, editors, Click Spy) and the Settings page itself — previously only one button changed.", "Mouse/Key View: a real pressed state (not just a flash) plus a ×N badge for repeated clicks/keys, fading out after 3s.", "New Warning and Question markers, alongside Pass/Fail (chevron button next to Fail).", "Checkboxes throughout the extension now use the theme color instead of the browser's native style."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Os 24 temas de cor agora alcançam toda a barra (menus, badges, editores, Click Spy) e também a própria tela de Configurações — antes só um botão mudava.", "Mouse/Key View: estado pressionado de verdade (não mais só um flash) e um badge ×N para cliques/teclas repetidos, com fade após 3s.", "Novos marcadores Warning e Question, ao lado de Pass/Fail (botão de seta ao lado do Fail).", "Checkboxes em toda a extensão agora usam a cor do tema em vez do estilo nativo do navegador."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -1616,11 +1640,13 @@ function isInsideToolbarUi(target) {
   return Boolean(target.closest?.(`#${HOST_ID}, .qts-floating-item, .qts-modal-backdrop, .qts-clickspy-tooltip`));
 }
 
+const MARKER_KINDS = new Set(["pass", "fail", "warning", "question"]);
+
 function handlePlacementClick(event) {
   if (isInsideToolbarUi(event.target)) return;
   event.preventDefault();
   event.stopPropagation();
-  if (state.placementMode === "pass" || state.placementMode === "fail") {
+  if (MARKER_KINDS.has(state.placementMode)) {
     placeMarker(state.placementMode, event.clientX, event.clientY);
   }
   cancelPlacementMode();
@@ -1646,6 +1672,8 @@ function wireVisibilityControls(item) {
   });
 }
 
+const MARKER_KIND_CLASS = { pass: "isPass", fail: "isFail", warning: "isWarning", question: "isQuestion" };
+
 function placeMarker(kind, clientX, clientY) {
   const size = 52;
   const marker = document.createElement("div");
@@ -1655,7 +1683,7 @@ function placeMarker(kind, clientX, clientY) {
   marker.style.width = `${size}px`;
   marker.style.height = `${size}px`;
   marker.innerHTML = `
-    <div class="qts-marker-body ${kind === "fail" ? "isFail" : "isPass"}" data-drag-handle>${kind === "fail" ? ICON("fail") : ICON("pass")}</div>
+    <div class="qts-marker-body ${MARKER_KIND_CLASS[kind] || "isPass"}" data-drag-handle>${ICON(kind)}</div>
     ${visibilityControlsHtml()}
     <button type="button" class="qts-remove-btn" title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button>
     <div class="qts-resize-handle" data-resize-handle title="${escapeHtml(state.t.resize)}">${ICON("resize")}</div>
@@ -2154,8 +2182,8 @@ function ensureDrawerHost() {
 
 function drawerStyles() {
   return `
-    .qts-drawer { --qts-panel:#0b0b0b; --qts-panel-2:#141414; --qts-panel-text:#fff; --qts-panel-muted:#aaa; --qts-panel-border:#333; --qts-panel-accent:#ffd700; }
-    :host([data-theme="light"]) .qts-drawer { --qts-panel:#fff; --qts-panel-2:#f2f4f8; --qts-panel-text:#171a24; --qts-panel-muted:#58647a; --qts-panel-border:#b8c2d3; --qts-panel-accent:#5b35e8; }
+    .qts-drawer { --qts-panel:#0b0b0b; --qts-panel-2:#141414; --qts-panel-text:#fff; --qts-panel-muted:#aaa; --qts-panel-border:#333; --qts-panel-accent:var(--qts-ui-primary, #ffd700); }
+    :host([data-theme="light"]) .qts-drawer { --qts-panel:#fff; --qts-panel-2:#f2f4f8; --qts-panel-text:#171a24; --qts-panel-muted:#58647a; --qts-panel-border:#b8c2d3; --qts-panel-accent:var(--qts-ui-primary, #5b35e8); }
     @media (prefers-color-scheme: light) { :host([data-theme="system"]) .qts-drawer { --qts-panel:#fff; --qts-panel-2:#f2f4f8; --qts-panel-text:#171a24; --qts-panel-border:#cbd3e2; } }
     .qts-drawer-backdrop {
       position: fixed; inset: 0; z-index: 2147483647; display: flex; justify-content: flex-end;
@@ -2196,7 +2224,7 @@ function drawerStyles() {
     .qts-toolbar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
     .qts-toolbar-row input[type="search"] { flex: 1 1 160px; min-width: 0; }
     .qts-icon-btn { width: 32px; height: 32px; padding: 0; border: 1px solid #333; border-radius: 8px; background: #1c1c1c; color: #fff; cursor: pointer; flex: 0 0 auto; }
-    .qts-icon-btn:hover { border-color: #ffd700; }
+    .qts-icon-btn:hover { border-color: var(--qts-panel-accent, #ffd700); }
     .qts-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
     .qts-filter-bar.isCollapsed { display: none; }
     .qts-toggle-group { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #262626; border-radius: 8px; background: #131313; }
@@ -2205,7 +2233,7 @@ function drawerStyles() {
     .qts-combo { position: relative; border: 1px solid #262626; border-radius: 8px; background: #131313; }
     .qts-combo summary { list-style: none; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ddd; }
     .qts-combo summary::-webkit-details-marker { display: none; }
-    .qts-combo summary .qts-combo-count { color: #ffd700; }
+    .qts-combo summary .qts-combo-count { color: var(--qts-panel-accent, #ffd700); }
     .qts-combo[open] > .qts-combo-panel { display: flex; }
     .qts-combo-panel {
       display: none; flex-direction: column; gap: 6px; position: absolute; top: 34px; left: 0; z-index: 5;
@@ -2221,10 +2249,10 @@ function drawerStyles() {
     .qts-view-switch button { height: 28px; padding: 0 12px; border: 0; background: #171717; color: #aaa; font-size: 11px; font-weight: 800; cursor: pointer; }
     .qts-view-switch button.isSelected { background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-friendly-field { display: grid; grid-template-columns: minmax(120px,180px) 1fr; gap: 10px; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; }
-    .qts-friendly-field .qts-field-label { color: #ffd700; font-size: 10px; font-weight: 800; text-transform: uppercase; word-break: break-word; align-self: start; padding-top: 2px; }
+    .qts-friendly-field .qts-field-label { color: var(--qts-panel-accent, #ffd700); font-size: 10px; font-weight: 800; text-transform: uppercase; word-break: break-word; align-self: start; padding-top: 2px; }
     .qts-friendly-field .qts-field-value { word-break: break-word; display: flex; align-items: center; gap: 6px; }
     .qts-locate-btn { flex: none; width: 22px; height: 22px; padding: 0; border: 1px solid #333; border-radius: 6px; background: #171717; color: #aaa; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
-    .qts-locate-btn:hover { border-color: #ffd700; color: #ffd700; }
+    .qts-locate-btn:hover { border-color: var(--qts-panel-accent, #ffd700); color: var(--qts-panel-accent, #ffd700); }
     .qts-friendly-section { margin: 4px 0; border: 1px solid #222; border-radius: 8px; overflow: hidden; }
     .qts-friendly-section > summary { padding: 7px 10px; background: #161616; color: #fff; font-size: 11px; font-weight: 800; cursor: pointer; list-style: none; }
     .qts-friendly-section > summary::-webkit-details-marker { display: none; }
@@ -2233,7 +2261,7 @@ function drawerStyles() {
     .qts-tool-lead { margin: 0 0 12px; color: #aaa; }
     .qts-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 8px; margin: 10px 0; }
     .qts-metric { padding: 11px; border: 1px solid #282828; border-radius: 10px; background: #141414; }
-    .qts-metric strong { display: block; color: #ffd700; font-size: 20px; }
+    .qts-metric strong { display: block; color: var(--qts-panel-accent, #ffd700); font-size: 20px; }
     .qts-metric small { color: #aaa; }
     .qts-card { padding: 12px; margin-bottom: 8px; border: 1px solid #292929; border-radius: 10px; background: #121212; }
     .qts-card-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
@@ -2247,10 +2275,10 @@ function drawerStyles() {
     .qts-palette button { padding: 9px; border: 1px dashed #444; border-radius: 8px; background: #171717; color: #fff; cursor: grab; text-align: left; }
     .qts-flow { min-height: 220px; padding: 9px; border: 1px dashed #444; border-radius: 10px; }
     .qts-step { position: relative; display: grid; grid-template-columns: 28px 115px minmax(0,1fr) 32px; gap: 7px; align-items: center; padding: 8px; margin-bottom: 16px; border: 1px solid #333; border-radius: 9px; background: #171717; }
-    .qts-step:not(:last-child)::after { content: "↓"; position: absolute; left: 14px; bottom: -18px; color: #ffd700; }
+    .qts-step:not(:last-child)::after { content: "↓"; position: absolute; left: 14px; bottom: -18px; color: var(--qts-panel-accent, #ffd700); }
     .qts-step-index { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-weight: 900; }
     .qts-code { min-height: 350px; padding: 14px; border: 1px solid #2c2c2c; border-radius: 10px; background: #080808; color: #9bffb0; font: 12px/1.55 ui-monospace, Consolas, monospace; white-space: pre; overflow: auto; }
-    .qts-status { min-height: 18px; margin-top: 8px; color: #ffd700; overflow-wrap: anywhere; }
+    .qts-status { min-height: 18px; margin-top: 8px; color: var(--qts-panel-accent, #ffd700); overflow-wrap: anywhere; }
     .qts-faker-report { display:grid; gap:7px; margin-top:10px; max-height:45vh; overflow:auto; }
     .qts-faker-report-row { display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,1.4fr); gap:10px; align-items:center; border-top:1px solid #2a2a2a; padding-top:7px; }
     .qts-faker-report-row span, .qts-faker-report-row code { min-width:0; overflow-wrap:anywhere; white-space:normal; }
@@ -2266,11 +2294,11 @@ function drawerStyles() {
     .qts-key-view-status div { display: grid; gap: 2px; }
     .qts-key-view-status small, .qts-switch-row small { display: block; color: #999; font-weight: 500; }
     .qts-switch-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; padding: 11px; margin-bottom: 8px; border: 1px solid #292929; border-radius: 10px; background: #121212; cursor: pointer; }
-    .qts-switch-row input { width: 17px !important; height: 17px; margin: 2px 0 0; accent-color: #ef3340; }
+    .qts-switch-row input { width: 17px !important; height: 17px; margin: 2px 0 0; accent-color: var(--qts-ui-primary, #ef3340); }
     .qts-field-label { display: grid; gap: 7px; margin: 12px 0; color: #ddd; font-weight: 750; }
     .qts-position-grid { width: 132px; display: grid; grid-template-columns: repeat(3, 40px); gap: 6px; }
     .qts-position-grid button { width: 40px; height: 36px; border: 1px solid #393939; border-radius: 8px; background: #171717; color: #aaa; cursor: pointer; font-size: 16px; }
-    .qts-position-grid button.isSelected { border-color: var(--qts-ui-secondary, #ffd700); background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); box-shadow: 0 0 0 2px rgba(255,215,0,.18); }
+    .qts-position-grid button.isSelected { border-color: var(--qts-ui-primary, #ffd700); background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); box-shadow: 0 0 0 2px color-mix(in srgb, var(--qts-ui-primary, #ffd700) 18%, transparent); }
     .qts-key-view-size-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
     .qts-key-view-preview { min-height: 82px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; border: 1px dashed #3b3b3b; border-radius: 12px; background: #080808; color: #aaa; }
     .qts-key-view-preview .qts-keycap { flex: 0 0 auto; overflow: visible; }
@@ -2290,7 +2318,7 @@ function drawerStyles() {
        it unambiguous. */
     .qts-pp-color-row { display: flex; align-items: center; gap: 10px; }
     .qts-pp-color-row input[type="color"] { width: 46px; height: 34px; padding: 2px; border: 2px solid #444; border-radius: 8px; background: #000; cursor: pointer; }
-    .qts-pp-color-row input[type="color"]:hover { border-color: #ffd700; }
+    .qts-pp-color-row input[type="color"]:hover { border-color: var(--qts-panel-accent, #ffd700); }
     .qts-pp-color-hex { font: 800 12px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .04em; color: #ddd; }
     /* Semantic theme bridge for every reusable drawer component. It intentionally comes last
        so older feature-specific literal colors cannot break the selected platform theme. */
@@ -2535,7 +2563,7 @@ function renderJsonTree(value, depth = 0) {
   if (typeof value === "object") {
     const keys = Object.keys(value);
     if (!keys.length) return "{}";
-    return `{<br>${keys.map((key) => `${"&nbsp;".repeat((depth + 1) * 2)}<span style="color:#ffd700">${escapeHtml(key)}</span>: ${renderJsonTree(value[key], depth + 1)}`).join(",<br>")}<br>${"&nbsp;".repeat(depth * 2)}}`;
+    return `{<br>${keys.map((key) => `${"&nbsp;".repeat((depth + 1) * 2)}<span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(key)}</span>: ${renderJsonTree(value[key], depth + 1)}`).join(",<br>")}<br>${"&nbsp;".repeat(depth * 2)}}`;
   }
   if (typeof value === "string") return `<span style="color:#8ad1ff">${escapeHtml(JSON.stringify(value))}</span>`;
   return `<span style="color:#9bffb0">${escapeHtml(String(value))}</span>`;
@@ -3158,7 +3186,7 @@ function renderNotificationBellPanel() {
   const entries = state.httpErrors.slice(0, 20);
   const introRow = state.showFirstRunNotification ? `
     <button type="button" class="qts-bell-row" data-dismiss-intro>
-      <b style="color:#ffd700">${escapeHtml(t.firstRunTitle)}</b>
+      <b style="color:var(--qts-ui-primary, #ffd700)">${escapeHtml(t.firstRunTitle)}</b>
       <span>${escapeHtml(t.firstRunBody)}</span>
     </button>
   ` : "";
@@ -3357,7 +3385,7 @@ function renderTestAccountsList() {
         <div class="qts-net-item" data-account-id="${escapeHtml(account.id)}" style="cursor:default">
           <div style="display:flex;align-items:center;gap:6px">
             ${account.accountTypeImage ? `<img src="${escapeHtml(account.accountTypeImage)}" alt="" style="width:18px;height:18px;border-radius:4px;object-fit:cover" />` : ""}
-            <b>${escapeHtml(account.label)}</b>${account.accountType ? ` <span style="color:#ffd700">${escapeHtml(account.accountType)}</span>` : ""}
+            <b>${escapeHtml(account.label)}</b>${account.accountType ? ` <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(account.accountType)}</span>` : ""}
           </div>
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <small>${escapeHtml(account.username || "—")}</small>
@@ -3477,7 +3505,7 @@ function renderPaymentMethodsList() {
     return `<div class="qts-net-item" style="cursor:default">
       <div style="display:flex;align-items:center;gap:6px">
         ${method.icon ? `<img src="${escapeHtml(method.icon)}" alt="" style="width:18px;height:18px;border-radius:4px;object-fit:cover" />` : ""}
-        <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:#ffd700">${escapeHtml(method.type || "other")}</span>
+        <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(method.type || "other")}</span>
       </div>
       <div style="margin-top:6px;display:grid;gap:4px">
         ${fieldRow("Número", method.value, "value")}
@@ -3563,7 +3591,7 @@ function renderResourcesList() {
     </div>
     <div style="display:grid;gap:10px">${resources.length ? resources.map((resource) => `
       <a class="qts-net-item" href="${escapeHtml(resource.safeUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;color:#fff;text-decoration:none">
-        ${resource.icon ? `<img src="${escapeHtml(resource.icon)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : ""}<b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:#ffd700">${escapeHtml(resource.category)}</span>` : ""}
+        ${resource.icon ? `<img src="${escapeHtml(resource.icon)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : ""}<b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(resource.category)}</span>` : ""}
         <small style="display:block;margin-top:4px;color:#888">${escapeHtml(resource.safeUrl)}</small>
       </a>
     `).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
@@ -3924,7 +3952,7 @@ function openBreakpointViewer() {
     const toast = document.createElement("div");
     toast.textContent = message;
     const light = state.workspace?.preferences?.appearanceTheme === "light";
-    toast.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${light ? "#fff" : "#101010"};color:${light ? "#171a24" : "#fff"};border:1px solid ${light ? "#5b35e8" : "#ffd700"};border-radius:999px;padding:10px 16px;z-index:2147483647;font-size:12px;max-width:80vw;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.24)`;
+    toast.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:${light ? "#fff" : "#101010"};color:${light ? "#171a24" : "#fff"};border:1px solid var(--qts-ui-primary, ${light ? "#5b35e8" : "#ffd700"});border-radius:999px;padding:10px 16px;z-index:2147483647;font-size:12px;max-width:80vw;text-align:center;box-shadow:0 12px 30px rgba(0,0,0,.24)`;
     drawerHost.appendChild(toast);
     window.setTimeout(() => toast.remove(), 3500);
   }
@@ -4055,12 +4083,39 @@ function removeKeyViewOverlayIfEmpty() {
   if (overlay.querySelector("[data-key-view-shortcut]")?.hidden && overlay.querySelector("[data-key-view-typing]")?.hidden) overlay.remove();
 }
 
+const REPEAT_WINDOW_MS = 900; // max gap between presses that still counts as "the same run"
+const REPEAT_VISIBLE_MS = 3_000; // how long the badge lingers after the run stops, before it fades
+
+// Shared by mouse clicks/scroll and keyboard combos: bumps the count while presses keep landing
+// inside REPEAT_WINDOW_MS of each other, restarts the same window on every new press (so the badge
+// only starts its 3s countdown once presses actually stop), then fades and zeroes the counter.
+function registerRepeat(tracker, signature, onCount, onFadeStart, onReset) {
+  const now = Date.now();
+  tracker.count = tracker.signature === signature && now - (tracker.lastAt || 0) < REPEAT_WINDOW_MS ? tracker.count + 1 : 1;
+  tracker.signature = signature;
+  tracker.lastAt = now;
+  onCount(tracker.count);
+  window.clearTimeout(tracker.resetTimer);
+  tracker.resetTimer = window.setTimeout(() => {
+    onFadeStart();
+    window.setTimeout(() => { tracker.count = 0; tracker.signature = null; onReset(); }, 500);
+  }, REPEAT_VISIBLE_MS);
+}
+
+function updateCountBadge(badge, count) {
+  if (!badge) return;
+  if (count > 1) { badge.textContent = `×${count}`; badge.classList.remove("isFading"); badge.classList.add("isVisible"); }
+  else { badge.classList.remove("isVisible"); badge.classList.remove("isFading"); }
+}
+
 function showKeyViewShortcut(labels) {
   if (!labels.length) return;
   const overlay = ensureKeyViewOverlay();
   const shortcut = overlay.querySelector("[data-key-view-shortcut]");
   const preferences = getKeyViewPreferences();
-  shortcut.innerHTML = labels.map((label) => keycapSvg(label, preferences.keySize)).join('<span class="qts-key-plus">+</span>');
+  shortcut.innerHTML = labels.map((label) => keycapSvg(label, preferences.keySize)).join('<span class="qts-key-plus">+</span>') + '<span class="qts-key-view-count-badge" data-key-count></span>';
+  shortcut.classList.toggle("isPressed", true);
+  shortcut.querySelectorAll(".qts-keycap").forEach((keycap) => keycap.classList.add("isPressed"));
   shortcut.hidden = false;
   shortcut.classList.remove("isFading");
   void shortcut.offsetWidth;
@@ -4071,6 +4126,14 @@ function showKeyViewShortcut(labels) {
     shortcut.classList.remove("isFading");
     removeKeyViewOverlayIfEmpty();
   }, 3_000);
+  const badge = shortcut.querySelector("[data-key-count]");
+  registerRepeat(
+    state.keyView.keyRepeat,
+    labels.join("+"),
+    (count) => updateCountBadge(badge, count),
+    () => badge?.classList.add("isFading"),
+    () => updateCountBadge(badge, 0),
+  );
 }
 
 function renderKeyViewTyping() {
@@ -4130,7 +4193,7 @@ function ensureMouseViewOverlay() {
     <rect class="qts-mouse-wheel" x="22" y="11" width="8" height="15" rx="4" />
     <path class="qts-mouse-arrow qts-mouse-arrow-up" d="m26 13-3 4h6Z" />
     <path class="qts-mouse-arrow qts-mouse-arrow-down" d="m26 24 3-4h-6Z" />
-  </svg>`;
+  </svg><span class="qts-mouse-count-badge" data-mouse-count></span>`;
   document.documentElement.appendChild(overlay);
   updateMouseViewOverlayAppearance(overlay);
   return overlay;
@@ -4151,21 +4214,54 @@ function showMouseView(action, duration = 650) {
   positionMouseView(overlay);
   overlay.classList.add("isVisible");
   window.clearTimeout(state.keyView.mouseTimer);
-  state.keyView.mouseTimer = window.setTimeout(() => overlay.classList.remove("isVisible"), duration);
+  // duration=null means "sticky": a real mousedown/mouseup pair drives visibility (see
+  // onMouseDown/onMouseUp below) instead of a fixed timer, so holding the button down keeps the
+  // pressed visual instead of it fading out from under a still-held button.
+  if (duration !== null) state.keyView.mouseTimer = window.setTimeout(() => overlay.classList.remove("isVisible"), duration);
+  return overlay;
+}
+
+function bumpMouseRepeat(overlay, action) {
+  const badge = overlay?.querySelector("[data-mouse-count]");
+  registerRepeat(
+    state.keyView.mouseRepeat,
+    action,
+    (count) => updateCountBadge(badge, count),
+    () => badge?.classList.add("isFading"),
+    () => updateCountBadge(badge, 0),
+  );
 }
 
 function handleKeyViewKeydown(event) {
   if (isKeyViewOwnSurface(event)) return;
   const sensitive = isSensitiveTypingTarget(event.target);
   const labels = shortcutLabels(event);
-  const isShortcut = event.ctrlKey || event.altKey || event.metaKey || event.key.length > 1 || event.key === " ";
-  if (isShortcut && labels.length) showKeyViewShortcut(labels);
+  const namedOrModified = event.ctrlKey || event.altKey || event.metaKey || event.key.length > 1 || event.key === " ";
+  // Named keys/combos (Enter, Ctrl+C, arrows...) never reveal typed content, so they always flash --
+  // but a bare printable character would, letter by letter, replay a password on screen for anyone
+  // watching a recording. Everywhere else (every other key, every non-sensitive field) now flashes,
+  // matching the "show every keystroke" ask; sensitive fields are the one deliberate exception.
+  const revealsSensitiveContent = !namedOrModified && event.key.length === 1 && sensitive;
+  // event.repeat (the OS auto-repeating a physically held key) isn't a new press -- counting it
+  // would make the badge spin up just from holding a key, and re-flashing on every repeat is what
+  // made a held key "look stuck" before. A genuinely new press always clears repeat first.
+  if (labels.length && !event.repeat && !revealsSensitiveContent) { state.keyView.heldKeys.set(event.code, true); showKeyViewShortcut(labels); }
   if (!getKeyViewPreferences().typingMode || sensitive || editableTypingTarget(event.target)) return;
   if (event.ctrlKey || event.altKey || event.metaKey) return;
   if (event.key.length === 1) appendKeyViewTyping(event.key);
   else if (event.key === "Enter") appendKeyViewTyping("\n");
   else if (event.key === "Tab") appendKeyViewTyping("\t");
   else if (event.key === "Backspace") deleteKeyViewTypingCharacter();
+}
+
+function handleKeyViewKeyup(event) {
+  if (isKeyViewOwnSurface(event)) return;
+  state.keyView.heldKeys.delete(event.code);
+  if (state.keyView.heldKeys.size) return;
+  const overlay = document.getElementById("qts-key-view-overlay");
+  const shortcut = overlay?.querySelector("[data-key-view-shortcut]");
+  shortcut?.classList.remove("isPressed");
+  shortcut?.querySelectorAll(".qts-keycap.isPressed").forEach((keycap) => keycap.classList.remove("isPressed"));
 }
 
 function handleKeyViewBeforeInput(event) {
@@ -4187,20 +4283,27 @@ function startKeyView() {
   const onMouseDown = (event) => {
     if (isKeyViewOwnSurface(event)) return;
     state.keyView.pointerX = event.clientX; state.keyView.pointerY = event.clientY;
-    showMouseView(event.button === 2 ? "right" : event.button === 1 ? "middle" : "left", 900);
+    const action = event.button === 2 ? "right" : event.button === 1 ? "middle" : "left";
+    const overlay = showMouseView(action, null);
+    overlay?.classList.add("isPressed");
+    bumpMouseRepeat(overlay, action);
   };
   const onMouseUp = () => {
     const overlay = document.getElementById("qts-mouse-view-overlay");
     if (!overlay) return;
+    overlay.classList.remove("isPressed");
     window.clearTimeout(state.keyView.mouseTimer);
     state.keyView.mouseTimer = window.setTimeout(() => overlay.classList.remove("isVisible"), 320);
   };
   const onWheel = (event) => {
     if (isKeyViewOwnSurface(event) || event.deltaY === 0) return;
     state.keyView.pointerX = event.clientX; state.keyView.pointerY = event.clientY;
-    showMouseView(event.deltaY < 0 ? "scroll-up" : "scroll-down", 750);
+    const action = event.deltaY < 0 ? "scroll-up" : "scroll-down";
+    const overlay = showMouseView(action, 750);
+    bumpMouseRepeat(overlay, action);
   };
   document.addEventListener("keydown", handleKeyViewKeydown, true);
+  document.addEventListener("keyup", handleKeyViewKeyup, true);
   document.addEventListener("beforeinput", handleKeyViewBeforeInput, true);
   document.addEventListener("pointermove", onPointerMove, { capture: true, passive: true });
   document.addEventListener("mousedown", onMouseDown, { capture: true, passive: true });
@@ -4208,6 +4311,7 @@ function startKeyView() {
   document.addEventListener("wheel", onWheel, { capture: true, passive: true });
   state.keyView.cleanup = () => {
     document.removeEventListener("keydown", handleKeyViewKeydown, true);
+    document.removeEventListener("keyup", handleKeyViewKeyup, true);
     document.removeEventListener("beforeinput", handleKeyViewBeforeInput, true);
     document.removeEventListener("pointermove", onPointerMove, true);
     document.removeEventListener("mousedown", onMouseDown, true);
@@ -4222,8 +4326,13 @@ function stopKeyView() {
   state.keyView.cleanup = null;
   state.keyView.listening = false;
   state.keyView.typingText = "";
+  state.keyView.heldKeys.clear();
   window.clearTimeout(state.keyView.shortcutTimer);
   window.clearTimeout(state.keyView.mouseTimer);
+  window.clearTimeout(state.keyView.keyRepeat.resetTimer);
+  window.clearTimeout(state.keyView.mouseRepeat.resetTimer);
+  state.keyView.keyRepeat = { signature: null, count: 0, resetTimer: null };
+  state.keyView.mouseRepeat = { signature: null, count: 0, resetTimer: null };
   document.getElementById("qts-key-view-overlay")?.remove();
   document.getElementById("qts-mouse-view-overlay")?.remove();
 }
@@ -5272,14 +5381,14 @@ function selectPageElement({ accepts = () => true, resolve = (target) => target,
   cancelElementSelection();
   const style = document.createElement("style");
   style.id = "qts-element-selector-style";
-  style.textContent = "html.qts-selecting,html.qts-selecting *{cursor:crosshair!important}.qts-selection-candidate{outline:3px solid #ffd700!important;outline-offset:2px!important}";
+  style.textContent = "html.qts-selecting,html.qts-selecting *{cursor:crosshair!important}.qts-selection-candidate{outline:3px solid var(--qts-ui-primary, #ffd700)!important;outline-offset:2px!important}";
   document.documentElement.appendChild(style);
   document.documentElement.classList.add("qts-selecting");
   // Reinforces that Esc cancels — the first toast (below) gets buried once a few "not
   // compatible" rejection toasts stack up, which previously left the only cancel hint invisible.
   const hint = document.createElement("div");
   hint.className = "qts-floating-item";
-  hint.style.cssText = "position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:2147483647;background:#0b0b0b;color:#ffd700;border:1px solid #ffd700;border-radius:999px;padding:6px 14px;font:700 11px sans-serif;pointer-events:none";
+  hint.style.cssText = "position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:2147483647;background:#0b0b0b;color:var(--qts-ui-primary, #ffd700);border:1px solid var(--qts-ui-primary, #ffd700);border-radius:999px;padding:6px 14px;font:700 11px sans-serif;pointer-events:none";
   hint.textContent = translateQaSurfaceText("Esc para cancelar a seleção");
   document.body.appendChild(hint);
   let candidate = null;

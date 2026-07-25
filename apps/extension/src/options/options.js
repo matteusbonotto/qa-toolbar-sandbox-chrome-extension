@@ -339,8 +339,30 @@ document.querySelectorAll('input[name="scopeMode"]').forEach((input) => input.ad
   document.getElementById("scopePatterns").disabled = input.value !== "custom";
 }));
 
+// The Settings page has its own separate CSS token system (--accent/--on-accent in options.css,
+// not the --qts-ui-* tokens toolbar.js sets on the page it's injected into) since this page is
+// the extension's own chrome.runtime page, not a content script -- so the chosen color theme needs
+// its own application point here too, or Settings would keep the fixed purple accent regardless of
+// what preset the user picked (exactly the founder-reported gap: "a tela de configurações também
+// deveria refletir com os temas selecionados").
+function applyColorThemeToPage(colorTheme) {
+  const preset = window.QTS_THEME_PRESETS?.presets.find((item) => item.id === colorTheme);
+  const semantics = preset ? window.QTS_THEME_PRESETS.semantics[preset.mode] : null;
+  const root = document.documentElement.style;
+  if (preset) {
+    root.setProperty("--accent", preset.primary);
+    root.setProperty("--on-accent", preset.primaryContrast);
+    root.setProperty("--danger", semantics.danger);
+  } else {
+    root.removeProperty("--accent");
+    root.removeProperty("--on-accent");
+    root.removeProperty("--danger");
+  }
+}
+
 function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
+  applyColorThemeToPage(preferences.colorTheme || null);
   document.getElementById("appearanceTheme").value = preferences.appearanceTheme === "light" ? "light" : "dark";
   applyAppearanceTheme(document.getElementById("appearanceTheme").value);
   document.getElementById("compactMode").checked = preferences.compactMode === true;
@@ -387,6 +409,7 @@ document.getElementById("colorThemeGrid")?.addEventListener("click", async (even
   const colorTheme = button.dataset.colorTheme;
   const mode = button.dataset.colorThemeMode;
   applyAppearanceTheme(mode);
+  applyColorThemeToPage(colorTheme);
   workspace.preferences = { ...(workspace.preferences || {}), colorTheme, appearanceTheme: mode };
   await saveWorkspace(workspace);
   renderColorThemeGrid(colorTheme);
@@ -395,6 +418,7 @@ document.getElementById("colorThemeGrid")?.addEventListener("click", async (even
 
 document.getElementById("colorThemeReset")?.addEventListener("click", async () => {
   if (!workspace) return;
+  applyColorThemeToPage(null);
   workspace.preferences = { ...(workspace.preferences || {}), colorTheme: null };
   await saveWorkspace(workspace);
   renderColorThemeGrid(null);
