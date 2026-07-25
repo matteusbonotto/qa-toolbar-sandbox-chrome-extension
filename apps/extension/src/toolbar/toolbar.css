@@ -33,6 +33,17 @@ html {
   scroll-padding-top: var(--qts-toolbar-height, 34px);
 }
 
+/* "Ver elementos" live labels (Capturar elementos) -- pointer-events:none so they never block
+   clicking the real element they're labeling. */
+#qts-element-view-overlay { pointer-events: none !important; }
+.qts-element-view-label {
+  all: initial !important; position: fixed !important; z-index: 2147483644 !important;
+  transform: translateY(-100%) !important; padding: 2px 6px !important; border-radius: 5px !important;
+  background: #0b0b0bee !important; color: #42d5c2 !important; border: 1px solid #42d5c2 !important;
+  font: 700 10px/1.4 ui-monospace, SFMono-Regular, Consolas, monospace !important;
+  white-space: nowrap !important; max-width: 320px !important; overflow: hidden !important; text-overflow: ellipsis !important;
+}
+
 body.qts-placement-mode, body.qts-placement-mode * {
   cursor: crosshair !important;
 }

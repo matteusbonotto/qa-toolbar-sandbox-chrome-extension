@@ -1372,6 +1372,7 @@ async function dismissFirstRunNotification() {
 function removeToolbar({ disableBridge = false } = {}) {
   cancelElementSelection();
   stopKeyView();
+  state.elementViewCleanup?.();
   state.macroRecording?.cleanup?.();
   state.macroRecording = null;
   state.stepsRecording?.cleanup?.();
@@ -4429,6 +4430,48 @@ function elementCaptureLabel(row) {
   return row.text || row.placeholder || row.name || row.testId || row.id || "";
 }
 
+// "Ver elementos": overlays a small live label on the page next to every captured element,
+// showing whichever locator fields the user picked (#id, data-test-id, role, XPath) -- reusing
+// the same 200ms-poll-and-reposition pattern attachCharacterCounterBadge already uses instead of
+// scroll/resize listeners, since it self-heals for free (a detached element's label just stops
+// updating and gets swept on the next tick) and matches this file's existing convention. Runs
+// independently of the drawer, same as Holofote/Borrar elementos -- closing the drawer doesn't
+// turn it off, only the toggle button (or the toolbar itself going away) does.
+const ELEMENT_VIEW_FIELD_LABELS = { id: "ID", testId: "data-test-id", role: "role", xpath: "XPath" };
+
+function enableElementView(rows, fields) {
+  disableElementView();
+  const container = document.createElement("div");
+  container.id = "qts-element-view-overlay";
+  container.className = "qts-floating-item";
+  document.body.appendChild(container);
+  const reposition = () => {
+    if (!container.isConnected) return;
+    const parts = [];
+    for (const row of rows) {
+      let element = null;
+      try { element = row.cssSelector ? document.querySelector(row.cssSelector) : null; } catch { element = null; }
+      if (!element || isInsideToolbarUi(element)) continue;
+      const rect = element.getBoundingClientRect();
+      if (rect.width < 1 || rect.height < 1 || rect.bottom < 0 || rect.top > window.innerHeight) continue;
+      const lines = [...fields].map((field) => (row[field] ? `${ELEMENT_VIEW_FIELD_LABELS[field]}: ${row[field]}` : null)).filter(Boolean);
+      if (!lines.length) continue;
+      parts.push(`<div class="qts-element-view-label" style="left:${Math.max(0, rect.left)}px;top:${Math.max(0, rect.top - 16)}px">${escapeHtml(lines.join(" · "))}</div>`);
+    }
+    container.innerHTML = parts.join("");
+  };
+  const timer = window.setInterval(() => {
+    if (!container.isConnected) { window.clearInterval(timer); return; }
+    reposition();
+  }, 200);
+  reposition();
+  state.elementViewCleanup = () => { window.clearInterval(timer); container.remove(); state.elementViewCleanup = null; };
+}
+
+function disableElementView() {
+  state.elementViewCleanup?.();
+}
+
 // Complements the Shapes "Borrão" effect (a drawn box over an area) with a per-element blur --
 // click a real element (a name, an ID, anything sensitive) to blur it in place, click it again to
 // undo. Reuses selectPageElement's existing hover/click/Esc selection UI instead of building a
@@ -4996,10 +5039,20 @@ function openElementCapture() {
   if (!requirePlanFeature("elementCapture")) return;
   let rows = captureVisibleElements();
   let query = "";
+  // Persisted on `state` (not a local var) so reopening the drawer while "Ver elementos" is still
+  // running on the page reflects the real filter selection instead of resetting to the defaults.
+  if (!state.elementViewFields) state.elementViewFields = new Set(["id", "testId"]);
+  const viewFields = state.elementViewFields;
   openDrawer({
     title: "Capturar elementos",
     bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
-      <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
+      <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action" id="elementViewToggle" type="button">Ver elementos</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
+      <div class="qts-toolbar-row" id="elementViewFilters" hidden>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px"><input type="checkbox" data-view-field="id" checked /> #id</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px"><input type="checkbox" data-view-field="testId" checked /> data-test-id</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px"><input type="checkbox" data-view-field="role" /> role</label>
+        <label style="display:flex;align-items:center;gap:4px;font-size:11px"><input type="checkbox" data-view-field="xpath" /> XPath</label>
+      </div>
       <div class="qts-toolbar-row"><input type="search" id="elementCaptureSearch" class="qts-toolbar-search" placeholder="Buscar por texto, tag, test-id, CSS ou XPath..." /></div>
       <div class="qts-status" id="elementCaptureStatus"></div>
       <div style="display:grid;gap:8px;max-height:360px;overflow:auto" id="elementCapturePreview"></div>`,
@@ -5008,6 +5061,27 @@ function openElementCapture() {
       const preview = body.querySelector("#elementCapturePreview");
       const exportButton = body.querySelector("#elementCaptureExport");
       const searchInput = body.querySelector("#elementCaptureSearch");
+      const viewToggle = body.querySelector("#elementViewToggle");
+      const viewFilters = body.querySelector("#elementViewFilters");
+      const refreshElementView = () => { if (state.elementViewCleanup) enableElementView(rows, viewFields); };
+      // Reflects whether "Ver elementos" is already running (e.g. left on from before the drawer
+      // was closed and reopened) instead of assuming it's off.
+      const alreadyActive = Boolean(state.elementViewCleanup);
+      viewToggle.classList.toggle("primary", alreadyActive);
+      viewFilters.hidden = !alreadyActive;
+      viewFilters.querySelectorAll("[data-view-field]").forEach((checkbox) => { checkbox.checked = viewFields.has(checkbox.dataset.viewField); });
+      if (alreadyActive) refreshElementView();
+      viewToggle.addEventListener("click", () => {
+        if (state.elementViewCleanup) { disableElementView(); viewToggle.classList.remove("primary"); viewFilters.hidden = true; return; }
+        enableElementView(rows, viewFields);
+        viewToggle.classList.add("primary");
+        viewFilters.hidden = false;
+      });
+      viewFilters.querySelectorAll("[data-view-field]").forEach((checkbox) => checkbox.addEventListener("change", () => {
+        if (checkbox.checked) viewFields.add(checkbox.dataset.viewField);
+        else viewFields.delete(checkbox.dataset.viewField);
+        refreshElementView();
+      }));
       const matchesQuery = (row) => {
         if (!query) return true;
         const haystack = `${row.tag} ${row.type} ${row.name} ${row.id} ${row.testId} ${row.role} ${row.cssSelector} ${row.xpath} ${row.text} ${row.placeholder}`.toLowerCase();
@@ -5063,7 +5137,7 @@ function openElementCapture() {
           }
         }));
       };
-      body.querySelector("#elementCaptureRescan").addEventListener("click", () => { rows = captureVisibleElements(); renderPreview(); });
+      body.querySelector("#elementCaptureRescan").addEventListener("click", () => { rows = captureVisibleElements(); renderPreview(); refreshElementView(); });
       searchInput.addEventListener("input", (event) => { query = event.target.value.trim().toLowerCase(); renderPreview(); });
       exportButton.addEventListener("click", () => {
         downloadElementCaptureCsv(rows);

@@ -625,6 +625,19 @@ try {
   if (!elementCaptureCsv.includes("css_selector,xpath") || !elementCaptureCsv.includes("qa\"\"name'mixed") || !elementCaptureCsv.includes("concat(")) throw new Error("Element Capture did not export the expected CSS/XPath locators");
   if (elementCaptureCsv.includes("never-export-this-password")) throw new Error("Element Capture leaked a typed password value");
   if (!elementCaptureCsv.includes("'=HYPERLINK")) throw new Error("Element Capture did not neutralize spreadsheet formula injection");
+
+  // "Ver elementos": a live on-page overlay labeling captured elements with whichever locator
+  // fields are checked, independent of the drawer staying open.
+  await host.locator("#elementViewToggle").click();
+  await host.locator(".qts-element-view-label").first().waitFor({ timeout: 2_000 });
+  await host.locator("#drawerClose").click();
+  if (!(await host.locator(".qts-element-view-label").first().isVisible())) throw new Error("Ver elementos overlay did not persist after closing the drawer");
+  await host.locator("#toolsButton").click();
+  await host.locator("#elementCaptureMenuItem").click();
+  if (!(await host.locator("#elementViewToggle").evaluate((el) => el.classList.contains("primary")))) throw new Error("Ver elementos toggle did not reflect the still-running overlay on reopen");
+  await host.locator("#elementViewToggle").click();
+  if (await host.locator(".qts-element-view-label").count()) throw new Error("Ver elementos overlay did not clear when toggled off");
+  trace("ver elementos overlay verified (persists across drawer close, reflects state on reopen)");
   await host.locator("#drawerClose").click();
 
   // Evidence filenames: evidencia_{status?}_{tela}_{yyyyMMddHHmmss} -- no status segment unless
