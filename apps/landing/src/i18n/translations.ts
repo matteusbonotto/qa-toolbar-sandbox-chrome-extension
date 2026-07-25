@@ -225,10 +225,18 @@ export interface Dictionary {
     lead: string;
     permissionsTitle: string;
     permissions: { name: string; reason: string }[];
-    dataTitle: string;
-    dataBody: string;
-    accountTitle: string;
-    accountBody: string;
+    collectionTitle: string;
+    collectionBody: string;
+    processingTitle: string;
+    processingBody: string;
+    storageTitle: string;
+    storageBody: string;
+    sharingTitle: string;
+    sharingBody: string;
+    retentionTitle: string;
+    retentionBody: string;
+    rightsTitle: string;
+    rightsBody: string;
     contactTitle: string;
     contactBody: string;
   };
@@ -701,20 +709,31 @@ const pt: Dictionary = {
     back: "Voltar para a página inicial",
     eyebrow: "Política de Privacidade",
     title: "O que o QA Toolbar Sandbox pede ao seu navegador",
-    lead: "Esta página explica, em linguagem direta, quais permissões a extensão solicita, por que cada uma é necessária, e como tratamos os dados que você insere no seu workspace.",
+    lead: "Esta página explica, em linguagem direta e completa, quais permissões a extensão solicita, quais dados coletamos, como os processamos, onde ficam armazenados e com quem (se alguém) são compartilhados.",
     permissionsTitle: "Permissões solicitadas",
     permissions: [
       { name: "storage", reason: "Guardar seu workspace (clientes, projetos, produtos, ambientes) localmente no navegador, sem enviar para servidores externos." },
       { name: "scripting", reason: "Injetar a barra de QA e as ferramentas de teste na página que você está visitando, sob seu comando." },
       { name: "activeTab / tabs", reason: "Saber em qual aba a barra deve aparecer e capturar screenshots da aba ativa quando você aciona o botão de evidência." },
       { name: "host_permissions (todos os sites)", reason: "Permitir que você use a extensão em qualquer site por padrão. Você pode restringir isso nas configurações da extensão." },
+      { name: "contextMenus", reason: "Adicionar itens ao menu de botão direito do mouse (ex.: \"Revelar test-id, seletor e XPath\", \"Preencher com dado fake\") para acesso rápido às ferramentas sem precisar abrir a barra." },
+      { name: "alarms", reason: "Agendar uma nova tentativa de verificação de acesso/assinatura quando a rede falha temporariamente, sem manter a extensão constantemente ativa em segundo plano." },
+      { name: "externally_connectable (matteusbonotto.github.io)", reason: "Permitir que a landing page oficial entregue sua sessão de login para a extensão quando você entra pelo site, sem reenviar sua senha." },
     ],
-    dataTitle: "Onde ficam seus dados",
-    dataBody: "Clientes, projetos, produtos, ambientes e evidências que você cria ficam armazenados localmente no seu navegador (chrome.storage.local), atrelados ao seu perfil de usuário do Chrome. Não coletamos nem transmitimos o conteúdo do seu workspace para nossos servidores.",
-    accountTitle: "Conta e cobrança",
-    accountBody: "Ao criar uma conta (seja pela landing page ou pela extensão), coletamos seu e-mail e informações de pagamento processadas diretamente pelo Stripe (nunca armazenamos dados de cartão em nossos servidores). Se você participar voluntariamente de campanhas, também armazenamos os links públicos e o feedback enviados, o status da análise e a recompensa concedida; esses dados são usados somente para validar a campanha, prevenir fraude e administrar o benefício. Ao continuar, você consente com esta política e com os termos de uso. Você pode excluir sua conta a qualquer momento na seção Minha conta das Configurações: isso cancela imediatamente uma assinatura ativa e apaga seus dados pessoais; registros financeiros são mantidos apenas de forma anonimizada, pelo tempo exigido por obrigação fiscal.",
+    collectionTitle: "1. Coleta de dados",
+    collectionBody: "Coletamos apenas o necessário para autenticação e cobrança: e-mail e senha ao criar conta ou entrar (a senha nunca é armazenada em texto puro — é processada com hashing pelo serviço de autenticação do Supabase antes de qualquer armazenamento); dados de pagamento (cartão etc.) inseridos diretamente na página segura do Stripe, que nunca passam pelos nossos servidores nem pela extensão; o código de um voucher, se você aplicar um; e, caso você participe voluntariamente de uma campanha de indicação, o link público e o feedback enviados. O conteúdo do seu workspace — clientes, projetos, produtos, ambientes, evidências, contas de teste, macros e demais dados de teste — não é coletado: ele nunca sai do seu navegador.",
+    processingTitle: "2. Processamento",
+    processingBody: "Seu login é processado pelas funções de autenticação do Supabase, que verificam e-mail/senha e devolvem um token de sessão temporário. A extensão consulta periodicamente (a cada poucos minutos, com cache local) se sua assinatura está ativa, para saber quais ferramentas liberar — essa verificação usa apenas o token de sessão, nunca seu e-mail ou senha novamente. Pagamentos são processados inteiramente pelo Stripe; recebemos de volta somente o status da cobrança (ativo, atrasado, cancelado), nunca o número do cartão. Screenshots e evidências são capturados localmente pelo navegador e baixados direto para o seu computador — não passam por nenhum servidor nosso.",
+    storageTitle: "3. Armazenamento",
+    storageBody: "Workspace, evidências, macros e contas de teste ficam somente no chrome.storage.local do seu navegador, vinculados ao seu perfil do Chrome — nunca saem do seu computador. Uma cópia local da sua sessão de login e do status do plano também fica em chrome.storage.local, como cache do que o servidor já te devolveu. E-mail, senha (com hashing) e dados de assinatura ficam no banco de dados do Supabase, nossa infraestrutura de backend. Dados de pagamento ficam exclusivamente nos servidores do Stripe, certificado PCI-DSS — nunca tocam nossa infraestrutura.",
+    sharingTitle: "4. Compartilhamento com terceiros",
+    sharingBody: "Nunca vendemos, alugamos ou compartilhamos seus dados com anunciantes, corretores de dados ou qualquer finalidade de publicidade ou rastreamento — a extensão não usa nenhuma ferramenta de analytics de terceiros. Compartilhamos dados apenas com os dois processadores essenciais para o funcionamento do serviço, ambos atuando sob nossas instruções e não como donos desses dados: Stripe (processamento de pagamentos e cobrança recorrente) e Supabase (autenticação e banco de dados de backend).",
+    retentionTitle: "5. Retenção de dados",
+    retentionBody: "Enquanto sua conta estiver ativa, mantemos e-mail e dados de assinatura pelo tempo necessário para prestar o serviço. Ao excluir sua conta pela seção \"Minha conta\" das Configurações, cancelamos imediatamente qualquer assinatura ativa e apagamos seus dados pessoais; registros financeiros são mantidos apenas de forma anonimizada, pelo prazo exigido por obrigação fiscal. O conteúdo do seu workspace pode ser apagado a qualquer momento diretamente na extensão, já que fica somente no seu navegador.",
+    rightsTitle: "6. Seus direitos (LGPD)",
+    rightsBody: "Você pode acessar, corrigir ou excluir seus dados pessoais a qualquer momento pela seção \"Minha conta\". Também pode solicitar uma cópia dos seus dados ou revogar o consentimento entrando em contato conosco. Ao continuar usando a extensão ou a landing page, você consente com esta política e com os termos de uso.",
     contactTitle: "Contato",
-    contactBody: "Dúvidas sobre privacidade? Escreva para contato@matheusbonotto.com.br.",
+    contactBody: "Dúvidas sobre privacidade ou quer exercer algum desses direitos? Escreva para contato@matheusbonotto.com.br.",
   },
   resetPassword: {
     eyebrow: "QA Toolbar Sandbox",
@@ -1185,20 +1204,31 @@ const es: Dictionary = {
     back: "Volver a la página de inicio",
     eyebrow: "Política de Privacidad",
     title: "Qué le pide QA Toolbar Sandbox a tu navegador",
-    lead: "Esta página explica, en lenguaje directo, qué permisos solicita la extensión, por qué cada uno es necesario, y cómo tratamos los datos que introduces en tu workspace.",
+    lead: "Esta página explica, en lenguaje directo y completo, qué permisos solicita la extensión, qué datos recopilamos, cómo los procesamos, dónde se almacenan y con quién (si acaso) se comparten.",
     permissionsTitle: "Permisos solicitados",
     permissions: [
       { name: "storage", reason: "Guardar tu workspace (clientes, proyectos, productos, entornos) localmente en el navegador, sin enviarlo a servidores externos." },
       { name: "scripting", reason: "Inyectar la barra de QA y las herramientas de prueba en la página que estás visitando, bajo tu orden." },
       { name: "activeTab / tabs", reason: "Saber en qué pestaña debe aparecer la barra y capturar capturas de pantalla de la pestaña activa cuando activas el botón de evidencia." },
       { name: "host_permissions (todos los sitios)", reason: "Permitir que uses la extensión en cualquier sitio por defecto. Puedes restringir esto en la configuración de la extensión." },
+      { name: "contextMenus", reason: "Agregar opciones al menú del botón derecho del mouse (ej.: \"Revelar test-id, selector y XPath\", \"Rellenar con dato falso\") para acceso rápido a las herramientas sin abrir la barra." },
+      { name: "alarms", reason: "Programar un nuevo intento de verificación de acceso/suscripción cuando la red falla temporalmente, sin mantener la extensión siempre activa en segundo plano." },
+      { name: "externally_connectable (matteusbonotto.github.io)", reason: "Permitir que la landing page oficial entregue tu sesión de inicio de sesión a la extensión cuando entras por el sitio, sin reenviar tu contraseña." },
     ],
-    dataTitle: "Dónde están tus datos",
-    dataBody: "Clientes, proyectos, productos, entornos y evidencias que creas se almacenan localmente en tu navegador (chrome.storage.local), vinculados a tu perfil de usuario de Chrome. No recopilamos ni transmitimos el contenido de tu workspace a nuestros servidores.",
-    accountTitle: "Cuenta y facturación",
-    accountBody: "Al crear una cuenta recopilamos tu correo e información de pago procesada por Stripe (nunca almacenamos tarjetas). Si participas voluntariamente en campañas, también guardamos los enlaces públicos y feedback enviados, el estado de revisión y la recompensa, solo para validar la campaña, prevenir fraude y administrar el beneficio. Al continuar, aceptas esta política y los términos de uso. Puedes eliminar tu cuenta en la sección Mi cuenta de Configuración; los registros financieros se conservan anonimizados cuando exista obligación fiscal.",
+    collectionTitle: "1. Recopilación de datos",
+    collectionBody: "Recopilamos solo lo necesario para autenticación y facturación: correo y contraseña al crear cuenta o iniciar sesión (la contraseña nunca se almacena en texto plano — se procesa con hashing por el servicio de autenticación de Supabase antes de cualquier almacenamiento); datos de pago (tarjeta, etc.) ingresados directamente en la página segura de Stripe, que nunca pasan por nuestros servidores ni por la extensión; el código de un voucher, si aplicas uno; y, si participas voluntariamente en una campaña de referidos, el enlace público y el feedback enviados. El contenido de tu workspace —clientes, proyectos, productos, entornos, evidencias, cuentas de prueba, macros y demás datos de prueba— no se recopila: nunca sale de tu navegador.",
+    processingTitle: "2. Procesamiento",
+    processingBody: "Tu inicio de sesión es procesado por las funciones de autenticación de Supabase, que verifican correo/contraseña y devuelven un token de sesión temporal. La extensión consulta periódicamente (cada pocos minutos, con caché local) si tu suscripción está activa, para saber qué herramientas habilitar — esa verificación usa solo el token de sesión, nunca tu correo o contraseña de nuevo. Los pagos son procesados enteramente por Stripe; solo recibimos de vuelta el estado del cobro (activo, atrasado, cancelado), nunca el número de tarjeta. Las capturas de pantalla y evidencias se capturan localmente en el navegador y se descargan directo a tu computadora — no pasan por ningún servidor nuestro.",
+    storageTitle: "3. Almacenamiento",
+    storageBody: "El workspace, evidencias, macros y cuentas de prueba se guardan solo en el chrome.storage.local de tu navegador, vinculados a tu perfil de Chrome — nunca salen de tu computadora. Una copia local de tu sesión de inicio de sesión y del estado del plan también queda en chrome.storage.local, como caché de lo que el servidor ya te devolvió. Correo, contraseña (con hashing) y datos de suscripción quedan en la base de datos de Supabase, nuestra infraestructura de backend. Los datos de pago quedan exclusivamente en los servidores de Stripe, certificado PCI-DSS — nunca tocan nuestra infraestructura.",
+    sharingTitle: "4. Compartición con terceros",
+    sharingBody: "Nunca vendemos, alquilamos ni compartimos tus datos con anunciantes, corredores de datos ni con fines de publicidad o rastreo — la extensión no usa ninguna herramienta de analytics de terceros. Compartimos datos solo con los dos procesadores esenciales para el funcionamiento del servicio, ambos actuando bajo nuestras instrucciones y no como dueños de esos datos: Stripe (procesamiento de pagos y cobro recurrente) y Supabase (autenticación y base de datos de backend).",
+    retentionTitle: "5. Retención de datos",
+    retentionBody: "Mientras tu cuenta esté activa, mantenemos correo y datos de suscripción por el tiempo necesario para prestar el servicio. Al eliminar tu cuenta desde la sección \"Mi cuenta\" de Configuración, cancelamos de inmediato cualquier suscripción activa y borramos tus datos personales; los registros financieros se conservan solo de forma anonimizada, por el plazo exigido por obligación fiscal. El contenido de tu workspace puede borrarse en cualquier momento directamente en la extensión, ya que queda solo en tu navegador.",
+    rightsTitle: "6. Tus derechos",
+    rightsBody: "Puedes acceder, corregir o eliminar tus datos personales en cualquier momento desde la sección \"Mi cuenta\". También puedes solicitar una copia de tus datos o revocar el consentimiento contactándonos. Al seguir usando la extensión o la landing page, aceptas esta política y los términos de uso.",
     contactTitle: "Contacto",
-    contactBody: "¿Dudas sobre privacidad? Escribe a contato@matheusbonotto.com.br.",
+    contactBody: "¿Dudas sobre privacidad o quieres ejercer alguno de estos derechos? Escribe a contato@matheusbonotto.com.br.",
   },
   resetPassword: {
     eyebrow: "QA Toolbar Sandbox",
@@ -1669,20 +1699,31 @@ const en: Dictionary = {
     back: "Back to the homepage",
     eyebrow: "Privacy Policy",
     title: "What QA Toolbar Sandbox asks from your browser",
-    lead: "This page explains, in plain language, which permissions the extension requests, why each one is needed, and how we handle the data you enter into your workspace.",
+    lead: "This page explains, in plain and complete language, which permissions the extension requests, what data we collect, how we process it, where it's stored, and who (if anyone) it's shared with.",
     permissionsTitle: "Requested permissions",
     permissions: [
       { name: "storage", reason: "Store your workspace (clients, projects, products, environments) locally in the browser, without sending it to external servers." },
       { name: "scripting", reason: "Inject the QA bar and testing tools into the page you're visiting, only when you trigger it." },
       { name: "activeTab / tabs", reason: "Know which tab the bar should appear on and capture screenshots of the active tab when you trigger the evidence button." },
       { name: "host_permissions (all sites)", reason: "Let you use the extension on any site by default. You can restrict this in the extension's settings." },
+      { name: "contextMenus", reason: "Add items to the mouse's right-click menu (e.g. \"Reveal test-id, selector and XPath\", \"Fill with fake data\") for quick access to tools without opening the bar." },
+      { name: "alarms", reason: "Schedule a retry of the access/subscription check when the network fails temporarily, without keeping the extension constantly active in the background." },
+      { name: "externally_connectable (matteusbonotto.github.io)", reason: "Let the official landing page hand your login session off to the extension when you sign in through the site, without resending your password." },
     ],
-    dataTitle: "Where your data lives",
-    dataBody: "Clients, projects, products, environments and evidence you create are stored locally in your browser (chrome.storage.local), tied to your Chrome user profile. We don't collect or transmit your workspace content to our servers.",
-    accountTitle: "Account and billing",
-    accountBody: "When you create an account, we collect your email and payment information processed by Stripe (we never store card data). If you voluntarily join a campaign, we also store submitted public links and feedback, review status, and the granted reward, solely to validate the campaign, prevent fraud, and administer the benefit. By continuing, you consent to this policy and the terms of use. You may delete your account in the My account section of Settings; financial records remain anonymized where legally required.",
+    collectionTitle: "1. Data collection",
+    collectionBody: "We collect only what's needed for authentication and billing: email and password when you create an account or sign in (your password is never stored in plain text — it's hashed by Supabase's authentication service before any storage); payment details (card, etc.) entered directly on Stripe's secure page, which never pass through our servers or the extension; a voucher code, if you redeem one; and, if you voluntarily join a referral campaign, the public link and feedback you submit. Your workspace content — clients, projects, products, environments, evidence, test accounts, macros and other test data — is not collected: it never leaves your browser.",
+    processingTitle: "2. Processing",
+    processingBody: "Your sign-in is processed by Supabase's authentication functions, which verify email/password and return a temporary session token. The extension periodically checks (every few minutes, with local caching) whether your subscription is active, to know which tools to unlock — that check only uses the session token, never your email or password again. Payments are processed entirely by Stripe; we only receive the charge status back (active, past due, cancelled), never the card number. Screenshots and evidence are captured locally by the browser and downloaded straight to your computer — they never pass through any server of ours.",
+    storageTitle: "3. Storage",
+    storageBody: "Your workspace, evidence, macros and test accounts live only in your browser's chrome.storage.local, tied to your Chrome profile — they never leave your computer. A local copy of your sign-in session and plan status also lives in chrome.storage.local, as a cache of what the server already returned to you. Email, password (hashed) and subscription data live in Supabase's database, our backend infrastructure. Payment data lives exclusively on Stripe's servers, which are PCI-DSS certified — it never touches our infrastructure.",
+    sharingTitle: "4. Sharing with third parties",
+    sharingBody: "We never sell, rent, or share your data with advertisers, data brokers, or for any advertising or tracking purpose — the extension doesn't use any third-party analytics tooling. We only share data with the two processors essential to running the service, both acting under our instructions rather than as owners of that data: Stripe (payment processing and recurring billing) and Supabase (authentication and backend database).",
+    retentionTitle: "5. Data retention",
+    retentionBody: "While your account is active, we keep your email and subscription data for as long as needed to provide the service. Deleting your account from the \"My account\" section of Settings immediately cancels any active subscription and erases your personal data; financial records are kept only in anonymized form, for as long as required by tax law. Your workspace content can be erased at any time directly in the extension, since it only ever lives in your browser.",
+    rightsTitle: "6. Your rights",
+    rightsBody: "You can access, correct, or delete your personal data at any time from the \"My account\" section. You may also request a copy of your data or withdraw consent by contacting us. By continuing to use the extension or the landing page, you consent to this policy and the terms of use.",
     contactTitle: "Contact",
-    contactBody: "Questions about privacy? Write to contato@matheusbonotto.com.br.",
+    contactBody: "Questions about privacy, or want to exercise any of these rights? Write to contato@matheusbonotto.com.br.",
   },
   resetPassword: {
     eyebrow: "QA Toolbar Sandbox",
