@@ -402,7 +402,7 @@ function applyPinnedTools() {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
   }
   const labels = TOOLS_MENU_LABELS;
-  const icons = { clickSpy: "mouse", freezeClock: "freezeClock", forceHttp: "warning", errorMonitor: "errorMonitor", inspectors: "braces", jsonStudio: "braces", breakpoints: "breakpointViewer", testAccounts: "key", paymentMethods: "paymentMethods", resources: "resources", characterCounter: "characterCounter", macroStudio: "macroStudio", stepsRecorder: "recordStart", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill", keyView: "keyView", elementCapture: "elementCapture", blurElements: "eyeSlash", holofote: "lightbulb" };
+  const icons = { clickSpy: "mouse", freezeClock: "freezeClock", forceHttp: "forceHttp", errorMonitor: "errorMonitor", inspectors: "inspectors", jsonStudio: "braces", breakpoints: "breakpointViewer", testAccounts: "key", paymentMethods: "paymentMethods", resources: "resources", characterCounter: "characterCounter", macroStudio: "macroStudio", stepsRecorder: "stepsRecorder", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill", keyView: "keyView", elementCapture: "elementCapture", blurElements: "eyeSlash", holofote: "lightbulb", pixelPerfect: "ruler" };
   const quickContainer = root.getElementById("extraPinnedTools");
   if (quickContainer) {
     // Small pin badge in the corner distinguishes a tool the user chose to pin from the fixed
@@ -589,6 +589,7 @@ function buildShadowHost() {
       }
       button:hover { background: rgba(0,0,0,.32); }
       button.iconOnly { width: 26px; padding: 0; justify-content: center; }
+      button > svg { width:15px; height:15px; filter:drop-shadow(0 0 .35px currentColor); }
       .qts-user-pinned { position: relative; }
       .qts-pin-badge {
         position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%;
@@ -622,6 +623,7 @@ function buildShadowHost() {
       #toolsMenu button {
         width: 100%; justify-content: flex-start; background: #171717; border-color: #2c2c2c; font-size: 11px;
       }
+      #toolsMenu button > svg { width:16px; height:16px; flex:0 0 16px; }
       #toolsMenu button:hover { background: #232323; border-color: var(--qts-ui-primary, #ffd700); }
       #toolsMenu button.isActive { background: var(--qts-ui-primary, #ffd700) !important; color: var(--qts-ui-primary-contrast, #111) !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 9px; }
@@ -823,7 +825,7 @@ function buildShadowHost() {
             <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
-            <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.stepsRecorderMenuLabel || "Gravador de Passos")}</button>
+            <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("stepsRecorder")} ${escapeHtml(t.stepsRecorderMenuLabel || "Gravador de Passos")}</button>
             <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(t.characterCounterMenuLabel)}</button>
             <button type="button" id="multiClickMenuItem" role="menuitem">${ICON("multiClick")} ${escapeHtml(t.multiClickMenuLabel)}</button>
             <button type="button" id="inputLabMenuItem" role="menuitem">${ICON("inputLab")} ${escapeHtml(t.inputLabMenuLabel)}</button>
@@ -831,9 +833,9 @@ function buildShadowHost() {
             <button type="button" id="keyViewMenuItem" role="menuitem">${ICON("keyView")} ${escapeHtml(t.keyViewMenuLabel || "Key View")}</button>
             <button type="button" id="clickSpyMenuItem" role="menuitem">${ICON("mouse")} Click Spy</button>
             <button type="button" id="freezeClockMenuItem" role="menuitem">${ICON("freezeClock")} Freeze Clock</button>
-            <button type="button" id="forceHttpMenuItem" role="menuitem">${ICON("warning")} Force HTTP</button>
+            <button type="button" id="forceHttpMenuItem" role="menuitem">${ICON("forceHttp")} Force HTTP</button>
             <button type="button" id="errorMonitorMenuItem" role="menuitem">${ICON("errorMonitor")} ${escapeHtml(t.errorMonitorTitle)}<span id="errorMonitorBadge" class="qts-badge" style="display:none">0</span></button>
-            <button type="button" id="inspectorsMenuItem" role="menuitem">{ } ${escapeHtml(t.inspectorsTitle)}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
+            <button type="button" id="inspectorsMenuItem" role="menuitem">${ICON("inspectors")} ${escapeHtml(t.inspectorsTitle)}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
             <button type="button" id="jsonStudioMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(t.jsonStudioTitle)}</button>
             <button type="button" id="breakpointMenuItem" role="menuitem">${ICON("breakpointViewer")} Breakpoint Viewer</button>
             <button type="button" id="testAccountsMenuItem" role="menuitem">${ICON("key")} ${escapeHtml(t.testAccountsMenuLabel)}</button>

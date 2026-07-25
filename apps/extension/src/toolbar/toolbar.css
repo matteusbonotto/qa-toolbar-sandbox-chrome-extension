@@ -169,7 +169,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
   border: 0 !important; border-radius: 999px !important; background: #3a3a3a !important; color: #fff !important;
   font-size: 11px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 2 !important;
 }
-.qts-visibility-btn svg { width: 11px !important; height: 11px !important; }
+.qts-visibility-btn svg { width: 14px !important; height: 14px !important; }
 
 /* No !important on size: these are set inline by JS (initial placement and drag-resize) and
    the qts- prefixed class is never realistically targeted by a host page's own CSS, unlike the
