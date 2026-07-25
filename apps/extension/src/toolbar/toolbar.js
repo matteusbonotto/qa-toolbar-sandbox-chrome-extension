@@ -376,7 +376,10 @@ function applyPinnedTools() {
   const icons = { clickSpy: "mouse", freezeClock: "freezeClock", forceHttp: "warning", errorMonitor: "errorMonitor", inspectors: "braces", jsonStudio: "braces", breakpoints: "breakpointViewer", testAccounts: "key", paymentMethods: "paymentMethods", resources: "resources", characterCounter: "characterCounter", macroStudio: "macroStudio", stepsRecorder: "recordStart", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill", keyView: "keyView", elementCapture: "elementCapture", blurElements: "eyeSlash", holofote: "lightbulb" };
   const quickContainer = root.getElementById("extraPinnedTools");
   if (quickContainer) {
-    quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}</button>`).join("");
+    // Small pin badge in the corner distinguishes a tool the user chose to pin from the fixed
+    // default shortcuts (Pass/Fail/Screenshot/Gravação, which always show and never carry it) --
+    // otherwise both look identical and there's no visual cue which ones are user customization.
+    quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly qts-user-pinned" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}<span class="qts-pin-badge">${ICON("pin")}</span></button>`).join("");
     quickContainer.querySelectorAll("[data-pinned-tool]").forEach((button) => button.addEventListener("click", () => root.getElementById(menuItems[button.dataset.pinnedTool])?.click()));
   }
   // Re-append each menu item in the effective order -- appendChild on an already-attached node
@@ -492,6 +495,12 @@ function buildShadowHost() {
       }
       button:hover { background: rgba(0,0,0,.32); }
       button.iconOnly { width: 26px; padding: 0; justify-content: center; }
+      .qts-user-pinned { position: relative; }
+      .qts-pin-badge {
+        position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%;
+        background: #ffd700; border: 1px solid #171717; display: flex; align-items: center; justify-content: center;
+      }
+      .qts-pin-badge svg { width: 7px; height: 7px; fill: #171717; }
       button.isActive { background: #ffd700 !important; color: #111 !important; border-color: #fff !important; }
       #clearAllButton.isHidden, .isHidden, .isPreferenceHidden { display: none !important; }
       #recordToggleButton.isActive { background: #c70e0e !important; color: #fff !important; border-color: #fff !important; animation: qts-rec-pulse 1.6s ease-in-out infinite; }
