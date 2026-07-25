@@ -398,6 +398,9 @@ try {
   const mouseFill = await host.locator("#qts-mouse-view-overlay .qts-mouse-left").evaluate((node) => getComputedStyle(node).fill);
   if (mouseFill !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the Key View mouse overlay: ${mouseFill}`);
   await host.locator("main").dispatchEvent("mouseup", { button: 0, clientX: 300, clientY: 300 });
+  await host.locator("main").dispatchEvent("wheel", { deltaY: 120, clientX: 300, clientY: 300 });
+  const scrollFill = await host.locator("#qts-mouse-view-overlay .qts-mouse-wheel").evaluate((node) => getComputedStyle(node).fill);
+  if (scrollFill !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the Key View scroll indicator: ${scrollFill}`);
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
   await host.locator("#keyViewToggle").click();

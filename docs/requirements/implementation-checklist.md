@@ -89,3 +89,8 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - Regra permanente adicionada em `AGENTS.md`: afirmações do usuário/fundador têm precedência como
   regras de negócio; PRs devem atualizar testes, tutorial, tour, FAQ, i18n, prints, vídeos, versão,
   release notes e superfícies afetadas.
+- Correção visual pendente de smoke após fechar o Chrome manual: o indicador de scroll do Mouse
+  View usava `--qts-ui-secondary` e permanecia amarelo. Foi migrado para `--qts-ui-primary`; o
+  smoke agora aplica o preset azul, dispara `wheel` e exige o fill azul no SVG. A limpeza recusou
+  continuar porque `chrome-test-profile/first_party_sets.db-journal` estava bloqueado, comprovando
+  que a proteção contra perfil/cache antigo está ativa.

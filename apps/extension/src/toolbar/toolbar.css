@@ -587,7 +587,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
   fill: var(--qts-ui-highlight, #ef3340) !important; opacity: .55 !important; transition: opacity 120ms ease !important;
 }
 #qts-mouse-view-overlay.isPressed[data-action="left"] .qts-mouse-left, #qts-mouse-view-overlay.isPressed[data-action="right"] .qts-mouse-right { opacity: 1 !important; }
-#qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: var(--qts-ui-secondary, #ffd700) !important; }
+#qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: var(--qts-ui-primary, #ef3340) !important; }
 #qts-mouse-view-overlay[data-action="scroll-up"] .qts-mouse-arrow-up, #qts-mouse-view-overlay[data-action="scroll-down"] .qts-mouse-arrow-down { display: block !important; }
 
 /* Floating editors live outside the toolbar Shadow DOM so they can be dragged over the page.
