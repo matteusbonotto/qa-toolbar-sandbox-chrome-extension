@@ -42,7 +42,16 @@
       emit(prefix);
       if (nextCode < 4096) {
         dictionary.set(key, nextCode++);
-        if (nextCode === (1 << codeSize) && codeSize < 12) codeSize++;
+        // Any standard LZW/GIF decoder (every browser, OS image viewer, etc.) can't grow its own
+        // dictionary on the very first code after each clear -- it has no `previous` entry yet at
+        // that point, so it has nothing to extend. That leaves the decoder's own next-code counter
+        // permanently one entry behind ours from then on, so it crosses each code-size threshold
+        // (9->10->11->12 bits) one code later than a naive "bump when nextCode hits 2^codeSize"
+        // rule here would. Encoding at the naive threshold corrupts every GIF as soon as the
+        // dictionary passes 512 entries: the decoder keeps reading the *old*, narrower bit width
+        // for one more code than we wrote, misaligning every bit after that point. Checking against
+        // `+ 1` instead makes us bump on the same transmitted code the decoder actually will.
+        if (nextCode === (1 << codeSize) + 1 && codeSize < 12) codeSize++;
       } else { emit(clear); reset(); }
       prefix = value;
     }
