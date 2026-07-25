@@ -1,4 +1,4 @@
-import { getSiteScope, getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID } from "../lib/storage.js";
+import { getSiteScope, getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN } from "../lib/storage.js";
 import { acceptSessionHandoff, deleteAccount, getAccessState, redeemVoucher, requestPasswordReset, signIn, signOut } from "./auth.js";
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
@@ -80,11 +80,11 @@ async function applyContentScriptRegistrationNow({ forceAccess = false } = {}) {
   }
 
   await unregisterContentScripts();
-  if (!effectiveActive) {
-    await removeToolbarFromOpenTabs();
-    return;
-  }
-
+  // Registration itself no longer depends on `effectiveActive`: an unauthorized/expired session
+  // still needs the toolbar content script injected on its configured pages so it can render its
+  // own stripped "logged out" bar (see toolbar.js render()/mountToolbar) instead of the page
+  // staying completely silent about why nothing appeared. `effectiveActive` still flows to the
+  // content script separately via access-status, and it's the one that decides which buttons show.
   const matches = await patternsForAuthorizedWorkspace();
   if (!matches.length) {
     await removeToolbarFromOpenTabs();
@@ -171,15 +171,16 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // Our own demo/tutorial site (apps/landing/public/sandbox) -- a small self-contained page with a
 // CRUD table, a multi-field form and simulated success/error/network-failure triggers, replacing
 // the earlier dependency on a third-party site (demoqa.com) for onboarding and tutorial captures.
-const TUTORIAL_DEMO_URL = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/index.html?qtsTutorial=1";
-const TUTORIAL_DEMO_ORIGIN_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
+const TUTORIAL_DEMO_URL = `${DEMO_SITE_URL_PATTERN.replace(/\*$/, "index.html")}?qtsTutorial=1`;
 
 // Seeds a starter workspace (client/project/product/environment/URL pointing at the public demo
 // site used for tutorial captures) so the toolbar has something real to mount on, then opens that
 // demo page in a new tab for the live tour in toolbar.js to take over. Never overwrites a
 // workspace that already has real data -- if the user already set one up, this just opens the tab.
-// Cliente=Toolbar/Projeto=Sandbox/Produto=STAGE use fixed ids and preferences.demoWorkspaceSeeded
-// so normalizeWorkspace (storage.js) locks them permanently -- see the comment there for why.
+// Cliente=Toolbar/Projeto=Sandbox/Produto=STAGE (plus the QA environment and the URL binding that
+// actually makes the toolbar mount on the demo site) use fixed ids and
+// preferences.demoWorkspaceSeeded so normalizeWorkspace (storage.js) locks them permanently --
+// see the comment there for why all four have to survive together, not just the first three.
 async function seedDemoWorkspaceAndOpenTour(stepKey, reuseTabId) {
   const workspace = await getWorkspace();
   if (!workspace.clients.length) {
@@ -187,8 +188,8 @@ async function seedDemoWorkspaceAndOpenTour(stepKey, reuseTabId) {
       clients: [{ id: DEMO_CLIENT_ID, name: "Toolbar", locked: true }],
       projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Sandbox", locked: true }],
       products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE", locked: true }],
-      environments: [{ id: "demo-env", name: "QA", color: "#5b21b6" }],
-      urlBindings: [{ id: "demo-binding", productId: DEMO_PRODUCT_ID, environmentIds: ["demo-env"], patterns: [TUTORIAL_DEMO_ORIGIN_PATTERN] }],
+      environments: [{ id: DEMO_ENVIRONMENT_ID, name: "QA", color: "#5b21b6", locked: true }],
+      urlBindings: [{ id: DEMO_URL_BINDING_ID, productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], patterns: [DEMO_SITE_URL_PATTERN], locked: true }],
       preferences: { demoWorkspaceSeeded: true },
     });
     // saveWorkspace triggers the central onStorageChanged registration path below. Starting a

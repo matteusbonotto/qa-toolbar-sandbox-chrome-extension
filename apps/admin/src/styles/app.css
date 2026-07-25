@@ -255,6 +255,57 @@ a {
   color: var(--text);
 }
 
+/* Used by long vertical forms (one field per row, e.g. Registro de software/INPI) instead of
+   .qa-form-row's inline layout -- labels stack above their input like .qa-login-form's, and
+   inputs/selects/textareas get the same themed border/background .qa-form-row's already have,
+   since the bare `input, select, textarea { font: inherit; color: inherit }` reset above leaves
+   them completely unstyled (native browser controls) otherwise. */
+.qa-form-col label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.qa-form-col input,
+.qa-form-col select,
+.qa-form-col textarea {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  color: var(--text);
+  font-weight: 400;
+}
+
+.qa-form-col textarea {
+  min-height: unset;
+  resize: vertical;
+}
+
+.qa-form-col input:focus,
+.qa-form-col select:focus,
+.qa-form-col textarea:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.qa-form-col .actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.qa-form-col .savedHint {
+  color: var(--accent-strong);
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
 .qa-btn {
   min-height: 38px;
   padding: 0 18px;

@@ -505,11 +505,14 @@ try {
   await host.keyboard.up("Control");
   if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote did not start fading out on release");
   if (!(await host.locator("h1").isVisible())) throw new Error("Holofote mode blocked normal page interaction");
+  // Clicking the menu row again while a mode is already active turns it off directly instead of
+  // reopening the drawer (same one-click toggle the quick pinned buttons already had).
   await host.locator("#toolsButton").click();
   await host.locator("#holofoteMenuItem").click();
-  await host.locator("#holofoteToggle").click();
-  await host.locator("#drawerClose").click();
-  trace("modo holofote verified (2s Ctrl hold, follows release fade, page stays interactive)");
+  if (await host.locator("#drawerHost .qts-drawer").count()) throw new Error("Clicking the active Holofote menu row again reopened the drawer instead of toggling off");
+  if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Clicking the active Holofote menu row again did not turn the mode off directly");
+  if (await host.locator("#holofoteMenuItem.isActive").count()) throw new Error("Holofote menu row still shows isActive after being toggled off");
+  trace("modo holofote verified (2s Ctrl hold, follows release fade, page stays interactive, one-click toggle-off)");
 
   // Pixel Perfect: crosshair lines track the real mouse position (read back off the overlay's own
   // CSS custom properties), a click anchors a smart-ruler measurement to the next mouse position,
@@ -536,9 +539,15 @@ try {
   // shows its exact pixel size, the wheel walks the box up the DOM ancestor chain (bigger
   // container per notch), and a click pins it without triggering the underlying element's own
   // click behavior (a link/button under the cursor must not activate).
+  // Still active from the crosshair test above, so the menu row's one-click toggle turns it off
+  // first; a second click (now inactive) reopens the drawer to pick "bounds" before reactivating.
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  if (await host.locator("#qts-pixelperfect-overlay").count()) throw new Error("Clicking the active Pixel Perfect menu row again did not turn the mode off directly");
   await host.locator("#toolsButton").click();
   await host.locator("#pixelPerfectMenuItem").click();
   await host.locator("#pixelPerfectMode").selectOption("bounds");
+  await host.locator("#pixelPerfectToggle").click();
   await host.locator("#drawerClose").click();
   await host.locator("#qaName").hover();
   await host.locator(".qts-pp-bounds-box:not(.isHidden)").waitFor({ timeout: 2_000 });
@@ -552,11 +561,11 @@ try {
   if (!(await host.locator(".qts-pp-bounds-box").evaluate((el) => el.classList.contains("isPinned")))) throw new Error("Pixel Perfect bounds click did not pin the box");
   await host.locator("#qaName").click();
   if (await host.locator(".qts-pp-bounds-box").evaluate((el) => el.classList.contains("isPinned"))) throw new Error("Second click did not unpin the Pixel Perfect bounds box");
+  // Clicking the menu row again while active turns Pixel Perfect off directly, same as Holofote.
   await host.locator("#toolsButton").click();
   await host.locator("#pixelPerfectMenuItem").click();
-  await host.locator("#pixelPerfectToggle").click();
-  await host.locator("#drawerClose").click();
-  trace("pixel perfect bounds mode verified (hover shows real element size, scroll walks the ancestor chain, click pins without activating the element)");
+  if (await host.locator("#qts-pixelperfect-overlay").count()) throw new Error("Clicking the active Pixel Perfect menu row again did not turn the mode off directly");
+  trace("pixel perfect bounds mode verified (hover shows real element size, scroll walks the ancestor chain, click pins without activating the element, one-click toggle-off)");
 
   // Right-click "Inspecionar com Pixel Perfect" pins the inspector on the clicked element in one
   // step, same relay mechanism as "Borrar / desborrar este elemento" above.
@@ -569,9 +578,8 @@ try {
   await host.locator(".qts-pp-bounds-box.isPinned").waitFor({ timeout: 2_000 });
   await host.locator("#toolsButton").click();
   await host.locator("#pixelPerfectMenuItem").click();
-  await host.locator("#pixelPerfectToggle").click();
-  await host.locator("#drawerClose").click();
-  trace("pixel perfect context-menu inspect verified (right-click pins the inspector on the clicked element immediately)");
+  if (await host.locator("#qts-pixelperfect-overlay").count()) throw new Error("Clicking the active Pixel Perfect menu row again did not turn the mode off directly");
+  trace("pixel perfect context-menu inspect verified (right-click pins the inspector on the clicked element immediately, one-click toggle-off)");
 
   // Recording type menu offers a normal seekable video and a real locally encoded GIF mode. GIF
   // recordings are split into independent 15-second files and zipped only when there is >1 part.

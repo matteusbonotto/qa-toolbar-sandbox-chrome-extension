@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { createLicenseKey, listLicenseActivations, listLicenseKeys, listPlans, revokeLicenseKey } from "../lib/api";
+import { createLicenseKey, deleteLicenseKey, listLicenseActivations, listLicenseKeys, listPlans, revokeLicenseKey, unrevokeLicenseKey } from "../lib/api";
+import { errorMessage } from "../lib/errors";
 import { useAsyncData } from "../lib/useAsyncData";
 import { useAuth } from "../lib/AuthProvider";
 
@@ -31,7 +32,7 @@ export function LicensesPage() {
       setSuffix("");
       licenses.reload();
     } catch (err) {
-      setFormError(err instanceof Error ? err.message : String(err));
+      setFormError(errorMessage(err));
     } finally {
       setBusy(false);
     }
@@ -39,6 +40,12 @@ export function LicensesPage() {
 
   const activationCountByLicense = (activations.data ?? []).reduce<Record<string, number>>((acc, activation) => {
     if (!activation.revoked_at) acc[activation.license_key_id] = (acc[activation.license_key_id] ?? 0) + 1;
+    return acc;
+  }, {});
+  // Deleting a key cascades onto every activation row it ever had (see deleteLicenseKey), so the
+  // delete guard below needs the total including revoked ones, not just the still-active count.
+  const totalActivationCountByLicense = (activations.data ?? []).reduce<Record<string, number>>((acc, activation) => {
+    acc[activation.license_key_id] = (acc[activation.license_key_id] ?? 0) + 1;
     return acc;
   }, {});
 
@@ -91,9 +98,21 @@ export function LicensesPage() {
                     <span className={`qa-badge ${license.revoked_at ? "revoked" : "active"}`}>{license.revoked_at ? "revogada" : "ativa"}</span>
                   </td>
                   <td>
-                    {!license.revoked_at ? (
-                      <button type="button" className="qa-btn danger" onClick={() => revokeLicenseKey(license.id).then(licenses.reload)}>
-                        Revogar
+                    <button
+                      type="button"
+                      className="qa-btn danger"
+                      onClick={() => (license.revoked_at ? unrevokeLicenseKey(license.id) : revokeLicenseKey(license.id)).then(licenses.reload)}
+                    >
+                      {license.revoked_at ? "Reativar" : "Revogar"}
+                    </button>{" "}
+                    {!(totalActivationCountByLicense[license.id] ?? 0) ? (
+                      <button
+                        type="button"
+                        className="qa-btn danger"
+                        style={{ marginLeft: 6 }}
+                        onClick={() => { if (window.confirm("Excluir esta chave de licença?")) void deleteLicenseKey(license.id).then(licenses.reload); }}
+                      >
+                        Excluir
                       </button>
                     ) : null}
                   </td>

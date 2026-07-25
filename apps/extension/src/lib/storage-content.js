@@ -20,6 +20,9 @@
   const DEMO_CLIENT_ID = "qts-demo-client";
   const DEMO_PROJECT_ID = "qts-demo-project";
   const DEMO_PRODUCT_ID = "qts-demo-product";
+  const DEMO_ENVIRONMENT_ID = "qts-demo-env";
+  const DEMO_URL_BINDING_ID = "qts-demo-url-binding";
+  const DEMO_SITE_URL_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
   const KEY_VIEW_POSITIONS = new Set(["top-left", "top-center", "top-right", "middle-left", "middle-center", "middle-right", "bottom-left", "bottom-center", "bottom-right"]);
   const KEY_VIEW_SIZES = new Set(["small", "medium", "large"]);
   const MACRO_ACTIONS = new Set(["click", "fill", "select", "check", "press", "wait", "scroll", "multiClick", "fakerFill"]);
@@ -350,7 +353,13 @@
         active: item?.active !== false,
       };
     });
+    if (source.preferences?.demoWorkspaceSeeded === true) {
+      ensureLockedEntity(environments, DEMO_ENVIRONMENT_ID, { name: "QA", color: "#5b21b6" });
+    }
     const urlBindings = normalizeUrlBindings(source, products, environments);
+    if (source.preferences?.demoWorkspaceSeeded === true) {
+      ensureLockedEntity(urlBindings, DEMO_URL_BINDING_ID, { patterns: [DEMO_SITE_URL_PATTERN], productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], primaryUrl: "" });
+    }
     const copy = (key) =>
       (Array.isArray(source[key]) ? source[key] : []).map((item, index) => ({
         ...item,

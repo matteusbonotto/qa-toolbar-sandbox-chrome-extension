@@ -12,6 +12,7 @@ import {
   updateVoucher,
   updateVoucherCampaign,
 } from "../lib/api";
+import { errorMessage } from "../lib/errors";
 import type { Voucher, VoucherCampaign, VoucherKind } from "../lib/types";
 import { useAsyncData } from "../lib/useAsyncData";
 
@@ -130,7 +131,7 @@ export function VouchersPage() {
       resetVoucherForm();
       vouchers.reload();
     } catch (err) {
-      setVoucherFormError(err instanceof Error ? err.message : String(err));
+      setVoucherFormError(errorMessage(err));
     } finally {
       setVoucherBusy(false);
     }
@@ -159,7 +160,7 @@ export function VouchersPage() {
       resetCampaignForm();
       campaigns.reload();
     } catch (err) {
-      setCampaignFormError(err instanceof Error ? err.message : String(err));
+      setCampaignFormError(errorMessage(err));
     } finally {
       setCampaignBusy(false);
     }
@@ -273,7 +274,7 @@ export function VouchersPage() {
                   <td>{valueColumn(voucher)}</td>
                   <td>{new Date(voucher.created_at).toLocaleDateString("pt-BR")}</td>
                   <td>
-                    {voucher.status !== "used" ? <button type="button" className="qa-btn" onClick={() => startEditVoucher(voucher)}>Editar</button> : null}{" "}
+                    <button type="button" className="qa-btn" onClick={() => startEditVoucher(voucher)}>Editar</button>{" "}
                     {voucher.status !== "used" ? (
                       <button
                         type="button"
@@ -283,7 +284,7 @@ export function VouchersPage() {
                         {voucher.status === "disabled" ? "Reativar" : "Desativar"}
                       </button>
                     ) : null}
-                    {voucher.status !== "used" ? <button type="button" className="qa-btn danger" style={{ marginLeft: 6 }} onClick={() => { if (window.confirm("Excluir este voucher? O código não poderá ser recuperado.")) void deleteVoucher(voucher.id).then(vouchers.reload); }}>Excluir</button> : null}
+                    <button type="button" className="qa-btn danger" style={{ marginLeft: 6 }} onClick={() => { if (window.confirm("Excluir este voucher? O código não poderá ser recuperado.")) void deleteVoucher(voucher.id).then(vouchers.reload); }}>Excluir</button>
                   </td>
                 </tr>
               ))}

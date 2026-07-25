@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { getLegalRegistration, updateLegalRegistration } from "../lib/api";
+import { errorMessage } from "../lib/errors";
 import type { LegalRegistration, LegalRegistrationStatus } from "../lib/types";
 
 const STATUS_LABEL: Record<LegalRegistrationStatus, string> = {
@@ -67,7 +68,7 @@ export function LegalRegistrationPage() {
   useEffect(() => {
     getLegalRegistration()
       .then(applyRecord)
-      .catch((err) => setError(err instanceof Error ? err.message : String(err)))
+      .catch((err) => setError(errorMessage(err)))
       .finally(() => setLoading(false));
   }, []);
 
@@ -98,7 +99,7 @@ export function LegalRegistrationPage() {
       applyRecord(fresh);
       setSavedHint(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setError(errorMessage(err));
     } finally {
       setSaving(false);
     }

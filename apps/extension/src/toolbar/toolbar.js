@@ -404,6 +404,9 @@ function render() {
   bar.style.setProperty("--qts-bg", breadcrumb.color);
   bar.style.setProperty("--qts-text", breadcrumb.text);
   bar.classList.toggle("isMinimized", state.minimized);
+  bar.classList.toggle("isLoggedOut", !state.authorized);
+  root.getElementById("restoreButton").classList.toggle("isVisible", state.minimized);
+  if (!state.authorized) { setSpacerHeight(); offsetSiteFixedHeaders(); return; }
 
   const clientLabel = root.getElementById("clientLabel");
   clientLabel.innerHTML = breadcrumb.clientHtml;
@@ -413,7 +416,6 @@ function render() {
   const urlElement = root.getElementById("currentUrl");
   urlElement.textContent = currentUrl;
   urlElement.title = currentUrl;
-  root.getElementById("restoreButton").classList.toggle("isVisible", state.minimized);
   applyPinnedTools();
   syncKeyView();
   setSpacerHeight();
@@ -443,6 +445,14 @@ function buildShadowHost() {
         box-shadow: 0 2px 10px rgba(0,0,0,.25); transition: transform 160ms ease;
       }
       #bar.isMinimized { transform: translateY(-110%); }
+      /* Logged-out mode: the bar still mounts (so a URL the user configured never goes silent
+         about why nothing appeared), but every functional button is hidden except Settings/
+         Minimize -- only the message + login CTA below show. See render()/refreshAuthorization. */
+      #loggedOutPanel { display: none; align-items: center; gap: 8px; }
+      #bar.isLoggedOut #loggedOutPanel { display: flex; }
+      #bar.isLoggedOut #right > *:not(#loggedOutPanel):not(#settingsButton):not(#minimizeButton) { display: none !important; }
+      #loggedOutMessage { font-size: 11px; font-weight: 800; white-space: nowrap; }
+      #loggedOutLoginButton { background: #ffd700; color: #111; border-color: #fff; }
       #left { min-width: 0; flex: 1 1 auto; height: 100%; display: flex; flex-direction: row; align-items: center; gap: 8px; }
       #right { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; }
       #extraPinnedTools { display: flex; align-items: center; gap: 6px; }
@@ -621,6 +631,10 @@ function buildShadowHost() {
         ${IS_TEST_BUILD ? '<span class="qts-test-environment-badge" title="Ambiente isolado — não publicar">TESTE</span>' : ""}
       </div>
       <div id="right">
+        <div id="loggedOutPanel">
+          <span id="loggedOutMessage">${escapeHtml(t.loggedOutMessage || "Você não está logado")}</span>
+          <button id="loggedOutLoginButton" type="button">${escapeHtml(t.loggedOutAction || "Entrar")}</button>
+        </div>
         <button id="testStatusButton" type="button" title="${escapeHtml(t.testStatusTitle)}">${escapeHtml(t.testStatus)}</button>
         <button id="passButton" class="iconOnly" type="button" title="${escapeHtml(t.pass)}">${ICON("pass")}</button>
         <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
@@ -734,6 +748,11 @@ function buildShadowHost() {
     if (event.target.closest("button")) event.preventDefault();
   });
   shadow.getElementById("settingsButton").addEventListener("click", () => {
+    chrome.runtime.sendMessage({ type: "qts:open-options" });
+  });
+  // options.js already redirects to the "Minha conta" tab on its own whenever access isn't
+  // active (see switchTab fallback there), so this doesn't need to pass a tab param.
+  shadow.getElementById("loggedOutLoginButton").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "qts:open-options" });
   });
   // Delegated on #left (stable across renders) rather than #clientLabel/#breadcrumb directly,
@@ -866,9 +885,25 @@ function buildShadowHost() {
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
   shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
-  shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => { openBlurElementsTool(); closeToolsMenu(); });
-  shadow.getElementById("holofoteMenuItem").addEventListener("click", () => { openHolofoteTool(); closeToolsMenu(); });
-  shadow.getElementById("pixelPerfectMenuItem").addEventListener("click", () => { openPixelPerfectTool(); closeToolsMenu(); });
+  // These three keep a persistent on/off mode (unlike most Tools-menu items, which just open a
+  // drawer every time): clicking them again while already active turns the mode off directly
+  // instead of reopening the drawer just to find the Desativar button inside it — same one-click
+  // toggle the quick pinned buttons (blurQuickButton/holofoteQuickButton) already had.
+  shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => {
+    if (state.blurSelectionActive) { toggleBlurSelectionMode(); closeToolsMenu(); return; }
+    openBlurElementsTool();
+    closeToolsMenu();
+  });
+  shadow.getElementById("holofoteMenuItem").addEventListener("click", () => {
+    if (state.holofoteActive) { disableHolofoteMode(); closeToolsMenu(); return; }
+    openHolofoteTool();
+    closeToolsMenu();
+  });
+  shadow.getElementById("pixelPerfectMenuItem").addEventListener("click", () => {
+    if (state.pixelPerfectActive) { disablePixelPerfectMode(); closeToolsMenu(); return; }
+    openPixelPerfectTool();
+    closeToolsMenu();
+  });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
   shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("stepsRecorderMenuItem").addEventListener("click", () => { openStepsRecorder(); closeToolsMenu(); });
@@ -896,7 +931,7 @@ function isToolbarHealthy() {
 }
 
 function mountToolbar() {
-  if (document.getElementById(HOST_ID) || !state.authorized || !state.environment) return;
+  if (document.getElementById(HOST_ID) || !state.environment) return;
   const { host, shadow } = buildShadowHost();
   state.shadowRoot = shadow;
   document.documentElement.appendChild(host);
@@ -1350,7 +1385,7 @@ function removeToolbar({ disableBridge = false } = {}) {
 
 function syncToolbarForCurrentLocation() {
   state.environment = findActiveEnvironment(state.workspace || { environments: [] });
-  if (!state.authorized || !state.environment) {
+  if (!state.environment) {
     removeToolbar();
     return;
   }
@@ -1403,7 +1438,7 @@ function stopHeaderOffsetMonitor() {
 }
 
 function scheduleRepair() {
-  if (!state.authorized || !state.environment) return;
+  if (!state.environment) return;
   if (scheduleRepair.timer) return;
   scheduleRepair.timer = window.setTimeout(() => {
     scheduleRepair.timer = null;
@@ -2040,10 +2075,8 @@ function clearAllFloatingItems() {
 }
 
 function updateClearAllVisibility() {
-  const items = document.querySelectorAll(".qts-floating-item");
-  const hasItems = items.length > 0;
-  const notesPinned = (state.workspace?.preferences?.pinnedTools || []).includes("notes");
-  state.shadowRoot?.getElementById("clearAllButton")?.classList.toggle("isHidden", !hasItems || !notesPinned);
+  const hasItems = document.querySelectorAll(".qts-floating-item").length > 0;
+  state.shadowRoot?.getElementById("clearAllButton")?.classList.toggle("isHidden", !hasItems);
 }
 
 // ---------------------------------------------------------------------------
@@ -5258,6 +5291,7 @@ function handleContextAction(action) {
       showQaToast("Contador anexado ao campo. Clique no botão Remover do indicador para excluí-lo.");
       return;
     }
+    if (!requirePlanFeature("characterCounter")) return;
     openCharacterCounter(String(target?.innerText || target?.textContent || "").trim());
     return;
   }
@@ -5280,10 +5314,12 @@ function handleContextAction(action) {
     return;
   }
   if (action === "check-limits") {
+    if (!requirePlanFeature("inputLab")) return;
     openInputLab(resolveFormControlTarget(target));
   }
   if (action === "multi-click") {
     if (!target) { showQaToast("Nenhum elemento selecionado.", "error"); return; }
+    if (!requirePlanFeature("multiClick")) return;
     openMultiClick(target);
   }
   if (action === "toggle-blur") {
@@ -6216,8 +6252,10 @@ async function refreshAuthorization(force = false) {
   const access = await requestAccessState(force);
   state.authorized = access.active === true;
   state.features = isPlainObject(access.features) ? access.features : {};
-  if (!state.authorized) removeToolbar({ disableBridge: true });
-  else syncToolbarForCurrentLocation();
+  // Unauthorized no longer tears the bar down: syncToolbarForCurrentLocation still mounts it
+  // (in its stripped "logged out" mode, see render()) whenever the URL matches a configured
+  // environment, so a session expiring mid-use doesn't silently make the toolbar vanish.
+  syncToolbarForCurrentLocation();
   return state.authorized;
 }
 
@@ -6236,7 +6274,10 @@ async function boot() {
   state.t = await window.QTS_I18N.load();
   state.workspace = await getWorkspace();
   state.httpErrors = loadHttpErrorsFromSession();
-  if (!await refreshAuthorization(true)) return;
+  // Runs regardless of the result now: an unauthorized session still needs the location/storage
+  // listeners below wired up, so the stripped "logged out" bar (see render()) keeps tracking
+  // SPA navigation and reacts the moment the user signs back in via options.js.
+  const authorizedAtBoot = await refreshAuthorization(true);
 
   onStorageChanged(async (changes) => {
     if (!changes[STORAGE_KEYS.workspace]) return;
@@ -6257,8 +6298,10 @@ async function boot() {
   // edge function independently every 5 minutes — with several tabs open that multiplier alone
   // blew through access-status' rate limit (enforceRateLimit in access-status/index.ts).
   state.accessInterval = window.setInterval(() => { void refreshAuthorization(false); }, 5 * 60_000);
-  const pendingRun = await macroRunRequest("get");
-  if (pendingRun?.ok && pendingRun.run) void continueMacroRun(pendingRun.run, { announce: true });
+  if (authorizedAtBoot) {
+    const pendingRun = await macroRunRequest("get");
+    if (pendingRun?.ok && pendingRun.run) void continueMacroRun(pendingRun.run, { announce: true });
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {

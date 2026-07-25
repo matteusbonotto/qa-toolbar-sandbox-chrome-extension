@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { DEFAULT_ENABLED_TOOLS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
+import { DEFAULT_ENABLED_TOOLS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
 
 assert.deepEqual(normalizeUrlPatterns("https://example.com"), ["https://example.com/*"]);
 assert.deepEqual(normalizeUrlPatterns("example.com\nhttps://example.com/app"), ["*://example.com/*", "https://example.com/app*"]);
@@ -297,5 +297,22 @@ const tampered = normalizeWorkspace({
 });
 assert.equal(tampered.clients.find((client) => client.id === DEMO_CLIENT_ID)?.name, "Toolbar");
 assert.equal(tampered.clients.find((client) => client.id === DEMO_CLIENT_ID)?.locked, true);
+
+// The reported gap: locking Cliente/Projeto/Produto alone wasn't enough -- importing a config
+// that had no idea about the QA environment or its URL binding left the locked Produto=STAGE
+// pointing at nothing, so the toolbar never actually mounted on the demo site. Both must survive
+// an import exactly like the three entities above.
+const importDroppedEnvAndBinding = normalizeWorkspace({
+  clients: [{ id: DEMO_CLIENT_ID, name: "Toolbar" }],
+  projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Sandbox" }],
+  products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE" }],
+  preferences: { demoWorkspaceSeeded: true },
+});
+const demoEnv = importDroppedEnvAndBinding.environments.find((environment) => environment.id === DEMO_ENVIRONMENT_ID);
+assert.equal(demoEnv?.name, "QA", "the QA environment is re-created if an import dropped it");
+const demoBinding = importDroppedEnvAndBinding.urlBindings.find((binding) => binding.id === DEMO_URL_BINDING_ID);
+assert.deepEqual(demoBinding?.patterns, [DEMO_SITE_URL_PATTERN], "the demo site URL binding is re-created if an import dropped it");
+assert.equal(demoBinding?.productId, DEMO_PRODUCT_ID);
+assert.deepEqual(demoBinding?.environmentIds, [DEMO_ENVIRONMENT_ID]);
 
 console.log("Extension workspace normalization tests passed.");
