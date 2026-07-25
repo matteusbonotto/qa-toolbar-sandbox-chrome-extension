@@ -4136,7 +4136,7 @@ function handleKeyViewKeydown(event) {
   if (isKeyViewOwnSurface(event)) return;
   const sensitive = isSensitiveTypingTarget(event.target);
   const labels = shortcutLabels(event);
-  const isShortcut = event.ctrlKey || event.altKey || event.metaKey || event.key.length > 1;
+  const isShortcut = event.ctrlKey || event.altKey || event.metaKey || event.key.length > 1 || event.key === " ";
   if (isShortcut && labels.length) showKeyViewShortcut(labels);
   if (!getKeyViewPreferences().typingMode || sensitive || editableTypingTarget(event.target)) return;
   if (event.ctrlKey || event.altKey || event.metaKey) return;

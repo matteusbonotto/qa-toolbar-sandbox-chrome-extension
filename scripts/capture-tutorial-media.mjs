@@ -69,6 +69,14 @@ async function openToolByMenu(page, menuItemId) {
   await page.locator(`#${menuItemId}`).click();
 }
 
+// The sandbox site (apps/landing/public/sandbox) shows one category "page" at a time behind a
+// left sidebar nav -- only Text Box is visible by default, so any capture that touches the
+// Practice Form fields (contactName/contactEmail/contactDepartment/contactSubmit) needs this
+// first or those locators are hidden and every action below times out.
+async function showSandboxPage(page, pageId) {
+  await page.locator(`[data-page-link="${pageId}"]`).click();
+}
+
 async function closeDrawer(page) {
   await page.locator("#drawerClose").click().catch(() => {});
 }
@@ -213,6 +221,7 @@ try {
   });
 
   await captureTool("passFail", async (page) => {
+    await showSandboxPage(page, "practice-form");
     await page.locator("#passButton").click();
     await page.locator("#contactName-label").click({ force: true });
     // Reveal the marker's own controls (resize/hide/remove/drag) so the clip shows what's
@@ -258,6 +267,7 @@ try {
   });
 
   await captureTool("blurElements", async (page) => {
+    await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "blurElementsMenuItem");
     await page.locator("#blurSelectElement").click();
     await page.locator("#contactName").click();
@@ -295,6 +305,7 @@ try {
   });
 
   await captureTool("clickSpy", async (page) => {
+    await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "clickSpyMenuItem");
     await page.locator("#contactName").hover();
   });
@@ -336,6 +347,7 @@ try {
   });
 
   await captureTool("multiClick", async (page) => {
+    await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "multiClickMenuItem");
     await page.locator("#multiSelect").click();
     await page.locator("#contactSubmit").click();
@@ -345,6 +357,7 @@ try {
   });
 
   await captureTool("inputLab", async (page) => {
+    await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "inputLabMenuItem");
     await page.locator("#contactDepartment").click();
     await page.locator("#contactName").click();
@@ -358,6 +371,7 @@ try {
   });
 
   await captureTool("macroStudio", async (page) => {
+    await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "macroStudioMenuItem");
     await page.locator("#startMacroRecording").click();
     await page.locator("#contactName").click();
@@ -369,6 +383,7 @@ try {
   });
 
   await captureTool("stepsRecorder", async (page) => {
+    await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "stepsRecorderMenuItem");
     await page.locator("#newStepsName").fill("Validar cadastro de usuário");
     await page.locator("#newStepsMode").selectOption("gherkin");

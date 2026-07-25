@@ -10,84 +10,394 @@
 </head>
 <body>
   <header id="siteHeader">
+    <button class="icon-btn" type="button" id="navToggle" aria-label="Abrir/fechar menu" title="Abrir/fechar menu">☰</button>
     <img src="../qa-toolbar-sandbox-logo.png" alt="QA Toolbar Sandbox" />
     <div class="titles">
       <h1>QA Toolbar Sandbox</h1>
-      <p>Ambiente de testes — feito para o tour e o tutorial da extensão</p>
+      <p>Ambiente de testes — dezenas de elementos de UI para praticar seletores, XPath e automação</p>
     </div>
     <span class="badge">Sandbox</span>
   </header>
 
-  <main>
-    <section class="card" id="usersSection">
-      <div class="toolbar-row">
-        <div>
-          <h2>Tabela de usuários</h2>
-          <p class="lead">Cadastre, edite e remova registros — útil pra testar seletores, XPath e fluxos de CRUD.</p>
-        </div>
-        <button class="btn" type="button" id="addUserBtn">+ Novo registro</button>
-      </div>
-      <table class="data-table" id="usersTable">
-        <thead>
-          <tr>
-            <th>Nome</th><th>Sobrenome</th><th>E-mail</th><th>Idade</th><th>Departamento</th><th>Ações</th>
-          </tr>
-        </thead>
-        <tbody id="usersBody"></tbody>
-      </table>
-      <p id="usersEmpty" hidden>Nenhum registro cadastrado ainda.</p>
-      <div class="alert success" id="usersSuccess" role="status" aria-live="polite" hidden></div>
-      <div class="alert error" id="usersError" role="alert" aria-live="assertive" hidden></div>
-    </section>
+  <div id="appShell">
+    <nav id="sideNav" aria-label="Categorias de elementos"></nav>
 
-    <section class="card" id="formSection">
-      <h2>Formulário de contato</h2>
-      <p class="lead">Vários tipos de campo num só lugar — texto, senha, área de texto, seleção, data, arquivo, checkbox e rádio.</p>
-      <form id="contactForm" novalidate>
-        <div class="field-grid">
-          <label class="field" id="contactName-label">Nome completo<input id="contactName" name="name" type="text" maxlength="80" required /></label>
-          <label class="field">E-mail<input id="contactEmail" name="email" type="email" required /></label>
-          <label class="field">Senha<input id="contactPassword" name="password" type="password" minlength="6" /></label>
-          <label class="field">Telefone<input id="contactPhone" name="phone" type="tel" placeholder="(11) 90000-0000" /></label>
-          <label class="field">Data de nascimento<input id="contactBirthdate" name="birthdate" type="date" /></label>
-          <label class="field">Faixa de satisfação<input id="contactRange" name="satisfaction" type="range" min="0" max="10" value="5" /></label>
-          <label class="field">Departamento<select id="contactDepartment" name="department">
-            <option value="">Selecione</option>
-            <option value="qa">QA</option>
-            <option value="dev">Desenvolvimento</option>
-            <option value="product">Produto</option>
-            <option value="design">Design</option>
-          </select></label>
-          <label class="field">Anexo<input id="contactFile" name="file" type="file" /></label>
+    <main id="pageHost">
+
+      <!-- ======================= ELEMENTS ======================= -->
+
+      <section class="card page" data-page="text-box" id="page-text-box">
+        <h2>Text Box</h2>
+        <p class="lead">Campos de texto simples — preencha e envie para ver a saída.</p>
+        <form id="textBoxForm" novalidate>
+          <div class="field-grid">
+            <label class="field">Nome completo<input id="userName" name="userName" data-testid="userName" type="text" required /></label>
+            <label class="field">E-mail<input id="userEmail" name="userEmail" data-testid="userEmail" type="email" required /></label>
+            <label class="field">Endereço atual<textarea id="currentAddress" name="currentAddress" data-testid="currentAddress" rows="3"></textarea></label>
+            <label class="field">Endereço permanente<textarea id="permanentAddress" name="permanentAddress" data-testid="permanentAddress" rows="3"></textarea></label>
+          </div>
+          <div class="toolbar-row" style="margin-top:16px">
+            <button class="btn" type="submit" id="submitTextBox">Enviar</button>
+          </div>
+        </form>
+        <div class="output-panel" id="textBoxOutput" hidden role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card page" data-page="check-box" id="page-check-box">
+        <h2>Check Box</h2>
+        <p class="lead">Árvore de checkboxes com seleção em cascata (pai marca todos os filhos).</p>
+        <div class="toolbar-row">
+          <button class="btn ghost small" type="button" id="checkExpandAll">Expandir tudo</button>
+          <button class="btn ghost small" type="button" id="checkCollapseAll">Recolher tudo</button>
         </div>
-        <label class="field" style="margin-top:14px">Mensagem<textarea id="contactMessage" name="message" rows="4" maxlength="500"></textarea></label>
-        <div class="radio-group" style="margin-top:14px">
-          <span style="font-size:12px;color:var(--text-muted);font-weight:600">Contato preferido:</span>
-          <label class="field radio"><input type="radio" name="preferredContact" value="email" checked /> E-mail</label>
-          <label class="field radio"><input type="radio" name="preferredContact" value="phone" /> Telefone</label>
+        <ul class="tree" id="checkTree" role="tree"></ul>
+        <div class="output-panel" id="checkBoxOutput" hidden role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card page" data-page="radio-button" id="page-radio-button">
+        <h2>Radio Button</h2>
+        <p class="lead">Um grupo de rádio com uma opção desabilitada.</p>
+        <div class="radio-group" id="radioGroup" role="radiogroup" aria-label="Você gosta da QA Toolbar Sandbox?">
+          <label class="field radio"><input type="radio" name="radioAnswer" id="radioYes" data-testid="radioYes" value="Sim" /> Sim</label>
+          <label class="field radio"><input type="radio" name="radioAnswer" id="radioImpressive" data-testid="radioImpressive" value="Impressionante" /> Impressionante</label>
+          <label class="field radio"><input type="radio" name="radioAnswer" id="radioNo" data-testid="radioNo" value="Não" disabled /> Não (desabilitado)</label>
         </div>
-        <label class="field checkbox" style="margin-top:10px"><input type="checkbox" id="contactConsent" required /> Concordo em receber contato</label>
+        <div class="output-panel" id="radioOutput" hidden role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card page" data-page="web-tables" id="page-web-tables">
+        <div class="toolbar-row">
+          <div>
+            <h2>Web Tables</h2>
+            <p class="lead">CRUD completo com busca — cadastre, edite, filtre e remova registros.</p>
+          </div>
+          <button class="btn" type="button" id="addUserBtn">+ Novo registro</button>
+        </div>
+        <input class="search-input" type="search" id="usersSearch" data-testid="usersSearch" placeholder="Buscar por nome, e-mail ou departamento..." />
+        <table class="data-table" id="usersTable">
+          <thead>
+            <tr>
+              <th>Nome</th><th>Sobrenome</th><th>E-mail</th><th>Idade</th><th>Departamento</th><th>Ações</th>
+            </tr>
+          </thead>
+          <tbody id="usersBody"></tbody>
+        </table>
+        <p id="usersEmpty" hidden>Nenhum registro encontrado.</p>
+        <div class="alert success" id="usersSuccess" role="status" aria-live="polite" hidden></div>
+        <div class="alert error" id="usersError" role="alert" aria-live="assertive" hidden></div>
+      </section>
+
+      <section class="card page" data-page="buttons" id="page-buttons">
+        <h2>Buttons</h2>
+        <p class="lead">Clique simples, duplo clique e clique com o botão direito.</p>
+        <div class="toolbar-row">
+          <button class="btn" type="button" id="clickMeBtn" data-testid="clickMeBtn">Click Me</button>
+          <button class="btn ghost" type="button" id="doubleClickBtn" data-testid="doubleClickBtn">Double Click Me</button>
+          <button class="btn ghost" type="button" id="rightClickBtn" data-testid="rightClickBtn">Right Click Me</button>
+        </div>
+        <div class="output-panel" id="buttonsOutput" hidden role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card page" data-page="links" id="page-links">
+        <h2>Links</h2>
+        <p class="lead">Links simples e chamadas simuladas de API com diferentes status HTTP (úteis pro Error Monitor e Force HTTP).</p>
+        <div class="link-row">
+          <a href="#text-box" id="homeLink" data-testid="homeLink">Home</a>
+          <a href="#" id="dynamicLink" data-testid="dynamicLink">Link dinâmico</a>
+        </div>
         <div class="toolbar-row" style="margin-top:16px">
-          <button class="btn" type="submit" id="contactSubmit">Enviar formulário</button>
-          <button class="btn ghost" type="reset" id="contactReset">Limpar</button>
+          <button class="btn ghost small" type="button" data-api-link="created">Created (201)</button>
+          <button class="btn ghost small" type="button" data-api-link="no-content">No Content (204)</button>
+          <button class="btn ghost small" type="button" data-api-link="moved">Moved (301)</button>
+          <button class="btn ghost small" type="button" data-api-link="bad-request">Bad Request (400)</button>
+          <button class="btn ghost small" type="button" data-api-link="unauthorized">Unauthorized (401)</button>
+          <button class="btn ghost small" type="button" data-api-link="forbidden">Forbidden (403)</button>
+          <button class="btn ghost small" type="button" data-api-link="not-found">Not Found (404)</button>
+          <button class="btn ghost small" type="button" data-api-link="server-error">Server Error (500)</button>
         </div>
-      </form>
-      <div class="alert success" id="formSuccess" role="status" aria-live="polite" hidden></div>
-      <div class="alert error" id="formError" role="alert" aria-live="assertive" hidden></div>
-    </section>
+        <div class="output-panel" id="linksOutput" hidden role="status" aria-live="polite"></div>
+      </section>
 
-    <section class="card" id="actionsSection">
-      <h2>Ações e alertas</h2>
-      <p class="lead">Dispare mensagens de sucesso, erro e falhas de rede/console sob demanda — ótimo pra testar Error Monitor, Freeze Clock e Force HTTP.</p>
-      <div class="toolbar-row">
-        <button class="btn" type="button" id="triggerSuccess">Simular sucesso</button>
-        <button class="btn danger" type="button" id="triggerError">Simular erro</button>
-        <button class="btn ghost" type="button" id="triggerConsoleError">Gerar erro no console</button>
-        <button class="btn ghost" type="button" id="triggerNetworkError">Simular falha de rede</button>
-        <button class="btn ghost" type="button" id="triggerModal">Abrir modal de confirmação</button>
-      </div>
-    </section>
-  </main>
+      <section class="card page" data-page="broken-links-images" id="page-broken-links-images">
+        <h2>Broken Links - Images</h2>
+        <p class="lead">Uma imagem e um link válidos, e uma imagem e um link quebrados — de propósito.</p>
+        <div class="image-row">
+          <figure><img src="../qa-toolbar-sandbox-logo.png" alt="Imagem válida" id="validImage" data-testid="validImage" width="120" height="120" /><figcaption>Imagem válida</figcaption></figure>
+          <figure><img src="./nao-existe.png" alt="Imagem quebrada" id="brokenImage" data-testid="brokenImage" width="120" height="120" /><figcaption>Imagem quebrada</figcaption></figure>
+        </div>
+        <div class="toolbar-row" style="margin-top:16px">
+          <a href="index.html" id="validLink" data-testid="validLink">Link válido</a>
+          <a href="./pagina-que-nao-existe.html" id="brokenLink" data-testid="brokenLink">Link quebrado</a>
+        </div>
+      </section>
+
+      <section class="card page" data-page="upload-download" id="page-upload-download">
+        <h2>Upload and Download</h2>
+        <p class="lead">Envie um arquivo local ou baixe um arquivo de teste gerado na hora.</p>
+        <div class="field-grid">
+          <label class="field">Selecionar arquivo<input type="file" id="uploadInput" data-testid="uploadInput" /></label>
+        </div>
+        <p class="output-inline" id="uploadPath"></p>
+        <div class="toolbar-row" style="margin-top:16px">
+          <button class="btn" type="button" id="downloadBtn" data-testid="downloadBtn">Baixar arquivo de teste (.txt)</button>
+        </div>
+      </section>
+
+      <section class="card page" data-page="dynamic-properties" id="page-dynamic-properties">
+        <h2>Dynamic Properties</h2>
+        <p class="lead">Elementos que mudam de estado sozinhos — ótimo pra testar esperas explícitas.</p>
+        <div class="toolbar-row">
+          <button class="btn" type="button" id="enableAfterBtn" data-testid="enableAfterBtn" disabled>Habilita em 5s</button>
+          <button class="btn" type="button" id="colorChangeBtn" data-testid="colorChangeBtn">Cor muda em 5s</button>
+        </div>
+        <p id="visibleAfterText" data-testid="visibleAfterText" style="margin-top:16px;visibility:hidden">Este texto ficou visível depois de 5 segundos.</p>
+      </section>
+
+      <!-- ======================= FORMS ======================= -->
+
+      <section class="card page" data-page="practice-form" id="page-practice-form">
+        <h2>Practice Form</h2>
+        <p class="lead">Vários tipos de campo num só lugar — texto, senha, seleção, data, arquivo, checkbox e rádio.</p>
+        <form id="contactForm" novalidate>
+          <div class="field-grid">
+            <label class="field" id="contactName-label">Nome completo<input id="contactName" name="name" data-testid="contactName" type="text" maxlength="80" required /></label>
+            <label class="field">E-mail<input id="contactEmail" name="email" data-testid="contactEmail" type="email" required /></label>
+            <label class="field">Celular (10 dígitos)<input id="contactPhone" name="phone" data-testid="contactPhone" type="tel" pattern="[0-9]{10}" placeholder="11900000000" /></label>
+            <label class="field">Data de nascimento<input id="contactBirthdate" name="birthdate" data-testid="contactBirthdate" type="date" /></label>
+            <label class="field">Matérias<input id="contactSubjects" name="subjects" data-testid="contactSubjects" type="text" list="subjectsList" placeholder="Digite e pressione vírgula" /><datalist id="subjectsList"><option value="Matemática"/><option value="Física"/><option value="Química"/><option value="QA"/><option value="Inglês"/></datalist></label>
+            <label class="field">Departamento<select id="contactDepartment" name="department" data-testid="contactDepartment">
+              <option value="">Selecione</option>
+              <option value="qa">QA</option>
+              <option value="dev">Desenvolvimento</option>
+              <option value="product">Produto</option>
+              <option value="design">Design</option>
+            </select></label>
+            <label class="field">Estado<select id="contactState" name="state" data-testid="contactState">
+              <option value="">Selecione</option>
+              <option value="SP">São Paulo</option>
+              <option value="RJ">Rio de Janeiro</option>
+              <option value="MG">Minas Gerais</option>
+            </select></label>
+            <label class="field">Cidade<select id="contactCity" name="city" data-testid="contactCity" disabled>
+              <option value="">Selecione o estado primeiro</option>
+            </select></label>
+            <label class="field">Senha<input id="contactPassword" name="password" data-testid="contactPassword" type="password" minlength="6" /></label>
+            <label class="field">Foto<input id="contactPicture" name="picture" data-testid="contactPicture" type="file" accept="image/*" /></label>
+          </div>
+          <div class="radio-group" style="margin-top:14px">
+            <span class="inline-label">Gênero:</span>
+            <label class="field radio"><input type="radio" name="gender" value="Masculino" checked /> Masculino</label>
+            <label class="field radio"><input type="radio" name="gender" value="Feminino" /> Feminino</label>
+            <label class="field radio"><input type="radio" name="gender" value="Outro" /> Outro</label>
+          </div>
+          <div class="checkbox-group" style="margin-top:10px">
+            <span class="inline-label">Hobbies:</span>
+            <label class="field checkbox"><input type="checkbox" name="hobbies" value="Esportes" /> Esportes</label>
+            <label class="field checkbox"><input type="checkbox" name="hobbies" value="Leitura" /> Leitura</label>
+            <label class="field checkbox"><input type="checkbox" name="hobbies" value="Música" /> Música</label>
+          </div>
+          <label class="field checkbox" style="margin-top:10px"><input type="checkbox" id="contactConsent" required /> Concordo em receber contato</label>
+          <div class="toolbar-row" style="margin-top:16px">
+            <button class="btn" type="submit" id="contactSubmit">Enviar formulário</button>
+            <button class="btn ghost" type="reset" id="contactReset">Limpar</button>
+          </div>
+        </form>
+        <div class="alert success" id="formSuccess" role="status" aria-live="polite" hidden></div>
+        <div class="alert error" id="formError" role="alert" aria-live="assertive" hidden></div>
+      </section>
+
+      <!-- ======================= ALERTS, FRAME & WINDOWS ======================= -->
+
+      <section class="card page" data-page="browser-windows" id="page-browser-windows">
+        <h2>Browser Windows</h2>
+        <p class="lead">Abrir uma nova aba ou uma nova janela.</p>
+        <div class="toolbar-row">
+          <button class="btn" type="button" id="newTabBtn" data-testid="newTabBtn">Nova aba</button>
+          <button class="btn ghost" type="button" id="newWindowBtn" data-testid="newWindowBtn">Nova janela</button>
+        </div>
+      </section>
+
+      <section class="card page" data-page="alerts" id="page-alerts">
+        <h2>Alerts</h2>
+        <p class="lead">Alertas nativos do navegador — simples, com tempo, de confirmação e de prompt.</p>
+        <div class="toolbar-row">
+          <button class="btn" type="button" id="alertBtn" data-testid="alertBtn">Alerta simples</button>
+          <button class="btn ghost" type="button" id="timerAlertBtn" data-testid="timerAlertBtn">Alerta em 5s</button>
+          <button class="btn ghost" type="button" id="confirmBtn" data-testid="confirmBtn">Alerta de confirmação</button>
+          <button class="btn ghost" type="button" id="promptBtn" data-testid="promptBtn">Alerta com prompt</button>
+        </div>
+        <div class="output-panel" id="alertsOutput" hidden role="status" aria-live="polite"></div>
+      </section>
+
+      <section class="card page" data-page="frames" id="page-frames">
+        <h2>Frames</h2>
+        <p class="lead">Um iframe simples embutido na página.</p>
+        <iframe id="frame1" data-testid="frame1" title="Frame de exemplo" srcdoc="<body style='font-family:sans-serif;background:#12141f;color:#f4f5f9;padding:16px'><h3 id='frameHeading'>Conteúdo dentro do iframe</h3><p>Este texto vive num documento separado.</p></body>" width="100%" height="160"></iframe>
+      </section>
+
+      <section class="card page" data-page="nested-frames" id="page-nested-frames">
+        <h2>Nested Frames</h2>
+        <p class="lead">Um iframe contendo outro iframe.</p>
+        <iframe id="parentFrame" data-testid="parentFrame" title="Frame pai" width="100%" height="200" srcdoc="<body style='font-family:sans-serif;background:#0d0f18;color:#f4f5f9;padding:12px'><p id='parentText'>Frame pai</p><iframe id='childFrame' title='Frame filho' width='100%' height='90' srcdoc=&quot;&lt;body style='font-family:sans-serif;background:%2312141f;color:%23f4f5f9;padding:10px'&gt;&lt;p id='childText'&gt;Frame filho&lt;/p&gt;&lt;/body&gt;&quot;&gt;&lt;/iframe&gt;&lt;/body&gt;"></iframe>
+      </section>
+
+      <section class="card page" data-page="modal-dialogs" id="page-modal-dialogs">
+        <h2>Modal Dialogs</h2>
+        <p class="lead">Modais pequeno e grande, com foco preso dentro deles.</p>
+        <div class="toolbar-row">
+          <button class="btn" type="button" id="smallModalBtn" data-testid="smallModalBtn">Abrir modal pequeno</button>
+          <button class="btn ghost" type="button" id="largeModalBtn" data-testid="largeModalBtn">Abrir modal grande</button>
+        </div>
+      </section>
+
+      <!-- ======================= WIDGETS ======================= -->
+
+      <section class="card page" data-page="accordion" id="page-accordion">
+        <h2>Accordion</h2>
+        <p class="lead">Três seções que abrem uma de cada vez.</p>
+        <div class="accordion" id="accordion"></div>
+      </section>
+
+      <section class="card page" data-page="auto-complete" id="page-auto-complete">
+        <h2>Auto Complete</h2>
+        <p class="lead">Selecione múltiplas cores com sugestão de autocompletar.</p>
+        <label class="field">Cores<input id="autoCompleteInput" data-testid="autoCompleteInput" type="text" list="colorSuggestions" placeholder="Digite uma cor e Enter" /><datalist id="colorSuggestions"><option value="Vermelho"/><option value="Verde"/><option value="Azul"/><option value="Amarelo"/><option value="Roxo"/><option value="Laranja"/></datalist></label>
+        <div class="tag-list" id="colorTags"></div>
+      </section>
+
+      <section class="card page" data-page="date-picker" id="page-date-picker">
+        <h2>Date Picker</h2>
+        <p class="lead">Seleção de data e de data com hora.</p>
+        <div class="field-grid">
+          <label class="field">Data<input id="datePicker" data-testid="datePicker" type="date" /></label>
+          <label class="field">Data e hora<input id="dateTimePicker" data-testid="dateTimePicker" type="datetime-local" /></label>
+        </div>
+      </section>
+
+      <section class="card page" data-page="slider" id="page-slider">
+        <h2>Slider</h2>
+        <p class="lead">Controle deslizante com valor exibido em tempo real.</p>
+        <label class="field">Satisfação<input id="sliderInput" data-testid="sliderInput" type="range" min="0" max="100" value="50" /></label>
+        <p class="output-inline" id="sliderValue">50</p>
+      </section>
+
+      <section class="card page" data-page="progress-bar" id="page-progress-bar">
+        <h2>Progress Bar</h2>
+        <p class="lead">Inicie, pare ou reinicie uma barra de progresso.</p>
+        <progress id="progressBar" data-testid="progressBar" max="100" value="0"></progress>
+        <div class="toolbar-row" style="margin-top:16px">
+          <button class="btn" type="button" id="progressStart" data-testid="progressStart">Iniciar</button>
+          <button class="btn ghost" type="button" id="progressStop" data-testid="progressStop">Parar</button>
+          <button class="btn ghost" type="button" id="progressReset" data-testid="progressReset">Reiniciar</button>
+        </div>
+      </section>
+
+      <section class="card page" data-page="tabs" id="page-tabs">
+        <h2>Tabs</h2>
+        <div class="tabs" role="tablist">
+          <button class="tab-btn isActive" type="button" role="tab" data-tab="what" id="tabWhat">O que é</button>
+          <button class="tab-btn" type="button" role="tab" data-tab="origin" id="tabOrigin">Origem</button>
+          <button class="tab-btn" type="button" role="tab" data-tab="use" id="tabUse">Uso</button>
+        </div>
+        <div class="tab-panel" data-tab-panel="what" role="tabpanel">Um sandbox de elementos de UI feito pra praticar automação de testes, sem depender de sites de terceiros.</div>
+        <div class="tab-panel" data-tab-panel="origin" role="tabpanel" hidden>Criado junto com a extensão QA Toolbar Sandbox, especificamente pro tour e o tutorial guiado.</div>
+        <div class="tab-panel" data-tab-panel="use" role="tabpanel" hidden>Use à vontade pra testar seletores, XPath, capturas de elemento e fluxos de automação.</div>
+      </section>
+
+      <section class="card page" data-page="tool-tips" id="page-tool-tips">
+        <h2>Tool Tips</h2>
+        <p class="lead">Passe o mouse pra ver a dica em um botão, um campo e um link.</p>
+        <div class="toolbar-row">
+          <button class="btn tooltip-target" type="button" id="tooltipButton" data-tooltip="Isto é uma dica de botão">Passe o mouse aqui</button>
+          <input class="tooltip-target" id="tooltipField" data-tooltip="Isto é uma dica de campo" placeholder="Campo com dica" />
+          <a class="tooltip-target" href="#tool-tips" id="tooltipLink" data-tooltip="Isto é uma dica de link">Link com dica</a>
+        </div>
+      </section>
+
+      <section class="card page" data-page="menu" id="page-menu">
+        <h2>Menu</h2>
+        <p class="lead">Menu com submenu aninhado, aberto ao passar o mouse.</p>
+        <ul class="nested-menu" id="nestedMenu">
+          <li>Item 1</li>
+          <li>Item 2
+            <ul>
+              <li>Sub item 2.1</li>
+              <li>Sub item 2.2
+                <ul>
+                  <li>Sub sub item 2.2.1</li>
+                  <li>Sub sub item 2.2.2</li>
+                </ul>
+              </li>
+            </ul>
+          </li>
+          <li>Item 3</li>
+        </ul>
+      </section>
+
+      <section class="card page" data-page="select-menu" id="page-select-menu">
+        <h2>Select Menu</h2>
+        <div class="field-grid">
+          <label class="field">Seleção simples<select id="selectSingle" data-testid="selectSingle"><option value="">Selecione</option><option>Um</option><option>Dois</option><option>Três</option></select></label>
+          <label class="field">Seleção múltipla (antiga)<select id="selectMultiple" data-testid="selectMultiple" multiple size="4"><option>Verde</option><option>Azul</option><option>Amarelo</option><option>Vermelho</option></select></label>
+        </div>
+      </section>
+
+      <!-- ======================= INTERACTIONS ======================= -->
+
+      <section class="card page" data-page="sortable" id="page-sortable">
+        <h2>Sortable</h2>
+        <p class="lead">Arraste os itens pra reordenar a lista.</p>
+        <ul class="sortable-list" id="sortableList"></ul>
+      </section>
+
+      <section class="card page" data-page="selectable" id="page-selectable">
+        <h2>Selectable</h2>
+        <p class="lead">Clique nos itens pra selecionar (ctrl/cmd+clique seleciona vários).</p>
+        <ul class="selectable-list" id="selectableList"></ul>
+      </section>
+
+      <section class="card page" data-page="resizable" id="page-resizable">
+        <h2>Resizable</h2>
+        <div class="resizable-row">
+          <div class="resizable-box" id="resizableBox" data-testid="resizableBox">Redimensionável (com limite)<span class="resize-grip" data-resize-target="resizableBox"></span></div>
+          <div class="resizable-box unlocked" id="resizableBoxFree" data-testid="resizableBoxFree">Redimensionável (livre)<span class="resize-grip" data-resize-target="resizableBoxFree"></span></div>
+        </div>
+      </section>
+
+      <section class="card page" data-page="droppable" id="page-droppable">
+        <h2>Droppable</h2>
+        <div class="dnd-row">
+          <div class="drag-box" id="dragBox" data-testid="dragBox" draggable="true">Arraste-me</div>
+          <div class="drop-box" id="dropBox" data-testid="dropBox">Solte aqui</div>
+        </div>
+      </section>
+
+      <section class="card page" data-page="draggable" id="page-draggable">
+        <h2>Draggable</h2>
+        <div class="drag-field" id="dragFieldFree">
+          <div class="free-drag-box" id="freeDragBox" data-testid="freeDragBox">Arraste livremente</div>
+        </div>
+        <div class="drag-field axis-x" id="dragFieldAxis">
+          <div class="free-drag-box" id="axisDragBox" data-testid="axisDragBox">Só eixo X</div>
+        </div>
+      </section>
+
+      <!-- ======================= QA UTILITIES ======================= -->
+
+      <section class="card page" data-page="eventos-e-erros" id="page-eventos-e-erros">
+        <h2>Eventos, alertas e erros</h2>
+        <p class="lead">Dispare mensagens de sucesso, erro e falhas de rede/console sob demanda — ótimo pra testar Error Monitor, Freeze Clock e Force HTTP.</p>
+        <div class="toolbar-row">
+          <button class="btn" type="button" id="triggerSuccess">Simular sucesso</button>
+          <button class="btn danger" type="button" id="triggerError">Simular erro</button>
+          <button class="btn ghost" type="button" id="triggerConsoleError">Gerar erro no console</button>
+          <button class="btn ghost" type="button" id="triggerNetworkError">Simular falha de rede</button>
+          <button class="btn ghost" type="button" id="triggerModal">Abrir modal de confirmação</button>
+        </div>
+      </section>
+
+    </main>
+  </div>
 
   <footer>QA Toolbar Sandbox — página de demonstração própria, sem dependência de sites de terceiros.</footer>
 
@@ -121,6 +431,23 @@
         <button type="button" class="btn ghost" id="confirmCancel">Cancelar</button>
         <button type="submit" class="btn" id="confirmOk" value="ok">Confirmar</button>
       </div>
+    </form>
+  </dialog>
+
+  <dialog id="smallModal">
+    <form method="dialog" style="padding:22px;display:grid;gap:14px">
+      <h3 style="margin:0" id="smallModalTitle">Modal pequeno</h3>
+      <p style="margin:0;color:var(--text-muted);font-size:13px">Este é um modal pequeno, com foco preso dentro dele.</p>
+      <div class="dialog-actions"><button type="submit" class="btn" id="smallModalClose">Fechar</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="largeModal" class="large">
+    <form method="dialog" style="padding:26px;display:grid;gap:14px">
+      <h3 style="margin:0" id="largeModalTitle">Modal grande</h3>
+      <p style="margin:0;color:var(--text-muted);font-size:13px">Este modal é maior, útil pra testar rolagem interna e layouts responsivos dentro de diálogos.</p>
+      <p style="margin:0;color:var(--text-muted);font-size:13px">Texto de preenchimento pra simular conteúdo extenso dentro do modal grande, forçando a barra de rolagem a aparecer quando necessário.</p>
+      <div class="dialog-actions"><button type="submit" class="btn" id="largeModalClose">Fechar</button></div>
     </form>
   </dialog>
 
