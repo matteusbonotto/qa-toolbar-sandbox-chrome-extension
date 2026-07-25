@@ -12,8 +12,9 @@
 // Not part of CI -- run manually with `npm run tutorial:capture` and review the media before
 // committing. Each tool capture is wrapped so one failure doesn't abort the whole batch; failures
 // are reported at the end so they're easy to re-run individually later.
-import { mkdir, rm } from "node:fs/promises";
-import { resolve } from "node:path";
+import { mkdir, readFile, rm, stat } from "node:fs/promises";
+import { extname, resolve } from "node:path";
+import { createServer } from "node:http";
 import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
@@ -21,7 +22,8 @@ const extensionPath = resolve(root, "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-tutorial-capture-profile");
 const videoTmpPath = resolve(root, "artifacts/tutorial-video-tmp");
 const assetsPath = resolve(root, "apps/extension/src/options/tutorial-assets");
-const DEMO_URL = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/index.html";
+const sandboxRoot = resolve(root, "apps/landing/public");
+const DEMO_URL = "http://127.0.0.1:43118/sandbox/index.html";
 const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
 const trace = (label) => console.log(`[tutorial-capture] ${label}`);
 await rm(profilePath, { recursive: true, force: true });
@@ -29,8 +31,29 @@ await rm(videoTmpPath, { recursive: true, force: true });
 await mkdir(assetsPath, { recursive: true });
 await mkdir(videoTmpPath, { recursive: true });
 
+const mimeTypes = { ".html": "text/html; charset=utf-8", ".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8", ".json": "application/json; charset=utf-8", ".png": "image/png", ".svg": "image/svg+xml" };
+const sandboxServer = createServer(async (request, response) => {
+  try {
+    const pathname = decodeURIComponent(new URL(request.url || "/", DEMO_URL).pathname);
+    const filePath = resolve(sandboxRoot, `.${pathname}`);
+    if (!filePath.startsWith(sandboxRoot)) throw new Error("invalid_path");
+    const info = await stat(filePath);
+    const resolvedFile = info.isDirectory() ? resolve(filePath, "index.html") : filePath;
+    response.writeHead(200, { "content-type": mimeTypes[extname(resolvedFile)] || "application/octet-stream", "cache-control": "no-store, max-age=0" });
+    response.end(await readFile(resolvedFile));
+  } catch {
+    response.writeHead(404, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
+    response.end("Not found");
+  }
+});
+await new Promise((resolveReady) => sandboxServer.listen(43118, "127.0.0.1", resolveReady));
+
 const context = await chromium.launchPersistentContext(profilePath, {
   headless: false,
+  // Business rule: tutorial recordings must remain readable without rushing through the UI.
+  // Playwright's slowMo applies this pause to every click, fill, select, key and mouse action,
+  // including future capture steps added to this file.
+  slowMo: 3_000,
   args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, "--window-position=20,20", "--window-size=1440,960", "--no-first-run"],
   viewport: { width: 1440, height: 960 },
   recordVideo: { dir: videoTmpPath, size: { width: 1440, height: 960 } },
@@ -136,7 +159,7 @@ try {
   await options.locator("#environmentColor").fill("#5b21b6");
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-tab="urls"]').click();
-  for (const pattern of ["https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*"]) {
+  for (const pattern of ["http://127.0.0.1:43118/sandbox/*"]) {
     await options.locator('[data-open-composer="urlRelationComposer"]').click();
     await options.locator("#urlRelationProduct").selectOption({ label: "Produto Demo" });
     await options.locator("#urlPatternInput").fill(pattern);
@@ -261,7 +284,7 @@ try {
     await page.mouse.up();
     await page.locator(".qts-line [data-visibility-toggle]").click();
     await page.locator(".qts-line .qts-edit-btn").click();
-    await page.locator("[data-line-end]").selectOption("arrow");
+    await page.locator('[name="line-end"][value="arrow"]').check({ force: true });
     await page.locator(".qts-line .qts-shape-editor [data-save]").click();
     await page.waitForTimeout(600);
   });
@@ -430,5 +453,6 @@ try {
   else trace("done -- review the media in apps/extension/src/options/tutorial-assets/ before committing");
 } finally {
   await context.close();
+  await new Promise((resolveClosed) => sandboxServer.close(resolveClosed));
   await rm(videoTmpPath, { recursive: true, force: true });
 }
