@@ -525,6 +525,38 @@ try {
   const ppPos1 = await host.locator("#qts-pixelperfect-overlay").evaluate((el) => [el.style.getPropertyValue("--qts-pp-x"), el.style.getPropertyValue("--qts-pp-y")]);
   if (ppPos1[0] !== "300px" || ppPos1[1] !== "260px") throw new Error(`Pixel Perfect crosshair did not track the mouse position: ${ppPos1}`);
   if (await host.locator(".qts-pp-measure-line:not(.isHidden)").count()) throw new Error("Pixel Perfect showed a measurement line before any anchor was set");
+
+  // "Somente horizontal"/"somente vertical" must actually hide the other line -- broken
+  // previously because a plain element.style.display always lost to this file's blanket
+  // `all: revert !important` reset (see toolbar.css's .isHidden rule next to .qts-pp-line-h/-v).
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click(); // already active -> toggles off
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click(); // now inactive -> opens the drawer
+  await host.locator("#pixelPerfectMode").selectOption("horizontal");
+  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerClose").click();
+  await host.mouse.move(320, 280);
+  if (!(await host.locator(".qts-pp-line-h").isVisible())) throw new Error("Pixel Perfect horizontal-only mode did not show the horizontal line");
+  if (await host.locator(".qts-pp-line-v:not(.isHidden)").count()) throw new Error("Pixel Perfect horizontal-only mode still showed the vertical line");
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  await host.locator("#pixelPerfectMode").selectOption("vertical");
+  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerClose").click();
+  await host.mouse.move(320, 280);
+  if (!(await host.locator(".qts-pp-line-v").isVisible())) throw new Error("Pixel Perfect vertical-only mode did not show the vertical line");
+  if (await host.locator(".qts-pp-line-h:not(.isHidden)").count()) throw new Error("Pixel Perfect vertical-only mode still showed the horizontal line");
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#pixelPerfectMenuItem").click();
+  await host.locator("#pixelPerfectMode").selectOption("cross");
+  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerClose").click();
+  trace("pixel perfect horizontal/vertical-only guide line modes verified");
   await host.mouse.click(300, 260);
   await host.mouse.move(500, 400, { steps: 8 });
   await host.locator(".qts-pp-measure-line:not(.isHidden)").waitFor({ timeout: 2_000 });

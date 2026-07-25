@@ -332,6 +332,13 @@ body.qts-placement-mode, body.qts-placement-mode * {
   position: fixed !important; top: 0 !important; bottom: 0 !important; left: var(--qts-pp-x, -100px) !important;
   width: var(--qts-pp-thickness, 1px) !important; background: var(--qts-pp-color, #ffd700) !important;
 }
+/* Same class of bug as the measure-line/bounds-box comment below: a plain `element.style.display`
+   set from JS always loses to the `all: revert !important` reset above (any stylesheet
+   !important beats a non-important inline style, full stop), so "somente horizontal"/"somente
+   vertical" mode silently never actually hid the other line -- both always rendered as if mode
+   were "cross". A toggled class with its own !important (two classes' worth of specificity, more
+   than the reset rule's one) is the only way JS can win here. */
+.qts-pp-line-h.isHidden, .qts-pp-line-v.isHidden { display: none !important; }
 .qts-pp-coords {
   position: fixed !important; left: calc(var(--qts-pp-x, 0px) + 12px) !important; top: calc(var(--qts-pp-y, 0px) + 10px) !important;
   padding: 3px 7px !important; border-radius: 6px !important; background: #0b0b0b !important; color: var(--qts-pp-color, #ffd700) !important;

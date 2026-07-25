@@ -23,11 +23,23 @@ export function PrivacyPolicyPage() {
           ))}
         </div>
 
-        <h2>{t.privacy.dataTitle}</h2>
-        <p className="qts-section-lead">{t.privacy.dataBody}</p>
+        <h2>{t.privacy.collectionTitle}</h2>
+        <p className="qts-section-lead">{t.privacy.collectionBody}</p>
 
-        <h2>{t.privacy.accountTitle}</h2>
-        <p className="qts-section-lead">{t.privacy.accountBody}</p>
+        <h2>{t.privacy.processingTitle}</h2>
+        <p className="qts-section-lead">{t.privacy.processingBody}</p>
+
+        <h2>{t.privacy.storageTitle}</h2>
+        <p className="qts-section-lead">{t.privacy.storageBody}</p>
+
+        <h2>{t.privacy.sharingTitle}</h2>
+        <p className="qts-section-lead">{t.privacy.sharingBody}</p>
+
+        <h2>{t.privacy.retentionTitle}</h2>
+        <p className="qts-section-lead">{t.privacy.retentionBody}</p>
+
+        <h2>{t.privacy.rightsTitle}</h2>
+        <p className="qts-section-lead">{t.privacy.rightsBody}</p>
 
         <h2>{t.privacy.contactTitle}</h2>
         <p className="qts-section-lead">{t.privacy.contactBody}</p>
