@@ -63,3 +63,29 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - `npm run test:chrome`: aprovado com autenticação via
   `options.html?tab=account#login`, `consoleErrors: 0` e `workerErrors: 0`.
 - Nenhum deploy, publicação, alteração de Stripe ou Supabase produtivo foi executado.
+
+## Auditoria de automação em 2026-07-25
+
+- Foi encontrado um falso positivo: o smoke confirmava que o login abria o site demonstrativo,
+  mas fechava a aba sem conferir a presença da toolbar. Agora `#qts-toolbar-host` é obrigatório e
+  a falha inclui registros dinâmicos, bindings, scope e acesso.
+- A suíte agora começa removendo perfis Chrome, extensão `[TESTE]` gerada, evidências e builds web.
+  O smoke imprime o caminho e a fingerprint SHA-256 do código realmente carregado.
+- O pacote `[TESTE]` com o mesmo ID fixo visto no ambiente manual
+  (`dppfhjpccijidcpbmmcdlbhoknkdjoll`) foi reconstruído e passou o smoke, incluindo toolbar no
+  GitHub Pages e zero erros de console/worker.
+- A limpeza detectou `artifacts/chrome-test-profile/first_party_sets.db` bloqueado por uma instância
+  Chrome manual ainda aberta. Esse é o mecanismo concreto que permitia reutilização do perfil
+  anterior. `test:all:clean` e `dev:extension:test` agora encadeiam a limpeza com `&&` e falham antes
+  de testar se o perfil não puder ser removido.
+- `smoke:lp-admin` reconstrói LP/Admin e valida preços, simulador, modal de conta e artefato Admin.
+- Defeito de cobertura: Landing e Admin executam Vitest com `passWithNoTests`; não existem testes
+  unitários encontrados nessas workspaces.
+- Defeito de cobertura: o smoke visual do Admin valida somente o gate/login inicial. O fluxo live
+  completo existe em `smoke-live-admin.mjs`, mas exige backend isolado e credenciais de serviço e
+  não deve usar produção para fabricar aprovação.
+- Defeito técnico: os bundles de LP (~592 kB) e Admin (~502 kB) ultrapassam o limite de aviso de
+  500 kB do Vite; avaliar code splitting sem esconder o alerta.
+- Regra permanente adicionada em `AGENTS.md`: afirmações do usuário/fundador têm precedência como
+  regras de negócio; PRs devem atualizar testes, tutorial, tour, FAQ, i18n, prints, vídeos, versão,
+  release notes e superfícies afetadas.

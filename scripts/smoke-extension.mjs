@@ -1,12 +1,21 @@
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
-const extensionPath = resolve(root, "apps/extension");
+const extensionPathArgument = process.argv.find((argument) => argument.startsWith("--extension-path="))?.slice("--extension-path=".length);
+const extensionPath = resolve(root, extensionPathArgument || "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-smoke-profile");
 const evidencePath = resolve(root, "artifacts/runtime-evidence");
+const sourceFingerprint = createHash("sha256")
+  .update(await readFile(resolve(extensionPath, "manifest.json")))
+  .update(await readFile(resolve(extensionPath, "src/background/background.js")))
+  .update(await readFile(resolve(extensionPath, "src/toolbar/toolbar.js")))
+  .digest("hex");
+console.log(`[chrome-smoke] source fingerprint ${sourceFingerprint}`);
+console.log(`[chrome-smoke] extension path ${extensionPath}`);
 let lastTrace = "startup";
 let smokeWatchdog;
 const armSmokeWatchdog = () => {
@@ -144,6 +153,24 @@ try {
     });
   }
   if (firstAccessTourTabs.length !== 1) throw new Error(`First successful login should open exactly one demo-site tour tab, found ${firstAccessTourTabs.length}`);
+  try {
+    await firstAccessTourTabs[0].locator("#qts-toolbar-host").waitFor({ state: "attached", timeout: 15_000 });
+  } catch (error) {
+    const diagnostics = await worker.evaluate(async () => {
+      const [registered, stored] = await Promise.all([
+        chrome.scripting.getRegisteredContentScripts(),
+        chrome.storage.local.get(["qtsWorkspaceV1", "qtsSiteScopeV1", "qtsAccessStatusV1"]),
+      ]);
+      return {
+        registered: registered.map(({ id, matches }) => ({ id, matches })),
+        bindings: stored.qtsWorkspaceV1?.urlBindings,
+        scope: stored.qtsSiteScopeV1,
+        access: stored.qtsAccessStatusV1,
+      };
+    }).catch((diagnosticError) => ({ diagnosticError: String(diagnosticError) }));
+    throw new Error(`Demo site opened after login without the toolbar. URL=${firstAccessTourTabs[0].url()} diagnostics=${JSON.stringify(diagnostics)} worker=${workerErrors.join(" | ") || "none"}`, { cause: error });
+  }
+  trace("first-login demo toolbar injection verified");
   await firstAccessTourTabs[0].close();
   trace("first-login onboarding opens exactly one tour tab");
   // The onboarding assertion above intentionally seeds the demo workspace. Reset only this
