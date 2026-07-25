@@ -116,8 +116,19 @@ try {
     try { return ["matteusbonotto.github.io"].includes(new URL(page.url()).hostname); } catch { return false; }
   });
   if (installDemoTabs.length !== 1) throw new Error(`Fresh install should open exactly one demo-site tab, found ${installDemoTabs.length}`);
+  const installDemo = installDemoTabs[0];
+  await installDemo.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  if (!(await installDemo.locator("#bar.isLoggedOut").count())) throw new Error("Fresh-install toolbar did not render its logged-out state");
+  if (!(await installDemo.locator("#loggedOutLoginButton").count())) throw new Error("Fresh-install toolbar has no login action");
+  if (await installDemo.locator("#toolsButton:visible").count()) throw new Error("Protected Tools action remained visible while logged out");
+  const optionsOpened = context.waitForEvent("page", (page) => page.url().startsWith(`chrome-extension://${extensionId}/src/options/options.html`));
+  await installDemo.locator("#loggedOutLoginButton").click();
+  const options = await optionsOpened;
+  await options.waitForLoadState("domcontentloaded");
+  if (new URL(options.url()).searchParams.get("tab") !== "account") throw new Error(`Logged-out login action did not target Minha conta: ${options.url()}`);
+  if (!(await options.locator('.panel[data-panel="account"].isActive').count())) throw new Error("Minha conta panel was not active after clicking Entrar");
   await installDemoTabs[0].close();
-  trace("fresh-install onboarding opens exactly one demo-site tab");
+  trace("fresh-install logged-out toolbar and Minha conta login handoff verified");
 
   const host = await context.newPage();
   const hostErrors = [];
@@ -127,7 +138,6 @@ try {
   await host.waitForTimeout(500);
   if (await host.locator("#qts-toolbar-host").count()) throw new Error("Toolbar mounted without authentication");
 
-  const options = await context.newPage();
   const optionsErrors = [];
   options.on("console", (message) => { if (message.type() === "error") optionsErrors.push(message.text()); });
   options.on("pageerror", (error) => optionsErrors.push(error.message));

@@ -793,10 +793,8 @@ function buildShadowHost() {
   shadow.getElementById("settingsButton").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "qts:open-options" });
   });
-  // options.js already redirects to the "Minha conta" tab on its own whenever access isn't
-  // active (see switchTab fallback there), so this doesn't need to pass a tab param.
   shadow.getElementById("loggedOutLoginButton").addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "qts:open-options" });
+    chrome.runtime.sendMessage({ type: "qts:open-options", tab: "account" });
   });
   // Delegated on #left (stable across renders) rather than #clientLabel/#breadcrumb directly,
   // since render() replaces those two elements' innerHTML every time — a listener attached

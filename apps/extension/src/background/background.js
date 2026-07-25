@@ -173,6 +173,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // the earlier dependency on a third-party site (demoqa.com) for onboarding and tutorial captures.
 const TUTORIAL_DEMO_URL = `${DEMO_SITE_URL_PATTERN.replace(/\*$/, "index.html")}?qtsTutorial=1`;
 
+async function ensureDemoWorkspace() {
+  const workspace = await getWorkspace();
+  if (workspace.clients.length) return workspace;
+  return saveWorkspace({
+    clients: [{ id: DEMO_CLIENT_ID, name: "Toolbar", locked: true }],
+    projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Sandbox", locked: true }],
+    products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE", locked: true }],
+    environments: [{ id: DEMO_ENVIRONMENT_ID, name: "QA", color: "#5b21b6", locked: true }],
+    urlBindings: [{ id: DEMO_URL_BINDING_ID, productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], patterns: [DEMO_SITE_URL_PATTERN], locked: true }],
+    preferences: { demoWorkspaceSeeded: true },
+  });
+}
+
 // Seeds a starter workspace (client/project/product/environment/URL pointing at the public demo
 // site used for tutorial captures) so the toolbar has something real to mount on, then opens that
 // demo page in a new tab for the live tour in toolbar.js to take over. Never overwrites a
@@ -182,20 +195,7 @@ const TUTORIAL_DEMO_URL = `${DEMO_SITE_URL_PATTERN.replace(/\*$/, "index.html")}
 // preferences.demoWorkspaceSeeded so normalizeWorkspace (storage.js) locks them permanently --
 // see the comment there for why all four have to survive together, not just the first three.
 async function seedDemoWorkspaceAndOpenTour(stepKey, reuseTabId) {
-  const workspace = await getWorkspace();
-  if (!workspace.clients.length) {
-    await saveWorkspace({
-      clients: [{ id: DEMO_CLIENT_ID, name: "Toolbar", locked: true }],
-      projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Sandbox", locked: true }],
-      products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE", locked: true }],
-      environments: [{ id: DEMO_ENVIRONMENT_ID, name: "QA", color: "#5b21b6", locked: true }],
-      urlBindings: [{ id: DEMO_URL_BINDING_ID, productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], patterns: [DEMO_SITE_URL_PATTERN], locked: true }],
-      preferences: { demoWorkspaceSeeded: true },
-    });
-    // saveWorkspace triggers the central onStorageChanged registration path below. Starting a
-    // second registration here races that listener and can fail with a duplicate script ID before
-    // the tour tab is opened.
-  }
+  await ensureDemoWorkspace();
   // "Tentar" (options.js Tutorial panel / video dialog) passes the specific step so the tour jumps
   // straight there instead of starting from the first one -- toolbar.js reads it back off the URL.
   const url = stepKey ? `${TUTORIAL_DEMO_URL}&qtsTutorialStep=${encodeURIComponent(stepKey)}` : TUTORIAL_DEMO_URL;
@@ -225,13 +225,12 @@ async function startPendingFirstAccessTour() {
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
-  void applyContentScriptRegistration({ forceAccess: true });
   setupContextMenus();
   if (details.reason === "install") {
     // Open the public tutorial target immediately, even before authentication. Once a session is
     // handed off by the landing page (or the user signs in through options), the one-shot flag
     // below seeds the demo workspace and opens the authenticated live tour.
-    void chrome.tabs.create({ url: TUTORIAL_DEMO_URL }).then(async (installTab) => {
+    void ensureDemoWorkspace().then(() => applyContentScriptRegistration({ forceAccess: true })).then(() => chrome.tabs.create({ url: TUTORIAL_DEMO_URL })).then(async (installTab) => {
       const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
       const uiState = current[STORAGE_KEYS.uiState] || {};
       await chrome.storage.local.set({
@@ -250,7 +249,10 @@ chrome.runtime.onInstalled.addListener((details) => {
         await startPendingFirstAccessTour();
       }
     });
-  } else if (details.reason === "update") {
+  } else {
+    void applyContentScriptRegistration({ forceAccess: true });
+  }
+  if (details.reason === "update") {
     // Chrome Web Store updates the package automatically. Persist a one-shot release note so
     // every previously installed workspace learns what changed without losing any local data.
     // Existing page contexts keep their old content script until navigation/reload (Chrome's
