@@ -332,6 +332,42 @@ try {
   await options.locator('[data-theme-choice="dark"]').click();
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
   trace("toolbar menu/drawer light/dark contrast verified");
+
+  // 24 color-theme presets (12 families x light/dark): picking one writes CSS custom properties on
+  // <html> (not the shadow host) so both the shadow-DOM toolbar/drawers/toasts and the light-DOM
+  // Key View/mouse overlays -- which live directly in document.body -- read the same tokens.
+  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 24) throw new Error("Color theme grid does not expose all 24 presets");
+  await options.locator('[data-color-theme="blue-dark"]').click();
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
+  await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
+  await host.locator("#toolsButton").click();
+  await host.locator("#inputLabMenuItem").click();
+  await host.locator(".qts-drawer").waitFor();
+  const drawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
+  if (drawerCloseBg !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the drawer close button: ${drawerCloseBg}`);
+  await host.locator("#drawerClose").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#keyViewMenuItem").click();
+  await host.locator("#keyViewToggle").click();
+  await host.locator("#drawerClose").click();
+  await host.locator("main").dispatchEvent("mousedown", { button: 0, clientX: 300, clientY: 300 });
+  const mouseFill = await host.locator("#qts-mouse-view-overlay .qts-mouse-left").evaluate((node) => getComputedStyle(node).fill);
+  if (mouseFill !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the Key View mouse overlay: ${mouseFill}`);
+  await host.locator("main").dispatchEvent("mouseup", { button: 0, clientX: 300, clientY: 300 });
+  await host.locator("#toolsButton").click();
+  await host.locator("#keyViewMenuItem").click();
+  await host.locator("#keyViewToggle").click();
+  await host.locator("#drawerClose").click();
+  if (await options.locator('[data-color-theme="blue-dark"]').getAttribute("aria-checked") !== "true") throw new Error("Selected color theme swatch did not stay marked as checked");
+  await options.locator("#colorThemeReset").click();
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "");
+  await host.locator("#toolsButton").click();
+  await host.locator("#inputLabMenuItem").click();
+  await host.locator(".qts-drawer").waitFor();
+  const resetDrawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
+  if (resetDrawerCloseBg !== "rgb(178, 8, 8)") throw new Error(`Color theme reset did not restore the default drawer close color: ${resetDrawerCloseBg}`);
+  await host.locator("#drawerClose").click();
+  trace("24 color theme presets verified (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
   await host.locator("#toolsButton").click();
   await host.locator("#statusMenuItem").click();

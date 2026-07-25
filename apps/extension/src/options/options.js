@@ -362,7 +362,44 @@ function loadPreferenceUi() {
   document.querySelectorAll("[data-breadcrumb]").forEach((checkbox) => { checkbox.checked = breadcrumbVisibility[checkbox.dataset.breadcrumb] !== false; });
   breadcrumbOrderDraft = normalizeBreadcrumbOrderDraft(preferences.breadcrumbOrder);
   renderBreadcrumbOrderList();
+  renderColorThemeGrid(preferences.colorTheme || null);
 }
+
+const COLOR_FAMILY_LABEL_SOURCE = { white: "Branco", black: "Preto", gray: "Cinza", red: "Vermelho", gold: "Dourado", blue: "Azul", cyan: "Ciano", pink: "Rosa", green: "Verde", orange: "Laranja", beige: "Bege", brown: "Marrom" };
+const COLOR_MODE_LABEL_SOURCE = { light: "Claro", dark: "Escuro" };
+
+// The picker's own visual state (border highlight) is driven straight off `preferences.colorTheme`
+// here, separate from applyColorTheme() in toolbar.js which reads the same field to set the live
+// page tokens -- options.js and the injected content script never share JS state, only storage.
+function renderColorThemeGrid(selectedId) {
+  const grid = document.getElementById("colorThemeGrid");
+  if (!grid) return;
+  grid.innerHTML = window.QTS_THEME_PRESETS.presets.map((preset) => {
+    const label = `${t(COLOR_FAMILY_LABEL_SOURCE[preset.family])} · ${t(COLOR_MODE_LABEL_SOURCE[preset.mode])}`;
+    const selected = preset.id === selectedId;
+    return `<button type="button" class="colorThemeSwatch${selected ? " isSelected" : ""}" role="radio" aria-checked="${selected}" data-color-theme="${preset.id}" data-color-theme-mode="${preset.mode}"><span class="colorThemeDot" style="background:${preset.primary}"></span>${label}</button>`;
+  }).join("");
+}
+
+document.getElementById("colorThemeGrid")?.addEventListener("click", async (event) => {
+  const button = event.target.closest("[data-color-theme]");
+  if (!button || !workspace) return;
+  const colorTheme = button.dataset.colorTheme;
+  const mode = button.dataset.colorThemeMode;
+  applyAppearanceTheme(mode);
+  workspace.preferences = { ...(workspace.preferences || {}), colorTheme, appearanceTheme: mode };
+  await saveWorkspace(workspace);
+  renderColorThemeGrid(colorTheme);
+  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+});
+
+document.getElementById("colorThemeReset")?.addEventListener("click", async () => {
+  if (!workspace) return;
+  workspace.preferences = { ...(workspace.preferences || {}), colorTheme: null };
+  await saveWorkspace(workspace);
+  renderColorThemeGrid(null);
+  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+});
 
 const PINNED_TOOLS_LIMIT = 4;
 document.querySelectorAll("[data-pinned]").forEach((checkbox) => checkbox.addEventListener("change", () => {

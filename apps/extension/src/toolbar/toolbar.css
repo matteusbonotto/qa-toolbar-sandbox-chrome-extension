@@ -547,7 +547,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
 }
 .qts-key-view-typing button {
   all: initial; padding: 7px 10px !important; border: 1px solid rgba(255,255,255,.28) !important; border-radius: 8px !important;
-  background: #b20808 !important; color: #fff !important; font: 800 11px/1 sans-serif !important; cursor: pointer !important;
+  background: var(--qts-ui-primary, #b20808) !important; color: var(--qts-ui-primary-contrast, #fff) !important; font: 800 11px/1 sans-serif !important; cursor: pointer !important;
 }
 #qts-key-view-overlay[data-theme="light"] .qts-key-view-typing { border-color: #cacaca !important; background: rgba(255,255,255,.96) !important; color: #111 !important; box-shadow: 0 12px 30px rgba(0,0,0,.25), inset 0 1px #fff !important; }
 
@@ -568,8 +568,8 @@ body.qts-placement-mode, body.qts-placement-mode * {
 #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-body, #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-left, #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-right { fill: #fff !important; stroke: #111 !important; }
 #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-divider { stroke: #111 !important; }
 #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-wheel { fill: #111 !important; }
-#qts-mouse-view-overlay[data-action="left"] .qts-mouse-left, #qts-mouse-view-overlay[data-action="right"] .qts-mouse-right { fill: #ef3340 !important; }
-#qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: #ffd700 !important; }
+#qts-mouse-view-overlay[data-action="left"] .qts-mouse-left, #qts-mouse-view-overlay[data-action="right"] .qts-mouse-right { fill: var(--qts-ui-highlight, #ef3340) !important; }
+#qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: var(--qts-ui-secondary, #ffd700) !important; }
 #qts-mouse-view-overlay[data-action="scroll-up"] .qts-mouse-arrow-up, #qts-mouse-view-overlay[data-action="scroll-down"] .qts-mouse-arrow-down { display: block !important; }
 
 /* Floating editors live outside the toolbar Shadow DOM so they can be dragged over the page.

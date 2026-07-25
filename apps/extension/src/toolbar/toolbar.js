@@ -13,6 +13,27 @@ const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
 const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
 
+// Preset data (24 = 12 color families x light/dark) lives in lib/theme-presets-content.js, shared
+// with options.js so both surfaces read the exact same source instead of two data sets drifting.
+const THEME_PRESETS = window.QTS_THEME_PRESETS.presets;
+const COLOR_THEME_SEMANTICS = window.QTS_THEME_PRESETS.semantics;
+
+// Sets the chosen preset's tokens on <html> (not the shadow host) so both the shadow-DOM toolbar/
+// drawers/toasts AND the light-DOM overlays that live directly in the page (Key View, mouse view --
+// see ensureKeyViewOverlay/ensureMouseViewOverlay, which append to document.body, not shadowRoot) can
+// both read the same custom properties through normal inheritance. Custom properties aren't reset by
+// the shadow host's `all: initial` (only the `all` shorthand's non-custom longhands are), so this one
+// :root write reaches every consumer. No preset selected -> remove the properties and let each CSS
+// rule's own `var(--qts-ui-primary, #b20808)`-style fallback reproduce today's exact default look.
+function applyColorTheme() {
+  const preset = THEME_PRESETS.find((item) => item.id === state.workspace?.preferences?.colorTheme);
+  const root = document.documentElement.style;
+  const semantics = COLOR_THEME_SEMANTICS[preset?.mode || "dark"];
+  const tokens = preset ? { "--qts-ui-primary": preset.primary, "--qts-ui-primary-contrast": preset.primaryContrast, "--qts-ui-highlight": preset.primary, ...semantics } : null;
+  const keys = ["--qts-ui-primary", "--qts-ui-primary-contrast", "--qts-ui-highlight", "--qts-ui-secondary", "--qts-ui-success", "--qts-ui-warning", "--qts-ui-danger", "--qts-ui-info"];
+  for (const key of keys) { if (tokens?.[key]) root.setProperty(key, tokens[key]); else root.removeProperty(key); }
+}
+
 const state = {
   workspace: null,
   environment: null,
@@ -399,6 +420,7 @@ function applyPinnedTools() {
 function render() {
   const host = document.getElementById(HOST_ID);
   if (host) host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
+  applyColorTheme();
   const root = state.shadowRoot;
   if (!root) return;
 
@@ -527,7 +549,7 @@ function buildShadowHost() {
       }
       #toolsMenu button:hover { background: #232323; border-color: #ffd700; }
       #toolsMenu button.isActive { background: #ffd700 !important; color: #111 !important; }
-      .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; }
+      .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 9px; }
       #settingsButton { position: relative; }
       .qts-tutorial-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #42d5c2; box-shadow: 0 0 0 2px #171717; }
       #macroRecordingBar { position: relative; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 9px; background: #8f0909; border: 1px solid #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
@@ -542,7 +564,7 @@ function buildShadowHost() {
       .qts-mini-empty { padding: 8px; color: #999; font-size: 11px; text-align: center; }
       #notificationBellWrapper { position: relative; }
       #notificationBellButton { position: relative; }
-      .qts-bell-badge { position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: #b20808; color: #fff; font-size: 9px; font-weight: 800; display: none; align-items: center; justify-content: center; line-height: 1; }
+      .qts-bell-badge { position: absolute; top: -4px; right: -4px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 999px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 9px; font-weight: 800; display: none; align-items: center; justify-content: center; line-height: 1; }
       .qts-bell-badge.isVisible { display: flex; }
       #notificationBellPanel { position: absolute; top: 30px; right: 0; width: 300px; max-height: 320px; overflow: auto; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; color: #fff; }
       .qts-bell-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 2px 4px 6px; border-bottom: 1px solid #292929; margin-bottom: 2px; }
@@ -1340,9 +1362,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Sitio de práctica renovado: decenas de páginas de elementos, formularios e interacciones al estilo demoqa.com.", "Nuevo \"Ver elementos\": overlay en vivo con los selectores de cada elemento de la página.", "\"Copiar como cURL\" en las solicitudes capturadas por Inspectores/Monitor de errores.", "Corregido: el GIF de evidencia ya no sale corrupto.", "Corregido: los modos \"solo horizontal\"/\"solo vertical\" de Pixel Perfect ahora funcionan de verdad.", "Política de privacidad reescrita con el detalle que exige la Chrome Web Store."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Rebuilt practice site: dozens of element, form, and interaction pages, demoqa.com-style.", "New \"Ver elementos\": a live on-page overlay showing every element's selectors.", "\"Copy as cURL\" on requests captured by the Inspectors/Error Monitor.", "Fixed: the evidence GIF no longer comes out corrupted.", "Fixed: Pixel Perfect's \"horizontal only\"/\"vertical only\" guide-line modes actually work now.", "Rewritten Privacy Policy with the detail the Chrome Web Store requires."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Site de prática renovado: dezenas de páginas de elementos, formulários e interações, estilo demoqa.com.", "Novo \"Ver elementos\": overlay ao vivo com os seletores de cada elemento da página.", "\"Copiar como cURL\" nas requisições capturadas pelos Inspetores/Monitor de erros.", "Corrigido: o GIF de evidência não sai mais corrompido.", "Corrigido: os modos \"somente horizontal\"/\"somente vertical\" do Pixel Perfect agora funcionam de verdade.", "Política de privacidade reescrita com o detalhamento exigido pela Chrome Web Store."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Nuevo: 24 temas de color (12 claros/12 oscuros) para botones, paneles, toasts y Key View/mouse — en Configuración > Barra y apariencia.", "Sitio de práctica renovado: decenas de páginas de elementos, formularios e interacciones al estilo demoqa.com.", "Nuevo \"Ver elementos\": overlay en vivo con los selectores de cada elemento de la página.", "\"Copiar como cURL\" en las solicitudes capturadas por Inspectores/Monitor de errores.", "Corregido: la tecla Espacio ahora aparece en Key View.", "Corregido: el GIF de evidencia ya no sale corrupto.", "Corregido: los modos \"solo horizontal\"/\"solo vertical\" de Pixel Perfect ahora funcionan de verdad."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["New: 24 color themes (12 light/12 dark) for buttons, drawers, toasts, and Key View/mouse — under Settings > Bar & appearance.", "Rebuilt practice site: dozens of element, form, and interaction pages, demoqa.com-style.", "New \"Ver elementos\": a live on-page overlay showing every element's selectors.", "\"Copy as cURL\" on requests captured by the Inspectors/Error Monitor.", "Fixed: the Space key now shows up in Key View.", "Fixed: the evidence GIF no longer comes out corrupted.", "Fixed: Pixel Perfect's \"horizontal only\"/\"vertical only\" guide-line modes actually work now."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Novo: 24 temas de cor (12 claros/12 escuros) para botões, drawers, toasts e Key View/mouse — em Configurações > Barra e aparência.", "Site de prática renovado: dezenas de páginas de elementos, formulários e interações, estilo demoqa.com.", "Novo \"Ver elementos\": overlay ao vivo com os seletores de cada elemento da página.", "\"Copiar como cURL\" nas requisições capturadas pelos Inspetores/Monitor de erros.", "Corrigido: a tecla Espaço agora aparece no Key View.", "Corrigido: o GIF de evidência não sai mais corrompido.", "Corrigido: os modos \"somente horizontal\"/\"somente vertical\" do Pixel Perfect agora funcionam de verdade."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -2140,7 +2162,7 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid #b20808;
+      width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
     }
     /* Macro Studio's founder feedback: a right-edge sidebar felt cramped/ugly for something with
@@ -2153,7 +2175,7 @@ function drawerStyles() {
     }
     .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; flex: none; }
+    .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; flex: none; }
     .qts-drawer-head.hasBack h2 { flex: 1; text-align: center; }
     .qts-drawer-head #drawerBack { background: var(--qts-panel-surface-2,#171717); color: inherit; font-size: 15px; }
     .qts-drawer-body { flex: 1; overflow: auto; padding: 14px 16px; }
@@ -2161,7 +2183,7 @@ function drawerStyles() {
       width: 100%; padding: 8px 10px; border: 1px solid var(--qts-panel-border,#2c2c2c); border-radius: 8px; background: var(--qts-panel-2,#141414); color: var(--qts-panel-text,#fff); font: inherit;
     }
     .qts-drawer button.action { min-height: 40px; padding: 0 14px; border: 1px solid var(--qts-panel-border,#333); border-radius: 8px; background: var(--qts-panel-2,#1c1c1c); color: var(--qts-panel-text,#fff); cursor: pointer; font-weight: 800; }
-    .qts-drawer button.action.primary { background: #b20808; border-color: #b20808; }
+    .qts-drawer button.action.primary { background: var(--qts-ui-primary, #b20808); border-color: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-empty { padding: 24px; text-align: center; color: var(--qts-panel-muted); border: 1px dashed var(--qts-panel-border); border-radius: 10px; }
     .qts-net-item { padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--qts-panel-border); border-radius: 8px; background: var(--qts-panel-2); cursor: pointer; }
     .qts-net-item b { color: var(--qts-panel-accent); }
@@ -2179,7 +2201,7 @@ function drawerStyles() {
     .qts-filter-bar.isCollapsed { display: none; }
     .qts-toggle-group { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #262626; border-radius: 8px; background: #131313; }
     .qts-toggle-group button { height: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #ccc; font-size: 11px; font-weight: 700; cursor: pointer; }
-    .qts-toggle-group button.isSelected { background: #b20808; color: #fff; }
+    .qts-toggle-group button.isSelected { background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-combo { position: relative; border: 1px solid #262626; border-radius: 8px; background: #131313; }
     .qts-combo summary { list-style: none; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ddd; }
     .qts-combo summary::-webkit-details-marker { display: none; }
@@ -2197,7 +2219,7 @@ function drawerStyles() {
     /* Friendly (default) vs raw JSON detail view. */
     .qts-view-switch { display: inline-flex; margin-bottom: 10px; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
     .qts-view-switch button { height: 28px; padding: 0 12px; border: 0; background: #171717; color: #aaa; font-size: 11px; font-weight: 800; cursor: pointer; }
-    .qts-view-switch button.isSelected { background: #b20808; color: #fff; }
+    .qts-view-switch button.isSelected { background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-friendly-field { display: grid; grid-template-columns: minmax(120px,180px) 1fr; gap: 10px; padding: 6px 8px; border-bottom: 1px solid #1c1c1c; }
     .qts-friendly-field .qts-field-label { color: #ffd700; font-size: 10px; font-weight: 800; text-transform: uppercase; word-break: break-word; align-self: start; padding-top: 2px; }
     .qts-friendly-field .qts-field-value { word-break: break-word; display: flex; align-items: center; gap: 6px; }
@@ -2219,14 +2241,14 @@ function drawerStyles() {
     .qts-card-actions button.action { height: 28px; font-size: 11px; }
     .qts-tabs { display: inline-flex; gap: 4px; padding: 3px; margin-bottom: 12px; border: 1px solid #292929; border-radius: 9px; }
     .qts-tabs button { padding: 7px 12px; border: 0; border-radius: 7px; background: transparent; color: #aaa; cursor: pointer; font-weight: 800; }
-    .qts-tabs button.isSelected { background: #b20808; color: #fff; }
+    .qts-tabs button.isSelected { background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-macro-layout { display: grid; grid-template-columns: 180px minmax(0,1fr); gap: 12px; }
     .qts-palette { display: grid; align-content: start; gap: 6px; }
     .qts-palette button { padding: 9px; border: 1px dashed #444; border-radius: 8px; background: #171717; color: #fff; cursor: grab; text-align: left; }
     .qts-flow { min-height: 220px; padding: 9px; border: 1px dashed #444; border-radius: 10px; }
     .qts-step { position: relative; display: grid; grid-template-columns: 28px 115px minmax(0,1fr) 32px; gap: 7px; align-items: center; padding: 8px; margin-bottom: 16px; border: 1px solid #333; border-radius: 9px; background: #171717; }
     .qts-step:not(:last-child)::after { content: "↓"; position: absolute; left: 14px; bottom: -18px; color: #ffd700; }
-    .qts-step-index { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: #b20808; font-weight: 900; }
+    .qts-step-index { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-weight: 900; }
     .qts-code { min-height: 350px; padding: 14px; border: 1px solid #2c2c2c; border-radius: 10px; background: #080808; color: #9bffb0; font: 12px/1.55 ui-monospace, Consolas, monospace; white-space: pre; overflow: auto; }
     .qts-status { min-height: 18px; margin-top: 8px; color: #ffd700; overflow-wrap: anywhere; }
     .qts-faker-report { display:grid; gap:7px; margin-top:10px; max-height:45vh; overflow:auto; }
@@ -2248,7 +2270,7 @@ function drawerStyles() {
     .qts-field-label { display: grid; gap: 7px; margin: 12px 0; color: #ddd; font-weight: 750; }
     .qts-position-grid { width: 132px; display: grid; grid-template-columns: repeat(3, 40px); gap: 6px; }
     .qts-position-grid button { width: 40px; height: 36px; border: 1px solid #393939; border-radius: 8px; background: #171717; color: #aaa; cursor: pointer; font-size: 16px; }
-    .qts-position-grid button.isSelected { border-color: #ffd700; background: #b20808; color: #fff; box-shadow: 0 0 0 2px rgba(255,215,0,.18); }
+    .qts-position-grid button.isSelected { border-color: var(--qts-ui-secondary, #ffd700); background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); box-shadow: 0 0 0 2px rgba(255,215,0,.18); }
     .qts-key-view-size-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 10px; }
     .qts-key-view-preview { min-height: 82px; display: flex; align-items: center; justify-content: center; gap: 6px; margin: 12px 0; border: 1px dashed #3b3b3b; border-radius: 12px; background: #080808; color: #aaa; }
     .qts-key-view-preview .qts-keycap { flex: 0 0 auto; overflow: visible; }
@@ -2289,7 +2311,7 @@ function drawerStyles() {
     .qts-friendly-field, .qts-friendly-section, .qts-result-table th,
     .qts-result-table td, .qts-faker-report-row { border-color:var(--qts-panel-border); }
     .qts-toggle-group button.isSelected, .qts-view-switch button.isSelected,
-    .qts-tabs button.isSelected { background:#b20808; color:#fff; }
+    .qts-tabs button.isSelected { background:var(--qts-ui-primary, #b20808); color:var(--qts-ui-primary-contrast, #fff); }
     .qts-icon-btn, .qts-toggle-group, .qts-combo, .qts-combo-panel,
     .qts-view-switch, .qts-view-switch button, .qts-locate-btn,
     .qts-friendly-section > summary, .qts-palette button, .qts-position-grid button {
@@ -3724,7 +3746,7 @@ function breakpointStyles() {
     .qts-bp-zoom input[type="range"] { width: 90px; }
     #bpZoomLabel { min-width: 38px; text-align: center; color: var(--bp-muted); font-variant-numeric: tabular-nums; }
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
-    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
+    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
     .qts-bp-pane { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
     .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: var(--bp-control); border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.25); }
@@ -4292,7 +4314,8 @@ function showQaToast(message, tone = "info") {
   const light = state.workspace?.preferences?.appearanceTheme === "light";
   const toast = document.createElement("div");
   toast.textContent = translateQaSurfaceText(message);
-  toast.style.cssText = `pointer-events:auto;padding:10px 16px;border:1px solid ${tone === "error" ? (light ? "#c92331" : "#ff6767") : (light ? "#5b35e8" : "#ffd700")};border-radius:999px;background:${light ? "#fff" : "#0b0b0b"};color:${light ? "#171a24" : "#fff"};font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.28);opacity:0;transform:translateY(14px) scale(.92);transition:opacity 220ms ease,transform 260ms cubic-bezier(.34,1.56,.64,1)`;
+  const toastAccent = tone === "error" ? `var(--qts-ui-danger, ${light ? "#c92331" : "#ff6767"})` : `var(--qts-ui-primary, ${light ? "#5b35e8" : "#ffd700"})`;
+  toast.style.cssText = `pointer-events:auto;padding:10px 16px;border:1px solid ${toastAccent};border-radius:999px;background:${light ? "#fff" : "#0b0b0b"};color:${light ? "#171a24" : "#fff"};font:700 12px/1.35 sans-serif;box-shadow:0 12px 30px rgba(0,0,0,.28);opacity:0;transform:translateY(14px) scale(.92);transition:opacity 220ms ease,transform 260ms cubic-bezier(.34,1.56,.64,1)`;
   container.appendChild(toast);
   requestAnimationFrame(() => {
     toast.style.opacity = "1";
