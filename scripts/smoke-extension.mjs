@@ -340,7 +340,16 @@ try {
   await options.locator('[data-color-theme="blue-dark"]').click();
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
+  // The Settings page is the extension's own chrome.runtime page (not a content script), so it has
+  // its own separate --accent token that needs the same preset applied to it directly -- otherwise
+  // Settings keeps the fixed purple regardless of what the user picked (screenshotted as evidence
+  // since it's easy for this specific surface to silently drift back out of sync with the rest).
+  const optionsAccent = await options.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
+  if (optionsAccent !== "#3b82f6") throw new Error(`Settings page --accent did not follow the selected color theme: ${optionsAccent}`);
+  await options.screenshot({ path: resolve(evidencePath, "extension-theme-options-page.png"), fullPage: false });
   await host.locator("#toolsButton").click();
+  await host.locator("#toolsMenu.isOpen").waitFor();
+  await host.screenshot({ path: resolve(evidencePath, "extension-theme-tools-menu.png"), fullPage: false });
   await host.locator("#inputLabMenuItem").click();
   await host.locator(".qts-drawer").waitFor();
   const drawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
@@ -350,6 +359,11 @@ try {
   await host.locator("#keyViewMenuItem").click();
   await host.locator("#keyViewToggle").click();
   await host.locator("#drawerClose").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#toolsMenu.isOpen").waitFor();
+  if (!(await host.locator("#keyViewMenuItem.isActive").count())) throw new Error("Key View menu item did not show as active after enabling it");
+  await host.screenshot({ path: resolve(evidencePath, "extension-theme-tools-menu-active-item.png"), fullPage: false });
+  await host.locator("#toolsButton").click();
   await host.locator("main").dispatchEvent("mousedown", { button: 0, clientX: 300, clientY: 300 });
   const mouseFill = await host.locator("#qts-mouse-view-overlay .qts-mouse-left").evaluate((node) => getComputedStyle(node).fill);
   if (mouseFill !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the Key View mouse overlay: ${mouseFill}`);
@@ -393,6 +407,27 @@ try {
   if (await host.locator("#testStatusButton").isVisible()) throw new Error("Test Status should live in Tools, not in the four permanent shortcuts");
   if (await host.locator("#extraPinnedTools button").count()) throw new Error("Fresh workspace should allow zero optional fixed shortcuts");
   trace("required fixed shortcuts + zero optional state verified");
+
+  // Warning/Question join Pass/Fail as page markers, but Pass/Fail keep their own always-visible
+  // one-click buttons (a tested, deliberate product decision -- see the fixed-shortcuts check right
+  // above) instead of folding all four into one menu; Warning/Question live behind a small chevron
+  // next to them so the toolbar doesn't grow two more permanent icons for less-common statuses.
+  // Placed in the bottom-right corner, well clear of any field later tests interact with (a first
+  // draft placed these mid-page and left them there, silently blocking a later click on #qaEmail).
+  await host.locator("#markerMoreButton").click();
+  await host.locator('[data-marker-pick="warning"]').click();
+  await host.mouse.click(1320, 840);
+  const warningMarker = host.locator(".qts-marker-body.isWarning");
+  if (!(await warningMarker.isVisible())) throw new Error("Warning marker was not placed on click");
+  await host.locator("#markerMoreButton").click();
+  await host.locator('[data-marker-pick="question"]').click();
+  await host.mouse.click(1360, 840);
+  const questionMarker = host.locator(".qts-marker-body.isQuestion");
+  if (!(await questionMarker.isVisible())) throw new Error("Question marker was not placed on click");
+  const warningBg = await warningMarker.evaluate((node) => getComputedStyle(node).backgroundColor);
+  const questionBg = await questionMarker.evaluate((node) => getComputedStyle(node).backgroundColor);
+  if (warningBg === questionBg) throw new Error(`Warning and Question markers rendered with the same color: ${warningBg}`);
+  trace("warning/question markers verified (placed via the new chevron menu, distinct colors)");
 
   // Forma agora abre um menu de escolha (Retângulo/Quadrado/Círculo/Linha) em vez de desenhar
   // direto um retângulo — o tipo escolhido já é aplicado na criação, sem precisar reabrir o editor.
@@ -798,6 +833,29 @@ try {
   if (await host.locator("#qts-mouse-view-overlay").getAttribute("data-action") !== "right") throw new Error("Key View did not visualize the right mouse button");
   await host.locator("main").dispatchEvent("wheel", { deltaY: 120, clientX: 440, clientY: 340 });
   if (await host.locator("#qts-mouse-view-overlay").getAttribute("data-action") !== "scroll-down") throw new Error("Key View did not visualize scroll direction");
+
+  // Founder feedback: the mouse highlight used to fade on a fixed timer even while the button was
+  // still physically down, and rapid repeated clicks/keys looked identical to one long press --
+  // pressed state now tracks real mousedown/mouseup (and keydown/keyup), and a run of repeats shows
+  // a ×N badge that lingers 3s after the run stops, then fades and resets to zero.
+  await host.locator("main").dispatchEvent("mousedown", { button: 0, clientX: 420, clientY: 320 });
+  if (!(await host.locator("#qts-mouse-view-overlay.isPressed").count())) throw new Error("Mouse view did not show a real pressed state on mousedown");
+  await host.locator("main").dispatchEvent("mouseup", { button: 0, clientX: 420, clientY: 320 });
+  if (await host.locator("#qts-mouse-view-overlay.isPressed").count()) throw new Error("Mouse view stayed pressed after mouseup");
+  for (let i = 0; i < 2; i += 1) {
+    await host.locator("main").dispatchEvent("mousedown", { button: 0, clientX: 420, clientY: 320 });
+    await host.locator("main").dispatchEvent("mouseup", { button: 0, clientX: 420, clientY: 320 });
+  }
+  const mouseBadge = await host.locator("[data-mouse-count]").textContent();
+  if (mouseBadge !== "×3") throw new Error(`Mouse repeat badge did not show ×3 after three rapid left clicks: ${mouseBadge}`);
+  for (let i = 0; i < 3; i += 1) {
+    await host.locator("main").dispatchEvent("keydown", { key: "j", code: "KeyJ", bubbles: true, cancelable: true });
+    await host.locator("main").dispatchEvent("keyup", { key: "j", code: "KeyJ", bubbles: true, cancelable: true });
+  }
+  const keyBadge = await host.locator("[data-key-count]").textContent();
+  if (keyBadge !== "×3") throw new Error(`Key repeat badge did not show ×3 after three rapid "j" presses: ${keyBadge}`);
+  await host.waitForTimeout(3_600);
+  if (await host.locator("[data-mouse-count].isVisible").count()) throw new Error("Mouse repeat badge did not reset after the 3s linger");
   await host.locator("[data-key-view-clear]").click();
   if (await host.locator("#qts-key-view-overlay").count()) throw new Error("Key View typing was not cleared on demand");
   await host.locator("#toolsButton").click();
