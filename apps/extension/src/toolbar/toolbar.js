@@ -2145,8 +2145,10 @@ function drawerStyles() {
       border: 1px solid #292929; box-shadow: 0 30px 80px rgba(0,0,0,.55);
     }
     .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
-    .qts-drawer-head h2 { margin: 0; font-size: 15px; }
-    .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; }
+    .qts-drawer-head h2 { margin: 0; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: #b20808; color: #fff; font-size: 18px; cursor: pointer; flex: none; }
+    .qts-drawer-head.hasBack h2 { flex: 1; text-align: center; }
+    .qts-drawer-head #drawerBack { background: var(--qts-panel-surface-2,#171717); color: inherit; font-size: 15px; }
     .qts-drawer-body { flex: 1; overflow: auto; padding: 14px 16px; }
     .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
       width: 100%; padding: 8px 10px; border: 1px solid var(--qts-panel-border,#2c2c2c); border-radius: 8px; background: var(--qts-panel-2,#141414); color: var(--qts-panel-text,#fff); font: inherit;
@@ -2464,7 +2466,12 @@ function wireSmartFilter(container, onChange) {
   });
 }
 
-function openDrawer({ title, bodyHtml, onReady, view = "", variant = "" }) {
+// `onBack`: an optional callback that reopens whatever list/parent view led here (e.g. an
+// Inspector's captured-response detail passes openInspectorsDrawer) — shows a back arrow in the
+// header instead of forcing "close the whole sidebar, then reopen it" to get back to a list.
+// openDrawer has no history stack of its own; each caller that drills into a sub-view is
+// responsible for passing the one function that rebuilds its own parent view.
+function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" }) {
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
@@ -2474,11 +2481,12 @@ function openDrawer({ title, bodyHtml, onReady, view = "", variant = "" }) {
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
     <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop">
       <div class="qts-drawer">
-        <div class="qts-drawer-head"><h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">${ICON("fail")}</button></div>
+        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">${ICON("fail")}</button></div>
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
     </div>`;
   drawerHost.querySelector("#drawerClose").addEventListener("click", closeDrawer);
+  if (onBack) drawerHost.querySelector("#drawerBack").addEventListener("click", onBack);
   drawerHost.querySelector("#drawerBackdrop").addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop") closeDrawer(); });
   localizeQaSurface(drawerHost);
   onReady?.(drawerHost.querySelector("#drawerBody"));
@@ -2959,7 +2967,7 @@ function renderInspectorDashboard(listBody) {
     // "in-app-notifications GET200"), not just the bare method+status -- otherwise two pinned
     // Inspectors hitting different endpoints with the same verb/status look identical in the
     // drawer title.
-    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
   listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3019,7 +3027,7 @@ function renderInspectorsList() {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
     const matchedInspector = configuredInspectors().find((item) => (entry.matchedInspectorIds || []).includes(item.id));
     const title = matchedInspector ? `${matchedInspector.label || matchedInspector.id} ${entry.method}${entry.status}` : `${entry.method} ${entry.status}`;
-    openDrawer({ title, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    openDrawer({ title, bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
   listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3202,7 +3210,7 @@ function renderErrorMonitorList() {
   body.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.httpErrors.find((item) => item.id === row.dataset.id);
     if (!entry?.payload) return;
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload) });
   }));
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
