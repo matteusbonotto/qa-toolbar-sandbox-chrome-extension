@@ -742,6 +742,9 @@ try {
     };
   });
   if (keyView.theme !== "light" || keyView.position !== "top-right" || keyView.keySize !== "large" || keyView.keycapHeight < 65 || keyView.typing !== "asd123!@# ç" || keyView.svgCount !== 2 || keyView.keycaps.join("+") !== "Ctrl+V") throw new Error(`Key View keyboard mismatch: ${JSON.stringify(keyView)}`);
+  await host.keyboard.press("Space");
+  const spaceKeycaps = await host.evaluate(() => [...(document.querySelector("#qts-key-view-overlay [data-key-view-shortcut]")?.querySelectorAll(".qts-keycap") || [])].map((keycap) => keycap.getAttribute("aria-label")));
+  if (spaceKeycaps.join("+") !== "Space") throw new Error(`Key View did not show the Space keycap on its own: ${JSON.stringify(spaceKeycaps)}`);
   await host.screenshot({ path: resolve(evidencePath, "extension-key-view.png"), fullPage: false });
   const typingBeforePassword = await host.locator("[data-key-view-text]").innerText();
   await host.locator("#qaPassword").click();
