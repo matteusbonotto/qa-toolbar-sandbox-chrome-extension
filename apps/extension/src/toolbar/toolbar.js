@@ -1677,7 +1677,7 @@ function wireVisibilityControls(item) {
 const MARKER_KIND_CLASS = { pass: "isPass", fail: "isFail", warning: "isWarning", question: "isQuestion" };
 
 function placeMarker(kind, clientX, clientY) {
-  const size = 52;
+  const size = 40;
   const marker = document.createElement("div");
   marker.className = "qts-floating-item qts-marker";
   marker.style.left = `${Math.max(4, clientX - size / 2)}px`;
@@ -1694,9 +1694,9 @@ function placeMarker(kind, clientX, clientY) {
   wireVisibilityControls(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
   // minWidth/minHeight must be large enough that the eye toggle (top-left) and resize handle
-  // (top-right) never collide -- below ~52px (the marker's own default size) they start to
+  // (top-right) never collide -- below ~40px (the marker's own default size) they start to
   // overlap since both are absolutely positioned 20px badges near opposite top corners.
-  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 52, minHeight: 52, lockAspectRatio: true });
+  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 40, minHeight: 40, lockAspectRatio: true });
   marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
   updateClearAllVisibility();
 }
@@ -2192,9 +2192,21 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
-      display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
+      position:relative; width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
+      display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4); resize: both; overflow: hidden;
     }
+    .qts-drawer-backdrop[data-position="left"] { justify-content:flex-start; }
+    .qts-drawer-backdrop[data-position="left"] .qts-drawer { border-left:0; border-right:2px solid var(--qts-ui-primary); box-shadow:18px 0 40px rgba(0,0,0,.4); }
+    .qts-drawer-backdrop[data-position="top"] { align-items:flex-start; }
+    .qts-drawer-backdrop[data-position="bottom"] { align-items:flex-end; }
+    .qts-drawer-backdrop[data-position="top"] .qts-drawer,
+    .qts-drawer-backdrop[data-position="bottom"] .qts-drawer { width:100%; height:min(420px,70vh); border-left:0; }
+    .qts-drawer-backdrop[data-position="top"] .qts-drawer { border-bottom:2px solid var(--qts-ui-primary); }
+    .qts-drawer-backdrop[data-position="bottom"] .qts-drawer { border-top:2px solid var(--qts-ui-primary); }
+    .qts-drawer-backdrop.isPinned { pointer-events:none; background:transparent; }
+    .qts-drawer-backdrop.isPinned .qts-drawer { pointer-events:auto; }
+    .qts-drawer.isMinimized { height:58px !important; min-height:58px; resize:none; }
+    .qts-drawer.isMinimized .qts-drawer-search, .qts-drawer.isMinimized .qts-drawer-body { display:none; }
     /* Macro Studio's founder feedback: a right-edge sidebar felt cramped/ugly for something with
        a palette + flow builder + code view — this variant centers the same #drawerBody markup in
        a proper modal instead, reusing every existing style/handler inside it unchanged. */
@@ -2203,10 +2215,18 @@ function drawerStyles() {
       width: min(920px, 94vw); height: min(760px, 90vh); border-left: 0; border-radius: 16px;
       border: 1px solid #292929; box-shadow: 0 30px 80px rgba(0,0,0,.55);
     }
-    .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
+    .qts-drawer-head { display: flex; align-items: center; gap:6px; padding: 10px 12px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; flex: none; }
     .qts-drawer-head.hasBack h2 { flex: 1; text-align: center; }
+    .qts-drawer-head h2 { flex:1; }
+    .qts-drawer-head select { width:auto; max-width:92px; height:30px; padding:2px 5px; }
+    .qts-drawer-search { padding:8px 12px; border-bottom:1px solid var(--qts-panel-border); }
+    .qts-drawer-resize { position:absolute; z-index:3; }
+    .qts-drawer-resize[data-edge="left"], .qts-drawer-resize[data-edge="right"] { top:0; bottom:0; width:8px; cursor:ew-resize; }
+    .qts-drawer-resize[data-edge="left"] { left:-4px; } .qts-drawer-resize[data-edge="right"] { right:-4px; }
+    .qts-drawer-resize[data-edge="top"], .qts-drawer-resize[data-edge="bottom"] { left:0; right:0; height:8px; cursor:ns-resize; }
+    .qts-drawer-resize[data-edge="top"] { top:-4px; } .qts-drawer-resize[data-edge="bottom"] { bottom:-4px; }
     .qts-drawer-head #drawerBack { background: var(--qts-panel-surface-2,#171717); color: inherit; font-size: 15px; }
     .qts-drawer-body { flex: 1; overflow: auto; padding: 14px 16px; }
     .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
@@ -2537,16 +2557,70 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   // whether to live-refresh the Inspectors list. Leaving a stale "inspectors" value here after
   // switching to a different panel made Inspectors content silently overwrite other drawers.
   drawerHost.dataset.view = view;
+  const drawerPosition = ["left", "right", "top", "bottom"].includes(state.workspace?.preferences?.drawerPosition) ? state.workspace.preferences.drawerPosition : "right";
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
-    <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop">
+    <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop" data-position="${drawerPosition}">
       <div class="qts-drawer">
-        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">${ICON("fail")}</button></div>
+        <span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>
+        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2>
+          <select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
+          <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
+          <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>
+          <button type="button" id="drawerClose" title="Fechar sidebar">${ICON("fail")}</button></div>
+        <div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
     </div>`;
+  const backdrop = drawerHost.querySelector("#drawerBackdrop");
+  const drawer = drawerHost.querySelector(".qts-drawer");
+  const positionSelect = drawerHost.querySelector("#drawerPosition");
+  positionSelect.value = drawerPosition;
+  positionSelect.addEventListener("change", async () => {
+    backdrop.dataset.position = positionSelect.value;
+    state.workspace.preferences = { ...(state.workspace.preferences || {}), drawerPosition: positionSelect.value };
+    state.workspace = await saveWorkspace(state.workspace);
+  });
+  drawerHost.querySelector("#drawerPin").addEventListener("click", (event) => {
+    const pinned = backdrop.classList.toggle("isPinned");
+    event.currentTarget.setAttribute("aria-pressed", String(pinned));
+  });
+  drawerHost.querySelector("#drawerMinimize").addEventListener("click", () => drawer.classList.toggle("isMinimized"));
+  drawerHost.querySelectorAll(".qts-drawer-resize").forEach((handle) => handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    handle.setPointerCapture(event.pointerId);
+    const edge = handle.dataset.edge;
+    const start = drawer.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const move = (moveEvent) => {
+      if (edge === "left" || edge === "right") {
+        const delta = (edge === "left" ? startX - moveEvent.clientX : moveEvent.clientX - startX);
+        drawer.style.width = `${Math.max(280, Math.min(window.innerWidth - 24, start.width + delta))}px`;
+      } else {
+        const delta = (edge === "top" ? startY - moveEvent.clientY : moveEvent.clientY - startY);
+        drawer.style.height = `${Math.max(180, Math.min(window.innerHeight - 24, start.height + delta))}px`;
+      }
+    };
+    const finish = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", finish);
+      handle.removeEventListener("pointercancel", finish);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", finish);
+    handle.addEventListener("pointercancel", finish);
+  }));
   drawerHost.querySelector("#drawerClose").addEventListener("click", closeDrawer);
   if (onBack) drawerHost.querySelector("#drawerBack").addEventListener("click", onBack);
-  drawerHost.querySelector("#drawerBackdrop").addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop") closeDrawer(); });
+  backdrop.addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop" && !backdrop.classList.contains("isPinned")) closeDrawer(); });
+  drawerHost.querySelector("#drawerSearch").addEventListener("input", (event) => {
+    const query = event.target.value.trim().toLocaleLowerCase();
+    const body = drawerHost.querySelector("#drawerBody");
+    const candidates = body.querySelectorAll(".qts-card,.qts-net-item,.qts-list-row,.qts-friendly-field,.qts-switch-row,.qts-metric,.qts-step");
+    (candidates.length ? candidates : body.children).forEach((element) => {
+      element.classList.toggle("qts-friendly-hidden", Boolean(query) && !element.textContent.toLocaleLowerCase().includes(query));
+    });
+  });
   localizeQaSurface(drawerHost);
   onReady?.(drawerHost.querySelector("#drawerBody"));
 }

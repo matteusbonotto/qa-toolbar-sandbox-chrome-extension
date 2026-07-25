@@ -404,6 +404,16 @@ try {
   await host.screenshot({ path: resolve(evidencePath, "extension-theme-tools-menu.png"), fullPage: false });
   await host.locator("#inputLabMenuItem").click();
   await host.locator(".qts-drawer").waitFor();
+  for (const control of ["#drawerSearch", "#drawerPosition", "#drawerPin", "#drawerMinimize", "#drawerClose"]) {
+    if (!(await host.locator(control).count())) throw new Error(`Shared sidebar control is missing: ${control}`);
+  }
+  await host.locator("#drawerPosition").selectOption("left");
+  if (await host.locator("#drawerBackdrop").getAttribute("data-position") !== "left") throw new Error("Sidebar did not move to the left");
+  await host.locator("#drawerPin").click();
+  if (await host.locator("#drawerPin").getAttribute("aria-pressed") !== "true") throw new Error("Sidebar pin did not activate");
+  await host.locator("#drawerMinimize").click();
+  if (!(await host.locator(".qts-drawer.isMinimized").count())) throw new Error("Sidebar did not minimize");
+  await host.locator("#drawerMinimize").click();
   const drawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
   if (drawerCloseBg !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the drawer close button: ${drawerCloseBg}`);
   await host.locator("#drawerClose").click();

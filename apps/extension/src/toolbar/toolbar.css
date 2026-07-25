@@ -174,11 +174,11 @@ body.qts-placement-mode, body.qts-placement-mode * {
 /* No !important on size: these are set inline by JS (initial placement and drag-resize) and
    the qts- prefixed class is never realistically targeted by a host page's own CSS, unlike the
    generic host-cascade interference the all:initial/all:revert pair above already guards against. */
-.qts-marker { width: 52px; height: 52px; }
+.qts-marker { width: 40px; height: 40px; }
 .qts-marker-body {
   width: 100% !important; height: 100% !important; border-radius: 999px !important; cursor: grab !important;
   display: flex !important; align-items: center !important; justify-content: center !important;
-  color: #fff !important; font-size: 26px !important; font-weight: 900 !important; box-shadow: 0 10px 22px rgba(0,0,0,.3) !important;
+  color: #fff !important; font-size: 20px !important; font-weight: 900 !important; box-shadow: 0 8px 18px rgba(0,0,0,.28) !important;
 }
 .qts-marker-body svg { width: 50% !important; height: 50% !important; }
 .qts-marker-body.isPass { background: #179153 !important; }
