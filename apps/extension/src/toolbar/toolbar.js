@@ -4781,8 +4781,11 @@ function applyPixelPerfectSettings(overlay) {
   overlay.style.setProperty("--qts-pp-color", pixelPerfectSettings.color);
   overlay.style.setProperty("--qts-pp-thickness", `${pixelPerfectSettings.thickness}px`);
   const isBounds = pixelPerfectSettings.mode === "bounds";
-  overlay.querySelector(".qts-pp-line-h").style.display = !isBounds && pixelPerfectSettings.mode !== "vertical" ? "block" : "none";
-  overlay.querySelector(".qts-pp-line-v").style.display = !isBounds && pixelPerfectSettings.mode !== "horizontal" ? "block" : "none";
+  // classList, not style.display: a plain inline style always loses to this file's
+  // `all: revert !important` reset (see the .isHidden rule next to .qts-pp-line-h/-v in
+  // toolbar.css), which silently kept both lines visible in every mode until now.
+  overlay.querySelector(".qts-pp-line-h").classList.toggle("isHidden", isBounds || pixelPerfectSettings.mode === "vertical");
+  overlay.querySelector(".qts-pp-line-v").classList.toggle("isHidden", isBounds || pixelPerfectSettings.mode === "horizontal");
   overlay.querySelector(".qts-pp-coords").style.display = isBounds ? "none" : "block";
   const hint = overlay.querySelector(".qts-pp-bounds-hint");
   if (isBounds) {
