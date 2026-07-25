@@ -21,6 +21,9 @@ const COLLECTION_KEYS = [
 export const DEMO_CLIENT_ID = "qts-demo-client";
 export const DEMO_PROJECT_ID = "qts-demo-project";
 export const DEMO_PRODUCT_ID = "qts-demo-product";
+export const DEMO_ENVIRONMENT_ID = "qts-demo-env";
+export const DEMO_URL_BINDING_ID = "qts-demo-url-binding";
+export const DEMO_SITE_URL_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
 
 export const DEFAULT_ENABLED_TOOLS = Object.freeze([
   "clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio",
@@ -421,7 +424,17 @@ export function normalizeWorkspace(rawWorkspace) {
     color: /^#[0-9a-f]{6}$/i.test(text(item?.color ?? item?.backgroundColor, 7)) ? text(item?.color ?? item?.backgroundColor, 7) : "#3a3a3a",
     active: item?.active !== false,
   }));
+  // Locking just Cliente/Projeto/Produto wasn't enough in practice -- a founder import that
+  // dropped the QA environment or the URL binding left the locked Produto=STAGE pointing at
+  // nothing, so the toolbar silently never mounted on the demo site at all. The environment and
+  // the binding have to survive with exactly the same guarantee, or the lock above is pointless.
+  if (source.preferences?.demoWorkspaceSeeded === true) {
+    ensureLockedEntity(environments, DEMO_ENVIRONMENT_ID, { name: "QA", color: "#5b21b6" });
+  }
   const urlBindings = normalizeUrlBindings(source, products, environments);
+  if (source.preferences?.demoWorkspaceSeeded === true) {
+    ensureLockedEntity(urlBindings, DEMO_URL_BINDING_ID, { patterns: [DEMO_SITE_URL_PATTERN], productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], primaryUrl: "" });
+  }
 
   const copyCollection = (key) => (Array.isArray(source[key]) ? source[key] : []).map((item, index) => ({
     ...item, id: id(item?.id, key.replace(/s$/, ""), index), active: item?.active !== false,
