@@ -15,6 +15,13 @@ interface PlanTranslation {
 }
 
 export interface Dictionary {
+  meta: {
+    title: string;
+    description: string;
+    pageNavigation: string;
+    languageSelector: string;
+    languageOption: (language: string) => string;
+  };
   nav: {
     home: string;
     about: string;
@@ -24,6 +31,8 @@ export interface Dictionary {
     pricing: string;
     support: string;
     install: string;
+    installGuest: string;
+    installAuthenticated: string;
   };
   hero: {
     eyebrow: string;
@@ -144,6 +153,9 @@ export interface Dictionary {
     accountLead: string;
     emailLabel: string;
     passwordLabel: string;
+    emailRequired: string;
+    emailInvalid: string;
+    passwordTooShort: string;
     signIn: string;
     signUp: string;
     signOut: string;
@@ -160,6 +172,8 @@ export interface Dictionary {
     closeModal: string;
     configUnavailable: string;
     pricingUnavailable: string;
+    retryPricing: string;
+    loadingPrices: string;
     voucherQueued: string;
     accessActive: string;
     accessPermanent: string;
@@ -169,6 +183,8 @@ export interface Dictionary {
     downloadExtensionHint: string;
     packageVersionLine: string;
     storeReviewPendingNotice: string;
+    storeStatusLoading: string;
+    storeStatusUnavailable: string;
     paymentProcessing: string;
     paymentCanceled: string;
     checkoutFailed: string;
@@ -256,9 +272,21 @@ export interface Dictionary {
     genericError: string;
     backLink: string;
   };
+  notFound: {
+    title: string;
+    body: string;
+    back: string;
+  };
 }
 
 const pt: Dictionary = {
+  meta: {
+    title: "QA Toolbar Sandbox — Testes manuais com sabor automático",
+    description: "Teste manual sem se perder entre ambientes e projetos. Uma barra de QA que roda direto na página que você já está testando.",
+    pageNavigation: "Navegação da página",
+    languageSelector: "Idioma",
+    languageOption: (language) => `Alterar idioma para ${language}`,
+  },
   nav: {
     home: "Início",
     about: "Sobre",
@@ -268,6 +296,8 @@ const pt: Dictionary = {
     pricing: "Planos",
     support: "Suporte",
     install: "Entrar",
+    installGuest: "Criar conta e instalar",
+    installAuthenticated: "Instalar extensão",
   },
   hero: {
     eyebrow: "De QA para QA, ou melhor: para qualquer um",
@@ -566,6 +596,9 @@ const pt: Dictionary = {
     accountLead: "Acesse seus planos, vouchers e a extensão com o mesmo e-mail.",
     emailLabel: "E-mail",
     passwordLabel: "Senha (mínimo de 8 caracteres)",
+    emailRequired: "Informe seu e-mail.",
+    emailInvalid: "Informe um e-mail válido.",
+    passwordTooShort: "A senha deve ter pelo menos 8 caracteres.",
     signIn: "Entrar",
     signUp: "Criar conta",
     signOut: "Sair",
@@ -582,6 +615,8 @@ const pt: Dictionary = {
     closeModal: "Fechar",
     configUnavailable: "O acesso está temporariamente indisponível. Tente novamente em instantes.",
     pricingUnavailable: "Não foi possível carregar os preços oficiais agora.",
+    retryPricing: "Tentar carregar novamente",
+    loadingPrices: "Carregando preços oficiais…",
     voucherQueued: "será aplicado ao escolher o plano",
     accessActive: "Acesso ativo",
     accessPermanent: "sem data de expiração",
@@ -591,6 +626,8 @@ const pt: Dictionary = {
     downloadExtensionHint: "Não quer esperar a análise da Chrome Web Store? Baixe o pacote, abra chrome://extensions, ative o Modo do desenvolvedor e clique em \"Carregar sem compactação\".",
     packageVersionLine: "Versão atual do pacote: v{version}",
     storeReviewPendingNotice: "Em breve na Chrome Web Store: em análise do Google.",
+    storeStatusLoading: "Consultando a versão disponível na Chrome Web Store…",
+    storeStatusUnavailable: "Não foi possível confirmar agora a versão disponível na Chrome Web Store.",
     paymentProcessing: "Pagamento recebido. Estamos confirmando seu acesso.",
     paymentCanceled: "Checkout cancelado. Nenhuma liberação foi feita.",
     checkoutFailed: "Não foi possível concluir esta etapa. Revise os dados e tente novamente.",
@@ -751,9 +788,21 @@ const pt: Dictionary = {
     genericError: "Não foi possível atualizar sua senha agora. Tente novamente.",
     backLink: "Voltar para o início",
   },
+  notFound: {
+    title: "Página não encontrada",
+    body: "O endereço informado não existe ou foi movido.",
+    back: "Voltar ao início",
+  },
 };
 
 const es: Dictionary = {
+  meta: {
+    title: "QA Toolbar Sandbox — Pruebas manuales con sabor automático",
+    description: "Pruebas manuales sin perderte entre entornos y proyectos. Una barra de QA que funciona en la página que ya estás probando.",
+    pageNavigation: "Navegación de la página",
+    languageSelector: "Idioma",
+    languageOption: (language) => `Cambiar idioma a ${language}`,
+  },
   nav: {
     home: "Inicio",
     about: "Acerca de",
@@ -763,6 +812,8 @@ const es: Dictionary = {
     pricing: "Planes",
     support: "Soporte",
     install: "Entrar",
+    installGuest: "Crear cuenta e instalar",
+    installAuthenticated: "Instalar extensión",
   },
   hero: {
     eyebrow: "De QA para QA, o mejor dicho: para cualquier persona",
@@ -1061,6 +1112,9 @@ const es: Dictionary = {
     accountLead: "Accede a tus planes, vouchers y extensión con el mismo correo.",
     emailLabel: "Correo",
     passwordLabel: "Contraseña (mínimo 8 caracteres)",
+    emailRequired: "Introduce tu correo.",
+    emailInvalid: "Introduce un correo válido.",
+    passwordTooShort: "La contraseña debe tener al menos 8 caracteres.",
     signIn: "Entrar",
     signUp: "Crear cuenta",
     signOut: "Salir",
@@ -1077,6 +1131,8 @@ const es: Dictionary = {
     closeModal: "Cerrar",
     configUnavailable: "El acceso no está disponible temporalmente. Inténtalo de nuevo en unos instantes.",
     pricingUnavailable: "No fue posible cargar los precios oficiales ahora.",
+    retryPricing: "Volver a cargar",
+    loadingPrices: "Cargando precios oficiales…",
     voucherQueued: "se aplicará al elegir el plan",
     accessActive: "Acceso activo",
     accessPermanent: "sin fecha de expiración",
@@ -1086,6 +1142,8 @@ const es: Dictionary = {
     downloadExtensionHint: "¿No quieres esperar la revisión de la Chrome Web Store? Descarga el paquete, abre chrome://extensions, activa el Modo de desarrollador y haz clic en \"Cargar descomprimida\".",
     packageVersionLine: "Versión actual del paquete: v{version}",
     storeReviewPendingNotice: "Próximamente en la Chrome Web Store: en revisión de Google.",
+    storeStatusLoading: "Consultando la versión disponible en Chrome Web Store…",
+    storeStatusUnavailable: "No fue posible confirmar ahora la versión disponible en Chrome Web Store.",
     paymentProcessing: "Pago recibido. Estamos confirmando tu acceso.",
     paymentCanceled: "Checkout cancelado. No se liberó ningún acceso.",
     checkoutFailed: "No fue posible completar esta etapa. Revisa los datos e inténtalo de nuevo.",
@@ -1246,9 +1304,21 @@ const es: Dictionary = {
     genericError: "No fue posible actualizar tu contraseña ahora. Inténtalo de nuevo.",
     backLink: "Volver al inicio",
   },
+  notFound: {
+    title: "Página no encontrada",
+    body: "La dirección indicada no existe o fue movida.",
+    back: "Volver al inicio",
+  },
 };
 
 const en: Dictionary = {
+  meta: {
+    title: "QA Toolbar Sandbox — Manual testing with an automated edge",
+    description: "Manual testing without losing track of environments and projects. A QA toolbar that runs directly on the page you are testing.",
+    pageNavigation: "Page navigation",
+    languageSelector: "Language",
+    languageOption: (language) => `Switch language to ${language}`,
+  },
   nav: {
     home: "Home",
     about: "About",
@@ -1258,6 +1328,8 @@ const en: Dictionary = {
     pricing: "Pricing",
     support: "Support",
     install: "Sign in",
+    installGuest: "Create account and install",
+    installAuthenticated: "Install extension",
   },
   hero: {
     eyebrow: "By QA, for QA, or rather: for anyone",
@@ -1556,6 +1628,9 @@ const en: Dictionary = {
     accountLead: "Access your plans, vouchers, and the extension with the same email.",
     emailLabel: "Email",
     passwordLabel: "Password (8 characters minimum)",
+    emailRequired: "Enter your email.",
+    emailInvalid: "Enter a valid email address.",
+    passwordTooShort: "Password must be at least 8 characters.",
     signIn: "Sign in",
     signUp: "Create account",
     signOut: "Sign out",
@@ -1572,6 +1647,8 @@ const en: Dictionary = {
     closeModal: "Close",
     configUnavailable: "Access is temporarily unavailable. Try again in a moment.",
     pricingUnavailable: "Official prices could not be loaded right now.",
+    retryPricing: "Try loading again",
+    loadingPrices: "Loading official prices…",
     voucherQueued: "will be applied when you choose the plan",
     accessActive: "Active access",
     accessPermanent: "no expiration date",
@@ -1581,6 +1658,8 @@ const en: Dictionary = {
     downloadExtensionHint: "Don't want to wait for Chrome Web Store review? Download the package, open chrome://extensions, enable Developer mode and click \"Load unpacked\".",
     packageVersionLine: "Current package version: v{version}",
     storeReviewPendingNotice: "Coming soon to the Chrome Web Store: pending Google review.",
+    storeStatusLoading: "Checking the version available in the Chrome Web Store…",
+    storeStatusUnavailable: "The version available in the Chrome Web Store could not be confirmed right now.",
     paymentProcessing: "Payment received. We are confirming your access.",
     paymentCanceled: "Checkout canceled. No access was granted.",
     checkoutFailed: "This step could not be completed. Review the details and try again.",
@@ -1740,6 +1819,11 @@ const en: Dictionary = {
     invalidLink: "This reset link is invalid or has expired. Request a new one from \"Forgot my password\".",
     genericError: "Could not update your password right now. Try again.",
     backLink: "Back to home",
+  },
+  notFound: {
+    title: "Page not found",
+    body: "The requested address does not exist or has moved.",
+    back: "Back to home",
   },
 };
 

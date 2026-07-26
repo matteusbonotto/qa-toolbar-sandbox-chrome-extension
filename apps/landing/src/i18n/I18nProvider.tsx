@@ -1,4 +1,4 @@
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { DEFAULT_LOCALE, translations, type Dictionary, type Locale } from "./translations";
 
 const STORAGE_KEY = "qts-landing-locale";
@@ -24,6 +24,13 @@ function detectInitialLocale(): Locale {
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocaleState] = useState<Locale>(detectInitialLocale);
+  const dictionary = translations[locale];
+
+  useEffect(() => {
+    document.documentElement.lang = locale;
+    document.title = dictionary.meta.title;
+    document.querySelector<HTMLMetaElement>('meta[name="description"]')?.setAttribute("content", dictionary.meta.description);
+  }, [dictionary, locale]);
 
   function setLocale(next: Locale) {
     setLocaleState(next);
@@ -31,8 +38,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   }
 
   const value = useMemo<I18nContextValue>(
-    () => ({ locale, setLocale, t: translations[locale] }),
-    [locale],
+    () => ({ locale, setLocale, t: dictionary }),
+    [dictionary, locale],
   );
 
   return <I18nContext.Provider value={value}>{children}</I18nContext.Provider>;

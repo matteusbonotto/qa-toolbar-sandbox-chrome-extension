@@ -81,9 +81,22 @@ try {
   if (await page.locator(".qts-reward-wheel").count()) {
     throw new Error("Rewards wheel must stay hidden until the user explicitly clicks Try your luck.");
   }
+  if ((await page.locator('.qts-billing-toggle-row [role="radio"][aria-checked="true"]').innerText()).trim() !== "Mensal") {
+    throw new Error("Pricing must default to monthly billing; annual billing cannot be preselected.");
+  }
+  if (!(await page.locator('label[for="qts-voucher-code"]').count())) {
+    throw new Error("Voucher input has no explicit accessible label.");
+  }
+  await page.getByRole("button", { name: "Alterar idioma para EN" }).click();
+  if (await page.locator("html").getAttribute("lang") !== "en") throw new Error("English locale did not update html.lang");
+  if (!(await page.title()).includes("Manual testing")) throw new Error("English locale did not update document metadata");
+  if (!(await page.locator('meta[name="description"]').getAttribute("content"))?.includes("Manual testing")) throw new Error("English locale did not update meta description");
+  if ((await page.locator(".qts-site-toolbar-cta").innerText()).trim() !== "Create account and install") throw new Error("Logged-out install CTA is not transparent in English");
+  if (!(await page.getByRole("navigation", { name: "Page navigation" }).count())) throw new Error("Navigation accessible name was not translated");
+  await page.getByRole("button", { name: "Switch language to PT" }).click();
 
   const desktopWidth = await page.locator('[data-viewport="desktop"]').evaluate((element) => element.getBoundingClientRect().width);
-  await page.locator(".qts-simulator-controls .qts-sim-field").nth(2).getByRole("tab", { name: "Mobile" }).click();
+  await page.locator(".qts-simulator-controls .qts-sim-field").nth(2).getByRole("radio", { name: "Mobile" }).click();
   const mobileFrame = page.locator('[data-viewport="mobile"]');
   await mobileFrame.waitFor();
   const mobileWidth = await mobileFrame.evaluate((element) => element.getBoundingClientRect().width);
@@ -98,9 +111,33 @@ try {
     throw new Error("Navbar account modal did not render the login form.");
   }
   if (!await accountDialog.evaluate((dialog) => dialog.contains(document.activeElement))) throw new Error("Account modal did not move focus inside");
+  if (!await page.locator("#root").evaluate((root) => root.inert && root.getAttribute("aria-hidden") === "true")) throw new Error("Background is not inert while account modal is open");
+  const signInTab = accountDialog.getByRole("tab", { name: "Entrar" });
+  const signUpTab = accountDialog.getByRole("tab", { name: "Criar conta" });
+  if (await signInTab.getAttribute("aria-controls") !== "qts-auth-panel" || await signUpTab.getAttribute("tabindex") !== "-1") {
+    throw new Error("Account modal tabs do not expose correct ARIA/roving tabindex state");
+  }
+  await signInTab.focus();
+  await page.keyboard.press("ArrowRight");
+  if (await signUpTab.getAttribute("aria-selected") !== "true" || await accountDialog.getByRole("tabpanel").getAttribute("aria-labelledby") !== "qts-auth-tab-signup") {
+    throw new Error("Account modal tabs do not support keyboard navigation");
+  }
+  await accountDialog.locator(".qts-auth-submit").click();
+  const emailInput = accountDialog.locator('input[type="email"]');
+  if (await emailInput.getAttribute("aria-invalid") !== "true" || await emailInput.getAttribute("aria-describedby") !== "qts-email-error") {
+    throw new Error("Account modal did not expose field-specific email validation");
+  }
+  if (!await emailInput.evaluate((input) => input === document.activeElement)) throw new Error("Account modal did not focus the first invalid field");
+  await emailInput.fill("qa@example.com");
+  await accountDialog.locator('input[type="password"]').fill("curta");
+  await accountDialog.locator(".qts-auth-submit").click();
+  if (!(await accountDialog.getByText("A senha deve ter pelo menos 8 caracteres.").count()) || !(await accountDialog.getByText("Aceite a Política de Privacidade para criar sua conta.").count())) {
+    throw new Error("Signup does not report password and terms errors separately");
+  }
   await page.keyboard.press("Shift+Tab");
   if (!await accountDialog.evaluate((dialog) => dialog.contains(document.activeElement))) throw new Error("Account modal focus escaped backwards");
   await accountDialog.locator(".qts-auth-close").click();
+  if (await page.locator("#root").evaluate((root) => root.inert || root.hasAttribute("aria-hidden"))) throw new Error("Modal close did not restore the page accessibility tree");
   await page.waitForFunction(() => document.querySelector(".qts-site-toolbar-cta") === document.activeElement);
   await page.locator(".qts-plan-cta").first().click();
   await page.getByRole("dialog").waitFor();
@@ -109,6 +146,35 @@ try {
   await page.goto(`${origin}${basePath}rota-inexistente`, { waitUntil: "networkidle" });
   if (!(await page.getByRole("heading", { name: "Página não encontrada" }).count())) throw new Error("Landing unknown route did not render a conscious 404");
   if (!(await page.getByRole("link", { name: "Voltar ao início" }).count())) throw new Error("Landing 404 has no recovery action");
+
+  await page.evaluate(() => localStorage.setItem("qts-landing-locale", "en"));
+  await page.reload({ waitUntil: "networkidle" });
+  if (!(await page.getByRole("heading", { name: "Page not found" }).count())) throw new Error("Landing 404 was not translated to English");
+
+  await page.setViewportSize({ width: 360, height: 800 });
+  await page.goto(`${origin}${basePath}`, { waitUntil: "networkidle" });
+  const horizontalOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  if (horizontalOverflow > 2) throw new Error(`Landing has horizontal overflow on mobile: ${horizontalOverflow}px`);
+  // WCAG 1.4.10's 200% reflow target is equivalent to a 320 CSS-pixel viewport.
+  await page.setViewportSize({ width: 320, height: 800 });
+  const reflowOverflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  if (reflowOverflow > 2) {
+    const offenders = await page.evaluate(() => [...document.querySelectorAll("*")]
+      .filter((element) => element.getBoundingClientRect().right > document.documentElement.clientWidth + 2)
+      .slice(0, 8)
+      .map((element) => {
+        const rect = element.getBoundingClientRect();
+        const parents = [];
+        let parent = element.parentElement;
+        while (parent && parents.length < 4) {
+          const parentRect = parent.getBoundingClientRect();
+          parents.push(`${parent.className || parent.tagName}[${Math.round(parentRect.left)},${Math.round(parentRect.right)}]`);
+          parent = parent.parentElement;
+        }
+        return `${element.tagName}.${element.className}:[${Math.round(rect.left)},${Math.round(rect.right)}] <- ${parents.join("<-")}`;
+      }));
+    throw new Error(`Landing has horizontal overflow at the 200% reflow target: ${reflowOverflow}px; ${offenders.join(" | ")}`);
+  }
 
   await page.goto(`${origin}${basePath}admin/`, { waitUntil: "networkidle" });
   if (!(await page.title()).includes("Admin")) throw new Error("Admin artifact did not load.");

@@ -205,3 +205,30 @@ checklist. Eles só podem ocorrer após autorização explícita e uso das crede
   `5583b16720d4917562367ceff3930764685c40099df1e483711f9ef47ce194ca`.
 - Resultado final: `consoleErrors: 0`, `workerErrors: 0`, `npm audit --omit=dev`: 0 vulnerabilidades.
 - Versão da extensão atualizada para `1.4.12`.
+
+## Auditoria integral de i18n e LP em 2026-07-26
+
+- LP passa a atualizar `lang`, título, descrição, nomes acessíveis da navegação e seletor de idioma
+  em PT-BR, espanhol e inglês; a página 404 também usa o idioma persistido.
+- CTA de instalação diferencia o visitante (`Criar conta e instalar`) da pessoa autenticada
+  (`Instalar extensão`), sem prometer instalação antes da autenticação.
+- Modal de conta ganhou fundo `inert`, restauração da árvore acessível, tabs/tabpanel com roving
+  tabindex e setas, validação específica de e-mail, senha e termos, associação por
+  `aria-describedby` e foco no primeiro erro.
+- Faturamento mensal é o padrão não enganoso; seletor segmentado usa semântica de radiogroup e
+  teclado. Voucher possui label explícita e preços exibem carregamento, erro e tentativa novamente.
+- Status da Chrome Web Store distingue carregamento, indisponibilidade e versão em análise.
+- Metadados, duração dos benefícios e débito da campanha foram internacionalizados; animação,
+  confete e áudio respeitam `prefers-reduced-motion`.
+- Popup da URL ativa e superfícies novas de QR Code/Validador de textos traduzem também conflitos,
+  contagens, confirmações e erros dinâmicos em espanhol e inglês.
+- Reflow corrigido em 320 CSS px: toolbar da LP compacta sem perder controles e simulador não
+  amplia mais a largura da página.
+- Smoke LP/Admin agora exige idiomas/metadados, CTA deslogado, navegação acessível, modal por
+  teclado, validação por campo, cobrança mensal, label do voucher, 404 traduzida, mobile e reflow.
+- `npm run test:all:clean` aprovado em 270,6 s: tipos, Vitest, invariantes da extensão, backend,
+  segurança, LP/Admin e pacote Chrome `[TESTE]`; fingerprint
+  `896cd8e9069bcd2ae5a0f004b447fef2cb20836b7355f7de908ae6b31573a1d5`,
+  `consoleErrors: 0` e `workerErrors: 0`.
+- Nenhum deploy, upload, publicação, alteração em Stripe ou Supabase produtivo foi executado.
+- Versão da extensão atualizada para `1.4.13`.

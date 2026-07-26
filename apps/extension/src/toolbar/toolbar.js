@@ -850,7 +850,7 @@ function buildShadowHost() {
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
             <div id="pinnedMacrosMenu"></div>
-            <button type="button" id="disableAllToolsMenuItem" role="menuitem">${ICON("fail")} Desativar ferramentas ativas</button>
+            <button type="button" id="disableAllToolsMenuItem" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${escapeHtml(t.testStatus)}</button>
             <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
@@ -874,7 +874,7 @@ function buildShadowHost() {
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
             <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
             <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("lightbulb")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
-            <button type="button" id="languageValidatorMenuItem" role="menuitem">${ICON("braces")} Validador de textos</button>
+            <button type="button" id="languageValidatorMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(translateQaSurfaceText("Validador de textos"))}</button>
             <button type="button" id="qrCodeMenuItem" role="menuitem">${ICON("qrCode")} QR Code</button>
             <button type="button" id="pixelPerfectMenuItem" role="menuitem">${ICON("ruler")} ${escapeHtml(t.pixelPerfectMenuLabel || "Pixel Perfect")}</button>
           </div>
@@ -2756,6 +2756,34 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Scroll to go to the parent/child element · Click to pin it",
   "Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar.": "Pixel Perfect: scroll to switch elements, click to release.",
 });
+Object.assign(QA_SURFACE_TRANSLATIONS.es, {
+  "Desativar ferramentas ativas": "Desactivar herramientas activas",
+  "Validador de textos": "Validador de textos",
+  "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Genera el QR localmente para la URL actual o una URL concreta guardada. No se envía ningún dato a servicios externos.",
+  "Query/hash removidos por segurança": "Query/hash eliminados por seguridad",
+  "A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.": "La URL actual contiene parámetros. Activa la opción siguiente solo si estás seguro de que no hay tokens ni secretos.",
+  "Incluir query e hash": "Incluir query y hash", "Aba atual": "Pestaña actual", "Baixar PNG": "Descargar PNG", "Copiar imagem": "Copiar imagen",
+  "Imagem copiada.": "Imagen copiada.", "O navegador não permitiu copiar a imagem; use Baixar PNG.": "El navegador no permitió copiar la imagen; usa Descargar PNG.",
+  "Protocolo não permitido": "Protocolo no permitido",
+  "Importe um JSON de idioma. Cada texto esperado é comparado com o conteúdo visível da página atual; o arquivo nunca é executado nem enviado.": "Importa un JSON de idioma. Cada texto esperado se compara con el contenido visible de la página actual; el archivo nunca se ejecuta ni se envía.",
+  "Arquivo JSON": "Archivo JSON", "Validar página": "Validar página", "Revalidar após navegação": "Revalidar después de navegar",
+  "Igual": "Coincide", "Ausente/diferente": "Ausente/diferente", "Importe um arquivo JSON válido.": "Importa un archivo JSON válido.",
+  "O arquivo deve ter no máximo 2 MB.": "El archivo debe tener como máximo 2 MB.", "Nenhum texto encontrado": "No se encontró ningún texto",
+});
+Object.assign(QA_SURFACE_TRANSLATIONS.en, {
+  "Desativar ferramentas ativas": "Disable active tools",
+  "Validador de textos": "Text Validator",
+  "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Generate the QR locally for the current URL or a saved concrete URL. No data is sent to external services.",
+  "Query/hash removidos por segurança": "Query/hash removed for safety",
+  "A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.": "The current URL contains parameters. Enable the option below only if you are sure there is no token or secret.",
+  "Incluir query e hash": "Include query and hash", "Aba atual": "Current tab", "Baixar PNG": "Download PNG", "Copiar imagem": "Copy image",
+  "Imagem copiada.": "Image copied.", "O navegador não permitiu copiar a imagem; use Baixar PNG.": "The browser could not copy the image; use Download PNG.",
+  "Protocolo não permitido": "Protocol not allowed",
+  "Importe um JSON de idioma. Cada texto esperado é comparado com o conteúdo visível da página atual; o arquivo nunca é executado nem enviado.": "Import a language JSON file. Each expected text is compared with visible content on the current page; the file is never executed or sent.",
+  "Arquivo JSON": "JSON file", "Validar página": "Validate page", "Revalidar após navegação": "Revalidate after navigation",
+  "Igual": "Match", "Ausente/diferente": "Missing/different", "Importe um arquivo JSON válido.": "Import a valid JSON file.",
+  "O arquivo deve ter no máximo 2 MB.": "The file must be no larger than 2 MB.", "Nenhum texto encontrado": "No text found",
+});
 
 function translateQaSurfaceText(value) {
   const translations = QA_SURFACE_TRANSLATIONS[state.t?.locale];
@@ -2772,6 +2800,8 @@ function translateQaSurfaceText(value) {
   if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)").replace(/^(\d+) elemento\(s\) borrado\(s\)\.$/, "$1 elemento(s) difuminado(s).");
   if (state.t.locale === "en") translated = translated.replace(/^Executando /, "Running ").replace(/^Macro concluída:/, "Macro completed:").replace(/^Macro interrompida:/, "Macro stopped:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "The macro could not be started safely.");
   if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
+  if (state.t.locale === "en") translated = translated.replace(/^Não foi possível gerar:/, "Could not generate:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 texts found on the current page.").replace(/^(\d+) textos carregados\.$/, "$1 texts loaded.").replace(/^JSON inválido:/, "Invalid JSON:");
+  if (state.t.locale === "es") translated = translated.replace(/^Não foi possível gerar:/, "No se pudo generar:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 textos encontrados en la página actual.").replace(/^(\d+) textos carregados\.$/, "$1 textos cargados.").replace(/^JSON inválido:/, "JSON no válido:");
   if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns — check the routes/endpoints you registered.");
   if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 solicitud(es) capturada(s) no coincidieron con ningún patrón configurado en Inspectors — revisa las rutas/endpoints registrados.");
   return `${leading}${translated}${trailing}`;
@@ -5808,7 +5838,7 @@ function openQrCodeTool() {
           if (!["http:", "https:"].includes(url.protocol)) throw new Error("Protocolo não permitido");
           await window.QTS_QRCODE.toCanvas(canvas, url.href);
           status.textContent = url.href;
-        } catch (error) { status.textContent = `Não foi possível gerar: ${error.message}`; }
+        } catch (error) { status.textContent = translateQaSurfaceText(`Não foi possível gerar: ${error.message}`); }
       };
       select.addEventListener("change", renderQr);
       body.querySelector("#qrKeepSensitive")?.addEventListener("change", renderQr);
@@ -5819,8 +5849,8 @@ function openQrCodeTool() {
         try {
           const blob = await new Promise((resolveBlob) => canvas.toBlob(resolveBlob, "image/png"));
           await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
-          status.textContent = "Imagem copiada.";
-        } catch { status.textContent = "O navegador não permitiu copiar a imagem; use Baixar PNG."; }
+          status.textContent = translateQaSurfaceText("Imagem copiada.");
+        } catch { status.textContent = translateQaSurfaceText("O navegador não permitiu copiar a imagem; use Baixar PNG."); }
       });
       void renderQr();
     },
@@ -5847,24 +5877,24 @@ function openLanguageValidator() {
         const pageText = visiblePageText();
         const results = expected.map((entry) => ({ ...entry, found: pageText.includes(entry.value.replace(/\s+/g, " ").trim()) }));
         const found = results.filter((entry) => entry.found).length;
-        body.querySelector("#languageStatus").textContent = `${found}/${results.length} textos encontrados na página atual.`;
-        body.querySelector("#languageResults").innerHTML = results.map((entry) => `<div class="qts-list-row"><span><b>${entry.found ? "✓" : "⚠"} ${escapeHtml(entry.key)}</b><small>${escapeHtml(entry.value)}</small></span><span class="qts-chip">${entry.found ? "Igual" : "Ausente/diferente"}</span></div>`).join("") || `<div class="qts-empty">Importe um arquivo JSON válido.</div>`;
+        body.querySelector("#languageStatus").textContent = translateQaSurfaceText(`${found}/${results.length} textos encontrados na página atual.`);
+        body.querySelector("#languageResults").innerHTML = results.map((entry) => `<div class="qts-list-row"><span><b>${entry.found ? "✓" : "⚠"} ${escapeHtml(entry.key)}</b><small>${escapeHtml(entry.value)}</small></span><span class="qts-chip">${escapeHtml(translateQaSurfaceText(entry.found ? "Igual" : "Ausente/diferente"))}</span></div>`).join("") || `<div class="qts-empty">${escapeHtml(translateQaSurfaceText("Importe um arquivo JSON válido."))}</div>`;
       };
       body.querySelector("#languageFile").addEventListener("change", async (event) => {
         const file = event.currentTarget.files?.[0];
         if (!file) return;
-        if (file.size > 2_000_000) { body.querySelector("#languageStatus").textContent = "O arquivo deve ter no máximo 2 MB."; return; }
+        if (file.size > 2_000_000) { body.querySelector("#languageStatus").textContent = translateQaSurfaceText("O arquivo deve ter no máximo 2 MB."); return; }
         try {
           const parsed = JSON.parse(await file.text());
           expected = flattenLanguageValues(parsed).filter((entry) => entry.value.trim()).slice(0, 5_000);
           if (!expected.length) throw new Error("Nenhum texto encontrado");
           body.querySelector("#languageValidate").disabled = false;
           body.querySelector("#languageRevalidate").disabled = false;
-          body.querySelector("#languageStatus").textContent = `${expected.length} textos carregados.`;
+          body.querySelector("#languageStatus").textContent = translateQaSurfaceText(`${expected.length} textos carregados.`);
           render();
         } catch (error) {
           expected = [];
-          body.querySelector("#languageStatus").textContent = `JSON inválido: ${error.message}`;
+          body.querySelector("#languageStatus").textContent = translateQaSurfaceText(`JSON inválido: ${error.message}`);
         }
       });
       body.querySelector("#languageValidate").addEventListener("click", render);

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useI18n } from "../i18n/I18nProvider";
 import { LOCALES } from "../i18n/translations";
 import { openAccountModal } from "../lib/accountModal";
+import { supabase } from "../lib/supabaseClient";
 
 export function SiteNavToolbar() {
   const { t, locale, setLocale } = useI18n();
@@ -20,6 +21,14 @@ export function SiteNavToolbar() {
   );
 
   const [activeId, setActiveId] = useState(navItems[0]!.id);
+  const [signedIn, setSignedIn] = useState(false);
+
+  useEffect(() => {
+    if (!supabase) return;
+    void supabase.auth.getSession().then(({ data }) => setSignedIn(Boolean(data.session)));
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => setSignedIn(Boolean(session)));
+    return () => data.subscription.unsubscribe();
+  }, []);
 
   useEffect(() => {
     const sections = navItems.map((item) => document.getElementById(item.id)).filter(
@@ -43,12 +52,12 @@ export function SiteNavToolbar() {
   }, [navItems]);
 
   return (
-    <div className="qts-site-toolbar" role="navigation" aria-label="Navegação da página">
+    <div className="qts-site-toolbar" role="navigation" aria-label={t.meta.pageNavigation}>
       <div className="qts-site-toolbar-inner">
-        <div className="qts-site-toolbar-brand">
+        <a className="qts-site-toolbar-brand" href={`${import.meta.env.BASE_URL}#hero`}>
           <img className="qts-site-toolbar-logo" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.png`} alt="QA Toolbar Sandbox" width={28} height={28} />
           <span>QA Sandbox</span>
-        </div>
+        </a>
         <nav className="qts-site-toolbar-nav">
           {navItems.map((item) => (
             <a
@@ -60,20 +69,25 @@ export function SiteNavToolbar() {
             </a>
           ))}
         </nav>
-        <div className="qts-site-toolbar-locales" role="group" aria-label="Idioma">
+        <div className="qts-site-toolbar-locales" role="group" aria-label={t.meta.languageSelector}>
           {LOCALES.map((option) => (
             <button
               key={option.id}
               type="button"
               className={`qts-site-toolbar-locale${option.id === locale ? " is-active" : ""}`}
               onClick={() => setLocale(option.id)}
+              aria-pressed={option.id === locale}
+              aria-label={t.meta.languageOption(option.label)}
             >
               {option.label}
             </button>
           ))}
         </div>
-        <button type="button" className="qts-site-toolbar-cta" onClick={openAccountModal}>
-          {t.nav.install}
+        <button type="button" className="qts-site-toolbar-cta" onClick={() => {
+          if (signedIn) document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" });
+          else openAccountModal();
+        }}>
+          {signedIn ? t.nav.installAuthenticated : t.nav.installGuest}
         </button>
       </div>
     </div>

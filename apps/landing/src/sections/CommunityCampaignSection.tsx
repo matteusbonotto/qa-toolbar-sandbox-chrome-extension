@@ -8,6 +8,7 @@ const STORE_URL = "https://chromewebstore.google.com/detail/ddaapjklnfjhjigeglgm
 const CAMPAIGN_KEY = "qa-rewards-2026-community";
 const WHEEL_COLORS = ["#6c3df4", "#13a6a1", "#e6a817", "#d94c72", "#4187e8", "#8a4fff", "#0f8f8a", "#c2662f"];
 const WHEEL_SPIN_MS = 3200;
+const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Synthesized (no audio assets to ship/load) — a short square-wave tick per call, and a 4-note
 // ascending chime on a real win. One shared AudioContext, created lazily on first use since some
@@ -15,7 +16,7 @@ const WHEEL_SPIN_MS = 3200;
 // this is safe).
 let sharedAudioCtx: AudioContext | null = null;
 function getAudioCtx(): AudioContext | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || prefersReducedMotion()) return null;
   const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctor) return null;
   if (!sharedAudioCtx) sharedAudioCtx = new Ctor();
@@ -65,7 +66,7 @@ function playWheelSuccessChime() {
 }
 // Lightweight canvas confetti burst — self-removing, no external library/dependency.
 function fireWheelConfetti() {
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined" || prefersReducedMotion()) return;
   const canvas = document.createElement("canvas");
   canvas.style.cssText = "position:fixed;inset:0;z-index:10001;pointer-events:none;";
   canvas.width = window.innerWidth;
@@ -117,6 +118,12 @@ const entryLabel=(kind:string,locale:string)=>({
   es:{referral_paid:"Referencia con pago",community_social:"Relato público aprobado",product_feedback:"Feedback aprobado",spin_debit:"Giro de la ruleta",reversal:"Reversión",admin_adjustment:"Ajuste administrativo"},
   en:{referral_paid:"Paid referral",community_social:"Approved public story",product_feedback:"Approved feedback",spin_debit:"Wheel spin",reversal:"Reversal",admin_adjustment:"Admin adjustment"},
 }[locale as "pt-BR"|"es"|"en"]?.[kind as "referral_paid"]||kind.replaceAll("_"," "));
+const debtCopy = {
+  "pt-BR": (points:number) => `${points} pontos aguardam compensação por estorno.`,
+  es: (points:number) => `${points} puntos esperan compensación por reversión.`,
+  en: (points:number) => `${points} points are awaiting refund offset.`,
+};
+const dayCopy = { "pt-BR": "dias", es: "días", en: "days" };
 export function CommunityCampaignSection(){
   const {locale}=useI18n(); const t=copy[locale as keyof typeof copy]||copy.en; const resultButton=useRef<HTMLButtonElement>(null);
   const [session,setSession]=useState<Session|null>(null),[profile,setProfile]=useState<{referral_code:string;qualified_referrals:number}|null>(null);
@@ -148,13 +155,13 @@ export function CommunityCampaignSection(){
   return <section id="comunidade" className="qts-section qts-community"><div className="qts-container"><p className="qts-eyebrow">{t.eyebrow}</p><h2>{t.title}</h2><p className="qts-section-lead">{t.lead}</p>
     <div className="qts-rewards-how"><h3>{t.how}</h3><ol>{t.steps.map(item=><li key={item}>{item}</li>)}</ol></div>
     <div className="qts-community-grid"><article className="qts-community-card"><h3>{t.affiliate}</h3><p>{t.offers}</p><p className="qts-affiliate-rules">{t.rules}</p>{!session?<button className="qts-btn qts-btn-primary" onClick={openAccountModal}>{t.signIn}</button>:profile?<><div className="qts-copy-field"><input aria-label={t.affiliate} readOnly value={affiliateLink}/><button type="button" onClick={()=>navigator.clipboard.writeText(affiliateLink).then(()=>setMessage(t.copied))}>{t.copy}</button></div><p className="qts-campaign-stats"><b>{referralCount}</b> {t.invited} · <b>{profile.qualified_referrals}</b> {t.qualified}</p></>:<p>{t.unavailable}</p>}</article>
-      <article className="qts-community-card qts-reward-summary" aria-live="polite"><h3>{t.balance}</h3><strong className="qts-points-total">{available}</strong><div className="qts-reward-metrics"><span><b>{wallet?.pending_points||0}</b>{t.pending}</span><span><b>{wallet?.lifetime_points||0}</b>{t.lifetime}</span><span><b>{Math.floor(available/100)}</b>{t.spins}</span></div><label>{t.progress}<progress max="100" value={available%100}/><small>{available%100}/100</small></label>{wallet?.debt_points?<p className="qts-form-status" role="alert">{wallet.debt_points} pontos aguardam compensação por estorno.</p>:null}</article></div>
+      <article className="qts-community-card qts-reward-summary" aria-live="polite"><h3>{t.balance}</h3><strong className="qts-points-total">{available}</strong><div className="qts-reward-metrics"><span><b>{wallet?.pending_points||0}</b>{t.pending}</span><span><b>{wallet?.lifetime_points||0}</b>{t.lifetime}</span><span><b>{Math.floor(available/100)}</b>{t.spins}</span></div><label>{t.progress}<progress max="100" value={available%100}/><small>{available%100}/100</small></label>{wallet?.debt_points?<p className="qts-form-status" role="alert">{debtCopy[locale](wallet.debt_points)}</p>:null}</article></div>
     <div className="qts-community-grid qts-wheel-grid"><article className="qts-community-card qts-wheel-card"><h3>{t.wheel}</h3><p>{t.random}</p>
       <button type="button" className="qts-btn qts-btn-primary" disabled={available<100} onClick={()=>setWheelOpen(true)}>{t.tryLuck}</button>
       <p className="qts-wheel-trigger-hint">{t.tryLuckHint} <b>{available}</b>.</p>
       <div className="qts-odds"><strong>{t.odds}</strong>{eligiblePrizes.map(p=><div key={p.id}><span>{label(p)}</span><b>{totalWeight?((p.weight/totalWeight)*100).toFixed(1):"0"}%</b></div>)}</div></article>
       <article className="qts-community-card"><h3>{t.mission}</h3><p>{t.missionBody}</p><fieldset className="qts-mission-list" disabled={locked}><label><b>{t.social}</b><input value={socialUrl} onChange={e=>setSocialUrl(e.target.value)} placeholder="https://..."/></label><label><b>{t.linkedin}</b><input value={linkedinUrl} onChange={e=>setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/..."/></label><label><b>{t.feedback}</b><textarea value={feedback} onChange={e=>setFeedback(e.target.value)} rows={4} placeholder={t.feedbackPlaceholder}/></label><label className="qts-disclosure"><input type="checkbox" checked={disclosure} onChange={e=>setDisclosure(e.target.checked)}/><span>{t.disclosure}</span></label></fieldset><button className="qts-btn qts-btn-primary" disabled={busy||locked} onClick={()=>void submit()}>{!session?t.signIn:submission?.status==="rejected"?t.resubmit:t.submit}</button>{submission&&<div className={`qts-campaign-status is-${submission.status}`} role="status"><strong>{submission.status==="approved"?t.missionApproved:submission.status==="rejected"?t.missionRejected:t.missionPending}</strong><p>{submission.review_notes}</p></div>}</article></div>
-    {session&&<div className="qts-community-grid"><article className="qts-community-card"><h3>{t.benefits}</h3>{benefits.length?<div className="qts-reward-list">{benefits.map(b=><div key={b.id}><b>{b.kind==="discount_percent"?`${b.discount_percent}%`:`${b.grant_days} dias`}</b><span>{t.status[b.status as keyof typeof t.status]||b.status}</span><small>{fmtDate(b.expires_at,locale)}</small></div>)}</div>:<p>{t.emptyBenefits}</p>}</article><article className="qts-community-card"><h3>{t.ledger}</h3>{entries.length?<div className="qts-reward-list">{entries.map(e=><div key={e.id}><b className={e.points>0?"is-credit":"is-debit"}>{e.points>0?"+":""}{e.points}</b><span>{entryLabel(e.event_kind,locale)}</span><small>{fmtDate(e.created_at,locale)}</small></div>)}</div>:<p>{t.emptyLedger}</p>}</article></div>}
+    {session&&<div className="qts-community-grid"><article className="qts-community-card"><h3>{t.benefits}</h3>{benefits.length?<div className="qts-reward-list">{benefits.map(b=><div key={b.id}><b>{b.kind==="discount_percent"?`${b.discount_percent}%`:`${b.grant_days} ${dayCopy[locale]}`}</b><span>{t.status[b.status as keyof typeof t.status]||b.status}</span><small>{fmtDate(b.expires_at,locale)}</small></div>)}</div>:<p>{t.emptyBenefits}</p>}</article><article className="qts-community-card"><h3>{t.ledger}</h3>{entries.length?<div className="qts-reward-list">{entries.map(e=><div key={e.id}><b className={e.points>0?"is-credit":"is-debit"}>{e.points>0?"+":""}{e.points}</b><span>{entryLabel(e.event_kind,locale)}</span><small>{fmtDate(e.created_at,locale)}</small></div>)}</div>:<p>{t.emptyLedger}</p>}</article></div>}
     <p className="qts-optional-review">{t.reviewSuggestion} {t.reviewNotice} <a href={STORE_URL} target="_blank" rel="noreferrer">{t.review}</a></p>{message&&<p role="status" className="qts-form-status">{message}</p>}
     {wheelOpen&&<div className="qts-reward-dialog-backdrop" role="presentation" onClick={()=>{if(!spinBusy)setWheelOpen(false);}}><div className="qts-reward-dialog qts-wheel-dialog" role="dialog" aria-modal="true" aria-labelledby="reward-wheel-title" onClick={e=>e.stopPropagation()}>
       <h3 id="reward-wheel-title">{t.wheel}</h3><p>{t.random}</p>
