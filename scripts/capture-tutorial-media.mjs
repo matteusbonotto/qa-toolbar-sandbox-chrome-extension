@@ -39,8 +39,7 @@ const sandboxServer = createServer(async (request, response) => {
     const pathname = decodeURIComponent(new URL(request.url || "/", DEMO_URL).pathname);
     const filePath = resolve(sandboxRoot, `.${pathname}`);
     if (!filePath.startsWith(sandboxRoot)) throw new Error("invalid_path");
-    const info = await stat(filePath);
-    const resolvedFile = info.isDirectory() ? resolve(filePath, "index.html") : filePath;
+    const resolvedFile = pathname.endsWith("/") ? resolve(filePath, "index.html") : filePath;
     const handle = await open(resolvedFile, "r");
     try {
       const openedInfo = await handle.stat();
