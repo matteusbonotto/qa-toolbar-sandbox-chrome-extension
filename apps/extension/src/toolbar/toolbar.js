@@ -1318,6 +1318,21 @@ async function renderTourStep() {
   }
   const targetEl = state.shadowRoot.querySelector(config.menu && tourMenuPhase ? "#toolsButton" : config.selector);
   if (!targetEl) { advanceTourStep(); return; }
+  if (config.menu && !tourMenuPhase && toolsMenu) {
+    const menuRect = toolsMenu.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+    const safeInset = 6;
+    // The compact Tools menu intentionally shows only eight rows and scrolls the rest. Tour
+    // targets near the bottom therefore have valid layout coordinates but sit outside the menu's
+    // clipping viewport. Center the real button first, wait for layout, and only then measure the
+    // spotlight/balloon. This also works after sorting the menu changes an item's offsetTop.
+    if (targetRect.top < menuRect.top + safeInset || targetRect.bottom > menuRect.bottom - safeInset) {
+      const centeredTop = targetEl.offsetTop - (toolsMenu.clientHeight - targetEl.offsetHeight) / 2;
+      toolsMenu.scrollTop = Math.max(0, centeredTop);
+      await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+      if (tourSteps[tourStepIndex] !== module || renderVersion !== tourRenderVersion) return;
+    }
+  }
   const rect = targetEl.getBoundingClientRect();
   const pad = 6;
   const spotlight = document.createElement("div");

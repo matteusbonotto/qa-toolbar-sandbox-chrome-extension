@@ -459,7 +459,7 @@ try {
     throw new Error(`Detached sidebar is not responsive to its own viewport: ${JSON.stringify(detachedChrome)}`);
   }
   const detachedClosePromise = detachedPage.waitForEvent("close");
-  await detachedPage.locator("#drawerClose").click();
+  await detachedPage.locator("#drawerClose").evaluate((button) => button.click());
   await detachedClosePromise;
 
   // Modal tools use the same detached-window shell, but historically retained their centered
@@ -494,7 +494,7 @@ try {
     throw new Error(`Detached modal is not responsive to its own viewport: ${JSON.stringify(detachedModalLayout)}`);
   }
   const detachedModalClosePromise = detachedModalPage.waitForEvent("close");
-  await detachedModalPage.locator("#drawerClose").click();
+  await detachedModalPage.locator("#drawerClose").evaluate((button) => button.click());
   await detachedModalClosePromise;
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();
@@ -1384,15 +1384,37 @@ try {
   trace("live tutorial tour verified (spotlight, step advance, achievement sound, skip-to-workspace)");
 
   // Menu tools use a deliberate two-stage tour: the user first opens Tools, then the requested
-  // item is highlighted. Opening a drawer must remove the page dim and retain contextual help.
-  await host.goto("http://127.0.0.1:43117/app?qtsTutorial=1&qtsTutorialStep=blurElements");
+  // item is highlighted. Use an item below the eight-row visible area to prove the compact menu
+  // scrolls before spotlight geometry is measured. Opening its drawer must remove the page dim
+  // and retain contextual help.
+  await host.goto("http://127.0.0.1:43117/app?qtsTutorial=1&qtsTutorialStep=paymentMethods");
   await toolbar.waitFor({ timeout: 10_000 });
   await host.locator(".qts-tour-balloon b").filter({ hasText: /Ferramentas|Tools|Herramientas/ }).waitFor();
   if (await host.locator("#toolsMenu.isOpen").count()) throw new Error("Tool tour opened Tools before the user action");
   await host.locator("#toolsButton").click();
-  await host.locator("#blurElementsMenuItem").waitFor({ state: "visible" });
-  await host.locator(".qts-tour-balloon b").filter({ hasText: /Borrar|Blur/ }).waitFor();
-  await host.locator("#blurElementsMenuItem").click();
+  await host.locator("#paymentMethodsMenuItem").waitFor({ state: "visible" });
+  await host.locator(".qts-tour-balloon b").filter({ hasText: /Meios de pagamento|Payment methods|Medios de pago/ }).waitFor();
+  const scrolledToolTourGeometry = await host.locator("#qts-toolbar-host").evaluate((element) => {
+    const shadow = element.shadowRoot;
+    const menu = shadow.querySelector("#toolsMenu");
+    const target = shadow.querySelector("#paymentMethodsMenuItem");
+    const spotlight = shadow.querySelector(".qts-tour-spotlight");
+    const menuRect = menu.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const spotlightRect = spotlight.getBoundingClientRect();
+    return {
+      scrollTop: menu.scrollTop,
+      targetInsideMenu: targetRect.top >= menuRect.top && targetRect.bottom <= menuRect.bottom,
+      spotlightContainsTarget: spotlightRect.left <= targetRect.left
+        && spotlightRect.top <= targetRect.top
+        && spotlightRect.right >= targetRect.right
+        && spotlightRect.bottom >= targetRect.bottom,
+    };
+  });
+  if (scrolledToolTourGeometry.scrollTop <= 0 || !scrolledToolTourGeometry.targetInsideMenu || !scrolledToolTourGeometry.spotlightContainsTarget) {
+    throw new Error(`Tour did not scroll and align a clipped Tools item before highlighting it: ${JSON.stringify(scrolledToolTourGeometry)}`);
+  }
+  await host.locator("#paymentMethodsMenuItem").click();
   await host.locator("#drawerHost .qts-drawer").waitFor();
   await host.locator(".qts-tour-balloon").filter({ hasText: /ferramenta está aberta|tool is open|herramienta está abierta/i }).waitFor();
   if (await host.locator(".qts-tour-spotlight").count()) throw new Error("Tour kept the dimming spotlight over an open tool drawer");

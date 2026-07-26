@@ -164,3 +164,16 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
   da viewport e ausência de overflow horizontal em ambos.
 - O smoke clica no botão vermelho e exige o evento real de fechamento nas duas variantes.
 - Versão da extensão atualizada para `1.4.9`.
+
+## Tour no menu compacto em 2026-07-25
+
+- Etapas que apontam para itens fora das oito opções visíveis agora abrem o menu, centralizam o
+  botão real dentro da área rolável e somente depois calculam spotlight e balão.
+- O cálculo usa o `offsetTop` atual do item, portanto continua correto depois de buscas,
+  ordenações ou mudanças futuras na ordem das ferramentas.
+- O reposicionamento aguarda dois frames de layout antes de medir a geometria final.
+- O smoke inicia diretamente em `Meios de pagamento`, exige `scrollTop > 0`, confirma que o botão
+  está integralmente dentro do menu e que o spotlight contém exatamente o alvo visível.
+- O mesmo teste abre a ferramenta real e confirma a transição para a ajuda contextual sem manter
+  o escurecimento sobre o drawer.
+- Versão da extensão atualizada para `1.4.10`.
