@@ -407,6 +407,21 @@ try {
   for (const control of ["#drawerSearch", "#drawerPosition", "#drawerPin", "#drawerMinimize", "#drawerClose"]) {
     if (!(await host.locator(control).count())) throw new Error(`Shared sidebar control is missing: ${control}`);
   }
+  if (!(await host.locator("#drawerDetach").count())) throw new Error("Sidebar is missing the open-in-new-window action");
+  const detachedPagePromise = context.waitForEvent("page");
+  await host.locator("#drawerDetach").click();
+  const detachedPage = await detachedPagePromise;
+  await detachedPage.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await detachedPage.locator(".qts-drawer-backdrop.isDetached .qts-drawer").waitFor();
+  const detachedChrome = await detachedPage.locator("#qts-toolbar-host").evaluate((element) => {
+    const shadow = element.shadowRoot;
+    return {
+      barHidden: getComputedStyle(shadow.querySelector("#bar")).display === "none",
+      view: shadow.querySelector("#drawerHost")?.dataset.view,
+    };
+  });
+  if (!detachedChrome.barHidden || detachedChrome.view !== "inputLab") throw new Error(`Detached tool window did not isolate the requested panel: ${JSON.stringify(detachedChrome)}`);
+  await detachedPage.close();
   await host.locator("#drawerPosition").selectOption("left");
   if (await host.locator("#drawerBackdrop").getAttribute("data-position") !== "left") throw new Error("Sidebar did not move to the left");
   await host.locator("#drawerPin").click();
@@ -421,6 +436,14 @@ try {
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
+  const switchLayout = await host.locator(".qts-switch-row").first().evaluate((row) => {
+    const toggle = row.querySelector('input[type="checkbox"]').getBoundingClientRect();
+    const copy = row.querySelector("span").getBoundingClientRect();
+    return { toggleRight: toggle.right, copyLeft: copy.left, copyWidth: copy.width, rowWidth: row.getBoundingClientRect().width };
+  });
+  if (switchLayout.toggleRight > switchLayout.copyLeft || switchLayout.copyWidth < switchLayout.rowWidth / 2) {
+    throw new Error(`Key View toggle overlaps or clips its text: ${JSON.stringify(switchLayout)}`);
+  }
   await host.locator("#keyViewToggle").click();
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();

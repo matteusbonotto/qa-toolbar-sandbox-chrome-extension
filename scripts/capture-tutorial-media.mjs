@@ -12,7 +12,7 @@
 // Not part of CI -- run manually with `npm run tutorial:capture` and review the media before
 // committing. Each tool capture is wrapped so one failure doesn't abort the whole batch; failures
 // are reported at the end so they're easy to re-run individually later.
-import { mkdir, readFile, rm, stat } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, stat } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { createServer } from "node:http";
 import { chromium } from "playwright";
@@ -21,13 +21,15 @@ const root = resolve(import.meta.dirname, "..");
 const extensionPath = resolve(root, "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-tutorial-capture-profile");
 const videoTmpPath = resolve(root, "artifacts/tutorial-video-tmp");
-const assetsPath = resolve(root, "apps/extension/src/options/tutorial-assets");
+const finalAssetsPath = resolve(root, "apps/extension/src/options/tutorial-assets");
+const assetsPath = resolve(root, "artifacts/tutorial-assets-current");
 const sandboxRoot = resolve(root, "apps/landing/public");
 const DEMO_URL = "http://127.0.0.1:43118/sandbox/index.html";
 const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
 const trace = (label) => console.log(`[tutorial-capture] ${label}`);
 await rm(profilePath, { recursive: true, force: true });
 await rm(videoTmpPath, { recursive: true, force: true });
+if (!captureOnly) await rm(assetsPath, { recursive: true, force: true });
 await mkdir(assetsPath, { recursive: true });
 await mkdir(videoTmpPath, { recursive: true });
 
@@ -97,7 +99,12 @@ async function openToolByMenu(page, menuItemId) {
 // Practice Form fields (contactName/contactEmail/contactDepartment/contactSubmit) needs this
 // first or those locators are hidden and every action below times out.
 async function showSandboxPage(page, pageId) {
-  await page.locator(`[data-page-link="${pageId}"]`).click();
+  const link = page.locator(`[data-page-link="${pageId}"]`);
+  if (!(await link.isVisible())) {
+    const category = page.locator(".nav-category").filter({ has: link });
+    await category.locator(".nav-category-btn").click();
+  }
+  await link.click();
 }
 
 async function closeDrawer(page) {
@@ -112,9 +119,11 @@ async function captureTool(key, action) {
   const page = await context.newPage();
   try {
     await waitForToolbar(page);
-    await action(page);
+    const captureResult = await action(page);
     await page.waitForTimeout(1_200);
-    await page.screenshot({ path: resolve(assetsPath, `${key}.png`), fullPage: false });
+    if (captureResult?.skipFinalScreenshot !== true) {
+      await page.screenshot({ path: resolve(assetsPath, `${key}.png`), fullPage: false });
+    }
     const video = page.video();
     await page.close();
     if (video) await video.saveAs(resolve(assetsPath, `${key}.webm`));
@@ -156,7 +165,7 @@ try {
   await options.locator('[data-workspace-tab="environments"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
-  await options.locator("#environmentColor").fill("#5b21b6");
+  await options.locator("#environmentColor").fill("#2563eb");
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-tab="urls"]').click();
   for (const pattern of ["http://127.0.0.1:43118/sandbox/*"]) {
@@ -174,7 +183,7 @@ try {
   await options.locator('[data-workspace-tab="accounts"]').click();
   await options.locator('[data-open-composer="testAccountComposer"]').click();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
-  await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).locator("input").check();
+  await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#testAccountLabel").fill("Conta sandbox");
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
@@ -183,7 +192,7 @@ try {
   await options.locator('[data-workspace-tab="payments"]').click();
   await options.locator('[data-open-composer="paymentMethodComposer"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
-  await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).locator("input").check();
+  await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
@@ -211,6 +220,9 @@ try {
   await walkthrough.locator('[data-theme-choice="light"]').click();
   await walkthrough.waitForTimeout(550);
   await walkthrough.locator('[data-theme-choice="dark"]').click();
+  // Every shipped tutorial asset must end in the product default, never in the temporary dark
+  // demonstration state used one action earlier.
+  await walkthrough.locator('[data-color-theme="blue-light"]').click();
   await walkthrough.locator('.navItem[data-tab="workspace"]').click();
   const demos = [
     ["structure", "clientComposer"], ["structure", "projectComposer"], ["structure", "productComposer"],
@@ -236,11 +248,13 @@ try {
   trace("captured workspace-setup.webm (appearance + complete Workspace CRUD walkthrough)");
 
   await captureTool("testStatus", async (page) => {
-    await page.locator("#testStatusButton").click();
+    await openToolByMenu(page, "statusMenuItem");
     await page.locator("#qts-test-status-modal").waitFor();
     await page.waitForTimeout(1_400); // let the four status options sit on screen before picking one
+    await page.screenshot({ path: resolve(assetsPath, "testStatus.png"), fullPage: false });
     await page.locator('#qts-test-status-modal [data-status="pass"]').click();
     await page.waitForTimeout(600); // show the after-click result, not just the picker
+    return { skipFinalScreenshot: true };
   });
 
   await captureTool("passFail", async (page) => {
@@ -262,11 +276,11 @@ try {
   });
 
   await captureTool("notesShapes", async (page) => {
-    await page.locator("#noteButton").click();
+    await openToolByMenu(page, "notesMenuItem");
     await page.locator(".qts-note textarea").fill("Confirmar mensagem de erro com o time de produto");
     await page.locator(".qts-note [data-save]").click();
     await page.waitForTimeout(400);
-    await page.locator("#shapeButton").click();
+    await openToolByMenu(page, "shapesMenuItem");
     await page.locator('[data-shape-pick="rectangle"]').click();
     await page.mouse.move(300, 420);
     await page.mouse.down();
@@ -276,7 +290,7 @@ try {
   });
 
   await captureTool("line", async (page) => {
-    await page.locator("#shapeButton").click();
+    await openToolByMenu(page, "shapesMenuItem");
     await page.locator('[data-shape-pick="line"]').click();
     await page.mouse.move(280, 420);
     await page.mouse.down();
@@ -382,7 +396,7 @@ try {
   await captureTool("inputLab", async (page) => {
     await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "inputLabMenuItem");
-    await page.locator("#contactDepartment").click();
+    await page.locator("#inputSelect").click();
     await page.locator("#contactName").click();
     await page.locator("#inputRun").click();
     await page.locator("#inputResults tbody tr").first().waitFor();
@@ -426,10 +440,11 @@ try {
 
   await captureTool("keyView", async (page) => {
     await openToolByMenu(page, "keyViewMenuItem");
+    await page.locator("#keyViewTyping").check();
     await page.locator("#keyViewToggle").click();
-    await closeDrawer(page);
-    await page.locator("h1").click();
-    await page.keyboard.press("Control+V");
+    // Keep the configured drawer visible in the final frame: the transient typing overlay fades
+    // during the mandatory 3s pacing and previously produced a nearly blank screenshot.
+    await page.locator(".qts-key-view-preview").waitFor();
   });
 
   await captureTool("elementCapture", async (page) => {
@@ -449,8 +464,26 @@ try {
     await openToolByMenu(page, "resourcesMenuItem");
   });
 
-  if (failures.length) trace(`done with failures: ${failures.join(", ")} -- rerun this script, only the failed tools need retrying (workspace setup is idempotent-ish but review the profile first)`);
-  else trace("done -- review the media in apps/extension/src/options/tutorial-assets/ before committing");
+  const expectedMediaKeys = [
+    "workspace-setup", "testStatus", "passFail", "notesShapes", "line", "blurElements", "holofote",
+    "pixelPerfect", "screenshot", "recording", "clickSpy", "freezeClock", "forceHttp", "errorMonitor",
+    "inspectors", "jsonStudio", "breakpoints", "characterCounter", "multiClick", "inputLab", "fakerFill",
+    "macroStudio", "stepsRecorder", "keyView", "elementCapture", "testAccounts", "paymentMethods", "resources",
+  ];
+  for (const key of expectedMediaKeys) {
+    for (const extension of ["png", "webm"]) {
+      try { await stat(resolve(assetsPath, `${key}.${extension}`)); }
+      catch { failures.push(`${key}.${extension}`); }
+    }
+  }
+  if (failures.length) {
+    trace(`done with failures: ${failures.join(", ")} -- existing tutorial assets were preserved`);
+    process.exitCode = 1;
+  } else {
+    await rm(finalAssetsPath, { recursive: true, force: true });
+    await cp(assetsPath, finalAssetsPath, { recursive: true });
+    trace("done -- every tutorial screenshot/video was atomically replaced with the current blue-light capture");
+  }
 } finally {
   await context.close();
   await new Promise((resolveClosed) => sandboxServer.close(resolveClosed));

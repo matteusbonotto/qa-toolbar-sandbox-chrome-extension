@@ -380,7 +380,21 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try { url = new URL(message.url); } catch { return sendResponse({ ok: false, error: "invalid_url" }); }
       if (!["http:", "https:", "file:"].includes(url.protocol)) return sendResponse({ ok: false, error: "invalid_url" });
       return chrome.windows.create({ url: url.toString(), type: "popup", focused: true, width: 1100, height: 760 })
-        .then((createdWindow) => sendResponse({ ok: true, windowId: createdWindow.id }))
+        .then(async (createdWindow) => {
+          const tabId = createdWindow.tabs?.[0]?.id
+            || (await chrome.tabs.query({ windowId: createdWindow.id, active: true }))[0]?.id;
+          if (tabId && typeof message.toolKey === "string") {
+            // The URL parameter is the cold-start path. This explicit message is a second,
+            // deterministic trigger after the content script finishes loading, eliminating the
+            // race where the popup showed only a duplicate page without its requested panel.
+            for (const delay of [250, 500, 1_000, 1_500]) {
+              await new Promise((resolveWait) => setTimeout(resolveWait, delay));
+              const result = await chrome.tabs.sendMessage(tabId, { type: "qts:open-detached-tool", toolKey: message.toolKey }).catch(() => null);
+              if (result?.handled) break;
+            }
+          }
+          sendResponse({ ok: true, windowId: createdWindow.id });
+        })
         .catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
     });
     return true;

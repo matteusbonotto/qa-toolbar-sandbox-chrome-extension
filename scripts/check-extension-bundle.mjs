@@ -38,16 +38,18 @@ export async function verifyExtensionSource(sourceDirectory) {
   for (let index = 0; index < files.length; index += 1) {
     const contents = await readFile(files[index]);
     totalBytes += contents.byteLength;
-    if (contents.byteLength > 2_000_000) throw new Error(`Extension file is unexpectedly large: ${entries[index]}`);
+    const tutorialVideo = /^src\/options\/tutorial-assets\/[^/]+\.webm$/i.test(entries[index]);
+    const fileLimit = tutorialVideo ? 10_000_000 : 2_000_000;
+    if (contents.byteLength > fileLimit) throw new Error(`Extension file is unexpectedly large: ${entries[index]}`);
     if (!/\.(?:js|css|html|json)$/i.test(entries[index])) continue;
     const text = contents.toString("utf8");
     if (SECRET_PATTERNS.some((pattern) => pattern.test(text))) throw new Error(`Secret-like value found in extension source: ${entries[index]}`);
   }
-  // Raised from 8 MB once the Tutorial panel started shipping real short (~3s) .webm clips per
-  // tool (apps/extension/src/options/tutorial-assets/) -- 20 MB still leaves headroom to catch a
-  // genuine accident (a full recording left in by mistake, a huge unrelated binary) while fitting
-  // the full 22-tool video library comfortably.
-  if (totalBytes > 20_000_000) throw new Error("Extension package exceeds the 20 MB source safety limit");
+  // Tutorial clips deliberately pause 3s after every visible action. That makes them materially
+  // more readable than the former ~3s whole clips, but also larger. Per-file limits above still
+  // catch accidental long recordings; this aggregate ceiling fits the complete current library
+  // while retaining headroom for one normal release.
+  if (totalBytes > 70_000_000) throw new Error("Extension package exceeds the 70 MB source safety limit");
 
   const manifest = JSON.parse(await readFile(resolve(source, "manifest.json"), "utf8"));
   if (manifest.manifest_version !== 3 || manifest.key) throw new Error("Manifest must be MV3 and must not contain manifest.key");

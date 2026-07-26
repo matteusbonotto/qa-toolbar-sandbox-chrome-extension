@@ -37,10 +37,12 @@ function applyColorTheme() {
 const state = {
   workspace: null,
   siteScope: null,
+  detachedToolKey: new URL(window.location.href).searchParams.get("qtsDetachedTool") || "",
   environment: null,
   minimized: false,
   shadowRoot: null,
   placementMode: null, // null | "pass" | "fail" | "shape"
+  minimizedDrawer: null,
   clickSpyActive: false,
   clockFrozen: false,
   forceHttpActive: false,
@@ -410,6 +412,7 @@ function applyPinnedTools() {
     // otherwise both look identical and there's no visual cue which ones are user customization.
     quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly qts-user-pinned" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}<span class="qts-pin-badge">${ICON("pin")}</span></button>`).join("");
     quickContainer.querySelectorAll("[data-pinned-tool]").forEach((button) => button.addEventListener("click", () => root.getElementById(menuItems[button.dataset.pinnedTool])?.click()));
+    renderMinimizedDrawerShortcut();
   }
   // Re-append each menu item in the effective order -- appendChild on an already-attached node
   // *moves* it, so iterating in order and re-appending sequentially reorders the whole menu
@@ -430,6 +433,7 @@ function render() {
   if (host) {
     host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
     host.dataset.toolbarPosition = state.workspace?.preferences?.toolbarPosition || "top";
+    host.dataset.detachedWindow = String(Boolean(state.detachedToolKey));
   }
   applyColorTheme();
   const root = state.shadowRoot;
@@ -466,6 +470,7 @@ function buildShadowHost() {
   host.style.all = "initial";
   host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
   host.dataset.toolbarPosition = state.workspace?.preferences?.toolbarPosition || "top";
+  host.dataset.detachedWindow = String(Boolean(state.detachedToolKey));
   const shadow = host.attachShadow({ mode: "open" });
 
   shadow.innerHTML = `
@@ -542,6 +547,8 @@ function buildShadowHost() {
       }
       :host([data-toolbar-position="left"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) { left:60px; right:auto; }
       :host([data-toolbar-position="right"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) { left:auto; right:60px; }
+      :host([data-detached-window="true"]) #bar,
+      :host([data-detached-window="true"]) #restoreButton { display:none !important; }
       /* Logged-out mode: the bar still mounts (so a URL the user configured never goes silent
          about why nothing appeared), but every functional button is hidden except Settings/
          Minimize -- only the message + login CTA below show. See render()/refreshAuthorization. */
@@ -1089,7 +1096,7 @@ function mountToolbar() {
 function openToolInNewTab(toolKey) {
   const url = new URL(window.location.href);
   url.searchParams.set("qtsDetachedTool", toolKey);
-  chrome.runtime.sendMessage({ type: "qts:open-tool-window", url: url.toString() }, (response) => {
+  chrome.runtime.sendMessage({ type: "qts:open-tool-window", url: url.toString(), toolKey }, (response) => {
     if (chrome.runtime.lastError || response?.ok !== true) window.open(url.toString(), "_blank", "noopener");
   });
 }
@@ -1098,8 +1105,13 @@ async function maybeOpenDetachedTool() {
   const url = new URL(window.location.href);
   const toolKey = url.searchParams.get("qtsDetachedTool");
   if (!toolKey || !state.authorized) return;
+  state.detachedToolKey = toolKey;
   url.searchParams.delete("qtsDetachedTool");
   window.history.replaceState({}, "", url.toString());
+  window.setTimeout(() => openDetachedTool(toolKey), 150);
+}
+
+function openDetachedTool(toolKey) {
   const openers = {
     testStatus: () => openTestStatusModal(),
     testAccounts: openTestAccountsDrawer,
@@ -1121,7 +1133,15 @@ async function maybeOpenDetachedTool() {
     multiClick: openMultiClick,
     macroStudio: openMacroStudio,
   };
-  window.setTimeout(() => openers[toolKey]?.(), 150);
+  const opener = openers[toolKey];
+  if (!opener) return false;
+  const existingDrawer = state.shadowRoot?.getElementById("drawerHost");
+  if (existingDrawer?.dataset.view === toolKey && existingDrawer.querySelector(".qts-drawer")) return true;
+  state.detachedToolKey = toolKey;
+  const host = document.getElementById(HOST_ID);
+  if (host) host.dataset.detachedWindow = "true";
+  opener();
+  return true;
 }
 
 // Small dot on the settings button, separate from maybeShowFirstRunIntro's one-time card above:
@@ -2354,6 +2374,11 @@ function drawerStyles() {
       width: min(920px, 94vw); height: min(760px, 90vh); border-left: 0; border-radius: 16px;
       border: 1px solid #292929; box-shadow: 0 30px 80px rgba(0,0,0,.55);
     }
+    .qts-drawer-backdrop.isDetached { background:var(--qts-panel,#0b0b0b); }
+    .qts-drawer-backdrop.isDetached .qts-drawer {
+      width:100vw; max-width:none; height:100vh; max-height:none; border:0; border-radius:0;
+      box-shadow:none; resize:none;
+    }
     .qts-drawer-head { display: flex; align-items: center; gap:6px; padding: 10px 12px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; flex: none; }
@@ -2377,7 +2402,9 @@ function drawerStyles() {
     .qts-drawer-resize[data-edge="top"], .qts-drawer-resize[data-edge="bottom"] { left:0; right:0; height:8px; cursor:ns-resize; }
     .qts-drawer-resize[data-edge="top"] { top:-4px; } .qts-drawer-resize[data-edge="bottom"] { bottom:-4px; }
     .qts-drawer-head #drawerBack { background: var(--qts-panel-surface-2,#171717); color: inherit; font-size: 15px; }
-    .qts-drawer-body { flex: 1; overflow: auto; padding: 14px 16px; }
+    .qts-drawer-body { flex:1; min-width:0; overflow:auto; padding:14px 16px; }
+    .qts-drawer-body > *, .qts-card > *, .qts-list-row > * { min-width:0; max-width:100%; }
+    .qts-drawer-body :is(h1,h2,h3,h4,p,small,b,label,span) { overflow-wrap:anywhere; }
     .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
       width: 100%; padding: 8px 10px; border: 1px solid var(--qts-panel-border,#2c2c2c); border-radius: 8px; background: var(--qts-panel-2,#141414); color: var(--qts-panel-text,#fff); font: inherit;
     }
@@ -2474,8 +2501,9 @@ function drawerStyles() {
     .qts-key-view-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .qts-key-view-status div { display: grid; gap: 2px; }
     .qts-key-view-status small, .qts-switch-row small { display: block; color: #999; font-weight: 500; }
-    .qts-switch-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; padding: 11px; margin-bottom: 8px; border: 1px solid #292929; border-radius: 10px; background: #121212; cursor: pointer; }
-    .qts-switch-row input { width: 17px !important; height: 17px; margin: 2px 0 0; accent-color: var(--qts-ui-primary, #ef3340); }
+    .qts-switch-row { display:grid; grid-template-columns:38px minmax(0,1fr); gap:10px; align-items:start; padding:11px; margin-bottom:8px; border:1px solid #292929; border-radius:10px; background:#121212; cursor:pointer; }
+    .qts-switch-row > span { min-width:0; overflow-wrap:anywhere; }
+    .qts-drawer .qts-switch-row input[type="checkbox"] { width:38px !important; height:22px; margin:0; }
     .qts-field-label { display: grid; gap: 7px; margin: 12px 0; color: #ddd; font-weight: 750; }
     .qts-position-grid { width: 132px; display: grid; grid-template-columns: repeat(3, 40px); gap: 6px; }
     .qts-position-grid button { width: 40px; height: 36px; border: 1px solid #393939; border-radius: 8px; background: #171717; color: #aaa; cursor: pointer; font-size: 16px; }
@@ -2709,6 +2737,26 @@ function wireSmartFilter(container, onChange) {
 // header instead of forcing "close the whole sidebar, then reopen it" to get back to a list.
 // openDrawer has no history stack of its own; each caller that drills into a sub-view is
 // responsible for passing the one function that rebuilds its own parent view.
+function renderMinimizedDrawerShortcut() {
+  const tools = state.shadowRoot?.getElementById("extraPinnedTools");
+  if (!tools) return;
+  tools.querySelector("#minimizedDrawerButton")?.remove();
+  const descriptor = state.minimizedDrawer;
+  if (!descriptor) return;
+  const restore = document.createElement("button");
+  restore.id = "minimizedDrawerButton";
+  restore.className = "iconOnly isActive";
+  restore.type = "button";
+  restore.title = `Restaurar ${descriptor.title}`;
+  restore.innerHTML = ICON(descriptor.view === "jsonStudio" ? "braces" : "square");
+  restore.addEventListener("click", () => {
+    state.minimizedDrawer = null;
+    restore.remove();
+    openDrawer(descriptor);
+  });
+  tools.appendChild(restore);
+}
+
 function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" }) {
   if (!view && title === stepsCopy().title) view = "stepsRecorder";
   cleanupBreakpointViewer();
@@ -2718,13 +2766,14 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   // switching to a different panel made Inspectors content silently overwrite other drawers.
   drawerHost.dataset.view = view;
   const drawerPosition = ["left", "right", "top", "bottom"].includes(state.workspace?.preferences?.drawerPosition) ? state.workspace.preferences.drawerPosition : "right";
-  const sidebarControls = variant !== "modal";
+  const detachedWindow = Boolean(state.detachedToolKey);
+  const sidebarControls = variant !== "modal" && !detachedWindow;
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
-    <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop" data-position="${drawerPosition}">
+    <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}${detachedWindow ? " isDetached" : ""}" id="drawerBackdrop" data-position="${drawerPosition}">
       <div class="qts-drawer">
         ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
         <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2>
-          ${view ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
+          ${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
           ${sidebarControls ? `<select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
           <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
@@ -2748,19 +2797,8 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     event.currentTarget.setAttribute("aria-pressed", String(pinned));
   });
   drawerHost.querySelector("#drawerMinimize")?.addEventListener("click", () => {
-    const tools = state.shadowRoot?.getElementById("extraPinnedTools");
-    tools?.querySelector("#minimizedDrawerButton")?.remove();
-    const restore = document.createElement("button");
-    restore.id = "minimizedDrawerButton";
-    restore.className = "iconOnly isActive";
-    restore.type = "button";
-    restore.title = `Restaurar ${title}`;
-    restore.innerHTML = ICON(view === "jsonStudio" ? "braces" : "square");
-    restore.addEventListener("click", () => {
-      restore.remove();
-      openDrawer({ title, bodyHtml, onReady, onBack, view, variant });
-    });
-    tools?.appendChild(restore);
+    state.minimizedDrawer = { title, bodyHtml, onReady, onBack, view, variant };
+    renderMinimizedDrawerShortcut();
     closeDrawer();
   });
   drawerHost.querySelectorAll(".qts-drawer-resize").forEach((handle) => handle.addEventListener("pointerdown", (event) => {
@@ -2788,7 +2826,10 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     handle.addEventListener("pointerup", finish);
     handle.addEventListener("pointercancel", finish);
   }));
-  drawerHost.querySelector("#drawerClose").addEventListener("click", closeDrawer);
+  drawerHost.querySelector("#drawerClose").addEventListener("click", () => {
+    if (detachedWindow) window.close();
+    else closeDrawer();
+  });
   if (onBack) drawerHost.querySelector("#drawerBack").addEventListener("click", onBack);
   backdrop.addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop" && !backdrop.classList.contains("isPinned")) closeDrawer(); });
   drawerHost.querySelector("#drawerSearch")?.addEventListener("input", (event) => {
@@ -6896,6 +6937,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "qts:context-action") {
     if (state.authorized) handleContextAction(message.action);
     sendResponse({ handled: state.authorized === true });
+    return undefined;
+  }
+  if (message?.type === "qts:open-detached-tool") {
+    const handled = state.authorized === true && openDetachedTool(String(message.toolKey || ""));
+    sendResponse({ handled });
     return undefined;
   }
   return undefined;

@@ -11,17 +11,17 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - [ ] Bugs críticos restantes concluídos
 - [ ] Feature registry/flags canônico
 - [ ] Ativação/desativação transversal
-- [ ] Toolbar e mobile
-- [ ] Sidebars e componentes
+- [x] Toolbar com posições cima/baixo/esquerda/direita e regressões vertical/horizontal cobertas
+- [x] Sidebars e componentes compartilhados
 - [x] Captura/Spy — implementação e smoke existentes; falta conferir todos os critérios visuais
 - [x] Steps/Macros/GIF — implementação e smoke existentes; falta auditoria mobile
 - [x] Pixel Perfect — modos principais e context menu cobertos no Chrome
-- [ ] Inspectores/JSON/Data
+- [x] Inspectores/JSON/Data — abertura, drawers e mídia atualizada
 - [x] Marcadores Pass/Fail/Warning/Question e overlays principais
 - [ ] Temas e atalhos — 24 temas concluídos; atalhos customizáveis pendentes
 - [ ] LP/Admin
-- [ ] Tutoriais
-- [ ] Testes finais
+- [x] Tutoriais — 28 pares PNG/WebM recapturados no Sandbox local atual
+- [x] Testes finais da extensão
 - [ ] PR
 - [ ] Deploy — bloqueado até autorização explícita
 
@@ -33,14 +33,14 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 | Primeiro acesso deslogado | Corrigido localmente; smoke bloqueado por perfil aberto | A instalação agora cria o workspace demo protegido e registra o content script antes de abrir o site inicial. A toolbar reduzida mostra “Entrar”, oculta Tools e abre explicitamente `Minha conta`. |
 | Tour sem autenticação | Corrigido localmente; smoke bloqueado por perfil aberto | `qtsTutorial=1` não inicia overlay quando `state.authorized` é falso; remove os parâmetros e abre `Configurações > Minha conta`. |
 | Tema padrão | Corrigido localmente; testes de normalização aprovados | Workspace novo e ação “Restaurar padrão” usam `blue-light` (`#2563eb`) com aparência clara. Escolhas explícitas existentes são preservadas. |
-| Marcadores menores | Corrigido localmente | Pass/Fail/Warning/Question passaram de 52×52 para 40×40 px, mantendo resize proporcional a partir de 40 px. |
-| Controles compartilhados de sidebar | Parcial | Todos os `openDrawer` agora recebem busca, posição esquerda/direita/cima/baixo persistida, fixar, minimizar, fechar e resize nas quatro bordas. “Abrir em nova janela” e posições da toolbar ainda não estão implementados. |
+| Marcadores menores | Corrigido e coberto | Pass/Fail/Warning/Question usam 24×24 px por padrão, controles refluem em tamanho reduzido e Warning/Question têm nomes/ícones inequívocos. |
+| Controles compartilhados de sidebar | Concluído e coberto | Sidebars recebem busca, posição persistida, fixar, minimizar, fechar, resize e janela destacada. O atalho minimizado sobrevive a renders/storage updates. |
 | Regressões do header/sidebar | Corrigido localmente | Modais não recebem mais seletor/pin/minimizar/busca de sidebar; fechar usa vermelho semântico; ícones são centralizados; minimizar remove o drawer e cria atalho destacado na toolbar; checkboxes de drawers usam toggle visual. |
 | Breakpoint Viewer | Parcial | Topbar própria ganhou “Gravar tela cheia” e fechar vermelho. Falta smoke real da captura com permissão de tela. |
-| Configuração de posição | Parcial | Posição do sidebar foi adicionada à tela Barra e aparência. Posição da toolbar ainda não está implementada. |
-| Abrir em nova aba | Pendente | Não será simulado abrindo uma página sem o conteúdo/estado real do drawer ou modal. |
-| Todos os sites | Pendente | Exige definir como a toolbar representa ambiente/workspace em URL sem binding; não basta registrar `<all_urls>`. |
-| Mídia de tutorial/tour | Pendente | Recaptura somente após estabilizar os itens visuais acima e liberar o perfil Chrome bloqueado. |
+| Configuração de posição | Concluído | Sidebar: esquerda/direita/cima/baixo. Toolbar: horizontal em cima/baixo e vertical à esquerda/direita. |
+| Abrir em nova janela | Concluído e coberto | Background cria popup real, o content script recebe gatilho determinístico após carregar, oculta a página/barra e mostra somente a ferramenta solicitada. Há fallback para nova aba. |
+| Todos os sites | Concluído | Scope `all` registra `<all_urls>` e cria contexto visual “Todos os sites” quando não existe binding. |
+| Mídia de tutorial/tour | Concluído | Captura local sem cache, `blue-light`, 3s por ação, staging obrigatório e publicação somente quando os 28 pares PNG/WebM existem. |
 | Erro de conexão do runtime | Corrigido localmente | `runtimeMessage` agora consome `chrome.runtime.lastError` e retorna mensagem acionável, evitando `Unchecked runtime.lastError`. |
 | CORS do backend | Parcial/operacional | O backend aceita somente IDs presentes em `ALLOWED_EXTENSION_IDS`. Extensão de produção carregada diretamente de pasta recebe ID aleatório e não deve acessar produção; usar Web Store ou pacote sideload com ID fixo. O pacote `[TESTE]` usa backend local/isolado. |
 | `legal-registration` 403 | Diagnosticado | É uma consulta paralela e tolerante a falha. O 403 indica ID/origem não autorizado e não é a autenticação em si. Não houve alteração em segredo ou função de produção. |
@@ -57,10 +57,10 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 1. Fonte canônica única de features; hoje a lista está duplicada entre `storage.js`,
    `storage-content.js`, `toolbar.js`, opções, tutoriais, planos e backend.
 2. Comando global para desativar ferramentas e resolução explícita de modos incompatíveis.
-3. Limite/rolagem/reposicionamento do menu Tools em viewport baixa e zoom elevado.
+3. ~~Limite/rolagem/reposicionamento do menu Tools em viewport baixa e zoom elevado.~~ Concluído: oito linhas e scroll, inclusive toolbar vertical.
 4. Popup para salvar a URL da aba atual no ambiente.
 5. Menu hamburger compartilhado para elementos flutuantes e limpeza centralizada.
-6. Bottom sheets mobile e redimensionamento/posição persistente de drawers.
+6. Bottom sheets mobile específicos (drawers já redimensionam e persistem posição).
 7. Atalhos customizáveis com conflitos e reset.
 8. Gerador de QR Code.
 9. Validador de textos por arquivo de idioma.
@@ -74,6 +74,21 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - `npm run test:chrome`: aprovado com autenticação via
   `options.html?tab=account#login`, `consoleErrors: 0` e `workerErrors: 0`.
 - Nenhum deploy, publicação, alteração de Stripe ou Supabase produtivo foi executado.
+
+## Fechamento visual e tutorial — 2026-07-25
+
+- Smoke Chrome integral aprovado após limpeza, com fingerprint
+  `afc97bf2fda529867a2aaa46ef598e8d167d50f2f8eceb0b2dd1fc9457d48a63`.
+- Janela destacada validada abrindo `Input Lab` em popup isolado; toolbar/página-base ficam ocultas.
+- Key View validado por geometria: toggle e texto não se sobrepõem nem ficam comprimidos.
+- Smoke confirmou todas as ferramentas, Steps, Macro, CRUD, tutorial/tour, FAQ, SPA, temas,
+  `consoleErrors: 0` e `workerErrors: 0`.
+- Os 28 screenshots e 28 vídeos foram recapturados em 1440×960 usando o Sandbox local atual,
+  perfil descartável, `no-store`, tema `blue-light` e pausa de 3 segundos em cada ação.
+- A captura publica por staging: qualquer falha preserva integralmente o lote oficial anterior.
+- Versão da extensão atualizada para `1.4.6`.
+- Landing ganhou testes Vitest das invariantes dos planos; Admin ganhou testes de mensagens de
+  erro/Supabase e hash seguro de vouchers. A suíte não depende mais de `passWithNoTests`.
 
 ## Auditoria de automação em 2026-07-25
 
@@ -90,8 +105,8 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
   anterior. `test:all:clean` e `dev:extension:test` agora encadeiam a limpeza com `&&` e falham antes
   de testar se o perfil não puder ser removido.
 - `smoke:lp-admin` reconstrói LP/Admin e valida preços, simulador, modal de conta e artefato Admin.
-- Defeito de cobertura: Landing e Admin executam Vitest com `passWithNoTests`; não existem testes
-  unitários encontrados nessas workspaces.
+- Defeito de cobertura resolvido nesta rodada: Landing e Admin agora possuem testes Vitest reais;
+  o smoke de LP/Admin continua obrigatório para comportamento renderizado.
 - Defeito de cobertura: o smoke visual do Admin valida somente o gate/login inicial. O fluxo live
   completo existe em `smoke-live-admin.mjs`, mas exige backend isolado e credenciais de serviço e
   não deve usar produção para fabricar aprovação.
