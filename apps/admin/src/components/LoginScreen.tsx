@@ -28,7 +28,7 @@ export function LoginScreen() {
   function messageForOtpError(error: unknown, fallback: string): string {
     const code = error instanceof Error ? error.message : "";
     if (code === "otp_email_rate_limited") {
-      return "O Supabase limitou o envio de e-mails por agora (muitas tentativas em pouco tempo). Espere alguns minutos e tente de novo — não é erro de senha nem de conta.";
+      return "O Supabase limitou o envio de e-mails por agora (muitas tentativas em pouco tempo). Espere alguns minutos e tente de novo - não é erro de senha nem de conta.";
     }
     return fallback;
   }

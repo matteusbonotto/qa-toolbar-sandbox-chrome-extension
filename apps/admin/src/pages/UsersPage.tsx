@@ -45,7 +45,7 @@ export function UsersPage() {
       <header className="qa-page-head">
         <h1>Usuários e roles</h1>
         <p>
-          A role <code>founder</code> nunca deve ser concedida por aqui em produção — o schema
+          A role <code>founder</code> nunca deve ser concedida por aqui em produção - o schema
           bloqueia isso por trigger (admins não concedem founder, usuários não alteram a própria
           role). Use esta tela para roles operacionais (ex.: <code>support</code>).
         </p>
@@ -92,9 +92,9 @@ export function UsersPage() {
               {(profiles.data ?? []).map((profile) => (
                 <tr key={profile.id}>
                   <td title={profile.id}>{profile.email ?? `${profile.id.slice(0, 8)}…`}</td>
-                  <td>{profile.display_name ?? "—"}</td>
-                  <td>{(rolesByUser[profile.id] ?? []).join(", ") || "—"}</td>
-                  <td>{profile.trial_ends_at ? new Date(profile.trial_ends_at).toLocaleDateString("pt-BR") : "—"}</td>
+                  <td>{profile.display_name ?? "-"}</td>
+                  <td>{(rolesByUser[profile.id] ?? []).join(", ") || "-"}</td>
+                  <td>{profile.trial_ends_at ? new Date(profile.trial_ends_at).toLocaleDateString("pt-BR") : "-"}</td>
                   <td>
                     {(rolesByUser[profile.id] ?? [])
                       .filter((key) => key !== "founder")

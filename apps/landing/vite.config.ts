@@ -5,7 +5,7 @@ import react from "@vitejs/plugin-react";
 
 // Reads the extension's own manifest at build time (Node context, not constrained by this app's
 // own tsconfig `include`) so the LP can show the real package version without duplicating it by
-// hand — a `define` global instead of a cross-package JSON import, which would need
+// hand - a `define` global instead of a cross-package JSON import, which would need
 // `apps/extension` inside this app's TS project scope.
 const extensionManifestPath = fileURLToPath(new URL("../extension/manifest.json", import.meta.url));
 const extensionVersion = JSON.parse(readFileSync(extensionManifestPath, "utf8")).version as string;

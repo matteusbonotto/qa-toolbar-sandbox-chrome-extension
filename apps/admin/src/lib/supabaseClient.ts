@@ -8,12 +8,12 @@ export interface StoredAdminMfaSession {
 }
 
 // MFA proof lives in sessionStorage (tab-scoped, gone once the tab/browser closes) rather than
-// memory-only or localStorage — a deliberate middle ground picked by the founder: a page reload
+// memory-only or localStorage - a deliberate middle ground picked by the founder: a page reload
 // no longer forces a fresh password+OTP round trip, but the token still never outlives the
 // browser tab and still expires with the normal 60-minute window either way. This is strictly
 // weaker against an injected/XSS script than memory-only (any script running in the tab can read
 // it), though the primary Supabase session token was already persisted in localStorage regardless
-// — sessionStorage is at least scoped to "this tab, this browser session," which localStorage is not.
+// - sessionStorage is at least scoped to "this tab, this browser session," which localStorage is not.
 const ADMIN_MFA_STORAGE_KEY = "qts.admin.mfa.v1";
 
 function readRawAdminMfaSession(): StoredAdminMfaSession | null {
@@ -28,7 +28,7 @@ function readRawAdminMfaSession(): StoredAdminMfaSession | null {
   }
 }
 
-// Public/anon key only — this app never sees a service-role key. Founder-only access is
+// Public/anon key only - this app never sees a service-role key. Founder-only access is
 // enforced server-side (RLS + the roles/user_roles tables), never trusted from the client;
 // this client can only do what RLS explicitly allows a "founder" role to do.
 export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string | undefined;

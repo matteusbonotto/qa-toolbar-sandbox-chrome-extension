@@ -1,4 +1,4 @@
-// Classic-script minimal ZIP writer (STORE method only, no compression) — same reasoning as the
+// Classic-script minimal ZIP writer (STORE method only, no compression) - same reasoning as the
 // other lib/*-content.js twins: no build step, so no npm zip library to import. Used by the
 // evidence-recording "partes" flow (toolbar.js) to package several 30s video segments into one
 // .zip without a third-party conversion service. STORE (uncompressed) is deliberate: it's the

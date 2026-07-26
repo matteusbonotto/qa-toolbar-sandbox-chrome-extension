@@ -1,4 +1,4 @@
-/** SHA-256 hex digest via Web Crypto — vouchers/campaigns store only the hash (code_hash),
+/** SHA-256 hex digest via Web Crypto - vouchers/campaigns store only the hash (code_hash),
  * never the plaintext code, matching schema.sql's `^[a-f0-9]{64}$` constraint. */
 export async function sha256Hex(value: string): Promise<string> {
   const data = new TextEncoder().encode(value.trim().toUpperCase());

@@ -1,6 +1,6 @@
 // Supabase's PostgrestError/AuthError/FunctionsHttpError are plain objects with a `.message`
-// (not always `instanceof Error`), so `err instanceof Error ? err.message : String(err)` — used
-// all over this app's catch blocks — silently degraded to the literal string "[object Object]"
+// (not always `instanceof Error`), so `err instanceof Error ? err.message : String(err)` - used
+// all over this app's catch blocks - silently degraded to the literal string "[object Object]"
 // for every Supabase-thrown error instead of the actual message.
 export function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;

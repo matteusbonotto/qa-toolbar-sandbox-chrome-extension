@@ -6,7 +6,7 @@
  *
  * An entity is white-labeled by priority: a logo image if `logoUrl` is set,
  * otherwise a colored initials badge built from `abbreviation` (user-picked,
- * up to 4 chars) or auto-derived from the first letters of `name` — so a
+ * up to 4 chars) or auto-derived from the first letters of `name` - so a
  * brand-new client with no logo yet is never a blank space.
  */
 (function initQtsAvatar() {

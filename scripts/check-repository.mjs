@@ -24,7 +24,10 @@ for (const path of paths) {
   }
 }
 
-const binaryExtensions = new Set([".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".zip"]);
+const binaryExtensions = new Set([
+  ".png", ".jpg", ".jpeg", ".gif", ".ico", ".woff", ".woff2", ".zip",
+  ".webm", ".mp4", ".mp3", ".wav", ".pdf",
+]);
 const secretPatterns = [
   ["private key", /-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----/],
   ["GitHub token", /\b(?:github_pat_[A-Za-z0-9_]{20,}|gh[opsu]_[A-Za-z0-9]{30,})\b/],
@@ -42,6 +45,9 @@ const placeholder = /^(?:\[REDACTED\]|safe-|test-|example|placeholder|your-|rand
 for (const path of paths) {
   if (path === "scripts/check-repository.mjs" || binaryExtensions.has(extname(path).toLowerCase())) continue;
   const content = await readFile(path, "utf8").catch(() => "");
+  if (/^apps\/(?:landing|admin|extension)\//.test(path) && content.includes("\u2014")) {
+    failures.push(`${path}: forbidden em dash; use punctuation that reads naturally`);
+  }
   for (const [label, pattern] of secretPatterns) {
     if (pattern.test(content)) failures.push(`${path}: possible ${label}`);
   }

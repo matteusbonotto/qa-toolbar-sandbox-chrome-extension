@@ -1,4 +1,4 @@
-# QA Toolbar Sandbox — extensão MV3
+# QA Toolbar Sandbox - extensão MV3
 
 Extensão Chrome local-first em HTML/CSS/JS, sem build e sem segredo no pacote.
 
@@ -27,7 +27,7 @@ Senhas de contas sandbox, valores de pagamento e tokens de API permanecem em `ch
 ## Rodar localmente num Chrome de verdade
 
 `npm run dev:extension` abre uma janela real e visível do Chrome (o mesmo Chromium que o Playwright
-usa nos smokes) já com `apps/extension` carregada via `--load-extension`, sem mockar a rede — fala
+usa nos smokes) já com `apps/extension` carregada via `--load-extension`, sem mockar a rede - fala
 com o backend real, igual o Chrome de um usuário. O perfil fica em `artifacts/chrome-dev-profile/` e
 sobrevive entre execuções (login e workspace continuam lá); apague a pasta para recomeçar do zero.
 Feche a janela do Chrome para encerrar o comando.
@@ -51,5 +51,5 @@ cria um segundo item):
 - **Automatizado**: `npm run release:chrome:upload` (envia como rascunho) ou
   `npm run release:chrome:publish` (envia e já manda para revisão), via
   [Chrome Web Store Publish API](../../docs/DEPLOY_CHROME_WEBSTORE.md). Exige uma configuração OAuth
-  única, feita uma vez pela conta dona da extensão — veja `docs/DEPLOY_CHROME_WEBSTORE.md`. A
+  única, feita uma vez pela conta dona da extensão - veja `docs/DEPLOY_CHROME_WEBSTORE.md`. A
   revisão manual da Google acontece do mesmo jeito nos dois casos.

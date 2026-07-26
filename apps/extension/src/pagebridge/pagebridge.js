@@ -1,6 +1,6 @@
 // Runs in the page's MAIN world (world:"MAIN" in the dynamic content script
 // registration in background.js), so it shares the real window/Date/fetch
-// with the page — unlike the isolated-world toolbar script, which cannot see
+// with the page - unlike the isolated-world toolbar script, which cannot see
 // or patch these. Talks to the isolated world only through DOM CustomEvents
 // (no shared JS globals exist between the two worlds), matching how
 // Tampermonkey's own `window` (sandbox) vs `unsafeWindow` (real page) split
@@ -19,7 +19,7 @@
 
   const MAX_PAYLOAD_CHARS = 200_000;
   const HISTORY_LIMIT = 150;
-  // Named networkHistory, not history — this file runs in the page's real MAIN world, and a
+  // Named networkHistory, not history - this file runs in the page's real MAIN world, and a
   // local `history` binding would shadow window.history for the rest of this scope, silently
   // breaking the pushState/replaceState patch further below (it did, until this rename).
   const networkHistory = [];
@@ -55,7 +55,7 @@
     });
   }
 
-  // Body-format-agnostic at its core — unlike captureJsonPayload above, this fires even when the
+  // Body-format-agnostic at its core - unlike captureJsonPayload above, this fires even when the
   // body isn't JSON (plain-text/HTML error pages), so `payload` is optional: callers pass it when
   // they already have a parsed body (so Error Monitor can show the actual error message/raw JSON,
   // not just a bare status/URL), and omit it otherwise. Deliberately excludes Force HTTP's forced
@@ -134,7 +134,7 @@
     };
     XhrProto.send = function (...args) {
       if (!enabled) return originalSend.apply(this, args);
-      // Force HTTP previously only ever armed window.fetch — on any site whose HTTP client uses
+      // Force HTTP previously only ever armed window.fetch - on any site whose HTTP client uses
       // XMLHttpRequest under the hood (Angular's HttpClient by default, many jQuery/legacy stacks),
       // the button visibly did nothing. This mirrors the fetch branch above: consume the armed
       // status, never call the real send(), and simulate the XHR completion lifecycle instead.
@@ -168,7 +168,7 @@
             ? this.response
             : JSON.parse(this.responseText || "null");
         } catch {
-          // Non-JSON response bodies are not inspector material — ignored, not an error.
+          // Non-JSON response bodies are not inspector material - ignored, not an error.
         }
         publishHttpError({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload: payload ?? undefined });
         if (payload !== null) captureJsonPayload({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload });
@@ -223,7 +223,7 @@
   };
 
   // Intervals repeat on their own schedule, so freezing them just means skipping the tick's
-  // callback while frozen (the real interval keeps running underneath) — queuing-and-replaying
+  // callback while frozen (the real interval keeps running underneath) - queuing-and-replaying
   // like setTimeout would fire a burst of missed ticks all at once on resume.
   window.setInterval = function (callback, delay, ...args) {
     if (typeof callback !== "function") return originalSetInterval(callback, delay, ...args);
@@ -272,7 +272,7 @@
   // ---------------------------------------------------------------------
   // Action trace (Click Spy "Execute and observe"): fetch/XHR are already
   // observable via qts:network-captured above, and SPA navigation via
-  // qts:location-change below — window.open is the one primitive with no
+  // qts:location-change below - window.open is the one primitive with no
   // existing event, so it's the only thing this patches, only while armed.
   // ---------------------------------------------------------------------
   let originalWindowOpen = null;

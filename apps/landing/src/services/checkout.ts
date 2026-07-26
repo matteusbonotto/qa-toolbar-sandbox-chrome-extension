@@ -105,7 +105,7 @@ export async function signUp(email: string, password: string): Promise<Session |
 }
 
 // The Web Store listing's own assigned ID, plus the deterministic ID every "Baixar extensão"
-// sideload gets (apps/extension/manifest.json has no "key" field — that ID comes from a fixed
+// sideload gets (apps/extension/manifest.json has no "key" field - that ID comes from a fixed
 // keypair injected only into the separate sideload package by
 // scripts/package-extension-sideload.mjs). A visitor could have either installed, and
 // chrome.runtime.sendMessage only reaches an extension ID that's actually running, so both are

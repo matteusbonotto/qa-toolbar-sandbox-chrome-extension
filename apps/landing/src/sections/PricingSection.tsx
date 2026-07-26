@@ -88,7 +88,7 @@ export function PricingSection() {
       }, () => setStoreLookupState("error"));
   }, []);
   // The Store lags the package the moment its recorded version differs from what's actually
-  // shipping, OR the founder hasn't marked it "live" yet — comparing status alone isn't enough,
+  // shipping, OR the founder hasn't marked it "live" yet - comparing status alone isn't enough,
   // since a stale "live" row from a previous version would otherwise read as caught up.
   const storeIsBehind = storeListingStatus
     ? storeListingStatus.status !== "live" || storeListingStatus.chrome_web_store_version !== __EXTENSION_PACKAGE_VERSION__
@@ -184,7 +184,7 @@ export function PricingSection() {
     let stopped = false;
     let timer: number | undefined;
     // Only a genuine Stripe-redirect-back (`?checkout=success`) is a "step" the visitor is
-    // actively waiting on — this same effect also fires for any already-logged-in visitor who
+    // actively waiting on - this same effect also fires for any already-logged-in visitor who
     // just opens the pricing page normally, to keep `access` fresh in the background. That
     // routine refresh was wrongly surfacing the checkout-failure banner on a transient/backend
     // hiccup even though the visitor never started a checkout, which is what made the page look
@@ -455,7 +455,7 @@ export function PricingSection() {
         {authModalOpen ? createPortal(
           // Portaled straight to <body>: .qts-page-content (an ancestor here) sets its own
           // position+z-index to sit above the particle canvas, which makes it a stacking
-          // context — so the modal's z-index:100 was only ever winning against siblings
+          // context - so the modal's z-index:100 was only ever winning against siblings
           // *inside* that context, never against the sticky nav bar (z-index:50) outside it.
           // Tall modal content pushed the close button up into the nav's band and the nav won
           // the hit-test despite the "higher" z-index. Escaping to body sidesteps that entirely.
@@ -626,9 +626,9 @@ export function PricingSection() {
           {pricingPlans.map((plan) => {
             const planText = t.pricing.plans[plan.id];
             const price = priceCatalog[plan.id]?.[billingCycle];
-            const unavailable = pricingError ? "—" : t.pricing.working;
+            const unavailable = pricingError ? "-" : t.pricing.working;
             // Gate on `billing` (present only when a real Stripe subscription row backs the
-            // access), not on `access.active` in general — a founder/courtesy grant with no
+            // access), not on `access.active` in general - a founder/courtesy grant with no
             // Stripe subscription (apps/admin's AccessPage supports granting access without a
             // plan) is "active" but never blocks checkout-create-session server-side, so it
             // must not block a purchase here either.

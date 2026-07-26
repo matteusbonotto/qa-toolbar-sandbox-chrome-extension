@@ -72,7 +72,7 @@
       "accountType": "Comum",
       "username": "qa.comum@cineluna.test",
       "password": "Sandbox@123",
-      "notes": "Conta de teste genérica — sem vínculo com dados reais de cliente.",
+      "notes": "Conta de teste genérica - sem vínculo com dados reais de cliente.",
       "customFields": [
         { "key": "Pontos de fidelidade", "type": "number", "value": 1200 },
         { "key": "Voucher ativo", "type": "boolean", "value": true },
@@ -87,7 +87,7 @@
       "label": "Visa aprovado",
       "type": "card",
       "value": "4111 1111 1111 1111",
-      "notes": "Cartão sandbox que sempre aprova — uso exclusivo em QA."
+      "notes": "Cartão sandbox que sempre aprova - uso exclusivo em QA."
     }
   ],
   "apis": [

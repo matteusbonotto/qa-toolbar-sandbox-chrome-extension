@@ -11,7 +11,7 @@ const STATUS_LABEL: Record<LegalRegistrationStatus, string> = {
 };
 
 // Mirrors apps/landing/src/legal/legalRegistration.ts resolvePublicText() (pt-BR) so this
-// preview matches exactly what visitors and the extension will see — kept in sync by hand since
+// preview matches exactly what visitors and the extension will see - kept in sync by hand since
 // admin and landing are separate apps with no shared package.
 function previewText(row: {
   status: LegalRegistrationStatus;
@@ -114,7 +114,7 @@ export function LegalRegistrationPage() {
         <p>
           Controla o status do processo de Registro de Programa de Computador exibido na landing
           page (rodapé + página "Propriedade Intelectual") e na extensão. Cada alteração fica
-          registrada em Auditoria. Nunca declare um status à frente da realidade — o texto público
+          registrada em Auditoria. Nunca declare um status à frente da realidade - o texto público
           é gerado a partir do que estiver salvo aqui.
         </p>
       </header>
@@ -180,7 +180,7 @@ export function LegalRegistrationPage() {
             <button type="submit" className="qa-btn primary" disabled={saving || missingProtocolFields || missingRegistrationFields}>
               {saving ? "Salvando…" : "Salvar"}
             </button>
-            {savedHint ? <span className="savedHint">Salvo — refletido na LP e na extensão.</span> : null}
+            {savedHint ? <span className="savedHint">Salvo - refletido na LP e na extensão.</span> : null}
           </div>
         </form>
       </div>

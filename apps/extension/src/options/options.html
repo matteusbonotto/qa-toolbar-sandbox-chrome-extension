@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>QA Toolbar Sandbox — Configurações</title>
+  <title>QA Toolbar Sandbox - Configurações</title>
   <link rel="icon" href="../../icons/icon-32.png" />
   <link rel="stylesheet" href="options.css" />
 </head>
@@ -97,14 +97,14 @@
               <div class="colorThemeGrid" id="colorThemeGrid" role="radiogroup" aria-label="Tema de cores"></div>
               <div class="actions"><button type="button" class="button" id="colorThemeReset">Restaurar padrão</button></div>
             </fieldset>
-            <fieldset><legend>Posição dos sidebars</legend><label>Desktop<select id="drawerPosition"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label><label>Mobile<select id="mobileDrawerPosition"><option value="bottom">Baixo — bottom sheet</option><option value="top">Cima</option><option value="right">Direita</option><option value="left">Esquerda</option></select></label><small class="cardLead">Também pode ser alterada no cabeçalho de qualquer sidebar.</small></fieldset>
-            <fieldset><legend>Posição da toolbar</legend><label>Desktop<select id="toolbarPosition"><option value="top">Horizontal — cima</option><option value="bottom">Horizontal — baixo</option><option value="left">Vertical — esquerda</option><option value="right">Vertical — direita</option></select></label><label>Mobile<select id="mobileToolbarPosition"><option value="top">Horizontal — cima</option><option value="bottom">Horizontal — baixo</option><option value="left">Vertical — esquerda</option><option value="right">Vertical — direita</option></select></label></fieldset>
+            <fieldset><legend>Posição dos sidebars</legend><label>Desktop<select id="drawerPosition"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label><label>Mobile<select id="mobileDrawerPosition"><option value="bottom">Baixo - bottom sheet</option><option value="top">Cima</option><option value="right">Direita</option><option value="left">Esquerda</option></select></label><small class="cardLead">Também pode ser alterada no cabeçalho de qualquer sidebar.</small></fieldset>
+            <fieldset><legend>Posição da toolbar</legend><label>Desktop<select id="toolbarPosition"><option value="top">Horizontal - cima</option><option value="bottom">Horizontal - baixo</option><option value="left">Vertical - esquerda</option><option value="right">Vertical - direita</option></select></label><label>Mobile<select id="mobileToolbarPosition"><option value="top">Horizontal - cima</option><option value="bottom">Horizontal - baixo</option><option value="left">Vertical - esquerda</option><option value="right">Vertical - direita</option></select></label></fieldset>
             <div class="barPreviewWrap"><div class="barPreview" id="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia da barra com as configurações atuais (atualiza antes de salvar).</small></div>
             <input id="compactMode" type="checkbox" hidden />
             <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
             <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Empurrar conteúdo do site</b><small>Reserva o espaço da barra no topo da página.</small></span></label>
             <label class="toggleRow"><input id="soundEffects" type="checkbox" /><span><b>Efeitos sonoros</b><small>Toca um som ao marcar status de teste, capturar erro HTTP ou iniciar uma macro.</small></span></label>
-            <label class="toggleRow"><input id="remindTestStatusOnRecording" type="checkbox" /><span><b>Lembrar de atribuir status na gravação</b><small>Ao parar uma gravação de evidência, pede o Test Status antes de liberar o download — garante que toda gravação tenha um resultado marcado.</small></span></label>
+            <label class="toggleRow"><input id="remindTestStatusOnRecording" type="checkbox" /><span><b>Lembrar de atribuir status na gravação</b><small>Ao parar uma gravação de evidência, pede o Test Status antes de liberar o download - garante que toda gravação tenha um resultado marcado.</small></span></label>
             <label>Formato das imagens (cliente/projeto/produto)<select id="avatarShape"><option value="square">Quadrado</option><option value="round">Redondo</option></select></label>
             <fieldset><legend>Mostrar no breadcrumb</legend><div class="checkGrid">
               <label><input type="checkbox" data-breadcrumb="client" /> Cliente</label>
@@ -220,14 +220,14 @@
           </div>
 
           <div class="workspacePane" data-workspace-pane="environments" role="tabpanel">
-            <div class="paneIntro"><div><h2>Ambientes</h2><p>Nomes e cores reutilizáveis (ex.: DEV, QA, Beta, Prod) — conecte-os a produtos/URLs específicas na aba URLs.</p></div><span class="count" id="environmentCount">0</span></div>
+            <div class="paneIntro"><div><h2>Ambientes</h2><p>Nomes e cores reutilizáveis (ex.: DEV, QA, Beta, Prod) - conecte-os a produtos/URLs específicas na aba URLs.</p></div><span class="count" id="environmentCount">0</span></div>
             <article class="entityCard entityCardWide"><div class="list listComfortable" id="environmentList"></div>
               <button type="button" class="composerTrigger" data-open-composer="environmentComposer">Adicionar ambiente</button>
             </article>
           </div>
 
           <div class="workspacePane" data-workspace-pane="urls" role="tabpanel">
-            <div class="paneIntro"><div><h2>URLs e relações</h2><p>Cada URL pertence a um produto e pode se relacionar com um ou vários ambientes — é aqui que "DEV" vira a URL de cada país/produto.</p></div><span class="count" id="urlRelationCount">0</span></div>
+            <div class="paneIntro"><div><h2>URLs e relações</h2><p>Cada URL pertence a um produto e pode se relacionar com um ou vários ambientes - é aqui que "DEV" vira a URL de cada país/produto.</p></div><span class="count" id="urlRelationCount">0</span></div>
             <article class="entityCard entityCardWide"><div class="list listComfortable" id="urlRelationList"></div>
               <button type="button" class="composerTrigger" data-open-composer="urlRelationComposer">Adicionar URL</button>
             </article>
@@ -235,7 +235,7 @@
 
           <div class="workspacePane" data-workspace-pane="accounts" role="tabpanel">
             <div class="paneIntro"><div><h2>Contas de teste</h2><p>Credenciais sandbox organizadas por ambiente e protegidas na exportação.</p></div><span class="count" id="testAccountCount">0</span></div>
-            <article class="entityCard entityCardWide"><p class="sandboxWarning">Uso exclusivamente sandbox — nunca cadastre credenciais reais.</p><div class="list listComfortable" id="testAccountList"></div>
+            <article class="entityCard entityCardWide"><p class="sandboxWarning">Uso exclusivamente sandbox - nunca cadastre credenciais reais.</p><div class="list listComfortable" id="testAccountList"></div>
               <button type="button" class="composerTrigger" data-open-composer="testAccountComposer">Adicionar conta</button>
             </article>
           </div>
