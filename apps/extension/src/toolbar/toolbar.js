@@ -446,7 +446,25 @@ function applyPinnedTools() {
   ["testStatusButton", "noteButton", "shapeWrapper", "blurQuickButton", "holofoteQuickButton"].forEach((id) => root.getElementById(id)?.classList.add("isPreferenceHidden"));
   const menuItems = TOOLS_MENU_ITEM_IDS;
   for (const [key, id] of Object.entries(menuItems)) {
-    root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
+    const element = root.getElementById(id);
+    if (!element) continue;
+    const preferenceHidden = !enabledTools.has(key);
+    element.classList.toggle("isPreferenceHidden", preferenceHidden);
+    // A plan-gated tool the user still wants in their menu (enabledTools) stays visible but
+    // locked, so "why isn't this here" reads as "not on my plan" instead of looking like a
+    // vanished/broken feature -- see requirePlanFeature() for the click-time toast.
+    const planLocked = !preferenceHidden && !hasPlanFeature(key);
+    element.classList.toggle("isPlanLocked", planLocked);
+    element.setAttribute("aria-disabled", String(planLocked));
+    let lockBadge = element.querySelector(".qts-lock-badge");
+    if (planLocked && !lockBadge) {
+      lockBadge = document.createElement("span");
+      lockBadge.className = "qts-lock-badge";
+      lockBadge.innerHTML = ICON("lock");
+      element.appendChild(lockBadge);
+    } else if (!planLocked && lockBadge) {
+      lockBadge.remove();
+    }
   }
   const labels = TOOLS_MENU_LABELS;
   const icons = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.icon]));
@@ -708,6 +726,10 @@ function buildShadowHost() {
       #toolsMenu button:hover { background: #232323; border-color: var(--qts-ui-primary, #ffd700); }
       #toolsMenu button.isActive { background: var(--qts-ui-primary, #ffd700) !important; color: var(--qts-ui-primary-contrast, #111) !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 9px; }
+      #toolsMenu button.isPlanLocked { opacity: .5; }
+      #toolsMenu button.isPlanLocked:hover { background: #171717; border-color: #2c2c2c; }
+      .qts-lock-badge { margin-left: auto; display: inline-flex; }
+      .qts-lock-badge svg { width: 13px !important; height: 13px !important; padding: 0 !important; background: none !important; color: inherit !important; }
       #settingsButton { position: relative; }
       .qts-tutorial-dot { position: absolute; top: 3px; right: 3px; width: 8px; height: 8px; border-radius: 50%; background: #42d5c2; box-shadow: 0 0 0 2px #171717; }
       #macroRecordingBar { position: relative; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 9px; background: #8f0909; border: 1px solid #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
