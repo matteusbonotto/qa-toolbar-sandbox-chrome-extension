@@ -253,4 +253,8 @@ checklist. Eles só podem ocorrer após autorização explícita e uso das crede
 - `npm run test:all:clean` aprovado em 214,8 s; fingerprint do pacote Chrome `[TESTE]`
   `95632d2f48d567bf595d2a9147c24cb45a290c11fd810d3eb745a187ee884b9b`,
   `consoleErrors: 0` e `workerErrors: 0`.
+- Gate do PR encontrou e corrigiu dois alertas CodeQL: despacho dinâmico da ferramenta destacada
+  foi substituído por allowlist/chamadas explícitas, e o servidor de captura passou a validar e
+  ler o mesmo file handle, eliminando a janela TOCTOU. Smoke Chrome limpo repetido com sucesso,
+  fingerprint `7057b21a5b36a49ca22fd7a4428ea5e5e2c9cf5fc7d265436a1b878954629266`.
 - Versão da extensão atualizada para `1.4.14`.

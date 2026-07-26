@@ -1140,35 +1140,34 @@ async function maybeOpenDetachedTool() {
 }
 
 function openDetachedTool(toolKey) {
-  const openers = {
-    testStatus: () => openTestStatusModal(),
-    testAccounts: openTestAccountsDrawer,
-    paymentMethods: openPaymentMethodsDrawer,
-    resources: openResourcesDrawer,
-    jsonStudio: openJsonStudio,
-    keyView: openKeyView,
-    elementCapture: openElementCapture,
-    inputLab: openInputLab,
-    fakerFill: openFakerFill,
-    stepsRecorder: openStepsRecorder,
-    inspectors: openInspectorsDrawer,
-    errorMonitor: openErrorMonitorDrawer,
-    forceHttp: openForceHttpDialog,
-    blurElements: openBlurElementsTool,
-    holofote: openHolofoteTool,
-    pixelPerfect: openPixelPerfectTool,
-    characterCounter: openCharacterCounter,
-    multiClick: openMultiClick,
-    macroStudio: openMacroStudio,
-  };
-  const opener = openers[toolKey];
-  if (!opener) return false;
+  const supportedTools = new Set(["testStatus", "testAccounts", "paymentMethods", "resources", "jsonStudio", "keyView", "elementCapture", "inputLab", "fakerFill", "stepsRecorder", "inspectors", "errorMonitor", "forceHttp", "blurElements", "holofote", "pixelPerfect", "characterCounter", "multiClick", "macroStudio"]);
+  if (!supportedTools.has(toolKey)) return false;
   const existingDrawer = state.shadowRoot?.getElementById("drawerHost");
   if (existingDrawer?.dataset.view === toolKey && existingDrawer.querySelector(".qts-drawer")) return true;
   state.detachedToolKey = toolKey;
   const host = document.getElementById(HOST_ID);
   if (host) host.dataset.detachedWindow = "true";
-  opener();
+  switch (toolKey) {
+    case "testStatus": openTestStatusModal(); break;
+    case "testAccounts": openTestAccountsDrawer(); break;
+    case "paymentMethods": openPaymentMethodsDrawer(); break;
+    case "resources": openResourcesDrawer(); break;
+    case "jsonStudio": openJsonStudio(); break;
+    case "keyView": openKeyView(); break;
+    case "elementCapture": openElementCapture(); break;
+    case "inputLab": openInputLab(); break;
+    case "fakerFill": openFakerFill(); break;
+    case "stepsRecorder": openStepsRecorder(); break;
+    case "inspectors": openInspectorsDrawer(); break;
+    case "errorMonitor": openErrorMonitorDrawer(); break;
+    case "forceHttp": openForceHttpDialog(); break;
+    case "blurElements": openBlurElementsTool(); break;
+    case "holofote": openHolofoteTool(); break;
+    case "pixelPerfect": openPixelPerfectTool(); break;
+    case "characterCounter": openCharacterCounter(); break;
+    case "multiClick": openMultiClick(); break;
+    case "macroStudio": openMacroStudio(); break;
+  }
   return true;
 }
 

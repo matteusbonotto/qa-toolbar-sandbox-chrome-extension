@@ -12,7 +12,7 @@
 // Not part of CI -- run manually with `npm run tutorial:capture` and review the media before
 // committing. Each tool capture is wrapped so one failure doesn't abort the whole batch; failures
 // are reported at the end so they're easy to re-run individually later.
-import { cp, mkdir, readFile, rm, stat } from "node:fs/promises";
+import { cp, mkdir, open, rm, stat } from "node:fs/promises";
 import { extname, resolve } from "node:path";
 import { createServer } from "node:http";
 import { chromium } from "playwright";
@@ -41,8 +41,15 @@ const sandboxServer = createServer(async (request, response) => {
     if (!filePath.startsWith(sandboxRoot)) throw new Error("invalid_path");
     const info = await stat(filePath);
     const resolvedFile = info.isDirectory() ? resolve(filePath, "index.html") : filePath;
-    response.writeHead(200, { "content-type": mimeTypes[extname(resolvedFile)] || "application/octet-stream", "cache-control": "no-store, max-age=0" });
-    response.end(await readFile(resolvedFile));
+    const handle = await open(resolvedFile, "r");
+    try {
+      const openedInfo = await handle.stat();
+      if (!openedInfo.isFile()) throw new Error("invalid_file");
+      response.writeHead(200, { "content-type": mimeTypes[extname(resolvedFile)] || "application/octet-stream", "cache-control": "no-store, max-age=0" });
+      response.end(await handle.readFile());
+    } finally {
+      await handle.close();
+    }
   } catch {
     response.writeHead(404, { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" });
     response.end("Not found");
