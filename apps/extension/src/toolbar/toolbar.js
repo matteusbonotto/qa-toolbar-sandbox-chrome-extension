@@ -115,6 +115,10 @@ function restoreListFocus(body, focus) {
   }
 }
 
+function urlPathFor(rawUrl) {
+  try { return new URL(rawUrl).pathname || rawUrl; } catch { return rawUrl || "-"; }
+}
+
 function wildcardToRegExp(pattern) {
   const escaped = String(pattern || "")
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
@@ -3652,7 +3656,9 @@ function renderInspectorsList() {
     ? filtered.map((entry) => `
         <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
           <div style="min-width:0;flex:1">
-            <b>${entry.status || "-"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+            <b>${escapeHtml(urlPathFor(entry.url))}</b>
+            <small style="display:block;margin-top:2px;color:#42d5c2">${escapeHtml(entry.method)} ${entry.status || "-"}</small>
+            <small style="display:block;margin-top:2px;word-break:break-all;color:#888">${escapeHtml(entry.url)}</small>
             ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">${ICON("star")} ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
           </div>
           <button type="button" class="qts-icon-btn" data-mark-inspector="${escapeHtml(entry.id)}" title="Marcar como meu inspector" style="width:26px;height:26px;flex:0 0 auto">${ICON("pin")}</button>
