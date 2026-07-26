@@ -177,3 +177,16 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - O mesmo teste abre a ferramenta real e confirma a transição para a ajuda contextual sem manter
   o escurecimento sobre o drawer.
 - Versão da extensão atualizada para `1.4.10`.
+
+## Switch, popup da URL ativa e revalidação em 2026-07-25
+
+- Corrigida a causa estrutural do switch circular: a altura de `22px` era anulada pelo
+  `min-height: 40px` global. O trilho agora mede `38×22` e o knob `16×16`.
+- Modo Typing e Visualizar mouse persistem imediatamente no clique.
+- O ícone da extensão abre um popup que captura a aba ativa e permite selecionar Cliente,
+  Projeto, Produto e Ambiente, escopo da URL, nome e modo de exibição.
+- Query e hash são removidos por padrão; páginas internas são recusadas e conflitos são explícitos.
+- O cadastro usa `urlBindings`, a coleção oficial, e recarrega a aba para reconhecimento imediato.
+- Smoke do pacote `[TESTE]` aprovado após limpeza: popup, clique e marcadores Warning/Question,
+  Mouse/Key View, SPA, tour rolável, `consoleErrors: 0` e `workerErrors: 0`.
+- Versão da extensão atualizada para `1.4.11`.

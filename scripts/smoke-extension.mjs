@@ -325,6 +325,34 @@ try {
   await options.locator("#urlRelationComposer [data-close-composer]").click();
   trace("workspace relationships verified");
 
+  // Exercise the popup with a controlled host-tab URL. In production the same sourceUrl variable
+  // comes from chrome.tabs.query(active/currentWindow); the explicit parameter keeps this flow
+  // deterministic because Playwright does not expose Chrome's native action popup as a Page.
+  await host.goto("http://127.0.0.1:43117/popup-target?token=remove-me#section");
+  await host.bringToFront();
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html?sourceUrl=${encodeURIComponent(host.url())}`);
+  await popup.locator("#urlForm").waitFor({ state: "visible" });
+  if (await popup.locator("#activeUrl").inputValue() !== "http://127.0.0.1:43117/popup-target?token=remove-me#section") throw new Error("Extension popup did not capture the active tab URL");
+  if (await popup.locator("#sensitiveWarning").isHidden()) throw new Error("Extension popup did not warn about query/hash data");
+  await popup.locator("#client").selectOption({ index: 1 });
+  await popup.locator("#project").selectOption({ index: 1 });
+  await popup.locator("#product").selectOption({ index: 1 });
+  await popup.locator('input[name="environment"]').first().check();
+  const previewPattern = await popup.locator("#patternPreview").textContent();
+  if (previewPattern.includes("token=") || previewPattern.includes("#section")) throw new Error(`Popup persisted sensitive URL data silently: ${previewPattern}`);
+  await popup.locator("#save").click();
+  await popup.getByText("URL salva.").waitFor();
+  const popupBinding = await options.evaluate(async () => {
+    const stored = await chrome.storage.local.get("qtsWorkspaceV1");
+    return stored.qtsWorkspaceV1?.urlBindings?.find((binding) => binding.patterns?.some((pattern) => pattern.includes("/popup-target")));
+  });
+  if (!popupBinding?.patterns?.length) throw new Error("Popup URL was not saved in the official workspace binding collection");
+  await popup.close();
+  await host.waitForLoadState("domcontentloaded");
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  trace("active-tab URL popup, sensitive-data warning and immediate toolbar recognition verified");
+
   // Deletion now goes through a themed <dialog> instead of window.confirm() — verify both the
   // Cancelar (no-op) and Excluir (removes) paths against one of the injected preview environments.
   await options.locator('[data-workspace-tab="environments"]').click();
@@ -515,13 +543,37 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
   const switchLayout = await host.locator(".qts-switch-row").first().evaluate((row) => {
-    const toggle = row.querySelector('input[type="checkbox"]').getBoundingClientRect();
+    const input = row.querySelector('input[type="checkbox"]');
+    const toggle = input.getBoundingClientRect();
     const copy = row.querySelector("span").getBoundingClientRect();
-    return { toggleRight: toggle.right, copyLeft: copy.left, copyWidth: copy.width, rowWidth: row.getBoundingClientRect().width };
+    const knob = getComputedStyle(input, "::after");
+    return {
+      toggleRight: toggle.right, copyLeft: copy.left, copyWidth: copy.width,
+      rowWidth: row.getBoundingClientRect().width, toggleWidth: toggle.width,
+      toggleHeight: toggle.height, knobWidth: parseFloat(knob.width), knobHeight: parseFloat(knob.height),
+      borderRadius: getComputedStyle(input).borderRadius,
+    };
   });
-  if (switchLayout.toggleRight > switchLayout.copyLeft || switchLayout.copyWidth < switchLayout.rowWidth / 2) {
+  if (
+    switchLayout.toggleRight > switchLayout.copyLeft
+    || switchLayout.copyWidth < switchLayout.rowWidth / 2
+    || switchLayout.toggleWidth !== 38
+    || switchLayout.toggleHeight !== 22
+    || switchLayout.knobWidth !== 16
+    || switchLayout.knobHeight !== 16
+    || switchLayout.borderRadius !== "999px"
+  ) {
     throw new Error(`Key View toggle overlaps or clips its text: ${JSON.stringify(switchLayout)}`);
   }
+  const mouseSwitchBefore = await host.locator("#keyViewMouse").isChecked();
+  await host.locator("#keyViewMouse").click();
+  await host.getByText("Configurações salvas.").waitFor();
+  const persistedMouseSwitch = await options.evaluate(async () => {
+    const result = await chrome.storage.local.get("qtsWorkspaceV1");
+    return result.qtsWorkspaceV1?.preferences?.keyView?.mouseEffects;
+  });
+  if (persistedMouseSwitch !== !mouseSwitchBefore) throw new Error("Key View mouse switch did not persist immediately");
+  await host.locator("#keyViewMouse").click();
   await host.locator("#keyViewToggle").click();
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();

@@ -2456,8 +2456,11 @@ function drawerStyles() {
     .qts-drawer button { line-height:1.25; }
     .qts-drawer :is(p,small,b,label,span,button,option) { overflow-wrap:anywhere; }
     .qts-drawer input[type="checkbox"] {
-      appearance:none; width:38px !important; height:22px; padding:0; border-radius:999px;
-      background:var(--qts-panel-border); position:relative; cursor:pointer; vertical-align:middle;
+      -webkit-appearance:none; appearance:none; box-sizing:border-box;
+      width:38px !important; min-width:38px !important; max-width:38px !important;
+      height:22px !important; min-height:22px !important; max-height:22px !important;
+      margin:0; padding:0; border:1px solid var(--qts-panel-border); border-radius:999px;
+      background:var(--qts-panel-border); position:relative; cursor:pointer; vertical-align:middle; flex:none;
     }
     .qts-drawer input[type="checkbox"]::after {
       content:""; position:absolute; width:16px; height:16px; left:2px; top:2px; border-radius:50%;
@@ -2548,9 +2551,9 @@ function drawerStyles() {
     .qts-key-view-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .qts-key-view-status div { display: grid; gap: 2px; }
     .qts-key-view-status small, .qts-switch-row small { display: block; color: #999; font-weight: 500; }
-    .qts-switch-row { display:grid; grid-template-columns:38px minmax(0,1fr); gap:10px; align-items:start; padding:11px; margin-bottom:8px; border:1px solid #292929; border-radius:10px; background:#121212; cursor:pointer; }
+    .qts-switch-row { display:grid; grid-template-columns:38px minmax(0,1fr); gap:10px; align-items:center; padding:11px; margin-bottom:8px; border:1px solid #292929; border-radius:10px; background:#121212; cursor:pointer; }
     .qts-switch-row > span { min-width:0; overflow-wrap:anywhere; }
-    .qts-drawer .qts-switch-row input[type="checkbox"] { width:38px !important; height:22px; margin:0; }
+    .qts-drawer .qts-switch-row input[type="checkbox"] { width:38px !important; height:22px !important; min-height:22px !important; margin:0; }
     .qts-field-label { display: grid; gap: 7px; margin: 12px 0; color: #ddd; font-weight: 750; }
     .qts-position-grid { width: 132px; display: grid; grid-template-columns: repeat(3, 40px); gap: 6px; }
     .qts-position-grid button { width: 40px; height: 36px; border: 1px solid #393939; border-radius: 8px; background: #171717; color: #aaa; cursor: pointer; font-size: 16px; }
@@ -4757,6 +4760,14 @@ function openKeyView() {
         await saveKeyViewPreferences({ enabled: !getKeyViewPreferences().enabled });
         openKeyView();
       });
+      const persistSwitch = async (input, preference) => {
+        input.disabled = true;
+        await saveKeyViewPreferences({ [preference]: input.checked });
+        input.disabled = false;
+        body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");
+      };
+      body.querySelector("#keyViewTyping").addEventListener("change", (event) => persistSwitch(event.currentTarget, "typingMode"));
+      body.querySelector("#keyViewMouse").addEventListener("change", (event) => persistSwitch(event.currentTarget, "mouseEffects"));
       body.querySelector("#keyViewSave").addEventListener("click", async () => {
         await saveKeyViewPreferences({ typingMode: body.querySelector("#keyViewTyping").checked, mouseEffects: body.querySelector("#keyViewMouse").checked, theme: theme.value, position: selectedPosition, keySize: keySize.value, mouseSize: mouseSize.value });
         body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");

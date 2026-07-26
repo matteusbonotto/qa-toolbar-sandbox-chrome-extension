@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QA Toolbar Sandbox</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <main>
+    <header><img src="../../icons/icon-32.png" alt="" /><div><b>QA Toolbar Sandbox</b><small id="version"></small></div><button id="settings" class="icon" type="button" aria-label="Abrir configurações">⚙</button></header>
+    <section id="loading" class="status">Lendo a aba atual…</section>
+    <section id="loggedOut" hidden><h1>Entre para salvar esta URL</h1><p>A toolbar precisa de uma conta ativa para editar o workspace.</p><button id="login" class="primary" type="button">Entrar em Minha conta</button></section>
+    <form id="urlForm" hidden>
+      <h1>Salvar URL no ambiente</h1>
+      <label>URL da aba ativa<input id="activeUrl" type="url" readonly /></label>
+      <div id="sensitiveWarning" class="warning" hidden>Esta URL contém query ou hash. Eles serão removidos por segurança.<label class="check"><input id="keepSensitive" type="checkbox" /> Manter query e hash mesmo assim</label></div>
+      <label>Cliente<select id="client" required></select></label>
+      <label>Projeto<select id="project" required></select></label>
+      <label>Produto<select id="product" required></select></label>
+      <fieldset><legend>Ambientes</legend><div id="environments" class="toggles"></div></fieldset>
+      <label>Nome ou descrição (opcional)<input id="label" maxlength="120" /></label>
+      <fieldset><legend>Regra de correspondência</legend><div class="segmented">
+        <label><input type="radio" name="mode" value="exact" /> Exata</label>
+        <label><input type="radio" name="mode" value="path" checked /> Esta rota e abaixo</label>
+        <label><input type="radio" name="mode" value="domain" /> Domínio inteiro</label>
+      </div></fieldset>
+      <label>Exibir como<select id="displayMode"><option value="full">URL completa</option><option value="relative">Somente caminho</option></select></label>
+      <div class="preview"><small>Padrão salvo</small><code id="patternPreview"></code><small>Exibição</small><code id="displayPreview"></code></div>
+      <p id="message" class="message" role="status"></p>
+      <button id="save" class="primary" type="submit">Salvar e reconhecer agora</button>
+    </form>
+  </main>
+  <script src="../lib/storage-content.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
