@@ -430,6 +430,33 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#toolsMenu.isOpen").waitFor();
   await host.screenshot({ path: resolve(evidencePath, "extension-theme-tools-menu.png"), fullPage: false });
+  const toolRowWidths = await host.locator("#toolsMenu > button").evaluateAll((buttons) => buttons
+    .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
+    .slice(0, 8)
+    .map((button) => button.getBoundingClientRect().width));
+  if (!toolRowWidths.length || Math.max(...toolRowWidths) - Math.min(...toolRowWidths) > 1) {
+    throw new Error(`Tools menu rows do not share a uniform width: ${toolRowWidths.join(",")}`);
+  }
+  await host.locator("#toolsButton").click();
+  await host.locator("#qts-toolbar-host").evaluate((element) => { element.dataset.toolbarPosition = "left"; });
+  const verticalAlignment = await host.locator("#qts-toolbar-host").evaluate((element) => {
+    const shadow = element.shadowRoot;
+    const bar = shadow.querySelector("#bar").getBoundingClientRect();
+    const buttons = [...shadow.querySelectorAll("#right > button:not(.isHidden), #right > div > button:not(.isHidden)")]
+      .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
+      .map((button) => ({ id: button.id, center: button.getBoundingClientRect().left + button.getBoundingClientRect().width / 2 }));
+    return { center: bar.left + bar.width / 2, buttons };
+  });
+  for (const button of verticalAlignment.buttons) {
+    if (Math.abs(button.center - verticalAlignment.center) > 1.5) throw new Error(`Vertical toolbar button is not centered: ${button.id}`);
+  }
+  await host.locator("#urlToggleButton").click();
+  await host.locator("#verticalUrlPanel:not(.isHidden)").waitFor();
+  if (await host.locator("#verticalUrlText").textContent() !== await host.locator("#currentUrl").textContent()) throw new Error("Expanded globe URL does not match the toolbar's sanitized active URL");
+  if (await host.locator("#urlToggleButton").getAttribute("aria-expanded") !== "true") throw new Error("Globe URL button did not expose its expanded state");
+  await host.locator("#urlToggleButton").click();
+  await host.locator("#qts-toolbar-host").evaluate((element) => { element.dataset.toolbarPosition = "top"; });
+  await host.locator("#toolsButton").click();
   await host.locator("#inputLabMenuItem").click();
   await host.locator(".qts-drawer").waitFor();
   for (const control of ["#drawerSearch", "#drawerPosition", "#drawerPin", "#drawerMinimize", "#drawerClose"]) {
@@ -628,9 +655,13 @@ try {
   if (await host.locator("#extraPinnedTools button").count()) throw new Error("Fresh workspace should allow zero optional fixed shortcuts");
   trace("required fixed shortcuts + zero optional state verified");
 
+  await host.locator("#toolsButton").click();
+  if (await host.locator("#disableAllToolsMenuItem:not(.isHidden)").count()) throw new Error("Global tool shutdown should stay hidden when no tool is active");
+  await host.locator("#toolsButton").click();
   await host.locator("#passButton").click();
   if (!await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Pass placement mode did not activate");
   await host.locator("#toolsButton").click();
+  if (!await host.locator("#disableAllToolsMenuItem:not(.isHidden)").count()) throw new Error("Global tool shutdown did not appear while a tool was active");
   await host.locator("#disableAllToolsMenuItem").click();
   if (await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Global tool shutdown left placement mode active");
   if (await host.locator("button.isActive").count()) throw new Error("Global tool shutdown left an active toolbar control");
@@ -672,6 +703,11 @@ try {
   // next to them so the toolbar doesn't grow two more permanent icons for less-common statuses.
   // Placed in the bottom-right corner, well clear of any field later tests interact with (a first
   // draft placed these mid-page and left them there, silently blocking a later click on #qaEmail).
+  await host.locator("#passButton").click();
+  if (!(await host.locator("#passButton").evaluate((button) => button.classList.contains("isActive")))) throw new Error("Pass placement did not activate");
+  await host.locator("#passButton").click();
+  if (await host.locator("#passButton").evaluate((button) => button.classList.contains("isActive"))) throw new Error("Second click on the active Pass shortcut did not cancel placement");
+  if (await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Placement cursor remained active after toggling Pass off");
   await host.locator("#markerMoreButton").click();
   await host.locator('[data-marker-pick="warning"]').click();
   await host.mouse.click(1320, 840);
@@ -707,6 +743,15 @@ try {
   await host.mouse.up();
   trace("line: drawn");
   if (await host.locator(".qts-shape").evaluate((shape) => shape.dataset.shapeType) !== "rectangle") throw new Error("Shape did not apply the Formato picked from the shape-type menu at creation");
+  await host.locator(".qts-shape").evaluate((shape) => shape.classList.remove("isEyeAwake"));
+  await host.mouse.move(900, 600);
+  await host.waitForTimeout(260);
+  const idleEyeOpacity = await host.locator(".qts-shape [data-visibility-toggle]").evaluate((button) => Number.parseFloat(getComputedStyle(button).opacity));
+  if (idleEyeOpacity > 0.05) throw new Error(`Floating eye did not fade after inactivity: ${idleEyeOpacity}`);
+  await host.locator(".qts-shape").hover();
+  await host.waitForTimeout(260);
+  const hoverEyeOpacity = await host.locator(".qts-shape [data-visibility-toggle]").evaluate((button) => Number.parseFloat(getComputedStyle(button).opacity));
+  if (hoverEyeOpacity < 0.95) throw new Error(`Floating eye did not return on hover: ${hoverEyeOpacity}`);
   await host.locator(".qts-shape [data-visibility-toggle]").click();
   await host.locator(".qts-shape .qts-edit-btn").click();
   await host.locator("select[data-shape-type]").selectOption("circle");
@@ -871,6 +916,18 @@ try {
   await host.locator("#pixelPerfectMenuItem").click(); // already active -> toggles off
   await host.locator("#toolsButton").click();
   await host.locator("#pixelPerfectMenuItem").click(); // now inactive -> opens the drawer
+  const pixelPerfectModes = host.locator("[data-pp-mode]");
+  if (await pixelPerfectModes.count() !== 4) throw new Error("Pixel Perfect must expose four icon-and-text mode choices");
+  for (const mode of ["cross", "horizontal", "vertical", "bounds"]) {
+    const option = host.locator(`[data-pp-mode="${mode}"]`);
+    if (!(await option.locator(".qts-mode-icon").count()) || !(await option.locator(".qts-mode-copy b").textContent())?.trim()) {
+      throw new Error(`Pixel Perfect mode ${mode} is missing its icon or visible label`);
+    }
+  }
+  const defaultPixelPerfectColor = await host.locator("#pixelPerfectColor").inputValue();
+  if (defaultPixelPerfectColor.toLowerCase() !== "#2563eb") {
+    throw new Error(`Pixel Perfect did not inherit the default primary theme color: ${defaultPixelPerfectColor}`);
+  }
   await host.locator("#pixelPerfectMode").selectOption("horizontal");
   await host.locator("#pixelPerfectToggle").click();
   await host.locator("#drawerClose").click();
@@ -1265,6 +1322,22 @@ try {
   await options.getByRole("button", { name: "Barra e aparência" }).click();
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Key View configuration should remain in its own sidebar");
   if (await options.locator('[data-tool="keyView"]').count() !== 1 || await options.locator('[data-tool="keyView"]').isChecked() !== true) throw new Error("Key View menu preference did not persist in options");
+  if (await options.locator('[data-tool="testStatus"]').count() !== 1 || await options.locator('[data-pinned="testStatus"]').count() !== 1) throw new Error("Test Suite is missing from menu/pinned preferences");
+  await options.locator('[data-tool="testStatus"]').uncheck();
+  await options.locator("#saveGeneralSettings").click();
+  await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("statusMenuItem")?.classList.contains("isPreferenceHidden"));
+  await options.locator('[data-tool="testStatus"]').check();
+  await options.locator('[data-pinned="testStatus"]').check();
+  await options.locator("#saveGeneralSettings").click();
+  await host.waitForFunction(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    return !root?.getElementById("statusMenuItem")?.classList.contains("isPreferenceHidden")
+      && Boolean(root?.querySelector('[data-pinned-tool="testStatus"]'));
+  });
+  await host.locator('[data-pinned-tool="testStatus"]').click();
+  await host.locator("#qts-test-status-modal").waitFor();
+  await host.locator('#qts-test-status-modal [data-close]').click();
+  trace("Test Suite menu visibility + optional toolbar pinning verified");
   await options.locator('[data-compact-entity="project"]').check();
   await options.locator("#saveGeneralSettings").click();
   await host.waitForTimeout(500);

@@ -8,6 +8,7 @@
     accessStatus: "qtsAccessStatusV1",
   });
   const FEATURE_REGISTRY = Object.freeze([
+    ["testStatus","Test Suite","statusMenuItem","checkSquare",""],
     ["clickSpy","Click Spy","clickSpyMenuItem","mouse",""],["freezeClock","Freeze Clock","freezeClockMenuItem","freezeClock",""],
     ["forceHttp","Force HTTP","forceHttpMenuItem","forceHttp",""],["errorMonitor","Error Monitor","errorMonitorMenuItem","errorMonitor",""],
     ["inspectors","Inspectors","inspectorsMenuItem","inspectors",""],["jsonStudio","JSON Studio","jsonStudioMenuItem","braces",""],
@@ -34,6 +35,7 @@
   const SCHEMA_8_TOOLS = ["holofote"];
   const SCHEMA_11_TOOLS = ["stepsRecorder"];
   const SCHEMA_12_TOOLS = ["pixelPerfect"];
+  const SCHEMA_13_TOOLS = ["testStatus"];
   const DEMO_CLIENT_ID = "qts-demo-client";
   const DEMO_PROJECT_ID = "qts-demo-project";
   const DEMO_PRODUCT_ID = "qts-demo-product";
@@ -129,7 +131,7 @@
   }
   function createEmptyWorkspace() {
     return {
-      schemaVersion: 12,
+      schemaVersion: 13,
       updatedAt: new Date().toISOString(),
       clients: [],
       projects: [],
@@ -399,9 +401,10 @@
     if (Number(source.schemaVersion || 0) < 8) for (const tool of SCHEMA_8_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 11) for (const tool of SCHEMA_11_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 12) for (const tool of SCHEMA_12_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    if (Number(source.schemaVersion || 0) < 13) for (const tool of SCHEMA_13_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     return {
       ...empty,
-      schemaVersion: 12,
+      schemaVersion: 13,
       updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
       clients,
       projects,

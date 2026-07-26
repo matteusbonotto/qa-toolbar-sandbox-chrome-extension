@@ -53,6 +53,22 @@ try {
     contentType: "application/json",
     body: JSON.stringify([{ chrome_web_store_version: extensionVersion, status: "live" }]),
   }));
+  await page.route("https://xhusvkylbouwtpcevgri.supabase.co/rest/v1/legal_registration**", (route) => route.fulfill({
+    status: 200,
+    contentType: "application/json",
+    body: JSON.stringify({
+      status: "preparation",
+      software_name: "QA Toolbar Sandbox",
+      holder_name: "Matheus Alves Bonotto Santos",
+      protocol_number: null,
+      protocol_date: null,
+      registration_number: null,
+      grant_date: null,
+      public_query_url: null,
+      public_notice: null,
+      updated_at: new Date().toISOString(),
+    }),
+  }));
   const consoleErrors = [];
   const failedResources = [];
   page.on("console", (message) => {
@@ -157,6 +173,20 @@ try {
   await page.locator(".qts-plan-cta").first().click();
   await page.getByRole("dialog").waitFor();
   await page.locator(".qts-auth-close").click();
+
+  await page.goto(`${origin}${basePath}privacidade`, { waitUntil: "networkidle" });
+  if (!(await page.getByRole("heading", { name: "O que o QA Toolbar Sandbox pede ao seu navegador" }).count())) throw new Error("Privacy route did not render its complete policy");
+  if (!(await page.getByRole("navigation", { name: "Navegação da página" }).count())) throw new Error("Privacy route is missing the global navigation/language controls");
+  if (!(await page.getByText("Screenshots e demais evidências são gerados localmente").count())) throw new Error("Privacy storage disclosure does not accurately describe downloaded evidence");
+  if (await page.locator('.qts-site-toolbar-nav a[href="#sobre"]').count()) throw new Error("Legal-page navigation still points to dead local anchors");
+  await page.getByRole("button", { name: "Alterar idioma para EN" }).click();
+  if (!(await page.getByRole("heading", { name: "What QA Toolbar Sandbox asks from your browser" }).count())) throw new Error("Privacy policy did not switch to English");
+
+  await page.goto(`${origin}${basePath}propriedade-intelectual`, { waitUntil: "networkidle" });
+  if (!(await page.getByRole("heading", { name: "Intellectual Property" }).count())) throw new Error("Intellectual-property route did not preserve the selected locale");
+  if (!(await page.getByText("Software registration in preparation").count())) throw new Error("INPI page did not render the truthful backend registration status");
+  await page.getByRole("button", { name: "Switch language to PT" }).click();
+  if (!(await page.getByText("Registro de software em preparação").count())) throw new Error("INPI status did not switch back to Portuguese");
 
   await page.goto(`${origin}${basePath}rota-inexistente`, { waitUntil: "networkidle" });
   if (!(await page.getByRole("heading", { name: "Página não encontrada" }).count())) throw new Error("Landing unknown route did not render a conscious 404");

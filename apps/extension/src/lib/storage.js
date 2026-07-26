@@ -26,6 +26,7 @@ export const DEMO_URL_BINDING_ID = "qts-demo-url-binding";
 export const DEMO_SITE_URL_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
 
 export const FEATURE_REGISTRY = Object.freeze([
+  ["testStatus","Test Suite","statusMenuItem","checkSquare",""],
   ["clickSpy","Click Spy","clickSpyMenuItem","mouse",""],
   ["freezeClock","Freeze Clock","freezeClockMenuItem","freezeClock",""],
   ["forceHttp","Force HTTP","forceHttpMenuItem","forceHttp",""],
@@ -60,6 +61,7 @@ const SCHEMA_7_TOOLS = ["blurElements"];
 const SCHEMA_8_TOOLS = ["holofote"];
 const SCHEMA_11_TOOLS = ["stepsRecorder"];
 const SCHEMA_12_TOOLS = ["pixelPerfect"];
+const SCHEMA_13_TOOLS = ["testStatus"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -258,7 +260,7 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 12,
+    schemaVersion: 13,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], stepRecordings: [],
@@ -493,9 +495,12 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 12) {
     for (const tool of SCHEMA_12_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 13) {
+    for (const tool of SCHEMA_13_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 12,
+    schemaVersion: 13,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])

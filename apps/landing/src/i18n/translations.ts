@@ -232,6 +232,8 @@ export interface Dictionary {
     contactTitle: string;
     contactBody: string;
     languageNote: string;
+    statusLoading: string;
+    statusUnavailable: string;
     status: Record<"preparation" | "payment_pending" | "protocolled" | "registered", { title: string; body: string; disclaimer?: string }>;
   };
   privacy: {
@@ -722,6 +724,8 @@ const pt: Dictionary = {
     contactTitle: "Contato jurídico",
     contactBody: "Dúvidas sobre propriedade intelectual, licenciamento ou denúncias de uso não autorizado podem ser enviadas para contato@matheusbonotto.com.br.",
     languageNote: "A versão em português prevalecerá em caso de divergência de interpretação relacionada ao registro brasileiro.",
+    statusLoading: "Consultando o status público do registro…",
+    statusUnavailable: "O status público do registro está temporariamente indisponível. Nenhum número ou situação será presumido; tente novamente mais tarde.",
     status: {
       preparation: {
         title: "Registro de software em preparação",
@@ -762,7 +766,7 @@ const pt: Dictionary = {
     processingTitle: "2. Processamento",
     processingBody: "Seu login é processado pelas funções de autenticação do Supabase, que verificam e-mail/senha e devolvem um token de sessão temporário. A extensão consulta periodicamente (a cada poucos minutos, com cache local) se sua assinatura está ativa, para saber quais ferramentas liberar — essa verificação usa apenas o token de sessão, nunca seu e-mail ou senha novamente. Pagamentos são processados inteiramente pelo Stripe; recebemos de volta somente o status da cobrança (ativo, atrasado, cancelado), nunca o número do cartão. Screenshots e evidências são capturados localmente pelo navegador e baixados direto para o seu computador — não passam por nenhum servidor nosso.",
     storageTitle: "3. Armazenamento",
-    storageBody: "Workspace, evidências, macros e contas de teste ficam somente no chrome.storage.local do seu navegador, vinculados ao seu perfil do Chrome — nunca saem do seu computador. Uma cópia local da sua sessão de login e do status do plano também fica em chrome.storage.local, como cache do que o servidor já te devolveu. E-mail, senha (com hashing) e dados de assinatura ficam no banco de dados do Supabase, nossa infraestrutura de backend. Dados de pagamento ficam exclusivamente nos servidores do Stripe, certificado PCI-DSS — nunca tocam nossa infraestrutura.",
+    storageBody: "Workspace, macros e contas de teste ficam somente no chrome.storage.local do seu navegador, vinculados ao seu perfil do Chrome. Screenshots e demais evidências são gerados localmente e baixados como arquivos para o destino escolhido pelo navegador; não são guardados pelo nosso servidor. Uma cópia local da sua sessão de login e do status do plano também fica em chrome.storage.local, como cache do que o servidor já devolveu. E-mail, hash da senha e dados de assinatura ficam no Supabase. Dados de pagamento ficam exclusivamente no Stripe e nunca tocam nossa infraestrutura.",
     sharingTitle: "4. Compartilhamento com terceiros",
     sharingBody: "Nunca vendemos, alugamos ou compartilhamos seus dados com anunciantes, corretores de dados ou qualquer finalidade de publicidade ou rastreamento — a extensão não usa nenhuma ferramenta de analytics de terceiros. Compartilhamos dados apenas com os dois processadores essenciais para o funcionamento do serviço, ambos atuando sob nossas instruções e não como donos desses dados: Stripe (processamento de pagamentos e cobrança recorrente) e Supabase (autenticação e banco de dados de backend).",
     retentionTitle: "5. Retenção de dados",
@@ -1238,6 +1242,8 @@ const es: Dictionary = {
     contactTitle: "Contacto legal",
     contactBody: "Dudas sobre propiedad intelectual, licenciamiento o denuncias de uso no autorizado pueden enviarse a contato@matheusbonotto.com.br.",
     languageNote: "La versión en portugués prevalecerá en caso de divergencia de interpretación relacionada con el registro brasileño.",
+    statusLoading: "Consultando el estado público del registro…",
+    statusUnavailable: "El estado público del registro no está disponible temporalmente. No se presumirá ningún número ni situación; inténtalo de nuevo más tarde.",
     status: {
       preparation: {
         title: "Registro de software en preparación",
@@ -1278,7 +1284,7 @@ const es: Dictionary = {
     processingTitle: "2. Procesamiento",
     processingBody: "Tu inicio de sesión es procesado por las funciones de autenticación de Supabase, que verifican correo/contraseña y devuelven un token de sesión temporal. La extensión consulta periódicamente (cada pocos minutos, con caché local) si tu suscripción está activa, para saber qué herramientas habilitar — esa verificación usa solo el token de sesión, nunca tu correo o contraseña de nuevo. Los pagos son procesados enteramente por Stripe; solo recibimos de vuelta el estado del cobro (activo, atrasado, cancelado), nunca el número de tarjeta. Las capturas de pantalla y evidencias se capturan localmente en el navegador y se descargan directo a tu computadora — no pasan por ningún servidor nuestro.",
     storageTitle: "3. Almacenamiento",
-    storageBody: "El workspace, evidencias, macros y cuentas de prueba se guardan solo en el chrome.storage.local de tu navegador, vinculados a tu perfil de Chrome — nunca salen de tu computadora. Una copia local de tu sesión de inicio de sesión y del estado del plan también queda en chrome.storage.local, como caché de lo que el servidor ya te devolvió. Correo, contraseña (con hashing) y datos de suscripción quedan en la base de datos de Supabase, nuestra infraestructura de backend. Los datos de pago quedan exclusivamente en los servidores de Stripe, certificado PCI-DSS — nunca tocan nuestra infraestructura.",
+    storageBody: "El workspace, las macros y las cuentas de prueba se guardan solo en chrome.storage.local, vinculados a tu perfil de Chrome. Las capturas de pantalla y demás evidencias se generan localmente y se descargan como archivos en el destino elegido por el navegador; nuestro servidor no las almacena. Una copia local de tu sesión y del estado del plan también queda en chrome.storage.local como caché. El correo, el hash de la contraseña y los datos de suscripción quedan en Supabase. Los datos de pago quedan exclusivamente en Stripe y nunca tocan nuestra infraestructura.",
     sharingTitle: "4. Compartición con terceros",
     sharingBody: "Nunca vendemos, alquilamos ni compartimos tus datos con anunciantes, corredores de datos ni con fines de publicidad o rastreo — la extensión no usa ninguna herramienta de analytics de terceros. Compartimos datos solo con los dos procesadores esenciales para el funcionamiento del servicio, ambos actuando bajo nuestras instrucciones y no como dueños de esos datos: Stripe (procesamiento de pagos y cobro recurrente) y Supabase (autenticación y base de datos de backend).",
     retentionTitle: "5. Retención de datos",
@@ -1754,6 +1760,8 @@ const en: Dictionary = {
     contactTitle: "Legal contact",
     contactBody: "Questions about intellectual property, licensing, or reports of unauthorized use can be sent to contato@matheusbonotto.com.br.",
     languageNote: "The Portuguese version will prevail in case of interpretation divergence related to the Brazilian registration.",
+    statusLoading: "Checking the registration's public status…",
+    statusUnavailable: "The registration's public status is temporarily unavailable. No number or status will be assumed; please try again later.",
     status: {
       preparation: {
         title: "Software registration in preparation",
@@ -1794,7 +1802,7 @@ const en: Dictionary = {
     processingTitle: "2. Processing",
     processingBody: "Your sign-in is processed by Supabase's authentication functions, which verify email/password and return a temporary session token. The extension periodically checks (every few minutes, with local caching) whether your subscription is active, to know which tools to unlock — that check only uses the session token, never your email or password again. Payments are processed entirely by Stripe; we only receive the charge status back (active, past due, cancelled), never the card number. Screenshots and evidence are captured locally by the browser and downloaded straight to your computer — they never pass through any server of ours.",
     storageTitle: "3. Storage",
-    storageBody: "Your workspace, evidence, macros and test accounts live only in your browser's chrome.storage.local, tied to your Chrome profile — they never leave your computer. A local copy of your sign-in session and plan status also lives in chrome.storage.local, as a cache of what the server already returned to you. Email, password (hashed) and subscription data live in Supabase's database, our backend infrastructure. Payment data lives exclusively on Stripe's servers, which are PCI-DSS certified — it never touches our infrastructure.",
+    storageBody: "Your workspace, macros, and test accounts live only in chrome.storage.local, tied to your Chrome profile. Screenshots and other evidence are generated locally and downloaded as files to the destination selected by your browser; our server does not store them. A local copy of your sign-in session and plan status also lives in chrome.storage.local as a cache. Email, the password hash, and subscription data live in Supabase. Payment data lives exclusively in Stripe and never touches our infrastructure.",
     sharingTitle: "4. Sharing with third parties",
     sharingBody: "We never sell, rent, or share your data with advertisers, data brokers, or for any advertising or tracking purpose — the extension doesn't use any third-party analytics tooling. We only share data with the two processors essential to running the service, both acting under our instructions rather than as owners of that data: Stripe (payment processing and recurring billing) and Supabase (authentication and backend database).",
     retentionTitle: "5. Data retention",
