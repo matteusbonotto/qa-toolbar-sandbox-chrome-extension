@@ -136,6 +136,7 @@ const wheelCopy = {
     missing: (points:number) => `Faltam ${points} pontos para liberar um giro.`,
     signIn: "Entre para consultar seus pontos e participar.",
     prizes: "Prêmios desta roleta",
+    prizesPreview: ["5% na cobrança", "10% na cobrança", "15% na cobrança", "10 dias RCA", "15 dias RM"],
   },
   es: {
     activities: "Actividades de la comunidad",
@@ -148,6 +149,7 @@ const wheelCopy = {
     missing: (points:number) => `Te faltan ${points} puntos para desbloquear un giro.`,
     signIn: "Inicia sesión para consultar tus puntos y participar.",
     prizes: "Premios de esta ruleta",
+    prizesPreview: ["5% de descuento", "10% de descuento", "15% de descuento", "10 días RCA", "15 días RM"],
   },
   en: {
     activities: "Community activities",
@@ -160,6 +162,7 @@ const wheelCopy = {
     missing: (points:number) => `You need ${points} more points to unlock a spin.`,
     signIn: "Sign in to check your points and participate.",
     prizes: "Prizes on this wheel",
+    prizesPreview: ["5% off", "10% off", "15% off", "10 RCA days", "15 RM days"],
   },
 };
 export function CommunityCampaignSection(){
@@ -174,8 +177,9 @@ export function CommunityCampaignSection(){
   // odds stay driven by `weight` server-side and are shown as their own list below the wheel, same
   // as before; the wedges are a themed reveal animation, not a literal probability chart.
   const wheelPrizes=eligiblePrizes.length?eligiblePrizes:prizes;
-  const wheelSegmentAngle=wheelPrizes.length?360/wheelPrizes.length:360;
-  const wheelBackground=wheelPrizes.length?`conic-gradient(${wheelPrizes.map((_,i)=>`${WHEEL_COLORS[i%WHEEL_COLORS.length]} ${i*wheelSegmentAngle}deg ${(i+1)*wheelSegmentAngle}deg`).join(",")})`:undefined;
+  const wheelLabels=wheelPrizes.length?wheelPrizes.map(prize=>locale==="pt-BR"?prize.label_pt:locale==="es"?prize.label_es:prize.label_en):wt.prizesPreview;
+  const wheelSegmentAngle=360/wheelLabels.length;
+  const wheelBackground=`conic-gradient(${wheelLabels.map((_,i)=>`${WHEEL_COLORS[i%WHEEL_COLORS.length]} ${i*wheelSegmentAngle}deg ${(i+1)*wheelSegmentAngle}deg`).join(",")})`;
   const load=async(current:Session)=>{if(!supabase)return;const [p,r,s,w,ps,b,e]=await Promise.all([
     supabase.from("referral_profiles").select("referral_code,qualified_referrals").eq("user_id",current.user.id).maybeSingle(),
     supabase.from("referrals").select("id",{count:"exact",head:true}).eq("referrer_user_id",current.user.id),
@@ -197,7 +201,13 @@ export function CommunityCampaignSection(){
     <div className="qts-rewards-how"><h3>{t.how}</h3><ol>{t.steps.map(item=><li key={item}>{item}</li>)}</ol></div>
     <div className="qts-community-heading"><p className="qts-eyebrow">{wt.activities}</p><h3>{wt.activities}</h3><p>{wt.activitiesLead}</p></div>
     <div className="qts-community-grid"><article className="qts-community-card"><h3>{t.affiliate}</h3><p>{t.offers}</p><p className="qts-affiliate-rules">{t.rules}</p>{!session?<button className="qts-btn qts-btn-primary" onClick={openAccountModal}>{t.signIn}</button>:profile?<><div className="qts-copy-field"><input aria-label={t.affiliate} readOnly value={affiliateLink}/><button type="button" onClick={()=>navigator.clipboard.writeText(affiliateLink).then(()=>setMessage(t.copied))}>{t.copy}</button></div><p className="qts-campaign-stats"><b>{referralCount}</b> {t.invited} · <b>{profile.qualified_referrals}</b> {t.qualified}</p></>:<p>{t.unavailable}</p>}</article>
-      <article className="qts-community-card"><h3>{t.mission}</h3><p>{t.missionBody}</p><fieldset className="qts-mission-list" disabled={locked}><label><b>{t.social}</b><input value={socialUrl} onChange={e=>setSocialUrl(e.target.value)} placeholder="https://..."/></label><label><b>{t.linkedin}</b><input value={linkedinUrl} onChange={e=>setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/..."/></label><label><b>{t.feedback}</b><textarea value={feedback} onChange={e=>setFeedback(e.target.value)} rows={4} placeholder={t.feedbackPlaceholder}/></label><label className="qts-disclosure"><input type="checkbox" checked={disclosure} onChange={e=>setDisclosure(e.target.checked)}/><span>{t.disclosure}</span></label></fieldset><button className="qts-btn qts-btn-primary" disabled={busy||locked} onClick={()=>void submit()}>{!session?t.signIn:submission?.status==="rejected"?t.resubmit:t.submit}</button>{submission&&<div className={`qts-campaign-status is-${submission.status}`} role="status"><strong>{submission.status==="approved"?t.missionApproved:submission.status==="rejected"?t.missionRejected:t.missionPending}</strong><p>{submission.review_notes}</p></div>}</article></div>
+      <article className="qts-community-card qts-community-mission"><h3>{t.mission}</h3><p>{t.missionBody}</p>
+        {!session ? <div className="qts-community-activity-preview">
+          <div><span>01</span><strong>{t.social}</strong><small>+40</small></div>
+          <div><span>02</span><strong>{t.linkedin}</strong><small>✓</small></div>
+          <div><span>03</span><strong>{t.feedback}</strong><small>+20</small></div>
+        </div> : <fieldset className="qts-mission-list" disabled={locked}><label><b>{t.social}</b><input value={socialUrl} onChange={e=>setSocialUrl(e.target.value)} placeholder="https://..."/></label><label><b>{t.linkedin}</b><input value={linkedinUrl} onChange={e=>setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/..."/></label><label><b>{t.feedback}</b><textarea value={feedback} onChange={e=>setFeedback(e.target.value)} rows={4} placeholder={t.feedbackPlaceholder}/></label><label className="qts-disclosure"><input type="checkbox" checked={disclosure} onChange={e=>setDisclosure(e.target.checked)}/><span>{t.disclosure}</span></label></fieldset>}
+        <button className="qts-btn qts-btn-primary" disabled={busy||locked} onClick={()=>void submit()}>{!session?t.signIn:submission?.status==="rejected"?t.resubmit:t.submit}</button>{submission&&<div className={`qts-campaign-status is-${submission.status}`} role="status"><strong>{submission.status==="approved"?t.missionApproved:submission.status==="rejected"?t.missionRejected:t.missionPending}</strong><p>{submission.review_notes}</p></div>}</article></div>
     <article className="qts-luck-cta"><div><p className="qts-eyebrow">{t.wheel}</p><h3>{wt.ctaTitle}</h3><p>{wt.ctaBody}</p></div><button ref={wheelTrigger} type="button" className="qts-btn qts-btn-primary" onClick={()=>setWheelOpen(true)}>{wt.cta}</button></article>
     {session&&<div className="qts-community-grid"><article className="qts-community-card"><h3>{t.benefits}</h3>{benefits.length?<div className="qts-reward-list">{benefits.map(b=><div key={b.id}><b>{b.kind==="discount_percent"?`${b.discount_percent}%`:`${b.grant_days} ${dayCopy[locale]}`}</b><span>{t.status[b.status as keyof typeof t.status]||b.status}</span><small>{fmtDate(b.expires_at,locale)}</small></div>)}</div>:<p>{t.emptyBenefits}</p>}</article><article className="qts-community-card"><h3>{t.ledger}</h3>{entries.length?<div className="qts-reward-list">{entries.map(e=><div key={e.id}><b className={e.points>0?"is-credit":"is-debit"}>{e.points>0?"+":""}{e.points}</b><span>{entryLabel(e.event_kind,locale)}</span><small>{fmtDate(e.created_at,locale)}</small></div>)}</div>:<p>{t.emptyLedger}</p>}</article></div>}
     <p className="qts-optional-review">{t.reviewSuggestion} {t.reviewNotice} <a href={STORE_URL} target="_blank" rel="noreferrer">{t.review}</a></p>{message&&<p role="status" className="qts-form-status">{message}</p>}
@@ -205,9 +215,9 @@ export function CommunityCampaignSection(){
       <button type="button" className="qts-wheel-close" aria-label={t.close} disabled={spinBusy} onClick={closeWheel}>×</button>
       <div className="qts-wheel-modal-copy"><p className="qts-eyebrow">{t.wheel}</p><h3 id="reward-wheel-title">{wt.ctaTitle}</h3><p>{t.random}</p>
       <div className="qts-wheel-balance"><span>{wt.pointsNow}</span><strong>{session?available:"—"}</strong><small>{!session?wt.signIn:available>=100?wt.ready:wt.missing(100-available)}</small>{wallet?.debt_points?<small role="alert">{debtCopy[locale](wallet.debt_points)}</small>:null}</div>
-      <div className="qts-odds"><strong>{wt.prizes}</strong>{eligiblePrizes.map(p=><div key={p.id}><span>{label(p)}</span><b>{totalWeight?((p.weight/totalWeight)*100).toFixed(1):"0"}%</b></div>)}</div></div>
+      <div className="qts-odds"><strong>{wt.prizes}</strong>{eligiblePrizes.length?eligiblePrizes.map(p=><div key={p.id}><span>{label(p)}</span><b>{totalWeight?((p.weight/totalWeight)*100).toFixed(1):"0"}%</b></div>):wt.prizesPreview.map(prize=><div key={prize}><span>{prize}</span><b>—</b></div>)}</div></div>
       <div className="qts-wheel-stage"><div className={`qts-reward-wheel qts-reward-wheel-live ${spinBusy?"is-spinning":""}`} style={{transform:`rotate(${rotation}deg)`,background:wheelBackground}} aria-label={t.wheel}>
-        {wheelPrizes.map((p,i)=><div key={p.id} className="qts-wheel-segment" style={{transform:`rotate(${i*wheelSegmentAngle+wheelSegmentAngle/2}deg)`}}><span className="qts-wheel-segment-label">{label(p)}</span></div>)}
+        {wheelLabels.map((wheelLabel,i)=><div key={`${wheelLabel}-${i}`} className="qts-wheel-segment" style={{transform:`rotate(${i*wheelSegmentAngle+wheelSegmentAngle/2}deg)`}}><span className="qts-wheel-segment-label">{wheelLabel}</span></div>)}
         <span className="qts-wheel-hub">QA</span>
       </div>
       <button type="button" className="qts-btn qts-btn-primary qts-spin-button" disabled={spinBusy||Boolean(session&&available<100)} onClick={()=>void spin()}>{!session?t.signIn:spinBusy?t.spinning:t.spin}</button></div>

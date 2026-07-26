@@ -62,9 +62,19 @@ export function IntellectualPropertyPage() {
             <p className="qts-legal-language-note">{t.legal.languageNote}</p>
           </section>
 
-          <section className="qts-legal-section">
+          <section className="qts-legal-section qts-legal-section-wide">
             <div className="qts-legal-section-head"><Icon name="puzzle" className="qts-legal-section-icon" /><h2>{t.legal.thirdPartyTitle}</h2></div>
-            <p className="qts-section-lead">{t.legal.thirdPartyBody}</p>
+            <p className="qts-section-lead">{t.legal.thirdPartyIntro}</p>
+            <div className="qts-third-party-grid">
+              {t.legal.thirdPartyItems.map((item) => (
+                <article key={item.name} className="qts-third-party-item">
+                  <strong>{item.name}</strong>
+                  <span>{item.purpose}</span>
+                  <small>{item.license}</small>
+                </article>
+              ))}
+            </div>
+            <p className="qts-legal-disclaimer">{t.legal.thirdPartyBody}</p>
           </section>
 
           <section className="qts-legal-section">

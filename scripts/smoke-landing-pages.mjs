@@ -101,9 +101,12 @@ try {
   if (!communityHeadings.some((text) => text.includes("Atividades da comunidade")) || !communityHeadings.some((text) => text.includes("Pronto para testar a sorte"))) {
     throw new Error("Rewards section does not present community activities before the luck CTA.");
   }
+  if (await page.locator(".qts-community-activity-preview > div").count() !== 3) throw new Error("Logged-out community section does not explain its three activities before authentication");
   await page.locator(".qts-luck-cta .qts-btn").click();
   const wheelDialog = page.getByRole("dialog", { name: "Pronto para testar a sorte?" });
   await wheelDialog.waitFor();
+  const wheelDialogWidth = await wheelDialog.evaluate((element) => element.getBoundingClientRect().width);
+  if (wheelDialogWidth < 700) throw new Error(`Desktop wheel modal inherited an incorrectly narrow generic width: ${wheelDialogWidth}px`);
   if (!(await wheelDialog.getByText("Seus pontos atuais").count()) || !(await wheelDialog.getByText("Entre para consultar seus pontos e participar.").count())) {
     throw new Error("Logged-out rewards modal does not explain points and authentication.");
   }
@@ -185,6 +188,7 @@ try {
   await page.goto(`${origin}${basePath}propriedade-intelectual`, { waitUntil: "networkidle" });
   if (!(await page.getByRole("heading", { name: "Intellectual Property" }).count())) throw new Error("Intellectual-property route did not preserve the selected locale");
   if (!(await page.getByText("Software registration in preparation").count())) throw new Error("INPI page did not render the truthful backend registration status");
+  if (await page.locator(".qts-third-party-item").count() !== 6) throw new Error("Third-party content is still presented as one unscannable text wall");
   await page.getByRole("button", { name: "Switch language to PT" }).click();
   if (!(await page.getByText("Registro de software em preparação").count())) throw new Error("INPI status did not switch back to Portuguese");
 

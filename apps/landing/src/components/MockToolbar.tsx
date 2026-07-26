@@ -128,12 +128,12 @@ export function MockToolbar({
         >
           <Icon name="xLg" />
         </button>
-        <button type="button" className="qts-mock-bar-btn" style={btnStyle} title={t.mockToolbar.note} onClick={onAddNote}>
+        <button type="button" className="qts-mock-bar-btn qts-mock-bar-secondary" style={btnStyle} title={t.mockToolbar.note} onClick={onAddNote}>
           T
         </button>
         <button
           type="button"
-          className={`qts-mock-bar-btn${placementMode === "shape" ? " is-active" : ""}`}
+          className={`qts-mock-bar-btn qts-mock-bar-secondary${placementMode === "shape" ? " is-active" : ""}`}
           style={btnStyle}
           title={t.mockToolbar.shape}
           onClick={() => onSelectPlacement("shape")}
@@ -141,7 +141,7 @@ export function MockToolbar({
           <Icon name="boundingBox" />
         </button>
         {hasAnnotations ? (
-          <button type="button" className="qts-mock-bar-btn" style={btnStyle} title={t.mockToolbar.clearAll} onClick={onClearAll}>
+          <button type="button" className="qts-mock-bar-btn qts-mock-bar-secondary" style={btnStyle} title={t.mockToolbar.clearAll} onClick={onClearAll}>
             {t.mockToolbar.clearAll}
           </button>
         ) : null}
