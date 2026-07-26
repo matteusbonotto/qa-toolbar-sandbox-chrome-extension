@@ -96,6 +96,29 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+// These list views rebuild body.innerHTML from scratch on every search keystroke, which destroys
+// and recreates the <input> element - without this, focus (and the caret) is lost after each
+// character, forcing the user to click back into the field to type the next one.
+function captureListFocus(body) {
+  const active = state.shadowRoot?.activeElement;
+  if (!active || !body?.contains(active)) return null;
+  return { id: active.id, selStart: active.selectionStart, selEnd: active.selectionEnd };
+}
+
+function restoreListFocus(body, focus) {
+  if (!focus?.id) return;
+  const restored = body.querySelector(`#${focus.id}`);
+  if (!restored) return;
+  restored.focus();
+  if (typeof focus.selStart === "number" && restored.setSelectionRange) {
+    try { restored.setSelectionRange(focus.selStart, focus.selEnd); } catch { /* not a text-selectable input */ }
+  }
+}
+
+function urlPathFor(rawUrl) {
+  try { return new URL(rawUrl).pathname || rawUrl; } catch { return rawUrl || "-"; }
+}
+
 function wildcardToRegExp(pattern) {
   const escaped = String(pattern || "")
     .replace(/[.+^${}()|[\]\\]/g, "\\$&")
@@ -3566,7 +3589,8 @@ function renderInspectorDashboard(listBody) {
         <b>${escapeHtml(inspector.label || inspector.id)}</b>
         <small>${escapeHtml((inspector.patterns || []).join(", "))}</small>
         ${entry
-          ? `<small style="display:block;margin-top:3px;color:#42d5c2">${ICON("pass")} ${escapeHtml(entry.method)} ${entry.status || "-"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>`
+          ? `<small style="display:block;margin-top:3px;color:#42d5c2">${ICON("pass")} ${escapeHtml(entry.method)} ${entry.status || "-"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
+             <small style="display:block;margin-top:2px;word-break:break-all">${escapeHtml(entry.url)}</small>`
           : `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
               <small style="color:#ffb020">Aguardando resposta...</small>
               <button type="button" class="qts-icon-btn" data-retry-inspector="${escapeHtml(inspector.id)}" title="Tentar novamente">${ICON("undo")}</button>
@@ -3598,6 +3622,7 @@ function renderInspectorsList() {
   const scope = inspectorsEffectiveScope();
   const fields = scope === "mine" ? [] : buildInspectorFilterFields();
   const filtered = scope === "mine" ? [] : state.networkHistory.filter(matchesInspectorFilters);
+  const focus = captureListFocus(body);
 
   body.innerHTML = `
     <div class="qts-tabs">
@@ -3623,6 +3648,7 @@ function renderInspectorsList() {
       inspectorsFilterState.scope = button.dataset.inspectorScope;
       renderInspectorsList();
     }));
+    restoreListFocus(body, focus);
     return;
   }
   const emptyMessage = !state.networkHistory.length ? t.noResponsesYet : t.noFilterResults;
@@ -3630,7 +3656,9 @@ function renderInspectorsList() {
     ? filtered.map((entry) => `
         <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
           <div style="min-width:0;flex:1">
-            <b>${entry.status || "-"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+            <b>${escapeHtml(urlPathFor(entry.url))}</b>
+            <small style="display:block;margin-top:2px;color:#42d5c2">${escapeHtml(entry.method)} ${entry.status || "-"}</small>
+            <small style="display:block;margin-top:2px;word-break:break-all;color:#888">${escapeHtml(entry.url)}</small>
             ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">${ICON("star")} ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
           </div>
           <button type="button" class="qts-icon-btn" data-mark-inspector="${escapeHtml(entry.id)}" title="Marcar como meu inspector" style="width:26px;height:26px;flex:0 0 auto">${ICON("pin")}</button>
@@ -3667,6 +3695,7 @@ function renderInspectorsList() {
     if (isSelected) inspectorsFilterState[key].add(value); else inspectorsFilterState[key].delete(value);
     renderInspectorsList();
   });
+  restoreListFocus(body, focus);
 }
 
 function openInspectorsDrawer() {
@@ -3802,6 +3831,7 @@ function renderErrorMonitorList() {
   if (!body) return;
   const fields = buildErrorMonitorFilterFields();
   const filtered = state.httpErrors.filter(matchesErrorMonitorFilters);
+  const focus = captureListFocus(body);
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
@@ -3835,6 +3865,7 @@ function renderErrorMonitorList() {
     if (isSelected) errorMonitorFilterState[key].add(value); else errorMonitorFilterState[key].delete(value);
     renderErrorMonitorList();
   });
+  restoreListFocus(body, focus);
 }
 
 function openErrorMonitorDrawer() {
@@ -3914,6 +3945,7 @@ function renderTestAccountsList() {
   }
   const fields = buildTestAccountFilterFields(allAccounts);
   const accounts = allAccounts.filter(matchesTestAccountFilters);
+  const focus = captureListFocus(body);
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
@@ -3977,6 +4009,7 @@ function renderTestAccountsList() {
     const account = accounts.find((item) => item.id === button.dataset.copyAccountAll);
     if (account) copyToClipboardWithFeedback(button, formatTestAccountForCopy(account));
   }));
+  restoreListFocus(body, focus);
 }
 
 function openTestAccountsDrawer() {
@@ -4031,6 +4064,7 @@ function renderPaymentMethodsList() {
   const types = [...new Set(allMethods.map((method) => method.type || "other"))].sort();
   const fields = [{ key: "type", label: "Tipo", options: types.map((value) => ({ value, label: value })) }];
   const methods = allMethods.filter(matchesPaymentMethodFilters);
+  const focus = captureListFocus(body);
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
@@ -4088,6 +4122,7 @@ function renderPaymentMethodsList() {
     const method = methods.find((item) => item.id === button.dataset.copyPaymentAll);
     if (method) copyToClipboardWithFeedback(button, formatPaymentMethodForCopy(method));
   }));
+  restoreListFocus(body, focus);
 }
 
 function openPaymentMethodsDrawer() {
@@ -4125,6 +4160,7 @@ function renderResourcesList() {
   const categories = [...new Set(allResources.map((resource) => resource.category).filter(Boolean))].sort();
   const fields = categories.length ? [{ key: "category", label: t.filterCategory, options: categories.map((value) => ({ value, label: value })) }] : [];
   const resources = allResources.filter(matchesResourceFilters);
+  const focus = captureListFocus(body);
 
   body.innerHTML = `
     <div class="qts-toolbar-row">
@@ -4149,6 +4185,7 @@ function renderResourcesList() {
     if (isSelected) resourcesFilterState[key].add(value); else resourcesFilterState[key].delete(value);
     renderResourcesList();
   });
+  restoreListFocus(body, focus);
 }
 
 function openResourcesDrawer() {
@@ -6679,8 +6716,8 @@ document.addEventListener("qts:force-http-state", (event) => {
 const RECORD_PART_DURATION_MS = 30_000;
 const GIF_PART_DURATION_MS = 15_000;
 const GIF_FPS = 5;
-const GIF_MAX_WIDTH = 640;
-const GIF_MAX_HEIGHT = 360;
+const GIF_MAX_WIDTH = 1280;
+const GIF_MAX_HEIGHT = 720;
 
 const recordingState = {
   status: "idle", // idle | recording | paused
