@@ -136,7 +136,7 @@ const wheelCopy = {
     missing: (points:number) => `Faltam ${points} pontos para liberar um giro.`,
     signIn: "Entre para consultar seus pontos e participar.",
     prizes: "Prêmios desta roleta",
-    prizesPreview: ["5% na cobrança", "10% na cobrança", "15% na cobrança", "10 dias RCA", "15 dias RM"],
+    prizesPreview: ["5% off", "7% off", "8% off", "10% off", "12% off", "15% off", "8 dias ST", "8 dias RR", "8 dias RCA", "8 dias RM"],
   },
   es: {
     activities: "Actividades de la comunidad",
@@ -149,7 +149,7 @@ const wheelCopy = {
     missing: (points:number) => `Te faltan ${points} puntos para desbloquear un giro.`,
     signIn: "Inicia sesión para consultar tus puntos y participar.",
     prizes: "Premios de esta ruleta",
-    prizesPreview: ["5% de descuento", "10% de descuento", "15% de descuento", "10 días RCA", "15 días RM"],
+    prizesPreview: ["5% dto.", "7% dto.", "8% dto.", "10% dto.", "12% dto.", "15% dto.", "8 días ST", "8 días RR", "8 días RCA", "8 días RM"],
   },
   en: {
     activities: "Community activities",
@@ -162,7 +162,7 @@ const wheelCopy = {
     missing: (points:number) => `You need ${points} more points to unlock a spin.`,
     signIn: "Sign in to check your points and participate.",
     prizes: "Prizes on this wheel",
-    prizesPreview: ["5% off", "10% off", "15% off", "10 RCA days", "15 RM days"],
+    prizesPreview: ["5% off", "7% off", "8% off", "10% off", "12% off", "15% off", "8 ST days", "8 RR days", "8 RCA days", "8 RM days"],
   },
 };
 export function CommunityCampaignSection(){

@@ -297,4 +297,7 @@ checklist. Eles só podem ocorrer após autorização explícita e uso das crede
 - Smoke de LP/Admin passa a provar as duas rotas legais, navegação e traduções PT-BR/EN, além do
   status de registro fornecido pelo backend. Input Lab permanece coberto no Chrome por seis classes
   de validação, restauração do valor original e abertura em janela isolada.
+- Roleta normalizada pela regra do fundador para exatamente 10 opções: seis descontos e oito dias
+  de acesso para cada um dos quatro planos. Não existem prêmios de 10, 15 ou 30 dias; os textos dos
+  segmentos usam orientação vertical e a lista do modal ocupa duas colunas no desktop.
 - Versão da extensão atualizada para `1.4.15`.
