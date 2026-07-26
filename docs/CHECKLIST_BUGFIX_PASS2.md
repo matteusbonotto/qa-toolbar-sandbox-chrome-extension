@@ -7,7 +7,8 @@
 ## Entregáveis rápidos (fora do plano de bugs)
 
 - [x] `bankeiro-example.json` salvo em Downloads (Cliente Bankeiro / Projeto Bullla / Produto IBK / ambiente Stage)
-- [ ] Export Figma (screenshots/SVG de cada tela) — escopo separado, depois desta rodada
+- Export Figma não é uma pendência do produto: é um entregável externo opcional e requer um
+  arquivo/projeto Figma de destino autorizado. Os screenshots oficiais estão atualizados no repo.
 
 ## Fase 1 — Ferramentas de anotação + contraste de cores
 

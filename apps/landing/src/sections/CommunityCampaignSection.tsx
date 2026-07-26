@@ -8,6 +8,7 @@ const STORE_URL = "https://chromewebstore.google.com/detail/ddaapjklnfjhjigeglgm
 const CAMPAIGN_KEY = "qa-rewards-2026-community";
 const WHEEL_COLORS = ["#6c3df4", "#13a6a1", "#e6a817", "#d94c72", "#4187e8", "#8a4fff", "#0f8f8a", "#c2662f"];
 const WHEEL_SPIN_MS = 3200;
+const prefersReducedMotion = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Synthesized (no audio assets to ship/load) — a short square-wave tick per call, and a 4-note
 // ascending chime on a real win. One shared AudioContext, created lazily on first use since some
@@ -15,7 +16,7 @@ const WHEEL_SPIN_MS = 3200;
 // this is safe).
 let sharedAudioCtx: AudioContext | null = null;
 function getAudioCtx(): AudioContext | null {
-  if (typeof window === "undefined") return null;
+  if (typeof window === "undefined" || prefersReducedMotion()) return null;
   const Ctor = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
   if (!Ctor) return null;
   if (!sharedAudioCtx) sharedAudioCtx = new Ctor();
@@ -65,7 +66,7 @@ function playWheelSuccessChime() {
 }
 // Lightweight canvas confetti burst — self-removing, no external library/dependency.
 function fireWheelConfetti() {
-  if (typeof document === "undefined") return;
+  if (typeof document === "undefined" || prefersReducedMotion()) return;
   const canvas = document.createElement("canvas");
   canvas.style.cssText = "position:fixed;inset:0;z-index:10001;pointer-events:none;";
   canvas.width = window.innerWidth;
@@ -117,8 +118,52 @@ const entryLabel=(kind:string,locale:string)=>({
   es:{referral_paid:"Referencia con pago",community_social:"Relato público aprobado",product_feedback:"Feedback aprobado",spin_debit:"Giro de la ruleta",reversal:"Reversión",admin_adjustment:"Ajuste administrativo"},
   en:{referral_paid:"Paid referral",community_social:"Approved public story",product_feedback:"Approved feedback",spin_debit:"Wheel spin",reversal:"Reversal",admin_adjustment:"Admin adjustment"},
 }[locale as "pt-BR"|"es"|"en"]?.[kind as "referral_paid"]||kind.replaceAll("_"," "));
+const debtCopy = {
+  "pt-BR": (points:number) => `${points} pontos aguardam compensação por estorno.`,
+  es: (points:number) => `${points} puntos esperan compensación por reversión.`,
+  en: (points:number) => `${points} points are awaiting refund offset.`,
+};
+const dayCopy = { "pt-BR": "dias", es: "días", en: "days" };
+const wheelCopy = {
+  "pt-BR": {
+    activities: "Atividades da comunidade",
+    activitiesLead: "Participe, envie suas evidências e acompanhe os pontos creditados em sua conta.",
+    ctaTitle: "Pronto para testar a sorte?",
+    ctaBody: "Consulte seu saldo e veja os benefícios disponíveis antes de girar.",
+    cta: "Testar a sorte agora",
+    pointsNow: "Seus pontos atuais",
+    ready: "Você tem pontos suficientes para girar.",
+    missing: (points:number) => `Faltam ${points} pontos para liberar um giro.`,
+    signIn: "Entre para consultar seus pontos e participar.",
+    prizes: "Prêmios desta roleta",
+  },
+  es: {
+    activities: "Actividades de la comunidad",
+    activitiesLead: "Participa, envía tus pruebas y sigue los puntos acreditados en tu cuenta.",
+    ctaTitle: "¿Listo para probar suerte?",
+    ctaBody: "Consulta tu saldo y los beneficios disponibles antes de girar.",
+    cta: "Probar suerte ahora",
+    pointsNow: "Tus puntos actuales",
+    ready: "Tienes puntos suficientes para girar.",
+    missing: (points:number) => `Te faltan ${points} puntos para desbloquear un giro.`,
+    signIn: "Inicia sesión para consultar tus puntos y participar.",
+    prizes: "Premios de esta ruleta",
+  },
+  en: {
+    activities: "Community activities",
+    activitiesLead: "Participate, submit your evidence, and track points credited to your account.",
+    ctaTitle: "Ready to try your luck?",
+    ctaBody: "Check your balance and available benefits before spinning.",
+    cta: "Try your luck now",
+    pointsNow: "Your current points",
+    ready: "You have enough points to spin.",
+    missing: (points:number) => `You need ${points} more points to unlock a spin.`,
+    signIn: "Sign in to check your points and participate.",
+    prizes: "Prizes on this wheel",
+  },
+};
 export function CommunityCampaignSection(){
-  const {locale}=useI18n(); const t=copy[locale as keyof typeof copy]||copy.en; const resultButton=useRef<HTMLButtonElement>(null);
+  const {locale}=useI18n(); const t=copy[locale as keyof typeof copy]||copy.en; const wt=wheelCopy[locale as keyof typeof wheelCopy]||wheelCopy.en; const resultButton=useRef<HTMLButtonElement>(null); const wheelTrigger=useRef<HTMLButtonElement>(null);
   const [session,setSession]=useState<Session|null>(null),[profile,setProfile]=useState<{referral_code:string;qualified_referrals:number}|null>(null);
   const [wallet,setWallet]=useState<Wallet|null>(null),[prizes,setPrizes]=useState<Prize[]>([]),[benefits,setBenefits]=useState<Benefit[]>([]),[entries,setEntries]=useState<Entry[]>([]);
   const [referralCount,setReferralCount]=useState(0),[submission,setSubmission]=useState<Submission|null>(null),[socialUrl,setSocialUrl]=useState(""),[linkedinUrl,setLinkedinUrl]=useState(""),[feedback,setFeedback]=useState(""),[disclosure,setDisclosure]=useState(false),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[spinBusy,setSpinBusy]=useState(false),[spinResult,setSpinResult]=useState<SpinResult|null>(null),[rotation,setRotation]=useState(0),[wheelOpen,setWheelOpen]=useState(false);
@@ -141,30 +186,31 @@ export function CommunityCampaignSection(){
     supabase.from("reward_point_entries").select("id,event_kind,points,status,reason,created_at").eq("user_id",current.user.id).order("created_at",{ascending:false}).limit(12),
   ]); if(p.data)setProfile(p.data);setReferralCount(r.count||0);if(s.data)setSubmission(s.data as Submission);setWallet((w.data as Wallet)||{available_points:0,pending_points:0,lifetime_points:0,spent_points:0,debt_points:0});setPrizes((ps.data as Prize[])||[]);setBenefits((b.data as Benefit[])||[]);setEntries((e.data as Entry[])||[]);};
   useEffect(()=>{const incoming=new URLSearchParams(location.search).get("ref")?.toUpperCase();if(/^QTS-[A-F0-9]{8}$/.test(incoming||""))localStorage.setItem("qts-referral-code",incoming!);if(!supabase)return;void supabase.auth.getSession().then(({data})=>setSession(data.session));const {data}=supabase.auth.onAuthStateChange((_e,s)=>setSession(s));return()=>data.subscription.unsubscribe();},[]);
+  useEffect(()=>{if(!supabase||session)return;void supabase.from("reward_prizes").select("id,key,label_pt,label_es,label_en,weight,minimum_lifetime_points,kind,discount_percent,grant_days").eq("enabled",true).order("display_order").then(({data})=>setPrizes((data as Prize[])||[]));},[session]);
   useEffect(()=>{if(!session||!supabase)return;const code=localStorage.getItem("qts-referral-code");if(code)void supabase.functions.invoke("referral-track",{body:{referralCode:code}}).finally(()=>localStorage.removeItem("qts-referral-code"));void load(session);},[session]);
   const submit=async()=>{if(!session){openAccountModal();return;}let social:URL,linked:URL;try{social=new URL(socialUrl);linked=new URL(linkedinUrl);}catch{setMessage(t.invalid);return;}if(social.protocol!=="https:"||linked.protocol!=="https:"||social.href===linked.href||!/(^|\.)linkedin\.com$/i.test(linked.hostname)||feedback.trim().length<40||!disclosure||!supabase){setMessage(t.invalid);return;}setBusy(true);const payload={user_id:session.user.id,campaign_key:CAMPAIGN_KEY,social_post_url:social.href,linkedin_post_url:linked.href,product_feedback:feedback.trim(),disclosure_confirmed:true,status:"pending",submitted_at:new Date().toISOString(),review_notes:null,review_criteria:{},resubmission_count:(submission?.resubmission_count||0)+(submission?.status==="rejected"?1:0)};const {error}=await supabase.from("engagement_campaign_submissions").upsert(payload,{onConflict:"user_id,campaign_key"});setBusy(false);if(error){setMessage(t.unavailable);return;}setSubmission(payload as Submission);setMessage(t.saved);};
-  const spin=async()=>{if(!session){openAccountModal();return;}if(available<100){setMessage(t.notEnough);return;}if(!window.confirm(t.confirm)||!supabase)return;setSpinBusy(true);setMessage("");const requestId=crypto.randomUUID();const {data,error}=await supabase.functions.invoke("rewards-spin",{body:{requestId}});if(error||!data){setSpinBusy(false);setMessage(data?.error||error?.message||t.unavailable);return;}const won=data as SpinResult;scheduleWheelTicks(WHEEL_SPIN_MS);setRotation(v=>v+1440+Math.floor(Math.random()*300));window.setTimeout(()=>{setSpinBusy(false);setWheelOpen(false);setSpinResult(won);playWheelSuccessChime();fireWheelConfetti();resultButton.current?.focus();},WHEEL_SPIN_MS);await load(session);};
+  const closeWheel=()=>{if(spinBusy)return;setWheelOpen(false);requestAnimationFrame(()=>wheelTrigger.current?.focus());};
+  const spin=async()=>{if(!session){setWheelOpen(false);openAccountModal();return;}if(available<100){setMessage(t.notEnough);return;}if(!supabase)return;setSpinBusy(true);setMessage("");const requestId=crypto.randomUUID();const {data,error}=await supabase.functions.invoke("rewards-spin",{body:{requestId}});if(error||!data){setSpinBusy(false);setMessage(data?.error||error?.message||t.unavailable);return;}const won=data as SpinResult;const wonIndex=Math.max(0,wheelPrizes.findIndex(prize=>prize.key===won.prize_key));const target=(360-(wonIndex+.5)*wheelSegmentAngle)%360;scheduleWheelTicks(WHEEL_SPIN_MS);setRotation(current=>current+1440+((target-(current%360)+360)%360));window.setTimeout(()=>{setSpinBusy(false);setWheelOpen(false);setSpinResult(won);playWheelSuccessChime();fireWheelConfetti();requestAnimationFrame(()=>resultButton.current?.focus());},WHEEL_SPIN_MS);await load(session);};
+  useEffect(()=>{if(!wheelOpen)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!spinBusy)closeWheel();};document.addEventListener("keydown",onKeyDown);return()=>document.removeEventListener("keydown",onKeyDown);},[wheelOpen,spinBusy]);
   const label=(p:Prize)=>locale==="pt-BR"?p.label_pt:locale==="es"?p.label_es:p.label_en; const locked=submission?.status==="pending"||submission?.status==="approved";
   return <section id="comunidade" className="qts-section qts-community"><div className="qts-container"><p className="qts-eyebrow">{t.eyebrow}</p><h2>{t.title}</h2><p className="qts-section-lead">{t.lead}</p>
     <div className="qts-rewards-how"><h3>{t.how}</h3><ol>{t.steps.map(item=><li key={item}>{item}</li>)}</ol></div>
+    <div className="qts-community-heading"><p className="qts-eyebrow">{wt.activities}</p><h3>{wt.activities}</h3><p>{wt.activitiesLead}</p></div>
     <div className="qts-community-grid"><article className="qts-community-card"><h3>{t.affiliate}</h3><p>{t.offers}</p><p className="qts-affiliate-rules">{t.rules}</p>{!session?<button className="qts-btn qts-btn-primary" onClick={openAccountModal}>{t.signIn}</button>:profile?<><div className="qts-copy-field"><input aria-label={t.affiliate} readOnly value={affiliateLink}/><button type="button" onClick={()=>navigator.clipboard.writeText(affiliateLink).then(()=>setMessage(t.copied))}>{t.copy}</button></div><p className="qts-campaign-stats"><b>{referralCount}</b> {t.invited} · <b>{profile.qualified_referrals}</b> {t.qualified}</p></>:<p>{t.unavailable}</p>}</article>
-      <article className="qts-community-card qts-reward-summary" aria-live="polite"><h3>{t.balance}</h3><strong className="qts-points-total">{available}</strong><div className="qts-reward-metrics"><span><b>{wallet?.pending_points||0}</b>{t.pending}</span><span><b>{wallet?.lifetime_points||0}</b>{t.lifetime}</span><span><b>{Math.floor(available/100)}</b>{t.spins}</span></div><label>{t.progress}<progress max="100" value={available%100}/><small>{available%100}/100</small></label>{wallet?.debt_points?<p className="qts-form-status" role="alert">{wallet.debt_points} pontos aguardam compensação por estorno.</p>:null}</article></div>
-    <div className="qts-community-grid qts-wheel-grid"><article className="qts-community-card qts-wheel-card"><h3>{t.wheel}</h3><p>{t.random}</p>
-      <div className={`qts-reward-wheel qts-reward-wheel-preview ${wheelPrizes.length?"":"is-empty"}`} style={{background:wheelBackground}} aria-hidden="true"><span className="qts-wheel-hub">QA</span></div>
-      <button type="button" className="qts-btn qts-btn-primary" disabled={available<100} onClick={()=>setWheelOpen(true)}>{t.tryLuck}</button>
-      <p className="qts-wheel-trigger-hint">{t.tryLuckHint} <b>{available}</b>.</p>
-      <div className="qts-odds"><strong>{t.odds}</strong>{eligiblePrizes.map(p=><div key={p.id}><span>{label(p)}</span><b>{totalWeight?((p.weight/totalWeight)*100).toFixed(1):"0"}%</b></div>)}</div></article>
       <article className="qts-community-card"><h3>{t.mission}</h3><p>{t.missionBody}</p><fieldset className="qts-mission-list" disabled={locked}><label><b>{t.social}</b><input value={socialUrl} onChange={e=>setSocialUrl(e.target.value)} placeholder="https://..."/></label><label><b>{t.linkedin}</b><input value={linkedinUrl} onChange={e=>setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/..."/></label><label><b>{t.feedback}</b><textarea value={feedback} onChange={e=>setFeedback(e.target.value)} rows={4} placeholder={t.feedbackPlaceholder}/></label><label className="qts-disclosure"><input type="checkbox" checked={disclosure} onChange={e=>setDisclosure(e.target.checked)}/><span>{t.disclosure}</span></label></fieldset><button className="qts-btn qts-btn-primary" disabled={busy||locked} onClick={()=>void submit()}>{!session?t.signIn:submission?.status==="rejected"?t.resubmit:t.submit}</button>{submission&&<div className={`qts-campaign-status is-${submission.status}`} role="status"><strong>{submission.status==="approved"?t.missionApproved:submission.status==="rejected"?t.missionRejected:t.missionPending}</strong><p>{submission.review_notes}</p></div>}</article></div>
-    {session&&<div className="qts-community-grid"><article className="qts-community-card"><h3>{t.benefits}</h3>{benefits.length?<div className="qts-reward-list">{benefits.map(b=><div key={b.id}><b>{b.kind==="discount_percent"?`${b.discount_percent}%`:`${b.grant_days} dias`}</b><span>{t.status[b.status as keyof typeof t.status]||b.status}</span><small>{fmtDate(b.expires_at,locale)}</small></div>)}</div>:<p>{t.emptyBenefits}</p>}</article><article className="qts-community-card"><h3>{t.ledger}</h3>{entries.length?<div className="qts-reward-list">{entries.map(e=><div key={e.id}><b className={e.points>0?"is-credit":"is-debit"}>{e.points>0?"+":""}{e.points}</b><span>{entryLabel(e.event_kind,locale)}</span><small>{fmtDate(e.created_at,locale)}</small></div>)}</div>:<p>{t.emptyLedger}</p>}</article></div>}
+    <article className="qts-luck-cta"><div><p className="qts-eyebrow">{t.wheel}</p><h3>{wt.ctaTitle}</h3><p>{wt.ctaBody}</p></div><button ref={wheelTrigger} type="button" className="qts-btn qts-btn-primary" onClick={()=>setWheelOpen(true)}>{wt.cta}</button></article>
+    {session&&<div className="qts-community-grid"><article className="qts-community-card"><h3>{t.benefits}</h3>{benefits.length?<div className="qts-reward-list">{benefits.map(b=><div key={b.id}><b>{b.kind==="discount_percent"?`${b.discount_percent}%`:`${b.grant_days} ${dayCopy[locale]}`}</b><span>{t.status[b.status as keyof typeof t.status]||b.status}</span><small>{fmtDate(b.expires_at,locale)}</small></div>)}</div>:<p>{t.emptyBenefits}</p>}</article><article className="qts-community-card"><h3>{t.ledger}</h3>{entries.length?<div className="qts-reward-list">{entries.map(e=><div key={e.id}><b className={e.points>0?"is-credit":"is-debit"}>{e.points>0?"+":""}{e.points}</b><span>{entryLabel(e.event_kind,locale)}</span><small>{fmtDate(e.created_at,locale)}</small></div>)}</div>:<p>{t.emptyLedger}</p>}</article></div>}
     <p className="qts-optional-review">{t.reviewSuggestion} {t.reviewNotice} <a href={STORE_URL} target="_blank" rel="noreferrer">{t.review}</a></p>{message&&<p role="status" className="qts-form-status">{message}</p>}
-    {wheelOpen&&<div className="qts-reward-dialog-backdrop" role="presentation" onClick={()=>{if(!spinBusy)setWheelOpen(false);}}><div className="qts-reward-dialog qts-wheel-dialog" role="dialog" aria-modal="true" aria-labelledby="reward-wheel-title" onClick={e=>e.stopPropagation()}>
-      <h3 id="reward-wheel-title">{t.wheel}</h3><p>{t.random}</p>
-      <div className={`qts-reward-wheel qts-reward-wheel-live ${spinBusy?"is-spinning":""}`} style={{transform:`rotate(${rotation}deg)`,background:wheelBackground}} aria-hidden="true">
+    {wheelOpen&&<div className="qts-reward-dialog-backdrop" role="presentation" onClick={closeWheel}><div className="qts-reward-dialog qts-wheel-dialog" role="dialog" aria-modal="true" aria-labelledby="reward-wheel-title" onClick={e=>e.stopPropagation()}>
+      <button type="button" className="qts-wheel-close" aria-label={t.close} disabled={spinBusy} onClick={closeWheel}>×</button>
+      <div className="qts-wheel-modal-copy"><p className="qts-eyebrow">{t.wheel}</p><h3 id="reward-wheel-title">{wt.ctaTitle}</h3><p>{t.random}</p>
+      <div className="qts-wheel-balance"><span>{wt.pointsNow}</span><strong>{session?available:"—"}</strong><small>{!session?wt.signIn:available>=100?wt.ready:wt.missing(100-available)}</small>{wallet?.debt_points?<small role="alert">{debtCopy[locale](wallet.debt_points)}</small>:null}</div>
+      <div className="qts-odds"><strong>{wt.prizes}</strong>{eligiblePrizes.map(p=><div key={p.id}><span>{label(p)}</span><b>{totalWeight?((p.weight/totalWeight)*100).toFixed(1):"0"}%</b></div>)}</div></div>
+      <div className="qts-wheel-stage"><div className={`qts-reward-wheel qts-reward-wheel-live ${spinBusy?"is-spinning":""}`} style={{transform:`rotate(${rotation}deg)`,background:wheelBackground}} aria-label={t.wheel}>
         {wheelPrizes.map((p,i)=><div key={p.id} className="qts-wheel-segment" style={{transform:`rotate(${i*wheelSegmentAngle+wheelSegmentAngle/2}deg)`}}><span className="qts-wheel-segment-label">{label(p)}</span></div>)}
         <span className="qts-wheel-hub">QA</span>
       </div>
-      <button type="button" className="qts-btn qts-btn-primary" disabled={spinBusy||available<100} onClick={()=>void spin()}>{spinBusy?t.spinning:t.spin}</button>
-      <button type="button" className="qts-btn qts-wheel-dialog-close" disabled={spinBusy} onClick={()=>setWheelOpen(false)}>{t.close}</button>
+      <button type="button" className="qts-btn qts-btn-primary qts-spin-button" disabled={spinBusy||Boolean(session&&available<100)} onClick={()=>void spin()}>{!session?t.signIn:spinBusy?t.spinning:t.spin}</button></div>
     </div></div>}
     {spinResult&&<div className="qts-reward-dialog-backdrop" role="presentation"><div className="qts-reward-dialog qts-reward-result-dialog" role="dialog" aria-modal="true" aria-labelledby="reward-result-title"><h3 id="reward-result-title">{t.result}</h3><strong>{locale==="pt-BR"?spinResult.prize_label_pt:locale==="es"?spinResult.prize_label_es:spinResult.prize_label_en}</strong><p>{spinResult.remaining_points} {t.balance.toLowerCase()}</p><button ref={resultButton} className="qts-btn qts-btn-primary" onClick={()=>setSpinResult(null)}>{t.close}</button></div></div>}
   </div></section>;

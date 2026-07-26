@@ -1,4 +1,4 @@
-const { getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
+const { getWorkspace, getSiteScope, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 const ICON = window.QTS_ICONS.svg;
 
 // The real measured height of #bar with its actual content (buttons, #currentUrl) plus a tight
@@ -36,10 +36,13 @@ function applyColorTheme() {
 
 const state = {
   workspace: null,
+  siteScope: null,
+  detachedToolKey: new URL(window.location.href).searchParams.get("qtsDetachedTool") || "",
   environment: null,
   minimized: false,
   shadowRoot: null,
   placementMode: null, // null | "pass" | "fail" | "shape"
+  minimizedDrawer: null,
   clickSpyActive: false,
   clockFrozen: false,
   forceHttpActive: false,
@@ -151,7 +154,25 @@ function contrastTextColor(hexColor) {
 }
 
 function getCurrentHeight() {
-  return state.minimized || state.workspace?.preferences?.pushSiteContent === false ? 0 : TOOLBAR_HEIGHT;
+  return state.minimized
+    || state.workspace?.preferences?.pushSiteContent === false
+    || effectiveToolbarPosition() !== "top"
+    ? 0
+    : TOOLBAR_HEIGHT;
+}
+
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 560px)").matches;
+}
+
+function effectiveToolbarPosition() {
+  const preferences = state.workspace?.preferences || {};
+  return isMobileViewport() ? (preferences.mobileToolbarPosition || "top") : (preferences.toolbarPosition || "top");
+}
+
+function effectiveDrawerPosition() {
+  const preferences = state.workspace?.preferences || {};
+  return isMobileViewport() ? (preferences.mobileDrawerPosition || "bottom") : (preferences.drawerPosition || "right");
 }
 
 function setSpacerHeight() {
@@ -320,16 +341,7 @@ function playSound(key) {
 // Tools gated by the account's plan (via access-status' `features` map), on top of the
 // per-user "which menu items are enabled" preference. Keys here match the Supabase
 // `features.key` rows exactly (see supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql).
-const PLAN_GATED_TOOLS = {
-  characterCounter: "characterCounter.enabled",
-  macroStudio: "macroStudio.enabled",
-  stepsRecorder: "stepsRecorder.enabled",
-  multiClick: "multiClick.enabled",
-  inputLab: "inputLab.enabled",
-  fakerFill: "fakerFill.enabled",
-  keyView: "keyView.enabled",
-  elementCapture: "elementCapture.enabled",
-};
+const PLAN_GATED_TOOLS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.filter((feature) => feature.planFeature).map((feature) => [feature.key, feature.planFeature]));
 
 function hasPlanFeature(toolKey) {
   const featureKey = PLAN_GATED_TOOLS[toolKey];
@@ -343,17 +355,34 @@ function requirePlanFeature(toolKey) {
   return false;
 }
 
-const TOOLS_MENU_ITEM_IDS = {
-  clickSpy: "clickSpyMenuItem", freezeClock: "freezeClockMenuItem", forceHttp: "forceHttpMenuItem",
-  errorMonitor: "errorMonitorMenuItem",
-  inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
-  testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
-  characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", stepsRecorder: "stepsRecorderMenuItem", multiClick: "multiClickMenuItem",
-  inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
-  elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem", holofote: "holofoteMenuItem", pixelPerfect: "pixelPerfectMenuItem",
-};
-const TOOLS_MENU_LABELS = { clickSpy: "Click Spy", freezeClock: "Freeze Clock", forceHttp: "Force HTTP", errorMonitor: "Error Monitor", inspectors: "Inspectors", jsonStudio: "JSON Studio", breakpoints: "Breakpoints", testAccounts: "Contas de teste", paymentMethods: "Meios de pagamento", resources: "Recursos e links", characterCounter: "Contador de caracteres", macroStudio: "Macro Studio", stepsRecorder: "Gravador de Passos", multiClick: "Multiclick", inputLab: "Input Lab", fakerFill: "Faker Fill", keyView: "Key View", elementCapture: "Capturar elementos", blurElements: "Borrar elementos", holofote: "Modo Holofote", pixelPerfect: "Pixel Perfect" };
+const TOOLS_MENU_ITEM_IDS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.menuItemId]));
+const TOOLS_MENU_LABELS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.label]));
 const TOOLS_MENU_ITEM_KEY_BY_ID = Object.fromEntries(Object.entries(TOOLS_MENU_ITEM_IDS).map(([key, id]) => [id, key]));
+
+function customShortcutFromEvent(event) {
+  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+  if (!/^(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(key)) return "";
+  const parts = [];
+  if (event.ctrlKey) parts.push("Ctrl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  if (event.metaKey) parts.push("Meta");
+  return parts.length ? [...parts, key].join("+") : "";
+}
+
+function handleCustomToolShortcut(event) {
+  if (event.defaultPrevented || editableTypingTarget(event.target) || isKeyViewOwnSurface(event)) return;
+  const shortcut = customShortcutFromEvent(event);
+  if (!shortcut) return;
+  const entry = Object.entries(state.workspace?.preferences?.customShortcuts || {}).find(([, value]) => value === shortcut);
+  if (!entry) return;
+  const [toolKey] = entry;
+  const menuId = TOOLS_MENU_ITEM_IDS[toolKey];
+  const menuItem = state.shadowRoot?.getElementById(menuId);
+  if (!menuItem || menuItem.classList.contains("isPreferenceHidden")) return;
+  event.preventDefault();
+  menuItem.click();
+}
 
 // "Mais usados" sort needs a click count per tool; recorded on every menu-item activation
 // regardless of the active sort mode (so switching into "mais usados" later already has real
@@ -397,7 +426,7 @@ function applyPinnedTools() {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
   }
   const labels = TOOLS_MENU_LABELS;
-  const icons = { clickSpy: "mouse", freezeClock: "freezeClock", forceHttp: "warning", errorMonitor: "errorMonitor", inspectors: "braces", jsonStudio: "braces", breakpoints: "breakpointViewer", testAccounts: "key", paymentMethods: "paymentMethods", resources: "resources", characterCounter: "characterCounter", macroStudio: "macroStudio", stepsRecorder: "recordStart", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill", keyView: "keyView", elementCapture: "elementCapture", blurElements: "eyeSlash", holofote: "lightbulb" };
+  const icons = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.icon]));
   const quickContainer = root.getElementById("extraPinnedTools");
   if (quickContainer) {
     // Small pin badge in the corner distinguishes a tool the user chose to pin from the fixed
@@ -405,6 +434,7 @@ function applyPinnedTools() {
     // otherwise both look identical and there's no visual cue which ones are user customization.
     quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly qts-user-pinned" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}<span class="qts-pin-badge">${ICON("pin")}</span></button>`).join("");
     quickContainer.querySelectorAll("[data-pinned-tool]").forEach((button) => button.addEventListener("click", () => root.getElementById(menuItems[button.dataset.pinnedTool])?.click()));
+    renderMinimizedDrawerShortcut();
   }
   // Re-append each menu item in the effective order -- appendChild on an already-attached node
   // *moves* it, so iterating in order and re-appending sequentially reorders the whole menu
@@ -422,7 +452,11 @@ function applyPinnedTools() {
 
 function render() {
   const host = document.getElementById(HOST_ID);
-  if (host) host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
+  if (host) {
+    host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
+    host.dataset.toolbarPosition = effectiveToolbarPosition();
+    host.dataset.detachedWindow = String(Boolean(state.detachedToolKey));
+  }
   applyColorTheme();
   const root = state.shadowRoot;
   if (!root) return;
@@ -457,6 +491,8 @@ function buildShadowHost() {
   host.id = HOST_ID;
   host.style.all = "initial";
   host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
+  host.dataset.toolbarPosition = effectiveToolbarPosition();
+  host.dataset.detachedWindow = String(Boolean(state.detachedToolKey));
   const shadow = host.attachShadow({ mode: "open" });
 
   shadow.innerHTML = `
@@ -474,6 +510,67 @@ function buildShadowHost() {
         box-shadow: 0 2px 10px rgba(0,0,0,.25); transition: transform 160ms ease;
       }
       #bar.isMinimized { transform: translateY(-110%); }
+      :host([data-toolbar-position="bottom"]) #bar { top:auto; bottom:0; }
+      :host([data-toolbar-position="bottom"]) #bar.isMinimized { transform:translateY(110%); }
+      :host([data-toolbar-position="left"]) #bar,
+      :host([data-toolbar-position="right"]) #bar {
+        top:0; bottom:0; width:52px; min-height:100vh; right:auto; padding:8px 5px;
+        flex-direction:column; justify-content:flex-start; overflow:visible;
+      }
+      :host([data-toolbar-position="right"]) #bar { left:auto; right:0; }
+      :host([data-toolbar-position="left"]) #bar.isMinimized { transform:translateX(-110%); }
+      :host([data-toolbar-position="right"]) #bar.isMinimized { transform:translateX(110%); }
+      :host([data-toolbar-position="left"]) #left,
+      :host([data-toolbar-position="right"]) #left { display:none; }
+      :host([data-toolbar-position="left"]) #right,
+      :host([data-toolbar-position="right"]) #right,
+      :host([data-toolbar-position="left"]) #extraPinnedTools,
+      :host([data-toolbar-position="right"]) #extraPinnedTools { flex-direction:column; width:100%; }
+      :host([data-toolbar-position="left"]) #right button,
+      :host([data-toolbar-position="right"]) #right button { width:34px; min-width:34px; padding:5px; overflow:visible; }
+      :host([data-toolbar-position="left"]) #testStatusButton,
+      :host([data-toolbar-position="right"]) #testStatusButton { font-size:0; }
+      :host([data-toolbar-position="left"]) #testStatusButton::before,
+      :host([data-toolbar-position="right"]) #testStatusButton::before { content:"✓"; font-size:14px; }
+      :host([data-toolbar-position="left"]) #toolsButton,
+      :host([data-toolbar-position="right"]) #toolsButton { font-size:0; justify-content:center; }
+      :host([data-toolbar-position="left"]) #toolsButton::before,
+      :host([data-toolbar-position="right"]) #toolsButton::before { content:"⋮"; font-size:18px; line-height:1; }
+      :host([data-toolbar-position="left"]) #toolsMenu,
+      :host([data-toolbar-position="right"]) #toolsMenu {
+        position:fixed; top:8px; bottom:auto; width:min(260px,calc(100vw - 70px));
+        max-height:min(232px,calc(100vh - 16px)); transform:translateX(-6px); scrollbar-gutter:auto;
+      }
+      :host([data-toolbar-position="left"]) #toolsMenu { left:60px; right:auto; }
+      :host([data-toolbar-position="right"]) #toolsMenu { left:auto; right:60px; }
+      :host([data-toolbar-position="left"]) #toolsMenu.isOpen,
+      :host([data-toolbar-position="right"]) #toolsMenu.isOpen { transform:translateX(0); }
+      :host([data-toolbar-position="left"]) .qts-bell-badge,
+      :host([data-toolbar-position="right"]) .qts-bell-badge {
+        top:-3px; right:-3px; min-width:13px; width:auto; height:13px; padding:0 3px; font-size:8px;
+      }
+      :host([data-toolbar-position="left"]) #notificationBellPanel,
+      :host([data-toolbar-position="right"]) #notificationBellPanel {
+        position:fixed; top:8px; width:min(300px,calc(100vw - 70px)); max-height:calc(100vh - 16px);
+      }
+      :host([data-toolbar-position="left"]) #notificationBellPanel { left:60px; right:auto; }
+      :host([data-toolbar-position="right"]) #notificationBellPanel { left:auto; right:60px; }
+      :host([data-toolbar-position="left"]) #notificationBellPanel .qts-bell-row,
+      :host([data-toolbar-position="right"]) #notificationBellPanel .qts-bell-row {
+        width:100%; min-width:0; height:auto; padding:7px; overflow:visible; white-space:normal;
+      }
+      :host([data-toolbar-position="left"]) #notificationBellPanel .qts-bell-head button,
+      :host([data-toolbar-position="right"]) #notificationBellPanel .qts-bell-head button {
+        width:auto; min-width:0; height:auto; padding:0; overflow:visible;
+      }
+      :host([data-toolbar-position="left"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel),
+      :host([data-toolbar-position="right"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) {
+        position:fixed; top:8px; width:min(260px,calc(100vw - 70px)); max-height:calc(100vh - 16px); overflow:auto;
+      }
+      :host([data-toolbar-position="left"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) { left:60px; right:auto; }
+      :host([data-toolbar-position="right"]) :is(#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) { left:auto; right:60px; }
+      :host([data-detached-window="true"]) #bar,
+      :host([data-detached-window="true"]) #restoreButton { display:none !important; }
       /* Logged-out mode: the bar still mounts (so a URL the user configured never goes silent
          about why nothing appeared), but every functional button is hidden except Settings/
          Minimize -- only the message + login CTA below show. See render()/refreshAuthorization. */
@@ -521,6 +618,7 @@ function buildShadowHost() {
       }
       button:hover { background: rgba(0,0,0,.32); }
       button.iconOnly { width: 26px; padding: 0; justify-content: center; }
+      button > svg { width:15px; height:15px; filter:drop-shadow(0 0 .35px currentColor); }
       .qts-user-pinned { position: relative; }
       .qts-pin-badge {
         position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%;
@@ -543,14 +641,18 @@ function buildShadowHost() {
       #toolsWrapper { position: relative; }
       #toolsMenu {
         position: absolute; top: 30px; right: 0; width: 220px; padding: 6px; display: grid; gap: 4px;
+        max-height: 276px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
         border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18);
         box-shadow: 0 16px 40px rgba(0,0,0,.45); opacity: 0; visibility: hidden; transform: translateY(-6px);
         transition: opacity 140ms ease, transform 140ms ease, visibility 140ms; color: #fff; z-index: 10;
       }
       #toolsMenu.isOpen { opacity: 1; visibility: visible; transform: translateY(0); }
+      #toolsMenu::-webkit-scrollbar { width: 9px; }
+      #toolsMenu::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 64%,transparent); border:2px solid transparent; border-radius:99px; background-clip:padding-box; }
       #toolsMenu button {
         width: 100%; justify-content: flex-start; background: #171717; border-color: #2c2c2c; font-size: 11px;
       }
+      #toolsMenu button > svg { width:16px; height:16px; flex:0 0 16px; }
       #toolsMenu button:hover { background: #232323; border-color: var(--qts-ui-primary, #ffd700); }
       #toolsMenu button.isActive { background: var(--qts-ui-primary, #ffd700) !important; color: var(--qts-ui-primary-contrast, #111) !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 9px; }
@@ -748,11 +850,12 @@ function buildShadowHost() {
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
             <div id="pinnedMacrosMenu"></div>
+            <button type="button" id="disableAllToolsMenuItem" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${escapeHtml(t.testStatus)}</button>
             <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
-            <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.stepsRecorderMenuLabel || "Gravador de Passos")}</button>
+            <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("stepsRecorder")} ${escapeHtml(t.stepsRecorderMenuLabel || "Gravador de Passos")}</button>
             <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(t.characterCounterMenuLabel)}</button>
             <button type="button" id="multiClickMenuItem" role="menuitem">${ICON("multiClick")} ${escapeHtml(t.multiClickMenuLabel)}</button>
             <button type="button" id="inputLabMenuItem" role="menuitem">${ICON("inputLab")} ${escapeHtml(t.inputLabMenuLabel)}</button>
@@ -760,9 +863,9 @@ function buildShadowHost() {
             <button type="button" id="keyViewMenuItem" role="menuitem">${ICON("keyView")} ${escapeHtml(t.keyViewMenuLabel || "Key View")}</button>
             <button type="button" id="clickSpyMenuItem" role="menuitem">${ICON("mouse")} Click Spy</button>
             <button type="button" id="freezeClockMenuItem" role="menuitem">${ICON("freezeClock")} Freeze Clock</button>
-            <button type="button" id="forceHttpMenuItem" role="menuitem">${ICON("warning")} Force HTTP</button>
+            <button type="button" id="forceHttpMenuItem" role="menuitem">${ICON("forceHttp")} Force HTTP</button>
             <button type="button" id="errorMonitorMenuItem" role="menuitem">${ICON("errorMonitor")} ${escapeHtml(t.errorMonitorTitle)}<span id="errorMonitorBadge" class="qts-badge" style="display:none">0</span></button>
-            <button type="button" id="inspectorsMenuItem" role="menuitem">{ } ${escapeHtml(t.inspectorsTitle)}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
+            <button type="button" id="inspectorsMenuItem" role="menuitem">${ICON("inspectors")} ${escapeHtml(t.inspectorsTitle)}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
             <button type="button" id="jsonStudioMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(t.jsonStudioTitle)}</button>
             <button type="button" id="breakpointMenuItem" role="menuitem">${ICON("breakpointViewer")} Breakpoint Viewer</button>
             <button type="button" id="testAccountsMenuItem" role="menuitem">${ICON("key")} ${escapeHtml(t.testAccountsMenuLabel)}</button>
@@ -771,6 +874,8 @@ function buildShadowHost() {
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
             <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
             <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("lightbulb")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
+            <button type="button" id="languageValidatorMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(translateQaSurfaceText("Validador de textos"))}</button>
+            <button type="button" id="qrCodeMenuItem" role="menuitem">${ICON("qrCode")} QR Code</button>
             <button type="button" id="pixelPerfectMenuItem" role="menuitem">${ICON("ruler")} ${escapeHtml(t.pixelPerfectMenuLabel || "Pixel Perfect")}</button>
           </div>
         </div>
@@ -793,10 +898,8 @@ function buildShadowHost() {
   shadow.getElementById("settingsButton").addEventListener("click", () => {
     chrome.runtime.sendMessage({ type: "qts:open-options" });
   });
-  // options.js already redirects to the "Minha conta" tab on its own whenever access isn't
-  // active (see switchTab fallback there), so this doesn't need to pass a tab param.
   shadow.getElementById("loggedOutLoginButton").addEventListener("click", () => {
-    chrome.runtime.sendMessage({ type: "qts:open-options" });
+    chrome.runtime.sendMessage({ type: "qts:open-options", tab: "account" });
   });
   // Delegated on #left (stable across renders) rather than #clientLabel/#breadcrumb directly,
   // since render() replaces those two elements' innerHTML every time — a listener attached
@@ -902,7 +1005,13 @@ function buildShadowHost() {
 
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
-    shadow.getElementById("toolsMenu").classList.toggle("isOpen");
+    const menu = shadow.getElementById("toolsMenu");
+    const willOpen = !menu.classList.contains("isOpen");
+    shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
+    toggleRecordTypeMenu(false);
+    toggleShapeTypeMenu(false);
+    shadow.getElementById("markerTypeMenu")?.classList.add("isHidden");
+    menu.classList.toggle("isOpen", willOpen);
   });
   // Feeds "mais usados" sorting -- a single delegated listener instead of touching every
   // individual tool's own click handler. Fires on the way down (capture) so it always sees the
@@ -912,7 +1021,15 @@ function buildShadowHost() {
     const key = button && TOOLS_MENU_ITEM_KEY_BY_ID[button.id];
     if (key) void recordToolMenuUsage(key);
   }, true);
-  shadow.getElementById("notificationBellButton").addEventListener("click", (event) => { event.stopPropagation(); toggleNotificationBellPanel(); });
+  shadow.getElementById("disableAllToolsMenuItem").addEventListener("click", () => void disableAllActiveTools());
+  shadow.getElementById("notificationBellButton").addEventListener("click", (event) => {
+    event.stopPropagation();
+    closeToolsMenu();
+    toggleRecordTypeMenu(false);
+    toggleShapeTypeMenu(false);
+    shadow.getElementById("markerTypeMenu")?.classList.add("isHidden");
+    toggleNotificationBellPanel();
+  });
   shadow.getElementById("recordToggleButton").addEventListener("click", (event) => { event.stopPropagation(); handleRecordToggle(); });
   shadow.getElementById("recordTypeMenu").addEventListener("click", (event) => event.stopPropagation());
   shadow.getElementById("recordTypeVideoItem").addEventListener("click", () => { toggleRecordTypeMenu(false); startEvidenceRecording("video"); });
@@ -940,6 +1057,8 @@ function buildShadowHost() {
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
   shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
+  shadow.getElementById("languageValidatorMenuItem").addEventListener("click", () => { openLanguageValidator(); closeToolsMenu(); });
+  shadow.getElementById("qrCodeMenuItem").addEventListener("click", () => { openQrCodeTool(); closeToolsMenu(); });
   // These three keep a persistent on/off mode (unlike most Tools-menu items, which just open a
   // drawer every time): clicking them again while already active turns the mode off directly
   // instead of reopening the drawer just to find the Desativar button inside it — same one-click
@@ -999,6 +1118,57 @@ function mountToolbar() {
   void maybeShowFirstRunIntro();
   void maybeShowTutorialDot();
   void maybeStartLiveTour();
+  void maybeOpenDetachedTool();
+}
+
+function openToolInNewTab(toolKey) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("qtsDetachedTool", toolKey);
+  chrome.runtime.sendMessage({ type: "qts:open-tool-window", url: url.toString(), toolKey }, (response) => {
+    if (chrome.runtime.lastError || response?.ok !== true) window.open(url.toString(), "_blank", "noopener");
+  });
+}
+
+async function maybeOpenDetachedTool() {
+  const url = new URL(window.location.href);
+  const toolKey = url.searchParams.get("qtsDetachedTool");
+  if (!toolKey || !state.authorized) return;
+  state.detachedToolKey = toolKey;
+  url.searchParams.delete("qtsDetachedTool");
+  window.history.replaceState({}, "", url.toString());
+  window.setTimeout(() => openDetachedTool(toolKey), 150);
+}
+
+function openDetachedTool(toolKey) {
+  const supportedTools = new Set(["testStatus", "testAccounts", "paymentMethods", "resources", "jsonStudio", "keyView", "elementCapture", "inputLab", "fakerFill", "stepsRecorder", "inspectors", "errorMonitor", "forceHttp", "blurElements", "holofote", "pixelPerfect", "characterCounter", "multiClick", "macroStudio"]);
+  if (!supportedTools.has(toolKey)) return false;
+  const existingDrawer = state.shadowRoot?.getElementById("drawerHost");
+  if (existingDrawer?.dataset.view === toolKey && existingDrawer.querySelector(".qts-drawer")) return true;
+  state.detachedToolKey = toolKey;
+  const host = document.getElementById(HOST_ID);
+  if (host) host.dataset.detachedWindow = "true";
+  switch (toolKey) {
+    case "testStatus": openTestStatusModal(); break;
+    case "testAccounts": openTestAccountsDrawer(); break;
+    case "paymentMethods": openPaymentMethodsDrawer(); break;
+    case "resources": openResourcesDrawer(); break;
+    case "jsonStudio": openJsonStudio(); break;
+    case "keyView": openKeyView(); break;
+    case "elementCapture": openElementCapture(); break;
+    case "inputLab": openInputLab(); break;
+    case "fakerFill": openFakerFill(); break;
+    case "stepsRecorder": openStepsRecorder(); break;
+    case "inspectors": openInspectorsDrawer(); break;
+    case "errorMonitor": openErrorMonitorDrawer(); break;
+    case "forceHttp": openForceHttpDialog(); break;
+    case "blurElements": openBlurElementsTool(); break;
+    case "holofote": openHolofoteTool(); break;
+    case "pixelPerfect": openPixelPerfectTool(); break;
+    case "characterCounter": openCharacterCounter(); break;
+    case "multiClick": openMultiClick(); break;
+    case "macroStudio": openMacroStudio(); break;
+  }
+  return true;
 }
 
 // Small dot on the settings button, separate from maybeShowFirstRunIntro's one-time card above:
@@ -1043,8 +1213,11 @@ const TOUR_TARGETS = {
   inputLab: { selector: "#inputLabMenuItem", menu: true },
   fakerFill: { selector: "#fakerFillMenuItem", menu: true },
   macroStudio: { selector: "#macroStudioMenuItem", menu: true },
+  stepsRecorder: { selector: "#stepsRecorderMenuItem", menu: true },
   keyView: { selector: "#keyViewMenuItem", menu: true },
   elementCapture: { selector: "#elementCaptureMenuItem", menu: true },
+  languageValidator: { selector: "#languageValidatorMenuItem", menu: true },
+  qrCode: { selector: "#qrCodeMenuItem", menu: true },
   testAccounts: { selector: "#testAccountsMenuItem", menu: true },
   paymentMethods: { selector: "#paymentMethodsMenuItem", menu: true },
   resources: { selector: "#resourcesMenuItem", menu: true },
@@ -1067,6 +1240,10 @@ async function maybeStartLiveTour() {
   url.searchParams.delete("qtsTutorial");
   url.searchParams.delete("qtsTutorialStep");
   window.history.replaceState({}, "", url.toString());
+  if (!state.authorized) {
+    chrome.runtime.sendMessage({ type: "qts:open-options", tab: "account" });
+    return;
+  }
   startTutorialTour(requestedStep);
 }
 
@@ -1171,6 +1348,21 @@ async function renderTourStep() {
   }
   const targetEl = state.shadowRoot.querySelector(config.menu && tourMenuPhase ? "#toolsButton" : config.selector);
   if (!targetEl) { advanceTourStep(); return; }
+  if (config.menu && !tourMenuPhase && toolsMenu) {
+    const menuRect = toolsMenu.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+    const safeInset = 6;
+    // The compact Tools menu intentionally shows only eight rows and scrolls the rest. Tour
+    // targets near the bottom therefore have valid layout coordinates but sit outside the menu's
+    // clipping viewport. Center the real button first, wait for layout, and only then measure the
+    // spotlight/balloon. This also works after sorting the menu changes an item's offsetTop.
+    if (targetRect.top < menuRect.top + safeInset || targetRect.bottom > menuRect.bottom - safeInset) {
+      const centeredTop = targetEl.offsetTop - (toolsMenu.clientHeight - targetEl.offsetHeight) / 2;
+      toolsMenu.scrollTop = Math.max(0, centeredTop);
+      await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+      if (tourSteps[tourStepIndex] !== module || renderVersion !== tourRenderVersion) return;
+    }
+  }
   const rect = targetEl.getBoundingClientRect();
   const pad = 6;
   const spotlight = document.createElement("div");
@@ -1441,6 +1633,18 @@ function removeToolbar({ disableBridge = false } = {}) {
 
 function syncToolbarForCurrentLocation() {
   state.environment = findActiveEnvironment(state.workspace || { environments: [] });
+  if (!state.environment && state.siteScope?.mode === "all") {
+    state.environment = {
+      id: "qts-all-sites",
+      name: "Todos os sites",
+      color: "#2878ff",
+      productId: null,
+      projectId: null,
+      clientId: null,
+      urlPatterns: ["<all_urls>"],
+      primaryUrl: window.location.origin,
+    };
+  }
   if (!state.environment) {
     removeToolbar();
     return;
@@ -1538,7 +1742,7 @@ function openTestStatusModal({ forced = false, onDone = null } = {}) {
   modal.className = "qts-modal-backdrop";
   modal.innerHTML = `
     <div class="qts-modal">
-      <header><h2>${escapeHtml(state.t.testStatus)}</h2>${forced ? "" : `<button type="button" data-close>${ICON("fail")}</button>`}</header>
+      <header><h2>${escapeHtml(state.t.testStatus)}</h2>${forced ? "" : `<span class="qts-modal-head-actions"><button type="button" data-detach title="Abrir em nova aba">${ICON("resize")}</button><button type="button" data-close class="isDanger" title="Fechar">${ICON("fail")}</button></span>`}</header>
       ${forced ? `<p class="qts-modal-forced-hint">${escapeHtml(state.t.recordForceStatusHint)}</p>` : ""}
       <div class="qts-status-grid">
         ${statusOptions.map((option) => `
@@ -1552,6 +1756,10 @@ function openTestStatusModal({ forced = false, onDone = null } = {}) {
   document.body.appendChild(modal);
   requestAnimationFrame(() => modal.classList.add("isOpen"));
   if (!forced) {
+    modal.querySelector("[data-detach]").addEventListener("click", () => {
+      openToolInNewTab("testStatus");
+      closeTestStatusModal();
+    });
     modal.querySelector("[data-close]").addEventListener("click", closeTestStatusModal);
     modal.addEventListener("click", (event) => { if (event.target === modal) closeTestStatusModal(); });
   }
@@ -1602,6 +1810,32 @@ function cancelPlacementMode() {
   document.removeEventListener("mousedown", handleShapeMouseDown, true);
   document.removeEventListener("mousedown", handleLineMouseDown, true);
   document.removeEventListener("keydown", handlePlacementEscape, true);
+}
+
+async function disableAllActiveTools() {
+  cancelPlacementMode();
+  if (state.clickSpyActive) deactivateClickSpy();
+  if (state.blurSelectionActive) toggleBlurSelectionMode();
+  if (state.holofoteActive) disableHolofoteMode();
+  if (state.pixelPerfectActive) disablePixelPerfectMode();
+  if (state.clockFrozen) document.dispatchEvent(new CustomEvent("qts:freeze-clock-command", { detail: { freeze: false } }));
+  if (state.forceHttpActive) document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: null } }));
+  if (state.macroRecording) cancelMacroRecording();
+  if (state.stepsRecording) {
+    state.stepsRecording.cleanup();
+    state.stepsRecording = null;
+    updateStepsRecordingUi();
+  }
+  const keyView = getKeyViewPreferences();
+  if (keyView.enabled) {
+    state.workspace.preferences = { ...(state.workspace.preferences || {}), keyView: { ...keyView, enabled: false } };
+    stopKeyView();
+    state.workspace = await saveWorkspace(state.workspace);
+  }
+  closeDrawer();
+  closeToolsMenu();
+  syncModeShortcutStates();
+  showQaToast("Todas as ferramentas ativas foram desativadas.");
 }
 
 function handlePlacementEscape(event) {
@@ -1675,7 +1909,7 @@ function wireVisibilityControls(item) {
 const MARKER_KIND_CLASS = { pass: "isPass", fail: "isFail", warning: "isWarning", question: "isQuestion" };
 
 function placeMarker(kind, clientX, clientY) {
-  const size = 52;
+  const size = 24;
   const marker = document.createElement("div");
   marker.className = "qts-floating-item qts-marker";
   marker.style.left = `${Math.max(4, clientX - size / 2)}px`;
@@ -1692,9 +1926,8 @@ function placeMarker(kind, clientX, clientY) {
   wireVisibilityControls(marker);
   makeDraggable(marker, marker.querySelector("[data-drag-handle]"));
   // minWidth/minHeight must be large enough that the eye toggle (top-left) and resize handle
-  // (top-right) never collide -- below ~52px (the marker's own default size) they start to
-  // overlap since both are absolutely positioned 20px badges near opposite top corners.
-  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 52, minHeight: 52, lockAspectRatio: true });
+  // At compact sizes the control badges reflow vertically through the marker's container query.
+  makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 24, minHeight: 24, lockAspectRatio: true });
   marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
   updateClearAllVisibility();
 }
@@ -1972,7 +2205,7 @@ function placeLine(startX, startY, endX, endY) {
   const angle = Math.atan2(endY - startY, endX - startX) * (180 / Math.PI);
   const hitHeight = 24;
   const line = document.createElement("div");
-  line.className = "qts-floating-item qts-line";
+  line.className = "qts-floating-item qts-line hasArrow";
   line.style.left = `${startX}px`;
   line.style.top = `${startY - hitHeight / 2}px`;
   line.style.width = `${length}px`;
@@ -1995,6 +2228,34 @@ function placeLine(startX, startY, endX, endY) {
   updateClearAllVisibility();
 }
 
+function lineEndpointIcon(value, side) {
+  const isStart = side === "start";
+  const endpointX = isStart ? 6 : 30;
+  const marker = {
+    none: "",
+    arrow: isStart
+      ? '<path d="M10 3 4 8l6 5" fill="none"/>'
+      : '<path d="m26 3 6 5-6 5" fill="none"/>',
+    triangle: isStart
+      ? '<path d="M3 8 11 2.5v11z" class="qts-line-endpoint-fill"/>'
+      : '<path d="m33 8-8-5.5v11z" class="qts-line-endpoint-fill"/>',
+    dotFilled: `<circle cx="${endpointX}" cy="8" r="4" class="qts-line-endpoint-fill"/>`,
+    dotHollow: `<circle cx="${endpointX}" cy="8" r="4" fill="none"/>`,
+  }[value] || "";
+  return `<svg class="qts-line-endpoint-icon" viewBox="0 0 36 16" aria-hidden="true" focusable="false"><path d="M6 8h24" fill="none"/>${marker}</svg>`;
+}
+
+function lineEndpointOptions(side, label, selected, t) {
+  const options = [
+    ["none", t.lineArrowNone],
+    ["arrow", t.lineArrowArrow],
+    ["triangle", t.lineArrowTriangle],
+    ["dotFilled", t.lineArrowDotFilled],
+    ["dotHollow", t.lineArrowDotHollow],
+  ];
+  return `<fieldset class="qts-line-endpoint-field"><legend>${escapeHtml(label)}</legend><div class="qts-line-endpoint-options">${options.map(([value, text]) => `<label title="${escapeHtml(text)}"><input type="radio" name="line-${side}" value="${value}" aria-label="${escapeHtml(text)}" ${value === selected ? "checked" : ""}/><span>${lineEndpointIcon(value, side)}</span></label>`).join("")}</div></fieldset>`;
+}
+
 function toggleLineStyleEditor(line) {
   const existing = line.querySelector(".qts-shape-editor");
   if (existing) { existing.remove(); return; }
@@ -2005,20 +2266,8 @@ function toggleLineStyleEditor(line) {
   editor.innerHTML = `
     <label>${escapeHtml(t.shapeEditorBorderColor)}<input type="color" data-line-color value="#ef3340" /></label>
     <label>${escapeHtml(t.lineThickness)}<input type="range" min="1" max="10" value="3" data-line-thickness /></label>
-    <label>${escapeHtml(t.lineArrowStart || "Ponta esquerda")}<select data-line-start>
-      <option value="none">${escapeHtml(t.lineArrowNone)}</option>
-      <option value="arrow">${escapeHtml(t.lineArrowArrow)}</option>
-      <option value="triangle">${escapeHtml(t.lineArrowTriangle)}</option>
-      <option value="dotFilled">${escapeHtml(t.lineArrowDotFilled)}</option>
-      <option value="dotHollow">${escapeHtml(t.lineArrowDotHollow)}</option>
-    </select></label>
-    <label>${escapeHtml(t.lineArrowEnd || "Ponta direita")}<select data-line-end>
-      <option value="none">${escapeHtml(t.lineArrowNone)}</option>
-      <option value="arrow">${escapeHtml(t.lineArrowArrow)}</option>
-      <option value="triangle">${escapeHtml(t.lineArrowTriangle)}</option>
-      <option value="dotFilled">${escapeHtml(t.lineArrowDotFilled)}</option>
-      <option value="dotHollow">${escapeHtml(t.lineArrowDotHollow)}</option>
-    </select></label>
+    ${lineEndpointOptions("start", t.lineArrowStart || "Ponta esquerda", "none", t)}
+    ${lineEndpointOptions("end", t.lineArrowEnd || "Ponta direita", "arrow", t)}
     <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
   `;
   line.appendChild(editor);
@@ -2027,20 +2276,20 @@ function toggleLineStyleEditor(line) {
   const endClassByValue = { arrow: "hasArrow", triangle: "hasTriangle", dotFilled: "hasDotFilled", dotHollow: "hasDotHollow" };
   const startClassByValue = { arrow: "startHasArrow", triangle: "startHasTriangle", dotFilled: "startHasDotFilled", dotHollow: "startHasDotHollow" };
   const valueFromClasses = (classes, mapping) => Object.entries(mapping).find(([, className]) => classes.contains(className))?.[0] || "none";
-  editor.querySelector("[data-line-start]").value = valueFromClasses(line.classList, startClassByValue);
-  editor.querySelector("[data-line-end]").value = valueFromClasses(line.classList, endClassByValue);
+  editor.querySelector(`[name="line-start"][value="${valueFromClasses(line.classList, startClassByValue)}"]`).checked = true;
+  editor.querySelector(`[name="line-end"][value="${valueFromClasses(line.classList, endClassByValue)}"]`).checked = true;
   const apply = () => {
     const color = editor.querySelector("[data-line-color]").value;
     const thickness = editor.querySelector("[data-line-thickness]").value;
-    const start = editor.querySelector("[data-line-start]").value;
-    const end = editor.querySelector("[data-line-end]").value;
+    const start = editor.querySelector('[name="line-start"]:checked').value;
+    const end = editor.querySelector('[name="line-end"]:checked').value;
     bar.style.setProperty("--qts-line-color", color);
     bar.style.setProperty("--qts-line-thickness", `${thickness}px`);
     line.classList.remove(...startClasses, ...endClasses);
     if (startClassByValue[start]) line.classList.add(startClassByValue[start]);
     if (endClassByValue[end]) line.classList.add(endClassByValue[end]);
   };
-  editor.querySelectorAll("input, select").forEach((input) => input.addEventListener("input", apply));
+  editor.querySelectorAll("input").forEach((input) => input.addEventListener("input", apply));
   editor.querySelector("[data-save]").addEventListener("click", () => editor.remove());
   apply();
 }
@@ -2190,9 +2439,21 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
-      display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4);
+      container-type:inline-size; position:relative; width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
+      display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4); resize: both; overflow: hidden;
     }
+    .qts-drawer-backdrop[data-position="left"] { justify-content:flex-start; }
+    .qts-drawer-backdrop[data-position="left"] .qts-drawer { border-left:0; border-right:2px solid var(--qts-ui-primary); box-shadow:18px 0 40px rgba(0,0,0,.4); }
+    .qts-drawer-backdrop[data-position="top"] { align-items:flex-start; }
+    .qts-drawer-backdrop[data-position="bottom"] { align-items:flex-end; }
+    .qts-drawer-backdrop[data-position="top"] .qts-drawer,
+    .qts-drawer-backdrop[data-position="bottom"] .qts-drawer { width:100%; height:min(420px,70vh); border-left:0; }
+    .qts-drawer-backdrop[data-position="top"] .qts-drawer { border-bottom:2px solid var(--qts-ui-primary); }
+    .qts-drawer-backdrop[data-position="bottom"] .qts-drawer { border-top:2px solid var(--qts-ui-primary); }
+    .qts-drawer-backdrop.isPinned { pointer-events:none; background:transparent; }
+    .qts-drawer-backdrop.isPinned .qts-drawer { pointer-events:auto; }
+    .qts-drawer.isMinimized { height:58px !important; min-height:58px; resize:none; }
+    .qts-drawer.isMinimized .qts-drawer-search, .qts-drawer.isMinimized .qts-drawer-body { display:none; }
     /* Macro Studio's founder feedback: a right-edge sidebar felt cramped/ugly for something with
        a palette + flow builder + code view — this variant centers the same #drawerBody markup in
        a proper modal instead, reusing every existing style/handler inside it unchanged. */
@@ -2201,15 +2462,68 @@ function drawerStyles() {
       width: min(920px, 94vw); height: min(760px, 90vh); border-left: 0; border-radius: 16px;
       border: 1px solid #292929; box-shadow: 0 30px 80px rgba(0,0,0,.55);
     }
-    .qts-drawer-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
+    .qts-drawer-backdrop.isDetached {
+      width:100vw; height:100vh; height:100dvh; min-width:0; min-height:0; padding:0;
+      align-items:stretch; justify-content:stretch; overflow:hidden; background:var(--qts-panel,#0b0b0b);
+    }
+    .qts-drawer-backdrop.isDetached .qts-drawer {
+      box-sizing:border-box; flex:1 1 auto; width:100%; min-width:0; max-width:none;
+      height:100%; min-height:0; max-height:none; border:0; border-radius:0; box-shadow:none; resize:none;
+    }
+    .qts-drawer-backdrop.isDetached .qts-drawer-head { flex:0 0 auto; }
+    .qts-drawer-backdrop.isDetached .qts-drawer-body {
+      width:100%; min-width:0; min-height:0; max-width:100%; overflow:auto; overscroll-behavior:contain;
+    }
+    .qts-drawer-head { display: flex; align-items: center; gap:6px; padding: 10px 12px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; flex: none; }
+    .qts-drawer-head button { display:inline-flex; align-items:center; justify-content:center; padding:0; }
+    .qts-drawer-head #drawerClose { background:var(--qts-ui-danger,#c70e0e); color:#fff; }
     .qts-drawer-head.hasBack h2 { flex: 1; text-align: center; }
-    .qts-drawer-head #drawerBack { background: var(--qts-panel-surface-2,#171717); color: inherit; font-size: 15px; }
-    .qts-drawer-body { flex: 1; overflow: auto; padding: 14px 16px; }
-    .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
-      width: 100%; padding: 8px 10px; border: 1px solid var(--qts-panel-border,#2c2c2c); border-radius: 8px; background: var(--qts-panel-2,#141414); color: var(--qts-panel-text,#fff); font: inherit;
+    .qts-drawer-head h2 { flex:1; }
+    .qts-drawer .qts-drawer-head select {
+      box-sizing:border-box; width:auto; min-width:100px; max-width:120px; height:34px;
+      min-height:34px; padding:0 30px 0 10px; line-height:normal; text-overflow:ellipsis;
     }
+    @container (max-width: 430px) {
+      .qts-drawer-head { flex-wrap:wrap; align-items:center; }
+      .qts-drawer-head h2 {
+        flex:1 0 100%; max-width:100%; white-space:normal; overflow:visible;
+        text-overflow:clip; line-height:1.25; padding-bottom:3px;
+      }
+      .qts-drawer-head select { margin-left:auto; }
+      .qts-drawer-head #drawerDetach { margin-left:auto; }
+      .qts-drawer-head #drawerDetach + select { margin-left:0; }
+    }
+    .qts-drawer-search { padding:8px 12px; border-bottom:1px solid var(--qts-panel-border); }
+    .qts-drawer-resize { position:absolute; z-index:3; }
+    .qts-drawer-resize[data-edge="left"], .qts-drawer-resize[data-edge="right"] { top:0; bottom:0; width:8px; cursor:ew-resize; }
+    .qts-drawer-resize[data-edge="left"] { left:-4px; } .qts-drawer-resize[data-edge="right"] { right:-4px; }
+    .qts-drawer-resize[data-edge="top"], .qts-drawer-resize[data-edge="bottom"] { left:0; right:0; height:8px; cursor:ns-resize; }
+    .qts-drawer-resize[data-edge="top"] { top:-4px; } .qts-drawer-resize[data-edge="bottom"] { bottom:-4px; }
+    .qts-drawer-head #drawerBack { background: var(--qts-panel-surface-2,#171717); color: inherit; font-size: 15px; }
+    .qts-drawer-body { flex:1; min-width:0; overflow:auto; padding:14px 16px; }
+    .qts-drawer-body > *, .qts-card > *, .qts-list-row > * { min-width:0; max-width:100%; }
+    .qts-drawer-body :is(h1,h2,h3,h4,p,small,b,label,span) { overflow-wrap:anywhere; }
+    .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
+      box-sizing:border-box; width:100%; min-height:40px; padding:8px 10px; border:1px solid var(--qts-panel-border,#2c2c2c); border-radius:8px; background:var(--qts-panel-2,#141414); color:var(--qts-panel-text,#fff); font:inherit; line-height:1.35;
+    }
+    .qts-drawer textarea { height:auto; }
+    .qts-drawer button { line-height:1.25; }
+    .qts-drawer :is(p,small,b,label,span,button,option) { overflow-wrap:anywhere; }
+    .qts-drawer input[type="checkbox"] {
+      -webkit-appearance:none; appearance:none; box-sizing:border-box;
+      width:38px !important; min-width:38px !important; max-width:38px !important;
+      height:22px !important; min-height:22px !important; max-height:22px !important;
+      margin:0; padding:0; border:1px solid var(--qts-panel-border); border-radius:999px;
+      background:var(--qts-panel-border); position:relative; cursor:pointer; vertical-align:middle; flex:none;
+    }
+    .qts-drawer input[type="checkbox"]::after {
+      content:""; position:absolute; width:16px; height:16px; left:2px; top:2px; border-radius:50%;
+      background:#fff; box-shadow:0 1px 3px rgba(0,0,0,.35); transition:transform 140ms ease;
+    }
+    .qts-drawer input[type="checkbox"]:checked { background:var(--qts-ui-primary,#2563eb); }
+    .qts-drawer input[type="checkbox"]:checked::after { transform:translateX(16px); }
     .qts-drawer button.action { min-height: 40px; padding: 0 14px; border: 1px solid var(--qts-panel-border,#333); border-radius: 8px; background: var(--qts-panel-2,#1c1c1c); color: var(--qts-panel-text,#fff); cursor: pointer; font-weight: 800; }
     .qts-drawer button.action.primary { background: var(--qts-ui-primary, #b20808); border-color: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-empty { padding: 24px; text-align: center; color: var(--qts-panel-muted); border: 1px dashed var(--qts-panel-border); border-radius: 10px; }
@@ -2293,8 +2607,9 @@ function drawerStyles() {
     .qts-key-view-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .qts-key-view-status div { display: grid; gap: 2px; }
     .qts-key-view-status small, .qts-switch-row small { display: block; color: #999; font-weight: 500; }
-    .qts-switch-row { display: grid; grid-template-columns: 20px 1fr; gap: 10px; align-items: start; padding: 11px; margin-bottom: 8px; border: 1px solid #292929; border-radius: 10px; background: #121212; cursor: pointer; }
-    .qts-switch-row input { width: 17px !important; height: 17px; margin: 2px 0 0; accent-color: var(--qts-ui-primary, #ef3340); }
+    .qts-switch-row { display:grid; grid-template-columns:38px minmax(0,1fr); gap:10px; align-items:center; padding:11px; margin-bottom:8px; border:1px solid #292929; border-radius:10px; background:#121212; cursor:pointer; }
+    .qts-switch-row > span { min-width:0; overflow-wrap:anywhere; }
+    .qts-drawer .qts-switch-row input[type="checkbox"] { width:38px !important; height:22px !important; min-height:22px !important; margin:0; }
     .qts-field-label { display: grid; gap: 7px; margin: 12px 0; color: #ddd; font-weight: 750; }
     .qts-position-grid { width: 132px; display: grid; grid-template-columns: repeat(3, 40px); gap: 6px; }
     .qts-position-grid button { width: 40px; height: 36px; border: 1px solid #393939; border-radius: 8px; background: #171717; color: #aaa; cursor: pointer; font-size: 16px; }
@@ -2363,6 +2678,15 @@ function drawerStyles() {
     :host([data-theme="light"]) .qts-combo-clear { color:#a61f2b; }
     :host([data-theme="light"]) .qts-key-view-preview:not([data-theme="dark"]) { background:#eef1f6; color:#444; border-color:var(--qts-panel-border); }
     @media (max-width: 680px) { .qts-macro-layout, .qts-key-view-size-grid { grid-template-columns: 1fr; } .qts-palette { grid-template-columns: repeat(2,minmax(0,1fr)); } .qts-step { grid-template-columns: 28px 95px minmax(0,1fr) 32px; } }
+    @container (max-width: 560px) {
+      .qts-drawer-body { padding:10px; }
+      .qts-toolbar-row > *, .qts-card-actions > * { min-width:0; max-width:100%; }
+      .qts-friendly-field, .qts-faker-report-row { grid-template-columns:1fr; gap:4px; }
+      .qts-tool-grid { grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); }
+      .qts-card-actions { flex-wrap:wrap; }
+      .qts-step { grid-template-columns:24px minmax(0,1fr) 32px; }
+      .qts-step > :nth-child(3) { grid-column:2 / -1; }
+    }
   `;
 }
 
@@ -2431,6 +2755,34 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Scroll to go to the parent/child element · Click to pin it",
   "Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar.": "Pixel Perfect: scroll to switch elements, click to release.",
 });
+Object.assign(QA_SURFACE_TRANSLATIONS.es, {
+  "Desativar ferramentas ativas": "Desactivar herramientas activas",
+  "Validador de textos": "Validador de textos",
+  "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Genera el QR localmente para la URL actual o una URL concreta guardada. No se envía ningún dato a servicios externos.",
+  "Query/hash removidos por segurança": "Query/hash eliminados por seguridad",
+  "A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.": "La URL actual contiene parámetros. Activa la opción siguiente solo si estás seguro de que no hay tokens ni secretos.",
+  "Incluir query e hash": "Incluir query y hash", "Aba atual": "Pestaña actual", "Baixar PNG": "Descargar PNG", "Copiar imagem": "Copiar imagen",
+  "Imagem copiada.": "Imagen copiada.", "O navegador não permitiu copiar a imagem; use Baixar PNG.": "El navegador no permitió copiar la imagen; usa Descargar PNG.",
+  "Protocolo não permitido": "Protocolo no permitido",
+  "Importe um JSON de idioma. Cada texto esperado é comparado com o conteúdo visível da página atual; o arquivo nunca é executado nem enviado.": "Importa un JSON de idioma. Cada texto esperado se compara con el contenido visible de la página actual; el archivo nunca se ejecuta ni se envía.",
+  "Arquivo JSON": "Archivo JSON", "Validar página": "Validar página", "Revalidar após navegação": "Revalidar después de navegar",
+  "Igual": "Coincide", "Ausente/diferente": "Ausente/diferente", "Importe um arquivo JSON válido.": "Importa un archivo JSON válido.",
+  "O arquivo deve ter no máximo 2 MB.": "El archivo debe tener como máximo 2 MB.", "Nenhum texto encontrado": "No se encontró ningún texto",
+});
+Object.assign(QA_SURFACE_TRANSLATIONS.en, {
+  "Desativar ferramentas ativas": "Disable active tools",
+  "Validador de textos": "Text Validator",
+  "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Generate the QR locally for the current URL or a saved concrete URL. No data is sent to external services.",
+  "Query/hash removidos por segurança": "Query/hash removed for safety",
+  "A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.": "The current URL contains parameters. Enable the option below only if you are sure there is no token or secret.",
+  "Incluir query e hash": "Include query and hash", "Aba atual": "Current tab", "Baixar PNG": "Download PNG", "Copiar imagem": "Copy image",
+  "Imagem copiada.": "Image copied.", "O navegador não permitiu copiar a imagem; use Baixar PNG.": "The browser could not copy the image; use Download PNG.",
+  "Protocolo não permitido": "Protocol not allowed",
+  "Importe um JSON de idioma. Cada texto esperado é comparado com o conteúdo visível da página atual; o arquivo nunca é executado nem enviado.": "Import a language JSON file. Each expected text is compared with visible content on the current page; the file is never executed or sent.",
+  "Arquivo JSON": "JSON file", "Validar página": "Validate page", "Revalidar após navegação": "Revalidate after navigation",
+  "Igual": "Match", "Ausente/diferente": "Missing/different", "Importe um arquivo JSON válido.": "Import a valid JSON file.",
+  "O arquivo deve ter no máximo 2 MB.": "The file must be no larger than 2 MB.", "Nenhum texto encontrado": "No text found",
+});
 
 function translateQaSurfaceText(value) {
   const translations = QA_SURFACE_TRANSLATIONS[state.t?.locale];
@@ -2447,6 +2799,8 @@ function translateQaSurfaceText(value) {
   if (state.t.locale === "es") translated = translated.replace(/(\d+) etapa\(s\)/g, "$1 etapa(s)").replace(/(\d+) clique\(s\)/g, "$1 clic(s)").replace(/sensível\(is\) protegido\(s\)/g, "campo(s) sensible(s) protegido(s)").replace(/^(\d+) elemento\(s\) borrado\(s\)\.$/, "$1 elemento(s) difuminado(s).");
   if (state.t.locale === "en") translated = translated.replace(/^Executando /, "Running ").replace(/^Macro concluída:/, "Macro completed:").replace(/^Macro interrompida:/, "Macro stopped:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "The macro could not be started safely.");
   if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
+  if (state.t.locale === "en") translated = translated.replace(/^Não foi possível gerar:/, "Could not generate:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 texts found on the current page.").replace(/^(\d+) textos carregados\.$/, "$1 texts loaded.").replace(/^JSON inválido:/, "Invalid JSON:");
+  if (state.t.locale === "es") translated = translated.replace(/^Não foi possível gerar:/, "No se pudo generar:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 textos encontrados en la página actual.").replace(/^(\d+) textos carregados\.$/, "$1 textos cargados.").replace(/^JSON inválido:/, "JSON no válido:");
   if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns — check the routes/endpoints you registered.");
   if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 solicitud(es) capturada(s) no coincidieron con ningún patrón configurado en Inspectors — revisa las rutas/endpoints registrados.");
   return `${leading}${translated}${trailing}`;
@@ -2528,23 +2882,116 @@ function wireSmartFilter(container, onChange) {
 // header instead of forcing "close the whole sidebar, then reopen it" to get back to a list.
 // openDrawer has no history stack of its own; each caller that drills into a sub-view is
 // responsible for passing the one function that rebuilds its own parent view.
+function renderMinimizedDrawerShortcut() {
+  const tools = state.shadowRoot?.getElementById("extraPinnedTools");
+  if (!tools) return;
+  tools.querySelector("#minimizedDrawerButton")?.remove();
+  const descriptor = state.minimizedDrawer;
+  if (!descriptor) return;
+  const restore = document.createElement("button");
+  restore.id = "minimizedDrawerButton";
+  restore.className = "iconOnly isActive";
+  restore.type = "button";
+  restore.title = `Restaurar ${descriptor.title}`;
+  restore.innerHTML = ICON(descriptor.view === "jsonStudio" ? "braces" : "square");
+  restore.addEventListener("click", () => {
+    state.minimizedDrawer = null;
+    restore.remove();
+    openDrawer(descriptor);
+  });
+  tools.appendChild(restore);
+}
+
 function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" }) {
+  if (!view && title === stepsCopy().title) view = "stepsRecorder";
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
   // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
   // whether to live-refresh the Inspectors list. Leaving a stale "inspectors" value here after
   // switching to a different panel made Inspectors content silently overwrite other drawers.
   drawerHost.dataset.view = view;
+  const preferredDrawerPosition = effectiveDrawerPosition();
+  const drawerPosition = ["left", "right", "top", "bottom"].includes(preferredDrawerPosition) ? preferredDrawerPosition : "right";
+  const detachedWindow = Boolean(state.detachedToolKey);
+  const sidebarControls = variant !== "modal" && !detachedWindow;
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
-    <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}" id="drawerBackdrop">
+    <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}${detachedWindow ? " isDetached" : ""}" id="drawerBackdrop" data-position="${drawerPosition}">
       <div class="qts-drawer">
-        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2><button type="button" id="drawerClose">${ICON("fail")}</button></div>
+        ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
+        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2>
+          ${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
+          ${sidebarControls ? `<select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
+          <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
+          <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
+          <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div>
+        ${sidebarControls ? `<div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>` : ""}
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
     </div>`;
-  drawerHost.querySelector("#drawerClose").addEventListener("click", closeDrawer);
+  const backdrop = drawerHost.querySelector("#drawerBackdrop");
+  const drawer = drawerHost.querySelector(".qts-drawer");
+  const positionSelect = drawerHost.querySelector("#drawerPosition");
+  drawerHost.querySelector("#drawerDetach")?.addEventListener("click", () => openToolInNewTab(view));
+  if (positionSelect) positionSelect.value = drawerPosition;
+  positionSelect?.addEventListener("change", async () => {
+    backdrop.dataset.position = positionSelect.value;
+    const preferenceKey = isMobileViewport() ? "mobileDrawerPosition" : "drawerPosition";
+    state.workspace.preferences = { ...(state.workspace.preferences || {}), [preferenceKey]: positionSelect.value };
+    state.workspace = await saveWorkspace(state.workspace);
+  });
+  drawerHost.querySelector("#drawerPin")?.addEventListener("click", (event) => {
+    const pinned = backdrop.classList.toggle("isPinned");
+    event.currentTarget.setAttribute("aria-pressed", String(pinned));
+  });
+  drawerHost.querySelector("#drawerMinimize")?.addEventListener("click", () => {
+    state.minimizedDrawer = { title, bodyHtml, onReady, onBack, view, variant };
+    renderMinimizedDrawerShortcut();
+    closeDrawer();
+  });
+  drawerHost.querySelectorAll(".qts-drawer-resize").forEach((handle) => handle.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    handle.setPointerCapture(event.pointerId);
+    const edge = handle.dataset.edge;
+    const start = drawer.getBoundingClientRect();
+    const startX = event.clientX;
+    const startY = event.clientY;
+    const move = (moveEvent) => {
+      if (edge === "left" || edge === "right") {
+        const delta = (edge === "left" ? startX - moveEvent.clientX : moveEvent.clientX - startX);
+        drawer.style.width = `${Math.max(280, Math.min(window.innerWidth - 24, start.width + delta))}px`;
+      } else {
+        const delta = (edge === "top" ? startY - moveEvent.clientY : moveEvent.clientY - startY);
+        drawer.style.height = `${Math.max(180, Math.min(window.innerHeight - 24, start.height + delta))}px`;
+      }
+    };
+    const finish = () => {
+      handle.removeEventListener("pointermove", move);
+      handle.removeEventListener("pointerup", finish);
+      handle.removeEventListener("pointercancel", finish);
+    };
+    handle.addEventListener("pointermove", move);
+    handle.addEventListener("pointerup", finish);
+    handle.addEventListener("pointercancel", finish);
+  }));
+  drawerHost.querySelector("#drawerClose").addEventListener("click", () => {
+    if (!detachedWindow) {
+      closeDrawer();
+      return;
+    }
+    chrome.runtime.sendMessage({ type: "qts:close-detached-window" }, (response) => {
+      if (chrome.runtime.lastError || response?.ok !== true) window.close();
+    });
+  });
   if (onBack) drawerHost.querySelector("#drawerBack").addEventListener("click", onBack);
-  drawerHost.querySelector("#drawerBackdrop").addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop") closeDrawer(); });
+  backdrop.addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop" && !backdrop.classList.contains("isPinned")) closeDrawer(); });
+  drawerHost.querySelector("#drawerSearch")?.addEventListener("input", (event) => {
+    const query = event.target.value.trim().toLocaleLowerCase();
+    const body = drawerHost.querySelector("#drawerBody");
+    const candidates = body.querySelectorAll(".qts-card,.qts-net-item,.qts-list-row,.qts-friendly-field,.qts-switch-row,.qts-metric,.qts-step");
+    (candidates.length ? candidates : body.children).forEach((element) => {
+      element.classList.toggle("qts-friendly-hidden", Boolean(query) && !element.textContent.toLocaleLowerCase().includes(query));
+    });
+  });
   localizeQaSurface(drawerHost);
   onReady?.(drawerHost.querySelector("#drawerBody"));
 }
@@ -2877,6 +3324,7 @@ function openForceHttpDialog() {
   const t = state.t;
   openDrawer({
     title: t.forceHttpTitle,
+    view: "forceHttp",
     bodyHtml: `
       <p style="color:#999;margin-top:0">${escapeHtml(t.forceHttpDescription)}</p>
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
@@ -3037,7 +3485,7 @@ function renderInspectorDashboard(listBody) {
     // "in-app-notifications GET200"), not just the bare method+status -- otherwise two pinned
     // Inspectors hitting different endpoints with the same verb/status look identical in the
     // drawer title.
-    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3097,7 +3545,7 @@ function renderInspectorsList() {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
     const matchedInspector = configuredInspectors().find((item) => (entry.matchedInspectorIds || []).includes(item.id));
     const title = matchedInspector ? `${matchedInspector.label || matchedInspector.id} ${entry.method}${entry.status}` : `${entry.method} ${entry.status}`;
-    openDrawer({ title, bodyHtml: "", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title, bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3280,7 +3728,7 @@ function renderErrorMonitorList() {
   body.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.httpErrors.find((item) => item.id === row.dataset.id);
     if (!entry?.payload) return;
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", view: "errorMonitor", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
   }));
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
@@ -3434,7 +3882,7 @@ function renderTestAccountsList() {
 }
 
 function openTestAccountsDrawer() {
-  openDrawer({ title: state.t.testAccountsDrawerTitle, bodyHtml: "" });
+  openDrawer({ title: state.t.testAccountsDrawerTitle, bodyHtml: "", view: "testAccounts" });
   renderTestAccountsList();
 }
 
@@ -3606,7 +4054,7 @@ function renderResourcesList() {
 }
 
 function openResourcesDrawer() {
-  openDrawer({ title: state.t.resourcesDrawerTitle, bodyHtml: "" });
+  openDrawer({ title: state.t.resourcesDrawerTitle, bodyHtml: "", view: "resources" });
   renderResourcesList();
 }
 
@@ -3664,6 +4112,7 @@ function openJsonStudio() {
   const t = state.t;
   openDrawer({
     title: t.jsonStudioTitle,
+    view: "jsonStudio",
     bodyHtml: `
       <div class="qts-tabs"><button type="button" class="isSelected" data-json-mode="format">Formatar</button><button type="button" data-json-mode="diff">Comparar</button></div>
       <section id="jsonFormatMode">
@@ -3774,7 +4223,7 @@ function breakpointStyles() {
     .qts-bp-zoom input[type="range"] { width: 90px; }
     #bpZoomLabel { min-width: 38px; text-align: center; color: var(--bp-muted); font-variant-numeric: tabular-nums; }
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
-    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; }
+    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--qts-ui-danger, #c70e0e); color:#fff; font-size: 18px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
     .qts-bp-pane { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
     .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: var(--bp-control); border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.25); }
@@ -3819,6 +4268,7 @@ function openBreakpointViewer() {
         </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
+        <button type="button" class="qts-bp-toggle" id="bpRecord">${ICON("recordStart")} Gravar tela cheia</button>
         <button type="button" class="qts-bp-close" id="bpClose">${ICON("fail")}</button>
       </div>
       <div class="qts-bp-stage" id="bpStage"></div>
@@ -3839,6 +4289,10 @@ function openBreakpointViewer() {
 
   const close = () => { cleanupBreakpointViewer(); closeDrawer(); };
   drawerHost.querySelector("#bpClose").addEventListener("click", close);
+  drawerHost.querySelector("#bpRecord").addEventListener("click", () => {
+    if (recordingState.status === "idle") startEvidenceRecording("video");
+    else handleRecordToggle();
+  });
   const escHandler = (event) => { if (event.key === "Escape") close(); };
   document.addEventListener("keydown", escHandler, true);
   breakpointViewerState.cleanupFns.push(() => document.removeEventListener("keydown", escHandler, true));
@@ -4360,6 +4814,7 @@ function openKeyView() {
   let selectedPosition = preferences.position;
   openDrawer({
     title: "Key View",
+    view: "keyView",
     bodyHtml: `<p class="qts-tool-lead">Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.</p>
       <div class="qts-card qts-key-view-status"><div><b>Key View</b><small>${preferences.enabled ? "Ativo nesta página" : "Desativado"}</small></div><button class="action ${preferences.enabled ? "" : "primary"}" id="keyViewToggle" type="button">${preferences.enabled ? "Desativar" : "Ativar"}</button></div>
       <label class="qts-switch-row"><input id="keyViewTyping" type="checkbox" ${preferences.typingMode ? "checked" : ""} /><span><b>Modo Typing</b><small>Mantém o texto digitado na tela até você clicar em Limpar.</small></span></label>
@@ -4393,6 +4848,14 @@ function openKeyView() {
         await saveKeyViewPreferences({ enabled: !getKeyViewPreferences().enabled });
         openKeyView();
       });
+      const persistSwitch = async (input, preference) => {
+        input.disabled = true;
+        await saveKeyViewPreferences({ [preference]: input.checked });
+        input.disabled = false;
+        body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");
+      };
+      body.querySelector("#keyViewTyping").addEventListener("change", (event) => persistSwitch(event.currentTarget, "typingMode"));
+      body.querySelector("#keyViewMouse").addEventListener("change", (event) => persistSwitch(event.currentTarget, "mouseEffects"));
       body.querySelector("#keyViewSave").addEventListener("click", async () => {
         await saveKeyViewPreferences({ typingMode: body.querySelector("#keyViewTyping").checked, mouseEffects: body.querySelector("#keyViewMouse").checked, theme: theme.value, position: selectedPosition, keySize: keySize.value, mouseSize: mouseSize.value });
         body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");
@@ -4690,6 +5153,7 @@ function clearAllBlurredElements() {
 function openBlurElementsTool() {
   openDrawer({
     title: "Borrar elementos",
+    view: "blurElements",
     bodyHtml: `<p class="qts-tool-lead">Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação, ou clique com o botão direito num elemento e escolha "Borrar / desborrar este elemento" no menu QA Sandbox.</p>
       <div class="qts-card-actions"><button class="action primary" id="blurSelectElement" type="button">Selecionar elemento</button><button class="action" id="blurClearAll" type="button">Limpar todos os borrados</button></div>
       <div class="qts-status" id="blurStatus"></div>
@@ -4840,6 +5304,7 @@ function toggleHolofoteMode() {
 function openHolofoteTool() {
   openDrawer({
     title: "Modo Holofote",
+    view: "holofote",
     bodyHtml: `<p class="qts-tool-lead">Ative e segure Ctrl por 2 segundos em qualquer momento para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar Ctrl apaga o holofote suavemente.</p>
       <div class="qts-card-actions"><button class="action ${state.holofoteActive ? "" : "primary"}" id="holofoteToggle" type="button">${state.holofoteActive ? "Desativar" : "Ativar"}</button></div>
       <label>Efeito<select id="holofoteEffect">
@@ -5125,6 +5590,7 @@ function inspectElementWithPixelPerfect(element) {
 function openPixelPerfectTool() {
   openDrawer({
     title: "Pixel Perfect",
+    view: "pixelPerfect",
     bodyHtml: `<p class="qts-tool-lead">Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos — passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em "Inspecionar com Pixel Perfect".</p>
       <div class="qts-card-actions"><button class="action ${state.pixelPerfectActive ? "" : "primary"}" id="pixelPerfectToggle" type="button">${state.pixelPerfectActive ? "Desativar" : "Ativar"}</button></div>
       <label>Modo<select id="pixelPerfectMode">
@@ -5180,6 +5646,7 @@ function openElementCapture() {
   const viewFields = state.elementViewFields;
   openDrawer({
     title: "Capturar elementos",
+    view: "elementCapture",
     bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
       <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action" id="elementViewToggle" type="button">Ver elementos</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
       <div class="qts-toolbar-row" id="elementViewFilters" hidden>
@@ -5332,11 +5799,115 @@ function attachCharacterCounterBadge(element) {
   reposition();
 }
 
+function flattenLanguageValues(value, path = "", output = []) {
+  if (typeof value === "string") output.push({ key: path || "(raiz)", value });
+  else if (Array.isArray(value)) value.forEach((item, index) => flattenLanguageValues(item, `${path}[${index}]`, output));
+  else if (value && typeof value === "object") Object.entries(value).forEach(([key, item]) => flattenLanguageValues(item, path ? `${path}.${key}` : key, output));
+  return output;
+}
+
+function openQrCodeTool() {
+  const current = new URL(window.location.href);
+  const hasSensitiveParts = current.search || current.hash;
+  if (hasSensitiveParts) { current.search = ""; current.hash = ""; }
+  const savedUrls = (state.workspace.urlBindings || []).flatMap((binding) => {
+    const candidates = [binding.primaryUrl, ...(binding.patterns || []).filter((pattern) => !pattern.includes("*"))];
+    return candidates.map((url) => ({ url, label: binding.label || url })).filter((item) => /^https?:\/\//i.test(item.url || ""));
+  });
+  openDrawer({
+    title: "QR Code",
+    view: "qrCode",
+    variant: "modal",
+    bodyHtml: `<p class="qts-tool-lead">Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.</p>
+      ${hasSensitiveParts ? `<div class="qts-card"><b>Query/hash removidos por segurança</b><p class="qts-tool-lead">A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.</p><label class="qts-switch-row"><input id="qrKeepSensitive" type="checkbox" /><span><b>Incluir query e hash</b></span></label></div>` : ""}
+      <label class="qts-field-label">URL<select id="qrUrl"><option value="${escapeHtml(current.href)}">Aba atual — ${escapeHtml(current.href)}</option>${savedUrls.map((item) => `<option value="${escapeHtml(item.url)}">${escapeHtml(item.label)}</option>`).join("")}</select></label>
+      <div class="qts-card" style="display:grid;place-items:center"><canvas id="qrCanvas" width="280" height="280" aria-label="QR Code gerado"></canvas></div>
+      <div class="qts-card-actions"><button class="action primary" id="qrDownload" type="button">Baixar PNG</button><button class="action" id="qrCopy" type="button">Copiar imagem</button></div><div class="qts-status" id="qrStatus"></div>`,
+    onReady(body) {
+      const select = body.querySelector("#qrUrl");
+      const canvas = body.querySelector("#qrCanvas");
+      const status = body.querySelector("#qrStatus");
+      const selectedUrl = () => {
+        if (select.selectedIndex === 0 && body.querySelector("#qrKeepSensitive")?.checked) return window.location.href;
+        return select.value;
+      };
+      const renderQr = async () => {
+        try {
+          const url = new URL(selectedUrl());
+          if (!["http:", "https:"].includes(url.protocol)) throw new Error("Protocolo não permitido");
+          await window.QTS_QRCODE.toCanvas(canvas, url.href);
+          status.textContent = url.href;
+        } catch (error) { status.textContent = translateQaSurfaceText(`Não foi possível gerar: ${error.message}`); }
+      };
+      select.addEventListener("change", renderQr);
+      body.querySelector("#qrKeepSensitive")?.addEventListener("change", renderQr);
+      body.querySelector("#qrDownload").addEventListener("click", () => {
+        const anchor = document.createElement("a"); anchor.href = canvas.toDataURL("image/png"); anchor.download = "qa-toolbar-qrcode.png"; anchor.click();
+      });
+      body.querySelector("#qrCopy").addEventListener("click", async () => {
+        try {
+          const blob = await new Promise((resolveBlob) => canvas.toBlob(resolveBlob, "image/png"));
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          status.textContent = translateQaSurfaceText("Imagem copiada.");
+        } catch { status.textContent = translateQaSurfaceText("O navegador não permitiu copiar a imagem; use Baixar PNG."); }
+      });
+      void renderQr();
+    },
+  });
+}
+
+function visiblePageText() {
+  const clone = document.body.cloneNode(true);
+  clone.querySelectorAll(`#${HOST_ID},script,style,noscript,template,[hidden],[aria-hidden="true"]`).forEach((node) => node.remove());
+  return (clone.innerText || clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function openLanguageValidator() {
+  openDrawer({
+    title: "Validador de textos",
+    view: "languageValidator",
+    bodyHtml: `<p class="qts-tool-lead">Importe um JSON de idioma. Cada texto esperado é comparado com o conteúdo visível da página atual; o arquivo nunca é executado nem enviado.</p>
+      <label class="qts-field-label">Arquivo JSON<input id="languageFile" type="file" accept="application/json,.json" /></label>
+      <div class="qts-card-actions"><button class="action primary" id="languageValidate" type="button" disabled>Validar página</button><button class="action" id="languageRevalidate" type="button" disabled>Revalidar após navegação</button></div>
+      <div class="qts-status" id="languageStatus"></div><div class="qts-list" id="languageResults"></div>`,
+    onReady(body) {
+      let expected = [];
+      const render = () => {
+        const pageText = visiblePageText();
+        const results = expected.map((entry) => ({ ...entry, found: pageText.includes(entry.value.replace(/\s+/g, " ").trim()) }));
+        const found = results.filter((entry) => entry.found).length;
+        body.querySelector("#languageStatus").textContent = translateQaSurfaceText(`${found}/${results.length} textos encontrados na página atual.`);
+        body.querySelector("#languageResults").innerHTML = results.map((entry) => `<div class="qts-list-row"><span><b>${entry.found ? "✓" : "⚠"} ${escapeHtml(entry.key)}</b><small>${escapeHtml(entry.value)}</small></span><span class="qts-chip">${escapeHtml(translateQaSurfaceText(entry.found ? "Igual" : "Ausente/diferente"))}</span></div>`).join("") || `<div class="qts-empty">${escapeHtml(translateQaSurfaceText("Importe um arquivo JSON válido."))}</div>`;
+      };
+      body.querySelector("#languageFile").addEventListener("change", async (event) => {
+        const file = event.currentTarget.files?.[0];
+        if (!file) return;
+        if (file.size > 2_000_000) { body.querySelector("#languageStatus").textContent = translateQaSurfaceText("O arquivo deve ter no máximo 2 MB."); return; }
+        try {
+          const parsed = JSON.parse(await file.text());
+          expected = flattenLanguageValues(parsed).filter((entry) => entry.value.trim()).slice(0, 5_000);
+          if (!expected.length) throw new Error("Nenhum texto encontrado");
+          body.querySelector("#languageValidate").disabled = false;
+          body.querySelector("#languageRevalidate").disabled = false;
+          body.querySelector("#languageStatus").textContent = translateQaSurfaceText(`${expected.length} textos carregados.`);
+          render();
+        } catch (error) {
+          expected = [];
+          body.querySelector("#languageStatus").textContent = translateQaSurfaceText(`JSON inválido: ${error.message}`);
+        }
+      });
+      body.querySelector("#languageValidate").addEventListener("click", render);
+      body.querySelector("#languageRevalidate").addEventListener("click", render);
+    },
+  });
+}
+
 function openCharacterCounter(initialText = null) {
   if (!requirePlanFeature("characterCounter")) return;
   const selected = initialText ?? String(document.getSelection()?.toString() || "");
   openDrawer({
     title: "Contador de caracteres",
+    view: "characterCounter",
     bodyHtml: `<p class="qts-tool-lead">Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.</p>
       <textarea id="characterCounterInput" rows="9" placeholder="Digite ou cole seu texto...">${escapeHtml(selected)}</textarea>
       <div class="qts-card-actions"><button class="action" id="useSelection" type="button">Usar seleção da página</button><button class="action" id="clearCounter" type="button">Limpar</button><button class="action" id="pickCounterField" type="button">Acompanhar campo da página</button></div>
@@ -5451,6 +6022,7 @@ function openMultiClick(selectedElement = null) {
   const selector = selectedElement ? window.QTS_QA_TOOLS.uniqueSelector(selectedElement) : "";
   openDrawer({
     title: "Multiclick",
+    view: "multiClick",
     bodyHtml: `<p class="qts-tool-lead">Repita cliques em um elemento, com limite e intervalo controlados.</p>
       <label>Elemento</label><input id="multiSelector" value="${escapeHtml(selector)}" readonly placeholder="Nenhum elemento selecionado" />
       <div class="qts-card-actions"><button class="action" id="multiSelect" type="button">Selecionar na página</button></div>
@@ -5478,6 +6050,7 @@ function openInputLab(selectedElement = null) {
   const infoHtml = info ? `<div class="qts-card"><b>${escapeHtml(info.selector)}</b><div class="qts-tool-grid">${[["Tipo", info.type], ["Obrigatório", info.required ? "Sim" : "Não"], ["Mínimo", info.min ?? info.minLength ?? "—"], ["Máximo", info.max ?? info.maxLength ?? "—"], ["Pattern", info.pattern || "—"]].map(([label, value]) => `<div><small>${label}</small><br><b>${escapeHtml(value)}</b></div>`).join("")}</div></div>` : "";
   openDrawer({
     title: "Input Lab",
+    view: "inputLab",
     bodyHtml: `<p class="qts-tool-lead">Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.</p>
       <button class="action" id="inputSelect" type="button">Selecionar input na página</button>${infoHtml}
       ${info ? `<button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Rodar kit de validação</button><div id="inputResults"></div>` : ""}`,
@@ -5501,6 +6074,7 @@ function openFakerFill(selectedRoot = null) {
   if (!requirePlanFeature("fakerFill")) return;
   openDrawer({
     title: "Faker Fill",
+    view: "fakerFill",
     bodyHtml: `<p class="qts-tool-lead">Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.</p>
       <div class="qts-card"><b>Escopo</b><p>${selectedRoot ? "Formulário selecionado" : "Página atual"}</p></div>
       <div class="qts-card-actions"><button class="action" id="fakerSelectForm" type="button">Selecionar formulário</button><button class="action primary" id="fakerRun" type="button">Preencher agora</button></div><div class="qts-status" id="fakerStatus"></div><div id="fakerReport"></div>`,
@@ -5788,11 +6362,31 @@ function defaultMacroStep(action) {
   return { action: "click", selector: "button" };
 }
 
+function visibleMacroElementOptions() {
+  const candidates = [...document.querySelectorAll("a[href],button,input,select,textarea,[role=button],[role=link],[tabindex]")]
+    .filter((element) => !element.closest("#qts-toolbar-host") && !element.disabled && element.getClientRects().length)
+    .slice(0, 250);
+  const seen = new Set();
+  return candidates.flatMap((element) => {
+    const selector = window.QTS_QA_TOOLS.uniqueSelector(element);
+    if (!selector || seen.has(selector)) return [];
+    seen.add(selector);
+    const label = element.getAttribute("aria-label")
+      || element.getAttribute("placeholder")
+      || element.getAttribute("title")
+      || element.textContent?.trim().replace(/\s+/g, " ").slice(0, 80)
+      || element.getAttribute("name")
+      || element.id
+      || element.tagName.toLowerCase();
+    return [{ selector, label }];
+  });
+}
+
 function macroStepFields(step) {
   if (step.action === "wait") return `<input data-field="ms" type="number" min="0" max="30000" value="${Number(step.ms) || 500}" aria-label="Espera em milissegundos" />`;
   if (step.action === "scroll") return `<input data-field="y" type="number" value="${Number(step.y) || 0}" aria-label="Posição vertical" />`;
   if (step.action === "fakerFill") return `<select data-field="scope"><option value="page" ${step.scope !== "form" ? "selected" : ""}>Página</option><option value="form" ${step.scope === "form" ? "selected" : ""}>Primeiro formulário</option></select>`;
-  const selector = `<span style="display:flex;gap:5px;align-items:center"><input data-field="selector" value="${escapeHtml(step.selector || "")}" placeholder="Seletor CSS" aria-label="Seletor CSS" style="flex:1;min-width:0" /><button type="button" class="qts-icon-btn" data-pick-selector style="width:28px;height:28px" title="Selecionar elemento na página">${ICON("cursor")}</button></span>`;
+  const selector = `<span style="display:flex;gap:5px;align-items:center"><input data-field="selector" list="macroVisibleElements" value="${escapeHtml(step.selector || "")}" placeholder="Buscar ou escolher elemento visível" aria-label="Elemento visível ou seletor CSS" style="flex:1;min-width:0" /><button type="button" class="qts-icon-btn" data-pick-selector style="width:28px;height:28px" title="Selecionar elemento na página">${ICON("cursor")}</button></span>`;
   if (step.action === "check") return `${selector}<select data-field="checked"><option value="true" ${step.checked !== false ? "selected" : ""}>Marcar</option><option value="false" ${step.checked === false ? "selected" : ""}>Desmarcar</option></select>`;
   if (step.action === "multiClick") return `${selector}<span style="display:flex;gap:5px"><input data-field="count" type="number" min="2" max="100" value="${Number(step.count) || 2}" aria-label="Quantidade" /><input data-field="interval" type="number" min="0" max="5000" value="${Number(step.interval) || 100}" aria-label="Intervalo" /></span>`;
   if (["fill", "select", "press"].includes(step.action)) return `${selector}<input data-field="value" value="${escapeHtml(step.value || "")}" placeholder="Valor" aria-label="Valor" />`;
@@ -5835,14 +6429,17 @@ function collectMacroEditor(body, original, steps) {
 function openMacroEditor(macro) {
   const original = structuredClone(macro);
   const steps = structuredClone(macro.steps || []);
+  const visibleElements = visibleMacroElementOptions();
   const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
   openDrawer({
     title: "Macro Studio",
     variant: "modal",
-    bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
+    view: "macroStudio",
+    bodyHtml: `<datalist id="macroVisibleElements">${visibleElements.map(({ selector, label }) => `<option value="${escapeHtml(selector)}">${escapeHtml(label)}</option>`).join("")}</datalist>
+      <div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
       <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
       <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
-      <section id="vibeMode"><p class="qts-tool-lead">Monte o fluxo arrastando blocos. As setas representam a ordem de execução.</p><div class="qts-macro-layout"><aside class="qts-palette">${palette.map(([action, label]) => `<button type="button" draggable="true" data-palette-action="${action}">${label}</button>`).join("")}</aside><div class="qts-flow" id="macroFlow"></div></div></section>
+      <section id="vibeMode"><p class="qts-tool-lead">Monte o fluxo arrastando blocos. Em cada seletor, escolha um dos ${visibleElements.length} elementos interativos visíveis ou use o botão de seleção na página.</p><div class="qts-macro-layout"><aside class="qts-palette">${palette.map(([action, label]) => `<button type="button" draggable="true" data-palette-action="${action}">${label}</button>`).join("")}</aside><div class="qts-flow" id="macroFlow"></div></div></section>
       <section id="coderMode" hidden><div class="qts-toolbar-row"><p class="qts-tool-lead" style="flex:1">Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.</p><button class="action" id="copyMacroCode" type="button">Copiar código</button></div><pre class="qts-code" id="macroCode"></pre></section><div class="qts-status" id="macroEditorStatus"></div>`,
     onReady(body) {
       const flow = body.querySelector("#macroFlow");
@@ -5909,6 +6506,7 @@ function openMacroStudio() {
   openDrawer({
     title: "Macro Studio",
     variant: "modal",
+    view: "macroStudio",
     bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
       <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
@@ -6577,6 +7175,7 @@ async function boot() {
 
   state.t = await window.QTS_I18N.load();
   state.workspace = await getWorkspace();
+  state.siteScope = await getSiteScope();
   state.httpErrors = loadHttpErrorsFromSession();
   // Runs regardless of the result now: an unauthorized session still needs the location/storage
   // listeners below wired up, so the stripped "logged out" bar (see render()) keeps tracking
@@ -6584,14 +7183,23 @@ async function boot() {
   const authorizedAtBoot = await refreshAuthorization(true);
 
   onStorageChanged(async (changes) => {
-    if (!changes[STORAGE_KEYS.workspace]) return;
-    state.workspace = await getWorkspace();
+    if (!changes[STORAGE_KEYS.workspace] && !changes[STORAGE_KEYS.siteScope]) return;
+    if (changes[STORAGE_KEYS.workspace]) state.workspace = await getWorkspace();
+    if (changes[STORAGE_KEYS.siteScope]) state.siteScope = await getSiteScope();
     syncToolbarForCurrentLocation();
   });
 
   document.addEventListener("qts:location-change", () => syncToolbarForCurrentLocation());
+  document.addEventListener("keydown", handleCustomToolShortcut, true);
   window.addEventListener("popstate", () => syncToolbarForCurrentLocation());
   window.addEventListener("hashchange", () => syncToolbarForCurrentLocation());
+  let mobileLayout = isMobileViewport();
+  window.addEventListener("resize", () => {
+    const nextMobileLayout = isMobileViewport();
+    if (nextMobileLayout === mobileLayout) return;
+    mobileLayout = nextMobileLayout;
+    syncToolbarForCurrentLocation();
+  });
   state.locationInterval = window.setInterval(() => {
     if (state.lastHref === window.location.href) return;
     state.lastHref = window.location.href;
@@ -6622,6 +7230,11 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "qts:context-action") {
     if (state.authorized) handleContextAction(message.action);
     sendResponse({ handled: state.authorized === true });
+    return undefined;
+  }
+  if (message?.type === "qts:open-detached-tool") {
+    const handled = state.authorized === true && openDetachedTool(String(message.toolKey || ""));
+    sendResponse({ handled });
     return undefined;
   }
   return undefined;

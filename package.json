@@ -28,15 +28,20 @@
     "backend:check": "npx --yes deno@latest test --config supabase/functions/deno.json --allow-env supabase/functions/_shared/http_test.ts supabase/functions/_shared/admin_mfa_test.ts && npx --yes deno@latest check --config supabase/functions/deno.json supabase/functions/checkout-create-session/index.ts supabase/functions/stripe-webhook/index.ts supabase/functions/voucher-redeem/index.ts supabase/functions/voucher-preview/index.ts supabase/functions/legal-registration/index.ts supabase/functions/referral-track/index.ts supabase/functions/rewards-spin/index.ts supabase/functions/keep-alive/index.ts supabase/functions/access-status/index.ts supabase/functions/auth-sign-in/index.ts supabase/functions/auth-refresh/index.ts supabase/functions/auth-recover-password/index.ts supabase/functions/admin-email-otp/index.ts supabase/functions/account-delete/index.ts",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present && node scripts/test-extension-workspace.mjs && node scripts/test-release-environments.mjs && node scripts/test-update-experience.mjs && node scripts/test-reward-program.mjs",
+    "automation:clean": "node scripts/clean-automation-state.mjs",
+    "smoke:lp-admin": "node scripts/build-pages-local.mjs && node scripts/smoke-landing-pages.mjs",
+    "test:all:clean": "npm run automation:clean && npm run typecheck && npm test && npm run backend:check && npm run security:repo && npm run security:extension && npm run smoke:lp-admin && npm run test:chrome:test-package",
     "test:pages": "node scripts/build-pages-local.mjs && node scripts/smoke-landing-pages.mjs",
     "security:repo": "node scripts/check-repository.mjs",
     "security:extension": "node scripts/check-extension-bundle.mjs",
     "test:chrome": "node scripts/smoke-extension.mjs",
+    "test:chrome:test-package": "node scripts/package-extension-test.mjs && node scripts/smoke-extension.mjs --extension-path=artifacts/extension-test",
     "dev:extension": "node scripts/dev-extension-chrome.mjs",
     "package:extension:test": "node scripts/package-extension-test.mjs",
-    "dev:extension:test": "node scripts/package-extension-test.mjs && node scripts/dev-extension-chrome.mjs --extension-path=artifacts/extension-test --profile-path=artifacts/chrome-test-profile",
+    "dev:extension:test": "npm run automation:clean && node scripts/package-extension-test.mjs && node scripts/dev-extension-chrome.mjs --extension-path=artifacts/extension-test --profile-path=artifacts/chrome-test-profile",
     "package:extension": "node scripts/package-extension.mjs",
-  "package:extension:sideload": "node scripts/package-extension-sideload.mjs",
+    "build:extension-vendors": "esbuild scripts/vendor/qrcode-entry.js --bundle --format=iife --minify --outfile=apps/extension/src/lib/qrcode-content.js",
+    "package:extension:sideload": "node scripts/package-extension-sideload.mjs",
     "release:chrome:update": "npm run security:repo && npm run security:extension && npm run test:chrome && npm run package:extension",
     "chrome-webstore:oauth-setup": "node scripts/chrome-webstore-oauth-setup.mjs",
     "bump:extension": "node scripts/bump-extension-version.mjs",
@@ -52,6 +57,8 @@
   },
   "devDependencies": {
     "archiver": "^8.0.0",
-    "playwright": "^1.61.1"
+    "esbuild": "^0.28.1",
+    "playwright": "^1.61.1",
+    "qrcode": "^1.5.4"
   }
 }

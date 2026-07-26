@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon";
 import type { Session } from "@supabase/supabase-js";
@@ -38,8 +38,9 @@ function formatPrice(price: DisplayPrice | undefined, locale: string, unavailabl
 
 export function PricingSection() {
   const { t, locale } = useI18n();
-  const [billingCycle, setBillingCycle] = useState<BillingCycle>("yearly");
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>("monthly");
   const [priceCatalog, setPriceCatalog] = useState<PriceCatalog>({});
+  const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState<string | null>(null);
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<string | null>(null);
@@ -53,9 +54,13 @@ export function PricingSection() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const authTriggerRef = useRef<HTMLElement | null>(null);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{ email?: string; password?: string; terms?: string }>({});
+  const emailRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [queuedPlanId, setQueuedPlanId] = useState<PlanId | null>(null);
   const [statusMessage, setStatusMessage] = useState<string | null>(() => {
     const state = new URLSearchParams(window.location.search).get("checkout");
@@ -66,6 +71,7 @@ export function PricingSection() {
   const [statusError, setStatusError] = useState(false);
   const [access, setAccess] = useState<AccessStatus | null>(null);
   const [storeListingStatus, setStoreListingStatus] = useState<{ chrome_web_store_version: string | null; status: string } | null>(null);
+  const [storeLookupState, setStoreLookupState] = useState<"loading" | "ready" | "error">("loading");
   const checkoutReturn = new URLSearchParams(window.location.search).get("checkout");
 
   useEffect(() => {
@@ -75,7 +81,11 @@ export function PricingSection() {
       .select("chrome_web_store_version,status")
       .eq("id", true)
       .maybeSingle()
-      .then(({ data }) => { if (data) setStoreListingStatus(data); }, () => {});
+      .then(({ data, error }) => {
+        if (error || !data) { setStoreLookupState("error"); return; }
+        setStoreListingStatus(data);
+        setStoreLookupState("ready");
+      }, () => setStoreLookupState("error"));
   }, []);
   // The Store lags the package the moment its recorded version differs from what's actually
   // shipping, OR the founder hasn't marked it "live" yet — comparing status alone isn't enough,
@@ -86,6 +96,7 @@ export function PricingSection() {
 
   useEffect(() => {
     const openFromNavigation = () => {
+      authTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setQueuedPlanId(null);
       setAuthMessage(null);
       setAuthError(null);
@@ -98,14 +109,31 @@ export function PricingSection() {
   useEffect(() => {
     if (!authModalOpen) return;
     const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setAuthModalOpen(false);
+    const previouslyFocused = authTriggerRef.current;
+    const appRoot = document.getElementById("root");
+    const focusableSelector = 'button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
+    const handleModalKeys = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setAuthModalOpen(false); return; }
+      if (event.key !== "Tab") return;
+      const modal = document.querySelector<HTMLElement>(".qts-auth-modal");
+      const focusable = [...(modal?.querySelectorAll<HTMLElement>(focusableSelector) || [])].filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0]!, last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", closeOnEscape);
+    appRoot?.setAttribute("inert", "");
+    appRoot?.setAttribute("aria-hidden", "true");
+    document.addEventListener("keydown", handleModalKeys);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(".qts-auth-modal input,.qts-auth-modal button")?.focus());
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
+      appRoot?.removeAttribute("inert");
+      appRoot?.removeAttribute("aria-hidden");
+      document.removeEventListener("keydown", handleModalKeys);
+      previouslyFocused?.focus();
+      authTriggerRef.current = null;
     };
   }, [authModalOpen]);
 
@@ -119,12 +147,14 @@ export function PricingSection() {
     const { data: authSubscription } = client.auth.onAuthStateChange((_event, nextSession) => {
       setSession(nextSession);
     });
+    setPricingLoading(true);
     void loadPriceCatalog()
       .then((catalog) => {
         setPriceCatalog(catalog);
         setPricingError(null);
       })
-      .catch(() => setPricingError(t.pricing.pricingUnavailable));
+      .catch(() => setPricingError(t.pricing.pricingUnavailable))
+      .finally(() => setPricingLoading(false));
     return () => authSubscription.subscription.unsubscribe();
   }, [t.pricing.configUnavailable, t.pricing.pricingUnavailable]);
 
@@ -218,6 +248,7 @@ export function PricingSection() {
   }
 
   function openAuthModal(planId: PlanId | null = null) {
+    authTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setQueuedPlanId(planId);
     setAuthMessage(planId ? t.pricing.authRequired : null);
     setAuthError(null);
@@ -232,17 +263,31 @@ export function PricingSection() {
     setAuthError(null);
   }
 
+  function validateAuthFields(mode: "signin" | "signup") {
+    const normalizedEmail = email.trim();
+    const nextErrors: { email?: string; password?: string; terms?: string } = {};
+    if (!normalizedEmail) nextErrors.email = t.pricing.emailRequired;
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) nextErrors.email = t.pricing.emailInvalid;
+    if (password.length < 8) nextErrors.password = t.pricing.passwordTooShort;
+    if (mode === "signup" && !acceptedTerms) nextErrors.terms = t.pricing.termsRequired;
+    setFieldErrors(nextErrors);
+    if (nextErrors.email) emailRef.current?.focus();
+    else if (nextErrors.password) passwordRef.current?.focus();
+    else if (nextErrors.terms) document.getElementById("qts-auth-terms")?.focus();
+    return Object.keys(nextErrors).length === 0;
+  }
+  function clearFieldError(field: "email" | "password" | "terms") {
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  }
+
   async function handleAuth(mode: "signin" | "signup") {
     setAuthError(null);
     setAuthMessage(null);
-    if (!email.trim() || password.length < 8) {
-      setAuthError(t.pricing.checkoutFailed);
-      return;
-    }
-    if (mode === "signup" && !acceptedTerms) {
-      setAuthError(t.pricing.termsRequired);
-      return;
-    }
+    if (!validateAuthFields(mode)) return;
     setAuthBusy(true);
     let planToStart: PlanId | null = null;
     try {
@@ -270,7 +315,8 @@ export function PricingSection() {
     setAuthError(null);
     setAuthMessage(null);
     if (!email.trim()) {
-      setAuthError(t.pricing.checkoutFailed);
+      setFieldErrors({ email: t.pricing.emailRequired });
+      emailRef.current?.focus();
       return;
     }
     setAuthBusy(true);
@@ -387,6 +433,14 @@ export function PricingSection() {
     await completePlanSelection(planId);
   }
 
+  async function retryPricing() {
+    setPricingLoading(true);
+    setPricingError(null);
+    try { setPriceCatalog(await loadPriceCatalog()); }
+    catch { setPricingError(t.pricing.pricingUnavailable); }
+    finally { setPricingLoading(false); }
+  }
+
   const accessExpiry = access?.expiresAt
     ? new Date(access.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : locale === "es" ? "es-ES" : "pt-BR")
     : null;
@@ -422,34 +476,43 @@ export function PricingSection() {
                 </div>
               ) : (
                 <>
-                  <div className="qts-auth-tabs" role="tablist">
-                    <button type="button" role="tab" aria-selected={authMode === "signin"} className={authMode === "signin" ? "is-active" : ""} onClick={() => {
+                  <div className="qts-auth-tabs" role="tablist" aria-label={t.pricing.accountTitle} onKeyDown={(event) => {
+                    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+                    event.preventDefault();
+                    const next = authMode === "signin" ? "signup" : "signin";
+                    setAuthMode(next);
+                    document.getElementById(`qts-auth-tab-${next}`)?.focus();
+                  }}>
+                    <button id="qts-auth-tab-signin" type="button" role="tab" aria-selected={authMode === "signin"} aria-controls="qts-auth-panel" tabIndex={authMode === "signin" ? 0 : -1} className={authMode === "signin" ? "is-active" : ""} onClick={() => {
                       setAuthMode("signin"); setAuthError(null); setAuthMessage(null);
                     }}>{t.pricing.signIn}</button>
-                    <button type="button" role="tab" aria-selected={authMode === "signup"} className={authMode === "signup" ? "is-active" : ""} onClick={() => {
+                    <button id="qts-auth-tab-signup" type="button" role="tab" aria-selected={authMode === "signup"} aria-controls="qts-auth-panel" tabIndex={authMode === "signup" ? 0 : -1} className={authMode === "signup" ? "is-active" : ""} onClick={() => {
                       setAuthMode("signup"); setAuthError(null); setAuthMessage(null);
                     }}>{t.pricing.signUp}</button>
                   </div>
-                  <form className="qts-auth-form" onSubmit={(event) => {
+                  <form id="qts-auth-panel" role="tabpanel" aria-labelledby={`qts-auth-tab-${authMode}`} className="qts-auth-form" noValidate onSubmit={(event) => {
                     event.preventDefault(); void handleAuth(authMode);
                   }}>
                     <label>
                       <span>{t.pricing.emailLabel}</span>
-                      <input type="email" autoComplete="email" required autoFocus value={email} onChange={(event) => setEmail(event.target.value)} />
+                      <input ref={emailRef} type="email" autoComplete="email" required autoFocus value={email} aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? "qts-email-error" : undefined} onChange={(event) => { setEmail(event.target.value); clearFieldError("email"); }} />
+                      {fieldErrors.email ? <small id="qts-email-error" className="qts-field-error">{fieldErrors.email}</small> : null}
                     </label>
                     <label>
                       <span>{t.pricing.passwordLabel}</span>
-                      <input type="password" minLength={8} autoComplete={authMode === "signup" ? "new-password" : "current-password"} required value={password} onChange={(event) => setPassword(event.target.value)} />
+                      <input ref={passwordRef} type="password" minLength={8} autoComplete={authMode === "signup" ? "new-password" : "current-password"} required value={password} aria-invalid={Boolean(fieldErrors.password)} aria-describedby={fieldErrors.password ? "qts-password-error" : undefined} onChange={(event) => { setPassword(event.target.value); clearFieldError("password"); }} />
+                      {fieldErrors.password ? <small id="qts-password-error" className="qts-field-error">{fieldErrors.password}</small> : null}
                     </label>
                     {authMode === "signup" ? (
                       <label className="qts-terms-check">
-                        <input type="checkbox" checked={acceptedTerms} onChange={(event) => setAcceptedTerms(event.target.checked)} />
+                        <input id="qts-auth-terms" type="checkbox" checked={acceptedTerms} aria-invalid={Boolean(fieldErrors.terms)} aria-describedby={fieldErrors.terms ? "qts-terms-error" : undefined} onChange={(event) => { setAcceptedTerms(event.target.checked); clearFieldError("terms"); }} />
                         <span>{t.pricing.acceptTerms} <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.pricing.privacyLink}</a>.</span>
                       </label>
                     ) : null}
+                    {fieldErrors.terms ? <small id="qts-terms-error" className="qts-field-error">{fieldErrors.terms}</small> : null}
                     {authMessage ? <div className="qts-auth-feedback" role="status">{authMessage}</div> : null}
                     {authError ? <div className="qts-auth-feedback is-error" role="alert">{authError}</div> : null}
-                    <button type="submit" className="qts-btn qts-btn-primary qts-auth-submit" disabled={authBusy || (authMode === "signup" && !acceptedTerms)}>
+                    <button type="submit" className="qts-btn qts-btn-primary qts-auth-submit" disabled={authBusy}>
                       {authBusy ? t.pricing.working : authMode === "signin" ? t.pricing.signIn : t.pricing.signUp}
                     </button>
                     {authMode === "signin" ? (
@@ -496,11 +559,14 @@ export function PricingSection() {
         {access?.active ? (
           <p className="qts-version-line">
             {t.pricing.packageVersionLine.replace("{version}", __EXTENSION_PACKAGE_VERSION__)}
-            {storeIsBehind ? <span className="qts-version-pending"> · {t.pricing.storeReviewPendingNotice}</span> : null}
+            {storeLookupState === "loading" ? <span> · {t.pricing.storeStatusLoading}</span> : null}
+            {storeLookupState === "error" ? <span className="qts-version-pending"> · {t.pricing.storeStatusUnavailable}</span> : null}
+            {storeLookupState === "ready" && storeIsBehind ? <span className="qts-version-pending"> · {t.pricing.storeReviewPendingNotice}</span> : null}
           </p>
         ) : null}
         {statusMessage ? <p className={`qts-checkout-message${statusError ? " is-error" : ""}`} role="status">{statusMessage}</p> : null}
-        {pricingError ? <p className="qts-checkout-message is-error" role="alert">{pricingError}</p> : null}
+        {pricingLoading ? <div className="qts-pricing-loading" role="status" aria-live="polite"><span className="qts-loading-dot" />{t.pricing.loadingPrices}</div> : null}
+        {pricingError ? <div className="qts-checkout-message is-error" role="alert"><span>{pricingError}</span><button type="button" className="qts-auth-link" onClick={() => void retryPricing()}>{t.pricing.retryPricing}</button></div> : null}
 
         <div className="qts-billing-toggle-row">
           <SegmentedControl
@@ -515,7 +581,9 @@ export function PricingSection() {
         </div>
 
         <div className="qts-voucher-row">
+          <label className="qts-voucher-label" htmlFor="qts-voucher-code">{t.pricing.voucherPlaceholder}</label>
           <input
+            id="qts-voucher-code"
             type="text"
             className="qts-voucher-input"
             placeholder={t.pricing.voucherPlaceholder}
@@ -554,7 +622,7 @@ export function PricingSection() {
           </div>
         ) : null}
 
-        <div className="qts-pricing-grid">
+        <div className={`qts-pricing-grid${pricingLoading ? " is-loading" : ""}`} aria-busy={pricingLoading}>
           {pricingPlans.map((plan) => {
             const planText = t.pricing.plans[plan.id];
             const price = priceCatalog[plan.id]?.[billingCycle];
@@ -601,6 +669,8 @@ export function PricingSection() {
                             ? t.pricing.ctaDaysVoucher.replace("{days}", String(voucherPreview.grantDays ?? ""))
                             : voucherTargetsPlan && voucherPreview?.kind === "discount"
                               ? t.pricing.ctaDiscount
+                            : !session
+                              ? t.nav.installGuest
                               : plan.isFree ? t.pricing.ctaFree : t.pricing.ctaPaid}
                 </button>
               </div>

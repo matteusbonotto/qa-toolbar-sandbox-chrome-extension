@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { NavLink } from "react-router-dom";
 import { useAuth } from "../lib/AuthProvider";
 
 const NAV_ITEMS = [
@@ -14,7 +13,7 @@ const NAV_ITEMS = [
   { to: "/campanhas", label: "Campanhas", end: false },
 ];
 
-export function Layout({ children }: { children: ReactNode }) {
+export function Layout({ children, currentPath }: { children: ReactNode; currentPath: string }) {
   const { user, signOut } = useAuth();
 
   return (
@@ -29,14 +28,13 @@ export function Layout({ children }: { children: ReactNode }) {
         </div>
         <nav className="qa-nav">
           {NAV_ITEMS.map((item) => (
-            <NavLink
+            <a
               key={item.to}
-              to={item.to}
-              end={item.end}
-              className={({ isActive }) => `qa-nav-item${isActive ? " isActive" : ""}`}
+              href={`#${item.to}`}
+              className={`qa-nav-item${currentPath === item.to ? " isActive" : ""}`}
             >
               {item.label}
-            </NavLink>
+            </a>
           ))}
         </nav>
         <div className="qa-sidebar-footer">

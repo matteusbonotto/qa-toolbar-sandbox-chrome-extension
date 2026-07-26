@@ -1,12 +1,21 @@
+import { createHash } from "node:crypto";
 import { createServer } from "node:http";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
-const extensionPath = resolve(root, "apps/extension");
+const extensionPathArgument = process.argv.find((argument) => argument.startsWith("--extension-path="))?.slice("--extension-path=".length);
+const extensionPath = resolve(root, extensionPathArgument || "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-smoke-profile");
 const evidencePath = resolve(root, "artifacts/runtime-evidence");
+const sourceFingerprint = createHash("sha256")
+  .update(await readFile(resolve(extensionPath, "manifest.json")))
+  .update(await readFile(resolve(extensionPath, "src/background/background.js")))
+  .update(await readFile(resolve(extensionPath, "src/toolbar/toolbar.js")))
+  .digest("hex");
+console.log(`[chrome-smoke] source fingerprint ${sourceFingerprint}`);
+console.log(`[chrome-smoke] extension path ${extensionPath}`);
 let lastTrace = "startup";
 let smokeWatchdog;
 const armSmokeWatchdog = () => {
@@ -107,8 +116,31 @@ try {
     try { return ["matteusbonotto.github.io"].includes(new URL(page.url()).hostname); } catch { return false; }
   });
   if (installDemoTabs.length !== 1) throw new Error(`Fresh install should open exactly one demo-site tab, found ${installDemoTabs.length}`);
+  const installDemo = installDemoTabs[0];
+  await installDemo.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  if (!(await installDemo.locator("#bar.isLoggedOut").count())) throw new Error("Fresh-install toolbar did not render its logged-out state");
+  if (!(await installDemo.locator("#loggedOutLoginButton").count())) throw new Error("Fresh-install toolbar has no login action");
+  if (await installDemo.locator("#toolsButton:visible").count()) throw new Error("Protected Tools action remained visible while logged out");
+  if (await installDemo.locator(".qts-tour-balloon").count()) throw new Error("Live tour started while the user was logged out");
+  let loggedOutTourOptions = null;
+  for (let attempt = 0; attempt < 40 && !loggedOutTourOptions; attempt += 1) {
+    loggedOutTourOptions = context.pages().find((page) => page.url().startsWith(`chrome-extension://${extensionId}/src/options/options.html?tab=account`)) || null;
+    if (!loggedOutTourOptions) await new Promise((resolveOptions) => setTimeout(resolveOptions, 100));
+  }
+  if (!loggedOutTourOptions) throw new Error("Logged-out tutorial request did not redirect to Minha conta");
+  await loggedOutTourOptions.waitForLoadState("domcontentloaded");
+  if (!(await loggedOutTourOptions.locator('.panel[data-panel="account"].isActive').count())) throw new Error("Logged-out tutorial redirect did not activate Minha conta");
+  await loggedOutTourOptions.close();
+  const optionsOpened = context.waitForEvent("page", (page) => page.url().startsWith(`chrome-extension://${extensionId}/src/options/options.html`));
+  await installDemo.locator("#loggedOutLoginButton").click();
+  const options = await optionsOpened;
+  await options.waitForLoadState("domcontentloaded");
+  if (new URL(options.url()).searchParams.get("tab") !== "account") throw new Error(`Logged-out login action did not target Minha conta: ${options.url()}`);
+  if (!(await options.locator('.panel[data-panel="account"].isActive').count())) throw new Error("Minha conta panel was not active after clicking Entrar");
+  if (await options.locator("html").getAttribute("data-theme") !== "light") throw new Error("Fresh workspace did not default to light appearance");
+  if (await options.locator('[data-color-theme="blue-light"]').getAttribute("aria-checked") !== "true") throw new Error("Fresh workspace did not default to blue-light");
   await installDemoTabs[0].close();
-  trace("fresh-install onboarding opens exactly one demo-site tab");
+  trace("fresh-install logged-out toolbar and Minha conta login handoff verified");
 
   const host = await context.newPage();
   const hostErrors = [];
@@ -118,11 +150,13 @@ try {
   await host.waitForTimeout(500);
   if (await host.locator("#qts-toolbar-host").count()) throw new Error("Toolbar mounted without authentication");
 
-  const options = await context.newPage();
   const optionsErrors = [];
   options.on("console", (message) => { if (message.type() === "error") optionsErrors.push(message.text()); });
   options.on("pageerror", (error) => optionsErrors.push(error.message));
-  await options.goto(`chrome-extension://${extensionId}/src/options/options.html`);
+  // Account deep links add search/hash state. Authentication must still reach the service worker;
+  // an exact sender.url comparison used to silently drop these messages and yield
+  // "Could not establish connection. Receiving end does not exist."
+  await options.goto(`chrome-extension://${extensionId}/src/options/options.html?tab=account#login`);
   await options.locator("#loginEmail").fill("tester@example.com");
   await options.locator("#loginPassword").fill("safe-test-password");
   await options.locator("#loginForm button[type=submit]").click();
@@ -141,6 +175,24 @@ try {
     });
   }
   if (firstAccessTourTabs.length !== 1) throw new Error(`First successful login should open exactly one demo-site tour tab, found ${firstAccessTourTabs.length}`);
+  try {
+    await firstAccessTourTabs[0].locator("#qts-toolbar-host").waitFor({ state: "attached", timeout: 15_000 });
+  } catch (error) {
+    const diagnostics = await worker.evaluate(async () => {
+      const [registered, stored] = await Promise.all([
+        chrome.scripting.getRegisteredContentScripts(),
+        chrome.storage.local.get(["qtsWorkspaceV1", "qtsSiteScopeV1", "qtsAccessStatusV1"]),
+      ]);
+      return {
+        registered: registered.map(({ id, matches }) => ({ id, matches })),
+        bindings: stored.qtsWorkspaceV1?.urlBindings,
+        scope: stored.qtsSiteScopeV1,
+        access: stored.qtsAccessStatusV1,
+      };
+    }).catch((diagnosticError) => ({ diagnosticError: String(diagnosticError) }));
+    throw new Error(`Demo site opened after login without the toolbar. URL=${firstAccessTourTabs[0].url()} diagnostics=${JSON.stringify(diagnostics)} worker=${workerErrors.join(" | ") || "none"}`, { cause: error });
+  }
+  trace("first-login demo toolbar injection verified");
   await firstAccessTourTabs[0].close();
   trace("first-login onboarding opens exactly one tour tab");
   // The onboarding assertion above intentionally seeds the demo workspace. Reset only this
@@ -273,6 +325,34 @@ try {
   await options.locator("#urlRelationComposer [data-close-composer]").click();
   trace("workspace relationships verified");
 
+  // Exercise the popup with a controlled host-tab URL. In production the same sourceUrl variable
+  // comes from chrome.tabs.query(active/currentWindow); the explicit parameter keeps this flow
+  // deterministic because Playwright does not expose Chrome's native action popup as a Page.
+  await host.goto("http://127.0.0.1:43117/popup-target?token=remove-me#section");
+  await host.bringToFront();
+  const popup = await context.newPage();
+  await popup.goto(`chrome-extension://${extensionId}/src/popup/popup.html?sourceUrl=${encodeURIComponent(host.url())}`);
+  await popup.locator("#urlForm").waitFor({ state: "visible" });
+  if (await popup.locator("#activeUrl").inputValue() !== "http://127.0.0.1:43117/popup-target?token=remove-me#section") throw new Error("Extension popup did not capture the active tab URL");
+  if (await popup.locator("#sensitiveWarning").isHidden()) throw new Error("Extension popup did not warn about query/hash data");
+  await popup.locator("#client").selectOption({ index: 1 });
+  await popup.locator("#project").selectOption({ index: 1 });
+  await popup.locator("#product").selectOption({ index: 1 });
+  await popup.locator('input[name="environment"]').first().check();
+  const previewPattern = await popup.locator("#patternPreview").textContent();
+  if (previewPattern.includes("token=") || previewPattern.includes("#section")) throw new Error(`Popup persisted sensitive URL data silently: ${previewPattern}`);
+  await popup.locator("#save").click();
+  await popup.getByText("URL salva.").waitFor();
+  const popupBinding = await options.evaluate(async () => {
+    const stored = await chrome.storage.local.get("qtsWorkspaceV1");
+    return stored.qtsWorkspaceV1?.urlBindings?.find((binding) => binding.patterns?.some((pattern) => pattern.includes("/popup-target")));
+  });
+  if (!popupBinding?.patterns?.length) throw new Error("Popup URL was not saved in the official workspace binding collection");
+  await popup.close();
+  await host.waitForLoadState("domcontentloaded");
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  trace("active-tab URL popup, sensitive-data warning and immediate toolbar recognition verified");
+
   // Deletion now goes through a themed <dialog> instead of window.confirm() — verify both the
   // Cancelar (no-op) and Excluir (removes) paths against one of the injected preview environments.
   await options.locator('[data-workspace-tab="environments"]').click();
@@ -352,11 +432,148 @@ try {
   await host.screenshot({ path: resolve(evidencePath, "extension-theme-tools-menu.png"), fullPage: false });
   await host.locator("#inputLabMenuItem").click();
   await host.locator(".qts-drawer").waitFor();
+  for (const control of ["#drawerSearch", "#drawerPosition", "#drawerPin", "#drawerMinimize", "#drawerClose"]) {
+    if (!(await host.locator(control).count())) throw new Error(`Shared sidebar control is missing: ${control}`);
+  }
+  if (!(await host.locator("#drawerDetach").count())) throw new Error("Sidebar is missing the open-in-new-window action");
+  const positionSelectLayout = await host.locator("#drawerPosition").evaluate((select) => {
+    const style = getComputedStyle(select);
+    const rect = select.getBoundingClientRect();
+    const contentHeight = rect.height
+      - Number.parseFloat(style.paddingTop)
+      - Number.parseFloat(style.paddingBottom)
+      - Number.parseFloat(style.borderTopWidth)
+      - Number.parseFloat(style.borderBottomWidth);
+    const requiredTextHeight = Number.parseFloat(style.fontSize) * 1.25;
+    return {
+      height: rect.height,
+      contentHeight,
+      requiredTextHeight,
+      lineHeight: style.lineHeight,
+      paddingTop: style.paddingTop,
+      paddingBottom: style.paddingBottom,
+    };
+  });
+  if (positionSelectLayout.height < 34 || positionSelectLayout.contentHeight < positionSelectLayout.requiredTextHeight) {
+    throw new Error(`Sidebar position text is vertically clipped: ${JSON.stringify(positionSelectLayout)}`);
+  }
+  const detachedPagePromise = context.waitForEvent("page");
+  await host.locator("#drawerDetach").click();
+  const detachedPage = await detachedPagePromise;
+  await detachedPage.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await detachedPage.locator(".qts-drawer-backdrop.isDetached .qts-drawer").waitFor();
+  await detachedPage.setViewportSize({ width: 360, height: 540 });
+  const detachedChrome = await detachedPage.locator("#qts-toolbar-host").evaluate((element) => {
+    const shadow = element.shadowRoot;
+    const backdrop = shadow.querySelector(".qts-drawer-backdrop.isDetached");
+    const drawer = backdrop?.querySelector(".qts-drawer");
+    const body = backdrop?.querySelector(".qts-drawer-body");
+    const rect = drawer?.getBoundingClientRect();
+    return {
+      barHidden: getComputedStyle(shadow.querySelector("#bar")).display === "none",
+      view: shadow.querySelector("#drawerHost")?.dataset.view,
+      viewport: { width: innerWidth, height: innerHeight },
+      drawer: rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null,
+      bodyOverflow: body ? body.scrollWidth - body.clientWidth : null,
+    };
+  });
+  if (!detachedChrome.barHidden || detachedChrome.view !== "inputLab") throw new Error(`Detached tool window did not isolate the requested panel: ${JSON.stringify(detachedChrome)}`);
+  if (!detachedChrome.drawer
+      || Math.abs(detachedChrome.drawer.left) > 1
+      || Math.abs(detachedChrome.drawer.top) > 1
+      || Math.abs(detachedChrome.drawer.width - detachedChrome.viewport.width) > 1
+      || Math.abs(detachedChrome.drawer.height - detachedChrome.viewport.height) > 1
+      || detachedChrome.bodyOverflow > 1) {
+    throw new Error(`Detached sidebar is not responsive to its own viewport: ${JSON.stringify(detachedChrome)}`);
+  }
+  const detachedClosePromise = detachedPage.waitForEvent("close");
+  await detachedPage.locator("#drawerClose").evaluate((button) => button.click());
+  await detachedClosePromise;
+
+  // Modal tools use the same detached-window shell, but historically retained their centered
+  // modal padding/size and overflowed a narrow popup. Verify both variants and the real red close
+  // action instead of closing the Playwright page directly.
+  await host.locator("#drawerClose").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#macroStudioMenuItem").click();
+  await host.locator(".qts-drawer-backdrop.isModal .qts-drawer").waitFor();
+  const detachedModalPromise = context.waitForEvent("page");
+  await host.locator("#drawerDetach").click();
+  const detachedModalPage = await detachedModalPromise;
+  await detachedModalPage.locator(".qts-drawer-backdrop.isDetached.isModal .qts-drawer").waitFor();
+  await detachedModalPage.setViewportSize({ width: 360, height: 540 });
+  const detachedModalLayout = await detachedModalPage.locator("#qts-toolbar-host").evaluate((element) => {
+    const shadow = element.shadowRoot;
+    const drawer = shadow.querySelector(".qts-drawer-backdrop.isDetached.isModal .qts-drawer");
+    const body = drawer?.querySelector(".qts-drawer-body");
+    const rect = drawer?.getBoundingClientRect();
+    return {
+      viewport: { width: innerWidth, height: innerHeight },
+      drawer: rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null,
+      bodyOverflow: body ? body.scrollWidth - body.clientWidth : null,
+    };
+  });
+  if (!detachedModalLayout.drawer
+      || Math.abs(detachedModalLayout.drawer.left) > 1
+      || Math.abs(detachedModalLayout.drawer.top) > 1
+      || Math.abs(detachedModalLayout.drawer.width - detachedModalLayout.viewport.width) > 1
+      || Math.abs(detachedModalLayout.drawer.height - detachedModalLayout.viewport.height) > 1
+      || detachedModalLayout.bodyOverflow > 1) {
+    throw new Error(`Detached modal is not responsive to its own viewport: ${JSON.stringify(detachedModalLayout)}`);
+  }
+  const detachedModalClosePromise = detachedModalPage.waitForEvent("close");
+  await detachedModalPage.locator("#drawerClose").evaluate((button) => button.click());
+  await detachedModalClosePromise;
+  await host.locator("#drawerClose").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#inputLabMenuItem").click();
+  await host.locator(".qts-drawer").waitFor();
+  await host.locator("#drawerPosition").selectOption("left");
+  if (await host.locator("#drawerBackdrop").getAttribute("data-position") !== "left") throw new Error("Sidebar did not move to the left");
+  await host.locator("#drawerPin").click();
+  if (await host.locator("#drawerPin").getAttribute("aria-pressed") !== "true") throw new Error("Sidebar pin did not activate");
+  await host.locator("#drawerMinimize").click();
+  if (await host.locator(".qts-drawer").count()) throw new Error("Minimized sidebar remained visible");
+  if (!(await host.locator("#minimizedDrawerButton.isActive").count())) throw new Error("Minimized sidebar did not create a highlighted toolbar shortcut");
+  await host.locator("#minimizedDrawerButton").click();
+  await host.locator(".qts-drawer").waitFor();
   const drawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
-  if (drawerCloseBg !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the drawer close button: ${drawerCloseBg}`);
+  if (drawerCloseBg !== "rgb(199, 14, 14)") throw new Error(`Drawer close button is not the allowed red exception: ${drawerCloseBg}`);
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
+  const switchLayout = await host.locator(".qts-switch-row").first().evaluate((row) => {
+    const input = row.querySelector('input[type="checkbox"]');
+    const toggle = input.getBoundingClientRect();
+    const copy = row.querySelector("span").getBoundingClientRect();
+    const knob = getComputedStyle(input, "::after");
+    return {
+      toggleRight: toggle.right, copyLeft: copy.left, copyWidth: copy.width,
+      rowWidth: row.getBoundingClientRect().width, toggleWidth: toggle.width,
+      toggleHeight: toggle.height, knobWidth: parseFloat(knob.width), knobHeight: parseFloat(knob.height),
+      borderRadius: getComputedStyle(input).borderRadius,
+    };
+  });
+  if (
+    switchLayout.toggleRight > switchLayout.copyLeft
+    || switchLayout.copyWidth < switchLayout.rowWidth / 2
+    || switchLayout.toggleWidth !== 38
+    || switchLayout.toggleHeight !== 22
+    || switchLayout.knobWidth !== 16
+    || switchLayout.knobHeight !== 16
+    || switchLayout.borderRadius !== "999px"
+  ) {
+    throw new Error(`Key View toggle overlaps or clips its text: ${JSON.stringify(switchLayout)}`);
+  }
+  const mouseSwitchBefore = await host.locator("#keyViewMouse").isChecked();
+  await host.locator("#keyViewMouse").click();
+  await host.getByText("Configurações salvas.").waitFor();
+  const persistedMouseSwitch = await options.evaluate(async () => {
+    const result = await chrome.storage.local.get("qtsWorkspaceV1");
+    return result.qtsWorkspaceV1?.preferences?.keyView?.mouseEffects;
+  });
+  if (persistedMouseSwitch !== !mouseSwitchBefore) throw new Error("Key View mouse switch did not persist immediately");
+  await host.locator("#keyViewMouse").click();
   await host.locator("#keyViewToggle").click();
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();
@@ -368,18 +585,21 @@ try {
   const mouseFill = await host.locator("#qts-mouse-view-overlay .qts-mouse-left").evaluate((node) => getComputedStyle(node).fill);
   if (mouseFill !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the Key View mouse overlay: ${mouseFill}`);
   await host.locator("main").dispatchEvent("mouseup", { button: 0, clientX: 300, clientY: 300 });
+  await host.locator("main").dispatchEvent("wheel", { deltaY: 120, clientX: 300, clientY: 300 });
+  const scrollFill = await host.locator("#qts-mouse-view-overlay .qts-mouse-wheel").evaluate((node) => getComputedStyle(node).fill);
+  if (scrollFill !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the Key View scroll indicator: ${scrollFill}`);
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
   await host.locator("#keyViewToggle").click();
   await host.locator("#drawerClose").click();
   if (await options.locator('[data-color-theme="blue-dark"]').getAttribute("aria-checked") !== "true") throw new Error("Selected color theme swatch did not stay marked as checked");
   await options.locator("#colorThemeReset").click();
-  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "");
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#2563eb");
   await host.locator("#toolsButton").click();
   await host.locator("#inputLabMenuItem").click();
   await host.locator(".qts-drawer").waitFor();
   const resetDrawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
-  if (resetDrawerCloseBg !== "rgb(178, 8, 8)") throw new Error(`Color theme reset did not restore the default drawer close color: ${resetDrawerCloseBg}`);
+  if (resetDrawerCloseBg !== "rgb(199, 14, 14)") throw new Error(`Color theme reset did not preserve the red close-button exception: ${resetDrawerCloseBg}`);
   await host.locator("#drawerClose").click();
   trace("24 color theme presets verified (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
@@ -407,6 +627,44 @@ try {
   if (await host.locator("#testStatusButton").isVisible()) throw new Error("Test Status should live in Tools, not in the four permanent shortcuts");
   if (await host.locator("#extraPinnedTools button").count()) throw new Error("Fresh workspace should allow zero optional fixed shortcuts");
   trace("required fixed shortcuts + zero optional state verified");
+
+  await host.locator("#passButton").click();
+  if (!await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Pass placement mode did not activate");
+  await host.locator("#toolsButton").click();
+  await host.locator("#disableAllToolsMenuItem").click();
+  if (await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Global tool shutdown left placement mode active");
+  if (await host.locator("button.isActive").count()) throw new Error("Global tool shutdown left an active toolbar control");
+  trace("global active-tool shutdown verified");
+
+  const shortcutInput = options.locator('[data-shortcut-key="inspectors"]');
+  await shortcutInput.dispatchEvent("keydown", { key: "I", code: "KeyI", altKey: true, shiftKey: true, bubbles: true, cancelable: true });
+  if (await shortcutInput.inputValue() !== "Alt+Shift+I") throw new Error("Custom shortcut capture did not format the key combination");
+  await options.locator("#saveGeneralSettings").click();
+  await host.locator("h1").press("Alt+Shift+I");
+  await host.locator(".qts-drawer").waitFor();
+  if (!/Inspect/i.test(await host.locator(".qts-drawer-head h2").textContent())) throw new Error("Custom shortcut did not open the configured tool");
+  await host.locator("#drawerClose").click();
+  trace("custom tool shortcut capture, persistence and execution verified");
+
+  await host.locator("#toolsButton").click();
+  await host.locator("#languageValidatorMenuItem").click();
+  await host.locator("#languageFile").setInputFiles({ name: "pt-BR.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ title: "Ambiente de teste", missing: "Texto que não existe" })) });
+  await host.getByText("1/2 textos encontrados").waitFor();
+  const validationRows = await host.locator("#languageResults .qts-list-row").count();
+  if (validationRows !== 2) throw new Error(`Language validator did not report every imported text: ${validationRows}`);
+  await host.locator("#drawerClose").click();
+  trace("JSON language-text validator verified against visible page content");
+
+  await host.locator("#toolsButton").click();
+  await host.locator("#qrCodeMenuItem").click();
+  await host.locator("#qrCanvas").waitFor();
+  const qrEvidence = await host.locator("#qrCanvas").evaluate((canvas) => ({ dataLength: canvas.toDataURL("image/png").length, status: canvas.closest(".qts-drawer-body").querySelector("#qrStatus")?.textContent || "" }));
+  if (qrEvidence.dataLength < 1_000 || qrEvidence.status.includes("token=")) throw new Error(`Local QR generator failed or leaked sensitive URL data: ${JSON.stringify(qrEvidence)}`);
+  const qrDownloadPromise = host.waitForEvent("download");
+  await host.locator("#qrDownload").click();
+  if ((await qrDownloadPromise).suggestedFilename() !== "qa-toolbar-qrcode.png") throw new Error("QR download did not produce the expected PNG");
+  await host.locator("#drawerClose").click();
+  trace("offline QR generation and PNG download verified");
 
   // Warning/Question join Pass/Fail as page markers, but Pass/Fail keep their own always-visible
   // one-click buttons (a tested, deliberate product decision -- see the fixed-shortcuts check right
@@ -545,16 +803,25 @@ try {
   trace("line: controls visible");
   await host.locator(".qts-line .qts-edit-btn").click();
   trace("line: editor opened");
-  await host.locator("[data-line-start]").selectOption("dotFilled");
-  await host.locator("[data-line-end]").selectOption("arrow");
+  const endpointControls = await host.locator(".qts-line-endpoint-options").evaluateAll((groups) => groups.map((group) => ({
+    buttons: group.querySelectorAll("label").length,
+    icons: group.querySelectorAll("label svg.qts-line-endpoint-icon").length,
+    visibleText: [...group.querySelectorAll("label span")].map((span) => span.textContent.trim()).filter(Boolean),
+    accessibleNames: [...group.querySelectorAll('input[type="radio"]')].map((input) => input.getAttribute("aria-label")),
+  })));
+  if (endpointControls.length !== 2 || endpointControls.some((group) => group.buttons !== 5 || group.icons !== 5 || group.visibleText.length || new Set(group.accessibleNames).size !== 5)) {
+    throw new Error(`Line endpoint choices must be five distinct icon buttons with accessible names: ${JSON.stringify(endpointControls)}`);
+  }
+  await host.locator('[name="line-start"][value="dotFilled"]').check({ force: true });
+  await host.locator('[name="line-end"][value="arrow"]').check({ force: true });
   if (!(await host.locator(".qts-line").evaluate((line) => line.classList.contains("startHasDotFilled") && line.classList.contains("hasArrow")))) throw new Error("Independent line endpoints did not apply");
   await host.locator(".qts-line .qts-shape-editor [data-save]").click();
   trace("line: arrow saved");
   if (await host.locator(".qts-line .qts-shape-editor").count()) throw new Error("Salvar did not close the line's style editor popup");
   if (await host.locator(".qts-line").count() !== 1) throw new Error("Salvar on the line editor should not remove the line itself");
   await host.locator(".qts-line .qts-edit-btn").click();
-  await host.locator("[data-line-start]").selectOption("triangle");
-  await host.locator("[data-line-end]").selectOption("dotHollow");
+  await host.locator('[name="line-start"][value="triangle"]').check({ force: true });
+  await host.locator('[name="line-end"][value="dotHollow"]').check({ force: true });
   if (!(await host.locator(".qts-line").evaluate((line) => line.classList.contains("startHasTriangle") && line.classList.contains("hasDotHollow")))) throw new Error("Independent alternate line endpoints did not apply");
   await host.locator(".qts-line .qts-shape-editor [data-save]").click();
   await host.locator(".qts-line .qts-remove-btn").click();
@@ -951,6 +1218,15 @@ try {
   const pinnedMacroCount = await host.locator("#pinnedMacrosMenu [data-pinned-macro]").count();
   if (pinnedMacroCount !== 1) throw new Error("Pinned macro was not added to the tools menu");
   await host.locator('#macroList .qts-card').first().locator('[data-macro-action="edit"]').click();
+  const visibleMacroOptions = await host.locator("#macroVisibleElements option").count();
+  if (visibleMacroOptions < 5) throw new Error(`Macro manual element list is incomplete: ${visibleMacroOptions}`);
+  const macroTargetOption = host.locator('#macroVisibleElements option[value="#macroTarget"]');
+  if (await macroTargetOption.count() !== 1 || !(await macroTargetOption.innerText()).includes("Ação da macro")) {
+    throw new Error("Macro manual element list did not expose an accessible label and selector");
+  }
+  if (await host.locator('[data-field="selector"][list="macroVisibleElements"]').count() < 1) {
+    throw new Error("Macro selector fields are not connected to the searchable visible-element list");
+  }
   await host.locator('[data-macro-mode="coder"]').click();
   const generatedCode = await host.locator("#macroCode").innerText();
   if (!generatedCode.includes("page.locator") || generatedCode.includes("segredo-da-gravacao") || /\beval\s*\(/.test(generatedCode)) throw new Error(`Unsafe or incomplete generated macro code: ${generatedCode}`);
@@ -1207,15 +1483,37 @@ try {
   trace("live tutorial tour verified (spotlight, step advance, achievement sound, skip-to-workspace)");
 
   // Menu tools use a deliberate two-stage tour: the user first opens Tools, then the requested
-  // item is highlighted. Opening a drawer must remove the page dim and retain contextual help.
-  await host.goto("http://127.0.0.1:43117/app?qtsTutorial=1&qtsTutorialStep=blurElements");
+  // item is highlighted. Use an item below the eight-row visible area to prove the compact menu
+  // scrolls before spotlight geometry is measured. Opening its drawer must remove the page dim
+  // and retain contextual help.
+  await host.goto("http://127.0.0.1:43117/app?qtsTutorial=1&qtsTutorialStep=paymentMethods");
   await toolbar.waitFor({ timeout: 10_000 });
   await host.locator(".qts-tour-balloon b").filter({ hasText: /Ferramentas|Tools|Herramientas/ }).waitFor();
   if (await host.locator("#toolsMenu.isOpen").count()) throw new Error("Tool tour opened Tools before the user action");
   await host.locator("#toolsButton").click();
-  await host.locator("#blurElementsMenuItem").waitFor({ state: "visible" });
-  await host.locator(".qts-tour-balloon b").filter({ hasText: /Borrar|Blur/ }).waitFor();
-  await host.locator("#blurElementsMenuItem").click();
+  await host.locator("#paymentMethodsMenuItem").waitFor({ state: "visible" });
+  await host.locator(".qts-tour-balloon b").filter({ hasText: /Meios de pagamento|Payment methods|Medios de pago/ }).waitFor();
+  const scrolledToolTourGeometry = await host.locator("#qts-toolbar-host").evaluate((element) => {
+    const shadow = element.shadowRoot;
+    const menu = shadow.querySelector("#toolsMenu");
+    const target = shadow.querySelector("#paymentMethodsMenuItem");
+    const spotlight = shadow.querySelector(".qts-tour-spotlight");
+    const menuRect = menu.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const spotlightRect = spotlight.getBoundingClientRect();
+    return {
+      scrollTop: menu.scrollTop,
+      targetInsideMenu: targetRect.top >= menuRect.top && targetRect.bottom <= menuRect.bottom,
+      spotlightContainsTarget: spotlightRect.left <= targetRect.left
+        && spotlightRect.top <= targetRect.top
+        && spotlightRect.right >= targetRect.right
+        && spotlightRect.bottom >= targetRect.bottom,
+    };
+  });
+  if (scrolledToolTourGeometry.scrollTop <= 0 || !scrolledToolTourGeometry.targetInsideMenu || !scrolledToolTourGeometry.spotlightContainsTarget) {
+    throw new Error(`Tour did not scroll and align a clipped Tools item before highlighting it: ${JSON.stringify(scrolledToolTourGeometry)}`);
+  }
+  await host.locator("#paymentMethodsMenuItem").click();
   await host.locator("#drawerHost .qts-drawer").waitFor();
   await host.locator(".qts-tour-balloon").filter({ hasText: /ferramenta está aberta|tool is open|herramienta está abierta/i }).waitFor();
   if (await host.locator(".qts-tour-spotlight").count()) throw new Error("Tour kept the dimming spotlight over an open tool drawer");

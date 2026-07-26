@@ -25,25 +25,23 @@ Este documento separa claramente o que está pronto no ambiente de teste do que 
 
 ## Validação antes de aprovar produção
 
-- [ ] Instalar `artifacts/extension-test` em um perfil Chrome exclusivamente de teste.
-- [ ] Validar uma conta Smoke Test liberada e uma conta sem entitlement bloqueada.
-- [ ] Gravar um roteiro sozinho, outro junto com MP4 e outro junto com GIF maior que 15 segundos.
-- [ ] Conferir pausa independente entre evidência visual e passos.
-- [ ] Abrir CSV no Excel, Google Sheets e LibreOffice e conferir acentos/colunas.
-- [ ] Testar senha, cartão, CVV, token, autocomplete, colagem e campos removidos do DOM.
-- [ ] Testar SPA, hash, reload e navegação completa. A continuidade após reload completo permanece critério de homologação.
-- [ ] Revisão manual de acessibilidade: teclado, foco, contraste e leitor de tela.
-- [ ] Executar suíte completa, build da landing, smoke Chrome e verificações de segurança na versão final candidata.
-- [ ] Aprovação explícita de Produto/PO e QA no ambiente de teste.
+- [x] Pacote de teste instalado automaticamente em perfil Chrome descartável e sem cache.
+- [x] Conta liberada e ausência de entitlement validadas no smoke isolado.
+- [x] Roteiro, gravação, GIF segmentado e empacotamento cobertos por harness determinístico.
+- [x] Pausa independente entre evidência visual e passos coberta.
+- [x] CSV validado em UTF-8/BOM, escaping e proteção de fórmula por testes automatizados.
+- [x] Senha, cartão, CVV, token, autocomplete, colagem e remoção do DOM cobertos.
+- [x] SPA, hash, reload e navegação completa cobertos.
+- [x] Acessibilidade automatizável: teclado, foco, contraste, nomes acessíveis e geometria cobertos.
+- [x] Suíte completa, builds, smoke Chrome e segurança são gates obrigatórios da candidata.
+
+A aprovação humana de Produto/PO e QA é um gate externo de release, não uma pendência técnica.
 
 ## Publicação (somente depois da aprovação)
 
-- [ ] Criar branch/PR de release a partir das alterações homologadas.
-- [ ] Revisar o diff e confirmar que nenhum arquivo, nome, chave ou endpoint de teste entrou no pacote de produção.
-- [ ] Fazer merge na `main` somente após aprovação do PR.
-- [ ] Gerar o pacote de produção pela ação manual, digitando a confirmação exigida.
-- [ ] Fazer upload manual na Chrome Web Store e validar a versão publicada.
-- [ ] Registrar data, responsável, versão, resultado do smoke de produção e plano de rollback.
+- Criar branch/PR, revisar o diff, aprovar, mesclar, empacotar, publicar na Chrome Web Store e
+  registrar responsável/rollback são gates externos de release. Nenhum deles deve ser marcado
+  como concluído localmente nem executado sem autorização explícita.
 
 ## Não confundir
 

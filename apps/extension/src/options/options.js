@@ -151,7 +151,14 @@ function escapeHtml(value) {
 }
 
 function runtimeMessage(message) {
-  return new Promise((resolve) => chrome.runtime.sendMessage(message, (response) => resolve(response ?? {})));
+  return new Promise((resolve) => chrome.runtime.sendMessage(message, (response) => {
+    const runtimeError = chrome.runtime.lastError;
+    if (runtimeError) {
+      resolve({ ok: false, error: "extension_connection_failed", detail: runtimeError.message });
+      return;
+    }
+    resolve(response ?? { ok: false, error: "extension_no_response" });
+  }));
 }
 
 const NAV_WORKSPACE_ROUTES = Object.freeze({ workspace: "structure", "test-data": "accounts", integrations: "integrations" });
@@ -231,7 +238,15 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
   document.getElementById("loginPassword").value = "";
   button.disabled = false;
   if (!response.ok) {
-    const messages = { authentication_failed: "E-mail ou senha inválidos.", rate_limit_exceeded: "Muitas tentativas. Aguarde alguns minutos.", access_required: "Conta válida, mas sem acesso ativo." };
+    const messages = {
+      authentication_failed: "E-mail ou senha inválidos.",
+      invalid_credentials: "Informe um e-mail válido e uma senha com pelo menos 8 caracteres.",
+      rate_limit_exceeded: "Muitas tentativas. Aguarde alguns minutos.",
+      access_required: "Conta válida, mas sem acesso ativo.",
+      origin_not_allowed: "Esta instalação local não está autorizada pelo servidor. Recarregue a versão oficial ou o pacote de teste identificado.",
+      extension_connection_failed: "A extensão foi atualizada, mas o processo interno ainda não recarregou. Recarregue-a em chrome://extensions e tente novamente.",
+      extension_no_response: "A extensão não respondeu. Recarregue-a em chrome://extensions e tente novamente.",
+    };
     showMessage("authMessage", messages[response.error] || "Não foi possível entrar. Confira os dados e tente novamente.", "Error");
     return;
   }
@@ -362,6 +377,7 @@ function applyColorThemeToPage(colorTheme) {
 
 function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
+  ensureFeatureRegistryControls();
   applyColorThemeToPage(preferences.colorTheme || null);
   document.getElementById("appearanceTheme").value = preferences.appearanceTheme === "light" ? "light" : "dark";
   applyAppearanceTheme(document.getElementById("appearanceTheme").value);
@@ -371,6 +387,10 @@ function loadPreferenceUi() {
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
   document.getElementById("remindTestStatusOnRecording").checked = preferences.remindTestStatusOnRecording === true;
+  document.getElementById("drawerPosition").value = ["left", "right", "top", "bottom"].includes(preferences.drawerPosition) ? preferences.drawerPosition : "right";
+  document.getElementById("toolbarPosition").value = ["top", "bottom", "left", "right"].includes(preferences.toolbarPosition) ? preferences.toolbarPosition : "top";
+  document.getElementById("mobileDrawerPosition").value = ["left", "right", "top", "bottom"].includes(preferences.mobileDrawerPosition) ? preferences.mobileDrawerPosition : "bottom";
+  document.getElementById("mobileToolbarPosition").value = ["top", "bottom", "left", "right"].includes(preferences.mobileToolbarPosition) ? preferences.mobileToolbarPosition : "top";
   document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
   const pinned = new Set(preferences.pinnedTools || []);
   document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
@@ -380,12 +400,70 @@ function loadPreferenceUi() {
   renderToolsMenuOrderList();
   document.getElementById("toolsSortMode").value = ["custom", "az", "za", "mostUsed"].includes(preferences.toolsSortMode) ? preferences.toolsSortMode : "custom";
   updateToolsMenuOrderVisibility();
+  customShortcutsDraft = { ...(preferences.customShortcuts || {}) };
+  renderCustomShortcuts();
   const breadcrumbVisibility = preferences.breadcrumbVisibility || {};
   document.querySelectorAll("[data-breadcrumb]").forEach((checkbox) => { checkbox.checked = breadcrumbVisibility[checkbox.dataset.breadcrumb] !== false; });
   breadcrumbOrderDraft = normalizeBreadcrumbOrderDraft(preferences.breadcrumbOrder);
   renderBreadcrumbOrderList();
   renderColorThemeGrid(preferences.colorTheme || null);
 }
+
+function ensureFeatureRegistryControls() {
+  const pinnedGrid = document.querySelector("[data-pinned]")?.closest(".checkGrid");
+  const toolsGrid = document.querySelector("[data-tool]")?.closest(".checkGrid");
+  for (const feature of window.QTS_STORAGE.FEATURE_REGISTRY) {
+    if (pinnedGrid && feature.pinnable && !pinnedGrid.querySelector(`[data-pinned="${CSS.escape(feature.key)}"]`)) {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" data-pinned="${escapeHtml(feature.key)}" /> ${escapeHtml(feature.label)}`;
+      pinnedGrid.appendChild(label);
+    }
+    if (toolsGrid && !toolsGrid.querySelector(`[data-tool="${CSS.escape(feature.key)}"]`)) {
+      const label = document.createElement("label");
+      label.innerHTML = `<input type="checkbox" data-tool="${escapeHtml(feature.key)}" /> ${escapeHtml(feature.label)}`;
+      toolsGrid.appendChild(label);
+    }
+  }
+}
+
+let customShortcutsDraft = {};
+function shortcutFromEvent(event) {
+  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+  if (["Control", "Alt", "Shift", "Meta"].includes(key)) return "";
+  const parts = [];
+  if (event.ctrlKey) parts.push("Ctrl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  if (event.metaKey) parts.push("Meta");
+  if (!parts.length || !/^(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(key)) return "";
+  return [...parts, key].join("+");
+}
+const RESERVED_SHORTCUTS = new Set(["Ctrl+L","Ctrl+T","Ctrl+W","Ctrl+N","Ctrl+R","Ctrl+F","Ctrl+Shift+T","Ctrl+Shift+N"]);
+function renderCustomShortcuts() {
+  const list = document.getElementById("customShortcutsList");
+  if (!list) return;
+  list.innerHTML = window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => `<label class="shortcutSetting"><span>${escapeHtml(feature.label)}</span><input type="text" readonly inputmode="none" data-shortcut-key="${escapeHtml(feature.key)}" value="${escapeHtml(customShortcutsDraft[feature.key] || "")}" placeholder="Não definido" /><button type="button" class="button" data-shortcut-reset="${escapeHtml(feature.key)}">Limpar</button></label>`).join("");
+  list.querySelectorAll("[data-shortcut-key]").forEach((input) => input.addEventListener("keydown", (event) => {
+    event.preventDefault();
+    const shortcut = shortcutFromEvent(event);
+    if (!shortcut) return;
+    const conflict = Object.entries(customShortcutsDraft).find(([key, value]) => key !== input.dataset.shortcutKey && value === shortcut);
+    const error = document.getElementById("customShortcutError");
+    if (RESERVED_SHORTCUTS.has(shortcut) || conflict) {
+      error.hidden = false;
+      error.textContent = RESERVED_SHORTCUTS.has(shortcut) ? `${shortcut} é reservado pelo navegador.` : `${shortcut} já está usado por ${window.QTS_STORAGE.FEATURE_REGISTRY.find((feature) => feature.key === conflict[0])?.label || conflict[0]}.`;
+      return;
+    }
+    error.hidden = true;
+    customShortcutsDraft[input.dataset.shortcutKey] = shortcut;
+    input.value = shortcut;
+  }));
+  list.querySelectorAll("[data-shortcut-reset]").forEach((button) => button.addEventListener("click", () => {
+    delete customShortcutsDraft[button.dataset.shortcutReset];
+    list.querySelector(`[data-shortcut-key="${CSS.escape(button.dataset.shortcutReset)}"]`).value = "";
+  }));
+}
+document.getElementById("resetCustomShortcuts").addEventListener("click", () => { customShortcutsDraft = {}; renderCustomShortcuts(); });
 
 const COLOR_FAMILY_LABEL_SOURCE = { white: "Branco", black: "Preto", gray: "Cinza", red: "Vermelho", gold: "Dourado", blue: "Azul", cyan: "Ciano", pink: "Rosa", green: "Verde", orange: "Laranja", beige: "Bege", brown: "Marrom" };
 const COLOR_MODE_LABEL_SOURCE = { light: "Claro", dark: "Escuro" };
@@ -418,10 +496,11 @@ document.getElementById("colorThemeGrid")?.addEventListener("click", async (even
 
 document.getElementById("colorThemeReset")?.addEventListener("click", async () => {
   if (!workspace) return;
-  applyColorThemeToPage(null);
-  workspace.preferences = { ...(workspace.preferences || {}), colorTheme: null };
+  applyAppearanceTheme("light");
+  applyColorThemeToPage("blue-light");
+  workspace.preferences = { ...(workspace.preferences || {}), colorTheme: "blue-light", appearanceTheme: "light" };
   await saveWorkspace(workspace);
-  renderColorThemeGrid(null);
+  renderColorThemeGrid("blue-light");
   document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
 });
 
@@ -591,6 +670,10 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
     pushSiteContent: document.getElementById("pushSiteContent").checked,
     soundEffects: document.getElementById("soundEffects").checked,
     remindTestStatusOnRecording: document.getElementById("remindTestStatusOnRecording").checked,
+    drawerPosition: document.getElementById("drawerPosition").value,
+    toolbarPosition: document.getElementById("toolbarPosition").value,
+    mobileDrawerPosition: document.getElementById("mobileDrawerPosition").value,
+    mobileToolbarPosition: document.getElementById("mobileToolbarPosition").value,
     avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
     pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
@@ -598,6 +681,7 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
     breadcrumbOrder: [...breadcrumbOrderDraft],
     toolsMenuOrder: [...toolsMenuOrderDraft],
     toolsSortMode: document.getElementById("toolsSortMode").value,
+    customShortcuts: { ...customShortcutsDraft },
   };
   await persistWorkspace();
   document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");

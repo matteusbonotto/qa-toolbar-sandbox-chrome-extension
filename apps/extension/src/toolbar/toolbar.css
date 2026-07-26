@@ -169,22 +169,29 @@ body.qts-placement-mode, body.qts-placement-mode * {
   border: 0 !important; border-radius: 999px !important; background: #3a3a3a !important; color: #fff !important;
   font-size: 11px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 2 !important;
 }
-.qts-visibility-btn svg { width: 11px !important; height: 11px !important; }
+.qts-visibility-btn svg { width: 14px !important; height: 14px !important; }
 
 /* No !important on size: these are set inline by JS (initial placement and drag-resize) and
    the qts- prefixed class is never realistically targeted by a host page's own CSS, unlike the
    generic host-cascade interference the all:initial/all:revert pair above already guards against. */
-.qts-marker { width: 52px; height: 52px; }
+.qts-marker { width: 24px; height: 24px; container-type: size; }
 .qts-marker-body {
   width: 100% !important; height: 100% !important; border-radius: 999px !important; cursor: grab !important;
   display: flex !important; align-items: center !important; justify-content: center !important;
-  color: #fff !important; font-size: 26px !important; font-weight: 900 !important; box-shadow: 0 10px 22px rgba(0,0,0,.3) !important;
+  color: #fff !important; font-size: 14px !important; font-weight: 900 !important; box-shadow: 0 6px 14px rgba(0,0,0,.26) !important;
 }
 .qts-marker-body svg { width: 50% !important; height: 50% !important; }
 .qts-marker-body.isPass { background: #179153 !important; }
 .qts-marker-body.isFail { background: #c70e0e !important; }
 .qts-marker-body.isWarning { background: #b45309 !important; }
 .qts-marker-body.isQuestion { background: #475569 !important; }
+@container (max-width: 60px) {
+  .qts-marker .qts-visibility-btn { left: -20px !important; top: -2px !important; }
+  .qts-marker .qts-remove-btn { right: -20px !important; top: -2px !important; }
+  .qts-marker .qts-resize-handle { right: -20px !important; top: 18px !important; }
+}
+.qts-modal-head-actions { display:flex !important; align-items:center !important; gap:6px !important; }
+.qts-modal header button.isDanger { background:#d30d18 !important; border-color:#d30d18 !important; color:#fff !important; }
 
 /* Sits immediately left of .qts-remove-btn (right:-8) — same slot pattern as .qts-edit-btn
    (right:18). Markers only ever have remove+resize, so resize takes the right:18 slot directly;
@@ -481,6 +488,22 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-line .qts-edit-btn { left: 26px !important; }
 .qts-line .qts-remove-btn { left: 52px !important; }
 .qts-line .qts-shape-editor { position: fixed !important; margin-top: 0 !important; }
+.qts-line-endpoint-field {
+  margin: 0 !important; padding: 0 !important; border: 0 !important; display: grid !important; gap: 6px !important;
+}
+.qts-line-endpoint-field legend { padding: 0 !important; color: inherit !important; font: inherit !important; }
+.qts-line-endpoint-options { display: grid !important; grid-template-columns: repeat(5,minmax(0,1fr)) !important; gap: 5px !important; }
+.qts-line-endpoint-options label { margin: 0 !important; display: block !important; }
+.qts-line-endpoint-options input { position: absolute !important; opacity: 0 !important; pointer-events: none !important; }
+.qts-line-endpoint-options span {
+  box-sizing: border-box !important; min-height: 36px !important; padding: 5px 3px !important; display: flex !important; align-items: center !important; justify-content: center !important;
+  border: 1px solid #aebbd2 !important; border-radius: 7px !important; background: #fff !important; color: #26334d !important;
+  cursor: pointer !important;
+}
+.qts-line-endpoint-icon { width: 34px !important; height: 18px !important; overflow: visible !important; stroke: currentColor !important; stroke-width: 1.8 !important; stroke-linecap: round !important; stroke-linejoin: round !important; }
+.qts-line-endpoint-fill { fill: currentColor !important; stroke: currentColor !important; }
+.qts-line-endpoint-options input:checked + span { background: var(--qts-ui-primary,#2563eb) !important; border-color: var(--qts-ui-primary,#2563eb) !important; color: var(--qts-ui-primary-contrast,#fff) !important; }
+.qts-line-endpoint-options input:focus-visible + span { outline: 2px solid var(--qts-ui-primary,#2563eb) !important; outline-offset: 2px !important; }
 
 .qts-shape-editor {
   /* .qts-shape-box (a sibling, appended before this) is position:absolute;inset:0 — an
@@ -587,7 +610,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
   fill: var(--qts-ui-highlight, #ef3340) !important; opacity: .55 !important; transition: opacity 120ms ease !important;
 }
 #qts-mouse-view-overlay.isPressed[data-action="left"] .qts-mouse-left, #qts-mouse-view-overlay.isPressed[data-action="right"] .qts-mouse-right { opacity: 1 !important; }
-#qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: var(--qts-ui-secondary, #ffd700) !important; }
+#qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: var(--qts-ui-primary, #ef3340) !important; }
 #qts-mouse-view-overlay[data-action="scroll-up"] .qts-mouse-arrow-up, #qts-mouse-view-overlay[data-action="scroll-down"] .qts-mouse-arrow-down { display: block !important; }
 
 /* Floating editors live outside the toolbar Shadow DOM so they can be dragged over the page.

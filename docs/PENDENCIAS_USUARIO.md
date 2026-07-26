@@ -27,11 +27,11 @@ depois do upsert idempotente, a verificação confirmou as 28 células plano × 
 Mergeamos a correção do bug que travava o login do admin (`invalid_session`), mas Edge Functions
 não atualizam sozinhas com o merge — o código antigo continua rodando até você reenviar.
 
-- [ ] Se ainda não rodou depois do merge do PR #46, rode:
+- Ação externa: se ainda não rodou depois do merge do PR #46, rode:
   ```
   npx supabase@latest functions deploy --project-ref xhusvkylbouwtpcevgri --use-api
   ```
-- [ ] Confirma logando de novo em `/admin/` com senha + OTP.
+- Ação externa: confirme logando de novo em `/admin/` com senha + OTP.
 
 ## 3. [RESOLVIDO] Sessão do admin agora sobrevive a um F5
 
@@ -55,9 +55,9 @@ A LP agora mostra a versão do pacote e, se a Chrome Web Store estiver desatuali
 "em análise do Google" — mas isso lê de uma tabela nova que só existe depois que você aplicar a
 migration.
 
-- [ ] Aplique `supabase/migrations/20260720010000_store_listing_status.sql` (cole no SQL Editor
+- Ação externa: aplique `supabase/migrations/20260720010000_store_listing_status.sql` (cole no SQL Editor
       do Supabase, ou rode via CLI — é idempotente).
-- [ ] Sempre que checar o painel real da Chrome Web Store, atualize a linha única da tabela
+- Ação externa: sempre que checar o painel real da Chrome Web Store, atualize a linha única da tabela
       `store_listing_status` (Table Editor do Supabase) com a versão publicada e o status
       (`pending_review` / `live` / `rejected`). Isso é manual de propósito — automatizar exigiria
       um novo secret de CI com escrita no banco, que não criei sem sua aprovação.
@@ -69,14 +69,14 @@ apaga os dados pessoais, mantém registros financeiros anonimizados. Verificado 
 respostas simuladas (senha errada, pagamento pendente, sucesso) — mas a função ainda não existe
 em produção até você fazer os dois passos abaixo.
 
-- [ ] Aplique `supabase/migrations/20260720030000_payment_events_user_delete_set_null.sql` (SQL
+- Ação externa: aplique `supabase/migrations/20260720030000_payment_events_user_delete_set_null.sql` (SQL
       Editor do Supabase ou CLI — idempotente). Sem isso, excluir a conta de qualquer usuário com
       histórico de pagamento falha (a constraint antiga bloqueia, em vez de anonimizar).
-- [ ] Deploy da nova edge function `account-delete`:
+- Ação externa: deploy da nova edge function `account-delete`:
   ```
   npx supabase@latest functions deploy account-delete --project-ref xhusvkylbouwtpcevgri --use-api
   ```
-- [ ] Teste ao vivo com uma conta de teste real (sem assinatura ativa) para confirmar a exclusão
+- Ação externa: teste ao vivo com uma conta de teste real (sem assinatura ativa) para confirmar a exclusão
       de ponta a ponta antes de anunciar a funcionalidade.
 
 ## 8. [RESOLVIDO] Notificação de pagamento falhado (e-mail) + e-mail de redefinição de senha (2026-07-21)
@@ -97,13 +97,13 @@ Founder criou a conta no Resend e gerou a API key. A partir disso:
 - [x] Aplicado ao vivo: `supabase functions deploy stripe-webhook` + `supabase config push`
       (confirmado: `"auth":"updated"`, senha SMTP guardada como hash). `deno check` e o scan de
       segurança do repo passaram antes do commit.
-- [ ] **Pendência real que sobra**: sem domínio verificado no Resend, o remetente é
+- Gate externo de e-mail: sem domínio verificado no Resend, o remetente é
       `onboarding@resend.dev`, que só entrega pro **próprio e-mail cadastrado na conta Resend** —
       não pra usuários reais quaisquer. Pra funcionar pra qualquer cliente, verifique um domínio
       grátis (Resend → Domains → Add Domain → colar os registros DNS onde seu domínio está
       hospedado). Depois disso, é só eu trocar o `admin_email`/`FROM_ADDRESS` pro seu domínio
       verificado nos dois lugares (`email.ts` e `config.toml`) e reaplicar.
-- [ ] **Teste ao vivo do e-mail de redefinição de senha**: o founder preferiu testar manualmente
+- Gate externo: **teste ao vivo do e-mail de redefinição de senha**; o founder preferiu testar manualmente
       (extensão → Minha conta → Esqueci minha senha → abrir o e-mail de verdade → `/redefinir-senha`
       → nova senha → logar de novo).
 
@@ -116,9 +116,9 @@ quiser — não mexi no Stripe sozinho.
 
 ## 6. Teste ao vivo que ainda falta
 
-- [ ] Fluxo completo de "Esqueci minha senha" com e-mail real (pedir link → abrir e-mail →
+- Ação externa: fluxo completo de "Esqueci minha senha" com e-mail real (pedir link → abrir e-mail →
       `/redefinir-senha` → trocar senha → logar com a nova).
-- [ ] Conferir com uma conta real de plano baixo (ex. Smoke Test) que Macro Studio, Key View e
+- Ação externa: conferir com uma conta real de plano baixo (ex. Smoke Test) que Macro Studio, Key View e
       Capturar Elementos realmente somem do menu — a matriz real já foi verificada via API, mas
       esse teste visual ainda exige uma segunda conta/assinatura.
 

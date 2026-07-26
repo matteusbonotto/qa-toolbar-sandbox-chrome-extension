@@ -77,6 +77,7 @@
         <div class="grid2">
           <div class="card">
             <div class="cardHead"><h2>Onde a barra aparece</h2></div>
+            <label class="radioRow"><input type="radio" name="scopeMode" value="all" /><div><b>Todos os sites</b><small>Exibe a toolbar em qualquer site permitido pelo navegador.</small></div></label>
             <label class="radioRow"><input type="radio" name="scopeMode" value="environments" /><div><b>URLs dos ambientes</b><small>Usa as URLs configuradas em cada ambiente do Workspace.</small></div></label>
             <label class="radioRow"><input type="radio" name="scopeMode" value="custom" /><div><b>Restringir com lista personalizada</b><small>A URL também precisa pertencer a um ambiente. Use padrões como <code>https://*.exemplo.com/*</code>, um por linha.</small></div></label>
             <textarea id="scopePatterns" rows="5" placeholder="https://app.exemplo.com/*" disabled></textarea>
@@ -96,6 +97,8 @@
               <div class="colorThemeGrid" id="colorThemeGrid" role="radiogroup" aria-label="Tema de cores"></div>
               <div class="actions"><button type="button" class="button" id="colorThemeReset">Restaurar padrão</button></div>
             </fieldset>
+            <fieldset><legend>Posição dos sidebars</legend><label>Desktop<select id="drawerPosition"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label><label>Mobile<select id="mobileDrawerPosition"><option value="bottom">Baixo — bottom sheet</option><option value="top">Cima</option><option value="right">Direita</option><option value="left">Esquerda</option></select></label><small class="cardLead">Também pode ser alterada no cabeçalho de qualquer sidebar.</small></fieldset>
+            <fieldset><legend>Posição da toolbar</legend><label>Desktop<select id="toolbarPosition"><option value="top">Horizontal — cima</option><option value="bottom">Horizontal — baixo</option><option value="left">Vertical — esquerda</option><option value="right">Vertical — direita</option></select></label><label>Mobile<select id="mobileToolbarPosition"><option value="top">Horizontal — cima</option><option value="bottom">Horizontal — baixo</option><option value="left">Vertical — esquerda</option><option value="right">Vertical — direita</option></select></label></fieldset>
             <div class="barPreviewWrap"><div class="barPreview" id="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia da barra com as configurações atuais (atualiza antes de salvar).</small></div>
             <input id="compactMode" type="checkbox" hidden />
             <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
@@ -168,6 +171,12 @@
               </select></label>
               <p class="cardLead" id="toolsMenuOrderHint">Arraste ou use as setas para definir a ordem das ferramentas no menu.</p>
               <ol class="breadcrumbOrderList toolsMenuOrderList" id="toolsMenuOrderList"></ol>
+            </fieldset>
+            <fieldset><legend>Atalhos de teclado personalizados</legend>
+              <p class="cardLead">Clique em um campo e pressione uma combinação com Ctrl, Alt, Shift ou Meta. Conflitos e atalhos reservados são recusados.</p>
+              <div id="customShortcutsList" class="shortcutSettingsList"></div>
+              <div class="actions"><button type="button" class="button" id="resetCustomShortcuts">Restaurar todos</button></div>
+              <p class="formMessage isError" id="customShortcutError" role="alert" hidden></p>
             </fieldset>
           </div>
         </div>

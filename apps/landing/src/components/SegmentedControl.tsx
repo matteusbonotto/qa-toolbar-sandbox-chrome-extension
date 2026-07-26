@@ -1,3 +1,5 @@
+import { useRef } from "react";
+
 interface SegmentedOption {
   id: string;
   label: string;
@@ -12,18 +14,30 @@ interface SegmentedControlProps {
 }
 
 export function SegmentedControl({ label, options, value, onChange }: SegmentedControlProps) {
+  const groupRef = useRef<HTMLDivElement>(null);
+  const moveSelection = (direction: 1 | -1) => {
+    const current = Math.max(0, options.findIndex((option) => option.id === value));
+    const next = (current + direction + options.length) % options.length;
+    onChange(options[next]!.id);
+    requestAnimationFrame(() => groupRef.current?.querySelectorAll<HTMLButtonElement>('[role="radio"]')[next]?.focus());
+  };
   return (
     <div className="qts-sim-field">
       {label ? <span className="qts-sim-field-label">{label}</span> : null}
-      <div className="qts-segmented" role="tablist" aria-label={label}>
+      <div ref={groupRef} className="qts-segmented" role="radiogroup" aria-label={label}>
         {options.map((option) => (
           <button
             key={option.id}
             type="button"
-            role="tab"
-            aria-selected={option.id === value}
+            role="radio"
+            aria-checked={option.id === value}
+            tabIndex={option.id === value ? 0 : -1}
             className={`qts-segmented-btn${option.id === value ? " is-active" : ""}`}
             onClick={() => onChange(option.id)}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowRight" || event.key === "ArrowDown") { event.preventDefault(); moveSelection(1); }
+              if (event.key === "ArrowLeft" || event.key === "ArrowUp") { event.preventDefault(); moveSelection(-1); }
+            }}
           >
             {option.swatch ? (
               <span className="qts-segmented-swatch" style={{ background: option.swatch }} />

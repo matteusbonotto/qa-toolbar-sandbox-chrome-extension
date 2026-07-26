@@ -9,6 +9,7 @@ import { Footer } from "./sections/Footer";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { IntellectualPropertyPage } from "./pages/IntellectualPropertyPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
+import { NotFoundPage } from "./pages/NotFoundPage";
 import { ParticleBackground } from "./components/ParticleBackground";
 import { SiteNavToolbar } from "./components/SiteNavToolbar";
 
@@ -22,6 +23,8 @@ export default function App() {
   const isPrivacyPage = matchesPath(pathname, "privacidade");
   const isIpPage = matchesPath(pathname, "propriedade-intelectual");
   const isResetPasswordPage = matchesPath(pathname, "redefinir-senha");
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
+  const isHomePage = pathname === basePath || pathname === `${basePath}/`;
 
   if (isPrivacyPage) {
     return (
@@ -57,6 +60,10 @@ export default function App() {
         </div>
       </>
     );
+  }
+
+  if (!isHomePage) {
+    return <><ParticleBackground /><div className="qts-page-content"><NotFoundPage /><Footer /></div></>;
   }
 
   return (

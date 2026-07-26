@@ -9,11 +9,12 @@ const LANDING_ORIGINS = new Set([
 ]);
 
 function isChromeMatchPattern(pattern) {
-  return /^(?:\*|https?|file|ftp):\/\/(?:\*|\*\.[^/*]+|[^/*]+)\/.*$/i.test(String(pattern ?? ""));
+  return pattern === "<all_urls>" || /^(?:\*|https?|file|ftp):\/\/(?:\*|\*\.[^/*]+|[^/*]+)\/.*$/i.test(String(pattern ?? ""));
 }
 
 async function patternsForAuthorizedWorkspace() {
   const scope = await getSiteScope();
+  if (scope.mode === "all") return ["<all_urls>"];
   if (scope.mode === "custom") return (scope.patterns || []).filter(isChromeMatchPattern);
   const workspace = await getWorkspace();
   return [...new Set((workspace.urlBindings || [])
@@ -24,7 +25,7 @@ async function patternsForAuthorizedWorkspace() {
 
 async function isAuthorizedContentSender(sender) {
   if (!sender?.tab?.id || !sender.tab.url) return false;
-  const [registrationPatterns, workspace] = await Promise.all([patternsForAuthorizedWorkspace(), getWorkspace()]);
+  const [registrationPatterns, workspace, scope] = await Promise.all([patternsForAuthorizedWorkspace(), getWorkspace(), getSiteScope()]);
   const matches = (patterns) => patterns.some((pattern) => {
     try { return patternToRegExp(pattern).test(sender.tab.url); } catch { return false; }
   });
@@ -32,10 +33,11 @@ async function isAuthorizedContentSender(sender) {
     .filter((binding) => binding.active !== false)
     .flatMap((binding) => binding.patterns || [])
     .filter(isChromeMatchPattern);
-  return matches(registrationPatterns) && matches(bindingPatterns);
+  return matches(registrationPatterns) && (scope.mode === "all" || matches(bindingPatterns));
 }
 
 function patternToRegExp(pattern) {
+  if (pattern === "<all_urls>") return /^(?:https?|file|ftp):/i;
   const escaped = String(pattern).replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
   return new RegExp(`^${escaped}$`, "i");
 }
@@ -95,7 +97,7 @@ async function applyContentScriptRegistrationNow({ forceAccess = false } = {}) {
     // allFrames:true so the bar also renders inside the Breakpoint Viewer's own device-preview
     // iframes (same-origin, matching these same URL patterns) — boot()'s tiny-frame guard in
     // toolbar.js keeps this from mounting in incidental small embedded widgets on normal pages.
-    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/lib/gif-content.js", "src/lib/theme-presets-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: true },
+    { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/lib/gif-content.js", "src/lib/qrcode-content.js", "src/lib/theme-presets-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: true },
   ]);
   await injectIntoOpenTabs(matches);
 }
@@ -120,7 +122,7 @@ async function injectIntoOpenTabs(matches) {
       if (existing?.present) return;
       await chrome.scripting.executeScript({ target: { tabId: tab.id }, world: "MAIN", files: ["src/pagebridge/pagebridge.js"] });
       await chrome.scripting.insertCSS({ target: { tabId: tab.id }, files: ["src/toolbar/toolbar.css"] });
-      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/lib/gif-content.js", "src/lib/theme-presets-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"] });
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/lib/gif-content.js", "src/lib/qrcode-content.js", "src/lib/theme-presets-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"] });
     } catch {}
   }));
 }
@@ -173,6 +175,19 @@ chrome.alarms.onAlarm.addListener((alarm) => {
 // the earlier dependency on a third-party site (demoqa.com) for onboarding and tutorial captures.
 const TUTORIAL_DEMO_URL = `${DEMO_SITE_URL_PATTERN.replace(/\*$/, "index.html")}?qtsTutorial=1`;
 
+async function ensureDemoWorkspace() {
+  const workspace = await getWorkspace();
+  if (workspace.clients.length) return workspace;
+  return saveWorkspace({
+    clients: [{ id: DEMO_CLIENT_ID, name: "Toolbar", locked: true }],
+    projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Sandbox", locked: true }],
+    products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE", locked: true }],
+    environments: [{ id: DEMO_ENVIRONMENT_ID, name: "QA", color: "#5b21b6", locked: true }],
+    urlBindings: [{ id: DEMO_URL_BINDING_ID, productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], patterns: [DEMO_SITE_URL_PATTERN], locked: true }],
+    preferences: { demoWorkspaceSeeded: true },
+  });
+}
+
 // Seeds a starter workspace (client/project/product/environment/URL pointing at the public demo
 // site used for tutorial captures) so the toolbar has something real to mount on, then opens that
 // demo page in a new tab for the live tour in toolbar.js to take over. Never overwrites a
@@ -182,20 +197,7 @@ const TUTORIAL_DEMO_URL = `${DEMO_SITE_URL_PATTERN.replace(/\*$/, "index.html")}
 // preferences.demoWorkspaceSeeded so normalizeWorkspace (storage.js) locks them permanently --
 // see the comment there for why all four have to survive together, not just the first three.
 async function seedDemoWorkspaceAndOpenTour(stepKey, reuseTabId) {
-  const workspace = await getWorkspace();
-  if (!workspace.clients.length) {
-    await saveWorkspace({
-      clients: [{ id: DEMO_CLIENT_ID, name: "Toolbar", locked: true }],
-      projects: [{ id: DEMO_PROJECT_ID, clientId: DEMO_CLIENT_ID, name: "Sandbox", locked: true }],
-      products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE", locked: true }],
-      environments: [{ id: DEMO_ENVIRONMENT_ID, name: "QA", color: "#5b21b6", locked: true }],
-      urlBindings: [{ id: DEMO_URL_BINDING_ID, productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], patterns: [DEMO_SITE_URL_PATTERN], locked: true }],
-      preferences: { demoWorkspaceSeeded: true },
-    });
-    // saveWorkspace triggers the central onStorageChanged registration path below. Starting a
-    // second registration here races that listener and can fail with a duplicate script ID before
-    // the tour tab is opened.
-  }
+  await ensureDemoWorkspace();
   // "Tentar" (options.js Tutorial panel / video dialog) passes the specific step so the tour jumps
   // straight there instead of starting from the first one -- toolbar.js reads it back off the URL.
   const url = stepKey ? `${TUTORIAL_DEMO_URL}&qtsTutorialStep=${encodeURIComponent(stepKey)}` : TUTORIAL_DEMO_URL;
@@ -225,13 +227,12 @@ async function startPendingFirstAccessTour() {
 }
 
 chrome.runtime.onInstalled.addListener((details) => {
-  void applyContentScriptRegistration({ forceAccess: true });
   setupContextMenus();
   if (details.reason === "install") {
     // Open the public tutorial target immediately, even before authentication. Once a session is
     // handed off by the landing page (or the user signs in through options), the one-shot flag
     // below seeds the demo workspace and opens the authenticated live tour.
-    void chrome.tabs.create({ url: TUTORIAL_DEMO_URL }).then(async (installTab) => {
+    void ensureDemoWorkspace().then(() => applyContentScriptRegistration({ forceAccess: true })).then(() => chrome.tabs.create({ url: TUTORIAL_DEMO_URL })).then(async (installTab) => {
       const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
       const uiState = current[STORAGE_KEYS.uiState] || {};
       await chrome.storage.local.set({
@@ -250,7 +251,10 @@ chrome.runtime.onInstalled.addListener((details) => {
         await startPendingFirstAccessTour();
       }
     });
-  } else if (details.reason === "update") {
+  } else {
+    void applyContentScriptRegistration({ forceAccess: true });
+  }
+  if (details.reason === "update") {
     // Chrome Web Store updates the package automatically. Persist a one-shot release note so
     // every previously installed workspace learns what changed without losing any local data.
     // Existing page contexts keep their old content script until navigation/reload (Chrome's
@@ -278,7 +282,14 @@ onStorageChanged((changes) => {
 });
 
 function isOwnOptionsPage(sender) {
-  return sender?.id === chrome.runtime.id && sender?.url === chrome.runtime.getURL("src/options/options.html");
+  if (sender?.id !== chrome.runtime.id || typeof sender.url !== "string") return false;
+  try {
+    const senderUrl = new URL(sender.url);
+    const optionsUrl = new URL(chrome.runtime.getURL("src/options/options.html"));
+    return senderUrl.origin === optionsUrl.origin && senderUrl.pathname === optionsUrl.pathname;
+  } catch {
+    return false;
+  }
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -356,6 +367,52 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       if (!access.active || !authorizedSender) return sendResponse({ ok: false, error: "authentication_required" });
       return chrome.tabs.captureVisibleTab(sender.tab.windowId, { format: "png" })
         .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
+        .catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
+    });
+    return true;
+  }
+  if (message.type === "qts:close-detached-window") {
+    Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(async ([access, authorizedSender]) => {
+      if (!access.active || !authorizedSender || !sender.tab?.id || !sender.tab?.windowId) {
+        return sendResponse({ ok: false, error: "authentication_required" });
+      }
+      try {
+        const targetWindow = await chrome.windows.get(sender.tab.windowId);
+        // Detached tools created by this extension are popup windows. If browser fallback opened a
+        // normal tab instead, close only that tab rather than destroying the user's whole window.
+        if (targetWindow.type === "popup") await chrome.windows.remove(targetWindow.id);
+        else await chrome.tabs.remove(sender.tab.id);
+        sendResponse({ ok: true });
+      } catch (error) {
+        sendResponse({ ok: false, error: String(error?.message || error) });
+      }
+    });
+    return true;
+  }
+  if (message.type === "qts:open-tool-window") {
+    Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(([access, authorizedSender]) => {
+      if (!access.active || !authorizedSender || typeof message.url !== "string") {
+        return sendResponse({ ok: false, error: "authentication_required" });
+      }
+      let url;
+      try { url = new URL(message.url); } catch { return sendResponse({ ok: false, error: "invalid_url" }); }
+      if (!["http:", "https:", "file:"].includes(url.protocol)) return sendResponse({ ok: false, error: "invalid_url" });
+      return chrome.windows.create({ url: url.toString(), type: "popup", focused: true, width: 1100, height: 760 })
+        .then(async (createdWindow) => {
+          const tabId = createdWindow.tabs?.[0]?.id
+            || (await chrome.tabs.query({ windowId: createdWindow.id, active: true }))[0]?.id;
+          if (tabId && typeof message.toolKey === "string") {
+            // The URL parameter is the cold-start path. This explicit message is a second,
+            // deterministic trigger after the content script finishes loading, eliminating the
+            // race where the popup showed only a duplicate page without its requested panel.
+            for (const delay of [250, 500, 1_000, 1_500]) {
+              await new Promise((resolveWait) => setTimeout(resolveWait, delay));
+              const result = await chrome.tabs.sendMessage(tabId, { type: "qts:open-detached-tool", toolKey: message.toolKey }).catch(() => null);
+              if (result?.handled) break;
+            }
+          }
+          sendResponse({ ok: true, windowId: createdWindow.id });
+        })
         .catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
     });
     return true;

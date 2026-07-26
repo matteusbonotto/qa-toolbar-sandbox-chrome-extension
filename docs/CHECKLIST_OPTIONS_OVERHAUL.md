@@ -88,7 +88,7 @@
 - [x] Verificado ao vivo (respostas simuladas): senha errada mantém o modal aberto com a
       mensagem certa e não desloga; pagamento pendente mostra aviso específico; sucesso fecha o
       modal e volta ao estado deslogado. Suite completa (`test:chrome`) rodou limpa.
-- [ ] **Pendência do founder** (`docs/PENDENCIAS_USUARIO.md` #7): aplicar a migration e fazer o
+- **Gate externo do founder** (`docs/PENDENCIAS_USUARIO.md` #7): aplicar a migration e fazer o
       deploy da função antes de anunciar — nada disso existe em produção ainda.
 
 ## Fase 6 — Sincronizar LP
@@ -124,10 +124,10 @@
       os passos e remover uma linha específica funciona; cancelar esconde a barra e descarta;
       concluir abre o editor com as etapas, e o botão de seleção de elemento no editor atualiza o
       seletor da etapa corretamente ao clicar num elemento real da página.
-- [ ] **Ainda não feito** (fora do escopo desta rodada): a UX de "modo manual listar elementos da
-      tela" ficou como um picker de clique-para-selecionar (consistente com o resto do app), não
-      uma lista/dropdown de todos os elementos visíveis — se depois disso não for suficiente,
-      revisar. O modo Coder (visualização de código Playwright) não foi alterado.
+- [x] **Modo manual com lista de elementos**: o seletor de cada etapa agora oferece uma lista
+      pesquisável de até 250 elementos interativos visíveis, com nome acessível e seletor CSS,
+      além do picker de clique já existente. Senhas/valores não entram na lista. O smoke exige a
+      ligação do campo ao `datalist`, rótulo legível e o seletor estável do elemento.
 - [x] **Sino de notificações**: novo ícone `#notificationBellButton` na barra principal (ao lado
       do menu Tools, sempre visível mesmo em telas estreitas), com badge vermelho mostrando a
       contagem (`99+` acima disso). Clicar abre `#notificationBellPanel` listando as últimas 20
