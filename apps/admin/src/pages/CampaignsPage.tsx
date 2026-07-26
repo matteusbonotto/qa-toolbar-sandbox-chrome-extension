@@ -4,7 +4,7 @@ import type { Referral } from "../lib/types";
 
 const checks:Array<[keyof CampaignReviewCriteria,string]>=[["socialPostPublic","Publicação social abre sem login"],["socialPostDescribesUse","Publicação relata uso real e benefício"],["linkedinPostPublic","Publicação do LinkedIn está acessível"],["linkedinPostDescribesUse","LinkedIn relata uso real e benefício"],["campaignDisclosureVisible","Divulgação da campanha está visível"],["productFeedbackUseful","Feedback tem exemplos e sugestão útil"],["identityConsistent","Identidade e autoria são consistentes"]];
 const emptyCriteria=()=>Object.fromEntries(checks.map(([key])=>[key,false])) as CampaignReviewCriteria;
-const date=(value:string|null)=>value?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(new Date(value)):"—";
+const date=(value:string|null)=>value?new Intl.DateTimeFormat("pt-BR",{dateStyle:"short",timeStyle:"short"}).format(new Date(value)):"-";
 type RewardsData={programs:RewardProgram[];prizes:RewardPrize[];wallets:RewardWallet[];entries:RewardPointEntry[];spins:RewardSpin[];benefits:RewardBenefit[]};
 
 export function CampaignsPage(){

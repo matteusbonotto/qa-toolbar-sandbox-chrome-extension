@@ -23,7 +23,7 @@ import type {
 } from "./types";
 
 function requireClient() {
-  if (!supabase) throw new Error("Supabase não configurado — defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.");
+  if (!supabase) throw new Error("Supabase não configurado - defina VITE_SUPABASE_URL e VITE_SUPABASE_PUBLISHABLE_KEY.");
   return supabase;
 }
 

@@ -17,7 +17,7 @@ function testDemoSession(email) {
 function testDemoAccess(session) {
   return {
     authenticated: true, active: true,
-    plan: { key: "release-manager", name: "Release Manager — DEMO TESTE" },
+    plan: { key: "release-manager", name: "Release Manager - DEMO TESTE" },
     source: "test-demo", expiresAt: new Date(Date.now() + 24 * 60 * 60_000).toISOString(), billing: null,
     features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true },
     user: { id: session.user.id, email: session.user.email }, checkedAt: new Date().toISOString(), cachedAt: Date.now(), reason: null,
@@ -34,7 +34,7 @@ function updateBadge(access) {
   const pastDue = access?.billing?.status === "past_due" || access?.billing?.status === "unpaid";
   chrome.action.setBadgeText({ text: pastDue ? "!" : "" });
   if (pastDue) chrome.action.setBadgeBackgroundColor({ color: "#c70e0e" });
-  chrome.action.setTitle({ title: pastDue ? "QA Toolbar Sandbox — pagamento pendente, acesso pago bloqueado" : "QA Toolbar Sandbox — abrir configurações" });
+  chrome.action.setTitle({ title: pastDue ? "QA Toolbar Sandbox - pagamento pendente, acesso pago bloqueado" : "QA Toolbar Sandbox - abrir configurações" });
 }
 
 function sanitizeBilling(value) {
@@ -125,7 +125,7 @@ export async function signOut() {
 
 // LGPD self-service deletion: the edge function (supabase/functions/account-delete) re-verifies
 // the password server-side, cancels any active Stripe subscription, and hard-deletes personal
-// data — this just makes that call and clears the local session on success.
+// data - this just makes that call and clears the local session on success.
 export async function deleteAccount(password) {
   const session = await getSession();
   if (!session) throw new Error("authentication_required");

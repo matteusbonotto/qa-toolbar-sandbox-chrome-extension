@@ -36,7 +36,7 @@ export function FeatureFlagsPage() {
       <header className="qa-page-head">
         <h1>Feature flags por plano</h1>
         <p>
-          Controla o que cada plano libera de verdade — a extensão e a landing page leem esses
+          Controla o que cada plano libera de verdade - a extensão e a landing page leem esses
           valores em tempo real via <code>access-status</code>. Alterar aqui muda o acesso do
           usuário na próxima verificação (cache local de até 30s na extensão).
         </p>

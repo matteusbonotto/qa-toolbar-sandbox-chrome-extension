@@ -267,7 +267,7 @@ document.querySelectorAll("[data-api-link]").forEach((button) => button.addEvent
   const status = API_LINK_STATUS[button.dataset.apiLink];
   const output = document.getElementById("linksOutput");
   output.hidden = false;
-  output.textContent = `Link chamado — resposta simulada: ${status}`;
+  output.textContent = `Link chamado - resposta simulada: ${status}`;
 }));
 
 // ---------------------------------------------------------------------------
@@ -357,7 +357,7 @@ document.getElementById("largeModalBtn").addEventListener("click", () => largeMo
 const ACCORDION_ITEMS = [
   { id: "what", title: "O que é a QA Toolbar Sandbox", body: "Uma extensão de Chrome com ferramentas de apoio a testes manuais e exploratórios, com barra de contexto, evidências e inspetores de rede." },
   { id: "why", title: "Por que usar este sandbox", body: "Pra praticar seletores, XPath e fluxos de automação num ambiente estável, sem depender de sites de terceiros que podem mudar sem aviso." },
-  { id: "how", title: "Como usar", body: "Navegue pelo menu lateral, escolha uma categoria de elementos e interaja com os controles — cada um tem id e data-testid pra facilitar a automação." },
+  { id: "how", title: "Como usar", body: "Navegue pelo menu lateral, escolha uma categoria de elementos e interaja com os controles - cada um tem id e data-testid pra facilitar a automação." },
 ];
 const accordionEl = document.getElementById("accordion");
 accordionEl.innerHTML = ACCORDION_ITEMS.map((item) => `

@@ -1,6 +1,6 @@
 import type { IconName } from "../components/Icon";
 
-// Structure only (icons/grouping) — the actual copy (titles/descriptions) lives in i18n
+// Structure only (icons/grouping) - the actual copy (titles/descriptions) lives in i18n
 // translations.ts under `t.features`, keyed by these same `key` values.
 export interface FeatureItem {
   key: string;

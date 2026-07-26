@@ -1,5 +1,5 @@
-// Mirrors supabase/schema.sql (public schema). Kept hand-written and minimal — only the
-// columns the admin UI actually reads/writes — rather than a full generated Database type,
+// Mirrors supabase/schema.sql (public schema). Kept hand-written and minimal - only the
+// columns the admin UI actually reads/writes - rather than a full generated Database type,
 // since there's no live project yet to generate types from.
 
 export interface Plan {

@@ -2,12 +2,12 @@
  * Bootstrap Icons, inlined. Classic script (same reasoning as storage-content.js /
  * i18n-content.js / avatar-content.js): dynamically registered content scripts can't use ES
  * module imports, and the extension has no build step to pull in the bootstrap-icons npm
- * package the way apps/landing does (Vite `?raw` imports) — so the path data for exactly the
+ * package the way apps/landing does (Vite `?raw` imports) - so the path data for exactly the
  * icons this toolbar uses is copied here once, verbatim, from node_modules/bootstrap-icons.
  * Exposes window.QTS_ICONS instead of being a real module.
  */
 (function initQtsIcons() {
-  // Path data only (no outer <svg>/width/height/class) — svg() below supplies a consistent
+  // Path data only (no outer <svg>/width/height/class) - svg() below supplies a consistent
   // wrapper sized in em units so icons scale with the surrounding font-size like the emoji they
   // replace did, and colored via currentColor so existing inline `color:` styles keep working.
   const PATHS = {

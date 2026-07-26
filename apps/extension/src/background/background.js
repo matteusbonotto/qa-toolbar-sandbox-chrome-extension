@@ -56,12 +56,12 @@ async function removeToolbarFromOpenTabs() {
 }
 
 // Founder-reported bug, confirmed by reading the code: getAccessState() returns `active: false`
-// for ANY failed access-status call, not just a genuine "subscription lapsed" — including a plain
+// for ANY failed access-status call, not just a genuine "subscription lapsed" - including a plain
 // network hiccup or a cold Supabase function, which is exactly the least reliable moment for a
 // network call (right as chrome.runtime.onInstalled/onStartup fires after an update or browser
 // restart). Treating that the same as "access really ended" used to unregister the content
 // scripts and rip the toolbar out of every open tab, with nothing to bring it back except another
-// update or restart — no retry, no explanation to whoever was mid-test. A transient failure
+// update or restart - no retry, no explanation to whoever was mid-test. A transient failure
 // (reason: "access_unavailable") now falls back to the last confirmed status instead of assuming
 // the worst, and schedules a retry via chrome.alarms (survives the service worker going idle,
 // unlike a plain setTimeout) so a genuine lapse still gets caught shortly after.
@@ -76,7 +76,7 @@ async function applyContentScriptRegistrationNow({ forceAccess = false } = {}) {
     // Published (packed) extensions clamp delayInMinutes below 1 back up to 1 anyway, so this is
     // the real-world floor, not just a nicer round number.
     await chrome.alarms.create(ACCESS_RETRY_ALARM, { delayInMinutes: 1 });
-    if (!effectiveActive) return; // never had confirmed access — nothing to preserve; wait for the retry
+    if (!effectiveActive) return; // never had confirmed access - nothing to preserve; wait for the retry
   } else {
     await chrome.alarms.clear(ACCESS_RETRY_ALARM);
   }
@@ -95,7 +95,7 @@ async function applyContentScriptRegistrationNow({ forceAccess = false } = {}) {
   await chrome.scripting.registerContentScripts([
     { id: PAGEBRIDGE_SCRIPT_ID, matches, js: ["src/pagebridge/pagebridge.js"], world: "MAIN", runAt: "document_start", allFrames: false },
     // allFrames:true so the bar also renders inside the Breakpoint Viewer's own device-preview
-    // iframes (same-origin, matching these same URL patterns) — boot()'s tiny-frame guard in
+    // iframes (same-origin, matching these same URL patterns) - boot()'s tiny-frame guard in
     // toolbar.js keeps this from mounting in incidental small embedded widgets on normal pages.
     { id: TOOLBAR_SCRIPT_ID, matches, js: ["src/lib/storage-content.js", "src/lib/i18n-content.js", "src/lib/avatar-content.js", "src/lib/icons-content.js", "src/lib/qa-tools-content.js", "src/lib/sound-content.js", "src/lib/minizip-content.js", "src/lib/gif-content.js", "src/lib/qrcode-content.js", "src/lib/theme-presets-content.js", "src/options/tutorial-data.js", "src/toolbar/toolbar.js"], css: ["src/toolbar/toolbar.css"], runAt: "document_idle", allFrames: true },
   ]);
@@ -131,7 +131,7 @@ async function injectIntoOpenTabs(matches) {
 // API has no way to gate visibility on our own dynamic authorization/registration state), each
 // just relaying its action to the content script for the clicked tab. If the toolbar isn't
 // injected there (unauthorized page, or the workspace has no URL binding for it) the message
-// simply has no listener and is dropped — same graceful no-op as every other tab message here.
+// simply has no listener and is dropped - same graceful no-op as every other tab message here.
 const CONTEXT_MENU_PARENT_ID = "qts-sandbox";
 const CONTEXT_MENU_ACTIONS = [
   { id: "qts-char-counter", action: "char-counter", title: "Contar caracteres" },
@@ -271,7 +271,7 @@ chrome.runtime.onInstalled.addListener((details) => {
     })).then(() => Promise.all([
       chrome.action.setBadgeBackgroundColor({ color: "#ef3340" }),
       chrome.action.setBadgeText({ text: "NEW" }),
-      chrome.action.setTitle({ title: `QA Toolbar Sandbox ${chrome.runtime.getManifest().version} — veja o que mudou` }),
+      chrome.action.setTitle({ title: `QA Toolbar Sandbox ${chrome.runtime.getManifest().version} - veja o que mudou` }),
     ]));
   }
 });

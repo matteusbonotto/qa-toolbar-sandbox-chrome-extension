@@ -27,7 +27,7 @@ document.getElementById("appearanceThemeToggle")?.addEventListener("click", asyn
   if (!workspace) return;
   workspace.preferences = { ...(workspace.preferences || {}), appearanceTheme: theme };
   await saveWorkspace(workspace);
-  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+  document.getElementById("generalSavedHint").textContent = t("Salvo - a barra já foi atualizada.");
 });
 
 function drawImageEditorPreview() {
@@ -294,7 +294,7 @@ document.getElementById("voucherForm").addEventListener("submit", async (event) 
     const messages = {
       voucher_unavailable: "Voucher inválido, expirado ou já utilizado.",
       voucher_already_redeemed: "Você já resgatou este voucher.",
-      voucher_requires_checkout: "Este é um voucher de desconto — aplique-o na tela de checkout do site.",
+      voucher_requires_checkout: "Este é um voucher de desconto - aplique-o na tela de checkout do site.",
       rate_limit_exceeded: "Muitas tentativas. Aguarde alguns minutos.",
     };
     showMessage("voucherMessage", messages[response.error] || "Não foi possível aplicar o voucher agora.", "Error");
@@ -491,7 +491,7 @@ document.getElementById("colorThemeGrid")?.addEventListener("click", async (even
   workspace.preferences = { ...(workspace.preferences || {}), colorTheme, appearanceTheme: mode };
   await saveWorkspace(workspace);
   renderColorThemeGrid(colorTheme);
-  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+  document.getElementById("generalSavedHint").textContent = t("Salvo - a barra já foi atualizada.");
 });
 
 document.getElementById("colorThemeReset")?.addEventListener("click", async () => {
@@ -501,7 +501,7 @@ document.getElementById("colorThemeReset")?.addEventListener("click", async () =
   workspace.preferences = { ...(workspace.preferences || {}), colorTheme: "blue-light", appearanceTheme: "light" };
   await saveWorkspace(workspace);
   renderColorThemeGrid("blue-light");
-  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+  document.getElementById("generalSavedHint").textContent = t("Salvo - a barra já foi atualizada.");
 });
 
 const PINNED_TOOLS_LIMIT = 4;
@@ -518,9 +518,9 @@ document.querySelectorAll("[data-pinned]").forEach((checkbox) => checkbox.addEve
   hint.hidden = true;
 }));
 
-// Cliente/Projeto/Produto priority in the breadcrumb — a local draft array (not saved until
+// Cliente/Projeto/Produto priority in the breadcrumb - a local draft array (not saved until
 // "Salvar", the sticky bottom button) so drag/arrow reordering and the live preview stay instant without writing
-// to the workspace on every rearrange. Environment is intentionally not reorderable — it's always
+// to the workspace on every rearrange. Environment is intentionally not reorderable - it's always
 // the last, "current tier" segment (see buildBreadcrumb in toolbar.js).
 let breadcrumbOrderDraft = ["client", "project", "product"];
 let breadcrumbOrderDragKey = null;
@@ -571,7 +571,7 @@ function renderBreadcrumbOrderList() {
   renderBarPreview();
 }
 
-// Mock breadcrumb using sample names — reflects order/visibility/compact-mode instantly, without
+// Mock breadcrumb using sample names - reflects order/visibility/compact-mode instantly, without
 // needing a real workspace/environment or waiting for the "Salvar" button.
 function renderBarPreview() {
   const sample = { client: "Cliente", project: "Projeto", product: "Produto", environment: "QA" };
@@ -587,7 +587,7 @@ function renderBarPreview() {
 }
 document.querySelectorAll("[data-breadcrumb],[data-compact-entity]").forEach((input) => input.addEventListener("change", renderBarPreview));
 
-// Tools-menu item order — same drag/arrow pattern as the breadcrumb order above, kept as its own
+// Tools-menu item order - same drag/arrow pattern as the breadcrumb order above, kept as its own
 // (slightly duplicated) implementation rather than a shared abstraction, since the breadcrumb
 // list is small/fixed (3 keys) and this one is long/dynamic (every known tool) with a different
 // label source (read straight from each checkbox's own <label> text, so it can never drift out of
@@ -653,7 +653,7 @@ function renderToolsMenuOrderList() {
 }
 
 // One button saves everything on this screen (site scope + all toolbar/appearance preferences)
-// instead of the two separate saves this panel used to have — a user changing both a URL pattern
+// instead of the two separate saves this panel used to have - a user changing both a URL pattern
 // and, say, a pinned tool no longer has to remember to click twice.
 document.getElementById("saveGeneralSettings").addEventListener("click", async () => {
   const scopeMode = document.querySelector('input[name="scopeMode"]:checked')?.value || "environments";
@@ -684,7 +684,7 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
     customShortcuts: { ...customShortcutsDraft },
   };
   await persistWorkspace();
-  document.getElementById("generalSavedHint").textContent = t("Salvo — a barra já foi atualizada.");
+  document.getElementById("generalSavedHint").textContent = t("Salvo - a barra já foi atualizada.");
 });
 
 function findById(collection, id) {
@@ -696,7 +696,7 @@ function environmentDisplayName(environment) {
 }
 
 // Which products/countries an environment is actually deployed to now lives on urlBindings
-// (Environment is a reusable tier — see storage.js's normalizeUrlBindings) — this derives a
+// (Environment is a reusable tier - see storage.js's normalizeUrlBindings) - this derives a
 // short "AR, BO, PY" style summary for the environment list row and search.
 function environmentBoundProductNames(environmentId) {
   const productIds = new Set((workspace.urlBindings || []).filter((binding) => binding.environmentIds.includes(environmentId)).map((binding) => binding.productId));
@@ -704,7 +704,7 @@ function environmentBoundProductNames(environmentId) {
 }
 
 // founder feedback: search used to JSON.stringify() the whole item, which drags in every base64
-// image field (logos, account-type icons, payment icons — up to 300k chars each) on every single
+// image field (logos, account-type icons, payment icons - up to 300k chars each) on every single
 // keystroke across every collection. None of that is human-searchable text, so this instead builds
 // a small haystack from just the fields a person would actually search by.
 const SEARCH_IGNORED_KEYS = new Set(["id", "logoUrl", "accountTypeImage", "icon", "active", "showLabel", "color"]);
@@ -730,7 +730,7 @@ function rowActions(collection, item, { reveal = false } = {}) {
   // purpose -- no delete button at all, just a padlock explaining why, instead of a button that
   // would visibly do nothing (or worse, look broken) if clicked.
   const removeControl = item.locked
-    ? `<span class="lockedBadge" title="${escapeHtml(t("Item fixo do ambiente de demonstração — não pode ser excluído"))}">🔒 ${escapeHtml(t("Fixo"))}</span>`
+    ? `<span class="lockedBadge" title="${escapeHtml(t("Item fixo do ambiente de demonstração - não pode ser excluído"))}">🔒 ${escapeHtml(t("Fixo"))}</span>`
     : `<button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Excluir"))}">${escapeHtml(t("Excluir"))}</button>`;
   return `<div class="rowActions">
     ${reveal ? `<button type="button" data-action="reveal" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mostrar/ocultar senha"))}">${escapeHtml(t(revealedAccountIds.has(item.id) ? "Ocultar" : "Ver"))}</button>` : ""}
@@ -819,7 +819,7 @@ function renderUrlEnvironmentPicker() {
 }
 
 // URLs are grouped by environment into collapsible accordions (rather than one flat list) so a
-// workspace with many countries/products per environment stays scannable — each section shows its
+// workspace with many countries/products per environment stays scannable - each section shows its
 // own URL count and can be collapsed once reviewed. A binding can belong to several environments
 // at once (see the environment picker above), so it's rendered once per environment it's tied to;
 // bindings with no environment yet land in a trailing "Sem ambiente" group instead of vanishing.
@@ -828,10 +828,10 @@ function renderUrlRelationRow(item) {
   const productBadge = product ? window.QTS_AVATAR.buildEntityHtml(product, { size: 18 }) : "";
   const badges = item.environmentIds.map((environmentId) => findById("environments", environmentId)).filter(Boolean)
     .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
-  return `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${productBadge}${escapeHtml(product?.name || "—")}</small><small class="relationBadges">${badges}</small></div>${rowActions("urlBindings", item)}</div>`;
+  return `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${productBadge}${escapeHtml(product?.name || "-")}</small><small class="relationBadges">${badges}</small></div>${rowActions("urlBindings", item)}</div>`;
 }
 
-// Remembers which environment accordions the founder has manually collapsed — renderWorkspace()
+// Remembers which environment accordions the founder has manually collapsed - renderWorkspace()
 // re-renders this list after every unrelated save anywhere on the page (a new test account, a
 // language switch, etc.), so without this every collapse would silently snap back open the next
 // time anything else changed.
@@ -864,7 +864,7 @@ function renderUrlRelationList() {
 }
 
 // Shared badge summary for anything with environmentIds[]/productIds[] (test accounts, payment
-// methods) — empty productIds means "all products", empty environmentIds only happens for
+// methods) - empty productIds means "all products", empty environmentIds only happens for
 // payment methods (test accounts always require at least one).
 function scopeBadgesHtml(item) {
   const environmentBadges = (item.environmentIds || []).map((environmentId) => findById("environments", environmentId)).filter(Boolean)
@@ -874,7 +874,7 @@ function scopeBadgesHtml(item) {
   return `${environmentBadges || `<span class="relationBadge">${escapeHtml(t("Todos os ambientes"))}</span>`}${productBadge}`;
 }
 
-// Every product bound to `environmentId` via any urlBinding — the reverse of
+// Every product bound to `environmentId` via any urlBinding - the reverse of
 // environmentBoundProductNames above, used to gate the scope picker's Product column once an
 // Environment checkbox is checked.
 function productIdsForEnvironment(environmentId) {
@@ -886,12 +886,12 @@ function productIdsForEnvironment(environmentId) {
 // Cascading Client -> Project -> Environment -> Product multi-select shared by the Test Account
 // and Payment Method composers (see options.html's #testAccountScopePicker/#paymentMethodScopePicker
 // containers). Only
-// environmentIds/productIds are ever persisted — Client/Project checkboxes exist purely to narrow
+// environmentIds/productIds are ever persisted - Client/Project checkboxes exist purely to narrow
 // the options below them (a test account/payment method has no direct client/project field of its
 // own, since that's already implied by whichever product(s) it's scoped to).
 //
 // Rendered as four independent floating comboboxes (one per facet) rather than one big
-// always-expanded 4-column grid — founder feedback: the grid version pushed the whole dialog open
+// always-expanded 4-column grid - founder feedback: the grid version pushed the whole dialog open
 // and was unreadable, nothing like a real combobox. Each facet now behaves like a normal <select>:
 // closed by default, opens ITS OWN small floating panel (search + Todos/Limpar + a scrollable
 // checkbox list) positioned over the rest of the form instead of shoving it downward, and closes
@@ -996,7 +996,7 @@ function renderScopePicker(key, { requireEnvironment }) {
     renderScopePicker(key, { requireEnvironment });
   }));
   // Filtering-as-you-type toggles `hidden` on the already-rendered <label> rows instead of calling
-  // renderScopePicker() again — a full re-render on every keystroke would blow away and recreate
+  // renderScopePicker() again - a full re-render on every keystroke would blow away and recreate
   // this very <input>, kicking focus out of it after the first character typed.
   container.querySelectorAll("[data-facet-search]").forEach((input) => input.addEventListener("input", (event) => {
     const field = input.dataset.facetSearch;
@@ -1029,7 +1029,7 @@ function renderScopePicker(key, { requireEnvironment }) {
 }
 
 // One shared listener (bound once, never per-render) closes whichever facet panel is open when
-// the user clicks anywhere outside the scope picker that owns it, or presses Escape — the normal
+// the user clicks anywhere outside the scope picker that owns it, or presses Escape - the normal
 // way any floating combobox/dropdown is expected to behave.
 function closeOpenScopeFacet(key) {
   const state = scopePickerStates[key];
@@ -1040,7 +1040,7 @@ function closeOpenScopeFacet(key) {
 document.addEventListener("click", (event) => {
   // composedPath() (the click's path at dispatch time) rather than container.contains(event.target):
   // checking/unchecking an option re-renders the panel from inside its own "change" handler, which
-  // replaces the checkbox with a new node mid-bubble — by the time this listener runs on document,
+  // replaces the checkbox with a new node mid-bubble - by the time this listener runs on document,
   // `event.target` may already be detached, so `contains()` would (wrongly) call that an outside
   // click and slam the panel shut on every single selection.
   const path = event.composedPath();
@@ -1060,8 +1060,8 @@ function renderWorkspace() {
   }
   const badge = (entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 22 });
   renderRows("clients", (item) => `<b>${badge(item)}</b>`);
-  renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "—")}</small>`);
-  renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "—")}</small>`);
+  renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "-")}</small>`);
+  renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "-")}</small>`);
   renderRows("environments", (item) => {
     const products = environmentBoundProductNames(item.id);
     return `<b style="color:${escapeHtml(item.color)}">${ICON("dot")} ${escapeHtml(item.name)}</b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
@@ -1070,20 +1070,20 @@ function renderWorkspace() {
   renderUrlEnvironmentPicker();
   renderUrlPatternsPicker();
   renderRows("testAccounts", (item) => {
-    const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "—";
+    const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "-";
     // The toolbar's own read-only drawer already renders this image (renderTestAccountsList in
-    // toolbar.js) — this options-page list never did, so the same uploaded/URL icon that shows
+    // toolbar.js) - this options-page list never did, so the same uploaded/URL icon that shows
     // up later was invisible here while managing the account.
     const typeImage = item.accountTypeImage ? `<img src="${escapeHtml(item.accountTypeImage)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : "";
-    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(item.username || "—")} · ${password}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
+    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
   }, { reveal: (item) => Boolean(item.password) });
   renderCustomFieldSuggestions();
   renderRows("paymentMethods", (item) => {
     return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
   });
   renderRows("inspectors", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml((item.patterns || []).join(", "))}</small>`);
-  renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "—")} · ${escapeHtml(t(item.token ? "token local configurado" : "sem token"))}</small>`);
-  renderRows("resources", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.url || "—")}</small>`);
+  renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "-")} · ${escapeHtml(t(item.token ? "token local configurado" : "sem token"))}</small>`);
+  renderRows("resources", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.url || "-")}</small>`);
   renderSelect("projectClient", workspace.clients, t("Selecione o cliente"));
   renderSelect("productProject", workspace.projects, t("Selecione o projeto"));
   renderSelect("urlRelationProduct", workspace.products, t("Selecione o produto"));
@@ -1096,7 +1096,7 @@ function renderWorkspace() {
 }
 
 // First-access wizard: guides Client -> Project -> Product -> Environment using the SAME forms
-// already in this panel (no parallel UI) — just a progress strip that tracks which step is next
+// already in this panel (no parallel UI) - just a progress strip that tracks which step is next
 // and auto-scrolls there the moment the previous one is saved, so creating the first environment
 // reads as one guided flow instead of four unrelated, easy-to-miss cards.
 let wizardLastActiveStep = -1;
@@ -1122,7 +1122,7 @@ function renderWorkspaceWizard() {
       <span>${escapeHtml(step.label)}</span>
     </li>
   `).join("");
-  // Explicitly clicking a step chip opens its dialog (the user asked to go there) — but since
+  // Explicitly clicking a step chip opens its dialog (the user asked to go there) - but since
   // dialogs are real modals now (unlike the old inline <details>), auto-advancing the wizard
   // reactively on every render must NOT force one open unprompted; it only switches tabs and
   // draws attention to the "+ Adicionar" trigger, letting the founder open it when ready.
@@ -1150,7 +1150,7 @@ function renderWorkspaceWizard() {
 // Founder feedback: with enough clients/products/accounts registered (especially ones carrying
 // base64 logos/icons), saving felt sluggish because the UI waited for the full chrome.storage.local
 // write to finish before showing anything. `workspace` is already the up-to-date in-memory object
-// (upsert/cascadeRemove mutate it directly) — rendering it immediately makes every edit feel
+// (upsert/cascadeRemove mutate it directly) - rendering it immediately makes every edit feel
 // instant, and the storage round-trip (plus a second render, in case normalization changed
 // anything) still happens right after, same as before.
 async function persistWorkspace() {
@@ -1207,7 +1207,7 @@ function clearEdit(prefix) {
 }
 
 // Test account custom fields: a small user-defined key/type/value schema (string/boolean/
-// number) rather than a fixed capability list — the founder's explicit ask, since even the
+// number) rather than a fixed capability list - the founder's explicit ask, since even the
 // original reference tool only ever had a hardcoded set of capability checkboxes.
 let testAccountCustomFieldsDraft = [];
 
@@ -1246,7 +1246,7 @@ function renderCustomFieldsEditor() {
 }
 
 // Field *definitions* (name + type) used on any test account are remembered and offered when
-// adding/editing any other account — founder feedback: a field created on one account wasn't
+// adding/editing any other account - founder feedback: a field created on one account wasn't
 // available on the next, forcing it to be retyped every time. Only the schema is shared here;
 // each account's own value is never suggested, since values are account-specific.
 function knownCustomFieldTemplates() {
@@ -1280,7 +1280,7 @@ document.getElementById("testAccountAddField").addEventListener("click", () => {
 document.querySelectorAll(".cancelEdit").forEach((button) => button.addEventListener("click", () => clearEdit(button.dataset.cancel)));
 
 // Every create/edit form lives in a <dialog> now (centered modal) instead of an inline
-// <details> below its list — "+ Adicionar X" triggers open it, the × in the header (or Esc,
+// <details> below its list - "+ Adicionar X" triggers open it, the × in the header (or Esc,
 // native to <dialog>) closes it without saving.
 document.querySelectorAll("[data-open-composer]").forEach((button) => button.addEventListener("click", () => {
   const dialog = document.getElementById(button.dataset.openComposer);
@@ -1316,7 +1316,7 @@ document.getElementById("clientForm").addEventListener("submit", async (event) =
 document.getElementById("projectForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("projectEditId").value; upsert("projects", { id: editId || uid("project"), clientId: document.getElementById("projectClient").value, name: document.getElementById("projectName").value.trim(), ...appearance("project") }, editId); clearEdit("project"); await persistWorkspace(); });
 document.getElementById("productForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("productEditId").value; upsert("products", { id: editId || uid("product"), projectId: document.getElementById("productProject").value, name: document.getElementById("productName").value.trim(), ...appearance("product") }, editId); clearEdit("product"); await persistWorkspace(); });
 // "+ Novo ambiente" inside the URL relation modal opens this same dialog nested on top of it
-// (stacked <dialog>s, standard behavior) — when that's how it was opened, the freshly created
+// (stacked <dialog>s, standard behavior) - when that's how it was opened, the freshly created
 // environment should land pre-selected back in the URL modal's picker instead of the founder
 // having to find and toggle it themselves right after.
 let pendingUrlEnvironmentAutoSelect = false;
@@ -1366,7 +1366,7 @@ document.getElementById("urlPatternInput").addEventListener("keydown", (event) =
   addUrlPatternDraft();
 });
 
-// The founder's own request: drop the manual "URL principal" field entirely — the first pattern
+// The founder's own request: drop the manual "URL principal" field entirely - the first pattern
 // added is almost always the concrete, no-wildcard entry point anyway, so just derive it instead
 // of asking for it twice. Trailing wildcard(s) are stripped so it opens as a real URL, not
 // literally "…/*"; anything that still isn't a plain http(s) URL after that (e.g. `*://host/*`)
@@ -1379,7 +1379,7 @@ function derivePrimaryUrl(pattern) {
 document.getElementById("urlRelationForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const patternInput = document.getElementById("urlPatternInput");
-  // A URL still sitting in the input (typed but not explicitly added) counts too — otherwise
+  // A URL still sitting in the input (typed but not explicitly added) counts too - otherwise
   // submitting silently drops it, which is exactly the confusing "só salva o que já virou pill"
   // trap this rework is meant to fix.
   if (patternInput.value.trim()) addUrlPatternDraft();
@@ -1444,11 +1444,11 @@ function editItem(collection, item) {
 }
 
 // Environments are reusable across products now (see storage.js's normalizeUrlBindings), so
-// removing a client/project/product no longer deletes environments — only the URL bindings and
+// removing a client/project/product no longer deletes environments - only the URL bindings and
 // product-scoped test accounts/payment methods that actually belong to the removed product(s).
 // An environment itself only goes away when removed directly from the "Ambientes" tab.
 // Test accounts/payment methods can be scoped to several environments/products at once, so
-// removing just one of those no longer has to delete the whole item — only when pruning the
+// removing just one of those no longer has to delete the whole item - only when pruning the
 // removed id(s) out of a REQUIRED-non-empty field (or out of an already-scoped optional one)
 // would leave it with zero left does the item disappear entirely. An item whose field was already
 // empty (payment methods' "applies to every environment/product") is untouched either way.
@@ -1521,7 +1521,7 @@ async function sha256Hex(value) {
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
-// Shared by the real export button and the "download template" button below — both need the same
+// Shared by the real export button and the "download template" button below - both need the same
 // {format, version, checksum} envelope so a template downloaded today always matches whatever this
 // build's schema/checksum rules currently are, instead of a hand-written static file going stale.
 async function buildExportEnvelope(workspaceData, filenamePrefix) {
@@ -1541,7 +1541,7 @@ async function buildExportEnvelope(workspaceData, filenamePrefix) {
 
 document.getElementById("exportButton").addEventListener("click", () => buildExportEnvelope(workspace, "qa-toolbar-workspace"));
 document.getElementById("downloadTemplateButton").addEventListener("click", () => {
-  // A minimal, generic (no real customer name) one-of-*everything* workspace — normalized the
+  // A minimal, generic (no real customer name) one-of-*everything* workspace - normalized the
   // same way an import would be, so this is guaranteed to be a file that imports cleanly. Founder
   // feedback: the old template only had structure/URL examples, so a hand-edited copy that also
   // needed test accounts or payment methods had no shape to copy from and came out wrong (most
@@ -1555,7 +1555,7 @@ document.getElementById("downloadTemplateButton").addEventListener("click", () =
     urlBindings: [{ id: "binding-exemplo", patterns: ["https://app.exemplo.com/*"], productId: "product-exemplo", environmentIds: ["env-exemplo"] }],
     // password/value/cvv are omitted here on purpose (not just left blank): buildExportEnvelope
     // strips them from every export anyway, real or template, so a placeholder here would never
-    // actually reach the downloaded file — and a fake-looking secret string in source is exactly
+    // actually reach the downloaded file - and a fake-looking secret string in source is exactly
     // what a credential scanner should (correctly) refuse to let through.
     testAccounts: [{
       id: "account-exemplo", environmentIds: ["env-exemplo"], productIds: ["product-exemplo"],
@@ -1574,7 +1574,7 @@ document.getElementById("downloadTemplateButton").addEventListener("click", () =
   });
   void buildExportEnvelope(template, "qa-toolbar-template");
 });
-// normalizeWorkspace() is deliberately forgiving (it has to be — it's also what reads whatever's
+// normalizeWorkspace() is deliberately forgiving (it has to be - it's also what reads whatever's
 // already in local storage across schema versions, and silently healing a slightly-off value
 // there is the right call). An imported *file* is different: a junk entry here almost always
 // means the file itself is wrong (hand-edited badly, wrong file picked, truncated download), and

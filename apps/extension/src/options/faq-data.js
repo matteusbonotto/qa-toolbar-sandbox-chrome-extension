@@ -1,5 +1,5 @@
 // Classic-script FAQ content shared by the FAQ panel in options.js. Only the general questions
-// live here — per-tool entries ("Para que serve X?") are generated at render time from
+// live here - per-tool entries ("Para que serve X?") are generated at render time from
 // window.QTS_TUTORIAL_DATA (short + instructions) instead of duplicating that copy a second time.
 (() => {
   const FAQ_GENERAL = [

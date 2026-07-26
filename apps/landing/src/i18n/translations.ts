@@ -292,7 +292,7 @@ export interface Dictionary {
 
 const pt: Dictionary = {
   meta: {
-    title: "QA Toolbar Sandbox — Testes manuais com sabor automático",
+    title: "QA Toolbar Sandbox - Testes manuais com sabor automático",
     description: "Teste manual sem se perder entre ambientes e projetos. Uma barra de QA que roda direto na página que você já está testando.",
     pageNavigation: "Navegação da página",
     languageSelector: "Idioma",
@@ -454,7 +454,7 @@ const pt: Dictionary = {
       line: {
         title: "Linha com seta",
         short: "Desenhe uma linha apontando exatamente para o que importa.",
-        details: "Escolha Linha no menu Forma e arraste de um ponto a outro. Depois, redimensione pela extremidade e escolha entre seta, triângulo, bolinha preenchida, vazada ou nenhuma ponta — ideal para relacionar dois elementos na mesma evidência.",
+        details: "Escolha Linha no menu Forma e arraste de um ponto a outro. Depois, redimensione pela extremidade e escolha entre seta, triângulo, bolinha preenchida, vazada ou nenhuma ponta - ideal para relacionar dois elementos na mesma evidência.",
       },
       blurElements: {
         title: "Borrar elementos",
@@ -464,7 +464,7 @@ const pt: Dictionary = {
       holofote: {
         title: "Modo Holofote",
         short: "Escureça a tela ao redor do cursor para guiar a atenção.",
-        details: "Segure a tecla Ctrl por 2 segundos em qualquer momento para acender um holofote que acompanha o mouse, com tamanho, escurecimento e borrão configuráveis — perfeito para apresentações e demonstrações em vídeo.",
+        details: "Segure a tecla Ctrl por 2 segundos em qualquer momento para acender um holofote que acompanha o mouse, com tamanho, escurecimento e borrão configuráveis - perfeito para apresentações e demonstrações em vídeo.",
       },
       screenshot: {
         title: "Screenshot",
@@ -514,7 +514,7 @@ const pt: Dictionary = {
       pixelPerfect: {
         title: "Pixel Perfect",
         short: "Linhas guia e uma régua inteligente para conferir alinhamentos pixel a pixel.",
-        details: "Ative para ver linhas guia (cruz, horizontal ou vertical, cor e espessura configuráveis) acompanhando o mouse, e clique em qualquer ponto pra fixar uma régua inteligente que mede a distância exata até o cursor — ajustável com precisão de 1px pelo scroll. Inspirado no Screen Ruler do PowerToys.",
+        details: "Ative para ver linhas guia (cruz, horizontal ou vertical, cor e espessura configuráveis) acompanhando o mouse, e clique em qualquer ponto pra fixar uma régua inteligente que mede a distância exata até o cursor - ajustável com precisão de 1px pelo scroll. Inspirado no Screen Ruler do PowerToys.",
       },
       characterCounter: {
         title: "Contador de caracteres",
@@ -783,9 +783,9 @@ const pt: Dictionary = {
     dataCategoriesTitle: "Categorias de dados tratadas",
     dataCategoriesBody: "Identificação pessoal: e-mail usado para criar e acessar a conta. Autenticação: senha durante o login, token de sessão e credenciais exclusivamente sandbox que o próprio usuário salva no workspace local. Informações financeiras: status da assinatura e meios de pagamento exclusivamente sandbox salvos localmente; os dados reais do cartão são informados diretamente ao Stripe. Histórico e recursos da Web: URL, título, domínio e requisições da página atual quando necessários a uma ferramenta visível. Atividade do usuário: cliques, teclas, mouse e rolagem somente enquanto o usuário ativa gravação, inspeção, Key View ou ferramenta equivalente. Conteúdo do site: textos, elementos HTML, links, imagens, respostas de API e screenshots selecionados pelo usuário para testar ou produzir evidências. Não coletamos dados de saúde, localização precisa nem comunicações pessoais.",
     collectionTitle: "1. Coleta de dados",
-    collectionBody: "Para cumprir seu propósito de ferramenta de QA, a extensão processa — sempre localmente, no seu navegador, e nunca enviado aos nossos servidores — a atividade que você gera nas páginas que está testando (cliques, teclas digitadas, posição do mouse, requisições de rede observadas) e o conteúdo dessas páginas (textos, elementos da estrutura HTML, capturas de tela, respostas de API) exatamente quando você aciona uma ferramenta como Click Spy, Key View, Captura de Elementos, Inspectors ou Screenshot. Esse processamento local é o propósito central do produto: ajudar você a observar e documentar o comportamento de sites que você mesmo está testando. Separadamente, para autenticação e cobrança, coletamos e enviamos aos nossos servidores apenas: e-mail e senha ao criar conta ou entrar (a senha nunca é armazenada em texto puro — é processada com hashing pelo serviço de autenticação do Supabase antes de qualquer armazenamento); dados de pagamento (cartão etc.) inseridos diretamente na página segura do Stripe, que nunca passam pelos nossos servidores nem pela extensão; o código de um voucher, se você aplicar um; e, caso você participe voluntariamente de uma campanha de indicação, o link público e o feedback enviados. O restante do conteúdo do seu workspace — clientes, projetos, produtos, ambientes, contas de teste, macros — também fica só no seu navegador.",
+    collectionBody: "Para cumprir seu propósito de ferramenta de QA, a extensão processa - sempre localmente, no seu navegador, e nunca enviado aos nossos servidores - a atividade que você gera nas páginas que está testando (cliques, teclas digitadas, posição do mouse, requisições de rede observadas) e o conteúdo dessas páginas (textos, elementos da estrutura HTML, capturas de tela, respostas de API) exatamente quando você aciona uma ferramenta como Click Spy, Key View, Captura de Elementos, Inspectors ou Screenshot. Esse processamento local é o propósito central do produto: ajudar você a observar e documentar o comportamento de sites que você mesmo está testando. Separadamente, para autenticação e cobrança, coletamos e enviamos aos nossos servidores apenas: e-mail e senha ao criar conta ou entrar (a senha nunca é armazenada em texto puro - é processada com hashing pelo serviço de autenticação do Supabase antes de qualquer armazenamento); dados de pagamento (cartão etc.) inseridos diretamente na página segura do Stripe, que nunca passam pelos nossos servidores nem pela extensão; o código de um voucher, se você aplicar um; e, caso você participe voluntariamente de uma campanha de indicação, o link público e o feedback enviados. O restante do conteúdo do seu workspace - clientes, projetos, produtos, ambientes, contas de teste, macros - também fica só no seu navegador.",
     processingTitle: "2. Processamento",
-    processingBody: "Seu login é processado pelas funções de autenticação do Supabase, que verificam e-mail/senha e devolvem um token de sessão temporário. A extensão consulta periodicamente (a cada poucos minutos, com cache local) se sua assinatura está ativa, para saber quais ferramentas liberar — essa verificação usa apenas o token de sessão, nunca seu e-mail ou senha novamente. Pagamentos são processados inteiramente pelo Stripe; recebemos de volta somente o status da cobrança (ativo, atrasado, cancelado), nunca o número do cartão. Screenshots e evidências são capturados localmente pelo navegador e baixados direto para o seu computador — não passam por nenhum servidor nosso.",
+    processingBody: "Seu login é processado pelas funções de autenticação do Supabase, que verificam e-mail/senha e devolvem um token de sessão temporário. A extensão consulta periodicamente (a cada poucos minutos, com cache local) se sua assinatura está ativa, para saber quais ferramentas liberar - essa verificação usa apenas o token de sessão, nunca seu e-mail ou senha novamente. Pagamentos são processados inteiramente pelo Stripe; recebemos de volta somente o status da cobrança (ativo, atrasado, cancelado), nunca o número do cartão. Screenshots e evidências são capturados localmente pelo navegador e baixados direto para o seu computador - não passam por nenhum servidor nosso.",
     storageTitle: "3. Armazenamento",
     storageBody: "Workspace, macros, credenciais de contas de teste e meios de pagamento sandbox ficam somente no chrome.storage.local do seu navegador, vinculados ao seu perfil do Chrome. Screenshots e demais evidências são gerados localmente e baixados como arquivos para o destino escolhido pelo navegador; não são guardados pelo nosso servidor. Uma cópia local da sua sessão de login e do status do plano também fica em chrome.storage.local, como cache do que o servidor já devolveu. E-mail, hash da senha, dados de assinatura, vouchers e participações voluntárias em campanhas ficam no Supabase. Dados reais de pagamento ficam exclusivamente no Stripe e nunca tocam nossa infraestrutura.",
     sharingTitle: "4. Compartilhamento com terceiros",
@@ -796,7 +796,7 @@ const pt: Dictionary = {
     rightsBody: "Você pode acessar, corrigir ou excluir seus dados pessoais a qualquer momento pela seção \"Minha conta\". Também pode solicitar uma cópia dos seus dados ou revogar o consentimento entrando em contato conosco. Ao continuar usando a extensão ou a landing page, você consente com esta política e com os termos de uso.",
     securityTitle: "7. Segurança",
     securityBody: "Toda transmissão entre a extensão, a landing page, o Supabase e o Stripe utiliza HTTPS. Senhas reais não são registradas em logs nem armazenadas em texto puro. Tokens de sessão ficam no armazenamento local da extensão e são enviados somente aos endpoints autenticados do serviço. Campos sensíveis são mascarados na interface, e screenshots, conteúdo de páginas, credenciais sandbox e meios de pagamento sandbox não são enviados aos nossos servidores. Nenhum JavaScript ou WebAssembly remoto é executado pela extensão.",
-    limitedUseTitle: "8. Uso Limitado — Chrome Web Store",
+    limitedUseTitle: "8. Uso Limitado - Chrome Web Store",
     limitedUseBody: "O uso e a transferência de informações recebidas pela QA Toolbar Sandbox obedecem à Política de Dados do Usuário da Chrome Web Store, incluindo os requisitos de Uso Limitado. Usamos os dados somente para fornecer ou melhorar as ferramentas de QA solicitadas pelo usuário, autenticar a conta, verificar o acesso contratado, processar pagamentos e cumprir obrigações legais e de segurança. Não vendemos dados, não os usamos para publicidade personalizada, perfil comercial, avaliação de crédito ou empréstimos e não permitimos leitura humana, salvo com consentimento específico do usuário, por necessidade de segurança ou por obrigação legal.",
     contactTitle: "Contato",
     contactBody: "Dúvidas sobre privacidade ou quer exercer algum desses direitos? Escreva para contato@matheusbonotto.com.br.",
@@ -826,7 +826,7 @@ const pt: Dictionary = {
 
 const es: Dictionary = {
   meta: {
-    title: "QA Toolbar Sandbox — Pruebas manuales con sabor automático",
+    title: "QA Toolbar Sandbox - Pruebas manuales con sabor automático",
     description: "Pruebas manuales sin perderte entre entornos y proyectos. Una barra de QA que funciona en la página que ya estás probando.",
     pageNavigation: "Navegación de la página",
     languageSelector: "Idioma",
@@ -988,7 +988,7 @@ const es: Dictionary = {
       line: {
         title: "Línea con flecha",
         short: "Dibuja una línea apuntando exactamente a lo que importa.",
-        details: "Elige Línea en el menú Forma y arrastra de un punto a otro. Después, redimensiona desde el extremo y elige flecha, triángulo, punto relleno, hueco o sin punta — ideal para relacionar dos elementos en una misma evidencia.",
+        details: "Elige Línea en el menú Forma y arrastra de un punto a otro. Después, redimensiona desde el extremo y elige flecha, triángulo, punto relleno, hueco o sin punta - ideal para relacionar dos elementos en una misma evidencia.",
       },
       blurElements: {
         title: "Difuminar elementos",
@@ -998,7 +998,7 @@ const es: Dictionary = {
       holofote: {
         title: "Modo Foco",
         short: "Oscurece la pantalla alrededor del cursor para guiar la atención.",
-        details: "Mantén presionada la tecla Ctrl durante 2 segundos en cualquier momento para encender un foco que sigue al mouse, con tamaño, oscurecimiento y desenfoque configurables — perfecto para presentaciones y demostraciones en video.",
+        details: "Mantén presionada la tecla Ctrl durante 2 segundos en cualquier momento para encender un foco que sigue al mouse, con tamaño, oscurecimiento y desenfoque configurables - perfecto para presentaciones y demostraciones en video.",
       },
       screenshot: {
         title: "Captura de pantalla",
@@ -1048,7 +1048,7 @@ const es: Dictionary = {
       pixelPerfect: {
         title: "Pixel Perfect",
         short: "Líneas guía y una regla inteligente para verificar alineaciones píxel a píxel.",
-        details: "Actívalo para ver líneas guía (cruz, horizontal o vertical, color y grosor configurables) siguiendo al mouse, y haz clic en cualquier punto para fijar una regla inteligente que mide la distancia exacta hasta el cursor — ajustable con precisión de 1px con el scroll. Inspirado en Screen Ruler de PowerToys.",
+        details: "Actívalo para ver líneas guía (cruz, horizontal o vertical, color y grosor configurables) siguiendo al mouse, y haz clic en cualquier punto para fijar una regla inteligente que mide la distancia exacta hasta el cursor - ajustable con precisión de 1px con el scroll. Inspirado en Screen Ruler de PowerToys.",
       },
       characterCounter: {
         title: "Contador de caracteres",
@@ -1317,9 +1317,9 @@ const es: Dictionary = {
     dataCategoriesTitle: "Categorías de datos tratados",
     dataCategoriesBody: "Identificación personal: correo usado para crear y acceder a la cuenta. Autenticación: contraseña durante el inicio de sesión, token de sesión y credenciales exclusivamente sandbox que el usuario guarda en el workspace local. Información financiera: estado de la suscripción y medios de pago exclusivamente sandbox guardados localmente; los datos reales de tarjeta se introducen directamente en Stripe. Historial y recursos web: URL, título, dominio y solicitudes de la página actual cuando una herramienta visible los necesita. Actividad del usuario: clics, teclas, mouse y desplazamiento solo mientras el usuario activa grabación, inspección, Key View o una herramienta equivalente. Contenido del sitio: textos, elementos HTML, enlaces, imágenes, respuestas de API y capturas seleccionados por el usuario para probar o producir evidencias. No recopilamos datos de salud, ubicación precisa ni comunicaciones personales.",
     collectionTitle: "1. Recopilación de datos",
-    collectionBody: "Para cumplir su propósito de herramienta de QA, la extensión procesa —siempre localmente, en tu navegador, y nunca enviado a nuestros servidores— la actividad que generas en las páginas que estás probando (clics, teclas escritas, posición del mouse, solicitudes de red observadas) y el contenido de esas páginas (textos, elementos de la estructura HTML, capturas de pantalla, respuestas de API) justo cuando activas una herramienta como Click Spy, Key View, Captura de Elementos, Inspectors o Captura de pantalla. Ese procesamiento local es el propósito central del producto: ayudarte a observar y documentar el comportamiento de sitios que tú mismo estás probando. Por separado, para autenticación y facturación, recopilamos y enviamos a nuestros servidores solo: correo y contraseña al crear cuenta o iniciar sesión (la contraseña nunca se almacena en texto plano — se procesa con hashing por el servicio de autenticación de Supabase antes de cualquier almacenamiento); datos de pago (tarjeta, etc.) ingresados directamente en la página segura de Stripe, que nunca pasan por nuestros servidores ni por la extensión; el código de un voucher, si aplicas uno; y, si participas voluntariamente en una campaña de referidos, el enlace público y el feedback enviados. El resto del contenido de tu workspace —clientes, proyectos, productos, entornos, cuentas de prueba, macros— también queda solo en tu navegador.",
+    collectionBody: "Para cumplir su propósito de herramienta de QA, la extensión procesa -siempre localmente, en tu navegador, y nunca enviado a nuestros servidores- la actividad que generas en las páginas que estás probando (clics, teclas escritas, posición del mouse, solicitudes de red observadas) y el contenido de esas páginas (textos, elementos de la estructura HTML, capturas de pantalla, respuestas de API) justo cuando activas una herramienta como Click Spy, Key View, Captura de Elementos, Inspectors o Captura de pantalla. Ese procesamiento local es el propósito central del producto: ayudarte a observar y documentar el comportamiento de sitios que tú mismo estás probando. Por separado, para autenticación y facturación, recopilamos y enviamos a nuestros servidores solo: correo y contraseña al crear cuenta o iniciar sesión (la contraseña nunca se almacena en texto plano - se procesa con hashing por el servicio de autenticación de Supabase antes de cualquier almacenamiento); datos de pago (tarjeta, etc.) ingresados directamente en la página segura de Stripe, que nunca pasan por nuestros servidores ni por la extensión; el código de un voucher, si aplicas uno; y, si participas voluntariamente en una campaña de referidos, el enlace público y el feedback enviados. El resto del contenido de tu workspace -clientes, proyectos, productos, entornos, cuentas de prueba, macros- también queda solo en tu navegador.",
     processingTitle: "2. Procesamiento",
-    processingBody: "Tu inicio de sesión es procesado por las funciones de autenticación de Supabase, que verifican correo/contraseña y devuelven un token de sesión temporal. La extensión consulta periódicamente (cada pocos minutos, con caché local) si tu suscripción está activa, para saber qué herramientas habilitar — esa verificación usa solo el token de sesión, nunca tu correo o contraseña de nuevo. Los pagos son procesados enteramente por Stripe; solo recibimos de vuelta el estado del cobro (activo, atrasado, cancelado), nunca el número de tarjeta. Las capturas de pantalla y evidencias se capturan localmente en el navegador y se descargan directo a tu computadora — no pasan por ningún servidor nuestro.",
+    processingBody: "Tu inicio de sesión es procesado por las funciones de autenticación de Supabase, que verifican correo/contraseña y devuelven un token de sesión temporal. La extensión consulta periódicamente (cada pocos minutos, con caché local) si tu suscripción está activa, para saber qué herramientas habilitar - esa verificación usa solo el token de sesión, nunca tu correo o contraseña de nuevo. Los pagos son procesados enteramente por Stripe; solo recibimos de vuelta el estado del cobro (activo, atrasado, cancelado), nunca el número de tarjeta. Las capturas de pantalla y evidencias se capturan localmente en el navegador y se descargan directo a tu computadora - no pasan por ningún servidor nuestro.",
     storageTitle: "3. Almacenamiento",
     storageBody: "El workspace, las macros, las credenciales de cuentas de prueba y los medios de pago sandbox se guardan solo en chrome.storage.local, vinculados a tu perfil de Chrome. Las capturas y demás evidencias se generan localmente y se descargan en el destino elegido por el navegador; nuestro servidor no las almacena. Una copia local de la sesión y del estado del plan también queda en chrome.storage.local. El correo, el hash de contraseña, los datos de suscripción, vouchers y participaciones voluntarias en campañas quedan en Supabase. Los datos reales de pago permanecen exclusivamente en Stripe.",
     sharingTitle: "4. Compartición con terceros",
@@ -1330,7 +1330,7 @@ const es: Dictionary = {
     rightsBody: "Puedes acceder, corregir o eliminar tus datos personales en cualquier momento desde la sección \"Mi cuenta\". También puedes solicitar una copia de tus datos o revocar el consentimiento contactándonos. Al seguir usando la extensión o la landing page, aceptas esta política y los términos de uso.",
     securityTitle: "7. Seguridad",
     securityBody: "Toda transmisión entre la extensión, la landing page, Supabase y Stripe usa HTTPS. Las contraseñas reales no se registran ni se almacenan en texto plano. Los tokens de sesión permanecen en el almacenamiento local de la extensión y solo se envían a endpoints autenticados. Los campos sensibles se muestran enmascarados, y capturas, contenido de páginas, credenciales sandbox y medios de pago sandbox no se envían a nuestros servidores. La extensión no ejecuta JavaScript ni WebAssembly remoto.",
-    limitedUseTitle: "8. Uso Limitado — Chrome Web Store",
+    limitedUseTitle: "8. Uso Limitado - Chrome Web Store",
     limitedUseBody: "El uso y la transferencia de información recibida por QA Toolbar Sandbox cumplen la Política de Datos del Usuario de Chrome Web Store, incluidos los requisitos de Uso Limitado. Usamos los datos solo para ofrecer o mejorar las herramientas de QA solicitadas, autenticar la cuenta, verificar el acceso contratado, procesar pagos y cumplir obligaciones legales y de seguridad. No vendemos datos, no los usamos para publicidad personalizada, perfiles comerciales, evaluación crediticia o préstamos, y no permitimos lectura humana salvo con consentimiento específico, por seguridad o por obligación legal.",
     contactTitle: "Contacto",
     contactBody: "¿Dudas sobre privacidad o quieres ejercer alguno de estos derechos? Escribe a contato@matheusbonotto.com.br.",
@@ -1360,7 +1360,7 @@ const es: Dictionary = {
 
 const en: Dictionary = {
   meta: {
-    title: "QA Toolbar Sandbox — Manual testing with an automated edge",
+    title: "QA Toolbar Sandbox - Manual testing with an automated edge",
     description: "Manual testing without losing track of environments and projects. A QA toolbar that runs directly on the page you are testing.",
     pageNavigation: "Page navigation",
     languageSelector: "Language",
@@ -1522,7 +1522,7 @@ const en: Dictionary = {
       line: {
         title: "Line with arrow",
         short: "Draw a line pointing exactly at what matters.",
-        details: "Choose Line from the Shape menu and drag between two points. Then resize it from the endpoint and choose an arrow, triangle, filled dot, hollow dot, or no endpoint — ideal for relating two elements in one piece of evidence.",
+        details: "Choose Line from the Shape menu and drag between two points. Then resize it from the endpoint and choose an arrow, triangle, filled dot, hollow dot, or no endpoint - ideal for relating two elements in one piece of evidence.",
       },
       blurElements: {
         title: "Blur elements",
@@ -1532,7 +1532,7 @@ const en: Dictionary = {
       holofote: {
         title: "Spotlight Mode",
         short: "Dim the screen around the cursor to guide attention.",
-        details: "Hold the Ctrl key for 2 seconds at any moment to light up a spotlight that follows the mouse, with configurable size, dimming, and blur — perfect for presentations and video demos.",
+        details: "Hold the Ctrl key for 2 seconds at any moment to light up a spotlight that follows the mouse, with configurable size, dimming, and blur - perfect for presentations and video demos.",
       },
       screenshot: {
         title: "Screenshot",
@@ -1582,7 +1582,7 @@ const en: Dictionary = {
       pixelPerfect: {
         title: "Pixel Perfect",
         short: "Guide lines and a smart ruler for checking pixel-perfect alignment.",
-        details: "Turn it on to see guide lines (cross, horizontal, or vertical, with configurable color and thickness) following the mouse, and click anywhere to anchor a smart ruler that measures the exact distance to the cursor — fine-tunable to 1px with the scroll wheel. Inspired by PowerToys' Screen Ruler.",
+        details: "Turn it on to see guide lines (cross, horizontal, or vertical, with configurable color and thickness) following the mouse, and click anywhere to anchor a smart ruler that measures the exact distance to the cursor - fine-tunable to 1px with the scroll wheel. Inspired by PowerToys' Screen Ruler.",
       },
       characterCounter: {
         title: "Character counter",
@@ -1851,9 +1851,9 @@ const en: Dictionary = {
     dataCategoriesTitle: "Categories of data handled",
     dataCategoriesBody: "Personal identification: the email used to create and access an account. Authentication: password during sign-in, session token, and sandbox-only credentials the user saves in the local workspace. Financial information: subscription status and sandbox-only payment methods stored locally; real card data is entered directly into Stripe. Web history and resources: the current page URL, title, domain, and requests when required by a visible tool. User activity: clicks, keys, mouse movement, and scrolling only while the user activates recording, inspection, Key View, or an equivalent tool. Website content: text, HTML elements, links, images, API responses, and screenshots selected by the user for testing or evidence. We do not collect health data, precise location, or personal communications.",
     collectionTitle: "1. Data collection",
-    collectionBody: "To fulfill its purpose as a QA tool, the extension processes — always locally, in your browser, and never sent to our servers — the activity you generate on the pages you're testing (clicks, keystrokes, mouse position, observed network requests) and the content of those pages (text, HTML structure elements, screenshots, API responses) exactly when you trigger a tool like Click Spy, Key View, Element Capture, Inspectors, or Screenshot. This local processing is the product's core purpose: helping you observe and document the behavior of sites you're testing yourself. Separately, for authentication and billing, we collect and send to our servers only: email and password when you create an account or sign in (your password is never stored in plain text — it's hashed by Supabase's authentication service before any storage); payment details (card, etc.) entered directly on Stripe's secure page, which never pass through our servers or the extension; a voucher code, if you redeem one; and, if you voluntarily join a referral campaign, the public link and feedback you submit. The rest of your workspace content — clients, projects, products, environments, test accounts, macros — also stays only in your browser.",
+    collectionBody: "To fulfill its purpose as a QA tool, the extension processes - always locally, in your browser, and never sent to our servers - the activity you generate on the pages you're testing (clicks, keystrokes, mouse position, observed network requests) and the content of those pages (text, HTML structure elements, screenshots, API responses) exactly when you trigger a tool like Click Spy, Key View, Element Capture, Inspectors, or Screenshot. This local processing is the product's core purpose: helping you observe and document the behavior of sites you're testing yourself. Separately, for authentication and billing, we collect and send to our servers only: email and password when you create an account or sign in (your password is never stored in plain text - it's hashed by Supabase's authentication service before any storage); payment details (card, etc.) entered directly on Stripe's secure page, which never pass through our servers or the extension; a voucher code, if you redeem one; and, if you voluntarily join a referral campaign, the public link and feedback you submit. The rest of your workspace content - clients, projects, products, environments, test accounts, macros - also stays only in your browser.",
     processingTitle: "2. Processing",
-    processingBody: "Your sign-in is processed by Supabase's authentication functions, which verify email/password and return a temporary session token. The extension periodically checks (every few minutes, with local caching) whether your subscription is active, to know which tools to unlock — that check only uses the session token, never your email or password again. Payments are processed entirely by Stripe; we only receive the charge status back (active, past due, cancelled), never the card number. Screenshots and evidence are captured locally by the browser and downloaded straight to your computer — they never pass through any server of ours.",
+    processingBody: "Your sign-in is processed by Supabase's authentication functions, which verify email/password and return a temporary session token. The extension periodically checks (every few minutes, with local caching) whether your subscription is active, to know which tools to unlock - that check only uses the session token, never your email or password again. Payments are processed entirely by Stripe; we only receive the charge status back (active, past due, cancelled), never the card number. Screenshots and evidence are captured locally by the browser and downloaded straight to your computer - they never pass through any server of ours.",
     storageTitle: "3. Storage",
     storageBody: "Your workspace, macros, test-account credentials, and sandbox payment methods live only in chrome.storage.local, tied to your Chrome profile. Screenshots and other evidence are generated locally and downloaded to the destination selected by your browser; our server does not store them. A local copy of your session and plan status also remains in chrome.storage.local. Email, password hash, subscription data, vouchers, and voluntary campaign participation live in Supabase. Real payment data lives exclusively in Stripe.",
     sharingTitle: "4. Sharing with third parties",
@@ -1864,7 +1864,7 @@ const en: Dictionary = {
     rightsBody: "You can access, correct, or delete your personal data at any time from the \"My account\" section. You may also request a copy of your data or withdraw consent by contacting us. By continuing to use the extension or the landing page, you consent to this policy and the terms of use.",
     securityTitle: "7. Security",
     securityBody: "All transmissions between the extension, landing page, Supabase, and Stripe use HTTPS. Real passwords are not logged or stored in plain text. Session tokens remain in the extension's local storage and are sent only to authenticated service endpoints. Sensitive fields are masked in the interface, and screenshots, page content, sandbox credentials, and sandbox payment methods are not sent to our servers. The extension executes no remote JavaScript or WebAssembly.",
-    limitedUseTitle: "8. Limited Use — Chrome Web Store",
+    limitedUseTitle: "8. Limited Use - Chrome Web Store",
     limitedUseBody: "QA Toolbar Sandbox's use and transfer of information complies with the Chrome Web Store User Data Policy, including the Limited Use requirements. We use data only to provide or improve user-requested QA tools, authenticate accounts, verify paid access, process payments, and meet legal or security obligations. We do not sell data or use it for personalized advertising, commercial profiling, credit assessment, or lending, and we do not permit human reading except with specific user consent, for security, or when legally required.",
     contactTitle: "Contact",
     contactBody: "Questions about privacy, or want to exercise any of these rights? Write to contato@matheusbonotto.com.br.",

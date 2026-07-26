@@ -20,6 +20,10 @@ validado de novo.
 
 ## Mudanças de produto
 
+Não use travessão em nenhum texto, tradução, título, placeholder, documentação ou comentário da
+Landing Page, Admin e extensão. Prefira ponto, vírgula, dois-pontos, parênteses ou hífen conforme o
+contexto. A verificação de repositório deve falhar se esse caractere reaparecer nesses aplicativos.
+
 Toda PR que alterar comportamento, UI, regra, plano, flag ou fluxo deve revisar e atualizar, quando
 afetados:
 

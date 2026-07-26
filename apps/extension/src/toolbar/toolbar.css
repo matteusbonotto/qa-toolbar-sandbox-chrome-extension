@@ -66,7 +66,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
 
 /* `all: initial` here is deliberately NOT `!important`: it resets everything
    the host page's stylesheet might have leaked in *before* JS sets each
-   element's inline `left`/`top`/`width`/`height` — but `!important` on the
+   element's inline `left`/`top`/`width`/`height` - but `!important` on the
    `all` shorthand would out-rank those inline styles too (stylesheet
    `!important` beats non-important inline styles), pinning every marker,
    note and shape to (0,0) regardless of where it was actually placed. */
@@ -75,16 +75,16 @@ body.qts-placement-mode, body.qts-placement-mode * {
   box-sizing: border-box !important;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
 }
-/* :not(svg, svg *) excludes icon SVGs and their internals from the reset entirely — `all:revert`
+/* :not(svg, svg *) excludes icon SVGs and their internals from the reset entirely - `all:revert`
    doesn't just affect paint properties like `fill`, it also resets the CSS `d`/`width`/`height`
    geometry properties that modern browsers map from the `d`/`width`/`height` *attributes* on SVG
-   shape elements (the same attribute-vs-reverted-CSS-property precedence that bit `fill`) —
+   shape elements (the same attribute-vs-reverted-CSS-property precedence that bit `fill`) -
    reverting those leaves an icon with zero width/height/path geometry, i.e. fully invisible,
    regardless of color. Patching fill back alone (an earlier version of this fix) wasn't enough;
    the icon subtree needs to never be touched by this reset in the first place. */
 /* `color: inherit` is re-asserted explicitly (not left to `revert`) because `revert` on `color`
    resolves to the property's plain initial value (black) here rather than the parent's actual
-   color as CSS inheritance would normally give for free — without this, any element under one of
+   color as CSS inheritance would normally give for free - without this, any element under one of
    these resets (icon spans included) silently goes black regardless of what color its container
    actually uses, which is exactly the "texto preto em fundo escuro" class of bug. */
 .qts-modal-backdrop *:where(:not(svg, svg *)), .qts-result-overlay *:where(:not(svg, svg *)), .qts-floating-item *:where(:not(svg, svg *)), .qts-shape-preview *:where(:not(svg, svg *)) {
@@ -147,7 +147,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
   opacity: 1 !important; transition: opacity 1s ease !important;
 }
 .qts-char-counter-badge.isFading { opacity: 0 !important; pointer-events: none !important; }
-/* Edit/remove/resize all stay hidden until the always-visible eye toggle is clicked —
+/* Edit/remove/resize all stay hidden until the always-visible eye toggle is clicked -
    previously every one of these sat exposed on the page at all times, cluttering screenshots and
    getting in the way of whatever the marker/note/shape was pointing at. */
 .qts-remove-btn, .qts-edit-btn, .qts-resize-handle { display: none !important; }
@@ -201,7 +201,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-modal-head-actions { display:flex !important; align-items:center !important; gap:6px !important; }
 .qts-modal header button.isDanger { background:#d30d18 !important; border-color:#d30d18 !important; color:#fff !important; }
 
-/* Sits immediately left of .qts-remove-btn (right:-8) — same slot pattern as .qts-edit-btn
+/* Sits immediately left of .qts-remove-btn (right:-8) - same slot pattern as .qts-edit-btn
    (right:18). Markers only ever have remove+resize, so resize takes the right:18 slot directly;
    shapes/notes also have an edit button in that slot, so .hasEditButton pushes resize one slot
    further left (right:44) instead of overlapping it. */
@@ -241,7 +241,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
   /* Custom-property indirection (same reason as .qts-shape-box): the earlier
      `.qts-floating-item * { all: revert !important }` rule resets plain inline color/font-size/
      background right back off, since author !important always beats non-important inline styles
-     in the cascade — but it can't touch custom properties, so those are the only lever left. */
+     in the cascade - but it can't touch custom properties, so those are the only lever left. */
   color: var(--qts-note-color, #fff) !important;
   font-size: var(--qts-note-font-size, 14px) !important;
   background: var(--qts-note-bg, rgba(0,0,0,.6)) !important;
@@ -287,7 +287,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-clickspy-event span { word-break: break-all !important; color: #ccc !important; }
 .qts-clickspy-event.qts-empty { color: #888 !important; }
 
-/* QA Sandbox right-click menu's "Revelar locators" panel — reuses .qts-floating-item's fixed
+/* QA Sandbox right-click menu's "Revelar locators" panel - reuses .qts-floating-item's fixed
    position/z-index/reset from above, just adds its own box chrome (same recipe as the Click Spy
    tooltip: dark card, yellow accents, monospace-ish values with a per-row copy button). */
 .qts-locator-reveal {
@@ -514,7 +514,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-line-endpoint-options input:focus-visible + span { outline: 2px solid var(--qts-ui-primary,#2563eb) !important; outline-offset: 2px !important; }
 
 .qts-shape-editor {
-  /* .qts-shape-box (a sibling, appended before this) is position:absolute;inset:0 — an
+  /* .qts-shape-box (a sibling, appended before this) is position:absolute;inset:0 - an
      absolutely-positioned box paints/hit-tests above a static sibling regardless of DOM order,
      so without its own position+z-index here, clicks on these inputs were landing on the box's
      drag handle instead of the input underneath it. */

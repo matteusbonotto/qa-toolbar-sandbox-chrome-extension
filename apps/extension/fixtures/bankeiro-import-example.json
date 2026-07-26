@@ -45,7 +45,7 @@
       "accountType": "Comum",
       "username": "qa.comum@bankeiro.test",
       "password": "Sandbox@123",
-      "notes": "Conta de teste genérica — sem vínculo com dados reais de cliente.",
+      "notes": "Conta de teste genérica - sem vínculo com dados reais de cliente.",
       "customFields": [
         { "key": "Saldo em conta", "type": "number", "value": 5000 },
         { "key": "Conta verificada", "type": "boolean", "value": true },
@@ -59,7 +59,7 @@
       "accountType": "Premium",
       "username": "qa.premium@bankeiro.test",
       "password": "Sandbox@123",
-      "notes": "Conta de teste com limites elevados — sem vínculo com dados reais de cliente.",
+      "notes": "Conta de teste com limites elevados - sem vínculo com dados reais de cliente.",
       "customFields": [
         { "key": "Saldo em conta", "type": "number", "value": 50000 },
         { "key": "Conta verificada", "type": "boolean", "value": true },
@@ -74,7 +74,7 @@
       "label": "Visa aprovado",
       "type": "card",
       "value": "4111 1111 1111 1111",
-      "notes": "Cartão sandbox que sempre aprova — uso exclusivo em QA."
+      "notes": "Cartão sandbox que sempre aprova - uso exclusivo em QA."
     }
   ],
   "apis": [
@@ -104,7 +104,7 @@
     {
       "id": "macro-bankeiro-search",
       "name": "Busca padrão",
-      "description": "Abre a busca e digita um termo de teste — fluxo de demonstração.",
+      "description": "Abre a busca e digita um termo de teste - fluxo de demonstração.",
       "steps": [
         { "action": "click", "selector": "textarea[name=q]" },
         { "action": "wait", "ms": 300 },

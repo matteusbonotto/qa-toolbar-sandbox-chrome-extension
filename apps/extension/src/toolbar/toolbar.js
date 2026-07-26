@@ -2,7 +2,7 @@ const { getWorkspace, getSiteScope, saveWorkspace, onStorageChanged, STORAGE_KEY
 const ICON = window.QTS_ICONS.svg;
 
 // The real measured height of #bar with its actual content (buttons, #currentUrl) plus a tight
-// 2px top/bottom padding — founder feedback: the old fixed 48px box centered that same content
+// 2px top/bottom padding - founder feedback: the old fixed 48px box centered that same content
 // with ~11px of empty space above and below it, reading as unnecessarily thick. CSS below uses
 // min-height (not height) so a locale whose button labels run longer never gets clipped; this
 // constant is the *measured* real-world value for that CSS at today's content (confirmed against
@@ -119,11 +119,11 @@ function findById(collection, id) {
 }
 
 // Environments no longer own a product/URL directly (see storage.js's normalizeUrlBindings for
-// why) — matching now goes through the binding that owns the concrete pattern, then resolves
+// why) - matching now goes through the binding that owns the concrete pattern, then resolves
 // product/project/client from *that* binding's productId. The returned object keeps the same
 // shape every existing consumer (buildBreadcrumb, resolveEnvironmentUrl, test account/payment
-// filters) already expects — id/name/color plus computed productId/projectId/clientId/
-// urlPatterns/primaryUrl — so only this function and the active-binding-aware filters below need
+// filters) already expects - id/name/color plus computed productId/projectId/clientId/
+// urlPatterns/primaryUrl - so only this function and the active-binding-aware filters below need
 // to change, not every place that reads `state.environment`.
 function findActiveEnvironment(workspace) {
   const href = window.location.href;
@@ -181,7 +181,7 @@ function setSpacerHeight() {
 
 const HEADER_OFFSET_ATTR = "data-qts-header-offset";
 // Above this, a site header's own z-index is fighting our bar for the top stacking slot instead
-// of just sitting fixed at its natural position — matches tampermonkey.js's threshold
+// of just sitting fixed at its natural position - matches tampermonkey.js's threshold
 // (qaCnkOffsetSiteFixedElements), which clamps anything this high back down.
 const HEADER_ZINDEX_CONTEST_THRESHOLD = 2_147_483_646;
 
@@ -203,12 +203,12 @@ function clearSiteFixedHeaderOffsets() {
  * confirming it handles cases this port's original point-sampling approach missed: it walks
  * every element under <body> (not just a few elementsFromPoint samples), matches `sticky` too
  * (not just `fixed`), nudges the real `top` property instead of `margin-top` (which is a no-op
- * for a fixed element that already declares its own `top`), and — separately, see
- * installHeaderOffsetMonitor() — re-runs continuously instead of only on toolbar render.
+ * for a fixed element that already declares its own `top`), and - separately, see
+ * installHeaderOffsetMonitor() - re-runs continuously instead of only on toolbar render.
  */
 function offsetSiteFixedHeaders() {
   // The monitor below watches style/class mutations to catch a site header that moves or
-  // appears after our last render — but this function itself mutates style/class on matching
+  // appears after our last render - but this function itself mutates style/class on matching
   // elements, so without disconnecting first, applying an offset would immediately re-trigger
   // the same observer and loop forever (confirmed live: an earlier version of this function hung
   // the page solid).
@@ -248,7 +248,7 @@ function offsetSiteFixedHeaders() {
   state.headerOffsetObserver?.observe(document.body || document.documentElement, { childList: true, subtree: true, attributes: true, attributeFilter: ["class", "style"] });
 }
 
-// Wildcard urlPatterns (e.g. "https://*.example.com/*") aren't real navigable addresses — this
+// Wildcard urlPatterns (e.g. "https://*.example.com/*") aren't real navigable addresses - this
 // only resolves the common single-trailing-wildcard case (strip it, use the rest verbatim) so
 // simple environments are clickable without requiring the explicit primaryUrl field; anything
 // with an embedded wildcard just fails URL parsing and stays non-clickable, which is the correct
@@ -263,13 +263,13 @@ function resolveEnvironmentUrl(environment) {
 /**
  * White-label breadcrumb: by default Client renders as a small, de-emphasized corner
  * label (logo/initials only by default), while Project → Product → Environment
- * form the main sequence — but preferences.breadcrumbOrder can move Client into the main
+ * form the main sequence - but preferences.breadcrumbOrder can move Client into the main
  * sequence too (it only stays in the corner slot when it's first in that order), each entity
- * rendering as a logo image, or — when no logo is set — an auto-generated colored initials
+ * rendering as a logo image, or - when no logo is set - an auto-generated colored initials
  * badge, so a brand-new client/project/product is never a blank space. Per-entity `showLabel`
  * controls whether the name is spelled out next to the badge. Each visible tier is
  * independently toggleable via preferences.breadcrumbVisibility, and (when the environment
- * resolves to a real URL) clickable to jump back to it — wired via event delegation in
+ * resolves to a real URL) clickable to jump back to it - wired via event delegation in
  * buildShadowHost(), since this only ever returns markup, not listeners.
  */
 function buildBreadcrumb(workspace, environment) {
@@ -768,7 +768,7 @@ function buildShadowHost() {
       .qts-bell-row span { color:var(--qts-ui-text); }
       /* On a real phone width, #right's pinned quick-action buttons (flex:0 0 auto, never
          shrink) add up to wider than the whole bar, which squeezes #left (breadcrumb) down to
-         zero width — client/project/product don't just get cramped, they vanish entirely, and
+         zero width - client/project/product don't just get cramped, they vanish entirely, and
          buttons past the overflow (settings, sometimes even Tools) get pushed off-screen with no
          way back. Below this width those pinned buttons hide and the same actions move into the
          Tools menu instead (#mobileActionsMenu), which stays reachable regardless of width. */
@@ -795,7 +795,7 @@ function buildShadowHost() {
           <span id="breadcrumb"></span>
         </div>
         <span id="currentUrl"></span>
-        ${IS_TEST_BUILD ? '<span class="qts-test-environment-badge" title="Ambiente isolado — não publicar">TESTE</span>' : ""}
+        ${IS_TEST_BUILD ? '<span class="qts-test-environment-badge" title="Ambiente isolado - não publicar">TESTE</span>' : ""}
       </div>
       <div id="right">
         <div id="loggedOutPanel">
@@ -921,7 +921,7 @@ function buildShadowHost() {
 
   // A plain mousedown on any element outside the current text selection collapses it by
   // browser default (the same reason rich-text-editor toolbars preventDefault their own
-  // buttons' mousedown) — without this, clicking Tools → a menu item → "Usar seleção da
+  // buttons' mousedown) - without this, clicking Tools → a menu item → "Usar seleção da
   // página" always saw an empty selection, because the first click (on the Tools button
   // itself) had already destroyed it. Scoped to <button> only so real drawer inputs/textareas
   // keep normal focus/caret behavior.
@@ -935,7 +935,7 @@ function buildShadowHost() {
     chrome.runtime.sendMessage({ type: "qts:open-options", tab: "account" });
   });
   // Delegated on #left (stable across renders) rather than #clientLabel/#breadcrumb directly,
-  // since render() replaces those two elements' innerHTML every time — a listener attached
+  // since render() replaces those two elements' innerHTML every time - a listener attached
   // straight to a breadcrumb segment would be destroyed along with it on the next render.
   shadow.getElementById("left").addEventListener("click", (event) => {
     const link = event.target.closest("[data-crumb-nav]");
@@ -1030,7 +1030,7 @@ function buildShadowHost() {
   shadow.getElementById("stepsRecCancelButton").addEventListener("click", cancelStepsRecording);
   shadow.getElementById("stepsRecDoneButton").addEventListener("click", stopStepsRecording);
 
-  // Same handlers as the pinned bar buttons above — this is the narrow-viewport fallback path
+  // Same handlers as the pinned bar buttons above - this is the narrow-viewport fallback path
   // for them (see the #mobileActionsMenu media query), not a separate feature.
   shadow.getElementById("mobileTestStatusItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
   shadow.getElementById("statusMenuItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
@@ -1109,7 +1109,7 @@ function buildShadowHost() {
   shadow.getElementById("qrCodeMenuItem").addEventListener("click", () => { openQrCodeTool(); closeToolsMenu(); });
   // These three keep a persistent on/off mode (unlike most Tools-menu items, which just open a
   // drawer every time): clicking them again while already active turns the mode off directly
-  // instead of reopening the drawer just to find the Desativar button inside it — same one-click
+  // instead of reopening the drawer just to find the Desativar button inside it - same one-click
   // toggle the quick pinned buttons (blurQuickButton/holofoteQuickButton) already had.
   shadow.getElementById("blurElementsMenuItem").addEventListener("click", () => {
     if (state.blurSelectionActive) { toggleBlurSelectionMode(); closeToolsMenu(); return; }
@@ -1237,7 +1237,7 @@ async function maybeShowTutorialDot() {
 // tool's REAL button/menu item on the actual bar, one at a time. The user performs the real action
 // themselves (the tour never simulates clicks for them) and clicks "Concluir passo" when ready.
 // Content comes straight from window.QTS_TUTORIAL_DATA (tutorial-data.js, now also loaded in this
-// content-script context) — adding a tool there and to TOUR_TARGETS below is the only wiring a
+// content-script context) - adding a tool there and to TOUR_TARGETS below is the only wiring a
 // future tool needs to join the live tour, same "one array" principle as the Tutorial/FAQ panels.
 const TOUR_TARGETS = {
   testStatus: { selector: "#statusMenuItem", menu: true },
@@ -1612,7 +1612,7 @@ function endTour({ redirectToWorkspace = false, redirectToSettingsTour = false }
   if (redirectToSettingsTour) chrome.runtime.sendMessage({ type: "qts:open-options", tab: "workspace", settingsTour: true });
 }
 
-// First-run callout used to be a popup card at the bottom of the screen — founder feedback: it
+// First-run callout used to be a popup card at the bottom of the screen - founder feedback: it
 // sat right where the tour balloon and evidence recordings needed that space, so it now queues as
 // a normal entry in the notification bell instead (dismiss = same hasSeenToolbarIntro flag as
 // before, just read/written from updateHttpErrorSurfaces/renderNotificationBellPanel below).
@@ -1626,9 +1626,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los 24 temas de color ahora se aplican a toda la barra (menús, insignias, editores, Click Spy) y también a la propia página de Configuración — antes solo cambiaba un botón.", "Mouse/Key View: estado presionado real (ya no un simple destello) y un contador ×N para clics/teclas repetidas, con animación de desvanecimiento tras 3s.", "Nuevos marcadores Warning y Question, junto a Pass/Fail (botón de flecha al lado de Fail).", "Casillas de verificación en toda la extensión ahora usan el color del tema en vez del estilo nativo del navegador."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["The 24 color themes now reach the whole toolbar (menus, badges, editors, Click Spy) and the Settings page itself — previously only one button changed.", "Mouse/Key View: a real pressed state (not just a flash) plus a ×N badge for repeated clicks/keys, fading out after 3s.", "New Warning and Question markers, alongside Pass/Fail (chevron button next to Fail).", "Checkboxes throughout the extension now use the theme color instead of the browser's native style."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Os 24 temas de cor agora alcançam toda a barra (menus, badges, editores, Click Spy) e também a própria tela de Configurações — antes só um botão mudava.", "Mouse/Key View: estado pressionado de verdade (não mais só um flash) e um badge ×N para cliques/teclas repetidos, com fade após 3s.", "Novos marcadores Warning e Question, ao lado de Pass/Fail (botão de seta ao lado do Fail).", "Checkboxes em toda a extensão agora usam a cor do tema em vez do estilo nativo do navegador."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los 24 temas de color ahora se aplican a toda la barra (menús, insignias, editores, Click Spy) y también a la propia página de Configuración - antes solo cambiaba un botón.", "Mouse/Key View: estado presionado real (ya no un simple destello) y un contador ×N para clics/teclas repetidas, con animación de desvanecimiento tras 3s.", "Nuevos marcadores Warning y Question, junto a Pass/Fail (botón de flecha al lado de Fail).", "Casillas de verificación en toda la extensión ahora usan el color del tema en vez del estilo nativo del navegador."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["The 24 color themes now reach the whole toolbar (menus, badges, editors, Click Spy) and the Settings page itself - previously only one button changed.", "Mouse/Key View: a real pressed state (not just a flash) plus a ×N badge for repeated clicks/keys, fading out after 3s.", "New Warning and Question markers, alongside Pass/Fail (chevron button next to Fail).", "Checkboxes throughout the extension now use the theme color instead of the browser's native style."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Os 24 temas de cor agora alcançam toda a barra (menus, badges, editores, Click Spy) e também a própria tela de Configurações - antes só um botão mudava.", "Mouse/Key View: estado pressionado de verdade (não mais só um flash) e um badge ×N para cliques/teclas repetidos, com fade após 3s.", "Novos marcadores Warning e Question, ao lado de Pass/Fail (botão de seta ao lado do Fail).", "Checkboxes em toda a extensão agora usam a cor do tema em vez do estilo nativo do navegador."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -1639,7 +1639,7 @@ async function dismissReleaseNote() {
   uiState.lastSeenReleaseVersion = chrome.runtime.getManifest().version;
   await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: uiState });
   await chrome.action.setBadgeText({ text: "" });
-  await chrome.action.setTitle({ title: "QA Toolbar Sandbox — abrir configurações" });
+  await chrome.action.setTitle({ title: "QA Toolbar Sandbox - abrir configurações" });
   updateHttpErrorSurfaces();
 }
 
@@ -1707,7 +1707,7 @@ function syncToolbarForCurrentLocation() {
 /**
  * Matches tampermonkey.js's keepSiteFixedElementsBelowWindowsill: a site's own fixed/sticky
  * header can appear or move well after our last render() (a cookie-banner dismissal, a delayed
- * SPA route render, a scroll-triggered header) — re-running offsetSiteFixedHeaders() only from
+ * SPA route render, a scroll-triggered header) - re-running offsetSiteFixedHeaders() only from
  * render() misses those. MutationObserver + scroll + resize covers the common triggers; the
  * interval is a deliberate belt-and-suspenders fallback for whatever those three don't catch.
  */
@@ -1780,7 +1780,7 @@ function closeTestStatusModal() {
 
 // `forced` (used by the "lembrar de atribuir status" recording flow) hides the close button and
 // backdrop-dismiss so the modal can't be skipped, and `onDone` fires 3s after a status is picked
-// (matching showResultOverlay's own on-screen duration) — the recording is still running the whole
+// (matching showResultOverlay's own on-screen duration) - the recording is still running the whole
 // time, so the result overlay actually gets captured in the video before the caller stops it.
 function openTestStatusModal({ forced = false, onDone = null } = {}) {
   closeTestStatusModal();
@@ -1845,7 +1845,7 @@ async function recordTestStatus(option) {
 // ---------------------------------------------------------------------------
 // Floating annotations: Pass/Fail markers, text notes and shapes, drawn
 // directly on the host page (light DOM) so they can sit over arbitrary page
-// content — the toolbar bar itself stays inside the Shadow Root, but these
+// content - the toolbar bar itself stays inside the Shadow Root, but these
 // need to overlay whatever the tester is pointing at.
 // ---------------------------------------------------------------------------
 
@@ -1890,7 +1890,7 @@ function handlePlacementEscape(event) {
   if (event.key === "Escape") cancelPlacementMode();
 }
 
-// shapeType is only meaningful for mode "shape" — it's the Formato the user already picked from
+// shapeType is only meaningful for mode "shape" - it's the Formato the user already picked from
 // the shape-type menu (rectangle/square/circle), applied immediately on drop instead of defaulting
 // to rectangle and making the user reopen the style editor just to fix the shape they already chose.
 let pendingShapeType = "rectangle";
@@ -1958,9 +1958,9 @@ function handlePlacementClick(event) {
 
 // Founder feedback (requested earlier, never shipped): edit/remove/resize used to sit exposed on
 // every marker/note/shape at all times, cluttering the page and getting in the way of screenshots.
-// Now only this small eye toggle is always visible; it reveals the rest of the controls — plus a
+// Now only this small eye toggle is always visible; it reveals the rest of the controls - plus a
 // "hide element" button that blanks the annotation's own content (not the controls) so a clean
-// screenshot can be taken without deleting the annotation — on demand.
+// screenshot can be taken without deleting the annotation - on demand.
 function visibilityControlsHtml() {
   const t = state.t;
   return `<button type="button" class="qts-visibility-btn" data-visibility-toggle title="${escapeHtml(t.showControls)}" aria-label="${escapeHtml(t.showControls)}">${ICON("eye")}</button>`;
@@ -2162,7 +2162,7 @@ function placeShape(left, top, width, height) {
   makeResizable(shape, shape.querySelector("[data-resize-handle]"), { minWidth: 80, minHeight: 80 });
   shape.querySelector(".qts-remove-btn").addEventListener("click", () => { shape.remove(); updateClearAllVisibility(); });
   shape.querySelector(".qts-edit-btn").addEventListener("click", () => toggleShapeStyleEditor(shape));
-  // Applies the Formato already picked from the shape-type menu right away — the user shouldn't
+  // Applies the Formato already picked from the shape-type menu right away - the user shouldn't
   // have to reopen the style editor just to set the type they already chose before drawing.
   const box = shape.querySelector(".qts-shape-box");
   const isSquarish = pendingShapeType === "square" || pendingShapeType === "circle";
@@ -2385,7 +2385,7 @@ function makeDraggable(element, handle) {
   let offsetY = 0;
   handle.addEventListener("mousedown", (event) => {
     // Excludes anything interactive that can legitimately sit on top of/inside the drag handle
-    // (the shape style editor's inputs, in particular) — a mousedown that starts on a real
+    // (the shape style editor's inputs, in particular) - a mousedown that starts on a real
     // control should never also start a drag.
     if (event.button !== 0 || event.target.closest("button,input,textarea,select,label,[data-resize-handle]")) return;
     dragging = true;
@@ -2398,7 +2398,7 @@ function makeDraggable(element, handle) {
     if (!dragging) return;
     element.style.left = `${Math.max(0, event.clientX - offsetX)}px`;
     // A bare getCurrentHeight() clamp (no gap) let an item land flush against the bar's bottom
-    // edge — the bar itself sits at the very top of the z-index stack (see #bar below), so a
+    // edge - the bar itself sits at the very top of the z-index stack (see #bar below), so a
     // flush item's own drag handle could end up hairline-overlapped and un-grabbable on the next
     // attempt ("fica colado", per founder feedback). A few px of buffer keeps a real gap.
     element.style.top = `${Math.max(getCurrentHeight() + 6, event.clientY - offsetY)}px`;
@@ -2406,7 +2406,7 @@ function makeDraggable(element, handle) {
   document.addEventListener("mouseup", () => { dragging = false; });
 }
 
-// Shared SE-corner drag-resize for markers/shapes/notes — one consistent resize gesture across
+// Shared SE-corner drag-resize for markers/shapes/notes - one consistent resize gesture across
 // every annotation type instead of a different interaction per tool.
 function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAspectRatio = false, onResize } = {}) {
   let resizing = false;
@@ -2430,7 +2430,7 @@ function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAsp
     let width = Math.max(minWidth, startWidth + (event.clientX - startX));
     let height = Math.max(minHeight, startHeight + (event.clientY - startY));
     // Markers are circular (border-radius:999px on a possibly non-square box just renders a
-    // stadium/oval) — locking width===height here is what keeps the shape an actual circle
+    // stadium/oval) - locking width===height here is what keeps the shape an actual circle
     // instead of distorting as soon as a single SE-corner drag lets the two axes diverge.
     if (lockAspectRatio) {
       const size = Math.max(width, height);
@@ -2445,7 +2445,7 @@ function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAsp
 }
 
 // Lines don't fit the SE-corner resize above (there's no fixed box, just a start point + length +
-// angle) — dragging this handle (sitting at the line's own endpoint, rotating with the bar) keeps
+// angle) - dragging this handle (sitting at the line's own endpoint, rotating with the bar) keeps
 // the start point fixed and recomputes length/angle from it, the same math placeLine used to draw
 // it in the first place.
 function makeLineResizable(line, handle) {
@@ -2499,7 +2499,7 @@ async function captureScreenshot() {
 }
 
 // ---------------------------------------------------------------------------
-// Generic drawer/modal helpers (rendered inside the Shadow Root — unlike
+// Generic drawer/modal helpers (rendered inside the Shadow Root - unlike
 // markers/notes/shapes, tool panels don't need to sit at page click
 // coordinates, so they don't need the light-DOM !important escape hatch).
 // ---------------------------------------------------------------------------
@@ -2540,7 +2540,7 @@ function drawerStyles() {
     .qts-drawer.isMinimized { height:58px !important; min-height:58px; resize:none; }
     .qts-drawer.isMinimized .qts-drawer-search, .qts-drawer.isMinimized .qts-drawer-body { display:none; }
     /* Macro Studio's founder feedback: a right-edge sidebar felt cramped/ugly for something with
-       a palette + flow builder + code view — this variant centers the same #drawerBody markup in
+       a palette + flow builder + code view - this variant centers the same #drawerBody markup in
        a proper modal instead, reusing every existing style/handler inside it unchanged. */
     .qts-drawer-backdrop.isModal { justify-content: center; align-items: center; padding: 16px; }
     .qts-drawer-backdrop.isModal .qts-drawer {
@@ -2818,8 +2818,8 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Opacidade (efeito Escurecer)": "Opacidad (efecto Oscurecer)",
   "Intensidade do borrão (efeito Borrar)": "Intensidad del desenfoque (efecto Difuminar)",
   "Tamanho do holofote": "Tamaño del foco",
-  "Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos — passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em \"Inspecionar com Pixel Perfect\".": "Actívalo y elige un modo: líneas guía que siguen al mouse (cruz, horizontal o vertical) con una regla inteligente de clic-para-medir, o el inspector de elementos — pasa el mouse para ver el tamaño exacto de cualquier elemento de la página, usa el scroll para subir/bajar entre padre e hijo, y haz clic para fijarlo. También disponible con el botón derecho del mouse, en \"Inspeccionar con Pixel Perfect\".",
-  "Modo": "Modo", "Linhas guia — cruz (horizontal + vertical)": "Líneas guía — cruz (horizontal + vertical)", "Linhas guia — somente horizontal": "Líneas guía — solo horizontal", "Linhas guia — somente vertical": "Líneas guía — solo vertical",
+  "Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos - passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em \"Inspecionar com Pixel Perfect\".": "Actívalo y elige un modo: líneas guía que siguen al mouse (cruz, horizontal o vertical) con una regla inteligente de clic-para-medir, o el inspector de elementos - pasa el mouse para ver el tamaño exacto de cualquier elemento de la página, usa el scroll para subir/bajar entre padre e hijo, y haz clic para fijarlo. También disponible con el botón derecho del mouse, en \"Inspeccionar con Pixel Perfect\".",
+  "Modo": "Modo", "Linhas guia - cruz (horizontal + vertical)": "Líneas guía - cruz (horizontal + vertical)", "Linhas guia - somente horizontal": "Líneas guía - solo horizontal", "Linhas guia - somente vertical": "Líneas guía - solo vertical",
   "Inspecionar elemento (tamanho em pixels)": "Inspeccionar elemento (tamaño en píxeles)",
   "Cor": "Color", "Espessura da linha": "Grosor de la línea",
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Usa el scroll para ir al elemento padre/hijo · Haz clic para fijarlo",
@@ -2846,8 +2846,8 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Opacidade (efeito Escurecer)": "Opacity (Darken effect)",
   "Intensidade do borrão (efeito Borrar)": "Blur strength (Blur effect)",
   "Tamanho do holofote": "Spotlight size",
-  "Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos — passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em \"Inspecionar com Pixel Perfect\".": "Turn it on and pick a mode: guide lines following the mouse (cross, horizontal, or vertical) with a click-to-measure smart ruler, or the element inspector — hover to see the exact size of any element on the page, scroll to walk up/down between parent and child, and click to pin it. Also reachable with a right-click, via \"Inspect with Pixel Perfect\".",
-  "Modo": "Mode", "Linhas guia — cruz (horizontal + vertical)": "Guide lines — cross (horizontal + vertical)", "Linhas guia — somente horizontal": "Guide lines — horizontal only", "Linhas guia — somente vertical": "Guide lines — vertical only",
+  "Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos - passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em \"Inspecionar com Pixel Perfect\".": "Turn it on and pick a mode: guide lines following the mouse (cross, horizontal, or vertical) with a click-to-measure smart ruler, or the element inspector - hover to see the exact size of any element on the page, scroll to walk up/down between parent and child, and click to pin it. Also reachable with a right-click, via \"Inspect with Pixel Perfect\".",
+  "Modo": "Mode", "Linhas guia - cruz (horizontal + vertical)": "Guide lines - cross (horizontal + vertical)", "Linhas guia - somente horizontal": "Guide lines - horizontal only", "Linhas guia - somente vertical": "Guide lines - vertical only",
   "Inspecionar elemento (tamanho em pixels)": "Inspect element (pixel size)",
   "Cor": "Color", "Espessura da linha": "Line thickness",
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Scroll to go to the parent/child element · Click to pin it",
@@ -2899,8 +2899,8 @@ function translateQaSurfaceText(value) {
   if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
   if (state.t.locale === "en") translated = translated.replace(/^Não foi possível gerar:/, "Could not generate:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 texts found on the current page.").replace(/^(\d+) textos carregados\.$/, "$1 texts loaded.").replace(/^JSON inválido:/, "Invalid JSON:");
   if (state.t.locale === "es") translated = translated.replace(/^Não foi possível gerar:/, "No se pudo generar:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 textos encontrados en la página actual.").replace(/^(\d+) textos carregados\.$/, "$1 textos cargados.").replace(/^JSON inválido:/, "JSON no válido:");
-  if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns — check the routes/endpoints you registered.");
-  if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors — confira as rotas\/endpoints cadastrados\.$/, "$1 solicitud(es) capturada(s) no coincidieron con ningún patrón configurado en Inspectors — revisa las rutas/endpoints registrados.");
+  if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors - confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns - check the routes/endpoints you registered.");
+  if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors - confira as rotas\/endpoints cadastrados\.$/, "$1 solicitud(es) capturada(s) no coincidieron con ningún patrón configurado en Inspectors - revisa las rutas/endpoints registrados.");
   return `${leading}${translated}${trailing}`;
 }
 
@@ -2976,7 +2976,7 @@ function wireSmartFilter(container, onChange) {
 }
 
 // `onBack`: an optional callback that reopens whatever list/parent view led here (e.g. an
-// Inspector's captured-response detail passes openInspectorsDrawer) — shows a back arrow in the
+// Inspector's captured-response detail passes openInspectorsDrawer) - shows a back arrow in the
 // header instead of forcing "close the whole sidebar, then reopen it" to get back to a list.
 // openDrawer has no history stack of its own; each caller that drills into a sub-view is
 // responsible for passing the one function that rebuilds its own parent view.
@@ -3004,7 +3004,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   if (!view && title === stepsCopy().title) view = "stepsRecorder";
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
-  // Every open must reset (or set) this flag — handleNetworkCaptured() checks it to decide
+  // Every open must reset (or set) this flag - handleNetworkCaptured() checks it to decide
   // whether to live-refresh the Inspectors list. Leaving a stale "inspectors" value here after
   // switching to a different panel made Inspectors content silently overwrite other drawers.
   drawerHost.dataset.view = view;
@@ -3123,7 +3123,7 @@ function humanizeKey(key) {
 }
 
 function formatPrimitive(value) {
-  if (value === null || value === undefined) return `<span style="color:#666">—</span>`;
+  if (value === null || value === undefined) return `<span style="color:#666">-</span>`;
   if (typeof value === "boolean") return value ? "Sim" : "Não";
   return escapeHtml(String(value));
 }
@@ -3131,7 +3131,7 @@ function formatPrimitive(value) {
 /**
  * Friendly (default) rendering of arbitrary JSON: primitive fields as
  * label/value rows, objects as collapsible sections, arrays as numbered
- * collapsible sections — everything generic, nothing product-specific.
+ * collapsible sections - everything generic, nothing product-specific.
  */
 function renderFriendlyJson(value, keyLabel = null, depth = 0) {
   if (value === null || typeof value !== "object") {
@@ -3174,7 +3174,7 @@ function filterFriendlyView(container, term) {
 
 // "Page locator": click a value in the inspector and jump to the matching element on the real
 // page. Generic on purpose (plain text-content matching, not tied to any product's DOM
-// structure) — this only ever looks at leaf elements so a whole-page container never wins
+// structure) - this only ever looks at leaf elements so a whole-page container never wins
 // just because some deeply nested descendant happens to contain the same text.
 function locateValueOnPage(rawValue) {
   const needle = String(rawValue ?? "").trim();
@@ -3242,7 +3242,7 @@ function renderJsonDetail(container, value, method, url) {
 
 // ---------------------------------------------------------------------------
 // Click Spy: highlight the next clickable element and report what it is,
-// instead of actually navigating/submitting — a safe way to inspect intent.
+// instead of actually navigating/submitting - a safe way to inspect intent.
 // ---------------------------------------------------------------------------
 
 let clickSpyCleanup = null;
@@ -3266,7 +3266,7 @@ function toggleClickSpy() {
     const target = event.target.closest(CLICK_SPY_SELECTOR) || event.target;
     event.preventDefault();
     // stopImmediatePropagation (not just stopPropagation) so no other capture-phase listener on
-    // the same target — a site's own analytics/handlers — fires from this pick click.
+    // the same target - a site's own analytics/handlers - fires from this pick click.
     event.stopImmediatePropagation();
     showClickSpyTooltip(target, event.clientX, event.clientY);
     deactivateClickSpy();
@@ -3300,12 +3300,12 @@ function describeClickSpyTarget(target) {
   const testId = target.getAttribute("data-testid") || target.getAttribute("data-test-id") || target.getAttribute("data-qa") || target.getAttribute("data-cy");
   return [
     [t.clickSpyElement, target.tagName.toLowerCase()],
-    [t.clickSpyText, target.textContent?.trim().slice(0, 80) || "—"],
-    [t.clickSpyDestination, anchor ? new URL(anchor.getAttribute("href"), window.location.href).href : "—"],
+    [t.clickSpyText, target.textContent?.trim().slice(0, 80) || "-"],
+    [t.clickSpyDestination, anchor ? new URL(anchor.getAttribute("href"), window.location.href).href : "-"],
     [t.clickSpyType, anchor ? t.clickSpyNavigation : target.tagName === "BUTTON" || target.getAttribute("type") === "submit" ? t.clickSpyActionSubmit : t.clickSpyFormControl],
-    [t.clickSpyTestId, testId || "—"],
-    [t.clickSpyRole, target.getAttribute("role") || "—"],
-    [t.clickSpyElementId, target.id || "—"],
+    [t.clickSpyTestId, testId || "-"],
+    [t.clickSpyRole, target.getAttribute("role") || "-"],
+    [t.clickSpyElementId, target.id || "-"],
   ];
 }
 
@@ -3316,7 +3316,7 @@ function closeClickSpyTooltip() {
   clickSpyTooltipEl = null;
 }
 
-// A small tooltip anchored near the picked element (not the full openDrawer side panel) — lets
+// A small tooltip anchored near the picked element (not the full openDrawer side panel) - lets
 // the tester keep seeing the element they picked while reading the result, matching how a
 // real inspector would surface this instead of yanking focus to a side drawer.
 function showClickSpyTooltip(target, clientX, clientY) {
@@ -3358,13 +3358,13 @@ function showClickSpyTooltip(target, clientX, clientY) {
 }
 
 // toolbar.js runs in the content script's ISOLATED world, which has its own separate copy of
-// window — patching window.fetch/history.pushState/etc. from here would only ever touch that
+// window - patching window.fetch/history.pushState/etc. from here would only ever touch that
 // isolated copy, invisible to the page's real code (this is exactly why pagebridge.js exists as
 // a MAIN-world script for Freeze Clock/Force HTTP). Rather than duplicating that split for this
 // one feature, this reuses what's already observable from here: qts:network-captured (fetch/XHR,
 // dispatched by pagebridge.js) and qts:location-change (pushState/replaceState/popstate/
 // hashchange, also pagebridge.js) are both real DOM CustomEvents, and `submit` is a real DOM
-// event too — none of those need MAIN-world access to observe. Only window.open is a bare
+// event too - none of those need MAIN-world access to observe. Only window.open is a bare
 // function call with no such event, so that alone is bridged via a dedicated pagebridge command.
 function installTemporaryActionTrace(onEvent) {
   const networkHandler = (event) => onEvent(state.t.clickSpyEventNetwork, `${event.detail?.method || "GET"} ${event.detail?.url || ""}`);
@@ -3410,7 +3410,7 @@ function executeAndObserveClickSpy(target, tooltip, button) {
 
 // ---------------------------------------------------------------------------
 // Freeze Clock and Force HTTP: both act on the page's real Date/fetch, which
-// only pagebridge.js (MAIN world) can see — the isolated-world toolbar only
+// only pagebridge.js (MAIN world) can see - the isolated-world toolbar only
 // dispatches/listens for CustomEvents on document.
 // ---------------------------------------------------------------------------
 
@@ -3445,7 +3445,7 @@ function openForceHttpDialog() {
 
 // ---------------------------------------------------------------------------
 // Inspectors: a live list of JSON API responses captured by pagebridge.js.
-// Fully generic/declarative — no product-specific endpoint names hardcoded.
+// Fully generic/declarative - no product-specific endpoint names hardcoded.
 // ---------------------------------------------------------------------------
 
 function inspectorMatchesUrl(inspector, url) {
@@ -3462,7 +3462,7 @@ function configuredInspectors() {
 
 // Everything captured is always kept now (previously a non-matching entry was dropped before it
 // ever reached state.networkHistory, which made "see everything" impossible even for founders who
-// just wanted a quick look — the "Todos"/"Meus Inspectors" toggle in renderInspectorsList() is a
+// just wanted a quick look - the "Todos"/"Meus Inspectors" toggle in renderInspectorsList() is a
 // soft filter over matchedInspectorIds instead of a hard capture-time drop).
 function handleNetworkCaptured(entry) {
   entry.matchedInspectorIds = configuredInspectors().filter((inspector) => inspectorMatchesUrl(inspector, entry?.url)).map((inspector) => inspector.id);
@@ -3477,7 +3477,7 @@ function handleNetworkCaptured(entry) {
   if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
 }
 
-// "auto" means "not yet manually chosen" — resolved once per drawer session by
+// "auto" means "not yet manually chosen" - resolved once per drawer session by
 // inspectorsEffectiveScope() (mine if the founder already has configured inspectors, since that
 // preserves the pre-existing filtered experience; all otherwise, since there'd be nothing to see).
 const inspectorsFilterState = { query: "", method: new Set(), status: new Set(), source: new Set(), inspector: new Set(), collapsed: false, scope: "auto" };
@@ -3499,7 +3499,7 @@ async function markEntryAsInspector(entry) {
   const inspector = { id: crypto.randomUUID(), label: pattern.length > 40 ? `${pattern.slice(0, 40)}…` : pattern, patterns: [pattern], active: true };
   inspectors.push(inspector);
   await persistWorkspaceState();
-  // Re-tag already-captured entries immediately — otherwise "Meus Inspectors" would stay empty
+  // Re-tag already-captured entries immediately - otherwise "Meus Inspectors" would stay empty
   // for this exact endpoint until the next real network call re-runs handleNetworkCaptured.
   for (const item of state.networkHistory) {
     if (inspectorMatchesUrl(inspector, item.url) && !(item.matchedInspectorIds || []).includes(inspector.id)) {
@@ -3511,7 +3511,7 @@ async function markEntryAsInspector(entry) {
 }
 
 function statusBucket(status) {
-  if (!status) return "—";
+  if (!status) return "-";
   return `${String(status)[0]}xx`;
 }
 
@@ -3525,13 +3525,13 @@ function buildInspectorFilterFields() {
     { key: "source", label: state.t.filterSource, options: sources.map((value) => ({ value, label: value })) },
   ];
   const configured = configuredInspectors();
-  // Each configured inspector is also its own filter chip — lets the founder narrow down to
+  // Each configured inspector is also its own filter chip - lets the founder narrow down to
   // "just what Inspector X caught" regardless of whether they're viewing Todos or Meus Inspectors.
   if (configured.length) fields.push({ key: "inspector", label: "Inspector", options: configured.map((inspector) => ({ value: inspector.id, label: inspector.label || inspector.id })) });
   return fields;
 }
 
-// Only ever called for the "Todos" scope now — "Meus Inspectors" is a per-inspector dashboard
+// Only ever called for the "Todos" scope now - "Meus Inspectors" is a per-inspector dashboard
 // (renderInspectorDashboard) rather than a filtered slice of this same capture list.
 function matchesInspectorFilters(entry) {
   const query = inspectorsFilterState.query.trim().toLowerCase();
@@ -3547,11 +3547,11 @@ function matchesInspectorFilters(entry) {
 }
 
 // "Meus Inspectors" is a per-inspector status dashboard (one row per *configured* inspector, most
-// recent matching capture or a waiting state), not a filtered capture list — this is what the
+// recent matching capture or a waiting state), not a filtered capture list - this is what the
 // founder compared against the tampermonkey.js reference's own API Inspector drawers: list the
 // endpoints you care about, show a plain "still waiting" state with a retry when nothing matched
 // yet, and open straight to the response once something did. Retrying doesn't (and can't safely)
-// force a new request — it just re-checks whatever's already in state.networkHistory, the same
+// force a new request - it just re-checks whatever's already in state.networkHistory, the same
 // non-reloading semantics the reference's own retry had.
 function renderInspectorDashboard(listBody) {
   const configured = configuredInspectors();
@@ -3566,7 +3566,7 @@ function renderInspectorDashboard(listBody) {
         <b>${escapeHtml(inspector.label || inspector.id)}</b>
         <small>${escapeHtml((inspector.patterns || []).join(", "))}</small>
         ${entry
-          ? `<small style="display:block;margin-top:3px;color:#42d5c2">${ICON("pass")} ${escapeHtml(entry.method)} ${entry.status || "—"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>`
+          ? `<small style="display:block;margin-top:3px;color:#42d5c2">${ICON("pass")} ${escapeHtml(entry.method)} ${entry.status || "-"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>`
           : `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
               <small style="color:#ffb020">Aguardando resposta...</small>
               <button type="button" class="qts-icon-btn" data-retry-inspector="${escapeHtml(inspector.id)}" title="Tentar novamente">${ICON("undo")}</button>
@@ -3630,7 +3630,7 @@ function renderInspectorsList() {
     ? filtered.map((entry) => `
         <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
           <div style="min-width:0;flex:1">
-            <b>${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+            <b>${entry.status || "-"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
             ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">${ICON("star")} ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
           </div>
           <button type="button" class="qts-icon-btn" data-mark-inspector="${escapeHtml(entry.id)}" title="Marcar como meu inspector" style="width:26px;height:26px;flex:0 0 auto">${ICON("pin")}</button>
@@ -3697,9 +3697,9 @@ function persistHttpErrors() {
   try { window.sessionStorage.setItem(HTTP_ERRORS_SESSION_KEY, JSON.stringify(state.httpErrors)); } catch {}
 }
 
-// Single place that keeps every HTTP-error surface in sync — the Tools-menu badge, the
+// Single place that keeps every HTTP-error surface in sync - the Tools-menu badge, the
 // standalone notification bell (badge + its own dropdown list), and the Error Monitor drawer if
-// it happens to be open — so none of them can drift out of sync with `state.httpErrors`.
+// it happens to be open - so none of them can drift out of sync with `state.httpErrors`.
 function updateHttpErrorSurfaces() {
   const root = state.shadowRoot;
   if (!root) return;
@@ -3744,7 +3744,7 @@ function renderNotificationBellPanel() {
     ${releaseRow}
     ${entries.length ? entries.map((entry) => `
       <button type="button" class="qts-bell-row" data-open-notification>
-        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)}
+        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "-"}</b> ${escapeHtml(entry.method)}
         <span>${escapeHtml(entry.url)}</span>
         <small>${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
       </button>
@@ -3786,7 +3786,7 @@ function matchesErrorMonitorFilters(entry) {
   return true;
 }
 
-// Same message-extraction fallback chain the tampermonkey.js reference used — a plain status
+// Same message-extraction fallback chain the tampermonkey.js reference used - a plain status
 // code told a QA tester almost nothing; the actual message (when the API returns one) is what
 // makes a captured error useful at a glance, before ever opening the raw JSON.
 function errorMonitorMessageFor(entry) {
@@ -3816,7 +3816,7 @@ function renderErrorMonitorList() {
       const message = errorMonitorMessageFor(entry);
       return `
       <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="${entry.payload ? "" : "cursor:default"}">
-        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "—"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "-"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
         ${message ? `<small style="display:block;margin-top:3px;color:#ddd">${escapeHtml(message)}</small>` : ""}
         <small style="display:block;margin-top:2px;color:#666">${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
       </div>
@@ -3844,7 +3844,7 @@ function openErrorMonitorDrawer() {
 
 // ---------------------------------------------------------------------------
 // Test accounts: read-only view of the accounts registered (from Settings)
-// for the environment matching the current URL. Sandbox-only by design —
+// for the environment matching the current URL. Sandbox-only by design -
 // passwords are masked by default and never leave this drawer; managing
 // (creating/removing) accounts happens on the options page, not here.
 // ---------------------------------------------------------------------------
@@ -3875,13 +3875,13 @@ function matchesTestAccountFilters(account) {
 function renderCustomFieldChips(customFields) {
   if (!customFields?.length) return "";
   return `<div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap">${customFields.map((field) => {
-    const value = field.type === "boolean" ? (field.value ? ICON("pass") : ICON("fail")) : escapeHtml(String(field.value ?? "—"));
+    const value = field.type === "boolean" ? (field.value ? ICON("pass") : ICON("fail")) : escapeHtml(String(field.value ?? "-"));
     return `<span class="qts-chip"><b>${escapeHtml(field.key)}</b> ${value}</span>`;
   }).join("")}</div>`;
 }
 
 // Founder feedback: payment methods already had a one-click "Copiar tudo" per row (every visible
-// field, formatted as text) — test accounts only ever copied the username. This brings accounts up
+// field, formatted as text) - test accounts only ever copied the username. This brings accounts up
 // to the same parity.
 function formatTestAccountForCopy(account) {
   const lines = [
@@ -3926,7 +3926,7 @@ function renderTestAccountsList() {
     </div>
     <div id="testAccountsListBody" style="display:grid;gap:10px">${accounts.length ? accounts.map((account) => {
       const revealed = revealedTestAccountIds.has(account.id);
-      const passwordDisplay = account.password ? (revealed ? escapeHtml(account.password) : "•".repeat(Math.min(10, account.password.length))) : "—";
+      const passwordDisplay = account.password ? (revealed ? escapeHtml(account.password) : "•".repeat(Math.min(10, account.password.length))) : "-";
       return `
         <div class="qts-net-item" data-account-id="${escapeHtml(account.id)}" style="cursor:default">
           <div style="display:flex;align-items:center;gap:6px">
@@ -3934,7 +3934,7 @@ function renderTestAccountsList() {
             <b>${escapeHtml(account.label)}</b>${account.accountType ? ` <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(account.accountType)}</span>` : ""}
           </div>
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <small>${escapeHtml(account.username || "—")}</small>
+            <small>${escapeHtml(account.username || "-")}</small>
             <small>${passwordDisplay}</small>
             ${account.password ? `<button type="button" class="action" data-reveal-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px">${revealed ? ICON("eyeSlash") : ICON("eye")}</button>` : ""}
             ${account.username ? `<button type="button" class="action" data-copy-account="${escapeHtml(account.id)}" style="height:22px;padding:0 8px;font-size:10px" title="Copiar usuário">${ICON("copy")}</button>` : ""}
@@ -3991,7 +3991,7 @@ const revealedPaymentMethodIds = new Set();
 
 function maskedPaymentValue(value) {
   const raw = String(value || "");
-  if (!raw) return "—";
+  if (!raw) return "-";
   const compact = raw.replace(/\s+/g, "");
   const suffix = compact.slice(-4);
   return `${"•".repeat(Math.max(4, Math.min(12, compact.length - suffix.length)))}${suffix}`;
@@ -4160,7 +4160,7 @@ function openResourcesDrawer() {
 // JSON Studio: format/compact/copy any pasted JSON.
 // ---------------------------------------------------------------------------
 
-// Recursive structural diff between two parsed JSON values — the original spec (see
+// Recursive structural diff between two parsed JSON values - the original spec (see
 // docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md's jsonDiff.enabled capability) called for real
 // comparison, not just reformatting; this is the founder-facing shipment of that, kept dependency-
 // free (no bundled JSON-diff/schema library) to match this content script's zero-runtime-deps
@@ -4192,7 +4192,7 @@ function diffJsonValues(a, b, path = "") {
 }
 
 function renderJsonDiff(diffs) {
-  if (!diffs.length) return `<div class="qts-empty">Nenhuma diferença — os dois JSONs são equivalentes.</div>`;
+  if (!diffs.length) return `<div class="qts-empty">Nenhuma diferença - os dois JSONs são equivalentes.</div>`;
   const label = { added: "+ adicionado", removed: "− removido", changed: "~ alterado" };
   const color = { added: "#42d5c2", removed: "#ff6767", changed: "#ffb020" };
   const rows = diffs.slice(0, 300).map((diff) => `
@@ -4271,7 +4271,7 @@ function openJsonStudio() {
 }
 
 // ---------------------------------------------------------------------------
-// Breakpoint Viewer: full-screen device-frame comparison (not a sidebar) —
+// Breakpoint Viewer: full-screen device-frame comparison (not a sidebar) -
 // each pane emulates the device's real pixel size and browser/device chrome,
 // scaled down to fit. Scroll/click sync only work when the loaded page is
 // same-origin as the top document (cross-origin iframes block script access
@@ -4428,7 +4428,7 @@ function openBreakpointViewer() {
     const deviceB = findDevice(selectB.value);
 
     // A shared scale (not one computed independently per pane) is what keeps
-    // relative real-world proportions intact — a 1280px monitor must always
+    // relative real-world proportions intact - a 1280px monitor must always
     // render bigger than a 379px phone at the same zoom. Fitting each device
     // to its own box independently (the previous bug) let the phone claim
     // ~100% while the monitor was squeezed down, inverting their real sizes.
@@ -4437,7 +4437,7 @@ function openBreakpointViewer() {
     const widestDevice = Math.max(deviceA.width, deviceB.width);
     const tallestDevice = Math.max(deviceA.height, deviceB.height);
     // The zoom control (breakpointViewerState.zoomMultiplier) is a separate, user-driven
-    // multiplier layered on top of the auto-fit base scale, applied identically to both panes —
+    // multiplier layered on top of the auto-fit base scale, applied identically to both panes -
     // it's the only way to see a device above its real pixel size, which the auto-fit scale
     // deliberately never does on its own (see the comment above).
     const baseScale = Math.min(1, paneWidthBudget / widestDevice, paneHeightBudget / tallestDevice);
@@ -5044,7 +5044,7 @@ function buildXPath(element) {
 }
 
 // Reuses CLICK_SPY_SELECTOR's definition of "interactive element" rather than inventing a second
-// one. Never captures `.value` for any field (privacy) — only structural/locator data for the
+// one. Never captures `.value` for any field (privacy) - only structural/locator data for the
 // automation team, with a `sensitive` flag (reusing the same detection Macro Studio/Key View use)
 // so they know which fields to handle carefully.
 function captureVisibleElements() {
@@ -5061,14 +5061,14 @@ function captureVisibleElements() {
       xpath: buildXPath(element),
       text: String(element.getAttribute("aria-label") || element.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120),
       placeholder: element.getAttribute("placeholder") || "",
-      // Icon-only buttons/links have no text at all — the closest thing to a "visible label" for
+      // Icon-only buttons/links have no text at all - the closest thing to a "visible label" for
       // those is whatever image they contain (or, if the element itself is one, its own src).
       imagePreview: element.tagName === "IMG" ? element.getAttribute("src") || "" : element.querySelector("img")?.getAttribute("src") || "",
       sensitive: window.QTS_QA_TOOLS.isSensitiveElement(element),
     }));
 }
 
-// Element Capture's own "Localizar" — unlike locateValueOnPage's exact-text search (built for
+// Element Capture's own "Localizar" - unlike locateValueOnPage's exact-text search (built for
 // JSON leaf values), this has an actual CSS selector captured at scan time, which is a far more
 // precise and reliable way to re-find the same element on the live page.
 function locateElementBySelector(selector) {
@@ -5094,7 +5094,7 @@ function describeElementCurrentState(selector) {
   ];
   if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) parts.push(["Marcado", element.checked ? "Sim" : "Não"]);
   else if (element instanceof HTMLInputElement || element instanceof HTMLTextAreaElement) parts.push(["Preenchido", element.value ? "Sim" : "Não"]);
-  else if (element instanceof HTMLSelectElement) parts.push(["Opção selecionada", element.options[element.selectedIndex]?.text || "—"]);
+  else if (element instanceof HTMLSelectElement) parts.push(["Opção selecionada", element.options[element.selectedIndex]?.text || "-"]);
   return parts;
 }
 
@@ -5325,7 +5325,7 @@ function moveHolofote(x, y) {
 // felt wrong for a passive visual aid (it competed with actually clicking things on the page).
 // Holding Ctrl has real collisions with browser/OS shortcuts (Ctrl+C, Ctrl+F, Ctrl+Tab...), so the
 // hold timer is cancelled the moment any other key goes down alongside it, or when focus is in a
-// text field where Ctrl shortcuts are routine — a stray shortcut should never light up the overlay.
+// text field where Ctrl shortcuts are routine - a stray shortcut should never light up the overlay.
 function isEditableFocus() {
   const active = document.activeElement;
   return Boolean(active && (active.tagName === "INPUT" || active.tagName === "TEXTAREA" || active.isContentEditable));
@@ -5362,7 +5362,7 @@ function enableHolofoteMode() {
     }, HOLOFOTE_HOLD_MS);
   };
   // Any other key pressed while Ctrl is down means this is a real shortcut (Ctrl+C, Ctrl+F...),
-  // not someone holding Ctrl on its own to summon the spotlight — cancel the pending hold.
+  // not someone holding Ctrl on its own to summon the spotlight - cancel the pending hold.
   const otherKeyHandler = (event) => { if (event.key !== "Control" && event.ctrlKey) clearHold(); };
   const keyUpHandler = (event) => {
     if (event.key !== "Control") return;
@@ -5703,9 +5703,9 @@ function openPixelPerfectTool() {
         <button class="qts-mode-option" type="button" role="radio" data-pp-mode="bounds"><span class="qts-mode-icon">${ICON("elementCapture")}</span><span class="qts-mode-copy"><b>Elemento</b><small>Tamanho em pixels</small></span></button>
       </div></fieldset>
       <select id="pixelPerfectMode" class="qts-visually-hidden" aria-hidden="true" tabindex="-1">
-        <option value="cross">Linhas guia — cruz (horizontal + vertical)</option>
-        <option value="horizontal">Linhas guia — somente horizontal</option>
-        <option value="vertical">Linhas guia — somente vertical</option>
+        <option value="cross">Linhas guia - cruz (horizontal + vertical)</option>
+        <option value="horizontal">Linhas guia - somente horizontal</option>
+        <option value="vertical">Linhas guia - somente vertical</option>
         <option value="bounds">Inspecionar elemento (tamanho em pixels)</option>
       </select>
       <label>Cor da guia
@@ -5845,7 +5845,7 @@ function openElementCapture() {
                   <div data-state-body hidden style="margin-top:4px"></div>
                 </div>
               `;
-            }).join("") + (filtered.length > capped.length ? `<p class="qts-tool-lead">Mostrando 80 de ${filtered.length} — refine a busca para ver outros.</p>` : "")
+            }).join("") + (filtered.length > capped.length ? `<p class="qts-tool-lead">Mostrando 80 de ${filtered.length} - refine a busca para ver outros.</p>` : "")
           : `<div class="qts-empty">${rows.length ? "Nenhum elemento corresponde à busca." : "Nenhum elemento interativo encontrado nesta página."}</div>`;
 
         preview.querySelectorAll("[data-locate-row]").forEach((button) => button.addEventListener("click", (event) => {
@@ -5893,7 +5893,7 @@ function renderPinnedMacros() {
 
 // Live badge anchored to a real page input/textarea, so a founder can watch a character limit
 // (e.g. a bio field) update as they type without switching back and forth to the drawer. Tracked
-// by a 200ms poll rather than scroll/resize listeners — matches this file's existing polling
+// by a 200ms poll rather than scroll/resize listeners - matches this file's existing polling
 // pattern (state.locationInterval) and means a badge cleans itself up for free whenever its
 // target disappears (SPA re-render) or clearAllFloatingItems() sweeps every `.qts-floating-item`,
 // without needing to hook into that sweep separately.
@@ -5947,7 +5947,7 @@ function openQrCodeTool() {
     variant: "modal",
     bodyHtml: `<p class="qts-tool-lead">Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.</p>
       ${hasSensitiveParts ? `<div class="qts-card"><b>Query/hash removidos por segurança</b><p class="qts-tool-lead">A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.</p><label class="qts-switch-row"><input id="qrKeepSensitive" type="checkbox" /><span><b>Incluir query e hash</b></span></label></div>` : ""}
-      <label class="qts-field-label">URL<select id="qrUrl"><option value="${escapeHtml(current.href)}">Aba atual — ${escapeHtml(current.href)}</option>${savedUrls.map((item) => `<option value="${escapeHtml(item.url)}">${escapeHtml(item.label)}</option>`).join("")}</select></label>
+      <label class="qts-field-label">URL<select id="qrUrl"><option value="${escapeHtml(current.href)}">Aba atual - ${escapeHtml(current.href)}</option>${savedUrls.map((item) => `<option value="${escapeHtml(item.url)}">${escapeHtml(item.label)}</option>`).join("")}</select></label>
       <div class="qts-card" style="display:grid;place-items:center"><canvas id="qrCanvas" width="280" height="280" aria-label="QR Code gerado"></canvas></div>
       <div class="qts-card-actions"><button class="action primary" id="qrDownload" type="button">Baixar PNG</button><button class="action" id="qrCopy" type="button">Copiar imagem</button></div><div class="qts-status" id="qrStatus"></div>`,
     onReady(body) {
@@ -6069,7 +6069,7 @@ function cancelElementSelection() {
 }
 
 // `resolve` maps the literal click target to the element the caller actually cares about, before
-// `accepts` even runs — e.g. Input Lab wants clicking anywhere on a floating-label wrapper (a
+// `accepts` even runs - e.g. Input Lab wants clicking anywhere on a floating-label wrapper (a
 // common real-world pattern where the visible "input box" is a padded container around a
 // smaller <input>) to still resolve to the real <input>, not reject it outright. Defaults to
 // identity so callers that already accept the raw target (Multiclick, Faker Fill's own
@@ -6082,7 +6082,7 @@ function selectPageElement({ accepts = () => true, resolve = (target) => target,
   style.textContent = "html.qts-selecting,html.qts-selecting *{cursor:crosshair!important}.qts-selection-candidate{outline:3px solid var(--qts-ui-primary, #ffd700)!important;outline-offset:2px!important}";
   document.documentElement.appendChild(style);
   document.documentElement.classList.add("qts-selecting");
-  // Reinforces that Esc cancels — the first toast (below) gets buried once a few "not
+  // Reinforces that Esc cancels - the first toast (below) gets buried once a few "not
   // compatible" rejection toasts stack up, which previously left the only cancel hint invisible.
   const hint = document.createElement("div");
   hint.className = "qts-floating-item";
@@ -6103,7 +6103,7 @@ function selectPageElement({ accepts = () => true, resolve = (target) => target,
   const onOver = (event) => {
     if (event.target.closest?.(`#${HOST_ID}`)) return;
     candidate?.classList.remove("qts-selection-candidate");
-    // Falls back to the raw hover target so *something* highlights under the cursor generally —
+    // Falls back to the raw hover target so *something* highlights under the cursor generally -
     // but only the resolved candidate (if any) is what onClick will actually accept/select.
     candidate = resolve(event.target) || event.target;
     candidate.classList.add("qts-selection-candidate");
@@ -6124,8 +6124,8 @@ function selectPageElement({ accepts = () => true, resolve = (target) => target,
 }
 
 // Clicking anywhere on a real input resolves to itself; clicking a wrapper/label around it
-// (floating-label patterns, custom-select containers) searches its descendants first — the
-// common real case, since the visible "box" is usually the wrapper, not the input — falling back
+// (floating-label patterns, custom-select containers) searches its descendants first - the
+// common real case, since the visible "box" is usually the wrapper, not the input - falling back
 // to ancestors for the rarer case of clicking a decorative child nested inside the input's own
 // wrapper alongside it.
 function resolveFormControlTarget(target) {
@@ -6135,7 +6135,7 @@ function resolveFormControlTarget(target) {
 }
 
 // Short human-readable confirmation of what a page-picked element actually is, shown in a toast
-// right after picking — the closest thing to a "visible label" without persisting a new field on
+// right after picking - the closest thing to a "visible label" without persisting a new field on
 // the macro step schema just for display.
 function describeElementForMacro(element) {
   const tag = element.tagName.toLowerCase();
@@ -6174,7 +6174,7 @@ function openMultiClick(selectedElement = null) {
 function openInputLab(selectedElement = null) {
   if (!requirePlanFeature("inputLab")) return;
   const info = selectedElement ? window.QTS_QA_TOOLS.inspectInput(selectedElement) : null;
-  const infoHtml = info ? `<div class="qts-card"><b>${escapeHtml(info.selector)}</b><div class="qts-tool-grid">${[["Tipo", info.type], ["Obrigatório", info.required ? "Sim" : "Não"], ["Mínimo", info.min ?? info.minLength ?? "—"], ["Máximo", info.max ?? info.maxLength ?? "—"], ["Pattern", info.pattern || "—"]].map(([label, value]) => `<div><small>${label}</small><br><b>${escapeHtml(value)}</b></div>`).join("")}</div></div>` : "";
+  const infoHtml = info ? `<div class="qts-card"><b>${escapeHtml(info.selector)}</b><div class="qts-tool-grid">${[["Tipo", info.type], ["Obrigatório", info.required ? "Sim" : "Não"], ["Mínimo", info.min ?? info.minLength ?? "-"], ["Máximo", info.max ?? info.maxLength ?? "-"], ["Pattern", info.pattern || "-"]].map(([label, value]) => `<div><small>${label}</small><br><b>${escapeHtml(value)}</b></div>`).join("")}</div></div>` : "";
   openDrawer({
     title: "Input Lab",
     view: "inputLab",
@@ -6236,9 +6236,9 @@ function elementLocatorRows(element) {
   const testId = element.getAttribute("data-testid") || element.getAttribute("data-test") || element.getAttribute("data-qa") || "";
   return [
     ["Tag", element.tagName.toLowerCase()],
-    ["ID", element.id || "—"],
-    ["Test ID", testId || "—"],
-    ["Name", element.getAttribute("name") || "—"],
+    ["ID", element.id || "-"],
+    ["Test ID", testId || "-"],
+    ["Name", element.getAttribute("name") || "-"],
     ["Seletor CSS", window.QTS_QA_TOOLS.uniqueSelector(element)],
     ["XPath", buildXPath(element)],
   ];
@@ -6254,7 +6254,7 @@ function showLocatorReveal(element, clientX, clientY) {
   panel.innerHTML = `
     <div class="qts-locator-head"><span>Locators</span><button type="button" class="qts-remove-btn" data-close title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button></div>
     <div class="qts-locator-body">
-      ${sensitive ? `<p class="qts-locator-warning">${ICON("warning")} Campo sensível — valor não exibido.</p>` : ""}
+      ${sensitive ? `<p class="qts-locator-warning">${ICON("warning")} Campo sensível - valor não exibido.</p>` : ""}
       ${elementLocatorRows(element).map(([label, value]) => `<div class="qts-locator-row"><small>${escapeHtml(label)}</small><div class="qts-locator-value"><code>${escapeHtml(String(value))}</code><button type="button" class="qts-locator-copy" data-copy="${escapeHtml(String(value))}" title="Copiar">${ICON("copy")}</button></div></div>`).join("")}
     </div>`;
   document.body.appendChild(panel);
@@ -6289,7 +6289,7 @@ function handleContextAction(action) {
     if (!requirePlanFeature("fakerFill")) return;
     if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {
       const result = window.QTS_QA_TOOLS.fillSingleField(target);
-      showQaToast(result.filled ? "Campo preenchido com dado fake." : "Campo sensível, somente leitura ou desabilitado — não preenchido.", result.filled ? "info" : "error");
+      showQaToast(result.filled ? "Campo preenchido com dado fake." : "Campo sensível, somente leitura ou desabilitado - não preenchido.", result.filled ? "info" : "error");
       return;
     }
     const scope = target?.closest?.("form") || document;
@@ -6328,7 +6328,7 @@ function appendRecordedStep(step) {
   updateMacroRecordingUi();
 }
 
-// One-line human description for the recording history panel — mirrors the same action set
+// One-line human description for the recording history panel - mirrors the same action set
 // `defaultMacroStep`/`macroStepFields` already know about, just rendered as prose instead of form
 // fields.
 function macroStepLabel(step) {
@@ -6671,7 +6671,7 @@ document.addEventListener("qts:force-http-state", (event) => {
 // ---------------------------------------------------------------------------
 // Evidence recording: getDisplayMedia + MediaRecorder, start/pause/resume/
 // stop, download as MP4 when the browser's MediaRecorder supports it,
-// falling back to WebM otherwise (documented limitation, not a silent one —
+// falling back to WebM otherwise (documented limitation, not a silent one -
 // the download filename extension always matches what was actually
 // recorded). GIF capture uses a local bounded encoder and 15-second standalone segments.
 // ---------------------------------------------------------------------------
@@ -6709,9 +6709,9 @@ function pickRecordingMimeType() {
 }
 
 const STEPS_COPY = {
-  "pt-BR": { title: "Gravador de Passos", intro: "Cada clique, campo preenchido e mensagem de retorno vira um passo — simples de ler, fácil de repetir.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Estou na tela", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher o campo", select: "no menu suspenso", check: "Marcar a caixa", uncheck: "Desmarcar a caixa", submit: "Enviar o formulário", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "O que apareceu na tela", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "com", selectWord: "Selecionar", onWord: "em", occurs: "acontece" },
-  "es": { title: "Grabador de pasos", intro: "Cada clic, campo completado y mensaje de retorno se vuelve un paso — simple de leer, fácil de repetir.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Estoy en la pantalla", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar el campo", select: "en el menú desplegable", check: "Marcar la casilla", uncheck: "Desmarcar la casilla", submit: "Enviar el formulario", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Qué apareció en la pantalla", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "con", selectWord: "Seleccionar", onWord: "en", occurs: "ocurre" },
-  "en": { title: "Step Recorder", intro: "Every click, filled field and returned message becomes one step — easy to read, easy to repeat.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "I am on the screen", click: "Click", contextmenu: "Right-click", input: "Fill the field", select: "in the dropdown menu", check: "Check the box", uncheck: "Uncheck the box", submit: "Submit the form", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "What appeared on the screen", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result", withWord: "with", selectWord: "Select", onWord: "on", occurs: "happens" },
+  "pt-BR": { title: "Gravador de Passos", intro: "Cada clique, campo preenchido e mensagem de retorno vira um passo - simples de ler, fácil de repetir.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Estou na tela", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher o campo", select: "no menu suspenso", check: "Marcar a caixa", uncheck: "Desmarcar a caixa", submit: "Enviar o formulário", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "O que apareceu na tela", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "com", selectWord: "Selecionar", onWord: "em", occurs: "acontece" },
+  "es": { title: "Grabador de pasos", intro: "Cada clic, campo completado y mensaje de retorno se vuelve un paso - simple de leer, fácil de repetir.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Estoy en la pantalla", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar el campo", select: "en el menú desplegable", check: "Marcar la casilla", uncheck: "Desmarcar la casilla", submit: "Enviar el formulario", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Qué apareció en la pantalla", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "con", selectWord: "Seleccionar", onWord: "en", occurs: "ocurre" },
+  "en": { title: "Step Recorder", intro: "Every click, filled field and returned message becomes one step - easy to read, easy to repeat.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "I am on the screen", click: "Click", contextmenu: "Right-click", input: "Fill the field", select: "in the dropdown menu", check: "Check the box", uncheck: "Uncheck the box", submit: "Submit the form", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "What appeared on the screen", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result", withWord: "with", selectWord: "Select", onWord: "on", occurs: "happens" },
 };
 
 // Keeps every recorded step in the right Gherkin bucket automatically -- setup actions (filling
@@ -6980,7 +6980,7 @@ async function handlePartRotationTick() {
 }
 
 // Finishes the current MediaRecorder segment as its own standalone playable file (a fresh
-// MediaRecorder on the same live stream, not a mid-stream split — WebM/MP4 containers need their
+// MediaRecorder on the same live stream, not a mid-stream split - WebM/MP4 containers need their
 // own header, so this is the only reliable way to get N independently-playable chunks) and starts
 // the next one immediately so no video time is lost between segments.
 async function rotateRecordingSegment() {
@@ -7058,7 +7058,7 @@ async function startEvidenceRecording(mode = "video") {
   try {
     stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 24, max: 30 } }, audio: false });
   } catch {
-    return; // User cancelled the native picker — not an error.
+    return; // User cancelled the native picker - not an error.
   }
   const mimeType = pickRecordingMimeType();
   recordingState.mode = mode;
@@ -7206,7 +7206,7 @@ async function recordingContainerExtension(blob) {
 }
 
 // Entry point for the visible Stop button (as opposed to the native "stop sharing" bar, which
-// ends the capture source itself and calls stopEvidenceRecording directly below — forcing the
+// ends the capture source itself and calls stopEvidenceRecording directly below - forcing the
 // status modal there would be pointless since there'd be nothing left to actually capture).
 function handleStopRecordingClick() {
   if (state.workspace?.preferences?.remindTestStatusOnRecording && recordingState.status !== "idle") {
@@ -7290,7 +7290,7 @@ async function refreshAuthorization(force = false) {
 
 async function boot() {
   // Registered with allFrames:true so the bar can render inside the Breakpoint Viewer's own
-  // device-preview iframes (matching the same URL patterns as the top-level page) — but that
+  // device-preview iframes (matching the same URL patterns as the top-level page) - but that
   // also means any small embedded same-origin iframe on a normal page (a widget, an SSO frame)
   // matches too. Skipping tiny frames is a cheap guard: every real device preset we offer is
   // well above this size, while incidental embedded widgets rarely are.
@@ -7334,7 +7334,7 @@ async function boot() {
   }, 200);
   // force:false here so this periodic poll reuses the background script's shared 30s
   // access-status cache (see auth.js ACCESS_CACHE_MS) instead of every open tab hitting the
-  // edge function independently every 5 minutes — with several tabs open that multiplier alone
+  // edge function independently every 5 minutes - with several tabs open that multiplier alone
   // blew through access-status' rate limit (enforceRateLimit in access-status/index.ts).
   state.accessInterval = window.setInterval(() => { void refreshAuthorization(false); }, 5 * 60_000);
   if (authorizedAtBoot) {

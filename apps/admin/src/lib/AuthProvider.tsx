@@ -187,11 +187,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // There is deliberately no public "create account" flow — the founder account is
+  // There is deliberately no public "create account" flow - the founder account is
   // provisioned once via supabase/bootstrap-admin-account.mjs (service-role, run locally).
   // Forgotten password recovers through the same Supabase reset-password e-mail flow the
   // landing page uses, landing on the LP's own /redefinir-senha page (that page doesn't care
-  // which app initiated the reset — it just updates whichever account is in the recovery
+  // which app initiated the reset - it just updates whichever account is in the recovery
   // session), avoiding this app's HashRouter ever having to parse Supabase's recovery tokens.
   async function sendPasswordReset() {
     if (!supabase) throw new Error("backend_not_configured");

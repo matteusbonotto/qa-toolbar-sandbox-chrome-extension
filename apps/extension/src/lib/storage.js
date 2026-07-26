@@ -84,7 +84,7 @@ function id(value, prefix, index) {
   return clean || `${prefix}_${index + 1}`;
 }
 
-// 300k chars (~225KB binary) comfortably covers a small uploaded icon as a data: URL — plain
+// 300k chars (~225KB binary) comfortably covers a small uploaded icon as a data: URL - plain
 // http(s) logo URLs are always far under this, so the cap only really bites oversized uploads.
 const IMAGE_VALUE_MAX_CHARS = 300_000;
 
@@ -128,7 +128,7 @@ function normalizeCustomFields(input) {
 // productId, so a credential valid in both DEV and QA (or for both AR and BO) had to be
 // registered twice. This reads either the current array shape or the legacy singular field
 // (environmentId/productId), dedupes, and drops anything that no longer points at a real
-// environment/product — permanently dual-shape, like normalizeUrlBinding's patterns/pattern
+// environment/product - permanently dual-shape, like normalizeUrlBinding's patterns/pattern
 // reader, so an older export always imports cleanly without a version-gated migration step.
 function normalizeIdArray(rawArray, rawSingular, validEntities) {
   const source = Array.isArray(rawArray) ? rawArray : (rawSingular != null ? [rawSingular] : []);
@@ -180,14 +180,14 @@ export function normalizeUrlPatterns(input) {
 
 // Environments (DEV/QA/BETA/PROD) used to require exactly one Product, so a multi-country import
 // (4 tiers × N countries) created 4×N duplicated, country-suffixed environments instead of 4
-// reusable ones. The fix: a URL binding — not the environment — carries the Product association,
+// reusable ones. The fix: a URL binding - not the environment - carries the Product association,
 // the same way the options page's "URLs" tab already lets one URL relate to N environments; this
 // just extends that pattern with a required Product per binding. `environmentIds` supports the
 // rare case of one physical URL genuinely serving more than one tier simultaneously (already
 // allowed today), while `productId` is single because a concrete URL belongs to exactly one
 // deployment/country.
 // `patterns` accepts either the current array shape or a legacy singular `pattern` string (any
-// already-saved schemaVersion-7 workspace before this field became an array) — this reader is
+// already-saved schemaVersion-7 workspace before this field became an array) - this reader is
 // permanently dual-shape, not a one-time migration, so no schemaVersion bump was needed for it.
 function normalizeUrlBinding(item, index, products, environments) {
   const patterns = normalizeUrlPatterns(Array.isArray(item?.patterns) ? item.patterns : (item?.pattern != null ? [item.pattern] : []));
@@ -207,9 +207,9 @@ function normalizeUrlBinding(item, index, products, environments) {
 
 // Migration for schemaVersion < 7: expands each legacy environment's own `urlPatterns` (it used
 // to own them directly, alongside a single `productId`) into one binding row per (product,
-// environment) pair, carrying the *entire* patterns array over — merged in normalizeUrlBindings
+// environment) pair, carrying the *entire* patterns array over - merged in normalizeUrlBindings
 // below by that same pair, so re-normalizing an already-migrated workspace is idempotent. The
-// environment's old `primaryUrl` only carries over when it had exactly one pattern — with several,
+// environment's old `primaryUrl` only carries over when it had exactly one pattern - with several,
 // there's no way to know which country/product URL it was meant for, so it's safer to leave it
 // unset than guess wrong.
 function migrateLegacyEnvironmentUrls(source, products, environments) {
@@ -230,7 +230,7 @@ function migrateLegacyEnvironmentUrls(source, products, environments) {
   return rows;
 }
 
-// Bindings merge when they share the same product AND the same exact set of environments — that's
+// Bindings merge when they share the same product AND the same exact set of environments - that's
 // the real identity of "one relationship" now that a binding can hold several patterns; two
 // separate submissions for the same product+environments (or two legacy urlPatterns entries for
 // the same environment) should accumulate into one binding's patterns array, not create sibling
@@ -302,7 +302,7 @@ export function createEmptyWorkspace() {
 }
 
 const BREADCRUMB_ORDER_KEYS = ["client", "project", "product"];
-// Environment is intentionally never part of this order — it's the "current tier" indicator,
+// Environment is intentionally never part of this order - it's the "current tier" indicator,
 // always last, not something the founder asked to reorder. Any missing/unknown/duplicate entry
 // falls back to the default relative order so a malformed preference never drops a segment.
 function normalizeBreadcrumbOrder(value) {
@@ -312,7 +312,7 @@ function normalizeBreadcrumbOrder(value) {
   return order;
 }
 
-// Same idea for the Tools-menu item order — any tool missing/unknown/duplicated in a stored
+// Same idea for the Tools-menu item order - any tool missing/unknown/duplicated in a stored
 // preference falls back to appending it in the default (DEFAULT_ENABLED_TOOLS) order, so a
 // malformed or stale preference (e.g. from before a new tool shipped) never hides a menu item.
 function normalizeToolsMenuOrder(value) {
@@ -327,7 +327,7 @@ function normalizeToolsSortMode(value) {
   return TOOLS_SORT_MODES.has(value) ? value : "custom";
 }
 
-// Click counters that back "mais usados" sorting — same missing/unknown-key tolerance as every
+// Click counters that back "mais usados" sorting - same missing/unknown-key tolerance as every
 // other preference here (a stale count for a tool that no longer exists is just dropped), plus a
 // sane numeric floor so a corrupted value can never make a tool jump to the top forever.
 function normalizeToolUsageCounts(value) {
@@ -442,7 +442,7 @@ export function normalizeWorkspace(rawWorkspace) {
     ensureLockedEntity(projects, DEMO_PROJECT_ID, { name: "Sandbox", clientId: DEMO_CLIENT_ID });
     ensureLockedEntity(products, DEMO_PRODUCT_ID, { name: "STAGE", projectId: DEMO_PROJECT_ID });
   }
-  // Reusable tiers only (name + color) — no product/project/client reference. Which
+  // Reusable tiers only (name + color) - no product/project/client reference. Which
   // product(s)/country(ies) an environment is actually deployed to lives entirely in
   // `urlBindings` now, so the same "DEV" environment can serve every country without being
   // duplicated per product (see `normalizeUrlBindings` below for why this changed).

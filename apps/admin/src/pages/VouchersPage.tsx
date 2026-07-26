@@ -46,7 +46,7 @@ function valueColumn(row: { kind: VoucherKind; grant_days: number | null; discou
     if (row.discount_amount_off_minor) return `R$ ${(row.discount_amount_off_minor / 100).toFixed(2).replace(".", ",")} off`;
     return "Desconto";
   }
-  return row.grant_days != null ? `${row.grant_days} dias` : "—";
+  return row.grant_days != null ? `${row.grant_days} dias` : "-";
 }
 
 function campaignStatusBadge(campaign: VoucherCampaign): { label: string; className: string } {

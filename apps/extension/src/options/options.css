@@ -12,7 +12,7 @@
 .themeToggle button.isSelected { border-color:var(--accent); background:var(--surface); color:var(--text); box-shadow:0 5px 16px var(--shadow); }
 * { box-sizing:border-box; }
 /* The browser's default [hidden]{display:none} loses to any author rule that sets `display` at
-   the same (single-selector) specificity — e.g. .card{display:grid} — since author styles come
+   the same (single-selector) specificity - e.g. .card{display:grid} - since author styles come
    after the UA stylesheet in the cascade. Found live: a hidden .card stayed visibly laid out.
    !important guarantees `hidden` always wins, regardless of what else targets the element. */
 [hidden] { display: none !important; }
@@ -82,7 +82,7 @@ input:focus,select:focus,textarea:focus { border-color:var(--accent); box-shadow
 textarea:disabled { opacity:1; }
 input[type="color"] { width:48px; padding:3px; }
 input[type="radio"] { accent-color:var(--accent); }
-/* Every boolean on/off setting uses this instead of a native checkbox — the plain
+/* Every boolean on/off setting uses this instead of a native checkbox - the plain
    `input,select,textarea { width:100%; min-height:39px }` rule above was stretching checkboxes
    to fill their grid cell at browser-default appearance, rendering as oversized, unstyled
    squares next to an otherwise fully custom-styled dark UI. `appearance:none` plus this pill
@@ -230,12 +230,12 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .multiSelectOptions label:hover { background:var(--surface-2); color:var(--hover-text); }
 .multiSelectOptions input { width:auto; min-height:0; accent-color:var(--accent); }
 /* Test account / payment method "scope" combobox: replaces two plain <select> elements with a
-   cascading multi-select — clients/projects narrow which environments/products even show up,
+   cascading multi-select - clients/projects narrow which environments/products even show up,
    environments further narrow products, and only environmentIds/productIds are actually stored
    (client/project checkboxes are pure filters, re-derivable from the chosen products on edit).
    Rendered as 4 independent floating comboboxes (like a normal <select>: closed by default, opens
    its OWN small panel over the rest of the form) rather than one big always-expanded 4-column
-   grid — the grid version pushed the whole dialog open and read as an unreadable "campo minado". */
+   grid - the grid version pushed the whole dialog open and read as an unreadable "campo minado". */
 .scopePicker { display:flex; flex-wrap:wrap; gap:8px; position:relative; }
 .scopeFacet { position:relative; flex:1 1 130px; min-width:110px; }
 .scopeFacetTrigger {
@@ -292,7 +292,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .environmentDot { width:9px; height:9px; border-radius:50%; background:var(--environment-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--environment-color) 20%,transparent); flex:0 0 auto; }
 .environmentAccordion .list { margin:0 13px 13px; max-height:none; overflow:visible; }
 /* #urlRelationList (id, wins over .list/.listComfortable regardless of source order) now holds
-   self-managing accordions, one per environment, instead of one flat scrollable list — capping
+   self-managing accordions, one per environment, instead of one flat scrollable list - capping
    ITS OWN height at 360px trapped every accordion's rows behind a second, easy-to-miss inner
    scrollbar (found live: every group rendered as if it only had one URL). The outer wrapper now
    grows with its content; the page itself scrolls, same as every other tab. */
