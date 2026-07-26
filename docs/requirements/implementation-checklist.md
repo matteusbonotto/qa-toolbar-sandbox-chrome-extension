@@ -149,3 +149,18 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
   dentro dos botões e cinco nomes acessíveis únicos.
 - A ponta padrão continua sendo seta à direita e nenhuma à esquerda.
 - Versão da extensão atualizada para `1.4.8`.
+
+## Responsividade da janela separada em 2026-07-25
+
+- Sidebars e modais destacados agora ocupam exatamente a viewport disponível, sem herdar padding,
+  largura ou altura do modal centralizado e sem overflow horizontal.
+- Cabeçalho e corpo usam dimensões flexíveis; o corpo mantém rolagem interna e cartões, grids,
+  relatórios, ações e etapas reorganizam suas colunas em janelas estreitas.
+- O botão vermelho exibe `Fechar janela` no modo destacado e solicita ao service worker o
+  fechamento da janela popup real.
+- Se o navegador tiver usado uma aba normal como fallback, somente essa aba é fechada; a janela
+  normal do usuário nunca é removida inteira.
+- O smoke redimensiona uma sidebar e um modal destacados para 360×540 e exige ocupação integral
+  da viewport e ausência de overflow horizontal em ambos.
+- O smoke clica no botão vermelho e exige o evento real de fechamento nas duas variantes.
+- Versão da extensão atualizada para `1.4.9`.

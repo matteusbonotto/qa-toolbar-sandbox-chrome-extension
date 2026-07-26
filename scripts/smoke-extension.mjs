@@ -434,15 +434,72 @@ try {
   const detachedPage = await detachedPagePromise;
   await detachedPage.locator("#qts-toolbar-host").waitFor({ state: "attached" });
   await detachedPage.locator(".qts-drawer-backdrop.isDetached .qts-drawer").waitFor();
+  await detachedPage.setViewportSize({ width: 360, height: 540 });
   const detachedChrome = await detachedPage.locator("#qts-toolbar-host").evaluate((element) => {
     const shadow = element.shadowRoot;
+    const backdrop = shadow.querySelector(".qts-drawer-backdrop.isDetached");
+    const drawer = backdrop?.querySelector(".qts-drawer");
+    const body = backdrop?.querySelector(".qts-drawer-body");
+    const rect = drawer?.getBoundingClientRect();
     return {
       barHidden: getComputedStyle(shadow.querySelector("#bar")).display === "none",
       view: shadow.querySelector("#drawerHost")?.dataset.view,
+      viewport: { width: innerWidth, height: innerHeight },
+      drawer: rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null,
+      bodyOverflow: body ? body.scrollWidth - body.clientWidth : null,
     };
   });
   if (!detachedChrome.barHidden || detachedChrome.view !== "inputLab") throw new Error(`Detached tool window did not isolate the requested panel: ${JSON.stringify(detachedChrome)}`);
-  await detachedPage.close();
+  if (!detachedChrome.drawer
+      || Math.abs(detachedChrome.drawer.left) > 1
+      || Math.abs(detachedChrome.drawer.top) > 1
+      || Math.abs(detachedChrome.drawer.width - detachedChrome.viewport.width) > 1
+      || Math.abs(detachedChrome.drawer.height - detachedChrome.viewport.height) > 1
+      || detachedChrome.bodyOverflow > 1) {
+    throw new Error(`Detached sidebar is not responsive to its own viewport: ${JSON.stringify(detachedChrome)}`);
+  }
+  const detachedClosePromise = detachedPage.waitForEvent("close");
+  await detachedPage.locator("#drawerClose").click();
+  await detachedClosePromise;
+
+  // Modal tools use the same detached-window shell, but historically retained their centered
+  // modal padding/size and overflowed a narrow popup. Verify both variants and the real red close
+  // action instead of closing the Playwright page directly.
+  await host.locator("#drawerClose").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#macroStudioMenuItem").click();
+  await host.locator(".qts-drawer-backdrop.isModal .qts-drawer").waitFor();
+  const detachedModalPromise = context.waitForEvent("page");
+  await host.locator("#drawerDetach").click();
+  const detachedModalPage = await detachedModalPromise;
+  await detachedModalPage.locator(".qts-drawer-backdrop.isDetached.isModal .qts-drawer").waitFor();
+  await detachedModalPage.setViewportSize({ width: 360, height: 540 });
+  const detachedModalLayout = await detachedModalPage.locator("#qts-toolbar-host").evaluate((element) => {
+    const shadow = element.shadowRoot;
+    const drawer = shadow.querySelector(".qts-drawer-backdrop.isDetached.isModal .qts-drawer");
+    const body = drawer?.querySelector(".qts-drawer-body");
+    const rect = drawer?.getBoundingClientRect();
+    return {
+      viewport: { width: innerWidth, height: innerHeight },
+      drawer: rect ? { left: rect.left, top: rect.top, width: rect.width, height: rect.height } : null,
+      bodyOverflow: body ? body.scrollWidth - body.clientWidth : null,
+    };
+  });
+  if (!detachedModalLayout.drawer
+      || Math.abs(detachedModalLayout.drawer.left) > 1
+      || Math.abs(detachedModalLayout.drawer.top) > 1
+      || Math.abs(detachedModalLayout.drawer.width - detachedModalLayout.viewport.width) > 1
+      || Math.abs(detachedModalLayout.drawer.height - detachedModalLayout.viewport.height) > 1
+      || detachedModalLayout.bodyOverflow > 1) {
+    throw new Error(`Detached modal is not responsive to its own viewport: ${JSON.stringify(detachedModalLayout)}`);
+  }
+  const detachedModalClosePromise = detachedModalPage.waitForEvent("close");
+  await detachedModalPage.locator("#drawerClose").click();
+  await detachedModalClosePromise;
+  await host.locator("#drawerClose").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#inputLabMenuItem").click();
+  await host.locator(".qts-drawer").waitFor();
   await host.locator("#drawerPosition").selectOption("left");
   if (await host.locator("#drawerBackdrop").getAttribute("data-position") !== "left") throw new Error("Sidebar did not move to the left");
   await host.locator("#drawerPin").click();

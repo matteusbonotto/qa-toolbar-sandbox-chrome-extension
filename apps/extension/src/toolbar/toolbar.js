@@ -2391,10 +2391,17 @@ function drawerStyles() {
       width: min(920px, 94vw); height: min(760px, 90vh); border-left: 0; border-radius: 16px;
       border: 1px solid #292929; box-shadow: 0 30px 80px rgba(0,0,0,.55);
     }
-    .qts-drawer-backdrop.isDetached { background:var(--qts-panel,#0b0b0b); }
+    .qts-drawer-backdrop.isDetached {
+      width:100vw; height:100vh; height:100dvh; min-width:0; min-height:0; padding:0;
+      align-items:stretch; justify-content:stretch; overflow:hidden; background:var(--qts-panel,#0b0b0b);
+    }
     .qts-drawer-backdrop.isDetached .qts-drawer {
-      width:100vw; max-width:none; height:100vh; max-height:none; border:0; border-radius:0;
-      box-shadow:none; resize:none;
+      box-sizing:border-box; flex:1 1 auto; width:100%; min-width:0; max-width:none;
+      height:100%; min-height:0; max-height:none; border:0; border-radius:0; box-shadow:none; resize:none;
+    }
+    .qts-drawer-backdrop.isDetached .qts-drawer-head { flex:0 0 auto; }
+    .qts-drawer-backdrop.isDetached .qts-drawer-body {
+      width:100%; min-width:0; min-height:0; max-width:100%; overflow:auto; overscroll-behavior:contain;
     }
     .qts-drawer-head { display: flex; align-items: center; gap:6px; padding: 10px 12px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
     .qts-drawer-head h2 { margin: 0; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -2597,6 +2604,15 @@ function drawerStyles() {
     :host([data-theme="light"]) .qts-combo-clear { color:#a61f2b; }
     :host([data-theme="light"]) .qts-key-view-preview:not([data-theme="dark"]) { background:#eef1f6; color:#444; border-color:var(--qts-panel-border); }
     @media (max-width: 680px) { .qts-macro-layout, .qts-key-view-size-grid { grid-template-columns: 1fr; } .qts-palette { grid-template-columns: repeat(2,minmax(0,1fr)); } .qts-step { grid-template-columns: 28px 95px minmax(0,1fr) 32px; } }
+    @container (max-width: 560px) {
+      .qts-drawer-body { padding:10px; }
+      .qts-toolbar-row > *, .qts-card-actions > * { min-width:0; max-width:100%; }
+      .qts-friendly-field, .qts-faker-report-row { grid-template-columns:1fr; gap:4px; }
+      .qts-tool-grid { grid-template-columns:repeat(auto-fit,minmax(100px,1fr)); }
+      .qts-card-actions { flex-wrap:wrap; }
+      .qts-step { grid-template-columns:24px minmax(0,1fr) 32px; }
+      .qts-step > :nth-child(3) { grid-column:2 / -1; }
+    }
   `;
 }
 
@@ -2802,7 +2818,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
           ${sidebarControls ? `<select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
           <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
-          <button type="button" id="drawerClose" title="Fechar sidebar">${ICON("fail")}</button></div>
+          <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div>
         ${sidebarControls ? `<div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>` : ""}
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
@@ -2852,8 +2868,13 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     handle.addEventListener("pointercancel", finish);
   }));
   drawerHost.querySelector("#drawerClose").addEventListener("click", () => {
-    if (detachedWindow) window.close();
-    else closeDrawer();
+    if (!detachedWindow) {
+      closeDrawer();
+      return;
+    }
+    chrome.runtime.sendMessage({ type: "qts:close-detached-window" }, (response) => {
+      if (chrome.runtime.lastError || response?.ok !== true) window.close();
+    });
   });
   if (onBack) drawerHost.querySelector("#drawerBack").addEventListener("click", onBack);
   backdrop.addEventListener("click", (event) => { if (event.target.id === "drawerBackdrop" && !backdrop.classList.contains("isPinned")) closeDrawer(); });

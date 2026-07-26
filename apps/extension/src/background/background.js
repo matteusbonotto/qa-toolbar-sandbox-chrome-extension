@@ -371,6 +371,24 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+  if (message.type === "qts:close-detached-window") {
+    Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(async ([access, authorizedSender]) => {
+      if (!access.active || !authorizedSender || !sender.tab?.id || !sender.tab?.windowId) {
+        return sendResponse({ ok: false, error: "authentication_required" });
+      }
+      try {
+        const targetWindow = await chrome.windows.get(sender.tab.windowId);
+        // Detached tools created by this extension are popup windows. If browser fallback opened a
+        // normal tab instead, close only that tab rather than destroying the user's whole window.
+        if (targetWindow.type === "popup") await chrome.windows.remove(targetWindow.id);
+        else await chrome.tabs.remove(sender.tab.id);
+        sendResponse({ ok: true });
+      } catch (error) {
+        sendResponse({ ok: false, error: String(error?.message || error) });
+      }
+    });
+    return true;
+  }
   if (message.type === "qts:open-tool-window") {
     Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(([access, authorizedSender]) => {
       if (!access.active || !authorizedSender || typeof message.url !== "string") {
