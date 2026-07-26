@@ -18,6 +18,7 @@ export function PrivacyPolicyPage() {
         <span className="qts-eyebrow">{t.privacy.eyebrow}</span>
         <h1>{t.privacy.title}</h1>
         <p className="qts-section-lead">{t.privacy.lead}</p>
+        <p className="qts-legal-effective-date">{t.privacy.effectiveDate}</p>
 
         <div className="qts-legal-sections">
           <section className="qts-legal-section qts-legal-section-wide">
@@ -30,6 +31,11 @@ export function PrivacyPolicyPage() {
                 </div>
               ))}
             </div>
+          </section>
+
+          <section className="qts-legal-section qts-legal-section-wide">
+            <div className="qts-legal-section-head"><Icon name="database" className="qts-legal-section-icon" /><h2>{t.privacy.dataCategoriesTitle}</h2></div>
+            <ScannableCopy text={t.privacy.dataCategoriesBody} />
           </section>
 
           <section className="qts-legal-section">
@@ -60,6 +66,16 @@ export function PrivacyPolicyPage() {
           <section className="qts-legal-section">
             <div className="qts-legal-section-head"><Icon name="shieldCheck" className="qts-legal-section-icon" /><h2>{t.privacy.rightsTitle}</h2></div>
             <ScannableCopy text={t.privacy.rightsBody} />
+          </section>
+
+          <section className="qts-legal-section">
+            <div className="qts-legal-section-head"><Icon name="lockFill" className="qts-legal-section-icon" /><h2>{t.privacy.securityTitle}</h2></div>
+            <ScannableCopy text={t.privacy.securityBody} />
+          </section>
+
+          <section className="qts-legal-section qts-legal-section-wide">
+            <div className="qts-legal-section-head"><Icon name="shieldCheck" className="qts-legal-section-icon" /><h2>{t.privacy.limitedUseTitle}</h2></div>
+            <ScannableCopy text={t.privacy.limitedUseBody} />
           </section>
 
           <section className="qts-legal-section">
