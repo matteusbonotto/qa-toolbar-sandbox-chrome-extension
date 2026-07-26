@@ -2386,7 +2386,10 @@ function drawerStyles() {
     .qts-drawer-head #drawerClose { background:var(--qts-ui-danger,#c70e0e); color:#fff; }
     .qts-drawer-head.hasBack h2 { flex: 1; text-align: center; }
     .qts-drawer-head h2 { flex:1; }
-    .qts-drawer-head select { width:auto; max-width:92px; height:30px; padding:2px 5px; }
+    .qts-drawer .qts-drawer-head select {
+      box-sizing:border-box; width:auto; min-width:100px; max-width:120px; height:34px;
+      min-height:34px; padding:0 30px 0 10px; line-height:normal; text-overflow:ellipsis;
+    }
     @container (max-width: 430px) {
       .qts-drawer-head { flex-wrap:wrap; align-items:center; }
       .qts-drawer-head h2 {
@@ -2394,6 +2397,8 @@ function drawerStyles() {
         text-overflow:clip; line-height:1.25; padding-bottom:3px;
       }
       .qts-drawer-head select { margin-left:auto; }
+      .qts-drawer-head #drawerDetach { margin-left:auto; }
+      .qts-drawer-head #drawerDetach + select { margin-left:0; }
     }
     .qts-drawer-search { padding:8px 12px; border-bottom:1px solid var(--qts-panel-border); }
     .qts-drawer-resize { position:absolute; z-index:3; }
@@ -2406,8 +2411,11 @@ function drawerStyles() {
     .qts-drawer-body > *, .qts-card > *, .qts-list-row > * { min-width:0; max-width:100%; }
     .qts-drawer-body :is(h1,h2,h3,h4,p,small,b,label,span) { overflow-wrap:anywhere; }
     .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
-      width: 100%; padding: 8px 10px; border: 1px solid var(--qts-panel-border,#2c2c2c); border-radius: 8px; background: var(--qts-panel-2,#141414); color: var(--qts-panel-text,#fff); font: inherit;
+      box-sizing:border-box; width:100%; min-height:40px; padding:8px 10px; border:1px solid var(--qts-panel-border,#2c2c2c); border-radius:8px; background:var(--qts-panel-2,#141414); color:var(--qts-panel-text,#fff); font:inherit; line-height:1.35;
     }
+    .qts-drawer textarea { height:auto; }
+    .qts-drawer button { line-height:1.25; }
+    .qts-drawer :is(p,small,b,label,span,button,option) { overflow-wrap:anywhere; }
     .qts-drawer input[type="checkbox"] {
       appearance:none; width:38px !important; height:22px; padding:0; border-radius:999px;
       background:var(--qts-panel-border); position:relative; cursor:pointer; vertical-align:middle;

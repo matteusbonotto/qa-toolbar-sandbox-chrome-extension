@@ -408,6 +408,27 @@ try {
     if (!(await host.locator(control).count())) throw new Error(`Shared sidebar control is missing: ${control}`);
   }
   if (!(await host.locator("#drawerDetach").count())) throw new Error("Sidebar is missing the open-in-new-window action");
+  const positionSelectLayout = await host.locator("#drawerPosition").evaluate((select) => {
+    const style = getComputedStyle(select);
+    const rect = select.getBoundingClientRect();
+    const contentHeight = rect.height
+      - Number.parseFloat(style.paddingTop)
+      - Number.parseFloat(style.paddingBottom)
+      - Number.parseFloat(style.borderTopWidth)
+      - Number.parseFloat(style.borderBottomWidth);
+    const requiredTextHeight = Number.parseFloat(style.fontSize) * 1.25;
+    return {
+      height: rect.height,
+      contentHeight,
+      requiredTextHeight,
+      lineHeight: style.lineHeight,
+      paddingTop: style.paddingTop,
+      paddingBottom: style.paddingBottom,
+    };
+  });
+  if (positionSelectLayout.height < 34 || positionSelectLayout.contentHeight < positionSelectLayout.requiredTextHeight) {
+    throw new Error(`Sidebar position text is vertically clipped: ${JSON.stringify(positionSelectLayout)}`);
+  }
   const detachedPagePromise = context.waitForEvent("page");
   await host.locator("#drawerDetach").click();
   const detachedPage = await detachedPagePromise;

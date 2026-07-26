@@ -115,8 +115,26 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - Regra permanente adicionada em `AGENTS.md`: afirmações do usuário/fundador têm precedência como
   regras de negócio; PRs devem atualizar testes, tutorial, tour, FAQ, i18n, prints, vídeos, versão,
   release notes e superfícies afetadas.
-- Correção visual pendente de smoke após fechar o Chrome manual: o indicador de scroll do Mouse
-  View usava `--qts-ui-secondary` e permanecia amarelo. Foi migrado para `--qts-ui-primary`; o
-  smoke agora aplica o preset azul, dispara `wheel` e exige o fill azul no SVG. A limpeza recusou
-  continuar porque `chrome-test-profile/first_party_sets.db-journal` estava bloqueado, comprovando
-  que a proteção contra perfil/cache antigo está ativa.
+- Correção visual concluída: o indicador de scroll do Mouse View foi migrado de
+  `--qts-ui-secondary` para `--qts-ui-primary`; o smoke aplica o preset azul, dispara `wheel` e
+  exige o fill azul no SVG. A proteção contra perfil/cache antigo também recusou corretamente uma
+  execução concorrente enquanto o perfil Chrome estava bloqueado.
+
+## Correção global de texto em 2026-07-25
+
+- Corrigida a cascata CSS que aplicava o padding genérico de formulário ao seletor compacto de
+  posição do cabeçalho, cortando verticalmente textos como `Direita`.
+- Inputs, selects e textareas de todas as sidebars/modais compartilhadas agora usam
+  `box-sizing: border-box`, altura mínima e `line-height` consistentes.
+- Títulos, descrições, labels, botões e opções agora quebram palavras longas sem invadir ou serem
+  escondidos por outros controles.
+- Em sidebars estreitas, o título ocupa uma linha própria e os controles permanecem agrupados e
+  visíveis na linha seguinte.
+- Adicionado teste geométrico que compara a altura útil do seletor com a altura necessária para
+  renderizar o texto e falha se padding, borda ou altura voltarem a cortá-lo.
+- Smoke do pacote `[TESTE]` executado após limpeza de cache/perfis: todas as ferramentas,
+  sidebars, modais, janela destacada, temas, tutoriais e tours passaram com
+  `consoleErrors: 0` e `workerErrors: 0`.
+- Evidência visual `extension-toolbar-drawer-theme-light.png` revisada: cabeçalho, seletor
+  `Direita`, busca, descrição e botão aparecem integralmente.
+- Versão da extensão atualizada para `1.4.7`.
