@@ -232,3 +232,25 @@ checklist. Eles só podem ocorrer após autorização explícita e uso das crede
   `consoleErrors: 0` e `workerErrors: 0`.
 - Nenhum deploy, upload, publicação, alteração em Stripe ou Supabase produtivo foi executado.
 - Versão da extensão atualizada para `1.4.13`.
+
+## Nova experiência da roleta em 2026-07-26
+
+- A área de recompensas foi reorganizada na sequência solicitada: `Como funciona`,
+  `Atividades da comunidade` e `Testar a sorte agora`.
+- Saldo, chances e roleta deixaram de disputar espaço com as atividades na página; ficam em um
+  modal amplo, centralizado e responsivo, aberto somente por ação explícita.
+- O modal informa login, pontos atuais, pontos faltantes ou elegibilidade antes de permitir o giro.
+- Os benefícios aparecem escritos nos segmentos da roda e as probabilidades ficam explícitas ao
+  lado, sem sugerir que segmentos visuais iguais representam pesos iguais.
+- Visitante pode conhecer a experiência e é encaminhado ao modal de conta ao tentar participar.
+- O giro continua debitado e aplicado atomicamente pelo servidor. A animação agora termina
+  exatamente no segmento correspondente ao prêmio retornado pelo servidor; foi removida a parada
+  visual aleatória que podia contradizer o benefício realmente aplicado.
+- Escape, clique no fundo, botão de fechar e restauração de foco funcionam quando não há giro em
+  andamento; durante o processamento, o modal não pode ser fechado acidentalmente.
+- O smoke exige a nova hierarquia, ausência da roda no estado inicial, modal de saldo/login,
+  segmentos com nomes de prêmios e encaminhamento para autenticação.
+- `npm run test:all:clean` aprovado em 214,8 s; fingerprint do pacote Chrome `[TESTE]`
+  `95632d2f48d567bf595d2a9147c24cb45a290c11fd810d3eb745a187ee884b9b`,
+  `consoleErrors: 0` e `workerErrors: 0`.
+- Versão da extensão atualizada para `1.4.14`.

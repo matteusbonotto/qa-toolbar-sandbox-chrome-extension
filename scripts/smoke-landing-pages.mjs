@@ -81,6 +81,21 @@ try {
   if (await page.locator(".qts-reward-wheel").count()) {
     throw new Error("Rewards wheel must stay hidden until the user explicitly clicks Try your luck.");
   }
+  const communityHeadings = await page.locator("#comunidade h3").allInnerTexts();
+  if (!communityHeadings.some((text) => text.includes("Atividades da comunidade")) || !communityHeadings.some((text) => text.includes("Pronto para testar a sorte"))) {
+    throw new Error("Rewards section does not present community activities before the luck CTA.");
+  }
+  await page.locator(".qts-luck-cta .qts-btn").click();
+  const wheelDialog = page.getByRole("dialog", { name: "Pronto para testar a sorte?" });
+  await wheelDialog.waitFor();
+  if (!(await wheelDialog.getByText("Seus pontos atuais").count()) || !(await wheelDialog.getByText("Entre para consultar seus pontos e participar.").count())) {
+    throw new Error("Logged-out rewards modal does not explain points and authentication.");
+  }
+  if (!(await wheelDialog.locator(".qts-reward-wheel").count())) throw new Error("Rewards wheel is not centered inside its modal.");
+  if (!(await wheelDialog.locator(".qts-wheel-segment-label").count())) throw new Error("Rewards wheel does not show prize labels inside its segments.");
+  await wheelDialog.getByRole("button", { name: "Entrar para participar" }).click();
+  await page.getByRole("dialog", { name: "Sua conta" }).waitFor();
+  await page.locator(".qts-auth-close").click();
   if ((await page.locator('.qts-billing-toggle-row [role="radio"][aria-checked="true"]').innerText()).trim() !== "Mensal") {
     throw new Error("Pricing must default to monthly billing; annual billing cannot be preselected.");
   }
