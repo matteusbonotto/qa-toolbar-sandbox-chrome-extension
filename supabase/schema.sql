@@ -1630,7 +1630,7 @@ create table if not exists public.reward_prizes (
   id uuid primary key default gen_random_uuid(), program_id uuid not null references public.reward_programs(id) on delete cascade,
   key text not null, label_pt text not null, label_es text not null, label_en text not null,
   kind text not null check (kind in ('discount_percent','plan_days')),
-  discount_percent integer check (discount_percent in (5,10,15)), plan_id uuid references public.plans(id),
+  discount_percent integer check (discount_percent between 5 and 15), plan_id uuid references public.plans(id),
   grant_days integer check (grant_days in (10,15)), weight integer not null check (weight > 0),
   minimum_lifetime_points integer not null default 0 check (minimum_lifetime_points >= 0),
   maximum_global_awards integer check (maximum_global_awards is null or maximum_global_awards > 0),
@@ -1653,7 +1653,7 @@ create index if not exists idx_reward_spins_user_created on public.reward_spins(
 create table if not exists public.reward_benefits (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
   spin_id uuid not null unique references public.reward_spins(id), kind text not null check (kind in ('discount_percent','plan_days')),
-  discount_percent integer check (discount_percent in (5,10,15)), plan_id uuid references public.plans(id), grant_days integer check (grant_days in (10,15)),
+  discount_percent integer check (discount_percent between 5 and 15), plan_id uuid references public.plans(id), grant_days integer check (grant_days in (8,10,15)),
   status text not null check (status in ('available','reserved','applied','consumed','expired','revoked','superseded')),
   reserved_request_id uuid, reserved_until timestamptz, checkout_session_id text, entitlement_grant_id uuid references public.entitlement_grants(id),
   expires_at timestamptz not null, applied_at timestamptz, metadata jsonb not null default '{}'::jsonb, created_at timestamptz not null default now(),
@@ -1669,16 +1669,21 @@ insert into public.reward_programs(key,name,points_per_spin,enabled,max_spins_pe
 values('qa-rewards-2026','QA Rewards',100,false,10) on conflict(key) do nothing;
 
 with program as (select id from public.reward_programs where key='qa-rewards-2026'), plan_ids as (
-  select key,id from public.plans where key in ('root-cause-analyst','release-manager')
+  select key,id from public.plans where key in ('smoke-test','regression-runner','root-cause-analyst','release-manager')
 )
 insert into public.reward_prizes(program_id,key,label_pt,label_es,label_en,kind,discount_percent,plan_id,grant_days,weight,minimum_lifetime_points,display_order)
 select program.id,v.key,v.pt,v.es,v.en,v.kind,v.discount,(select id from plan_ids where key=v.plan_key),v.days,v.weight,v.minimum,v.ord
 from program cross join (values
- ('discount-5','5% na prÃ³xima cobranÃ§a','5% en el prÃ³ximo cobro','5% off the next charge','discount_percent',5,null::text,null::integer,45,0,1),
- ('discount-10','10% na prÃ³xima cobranÃ§a','10% en el prÃ³ximo cobro','10% off the next charge','discount_percent',10,null,null,25,300,2),
- ('discount-15','15% na prÃ³xima cobranÃ§a','15% en el prÃ³ximo cobro','15% off the next charge','discount_percent',15,null,null,10,700,3),
- ('root-10d','10 dias de Root Cause Analyst','10 dÃ­as de Root Cause Analyst','10 days of Root Cause Analyst','plan_days',null,'root-cause-analyst',10,15,100,4),
- ('full-15d','15 dias de Release Manager','15 dÃ­as de Release Manager','15 days of Release Manager','plan_days',null,'release-manager',15,5,700,5)
+ ('discount-5','5% na próxima cobrança','5% en el próximo cobro','5% off the next charge','discount_percent',5,null::text,null::integer,22,0,1),
+ ('discount-7','7% na próxima cobrança','7% en el próximo cobro','7% off the next charge','discount_percent',7,null,null,15,0,2),
+ ('discount-8','8% na próxima cobrança','8% en el próximo cobro','8% off the next charge','discount_percent',8,null,null,12,0,3),
+ ('discount-10','10% na próxima cobrança','10% en el próximo cobro','10% off the next charge','discount_percent',10,null,null,10,0,4),
+ ('discount-12','12% na próxima cobrança','12% en el próximo cobro','12% off the next charge','discount_percent',12,null,null,7,0,5),
+ ('discount-15','15% na próxima cobrança','15% en el próximo cobro','15% off the next charge','discount_percent',15,null,null,4,0,6),
+ ('smoke-8d','8 dias de Smoke Test','8 días de Smoke Test','8 days of Smoke Test','plan_days',null,'smoke-test',8,12,0,7),
+ ('regression-8d','8 dias de Regression Runner','8 días de Regression Runner','8 days of Regression Runner','plan_days',null,'regression-runner',8,9,0,8),
+ ('root-10d','8 dias de Root Cause Analyst','8 días de Root Cause Analyst','8 days of Root Cause Analyst','plan_days',null,'root-cause-analyst',8,6,0,9),
+ ('full-15d','8 dias de Release Manager','8 días de Release Manager','8 days of Release Manager','plan_days',null,'release-manager',8,3,0,10)
 ) as v(key,pt,es,en,kind,discount,plan_key,days,weight,minimum,ord) on conflict(program_id,key) do nothing;
 
 create or replace function public.credit_reward_points(target_user_id uuid,event_kind_input text,points_input integer,source_type_input text,source_reference_input text,metadata_input jsonb default '{}'::jsonb)
