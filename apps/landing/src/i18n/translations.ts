@@ -228,6 +228,8 @@ export interface Dictionary {
     usageBody: string;
     registrationTitle: string;
     thirdPartyTitle: string;
+    thirdPartyIntro: string;
+    thirdPartyItems: { name: string; purpose: string; license: string }[];
     thirdPartyBody: string;
     contactTitle: string;
     contactBody: string;
@@ -720,6 +722,15 @@ const pt: Dictionary = {
     usageBody: "O uso da QA Toolbar Sandbox é regido pelos Termos de Uso do produto. Salvo autorização expressa, é vedada a cópia, redistribuição, revenda, sublicenciamento, engenharia reversa além do permitido em lei, ou criação de produto derivado a partir do código-fonte ou da identidade visual da QA Toolbar Sandbox.",
     registrationTitle: "Registro de programa de computador",
     thirdPartyTitle: "Conteúdo de terceiros",
+    thirdPartyIntro: "Tecnologias usadas no produto, organizadas por finalidade e titularidade.",
+    thirdPartyItems: [
+      { name: "React e React DOM", purpose: "Interface da Landing Page e do Admin.", license: "Meta · MIT" },
+      { name: "Supabase JS", purpose: "Autenticação e comunicação segura com os dados da conta.", license: "Supabase · MIT" },
+      { name: "Stripe", purpose: "Checkout e processamento dos pagamentos.", license: "Serviço externo · termos próprios" },
+      { name: "Bootstrap Icons", purpose: "Biblioteca de ícones da interface.", license: "The Bootstrap Authors · MIT" },
+      { name: "Vite e TypeScript", purpose: "Build, tipagem e desenvolvimento do frontend.", license: "Open source · MIT / Apache-2.0" },
+      { name: "Vitest, Playwright e Archiver", purpose: "Testes, automação e empacotamento.", license: "Open source · licenças permissivas" },
+    ],
     thirdPartyBody: "A QA Toolbar Sandbox utiliza componentes gratuitos e publicamente disponíveis, principalmente React e React DOM (interface), React Router (navegação), Supabase JS (autenticação e dados), Bootstrap Icons (ícones), além de Vite, TypeScript, Vitest, Playwright e Archiver no desenvolvimento, testes e empacotamento. Esses projetos são open source e distribuídos sob licenças permissivas, principalmente MIT ou Apache-2.0. Gratuito e público não significa domínio público: cada componente, marca e autoria continua pertencendo aos respectivos titulares e sujeito à licença original. A interface usa fontes do próprio sistema operacional, sem incorporar uma fonte comercial externa. Serviços como Google Chrome, Chrome Web Store, GitHub, Supabase e Stripe pertencem aos respectivos titulares e seguem seus próprios termos. A QA Toolbar Sandbox reconhece e agradece publicamente a contribuição dessas comunidades e fornecedores; nenhum crédito implica patrocínio, parceria ou endosso.",
     contactTitle: "Contato jurídico",
     contactBody: "Dúvidas sobre propriedade intelectual, licenciamento ou denúncias de uso não autorizado podem ser enviadas para contato@matheusbonotto.com.br.",
@@ -1238,6 +1249,15 @@ const es: Dictionary = {
     usageBody: "El uso de QA Toolbar Sandbox se rige por los Términos de Uso del producto. Salvo autorización expresa, está prohibida la copia, redistribución, reventa, sublicenciamiento, ingeniería inversa más allá de lo permitido por ley, o la creación de un producto derivado a partir del código fuente o la identidad visual de QA Toolbar Sandbox.",
     registrationTitle: "Registro de programa de computador",
     thirdPartyTitle: "Contenido de terceros",
+    thirdPartyIntro: "Tecnologías utilizadas en el producto, organizadas por finalidad y titularidad.",
+    thirdPartyItems: [
+      { name: "React y React DOM", purpose: "Interfaz de la Landing Page y del Admin.", license: "Meta · MIT" },
+      { name: "Supabase JS", purpose: "Autenticación y comunicación segura con los datos de la cuenta.", license: "Supabase · MIT" },
+      { name: "Stripe", purpose: "Checkout y procesamiento de pagos.", license: "Servicio externo · términos propios" },
+      { name: "Bootstrap Icons", purpose: "Biblioteca de iconos de la interfaz.", license: "The Bootstrap Authors · MIT" },
+      { name: "Vite y TypeScript", purpose: "Build, tipado y desarrollo del frontend.", license: "Open source · MIT / Apache-2.0" },
+      { name: "Vitest, Playwright y Archiver", purpose: "Pruebas, automatización y empaquetado.", license: "Open source · licencias permisivas" },
+    ],
     thirdPartyBody: "QA Toolbar Sandbox utiliza componentes gratuitos y disponibles públicamente, principalmente React y React DOM (interfaz), React Router (navegación), Supabase JS (autenticación y datos), Bootstrap Icons (íconos), además de Vite, TypeScript, Vitest, Playwright y Archiver para desarrollo, pruebas y empaquetado. Son proyectos open source con licencias permisivas, principalmente MIT o Apache-2.0. Gratuito y público no significa dominio público: cada componente, marca y autoría pertenece a sus titulares y está sujeto a su licencia original. La interfaz utiliza fuentes del sistema operativo y no incorpora una fuente comercial externa. Google Chrome, Chrome Web Store, GitHub, Supabase y Stripe pertenecen a sus respectivos titulares y se rigen por sus propios términos. QA Toolbar Sandbox reconoce y agradece sus contribuciones; este crédito no implica patrocinio, asociación ni respaldo.",
     contactTitle: "Contacto legal",
     contactBody: "Dudas sobre propiedad intelectual, licenciamiento o denuncias de uso no autorizado pueden enviarse a contato@matheusbonotto.com.br.",
@@ -1756,6 +1776,15 @@ const en: Dictionary = {
     usageBody: "Use of QA Toolbar Sandbox is governed by the product's Terms of Use. Unless expressly authorized, copying, redistributing, reselling, sublicensing, reverse engineering beyond what's permitted by law, or creating a derivative product from QA Toolbar Sandbox's source code or visual identity is prohibited.",
     registrationTitle: "Computer program registration",
     thirdPartyTitle: "Third-party content",
+    thirdPartyIntro: "Technologies used by the product, organized by purpose and ownership.",
+    thirdPartyItems: [
+      { name: "React and React DOM", purpose: "Landing Page and Admin user interface.", license: "Meta · MIT" },
+      { name: "Supabase JS", purpose: "Authentication and secure account-data communication.", license: "Supabase · MIT" },
+      { name: "Stripe", purpose: "Checkout and payment processing.", license: "External service · own terms" },
+      { name: "Bootstrap Icons", purpose: "User-interface icon library.", license: "The Bootstrap Authors · MIT" },
+      { name: "Vite and TypeScript", purpose: "Frontend build, typing, and development.", license: "Open source · MIT / Apache-2.0" },
+      { name: "Vitest, Playwright, and Archiver", purpose: "Testing, automation, and packaging.", license: "Open source · permissive licenses" },
+    ],
     thirdPartyBody: "QA Toolbar Sandbox uses free and publicly available components, primarily React and React DOM (UI), React Router (navigation), Supabase JS (authentication and data), Bootstrap Icons (icons), plus Vite, TypeScript, Vitest, Playwright, and Archiver for development, testing, and packaging. These are open-source projects under permissive licenses, mainly MIT or Apache-2.0. Free and public does not mean public domain: each component, trademark, and work remains owned by its respective holder and subject to its original license. The UI uses operating-system fonts and does not bundle an external commercial font. Google Chrome, Chrome Web Store, GitHub, Supabase, and Stripe belong to their respective owners and are governed by their own terms. QA Toolbar Sandbox publicly acknowledges and thanks these communities and providers; this credit does not imply sponsorship, partnership, or endorsement.",
     contactTitle: "Legal contact",
     contactBody: "Questions about intellectual property, licensing, or reports of unauthorized use can be sent to contato@matheusbonotto.com.br.",
