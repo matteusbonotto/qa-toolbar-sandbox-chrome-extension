@@ -205,6 +205,7 @@ try {
   }
   trace("workspace ready (client/project/product/environment/URLs/account/payment/resource)");
 
+  if (!captureOnly) {
   await options.locator('[data-workspace-tab="structure"]').click();
   await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
   trace("captured workspace-setup.png");
@@ -246,6 +247,11 @@ try {
   await walkthrough.close();
   if (walkthroughVideo) await walkthroughVideo.saveAs(resolve(assetsPath, "workspace-setup.webm"));
   trace("captured workspace-setup.webm (appearance + complete Workspace CRUD walkthrough)");
+  } else {
+    // A filtered recapture still needs the authenticated Workspace/URL seed above, but must not
+    // spend minutes recreating unrelated media or fail on a full-page screenshot it will not use.
+    await options.close();
+  }
 
   await captureTool("testStatus", async (page) => {
     await openToolByMenu(page, "statusMenuItem");
@@ -299,8 +305,9 @@ try {
     await page.locator(".qts-line [data-visibility-toggle]").click();
     await page.locator(".qts-line .qts-edit-btn").click();
     await page.locator('[name="line-end"][value="arrow"]').check({ force: true });
-    await page.locator(".qts-line .qts-shape-editor [data-save]").click();
-    await page.waitForTimeout(600);
+    // Keep the editor open in the final frame so the screenshot documents the icon-only endpoint
+    // controls instead of showing only the resulting line after the controls have disappeared.
+    await page.locator(".qts-line-endpoint-options").last().waitFor();
   });
 
   await captureTool("blurElements", async (page) => {

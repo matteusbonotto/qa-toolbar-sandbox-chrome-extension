@@ -138,3 +138,14 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - Evidência visual `extension-toolbar-drawer-theme-light.png` revisada: cabeçalho, seletor
   `Direita`, busca, descrição e botão aparecem integralmente.
 - Versão da extensão atualizada para `1.4.7`.
+
+## Pontas de linha por ícones em 2026-07-25
+
+- As opções de ponta esquerda e direita deixaram de exibir texto dentro dos botões.
+- Cada lado apresenta cinco ícones distintos: nenhuma ponta, seta, triângulo, círculo preenchido
+  e círculo vazado; os desenhos respeitam visualmente o lado configurado.
+- Tooltips e `aria-label` preservam os nomes traduzidos para mouse, teclado e leitores de tela.
+- O smoke exige dois grupos, cinco botões e cinco SVGs distintos por grupo, nenhum texto visível
+  dentro dos botões e cinco nomes acessíveis únicos.
+- A ponta padrão continua sendo seta à direita e nenhuma à esquerda.
+- Versão da extensão atualizada para `1.4.8`.

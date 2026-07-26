@@ -656,6 +656,15 @@ try {
   trace("line: controls visible");
   await host.locator(".qts-line .qts-edit-btn").click();
   trace("line: editor opened");
+  const endpointControls = await host.locator(".qts-line-endpoint-options").evaluateAll((groups) => groups.map((group) => ({
+    buttons: group.querySelectorAll("label").length,
+    icons: group.querySelectorAll("label svg.qts-line-endpoint-icon").length,
+    visibleText: [...group.querySelectorAll("label span")].map((span) => span.textContent.trim()).filter(Boolean),
+    accessibleNames: [...group.querySelectorAll('input[type="radio"]')].map((input) => input.getAttribute("aria-label")),
+  })));
+  if (endpointControls.length !== 2 || endpointControls.some((group) => group.buttons !== 5 || group.icons !== 5 || group.visibleText.length || new Set(group.accessibleNames).size !== 5)) {
+    throw new Error(`Line endpoint choices must be five distinct icon buttons with accessible names: ${JSON.stringify(endpointControls)}`);
+  }
   await host.locator('[name="line-start"][value="dotFilled"]').check({ force: true });
   await host.locator('[name="line-end"][value="arrow"]').check({ force: true });
   if (!(await host.locator(".qts-line").evaluate((line) => line.classList.contains("startHasDotFilled") && line.classList.contains("hasArrow")))) throw new Error("Independent line endpoints did not apply");

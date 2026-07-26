@@ -492,15 +492,18 @@ body.qts-placement-mode, body.qts-placement-mode * {
   margin: 0 !important; padding: 0 !important; border: 0 !important; display: grid !important; gap: 6px !important;
 }
 .qts-line-endpoint-field legend { padding: 0 !important; color: inherit !important; font: inherit !important; }
-.qts-line-endpoint-options { display: grid !important; grid-template-columns: repeat(3,minmax(0,1fr)) !important; gap: 5px !important; }
+.qts-line-endpoint-options { display: grid !important; grid-template-columns: repeat(5,minmax(0,1fr)) !important; gap: 5px !important; }
 .qts-line-endpoint-options label { margin: 0 !important; display: block !important; }
 .qts-line-endpoint-options input { position: absolute !important; opacity: 0 !important; pointer-events: none !important; }
 .qts-line-endpoint-options span {
-  min-height: 30px !important; padding: 5px 6px !important; display: flex !important; align-items: center !important; justify-content: center !important;
+  box-sizing: border-box !important; min-height: 36px !important; padding: 5px 3px !important; display: flex !important; align-items: center !important; justify-content: center !important;
   border: 1px solid #aebbd2 !important; border-radius: 7px !important; background: #fff !important; color: #26334d !important;
-  font: 700 10px/1.2 sans-serif !important; text-align: center !important; cursor: pointer !important;
+  cursor: pointer !important;
 }
+.qts-line-endpoint-icon { width: 34px !important; height: 18px !important; overflow: visible !important; stroke: currentColor !important; stroke-width: 1.8 !important; stroke-linecap: round !important; stroke-linejoin: round !important; }
+.qts-line-endpoint-fill { fill: currentColor !important; stroke: currentColor !important; }
 .qts-line-endpoint-options input:checked + span { background: var(--qts-ui-primary,#2563eb) !important; border-color: var(--qts-ui-primary,#2563eb) !important; color: var(--qts-ui-primary-contrast,#fff) !important; }
+.qts-line-endpoint-options input:focus-visible + span { outline: 2px solid var(--qts-ui-primary,#2563eb) !important; outline-offset: 2px !important; }
 
 .qts-shape-editor {
   /* .qts-shape-box (a sibling, appended before this) is position:absolute;inset:0 — an

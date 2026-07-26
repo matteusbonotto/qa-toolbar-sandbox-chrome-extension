@@ -2157,6 +2157,23 @@ function placeLine(startX, startY, endX, endY) {
   updateClearAllVisibility();
 }
 
+function lineEndpointIcon(value, side) {
+  const isStart = side === "start";
+  const endpointX = isStart ? 6 : 30;
+  const marker = {
+    none: "",
+    arrow: isStart
+      ? '<path d="M10 3 4 8l6 5" fill="none"/>'
+      : '<path d="m26 3 6 5-6 5" fill="none"/>',
+    triangle: isStart
+      ? '<path d="M3 8 11 2.5v11z" class="qts-line-endpoint-fill"/>'
+      : '<path d="m33 8-8-5.5v11z" class="qts-line-endpoint-fill"/>',
+    dotFilled: `<circle cx="${endpointX}" cy="8" r="4" class="qts-line-endpoint-fill"/>`,
+    dotHollow: `<circle cx="${endpointX}" cy="8" r="4" fill="none"/>`,
+  }[value] || "";
+  return `<svg class="qts-line-endpoint-icon" viewBox="0 0 36 16" aria-hidden="true" focusable="false"><path d="M6 8h24" fill="none"/>${marker}</svg>`;
+}
+
 function lineEndpointOptions(side, label, selected, t) {
   const options = [
     ["none", t.lineArrowNone],
@@ -2165,7 +2182,7 @@ function lineEndpointOptions(side, label, selected, t) {
     ["dotFilled", t.lineArrowDotFilled],
     ["dotHollow", t.lineArrowDotHollow],
   ];
-  return `<fieldset class="qts-line-endpoint-field"><legend>${escapeHtml(label)}</legend><div class="qts-line-endpoint-options">${options.map(([value, text]) => `<label><input type="radio" name="line-${side}" value="${value}" ${value === selected ? "checked" : ""}/><span>${escapeHtml(text)}</span></label>`).join("")}</div></fieldset>`;
+  return `<fieldset class="qts-line-endpoint-field"><legend>${escapeHtml(label)}</legend><div class="qts-line-endpoint-options">${options.map(([value, text]) => `<label title="${escapeHtml(text)}"><input type="radio" name="line-${side}" value="${value}" aria-label="${escapeHtml(text)}" ${value === selected ? "checked" : ""}/><span>${lineEndpointIcon(value, side)}</span></label>`).join("")}</div></fieldset>`;
 }
 
 function toggleLineStyleEditor(line) {
