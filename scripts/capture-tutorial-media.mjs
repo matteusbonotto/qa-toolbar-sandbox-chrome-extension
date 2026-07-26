@@ -459,6 +459,18 @@ try {
     await page.getByText(/elemento\(s\) encontrado\(s\)/).waitFor();
   });
 
+  await captureTool("languageValidator", async (page) => {
+    await openToolByMenu(page, "languageValidatorMenuItem");
+    await page.locator("#languageFile").setInputFiles({ name: "pt-BR.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ title: "QA Toolbar Sandbox", missing: "Texto pendente" })) });
+    await page.getByText(/textos encontrados/).waitFor();
+  });
+
+  await captureTool("qrCode", async (page) => {
+    await openToolByMenu(page, "qrCodeMenuItem");
+    await page.locator("#qrCanvas").waitFor();
+    await page.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("#qrStatus")?.textContent?.startsWith("http"));
+  });
+
   await captureTool("testAccounts", async (page) => {
     await openToolByMenu(page, "testAccountsMenuItem");
   });
@@ -475,7 +487,7 @@ try {
     "workspace-setup", "testStatus", "passFail", "notesShapes", "line", "blurElements", "holofote",
     "pixelPerfect", "screenshot", "recording", "clickSpy", "freezeClock", "forceHttp", "errorMonitor",
     "inspectors", "jsonStudio", "breakpoints", "characterCounter", "multiClick", "inputLab", "fakerFill",
-    "macroStudio", "stepsRecorder", "keyView", "elementCapture", "testAccounts", "paymentMethods", "resources",
+    "macroStudio", "stepsRecorder", "keyView", "elementCapture", "languageValidator", "qrCode", "testAccounts", "paymentMethods", "resources",
   ];
   for (const key of expectedMediaKeys) {
     for (const extension of ["png", "webm"]) {

@@ -25,12 +25,32 @@ export const DEMO_ENVIRONMENT_ID = "qts-demo-env";
 export const DEMO_URL_BINDING_ID = "qts-demo-url-binding";
 export const DEMO_SITE_URL_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
 
-export const DEFAULT_ENABLED_TOOLS = Object.freeze([
-  "clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "jsonStudio",
-  "breakpoints", "testAccounts", "paymentMethods", "resources",
-  "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "elementCapture",
-  "blurElements", "holofote", "stepsRecorder", "pixelPerfect",
-]);
+export const FEATURE_REGISTRY = Object.freeze([
+  ["clickSpy","Click Spy","clickSpyMenuItem","mouse",""],
+  ["freezeClock","Freeze Clock","freezeClockMenuItem","freezeClock",""],
+  ["forceHttp","Force HTTP","forceHttpMenuItem","forceHttp",""],
+  ["errorMonitor","Error Monitor","errorMonitorMenuItem","errorMonitor",""],
+  ["inspectors","Inspectors","inspectorsMenuItem","inspectors",""],
+  ["jsonStudio","JSON Studio","jsonStudioMenuItem","braces",""],
+  ["breakpoints","Breakpoints","breakpointMenuItem","breakpointViewer",""],
+  ["testAccounts","Contas de teste","testAccountsMenuItem","key",""],
+  ["paymentMethods","Meios de pagamento","paymentMethodsMenuItem","paymentMethods",""],
+  ["resources","Recursos e links","resourcesMenuItem","resources",""],
+  ["characterCounter","Contador de caracteres","characterCounterMenuItem","characterCounter","characterCounter.enabled"],
+  ["macroStudio","Macro Studio","macroStudioMenuItem","macroStudio","macroStudio.enabled"],
+  ["multiClick","Multiclick","multiClickMenuItem","multiClick","multiClick.enabled"],
+  ["inputLab","Input Lab","inputLabMenuItem","inputLab","inputLab.enabled"],
+  ["fakerFill","Faker Fill","fakerFillMenuItem","fakerFill","fakerFill.enabled"],
+  ["keyView","Key View","keyViewMenuItem","keyView","keyView.enabled"],
+  ["elementCapture","Capturar elementos","elementCaptureMenuItem","elementCapture","elementCapture.enabled"],
+  ["blurElements","Borrar elementos","blurElementsMenuItem","eyeSlash",""],
+  ["holofote","Modo Holofote","holofoteMenuItem","lightbulb",""],
+  ["stepsRecorder","Gravador de Passos","stepsRecorderMenuItem","stepsRecorder","stepsRecorder.enabled"],
+  ["languageValidator","Validador de textos","languageValidatorMenuItem","braces",""],
+  ["qrCode","QR Code","qrCodeMenuItem","qrCode",""],
+  ["pixelPerfect","Pixel Perfect","pixelPerfectMenuItem","ruler",""],
+].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
+export const DEFAULT_ENABLED_TOOLS = Object.freeze(FEATURE_REGISTRY.map((feature) => feature.key));
 const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
 const SCHEMA_3_TOOLS = ["characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill"];
 const SCHEMA_4_TOOLS = ["keyView"];
@@ -248,6 +268,8 @@ export function createEmptyWorkspace() {
       colorTheme: "blue-light",
       drawerPosition: "right",
       toolbarPosition: "top",
+      mobileDrawerPosition: "bottom",
+      mobileToolbarPosition: "top",
       pushSiteContent: true,
       compactMode: false,
       compactEntities: { client: false, project: false, product: false },
@@ -258,6 +280,7 @@ export function createEmptyWorkspace() {
       toolsMenuOrder: [...DEFAULT_ENABLED_TOOLS],
       toolsSortMode: "custom",
       toolUsageCounts: {},
+      customShortcuts: {},
       demoWorkspaceSeeded: false,
       soundEffects: true,
       remindTestStatusOnRecording: false,
@@ -505,6 +528,8 @@ export function normalizeWorkspace(rawWorkspace) {
       colorTheme: text(preferences.colorTheme, 30) || empty.preferences.colorTheme,
       drawerPosition: ["left", "right", "top", "bottom"].includes(preferences.drawerPosition) ? preferences.drawerPosition : empty.preferences.drawerPosition,
       toolbarPosition: ["top", "bottom", "left", "right"].includes(preferences.toolbarPosition) ? preferences.toolbarPosition : empty.preferences.toolbarPosition,
+      mobileDrawerPosition: ["left", "right", "top", "bottom"].includes(preferences.mobileDrawerPosition) ? preferences.mobileDrawerPosition : empty.preferences.mobileDrawerPosition,
+      mobileToolbarPosition: ["top", "bottom", "left", "right"].includes(preferences.mobileToolbarPosition) ? preferences.mobileToolbarPosition : empty.preferences.mobileToolbarPosition,
       pinnedTools: Array.isArray(preferences.pinnedTools)
         ? [...new Set(preferences.pinnedTools.map((value) => text(value, 40)).map((value) => ({ blurMode: "blurElements", holofoteMode: "holofote" })[value] || value).filter((value) => PINNABLE_TOOLS.has(value)))].slice(0, 4)
         : empty.preferences.pinnedTools,
@@ -513,6 +538,7 @@ export function normalizeWorkspace(rawWorkspace) {
       toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),
       toolsSortMode: normalizeToolsSortMode(preferences.toolsSortMode),
       toolUsageCounts: normalizeToolUsageCounts(preferences.toolUsageCounts),
+      customShortcuts: Object.fromEntries(Object.entries(preferences.customShortcuts && typeof preferences.customShortcuts === "object" ? preferences.customShortcuts : {}).filter(([key, shortcut]) => DEFAULT_ENABLED_TOOLS.includes(key) && /^(?:(?:Ctrl|Alt|Shift|Meta)\+)+(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(String(shortcut))).slice(0, DEFAULT_ENABLED_TOOLS.length)),
       demoWorkspaceSeeded: preferences.demoWorkspaceSeeded === true,
       soundEffects: preferences.soundEffects !== false,
       remindTestStatusOnRecording: preferences.remindTestStatusOnRecording === true,

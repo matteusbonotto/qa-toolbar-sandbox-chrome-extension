@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon";
 import type { Session } from "@supabase/supabase-js";
@@ -53,6 +53,7 @@ export function PricingSection() {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [authBusy, setAuthBusy] = useState(false);
   const [authModalOpen, setAuthModalOpen] = useState(false);
+  const authTriggerRef = useRef<HTMLElement | null>(null);
   const [authMode, setAuthMode] = useState<"signin" | "signup">("signin");
   const [authMessage, setAuthMessage] = useState<string | null>(null);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -86,6 +87,7 @@ export function PricingSection() {
 
   useEffect(() => {
     const openFromNavigation = () => {
+      authTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
       setQueuedPlanId(null);
       setAuthMessage(null);
       setAuthError(null);
@@ -98,14 +100,26 @@ export function PricingSection() {
   useEffect(() => {
     if (!authModalOpen) return;
     const previousOverflow = document.body.style.overflow;
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setAuthModalOpen(false);
+    const previouslyFocused = authTriggerRef.current;
+    const focusableSelector = 'button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),[tabindex]:not([tabindex="-1"])';
+    const handleModalKeys = (event: KeyboardEvent) => {
+      if (event.key === "Escape") { setAuthModalOpen(false); return; }
+      if (event.key !== "Tab") return;
+      const modal = document.querySelector<HTMLElement>(".qts-auth-modal");
+      const focusable = [...(modal?.querySelectorAll<HTMLElement>(focusableSelector) || [])].filter((element) => element.offsetParent !== null);
+      if (!focusable.length) return;
+      const first = focusable[0]!, last = focusable[focusable.length - 1]!;
+      if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     };
     document.body.style.overflow = "hidden";
-    document.addEventListener("keydown", closeOnEscape);
+    document.addEventListener("keydown", handleModalKeys);
+    requestAnimationFrame(() => document.querySelector<HTMLElement>(".qts-auth-modal input,.qts-auth-modal button")?.focus());
     return () => {
       document.body.style.overflow = previousOverflow;
-      document.removeEventListener("keydown", closeOnEscape);
+      document.removeEventListener("keydown", handleModalKeys);
+      previouslyFocused?.focus();
+      authTriggerRef.current = null;
     };
   }, [authModalOpen]);
 
@@ -218,6 +232,7 @@ export function PricingSection() {
   }
 
   function openAuthModal(planId: PlanId | null = null) {
+    authTriggerRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     setQueuedPlanId(planId);
     setAuthMessage(planId ? t.pricing.authRequired : null);
     setAuthError(null);

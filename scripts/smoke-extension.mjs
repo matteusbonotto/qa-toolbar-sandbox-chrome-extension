@@ -628,6 +628,44 @@ try {
   if (await host.locator("#extraPinnedTools button").count()) throw new Error("Fresh workspace should allow zero optional fixed shortcuts");
   trace("required fixed shortcuts + zero optional state verified");
 
+  await host.locator("#passButton").click();
+  if (!await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Pass placement mode did not activate");
+  await host.locator("#toolsButton").click();
+  await host.locator("#disableAllToolsMenuItem").click();
+  if (await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Global tool shutdown left placement mode active");
+  if (await host.locator("button.isActive").count()) throw new Error("Global tool shutdown left an active toolbar control");
+  trace("global active-tool shutdown verified");
+
+  const shortcutInput = options.locator('[data-shortcut-key="inspectors"]');
+  await shortcutInput.dispatchEvent("keydown", { key: "I", code: "KeyI", altKey: true, shiftKey: true, bubbles: true, cancelable: true });
+  if (await shortcutInput.inputValue() !== "Alt+Shift+I") throw new Error("Custom shortcut capture did not format the key combination");
+  await options.locator("#saveGeneralSettings").click();
+  await host.locator("h1").press("Alt+Shift+I");
+  await host.locator(".qts-drawer").waitFor();
+  if (!/Inspect/i.test(await host.locator(".qts-drawer-head h2").textContent())) throw new Error("Custom shortcut did not open the configured tool");
+  await host.locator("#drawerClose").click();
+  trace("custom tool shortcut capture, persistence and execution verified");
+
+  await host.locator("#toolsButton").click();
+  await host.locator("#languageValidatorMenuItem").click();
+  await host.locator("#languageFile").setInputFiles({ name: "pt-BR.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ title: "Ambiente de teste", missing: "Texto que não existe" })) });
+  await host.getByText("1/2 textos encontrados").waitFor();
+  const validationRows = await host.locator("#languageResults .qts-list-row").count();
+  if (validationRows !== 2) throw new Error(`Language validator did not report every imported text: ${validationRows}`);
+  await host.locator("#drawerClose").click();
+  trace("JSON language-text validator verified against visible page content");
+
+  await host.locator("#toolsButton").click();
+  await host.locator("#qrCodeMenuItem").click();
+  await host.locator("#qrCanvas").waitFor();
+  const qrEvidence = await host.locator("#qrCanvas").evaluate((canvas) => ({ dataLength: canvas.toDataURL("image/png").length, status: canvas.closest(".qts-drawer-body").querySelector("#qrStatus")?.textContent || "" }));
+  if (qrEvidence.dataLength < 1_000 || qrEvidence.status.includes("token=")) throw new Error(`Local QR generator failed or leaked sensitive URL data: ${JSON.stringify(qrEvidence)}`);
+  const qrDownloadPromise = host.waitForEvent("download");
+  await host.locator("#qrDownload").click();
+  if ((await qrDownloadPromise).suggestedFilename() !== "qa-toolbar-qrcode.png") throw new Error("QR download did not produce the expected PNG");
+  await host.locator("#drawerClose").click();
+  trace("offline QR generation and PNG download verified");
+
   // Warning/Question join Pass/Fail as page markers, but Pass/Fail keep their own always-visible
   // one-click buttons (a tested, deliberate product decision -- see the fixed-shortcuts check right
   // above) instead of folding all four into one menu; Warning/Question live behind a small chevron
@@ -1180,6 +1218,15 @@ try {
   const pinnedMacroCount = await host.locator("#pinnedMacrosMenu [data-pinned-macro]").count();
   if (pinnedMacroCount !== 1) throw new Error("Pinned macro was not added to the tools menu");
   await host.locator('#macroList .qts-card').first().locator('[data-macro-action="edit"]').click();
+  const visibleMacroOptions = await host.locator("#macroVisibleElements option").count();
+  if (visibleMacroOptions < 5) throw new Error(`Macro manual element list is incomplete: ${visibleMacroOptions}`);
+  const macroTargetOption = host.locator('#macroVisibleElements option[value="#macroTarget"]');
+  if (await macroTargetOption.count() !== 1 || !(await macroTargetOption.innerText()).includes("Ação da macro")) {
+    throw new Error("Macro manual element list did not expose an accessible label and selector");
+  }
+  if (await host.locator('[data-field="selector"][list="macroVisibleElements"]').count() < 1) {
+    throw new Error("Macro selector fields are not connected to the searchable visible-element list");
+  }
   await host.locator('[data-macro-mode="coder"]').click();
   const generatedCode = await host.locator("#macroCode").innerText();
   if (!generatedCode.includes("page.locator") || generatedCode.includes("segredo-da-gravacao") || /\beval\s*\(/.test(generatedCode)) throw new Error(`Unsafe or incomplete generated macro code: ${generatedCode}`);

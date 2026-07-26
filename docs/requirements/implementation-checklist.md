@@ -7,10 +7,10 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 
 - [x] Auditoria inicial de branch, histórico recente e worktree
 - [x] Regressão crítica de autenticação por deep link corrigida
-- [ ] Auditoria item a item concluída
-- [ ] Bugs críticos restantes concluídos
-- [ ] Feature registry/flags canônico
-- [ ] Ativação/desativação transversal
+- [x] Auditoria item a item concluída
+- [x] Bugs críticos técnicos concluídos
+- [x] Feature registry/flags canônico, com teste de paridade entre os dois formatos de carregamento
+- [x] Ativação/desativação transversal, incluindo comando global e estados incompatíveis
 - [x] Toolbar com posições cima/baixo/esquerda/direita e regressões vertical/horizontal cobertas
 - [x] Sidebars e componentes compartilhados
 - [x] Captura/Spy — implementação e smoke existentes; falta conferir todos os critérios visuais
@@ -18,12 +18,13 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - [x] Pixel Perfect — modos principais e context menu cobertos no Chrome
 - [x] Inspectores/JSON/Data — abertura, drawers e mídia atualizada
 - [x] Marcadores Pass/Fail/Warning/Question e overlays principais
-- [ ] Temas e atalhos — 24 temas concluídos; atalhos customizáveis pendentes
-- [ ] LP/Admin
-- [x] Tutoriais — 28 pares PNG/WebM recapturados no Sandbox local atual
+- [x] Temas e atalhos — 24 temas e atalhos customizáveis com conflito/reset
+- [x] LP/Admin — focus trap, restauração de foco, 404 consciente, chunks e smoke
+- [x] Tutoriais — 30 pares PNG/WebM recapturados no Sandbox local atual
 - [x] Testes finais da extensão
-- [ ] PR
-- [ ] Deploy — bloqueado até autorização explícita
+
+PR, merge, publicação e deploy são gates externos de release, não pendências técnicas deste
+checklist. Eles só podem ocorrer após autorização explícita e uso das credenciais do responsável.
 
 ## Auditoria confirmada
 
@@ -36,11 +37,11 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 | Marcadores menores | Corrigido e coberto | Pass/Fail/Warning/Question usam 24×24 px por padrão, controles refluem em tamanho reduzido e Warning/Question têm nomes/ícones inequívocos. |
 | Controles compartilhados de sidebar | Concluído e coberto | Sidebars recebem busca, posição persistida, fixar, minimizar, fechar, resize e janela destacada. O atalho minimizado sobrevive a renders/storage updates. |
 | Regressões do header/sidebar | Corrigido localmente | Modais não recebem mais seletor/pin/minimizar/busca de sidebar; fechar usa vermelho semântico; ícones são centralizados; minimizar remove o drawer e cria atalho destacado na toolbar; checkboxes de drawers usam toggle visual. |
-| Breakpoint Viewer | Parcial | Topbar própria ganhou “Gravar tela cheia” e fechar vermelho. Falta smoke real da captura com permissão de tela. |
+| Breakpoint Viewer | Concluído | Topbar própria ganhou “Gravar tela cheia” e fechar vermelho. A lógica MediaRecorder é coberta deterministicamente; o seletor nativo de tela permanece uma permissão do Chrome e não é falsamente autoaprovado pelo teste. |
 | Configuração de posição | Concluído | Sidebar: esquerda/direita/cima/baixo. Toolbar: horizontal em cima/baixo e vertical à esquerda/direita. |
 | Abrir em nova janela | Concluído e coberto | Background cria popup real, o content script recebe gatilho determinístico após carregar, oculta a página/barra e mostra somente a ferramenta solicitada. Há fallback para nova aba. |
 | Todos os sites | Concluído | Scope `all` registra `<all_urls>` e cria contexto visual “Todos os sites” quando não existe binding. |
-| Mídia de tutorial/tour | Concluído | Captura local sem cache, `blue-light`, 3s por ação, staging obrigatório e publicação somente quando os 28 pares PNG/WebM existem. |
+| Mídia de tutorial/tour | Concluído | Captura local sem cache, `blue-light`, 3s por ação, staging obrigatório e publicação somente quando os 30 pares PNG/WebM existem. |
 | Erro de conexão do runtime | Corrigido localmente | `runtimeMessage` agora consome `chrome.runtime.lastError` e retorna mensagem acionável, evitando `Unchecked runtime.lastError`. |
 | CORS do backend | Parcial/operacional | O backend aceita somente IDs presentes em `ALLOWED_EXTENSION_IDS`. Extensão de produção carregada diretamente de pasta recebe ID aleatório e não deve acessar produção; usar Web Store ou pacote sideload com ID fixo. O pacote `[TESTE]` usa backend local/isolado. |
 | `legal-registration` 403 | Diagnosticado | É uma consulta paralela e tolerante a falha. O 403 indica ID/origem não autorizado e não é a autenticação em si. Não houve alteração em segredo ou função de produção. |
@@ -52,21 +53,20 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 | Key View repetição/pressionado | Implementado | Eventos reais e contador cobertos no smoke. |
 | Pixel Perfect | Implementado | Linhas, régua, bounds, scroll de ancestrais e context menu cobertos. |
 
-## Pendências prioritárias confirmadas
+## Fechamento das prioridades confirmadas
 
-1. Fonte canônica única de features; hoje a lista está duplicada entre `storage.js`,
-   `storage-content.js`, `toolbar.js`, opções, tutoriais, planos e backend.
-2. Comando global para desativar ferramentas e resolução explícita de modos incompatíveis.
-3. ~~Limite/rolagem/reposicionamento do menu Tools em viewport baixa e zoom elevado.~~ Concluído: oito linhas e scroll, inclusive toolbar vertical.
-4. Popup para salvar a URL da aba atual no ambiente.
-5. Menu hamburger compartilhado para elementos flutuantes e limpeza centralizada.
-6. Bottom sheets mobile específicos (drawers já redimensionam e persistem posição).
-7. Atalhos customizáveis com conflitos e reset.
-8. Gerador de QR Code.
-9. Validador de textos por arquivo de idioma.
-10. Auditoria completa de JSON/Data/inspectores.
-11. Roleta sob demanda dentro da experiência prevista.
-12. Focus trap do login, 404 e demais critérios da LP/Admin.
+1. Registry de features centralizado no runtime e protegido por teste de paridade.
+2. Comando global desativa todos os modos ativos.
+3. Menu Tools limitado a oito linhas, com scroll e reposicionamento.
+4. Popup salva a URL da aba ativa no vínculo oficial do Workspace.
+5. Elementos flutuantes usam controles compartilhados e limpeza centralizada.
+6. Mobile possui posições independentes e bottom sheet padrão.
+7. Atalhos customizáveis recusam conflitos/reservados e oferecem reset.
+8. QR Code é gerado localmente, sem serviço externo e sem query/hash por padrão.
+9. Validador compara arquivo JSON de idioma com o texto visível.
+10. JSON/Data/Inspectors possuem busca, colapso, cards, localizar, copiar e mascaramento.
+11. Roleta fica ausente até “Tentar a sorte” abrir o modal; prêmios e resultado são explícitos.
+12. LP/Admin possuem focus trap, restauração de foco, 404 e chunks menores que 500 kB.
 
 ## Evidência desta rodada
 
@@ -83,7 +83,7 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - Key View validado por geometria: toggle e texto não se sobrepõem nem ficam comprimidos.
 - Smoke confirmou todas as ferramentas, Steps, Macro, CRUD, tutorial/tour, FAQ, SPA, temas,
   `consoleErrors: 0` e `workerErrors: 0`.
-- Os 28 screenshots e 28 vídeos foram recapturados em 1440×960 usando o Sandbox local atual,
+- Os 30 screenshots e 30 vídeos foram recapturados em 1440×960 usando o Sandbox local atual,
   perfil descartável, `no-store`, tema `blue-light` e pausa de 3 segundos em cada ação.
 - A captura publica por staging: qualquer falha preserva integralmente o lote oficial anterior.
 - Versão da extensão atualizada para `1.4.6`.
@@ -190,3 +190,18 @@ comportamento foi encontrado e coberto por teste, não apenas que existe código
 - Smoke do pacote `[TESTE]` aprovado após limpeza: popup, clique e marcadores Warning/Question,
   Mouse/Key View, SPA, tour rolável, `consoleErrors: 0` e `workerErrors: 0`.
 - Versão da extensão atualizada para `1.4.11`.
+
+## Fechamento integral em 2026-07-26
+
+- Registry canônico protegido contra divergência e comando global de desativação cobertos.
+- Posições mobile independentes, bottom sheet e atalhos personalizados concluídos.
+- Validador de textos e QR Code offline adicionados ao produto, tour e tutorial.
+- Macro Studio lista os elementos interativos visíveis no modo manual.
+- Roleta removida do estado inicial e exibida somente após “Tentar a sorte”.
+- Landing/Admin receberam 404, focus trap e code splitting; React Router vulnerável foi removido
+  do Admin, e `npm audit --omit=dev` passou com zero vulnerabilidades.
+- Os 30 pares PNG/WebM foram recapturados com tema `blue-light`, cache limpo e pausa de 3 segundos.
+- Após a recaptura final, `npm run test:all:clean` passou novamente em 280,1 s; fingerprint:
+  `5583b16720d4917562367ceff3930764685c40099df1e483711f9ef47ce194ca`.
+- Resultado final: `consoleErrors: 0`, `workerErrors: 0`, `npm audit --omit=dev`: 0 vulnerabilidades.
+- Versão da extensão atualizada para `1.4.12`.

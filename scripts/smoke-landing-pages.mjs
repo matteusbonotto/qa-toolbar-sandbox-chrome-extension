@@ -78,6 +78,9 @@ try {
   if (await page.locator(".qts-account-panel").count()) {
     throw new Error("Account form must not remain embedded in the pricing page.");
   }
+  if (await page.locator(".qts-reward-wheel").count()) {
+    throw new Error("Rewards wheel must stay hidden until the user explicitly clicks Try your luck.");
+  }
 
   const desktopWidth = await page.locator('[data-viewport="desktop"]').evaluate((element) => element.getBoundingClientRect().width);
   await page.locator(".qts-simulator-controls .qts-sim-field").nth(2).getByRole("tab", { name: "Mobile" }).click();
@@ -94,10 +97,18 @@ try {
   if (await accountDialog.locator('input[type="email"]').count() !== 1 || await accountDialog.locator('input[type="password"]').count() !== 1) {
     throw new Error("Navbar account modal did not render the login form.");
   }
+  if (!await accountDialog.evaluate((dialog) => dialog.contains(document.activeElement))) throw new Error("Account modal did not move focus inside");
+  await page.keyboard.press("Shift+Tab");
+  if (!await accountDialog.evaluate((dialog) => dialog.contains(document.activeElement))) throw new Error("Account modal focus escaped backwards");
   await accountDialog.locator(".qts-auth-close").click();
+  await page.waitForFunction(() => document.querySelector(".qts-site-toolbar-cta") === document.activeElement);
   await page.locator(".qts-plan-cta").first().click();
   await page.getByRole("dialog").waitFor();
   await page.locator(".qts-auth-close").click();
+
+  await page.goto(`${origin}${basePath}rota-inexistente`, { waitUntil: "networkidle" });
+  if (!(await page.getByRole("heading", { name: "Página não encontrada" }).count())) throw new Error("Landing unknown route did not render a conscious 404");
+  if (!(await page.getByRole("link", { name: "Voltar ao início" }).count())) throw new Error("Landing 404 has no recovery action");
 
   await page.goto(`${origin}${basePath}admin/`, { waitUntil: "networkidle" });
   if (!(await page.title()).includes("Admin")) throw new Error("Admin artifact did not load.");

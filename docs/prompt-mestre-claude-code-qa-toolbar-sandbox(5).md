@@ -1342,23 +1342,24 @@ Não publicar sem autorização.
 
 Mantenha no início da resposta um checklist semelhante:
 
-- [ ] Auditoria do estado atual
-- [ ] Bugs críticos
-- [ ] Feature registry/flags
-- [ ] Ativação/desativação
-- [ ] Toolbar e mobile
-- [ ] Sidebars e componentes
-- [ ] Captura/Spy
-- [ ] Steps/Macros/GIF
-- [ ] Pixel Perfect
-- [ ] Inspectores/JSON/Data
-- [ ] Marcadores e overlays
-- [ ] Temas e atalhos
-- [ ] LP/Admin
-- [ ] Tutoriais
-- [ ] Testes finais
-- [ ] PR
-- [ ] Deploy — bloqueado até autorização
+- [x] Auditoria do estado atual
+- [x] Bugs críticos
+- [x] Feature registry/flags
+- [x] Ativação/desativação
+- [x] Toolbar e mobile
+- [x] Sidebars e componentes
+- [x] Captura/Spy
+- [x] Steps/Macros/GIF
+- [x] Pixel Perfect
+- [x] Inspectores/JSON/Data
+- [x] Marcadores e overlays
+- [x] Temas e atalhos
+- [x] LP/Admin
+- [x] Tutoriais
+- [x] Testes finais
+
+PR e deploy são gates externos e continuam bloqueados até autorização explícita; não são
+pendências técnicas que possam ser simuladas pelo agente.
 
 A cada atualização:
 - informe o que foi encontrado;

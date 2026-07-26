@@ -156,9 +156,23 @@ function contrastTextColor(hexColor) {
 function getCurrentHeight() {
   return state.minimized
     || state.workspace?.preferences?.pushSiteContent === false
-    || state.workspace?.preferences?.toolbarPosition !== "top"
+    || effectiveToolbarPosition() !== "top"
     ? 0
     : TOOLBAR_HEIGHT;
+}
+
+function isMobileViewport() {
+  return window.matchMedia("(max-width: 560px)").matches;
+}
+
+function effectiveToolbarPosition() {
+  const preferences = state.workspace?.preferences || {};
+  return isMobileViewport() ? (preferences.mobileToolbarPosition || "top") : (preferences.toolbarPosition || "top");
+}
+
+function effectiveDrawerPosition() {
+  const preferences = state.workspace?.preferences || {};
+  return isMobileViewport() ? (preferences.mobileDrawerPosition || "bottom") : (preferences.drawerPosition || "right");
 }
 
 function setSpacerHeight() {
@@ -327,16 +341,7 @@ function playSound(key) {
 // Tools gated by the account's plan (via access-status' `features` map), on top of the
 // per-user "which menu items are enabled" preference. Keys here match the Supabase
 // `features.key` rows exactly (see supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql).
-const PLAN_GATED_TOOLS = {
-  characterCounter: "characterCounter.enabled",
-  macroStudio: "macroStudio.enabled",
-  stepsRecorder: "stepsRecorder.enabled",
-  multiClick: "multiClick.enabled",
-  inputLab: "inputLab.enabled",
-  fakerFill: "fakerFill.enabled",
-  keyView: "keyView.enabled",
-  elementCapture: "elementCapture.enabled",
-};
+const PLAN_GATED_TOOLS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.filter((feature) => feature.planFeature).map((feature) => [feature.key, feature.planFeature]));
 
 function hasPlanFeature(toolKey) {
   const featureKey = PLAN_GATED_TOOLS[toolKey];
@@ -350,17 +355,34 @@ function requirePlanFeature(toolKey) {
   return false;
 }
 
-const TOOLS_MENU_ITEM_IDS = {
-  clickSpy: "clickSpyMenuItem", freezeClock: "freezeClockMenuItem", forceHttp: "forceHttpMenuItem",
-  errorMonitor: "errorMonitorMenuItem",
-  inspectors: "inspectorsMenuItem", jsonStudio: "jsonStudioMenuItem", breakpoints: "breakpointMenuItem",
-  testAccounts: "testAccountsMenuItem", paymentMethods: "paymentMethodsMenuItem", resources: "resourcesMenuItem",
-  characterCounter: "characterCounterMenuItem", macroStudio: "macroStudioMenuItem", stepsRecorder: "stepsRecorderMenuItem", multiClick: "multiClickMenuItem",
-  inputLab: "inputLabMenuItem", fakerFill: "fakerFillMenuItem", keyView: "keyViewMenuItem",
-  elementCapture: "elementCaptureMenuItem", blurElements: "blurElementsMenuItem", holofote: "holofoteMenuItem", pixelPerfect: "pixelPerfectMenuItem",
-};
-const TOOLS_MENU_LABELS = { clickSpy: "Click Spy", freezeClock: "Freeze Clock", forceHttp: "Force HTTP", errorMonitor: "Error Monitor", inspectors: "Inspectors", jsonStudio: "JSON Studio", breakpoints: "Breakpoints", testAccounts: "Contas de teste", paymentMethods: "Meios de pagamento", resources: "Recursos e links", characterCounter: "Contador de caracteres", macroStudio: "Macro Studio", stepsRecorder: "Gravador de Passos", multiClick: "Multiclick", inputLab: "Input Lab", fakerFill: "Faker Fill", keyView: "Key View", elementCapture: "Capturar elementos", blurElements: "Borrar elementos", holofote: "Modo Holofote", pixelPerfect: "Pixel Perfect" };
+const TOOLS_MENU_ITEM_IDS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.menuItemId]));
+const TOOLS_MENU_LABELS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.label]));
 const TOOLS_MENU_ITEM_KEY_BY_ID = Object.fromEntries(Object.entries(TOOLS_MENU_ITEM_IDS).map(([key, id]) => [id, key]));
+
+function customShortcutFromEvent(event) {
+  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+  if (!/^(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(key)) return "";
+  const parts = [];
+  if (event.ctrlKey) parts.push("Ctrl");
+  if (event.altKey) parts.push("Alt");
+  if (event.shiftKey) parts.push("Shift");
+  if (event.metaKey) parts.push("Meta");
+  return parts.length ? [...parts, key].join("+") : "";
+}
+
+function handleCustomToolShortcut(event) {
+  if (event.defaultPrevented || editableTypingTarget(event.target) || isKeyViewOwnSurface(event)) return;
+  const shortcut = customShortcutFromEvent(event);
+  if (!shortcut) return;
+  const entry = Object.entries(state.workspace?.preferences?.customShortcuts || {}).find(([, value]) => value === shortcut);
+  if (!entry) return;
+  const [toolKey] = entry;
+  const menuId = TOOLS_MENU_ITEM_IDS[toolKey];
+  const menuItem = state.shadowRoot?.getElementById(menuId);
+  if (!menuItem || menuItem.classList.contains("isPreferenceHidden")) return;
+  event.preventDefault();
+  menuItem.click();
+}
 
 // "Mais usados" sort needs a click count per tool; recorded on every menu-item activation
 // regardless of the active sort mode (so switching into "mais usados" later already has real
@@ -404,7 +426,7 @@ function applyPinnedTools() {
     root.getElementById(id)?.classList.toggle("isPreferenceHidden", !enabledTools.has(key) || !hasPlanFeature(key));
   }
   const labels = TOOLS_MENU_LABELS;
-  const icons = { clickSpy: "mouse", freezeClock: "freezeClock", forceHttp: "forceHttp", errorMonitor: "errorMonitor", inspectors: "inspectors", jsonStudio: "braces", breakpoints: "breakpointViewer", testAccounts: "key", paymentMethods: "paymentMethods", resources: "resources", characterCounter: "characterCounter", macroStudio: "macroStudio", stepsRecorder: "stepsRecorder", multiClick: "multiClick", inputLab: "inputLab", fakerFill: "fakerFill", keyView: "keyView", elementCapture: "elementCapture", blurElements: "eyeSlash", holofote: "lightbulb", pixelPerfect: "ruler" };
+  const icons = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.icon]));
   const quickContainer = root.getElementById("extraPinnedTools");
   if (quickContainer) {
     // Small pin badge in the corner distinguishes a tool the user chose to pin from the fixed
@@ -432,7 +454,7 @@ function render() {
   const host = document.getElementById(HOST_ID);
   if (host) {
     host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
-    host.dataset.toolbarPosition = state.workspace?.preferences?.toolbarPosition || "top";
+    host.dataset.toolbarPosition = effectiveToolbarPosition();
     host.dataset.detachedWindow = String(Boolean(state.detachedToolKey));
   }
   applyColorTheme();
@@ -469,7 +491,7 @@ function buildShadowHost() {
   host.id = HOST_ID;
   host.style.all = "initial";
   host.dataset.theme = state.workspace?.preferences?.appearanceTheme || "system";
-  host.dataset.toolbarPosition = state.workspace?.preferences?.toolbarPosition || "top";
+  host.dataset.toolbarPosition = effectiveToolbarPosition();
   host.dataset.detachedWindow = String(Boolean(state.detachedToolKey));
   const shadow = host.attachShadow({ mode: "open" });
 
@@ -828,6 +850,7 @@ function buildShadowHost() {
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
             <div id="pinnedMacrosMenu"></div>
+            <button type="button" id="disableAllToolsMenuItem" role="menuitem">${ICON("fail")} Desativar ferramentas ativas</button>
             <button type="button" id="statusMenuItem" role="menuitem">${escapeHtml(t.testStatus)}</button>
             <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
@@ -851,6 +874,8 @@ function buildShadowHost() {
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
             <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
             <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("lightbulb")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
+            <button type="button" id="languageValidatorMenuItem" role="menuitem">${ICON("braces")} Validador de textos</button>
+            <button type="button" id="qrCodeMenuItem" role="menuitem">${ICON("qrCode")} QR Code</button>
             <button type="button" id="pixelPerfectMenuItem" role="menuitem">${ICON("ruler")} ${escapeHtml(t.pixelPerfectMenuLabel || "Pixel Perfect")}</button>
           </div>
         </div>
@@ -996,6 +1021,7 @@ function buildShadowHost() {
     const key = button && TOOLS_MENU_ITEM_KEY_BY_ID[button.id];
     if (key) void recordToolMenuUsage(key);
   }, true);
+  shadow.getElementById("disableAllToolsMenuItem").addEventListener("click", () => void disableAllActiveTools());
   shadow.getElementById("notificationBellButton").addEventListener("click", (event) => {
     event.stopPropagation();
     closeToolsMenu();
@@ -1031,6 +1057,8 @@ function buildShadowHost() {
   shadow.getElementById("paymentMethodsMenuItem").addEventListener("click", () => { openPaymentMethodsDrawer(); closeToolsMenu(); });
   shadow.getElementById("resourcesMenuItem").addEventListener("click", () => { openResourcesDrawer(); closeToolsMenu(); });
   shadow.getElementById("elementCaptureMenuItem").addEventListener("click", () => { openElementCapture(); closeToolsMenu(); });
+  shadow.getElementById("languageValidatorMenuItem").addEventListener("click", () => { openLanguageValidator(); closeToolsMenu(); });
+  shadow.getElementById("qrCodeMenuItem").addEventListener("click", () => { openQrCodeTool(); closeToolsMenu(); });
   // These three keep a persistent on/off mode (unlike most Tools-menu items, which just open a
   // drawer every time): clicking them again while already active turns the mode off directly
   // instead of reopening the drawer just to find the Desativar button inside it — same one-click
@@ -1186,8 +1214,11 @@ const TOUR_TARGETS = {
   inputLab: { selector: "#inputLabMenuItem", menu: true },
   fakerFill: { selector: "#fakerFillMenuItem", menu: true },
   macroStudio: { selector: "#macroStudioMenuItem", menu: true },
+  stepsRecorder: { selector: "#stepsRecorderMenuItem", menu: true },
   keyView: { selector: "#keyViewMenuItem", menu: true },
   elementCapture: { selector: "#elementCaptureMenuItem", menu: true },
+  languageValidator: { selector: "#languageValidatorMenuItem", menu: true },
+  qrCode: { selector: "#qrCodeMenuItem", menu: true },
   testAccounts: { selector: "#testAccountsMenuItem", menu: true },
   paymentMethods: { selector: "#paymentMethodsMenuItem", menu: true },
   resources: { selector: "#resourcesMenuItem", menu: true },
@@ -1780,6 +1811,32 @@ function cancelPlacementMode() {
   document.removeEventListener("mousedown", handleShapeMouseDown, true);
   document.removeEventListener("mousedown", handleLineMouseDown, true);
   document.removeEventListener("keydown", handlePlacementEscape, true);
+}
+
+async function disableAllActiveTools() {
+  cancelPlacementMode();
+  if (state.clickSpyActive) deactivateClickSpy();
+  if (state.blurSelectionActive) toggleBlurSelectionMode();
+  if (state.holofoteActive) disableHolofoteMode();
+  if (state.pixelPerfectActive) disablePixelPerfectMode();
+  if (state.clockFrozen) document.dispatchEvent(new CustomEvent("qts:freeze-clock-command", { detail: { freeze: false } }));
+  if (state.forceHttpActive) document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: null } }));
+  if (state.macroRecording) cancelMacroRecording();
+  if (state.stepsRecording) {
+    state.stepsRecording.cleanup();
+    state.stepsRecording = null;
+    updateStepsRecordingUi();
+  }
+  const keyView = getKeyViewPreferences();
+  if (keyView.enabled) {
+    state.workspace.preferences = { ...(state.workspace.preferences || {}), keyView: { ...keyView, enabled: false } };
+    stopKeyView();
+    state.workspace = await saveWorkspace(state.workspace);
+  }
+  closeDrawer();
+  closeToolsMenu();
+  syncModeShortcutStates();
+  showQaToast("Todas as ferramentas ativas foram desativadas.");
 }
 
 function handlePlacementEscape(event) {
@@ -2824,7 +2881,8 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   // whether to live-refresh the Inspectors list. Leaving a stale "inspectors" value here after
   // switching to a different panel made Inspectors content silently overwrite other drawers.
   drawerHost.dataset.view = view;
-  const drawerPosition = ["left", "right", "top", "bottom"].includes(state.workspace?.preferences?.drawerPosition) ? state.workspace.preferences.drawerPosition : "right";
+  const preferredDrawerPosition = effectiveDrawerPosition();
+  const drawerPosition = ["left", "right", "top", "bottom"].includes(preferredDrawerPosition) ? preferredDrawerPosition : "right";
   const detachedWindow = Boolean(state.detachedToolKey);
   const sidebarControls = variant !== "modal" && !detachedWindow;
   drawerHost.innerHTML = `<style>${drawerStyles()}</style>
@@ -2848,7 +2906,8 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   if (positionSelect) positionSelect.value = drawerPosition;
   positionSelect?.addEventListener("change", async () => {
     backdrop.dataset.position = positionSelect.value;
-    state.workspace.preferences = { ...(state.workspace.preferences || {}), drawerPosition: positionSelect.value };
+    const preferenceKey = isMobileViewport() ? "mobileDrawerPosition" : "drawerPosition";
+    state.workspace.preferences = { ...(state.workspace.preferences || {}), [preferenceKey]: positionSelect.value };
     state.workspace = await saveWorkspace(state.workspace);
   });
   drawerHost.querySelector("#drawerPin")?.addEventListener("click", (event) => {
@@ -5711,6 +5770,109 @@ function attachCharacterCounterBadge(element) {
   reposition();
 }
 
+function flattenLanguageValues(value, path = "", output = []) {
+  if (typeof value === "string") output.push({ key: path || "(raiz)", value });
+  else if (Array.isArray(value)) value.forEach((item, index) => flattenLanguageValues(item, `${path}[${index}]`, output));
+  else if (value && typeof value === "object") Object.entries(value).forEach(([key, item]) => flattenLanguageValues(item, path ? `${path}.${key}` : key, output));
+  return output;
+}
+
+function openQrCodeTool() {
+  const current = new URL(window.location.href);
+  const hasSensitiveParts = current.search || current.hash;
+  if (hasSensitiveParts) { current.search = ""; current.hash = ""; }
+  const savedUrls = (state.workspace.urlBindings || []).flatMap((binding) => {
+    const candidates = [binding.primaryUrl, ...(binding.patterns || []).filter((pattern) => !pattern.includes("*"))];
+    return candidates.map((url) => ({ url, label: binding.label || url })).filter((item) => /^https?:\/\//i.test(item.url || ""));
+  });
+  openDrawer({
+    title: "QR Code",
+    view: "qrCode",
+    variant: "modal",
+    bodyHtml: `<p class="qts-tool-lead">Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.</p>
+      ${hasSensitiveParts ? `<div class="qts-card"><b>Query/hash removidos por segurança</b><p class="qts-tool-lead">A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.</p><label class="qts-switch-row"><input id="qrKeepSensitive" type="checkbox" /><span><b>Incluir query e hash</b></span></label></div>` : ""}
+      <label class="qts-field-label">URL<select id="qrUrl"><option value="${escapeHtml(current.href)}">Aba atual — ${escapeHtml(current.href)}</option>${savedUrls.map((item) => `<option value="${escapeHtml(item.url)}">${escapeHtml(item.label)}</option>`).join("")}</select></label>
+      <div class="qts-card" style="display:grid;place-items:center"><canvas id="qrCanvas" width="280" height="280" aria-label="QR Code gerado"></canvas></div>
+      <div class="qts-card-actions"><button class="action primary" id="qrDownload" type="button">Baixar PNG</button><button class="action" id="qrCopy" type="button">Copiar imagem</button></div><div class="qts-status" id="qrStatus"></div>`,
+    onReady(body) {
+      const select = body.querySelector("#qrUrl");
+      const canvas = body.querySelector("#qrCanvas");
+      const status = body.querySelector("#qrStatus");
+      const selectedUrl = () => {
+        if (select.selectedIndex === 0 && body.querySelector("#qrKeepSensitive")?.checked) return window.location.href;
+        return select.value;
+      };
+      const renderQr = async () => {
+        try {
+          const url = new URL(selectedUrl());
+          if (!["http:", "https:"].includes(url.protocol)) throw new Error("Protocolo não permitido");
+          await window.QTS_QRCODE.toCanvas(canvas, url.href);
+          status.textContent = url.href;
+        } catch (error) { status.textContent = `Não foi possível gerar: ${error.message}`; }
+      };
+      select.addEventListener("change", renderQr);
+      body.querySelector("#qrKeepSensitive")?.addEventListener("change", renderQr);
+      body.querySelector("#qrDownload").addEventListener("click", () => {
+        const anchor = document.createElement("a"); anchor.href = canvas.toDataURL("image/png"); anchor.download = "qa-toolbar-qrcode.png"; anchor.click();
+      });
+      body.querySelector("#qrCopy").addEventListener("click", async () => {
+        try {
+          const blob = await new Promise((resolveBlob) => canvas.toBlob(resolveBlob, "image/png"));
+          await navigator.clipboard.write([new ClipboardItem({ "image/png": blob })]);
+          status.textContent = "Imagem copiada.";
+        } catch { status.textContent = "O navegador não permitiu copiar a imagem; use Baixar PNG."; }
+      });
+      void renderQr();
+    },
+  });
+}
+
+function visiblePageText() {
+  const clone = document.body.cloneNode(true);
+  clone.querySelectorAll(`#${HOST_ID},script,style,noscript,template,[hidden],[aria-hidden="true"]`).forEach((node) => node.remove());
+  return (clone.innerText || clone.textContent || "").replace(/\s+/g, " ").trim();
+}
+
+function openLanguageValidator() {
+  openDrawer({
+    title: "Validador de textos",
+    view: "languageValidator",
+    bodyHtml: `<p class="qts-tool-lead">Importe um JSON de idioma. Cada texto esperado é comparado com o conteúdo visível da página atual; o arquivo nunca é executado nem enviado.</p>
+      <label class="qts-field-label">Arquivo JSON<input id="languageFile" type="file" accept="application/json,.json" /></label>
+      <div class="qts-card-actions"><button class="action primary" id="languageValidate" type="button" disabled>Validar página</button><button class="action" id="languageRevalidate" type="button" disabled>Revalidar após navegação</button></div>
+      <div class="qts-status" id="languageStatus"></div><div class="qts-list" id="languageResults"></div>`,
+    onReady(body) {
+      let expected = [];
+      const render = () => {
+        const pageText = visiblePageText();
+        const results = expected.map((entry) => ({ ...entry, found: pageText.includes(entry.value.replace(/\s+/g, " ").trim()) }));
+        const found = results.filter((entry) => entry.found).length;
+        body.querySelector("#languageStatus").textContent = `${found}/${results.length} textos encontrados na página atual.`;
+        body.querySelector("#languageResults").innerHTML = results.map((entry) => `<div class="qts-list-row"><span><b>${entry.found ? "✓" : "⚠"} ${escapeHtml(entry.key)}</b><small>${escapeHtml(entry.value)}</small></span><span class="qts-chip">${entry.found ? "Igual" : "Ausente/diferente"}</span></div>`).join("") || `<div class="qts-empty">Importe um arquivo JSON válido.</div>`;
+      };
+      body.querySelector("#languageFile").addEventListener("change", async (event) => {
+        const file = event.currentTarget.files?.[0];
+        if (!file) return;
+        if (file.size > 2_000_000) { body.querySelector("#languageStatus").textContent = "O arquivo deve ter no máximo 2 MB."; return; }
+        try {
+          const parsed = JSON.parse(await file.text());
+          expected = flattenLanguageValues(parsed).filter((entry) => entry.value.trim()).slice(0, 5_000);
+          if (!expected.length) throw new Error("Nenhum texto encontrado");
+          body.querySelector("#languageValidate").disabled = false;
+          body.querySelector("#languageRevalidate").disabled = false;
+          body.querySelector("#languageStatus").textContent = `${expected.length} textos carregados.`;
+          render();
+        } catch (error) {
+          expected = [];
+          body.querySelector("#languageStatus").textContent = `JSON inválido: ${error.message}`;
+        }
+      });
+      body.querySelector("#languageValidate").addEventListener("click", render);
+      body.querySelector("#languageRevalidate").addEventListener("click", render);
+    },
+  });
+}
+
 function openCharacterCounter(initialText = null) {
   if (!requirePlanFeature("characterCounter")) return;
   const selected = initialText ?? String(document.getSelection()?.toString() || "");
@@ -6171,11 +6333,31 @@ function defaultMacroStep(action) {
   return { action: "click", selector: "button" };
 }
 
+function visibleMacroElementOptions() {
+  const candidates = [...document.querySelectorAll("a[href],button,input,select,textarea,[role=button],[role=link],[tabindex]")]
+    .filter((element) => !element.closest("#qts-toolbar-host") && !element.disabled && element.getClientRects().length)
+    .slice(0, 250);
+  const seen = new Set();
+  return candidates.flatMap((element) => {
+    const selector = window.QTS_QA_TOOLS.uniqueSelector(element);
+    if (!selector || seen.has(selector)) return [];
+    seen.add(selector);
+    const label = element.getAttribute("aria-label")
+      || element.getAttribute("placeholder")
+      || element.getAttribute("title")
+      || element.textContent?.trim().replace(/\s+/g, " ").slice(0, 80)
+      || element.getAttribute("name")
+      || element.id
+      || element.tagName.toLowerCase();
+    return [{ selector, label }];
+  });
+}
+
 function macroStepFields(step) {
   if (step.action === "wait") return `<input data-field="ms" type="number" min="0" max="30000" value="${Number(step.ms) || 500}" aria-label="Espera em milissegundos" />`;
   if (step.action === "scroll") return `<input data-field="y" type="number" value="${Number(step.y) || 0}" aria-label="Posição vertical" />`;
   if (step.action === "fakerFill") return `<select data-field="scope"><option value="page" ${step.scope !== "form" ? "selected" : ""}>Página</option><option value="form" ${step.scope === "form" ? "selected" : ""}>Primeiro formulário</option></select>`;
-  const selector = `<span style="display:flex;gap:5px;align-items:center"><input data-field="selector" value="${escapeHtml(step.selector || "")}" placeholder="Seletor CSS" aria-label="Seletor CSS" style="flex:1;min-width:0" /><button type="button" class="qts-icon-btn" data-pick-selector style="width:28px;height:28px" title="Selecionar elemento na página">${ICON("cursor")}</button></span>`;
+  const selector = `<span style="display:flex;gap:5px;align-items:center"><input data-field="selector" list="macroVisibleElements" value="${escapeHtml(step.selector || "")}" placeholder="Buscar ou escolher elemento visível" aria-label="Elemento visível ou seletor CSS" style="flex:1;min-width:0" /><button type="button" class="qts-icon-btn" data-pick-selector style="width:28px;height:28px" title="Selecionar elemento na página">${ICON("cursor")}</button></span>`;
   if (step.action === "check") return `${selector}<select data-field="checked"><option value="true" ${step.checked !== false ? "selected" : ""}>Marcar</option><option value="false" ${step.checked === false ? "selected" : ""}>Desmarcar</option></select>`;
   if (step.action === "multiClick") return `${selector}<span style="display:flex;gap:5px"><input data-field="count" type="number" min="2" max="100" value="${Number(step.count) || 2}" aria-label="Quantidade" /><input data-field="interval" type="number" min="0" max="5000" value="${Number(step.interval) || 100}" aria-label="Intervalo" /></span>`;
   if (["fill", "select", "press"].includes(step.action)) return `${selector}<input data-field="value" value="${escapeHtml(step.value || "")}" placeholder="Valor" aria-label="Valor" />`;
@@ -6218,15 +6400,17 @@ function collectMacroEditor(body, original, steps) {
 function openMacroEditor(macro) {
   const original = structuredClone(macro);
   const steps = structuredClone(macro.steps || []);
+  const visibleElements = visibleMacroElementOptions();
   const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
   openDrawer({
     title: "Macro Studio",
     variant: "modal",
     view: "macroStudio",
-    bodyHtml: `<div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
+    bodyHtml: `<datalist id="macroVisibleElements">${visibleElements.map(({ selector, label }) => `<option value="${escapeHtml(selector)}">${escapeHtml(label)}</option>`).join("")}</datalist>
+      <div class="qts-toolbar-row"><button class="action" id="macroBack" type="button">${ICON("arrowLeft")} Macros</button><input id="macroName" value="${escapeHtml(macro.name)}" placeholder="Nome da macro" /><button class="action primary" id="macroSave" type="button">Salvar macro</button></div>
       <textarea id="macroDescription" rows="2" placeholder="Descrição opcional">${escapeHtml(macro.description || "")}</textarea>
       <div class="qts-tabs"><button type="button" class="isSelected" data-macro-mode="vibe">Vibe Code</button><button type="button" data-macro-mode="coder">Coder</button></div>
-      <section id="vibeMode"><p class="qts-tool-lead">Monte o fluxo arrastando blocos. As setas representam a ordem de execução.</p><div class="qts-macro-layout"><aside class="qts-palette">${palette.map(([action, label]) => `<button type="button" draggable="true" data-palette-action="${action}">${label}</button>`).join("")}</aside><div class="qts-flow" id="macroFlow"></div></div></section>
+      <section id="vibeMode"><p class="qts-tool-lead">Monte o fluxo arrastando blocos. Em cada seletor, escolha um dos ${visibleElements.length} elementos interativos visíveis ou use o botão de seleção na página.</p><div class="qts-macro-layout"><aside class="qts-palette">${palette.map(([action, label]) => `<button type="button" draggable="true" data-palette-action="${action}">${label}</button>`).join("")}</aside><div class="qts-flow" id="macroFlow"></div></div></section>
       <section id="coderMode" hidden><div class="qts-toolbar-row"><p class="qts-tool-lead" style="flex:1">Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.</p><button class="action" id="copyMacroCode" type="button">Copiar código</button></div><pre class="qts-code" id="macroCode"></pre></section><div class="qts-status" id="macroEditorStatus"></div>`,
     onReady(body) {
       const flow = body.querySelector("#macroFlow");
@@ -6977,8 +7161,16 @@ async function boot() {
   });
 
   document.addEventListener("qts:location-change", () => syncToolbarForCurrentLocation());
+  document.addEventListener("keydown", handleCustomToolShortcut, true);
   window.addEventListener("popstate", () => syncToolbarForCurrentLocation());
   window.addEventListener("hashchange", () => syncToolbarForCurrentLocation());
+  let mobileLayout = isMobileViewport();
+  window.addEventListener("resize", () => {
+    const nextMobileLayout = isMobileViewport();
+    if (nextMobileLayout === mobileLayout) return;
+    mobileLayout = nextMobileLayout;
+    syncToolbarForCurrentLocation();
+  });
   state.locationInterval = window.setInterval(() => {
     if (state.lastHref === window.location.href) return;
     state.lastHref = window.location.href;

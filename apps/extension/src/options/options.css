@@ -438,3 +438,8 @@ summary:focus-visible,.environmentToggle:focus-visible,.scopeFacetTrigger:focus-
 @media (prefers-reduced-motion:reduce) {
   *,*::before,*::after { scroll-behavior:auto!important; transition-duration:.01ms!important; animation-duration:.01ms!important; animation-iteration-count:1!important; }
 }
+.shortcutSettingsList { display:grid; gap:8px; margin-top:12px; }
+.shortcutSetting { display:grid; grid-template-columns:minmax(130px,1fr) minmax(140px,190px) auto; gap:8px; align-items:center; }
+.shortcutSetting input { margin:0; cursor:pointer; }
+.shortcutSetting .button { min-height:40px; }
+@media (max-width:680px) { .shortcutSetting { grid-template-columns:1fr auto; } .shortcutSetting span { grid-column:1/-1; } }

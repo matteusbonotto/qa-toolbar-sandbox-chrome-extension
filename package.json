@@ -40,7 +40,8 @@
     "package:extension:test": "node scripts/package-extension-test.mjs",
     "dev:extension:test": "npm run automation:clean && node scripts/package-extension-test.mjs && node scripts/dev-extension-chrome.mjs --extension-path=artifacts/extension-test --profile-path=artifacts/chrome-test-profile",
     "package:extension": "node scripts/package-extension.mjs",
-  "package:extension:sideload": "node scripts/package-extension-sideload.mjs",
+    "build:extension-vendors": "esbuild scripts/vendor/qrcode-entry.js --bundle --format=iife --minify --outfile=apps/extension/src/lib/qrcode-content.js",
+    "package:extension:sideload": "node scripts/package-extension-sideload.mjs",
     "release:chrome:update": "npm run security:repo && npm run security:extension && npm run test:chrome && npm run package:extension",
     "chrome-webstore:oauth-setup": "node scripts/chrome-webstore-oauth-setup.mjs",
     "bump:extension": "node scripts/bump-extension-version.mjs",
@@ -56,6 +57,8 @@
   },
   "devDependencies": {
     "archiver": "^8.0.0",
-    "playwright": "^1.61.1"
+    "esbuild": "^0.28.1",
+    "playwright": "^1.61.1",
+    "qrcode": "^1.5.4"
   }
 }

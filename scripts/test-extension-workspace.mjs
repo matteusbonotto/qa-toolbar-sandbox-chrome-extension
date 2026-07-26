@@ -1,5 +1,16 @@
 import assert from "node:assert/strict";
-import { DEFAULT_ENABLED_TOOLS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
+import { readFile } from "node:fs/promises";
+import { FEATURE_REGISTRY, DEFAULT_ENABLED_TOOLS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
+
+assert.deepEqual(FEATURE_REGISTRY.map((feature) => feature.key), DEFAULT_ENABLED_TOOLS);
+assert.equal(new Set(FEATURE_REGISTRY.map((feature) => feature.key)).size, FEATURE_REGISTRY.length);
+assert.equal(new Set(FEATURE_REGISTRY.map((feature) => feature.menuItemId)).size, FEATURE_REGISTRY.length);
+assert.ok(FEATURE_REGISTRY.every((feature) => feature.label && feature.icon && feature.menuItemId));
+const classicStorageSource = await readFile(new URL("../apps/extension/src/lib/storage-content.js", import.meta.url), "utf8");
+const classicRegistryBlock = classicStorageSource.match(/const FEATURE_REGISTRY = Object\.freeze\(\[([\s\S]*?)\]\.map\(/)?.[1] || "";
+const classicRegistry = [...classicRegistryBlock.matchAll(/\["([^"]+)","([^"]+)","([^"]+)","([^"]+)","([^"]*)"\]/g)]
+  .map((match) => ({ key: match[1], label: match[2], menuItemId: match[3], icon: match[4], planFeature: match[5] || null }));
+assert.deepEqual(classicRegistry, FEATURE_REGISTRY.map(({ key, label, menuItemId, icon, planFeature }) => ({ key, label, menuItemId, icon, planFeature })), "Classic and module feature registries diverged");
 
 assert.deepEqual(normalizeUrlPatterns("https://example.com"), ["https://example.com/*"]);
 assert.deepEqual(normalizeUrlPatterns("example.com\nhttps://example.com/app"), ["*://example.com/*", "https://example.com/app*"]);
@@ -29,6 +40,9 @@ assert.equal(workspace.preferences.enabledTools.includes("blurElements"), true);
 assert.equal(workspace.preferences.enabledTools.includes("holofote"), true);
 assert.equal(workspace.preferences.enabledTools.includes("stepsRecorder"), true);
 assert.equal(workspace.preferences.enabledTools.includes("pixelPerfect"), true);
+assert.equal(workspace.preferences.enabledTools.includes("languageValidator"), true);
+assert.equal(workspace.preferences.mobileDrawerPosition, "bottom");
+assert.equal(workspace.preferences.mobileToolbarPosition, "top");
 assert.deepEqual(workspace.preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" });
 
 const macroWorkspace = normalizeWorkspace({
@@ -78,6 +92,7 @@ assert.equal(cappedSteps.stepRecordings[0].steps.length, 200);
 
 const filteredTools = normalizeWorkspace({ schemaVersion: 12, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
 assert.deepEqual(filteredTools.preferences.enabledTools, ["inspectors"]);
+assert.deepEqual(normalizeWorkspace({ preferences: { customShortcuts: { inspectors: "Ctrl+Shift+I", bogus: "Ctrl+B", keyView: "F1", pixelPerfect: "Alt+P" } } }).preferences.customShortcuts, { inspectors: "Ctrl+Shift+I", pixelPerfect: "Alt+P" });
 
 assert.deepEqual(normalizeWorkspace({}).preferences.pinnedTools, [], "additional shortcuts are optional");
 assert.deepEqual(
