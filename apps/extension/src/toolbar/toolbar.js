@@ -478,6 +478,8 @@ function render() {
   const urlElement = root.getElementById("currentUrl");
   urlElement.textContent = currentUrl;
   urlElement.title = currentUrl;
+  const verticalUrlText = root.getElementById("verticalUrlText");
+  if (verticalUrlText) verticalUrlText.textContent = currentUrl;
   applyPinnedTools();
   syncKeyView();
   setSpacerHeight();
@@ -514,7 +516,7 @@ function buildShadowHost() {
       :host([data-toolbar-position="bottom"]) #bar.isMinimized { transform:translateY(110%); }
       :host([data-toolbar-position="left"]) #bar,
       :host([data-toolbar-position="right"]) #bar {
-        top:0; bottom:0; width:52px; min-height:100vh; right:auto; padding:8px 5px;
+        top:0; bottom:0; width:58px; min-height:100vh; right:auto; padding:8px 7px;
         flex-direction:column; justify-content:flex-start; overflow:visible;
       }
       :host([data-toolbar-position="right"]) #bar { left:auto; right:0; }
@@ -526,8 +528,12 @@ function buildShadowHost() {
       :host([data-toolbar-position="right"]) #right,
       :host([data-toolbar-position="left"]) #extraPinnedTools,
       :host([data-toolbar-position="right"]) #extraPinnedTools { flex-direction:column; width:100%; }
+      :host([data-toolbar-position="left"]) #right,
+      :host([data-toolbar-position="right"]) #right { align-items:center; }
+      :host([data-toolbar-position="left"]) #right > *,
+      :host([data-toolbar-position="right"]) #right > * { flex:0 0 auto; margin-inline:auto; }
       :host([data-toolbar-position="left"]) #right button,
-      :host([data-toolbar-position="right"]) #right button { width:34px; min-width:34px; padding:5px; overflow:visible; }
+      :host([data-toolbar-position="right"]) #right button { width:38px; min-width:38px; height:30px; padding:5px; overflow:visible; }
       :host([data-toolbar-position="left"]) #testStatusButton,
       :host([data-toolbar-position="right"]) #testStatusButton { font-size:0; }
       :host([data-toolbar-position="left"]) #testStatusButton::before,
@@ -535,14 +541,32 @@ function buildShadowHost() {
       :host([data-toolbar-position="left"]) #toolsButton,
       :host([data-toolbar-position="right"]) #toolsButton { font-size:0; justify-content:center; }
       :host([data-toolbar-position="left"]) #toolsButton::before,
-      :host([data-toolbar-position="right"]) #toolsButton::before { content:"⋮"; font-size:18px; line-height:1; }
+      :host([data-toolbar-position="right"]) #toolsButton::before { content:"☷"; font-size:17px; line-height:1; }
       :host([data-toolbar-position="left"]) #toolsMenu,
       :host([data-toolbar-position="right"]) #toolsMenu {
-        position:fixed; top:8px; bottom:auto; width:min(260px,calc(100vw - 70px));
-        max-height:min(232px,calc(100vh - 16px)); transform:translateX(-6px); scrollbar-gutter:auto;
+        position:fixed; top:8px; bottom:auto; width:min(278px,calc(100vw - 78px));
+        max-height:min(320px,calc(100vh - 16px)); transform:translateX(-6px); scrollbar-gutter:auto;
       }
-      :host([data-toolbar-position="left"]) #toolsMenu { left:60px; right:auto; }
-      :host([data-toolbar-position="right"]) #toolsMenu { left:auto; right:60px; }
+      :host([data-toolbar-position="left"]) #toolsMenu { left:66px; right:auto; }
+      :host([data-toolbar-position="right"]) #toolsMenu { left:auto; right:66px; }
+      #urlToggleWrapper { display:none; position:relative; }
+      :host([data-toolbar-position="left"]) #urlToggleWrapper,
+      :host([data-toolbar-position="right"]) #urlToggleWrapper { display:block; }
+      :host([data-toolbar-position="left"]) #urlToggleButton,
+      :host([data-toolbar-position="right"]) #urlToggleButton {
+        width:38px; min-width:38px; height:38px; padding:0; border-radius:50%; justify-content:center;
+        background:color-mix(in srgb,var(--qts-ui-primary,#2563eb) 24%,rgba(0,0,0,.22));
+      }
+      #verticalUrlPanel {
+        position:fixed; top:8px; width:min(430px,calc(100vw - 82px)); padding:10px;
+        display:flex; align-items:center; gap:8px; border:1px solid var(--qts-ui-border);
+        border-radius:12px; background:var(--qts-ui-surface); color:var(--qts-ui-text);
+        box-shadow:0 16px 40px var(--qts-ui-shadow); z-index:20;
+      }
+      :host([data-toolbar-position="left"]) #verticalUrlPanel { left:68px; }
+      :host([data-toolbar-position="right"]) #verticalUrlPanel { right:68px; }
+      #verticalUrlText { min-width:0; flex:1; overflow-wrap:anywhere; font:650 11px/1.45 ui-monospace,Consolas,monospace; }
+      #verticalUrlCopy { width:34px !important; min-width:34px !important; height:34px !important; padding:0 !important; justify-content:center; }
       :host([data-toolbar-position="left"]) #toolsMenu.isOpen,
       :host([data-toolbar-position="right"]) #toolsMenu.isOpen { transform:translateX(0); }
       :host([data-toolbar-position="left"]) .qts-bell-badge,
@@ -618,7 +642,7 @@ function buildShadowHost() {
       }
       button:hover { background: rgba(0,0,0,.32); }
       button.iconOnly { width: 26px; padding: 0; justify-content: center; }
-      button > svg { width:15px; height:15px; filter:drop-shadow(0 0 .35px currentColor); }
+      button > svg { width:17px; height:17px; filter:drop-shadow(0 0 .35px currentColor); }
       .qts-user-pinned { position: relative; }
       .qts-pin-badge {
         position: absolute; top: -3px; right: -3px; width: 11px; height: 11px; border-radius: 50%;
@@ -640,8 +664,8 @@ function buildShadowHost() {
       #restoreButton.isVisible { display: inline-flex; }
       #toolsWrapper { position: relative; }
       #toolsMenu {
-        position: absolute; top: 30px; right: 0; width: 220px; padding: 6px; display: grid; gap: 4px;
-        max-height: 276px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+        position: absolute; top: 30px; right: 0; width: 260px; padding: 7px; display: grid; gap: 5px;
+        max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
         border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18);
         box-shadow: 0 16px 40px rgba(0,0,0,.45); opacity: 0; visibility: hidden; transform: translateY(-6px);
         transition: opacity 140ms ease, transform 140ms ease, visibility 140ms; color: #fff; z-index: 10;
@@ -650,9 +674,14 @@ function buildShadowHost() {
       #toolsMenu::-webkit-scrollbar { width: 9px; }
       #toolsMenu::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 64%,transparent); border:2px solid transparent; border-radius:99px; background-clip:padding-box; }
       #toolsMenu button {
-        width: 100%; justify-content: flex-start; background: #171717; border-color: #2c2c2c; font-size: 11px;
+        box-sizing:border-box !important; width:100% !important; min-width:100% !important; max-width:100% !important;
+        height:34px; justify-content:flex-start !important; gap:9px; padding:0 9px;
+        background: #171717; border-color: #2c2c2c; font-size: 12px;
       }
-      #toolsMenu button > svg { width:16px; height:16px; flex:0 0 16px; }
+      #toolsMenu button > svg {
+        width:19px; height:19px; flex:0 0 19px; padding:2px; border-radius:5px;
+        color:var(--qts-ui-primary,#2563eb); background:color-mix(in srgb,var(--qts-ui-primary,#2563eb) 14%,transparent);
+      }
       #toolsMenu button:hover { background: #232323; border-color: var(--qts-ui-primary, #ffd700); }
       #toolsMenu button.isActive { background: var(--qts-ui-primary, #ffd700) !important; color: var(--qts-ui-primary-contrast, #111) !important; }
       .qts-badge { margin-left: auto; padding: 1px 6px; border-radius: 999px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 9px; }
@@ -773,6 +802,10 @@ function buildShadowHost() {
           <span id="loggedOutMessage">${escapeHtml(t.loggedOutMessage || "Você não está logado")}</span>
           <button id="loggedOutLoginButton" type="button">${escapeHtml(t.loggedOutAction || "Entrar")}</button>
         </div>
+        <div id="urlToggleWrapper">
+          <button id="urlToggleButton" class="iconOnly" type="button" title="Exibir URL completa" aria-label="Exibir URL completa" aria-expanded="false">${ICON("globe")}</button>
+          <div id="verticalUrlPanel" class="isHidden"><span id="verticalUrlText"></span><button id="verticalUrlCopy" class="iconOnly" type="button" title="Copiar URL" aria-label="Copiar URL">${ICON("copy")}</button></div>
+        </div>
         <button id="testStatusButton" type="button" title="${escapeHtml(t.testStatusTitle)}">${escapeHtml(t.testStatus)}</button>
         <button id="passButton" class="iconOnly" type="button" title="${escapeHtml(t.pass)}">${ICON("pass")}</button>
         <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
@@ -793,7 +826,7 @@ function buildShadowHost() {
             <button type="button" data-shape-pick="line" role="menuitem">${ICON("arrowLeft")} ${escapeHtml(t.line)}</button>
           </div>
         </div>
-        <button id="clearAllButton" class="isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}">${escapeHtml(t.clearAll)}</button>
+        <button id="clearAllButton" class="iconOnly isHidden" type="button" title="${escapeHtml(t.clearAllTitle)}" aria-label="${escapeHtml(t.clearAll)}">${ICON("eraser")}</button>
         <button id="screenshotButton" class="iconOnly" type="button" title="${escapeHtml(t.screenshot)}">${ICON("camera")}</button>
         <div id="recordWrapper">
           <button id="recordToggleButton" class="iconOnly" type="button" title="${escapeHtml(t.recordStart)}">${ICON("recordStart")}</button>
@@ -850,8 +883,8 @@ function buildShadowHost() {
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
             <div id="pinnedMacrosMenu"></div>
-            <button type="button" id="disableAllToolsMenuItem" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
-            <button type="button" id="statusMenuItem" role="menuitem">${escapeHtml(t.testStatus)}</button>
+            <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
+            <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} Test Suite</button>
             <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
@@ -874,7 +907,7 @@ function buildShadowHost() {
             <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
             <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
             <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("lightbulb")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
-            <button type="button" id="languageValidatorMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(translateQaSurfaceText("Validador de textos"))}</button>
+            <button type="button" id="languageValidatorMenuItem" role="menuitem">${ICON("languageValidator")} ${escapeHtml(translateQaSurfaceText("Validador de textos"))}</button>
             <button type="button" id="qrCodeMenuItem" role="menuitem">${ICON("qrCode")} QR Code</button>
             <button type="button" id="pixelPerfectMenuItem" role="menuitem">${ICON("ruler")} ${escapeHtml(t.pixelPerfectMenuLabel || "Pixel Perfect")}</button>
           </div>
@@ -910,6 +943,18 @@ function buildShadowHost() {
   });
   shadow.getElementById("minimizeButton").addEventListener("click", () => setMinimized(true));
   shadow.getElementById("restoreButton").addEventListener("click", () => setMinimized(false));
+  const urlToggleButton = shadow.getElementById("urlToggleButton");
+  const verticalUrlPanel = shadow.getElementById("verticalUrlPanel");
+  shadow.getElementById("urlToggleWrapper").addEventListener("click", (event) => event.stopPropagation());
+  urlToggleButton.addEventListener("click", () => {
+    const expanded = verticalUrlPanel.classList.toggle("isHidden") === false;
+    urlToggleButton.setAttribute("aria-expanded", String(expanded));
+    urlToggleButton.title = expanded ? "Ocultar URL completa" : "Exibir URL completa";
+  });
+  shadow.getElementById("verticalUrlCopy").addEventListener("click", async () => {
+    await navigator.clipboard.writeText(safeCurrentUrl());
+    showQaToast("URL copiada.");
+  });
   shadow.getElementById("testStatusButton").addEventListener("click", () => openTestStatusModal());
   shadow.getElementById("passButton").addEventListener("click", (event) => enablePlacementMode("pass", event.currentTarget));
   shadow.getElementById("failButton").addEventListener("click", (event) => enablePlacementMode("fail", event.currentTarget));
@@ -1007,6 +1052,7 @@ function buildShadowHost() {
     event.stopPropagation();
     const menu = shadow.getElementById("toolsMenu");
     const willOpen = !menu.classList.contains("isOpen");
+    shadow.getElementById("disableAllToolsMenuItem").classList.toggle("isHidden", !hasAnyActiveTool());
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
     toggleRecordTypeMenu(false);
     toggleShapeTypeMenu(false);
@@ -1039,6 +1085,8 @@ function buildShadowHost() {
   shadow.addEventListener("click", () => {
     shadow.getElementById("toolsMenu").classList.remove("isOpen");
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
+    shadow.getElementById("verticalUrlPanel")?.classList.add("isHidden");
+    shadow.getElementById("urlToggleButton")?.setAttribute("aria-expanded", "false");
     toggleRecordTypeMenu(false);
     toggleShapeTypeMenu(false);
     shadow.getElementById("markerTypeMenu")?.classList.add("isHidden");
@@ -1848,6 +1896,12 @@ function handlePlacementEscape(event) {
 let pendingShapeType = "rectangle";
 
 function enablePlacementMode(mode, triggerButton, shapeType) {
+  // The active shortcut is also its cancel button. The old order cleared the state first and
+  // immediately armed the same mode again, making a second click appear to do nothing.
+  if (state.placementMode === mode && triggerButton?.classList.contains("isActive")) {
+    cancelPlacementMode();
+    return false;
+  }
   cancelPlacementMode();
   state.placementMode = mode;
   if (mode === "shape") pendingShapeType = shapeType || "rectangle";
@@ -1857,6 +1911,22 @@ function enablePlacementMode(mode, triggerButton, shapeType) {
   if (mode === "shape") document.addEventListener("mousedown", handleShapeMouseDown, true);
   else if (mode === "line") document.addEventListener("mousedown", handleLineMouseDown, true);
   else document.addEventListener("click", handlePlacementClick, true);
+  return true;
+}
+
+function hasAnyActiveTool() {
+  return Boolean(
+    state.placementMode
+    || state.clickSpyActive
+    || state.blurSelectionActive
+    || state.holofoteActive
+    || state.pixelPerfectActive
+    || state.clockFrozen
+    || state.forceHttpActive
+    || state.macroRecording
+    || state.stepsRecording
+    || getKeyViewPreferences().enabled
+  );
 }
 
 // Founder feedback: Linha used to be a separate pinned button; it now lives inside the same
@@ -1893,16 +1963,31 @@ function handlePlacementClick(event) {
 // screenshot can be taken without deleting the annotation — on demand.
 function visibilityControlsHtml() {
   const t = state.t;
-  return `<button type="button" class="qts-visibility-btn" data-visibility-toggle title="${escapeHtml(t.showControls)}">${ICON("eye")}</button>`;
+  return `<button type="button" class="qts-visibility-btn" data-visibility-toggle title="${escapeHtml(t.showControls)}" aria-label="${escapeHtml(t.showControls)}">${ICON("eye")}</button>`;
 }
 
 function wireVisibilityControls(item) {
   const t = state.t;
   const visibilityBtn = item.querySelector("[data-visibility-toggle]");
+  let idleTimer = 0;
+  const wakeEye = () => {
+    window.clearTimeout(idleTimer);
+    item.classList.add("isEyeAwake");
+    idleTimer = window.setTimeout(() => item.classList.remove("isEyeAwake"), 1_800);
+  };
+  // The eye is discoverable when an annotation is created, then gets out of the screenshot's way.
+  // Hover/focus is handled in CSS so it stays visible for the entire interaction; these listeners
+  // additionally cover touch/pen presses and clicks on the annotation itself.
+  wakeEye();
+  item.addEventListener("pointerdown", wakeEye);
+  item.addEventListener("pointermove", wakeEye, { passive: true });
+  item.addEventListener("focusin", wakeEye);
   visibilityBtn.addEventListener("click", () => {
+    wakeEye();
     const visible = item.classList.toggle("isControlsVisible");
     visibilityBtn.innerHTML = ICON(visible ? "eyeSlash" : "eye");
     visibilityBtn.title = visible ? t.hideControls : t.showControls;
+    visibilityBtn.setAttribute("aria-label", visibilityBtn.title);
   });
 }
 
@@ -2474,26 +2559,25 @@ function drawerStyles() {
     .qts-drawer-backdrop.isDetached .qts-drawer-body {
       width:100%; min-width:0; min-height:0; max-width:100%; overflow:auto; overscroll-behavior:contain;
     }
-    .qts-drawer-head { display: flex; align-items: center; gap:6px; padding: 10px 12px; border-bottom: 1px solid var(--qts-panel-border,#262626); }
-    .qts-drawer-head h2 { margin: 0; font-size: 15px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .qts-drawer-head button { width: 30px; height: 30px; border: 0; border-radius: 8px; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-size: 18px; cursor: pointer; flex: none; }
+    .qts-drawer-head { display:flex; align-items:center; gap:10px; padding:10px 12px; border-bottom:1px solid var(--qts-panel-border,#262626); background:var(--qts-panel,#fff); }
+    .qts-drawer-title { min-width:0; flex:1 1 180px; display:grid; gap:2px; }
+    .qts-drawer-head h2 { margin:0; font-size:15px; line-height:1.25; min-width:0; overflow-wrap:anywhere; }
+    .qts-drawer-kicker { color:var(--qts-panel-muted); font-size:10px; font-weight:650; }
+    .qts-drawer-controls { min-width:0; display:flex; align-items:center; justify-content:flex-end; gap:6px; flex:0 1 auto; }
+    .qts-drawer-head button { width:34px; height:34px; border:0; border-radius:9px; background:var(--qts-ui-primary,#2563eb); color:var(--qts-ui-primary-contrast,#fff); font-size:18px; cursor:pointer; flex:none; }
     .qts-drawer-head button { display:inline-flex; align-items:center; justify-content:center; padding:0; }
     .qts-drawer-head #drawerClose { background:var(--qts-ui-danger,#c70e0e); color:#fff; }
-    .qts-drawer-head.hasBack h2 { flex: 1; text-align: center; }
-    .qts-drawer-head h2 { flex:1; }
+    .qts-drawer-position { width:auto; display:grid; gap:2px; color:var(--qts-panel-muted); font-size:9px; font-weight:750; line-height:1; }
     .qts-drawer .qts-drawer-head select {
-      box-sizing:border-box; width:auto; min-width:100px; max-width:120px; height:34px;
-      min-height:34px; padding:0 30px 0 10px; line-height:normal; text-overflow:ellipsis;
+      box-sizing:border-box; width:auto; min-width:104px; max-width:126px; height:34px;
+      min-height:34px; padding:0 28px 0 9px; line-height:normal; text-overflow:ellipsis;
     }
     @container (max-width: 430px) {
       .qts-drawer-head { flex-wrap:wrap; align-items:center; }
-      .qts-drawer-head h2 {
-        flex:1 0 100%; max-width:100%; white-space:normal; overflow:visible;
-        text-overflow:clip; line-height:1.25; padding-bottom:3px;
-      }
-      .qts-drawer-head select { margin-left:auto; }
-      .qts-drawer-head #drawerDetach { margin-left:auto; }
-      .qts-drawer-head #drawerDetach + select { margin-left:0; }
+      .qts-drawer-title { flex:1 1 calc(100% - 44px); }
+      .qts-drawer-controls { flex:1 0 100%; justify-content:flex-start; }
+      .qts-drawer-position { margin-right:auto; }
+      .qts-drawer-head button { width:36px; height:36px; }
     }
     .qts-drawer-search { padding:8px 12px; border-bottom:1px solid var(--qts-panel-border); }
     .qts-drawer-resize { position:absolute; z-index:3; }
@@ -2572,7 +2656,7 @@ function drawerStyles() {
     .qts-friendly-section > summary::-webkit-details-marker { display: none; }
     .qts-friendly-section > summary .qts-count { color: #888; font-weight: 600; }
     .qts-friendly-hidden { display: none !important; }
-    .qts-tool-lead { margin: 0 0 12px; color: #aaa; }
+    .qts-tool-lead { margin:0 0 14px; padding:12px 14px; color:var(--qts-panel-muted); background:var(--qts-panel-2); border:1px solid var(--qts-panel-border); border-radius:10px; line-height:1.55; }
     .qts-tool-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(125px, 1fr)); gap: 8px; margin: 10px 0; }
     .qts-metric { padding: 11px; border: 1px solid #282828; border-radius: 10px; background: #141414; }
     .qts-metric strong { display: block; color: var(--qts-panel-accent, #ffd700); font-size: 20px; }
@@ -2635,6 +2719,20 @@ function drawerStyles() {
     .qts-pp-color-row input[type="color"] { width: 46px; height: 34px; padding: 2px; border: 2px solid #444; border-radius: 8px; background: #000; cursor: pointer; }
     .qts-pp-color-row input[type="color"]:hover { border-color: var(--qts-panel-accent, #ffd700); }
     .qts-pp-color-hex { font: 800 12px ui-monospace, SFMono-Regular, Consolas, monospace; letter-spacing: .04em; color: #ddd; }
+    .qts-tool-state { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px; padding:12px; border:1px solid var(--qts-panel-border); border-radius:12px; background:var(--qts-panel-2); }
+    .qts-tool-state-copy { display:grid; gap:3px; min-width:0; }
+    .qts-tool-state-copy small { color:var(--qts-panel-muted); }
+    .qts-mode-fieldset { margin:0 0 16px; padding:0; border:0; }
+    .qts-mode-fieldset legend { margin-bottom:8px; font-weight:800; }
+    .qts-mode-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+    .qts-mode-option { min-height:64px !important; height:auto !important; padding:9px 10px !important; display:flex; align-items:center; gap:10px; text-align:left; border:1px solid var(--qts-panel-border) !important; background:var(--qts-panel-2) !important; color:var(--qts-panel-text) !important; }
+    .qts-mode-option[aria-checked="true"] { border-color:var(--qts-ui-primary) !important; box-shadow:0 0 0 2px color-mix(in srgb,var(--qts-ui-primary) 25%,transparent); background:color-mix(in srgb,var(--qts-ui-primary) 10%,var(--qts-panel-2)) !important; }
+    .qts-mode-icon { width:36px; height:36px; flex:0 0 36px; display:inline-flex; align-items:center; justify-content:center; border-radius:9px; background:var(--qts-ui-primary); color:var(--qts-ui-primary-contrast); font:900 23px/1 ui-monospace,Consolas,monospace; }
+    .qts-mode-icon svg { width:20px; height:20px; }
+    .qts-mode-copy { display:grid; gap:2px; min-width:0; }
+    .qts-mode-copy small { color:var(--qts-panel-muted); font-weight:600; }
+    .qts-visually-hidden { position:absolute !important; width:1px !important; height:1px !important; padding:0 !important; margin:-1px !important; overflow:hidden !important; clip:rect(0,0,0,0) !important; white-space:nowrap !important; border:0 !important; }
+    @container (max-width:360px) { .qts-mode-grid { grid-template-columns:1fr; } }
     /* Semantic theme bridge for every reusable drawer component. It intentionally comes last
        so older feature-specific literal colors cannot break the selected platform theme. */
     .qts-drawer-backdrop.isModal .qts-drawer,
@@ -2918,12 +3016,12 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}${detachedWindow ? " isDetached" : ""}" id="drawerBackdrop" data-position="${drawerPosition}">
       <div class="qts-drawer">
         ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
-        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<h2>${escapeHtml(title)}</h2>
-          ${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
-          ${sidebarControls ? `<select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select>
+        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<div class="qts-drawer-title"><h2>${escapeHtml(title)}</h2><span class="qts-drawer-kicker">${variant === "modal" ? "Janela de trabalho" : detachedWindow ? "Ferramenta em janela separada" : "Ferramenta lateral"}</span></div>
+          <div class="qts-drawer-controls">${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
+          ${sidebarControls ? `<label class="qts-drawer-position"><span>Posição</span><select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label>
           <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
-          <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div>
+          <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div></div>
         ${sidebarControls ? `<div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>` : ""}
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
       </div>
@@ -5348,7 +5446,7 @@ function openHolofoteTool() {
 // clicks in the line modes (same passive-layer philosophy as Holofote/Click Spy); bounds mode
 // does swallow clicks while active, same as every other click-to-select tool here (Borrar
 // elementos, Multiclick), since a click there means "pin this element", not "activate it".
-let pixelPerfectSettings = { mode: "cross", color: "#ffd700", thickness: 1 };
+let pixelPerfectSettings = { mode: "cross", color: null, thickness: 1 };
 let pixelPerfectMeasureAnchor = null;
 let pixelPerfectBoundsChain = [];
 let pixelPerfectBoundsIndex = 0;
@@ -5375,7 +5473,7 @@ function ensurePixelPerfectOverlay() {
 }
 
 function applyPixelPerfectSettings(overlay) {
-  overlay.style.setProperty("--qts-pp-color", pixelPerfectSettings.color);
+  overlay.style.setProperty("--qts-pp-color", effectivePixelPerfectColor());
   overlay.style.setProperty("--qts-pp-thickness", `${pixelPerfectSettings.thickness}px`);
   const isBounds = pixelPerfectSettings.mode === "bounds";
   // classList, not style.display: a plain inline style always loses to this file's
@@ -5396,6 +5494,11 @@ function applyPixelPerfectSettings(overlay) {
     pixelPerfectBoundsIndex = 0;
     pixelPerfectBoundsPinned = false;
   }
+}
+
+function effectivePixelPerfectColor() {
+  if (pixelPerfectSettings.color) return pixelPerfectSettings.color;
+  return THEME_PRESETS.find((item) => item.id === state.workspace?.preferences?.colorTheme)?.primary || "#2563eb";
 }
 
 function updatePixelPerfectCrosshair(x, y) {
@@ -5591,18 +5694,25 @@ function openPixelPerfectTool() {
   openDrawer({
     title: "Pixel Perfect",
     view: "pixelPerfect",
-    bodyHtml: `<p class="qts-tool-lead">Ative e escolha um modo: linhas guia acompanhando o mouse (cruz, horizontal ou vertical) com uma régua inteligente de clique-para-medir, ou o inspetor de elementos — passe o mouse pra ver o tamanho exato de qualquer elemento da página, role o scroll pra subir/descer entre pai e filho, e clique pra fixar. Também disponível com o botão direito do mouse, em "Inspecionar com Pixel Perfect".</p>
-      <div class="qts-card-actions"><button class="action ${state.pixelPerfectActive ? "" : "primary"}" id="pixelPerfectToggle" type="button">${state.pixelPerfectActive ? "Desativar" : "Ativar"}</button></div>
-      <label>Modo<select id="pixelPerfectMode">
+    bodyHtml: `<p class="qts-tool-lead">Use guias precisas para alinhar a interface ou inspecione o tamanho real de qualquer elemento. Clique para medir e fixar; no modo elemento, use o scroll para navegar entre pai e filho.</p>
+      <div class="qts-tool-state"><div class="qts-tool-state-copy"><b>Pixel Perfect</b><small id="pixelPerfectStatus">${state.pixelPerfectActive ? "Ativo na página" : "Pronto para usar"}</small></div><button class="action ${state.pixelPerfectActive ? "" : "primary"}" id="pixelPerfectToggle" type="button">${state.pixelPerfectActive ? "Desativar" : "Ativar"}</button></div>
+      <fieldset class="qts-mode-fieldset"><legend>Modo de inspeção</legend><div class="qts-mode-grid" role="radiogroup" aria-label="Modo do Pixel Perfect">
+        <button class="qts-mode-option" type="button" role="radio" data-pp-mode="cross"><span class="qts-mode-icon">+</span><span class="qts-mode-copy"><b>Cruz</b><small>Horizontal + vertical</small></span></button>
+        <button class="qts-mode-option" type="button" role="radio" data-pp-mode="horizontal"><span class="qts-mode-icon">−</span><span class="qts-mode-copy"><b>Horizontal</b><small>Linha de largura total</small></span></button>
+        <button class="qts-mode-option" type="button" role="radio" data-pp-mode="vertical"><span class="qts-mode-icon">|</span><span class="qts-mode-copy"><b>Vertical</b><small>Linha de altura total</small></span></button>
+        <button class="qts-mode-option" type="button" role="radio" data-pp-mode="bounds"><span class="qts-mode-icon">${ICON("elementCapture")}</span><span class="qts-mode-copy"><b>Elemento</b><small>Tamanho em pixels</small></span></button>
+      </div></fieldset>
+      <select id="pixelPerfectMode" class="qts-visually-hidden" aria-hidden="true" tabindex="-1">
         <option value="cross">Linhas guia — cruz (horizontal + vertical)</option>
         <option value="horizontal">Linhas guia — somente horizontal</option>
         <option value="vertical">Linhas guia — somente vertical</option>
         <option value="bounds">Inspecionar elemento (tamanho em pixels)</option>
-      </select></label>
-      <label>Cor
+      </select>
+      <label>Cor da guia
         <div class="qts-pp-color-row">
           <input type="color" id="pixelPerfectColor" />
           <span class="qts-pp-color-hex" id="pixelPerfectColorHex"></span>
+          <button class="action" id="pixelPerfectThemeColor" type="button">Usar cor do tema</button>
         </div>
       </label>
       <label data-pp-thickness-row>Espessura da linha<input type="range" min="1" max="5" id="pixelPerfectThickness" /></label>`,
@@ -5611,26 +5721,43 @@ function openPixelPerfectTool() {
       const modeInput = body.querySelector("#pixelPerfectMode");
       const colorInput = body.querySelector("#pixelPerfectColor");
       const colorHex = body.querySelector("#pixelPerfectColorHex");
+      const themeColorButton = body.querySelector("#pixelPerfectThemeColor");
+      const status = body.querySelector("#pixelPerfectStatus");
       const thicknessInput = body.querySelector("#pixelPerfectThickness");
       const thicknessRow = body.querySelector("[data-pp-thickness-row]");
       modeInput.value = pixelPerfectSettings.mode;
-      colorInput.value = pixelPerfectSettings.color;
-      colorHex.textContent = pixelPerfectSettings.color.toUpperCase();
+      colorInput.value = effectivePixelPerfectColor();
+      colorHex.textContent = effectivePixelPerfectColor().toUpperCase();
       thicknessInput.value = pixelPerfectSettings.thickness;
       thicknessRow.style.display = pixelPerfectSettings.mode === "bounds" ? "none" : "grid";
-      const applyFromInputs = () => {
-        pixelPerfectSettings = { mode: modeInput.value, color: colorInput.value, thickness: Number(thicknessInput.value) };
+      const syncModes = () => body.querySelectorAll("[data-pp-mode]").forEach((button) => button.setAttribute("aria-checked", String(button.dataset.ppMode === modeInput.value)));
+      const applyFromInputs = (event) => {
+        pixelPerfectSettings = { mode: modeInput.value, color: event?.target === colorInput ? colorInput.value : pixelPerfectSettings.color, thickness: Number(thicknessInput.value) };
         colorHex.textContent = colorInput.value.toUpperCase();
         thicknessRow.style.display = pixelPerfectSettings.mode === "bounds" ? "none" : "grid";
+        syncModes();
         const overlay = document.getElementById("qts-pixelperfect-overlay");
         if (overlay) applyPixelPerfectSettings(overlay);
       };
       [modeInput, colorInput, thicknessInput].forEach((input) => input.addEventListener("input", applyFromInputs));
+      body.querySelectorAll("[data-pp-mode]").forEach((button) => button.addEventListener("click", () => {
+        modeInput.value = button.dataset.ppMode;
+        modeInput.dispatchEvent(new Event("input", { bubbles: true }));
+      }));
+      themeColorButton.addEventListener("click", () => {
+        pixelPerfectSettings.color = null;
+        colorInput.value = effectivePixelPerfectColor();
+        colorHex.textContent = effectivePixelPerfectColor().toUpperCase();
+        const overlay = document.getElementById("qts-pixelperfect-overlay");
+        if (overlay) applyPixelPerfectSettings(overlay);
+      });
+      syncModes();
       toggle.addEventListener("click", () => {
         if (state.pixelPerfectActive) disablePixelPerfectMode();
         else enablePixelPerfectMode();
         toggle.textContent = translateQaSurfaceText(state.pixelPerfectActive ? "Desativar" : "Ativar");
         toggle.classList.toggle("primary", !state.pixelPerfectActive);
+        status.textContent = state.pixelPerfectActive ? "Ativo na página" : "Pronto para usar";
       });
     },
   });

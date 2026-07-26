@@ -258,3 +258,43 @@ checklist. Eles só podem ocorrer após autorização explícita e uso das crede
   ler o mesmo file handle, eliminando a janela TOCTOU. Smoke Chrome limpo repetido com sucesso,
   fingerprint `7057b21a5b36a49ca22fd7a4428ea5e5e2c9cf5fc7d265436a1b878954629266`.
 - Versão da extensão atualizada para `1.4.14`.
+
+## Revisão sistêmica de toolbar, sidebars e Pixel Perfect em 2026-07-26
+
+- Cabeçalho compartilhado de todos os sidebars e modais reorganizado em título, contexto e grupo
+  de controles; títulos longos quebram linha sem encobrir abrir em janela, posição, fixar,
+  minimizar ou fechar.
+- Seletor de posição ganhou label visível e área interna validada contra corte vertical; em
+  painéis estreitos, título e controles passam para linhas próprias.
+- Menu `Tools` mantém oito opções visíveis, rolagem para as demais, linhas e ícones maiores e
+  mais claros. Validador de textos e JSON Studio agora usam símbolos distintos.
+- Linhas do menu `Tools` ocupam largura uniforme e os atalhos ficam centralizados no eixo da
+  toolbar vertical. Nas posições esquerda/direita, um botão circular de planeta expande a URL
+  completa da aba, informa `aria-expanded` e oferece cópia sem deixar a URL sempre ocupando espaço.
+- `Limpar` virou ação compacta por ícone, com nome acessível, eliminando o texto espremido na
+  toolbar vertical.
+- Pixel Perfect substituiu o combobox visível por quatro escolhas com ícone e texto: cruz,
+  horizontal, vertical e elemento. O estado Ativar/Desativar foi incorporado a um card de status.
+- A cor inicial do Pixel Perfect agora herda a cor primária do tema selecionado e pode ser
+  restaurada explicitamente pelo botão `Usar cor do tema`.
+- O controle de olho compartilhado por marcadores, notas, formas e linhas desaparece suavemente
+  após 1,8 s de inatividade para não poluir screenshots; hover, clique, toque ou foco de teclado
+  o revela novamente. `prefers-reduced-motion` elimina a animação sem esconder a ação.
+- O seletor técnico anterior foi preservado de forma invisível para compatibilidade com
+  automações existentes, e o smoke passou a exigir as quatro opções visuais e o azul claro
+  `#2563eb` como padrão.
+- Smoke real do Chrome aprovado: fluxos de autenticação, temas, toolbar, sidebars, janela
+  destacada, ferramentas, tour e Pixel Perfect; `consoleErrors: 0` e `workerErrors: 0`.
+- Test Suite passou a integrar o registro único de ferramentas: pode ser fixado ou removido da
+  toolbar e exibido ou ocultado no menu `Tools` pelas preferências de Barra e aparência.
+- `Desativar ferramentas ativas` fica oculto quando não existe ferramenta ativa e aparece
+  somente durante um modo, gravador ou ferramenta que possa ser encerrado globalmente.
+- LP legal finalizada: Privacidade e Propriedade Intelectual/INPI mantêm navegação global e troca
+  de idioma; links do menu retornam às seções reais da home em vez de âncoras mortas.
+- Política de Privacidade distingue corretamente dados em `chrome.storage.local` de screenshots e
+  evidências baixados como arquivos. A página do INPI possui loading e fallback explícitos e nunca
+  presume protocolo, número ou situação quando o backend não responde.
+- Smoke de LP/Admin passa a provar as duas rotas legais, navegação e traduções PT-BR/EN, além do
+  status de registro fornecido pelo backend. Input Lab permanece coberto no Chrome por seis classes
+  de validação, restauração do valor original e abertura em janela isolada.
+- Versão da extensão atualizada para `1.4.15`.

@@ -62,7 +62,7 @@ export function SiteNavToolbar() {
           {navItems.map((item) => (
             <a
               key={item.id}
-              href={`#${item.id}`}
+              href={`${import.meta.env.BASE_URL}#${item.id}`}
               className={`qts-site-toolbar-link${item.id === activeId ? " is-active" : ""}`}
             >
               {item.label}
@@ -84,7 +84,11 @@ export function SiteNavToolbar() {
           ))}
         </div>
         <button type="button" className="qts-site-toolbar-cta" onClick={() => {
-          if (signedIn) document.getElementById("planos")?.scrollIntoView({ behavior: "smooth" });
+          if (signedIn) {
+            const pricing = document.getElementById("planos");
+            if (pricing) pricing.scrollIntoView({ behavior: "smooth" });
+            else window.location.assign(`${import.meta.env.BASE_URL}#planos`);
+          }
           else openAccountModal();
         }}>
           {signedIn ? t.nav.installAuthenticated : t.nav.installGuest}

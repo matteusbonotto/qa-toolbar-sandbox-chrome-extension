@@ -30,6 +30,7 @@ export default function App() {
     return (
       <>
         <ParticleBackground />
+        <SiteNavToolbar />
         <div className="qts-page-content">
           <PrivacyPolicyPage />
           <Footer />
@@ -42,6 +43,7 @@ export default function App() {
     return (
       <>
         <ParticleBackground />
+        <SiteNavToolbar />
         <div className="qts-page-content">
           <IntellectualPropertyPage />
           <Footer />

@@ -54,7 +54,11 @@ export function IntellectualPropertyPage() {
                 ) : null}
                 {legal?.publicNotice ? <p className="qts-section-lead">{legal.publicNotice}</p> : null}
               </div>
-            ) : null}
+            ) : loaded ? (
+              <p className="qts-legal-disclaimer" role="status">{t.legal.statusUnavailable}</p>
+            ) : (
+              <p className="qts-legal-disclaimer" role="status">{t.legal.statusLoading}</p>
+            )}
             <p className="qts-legal-language-note">{t.legal.languageNote}</p>
           </section>
 

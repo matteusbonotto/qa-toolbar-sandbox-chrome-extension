@@ -168,6 +168,14 @@ body.qts-placement-mode, body.qts-placement-mode * {
   position: absolute !important; top: -8px !important; left: -8px !important; width: 20px !important; height: 20px !important;
   border: 0 !important; border-radius: 999px !important; background: #3a3a3a !important; color: #fff !important;
   font-size: 11px !important; cursor: pointer !important; display: flex !important; align-items: center !important; justify-content: center !important; z-index: 2 !important;
+  opacity: 0 !important; transform: scale(.82) !important; transition: opacity 220ms ease, transform 220ms ease !important;
+}
+.qts-floating-item:is(.isEyeAwake, .isControlsVisible) .qts-visibility-btn,
+.qts-floating-item:has(.qts-visibility-btn:focus-visible) .qts-visibility-btn {
+  opacity: 1 !important; transform: scale(1) !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .qts-visibility-btn { transition-duration: 1ms !important; }
 }
 .qts-visibility-btn svg { width: 14px !important; height: 14px !important; }
 

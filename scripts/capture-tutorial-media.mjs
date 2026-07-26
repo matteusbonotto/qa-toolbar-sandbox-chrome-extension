@@ -19,13 +19,15 @@ import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
 const extensionPath = resolve(root, "apps/extension");
-const profilePath = resolve(root, "artifacts/chrome-tutorial-capture-profile");
-const videoTmpPath = resolve(root, "artifacts/tutorial-video-tmp");
+const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
+const captureSuffix = captureOnly ? `-${captureOnly.replace(/[^a-z0-9_-]/gi, "-")}` : "";
+const profilePath = resolve(root, `artifacts/chrome-tutorial-capture-profile${captureSuffix}`);
+const videoTmpPath = resolve(root, `artifacts/tutorial-video-tmp${captureSuffix}`);
 const finalAssetsPath = resolve(root, "apps/extension/src/options/tutorial-assets");
 const assetsPath = resolve(root, "artifacts/tutorial-assets-current");
 const sandboxRoot = resolve(root, "apps/landing/public");
-const DEMO_URL = "http://127.0.0.1:43118/sandbox/index.html";
-const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
+const capturePort = captureOnly ? 43119 + [...captureOnly].reduce((sum, character) => sum + character.charCodeAt(0), 0) % 1000 : 43118;
+const DEMO_URL = `http://127.0.0.1:${capturePort}/sandbox/index.html`;
 const trace = (label) => console.log(`[tutorial-capture] ${label}`);
 await rm(profilePath, { recursive: true, force: true });
 await rm(videoTmpPath, { recursive: true, force: true });
@@ -54,7 +56,7 @@ const sandboxServer = createServer(async (request, response) => {
     response.end("Not found");
   }
 });
-await new Promise((resolveReady) => sandboxServer.listen(43118, "127.0.0.1", resolveReady));
+await new Promise((resolveReady) => sandboxServer.listen(capturePort, "127.0.0.1", resolveReady));
 
 const context = await chromium.launchPersistentContext(profilePath, {
   headless: false,
@@ -151,7 +153,10 @@ try {
   await options.locator("#loginEmail").fill("tutorial-capture@example.com");
   await options.locator("#loginPassword").fill("safe-test-password");
   await options.locator("#loginForm button[type=submit]").click();
-  await options.locator('.protectedNav[data-tab="workspace"]:not(:disabled)').waitFor({ timeout: 10_000 });
+  // Authentication can take longer while several isolated tutorial captures run in parallel.
+  // Keep the generous bound above the mandatory 3s interaction pacing so a healthy login is not
+  // mislabeled as a failure merely because Chromium is encoding another clip at the same time.
+  await options.locator('.protectedNav[data-tab="workspace"]:not(:disabled)').waitFor({ timeout: 45_000 });
   await options.locator("#settingsTourSkip").click({ force: true }).catch(() => {});
   trace("authenticated");
 
@@ -174,7 +179,7 @@ try {
   await options.locator("#environmentColor").fill("#2563eb");
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-tab="urls"]').click();
-  for (const pattern of ["http://127.0.0.1:43118/sandbox/*"]) {
+  for (const pattern of [`http://127.0.0.1:${capturePort}/sandbox/*`]) {
     await options.locator('[data-open-composer="urlRelationComposer"]').click();
     await options.locator("#urlRelationProduct").selectOption({ label: "Produto Demo" });
     await options.locator("#urlPatternInput").fill(pattern);
