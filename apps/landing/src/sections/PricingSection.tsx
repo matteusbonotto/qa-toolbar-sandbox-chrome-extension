@@ -191,19 +191,34 @@ export function PricingSection() {
     // broken in prod. Only the actual checkout-return flow gets to touch the status banner now.
     const isCheckoutReturn = checkoutReturn === "success";
     let attempts = isCheckoutReturn ? 5 : 1;
+    // This effect re-runs on every `session` reference change, not just on a real sign-in - a
+    // same-session Supabase auth event (e.g. TOKEN_REFRESHED, fired automatically soon after
+    // sign-in) swaps in a new session object and restarts this whole effect from scratch. Once
+    // we've confirmed access is active during this effect's lifetime, a single subsequent
+    // "inactive" read is more likely a transient backend/race blip than a real revocation -
+    // demoting the panel on that alone is what made a working download card flash and vanish.
+    let confirmedActive = false;
+    let demoteRetries = 0;
 
     const refresh = async () => {
       try {
         const nextAccess = await loadAccessStatus();
         if (stopped) return;
-        setAccess(nextAccess);
         if (nextAccess.active) {
+          confirmedActive = true;
+          setAccess(nextAccess);
           if (isCheckoutReturn) {
             setStatusError(false);
             setStatusMessage(t.pricing.accessActive);
           }
           return;
         }
+        if (confirmedActive && demoteRetries < 2) {
+          demoteRetries += 1;
+          timer = window.setTimeout(() => void refresh(), 2_000);
+          return;
+        }
+        setAccess(nextAccess);
       } catch {
         if (!stopped && isCheckoutReturn) {
           setStatusError(true);
