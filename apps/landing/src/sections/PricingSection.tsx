@@ -27,6 +27,16 @@ import { OPEN_ACCOUNT_MODAL_EVENT } from "../lib/accountModal";
 
 const voucherPattern = /^[A-Z0-9-]{6,64}$/;
 
+function compareVersions(a: string, b: string): number {
+  const partsA = a.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const partsB = b.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  for (let index = 0; index < Math.max(partsA.length, partsB.length); index += 1) {
+    const diff = (partsA[index] ?? 0) - (partsB[index] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
 function formatPrice(price: DisplayPrice | undefined, locale: string, unavailable: string): string {
   if (!price) return unavailable;
   const localeTag = locale === "en" ? "en-US" : locale === "es" ? "es-ES" : "pt-BR";
@@ -87,11 +97,14 @@ export function PricingSection() {
         setStoreLookupState("ready");
       }, () => setStoreLookupState("error"));
   }, []);
-  // The Store lags the package the moment its recorded version differs from what's actually
-  // shipping, OR the founder hasn't marked it "live" yet - comparing status alone isn't enough,
-  // since a stale "live" row from a previous version would otherwise read as caught up.
+  // The Store lags the package when the founder hasn't marked it "live" yet, or when its recorded
+  // version is numerically behind what's actually shipping - a plain !== would also flag a store
+  // version that's merely formatted differently (or, after a rollback, actually ahead) as "behind",
+  // showing a confusing pending-review notice for a package that's already caught up.
   const storeIsBehind = storeListingStatus
-    ? storeListingStatus.status !== "live" || storeListingStatus.chrome_web_store_version !== __EXTENSION_PACKAGE_VERSION__
+    ? storeListingStatus.status !== "live"
+      || !storeListingStatus.chrome_web_store_version
+      || compareVersions(__EXTENSION_PACKAGE_VERSION__, storeListingStatus.chrome_web_store_version) > 0
     : true;
 
   useEffect(() => {
