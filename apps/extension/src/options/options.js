@@ -1182,6 +1182,8 @@ function clearEdit(prefix) {
   form.reset();
   document.getElementById(`${prefix}EditId`).value = "";
   form.querySelector(`[data-cancel="${prefix}"]`).hidden = true;
+  setComposerEditing(prefix, false);
+  form.querySelectorAll("[data-default-placeholder]").forEach((element) => { element.placeholder = element.dataset.defaultPlaceholder; });
   const showLabel = document.getElementById(`${prefix}ShowLabel`); if (showLabel) showLabel.checked = true;
   if (prefix === "environment") { document.getElementById("environmentColor").value = "#3a3a3a"; }
   if (prefix === "urlRelation") { urlSelectedEnvironmentIds = new Set(); renderUrlEnvironmentPicker(); urlPatternsDraft = []; renderUrlPatternsPicker(); }
@@ -1284,7 +1286,13 @@ document.querySelectorAll(".cancelEdit").forEach((button) => button.addEventList
 // native to <dialog>) closes it without saving.
 document.querySelectorAll("[data-open-composer]").forEach((button) => button.addEventListener("click", () => {
   const dialog = document.getElementById(button.dataset.openComposer);
-  if (dialog && !dialog.open) dialog.showModal();
+  if (!dialog || dialog.open) return;
+  // Closing a previous edit via the × (instead of "Cancelar") never cleared its editId - opening
+  // this same dialog fresh for "Adicionar" would otherwise silently resubmit as an update to that
+  // still-referenced item instead of creating a new one.
+  const prefix = button.dataset.openComposer.replace(/Composer$/, "");
+  if (document.getElementById(`${prefix}EditId`)?.value) clearEdit(prefix);
+  dialog.showModal();
 }));
 document.querySelectorAll("[data-close-composer]").forEach((button) => button.addEventListener("click", () => button.closest("dialog")?.close()));
 
@@ -1399,6 +1407,43 @@ document.getElementById("urlRelationForm").addEventListener("submit", async (eve
   await persistWorkspace();
 });
 
+// The composer dialog is shared between "Adicionar X" and editing an existing row, but its title
+// used to stay "Adicionar X" in both cases - with no visual difference between a genuinely blank
+// new-item form and an edit form that's just hiding a saved sensitive value, users read the blank
+// number/CVV/senha/token fields as data loss. Swapping the title makes the mode unambiguous.
+// Keyed through t() with explicit PT source strings (not a DOM string-replace) so it's correct
+// regardless of which locale is currently displayed.
+const COMPOSER_TITLES = {
+  client: { add: "Adicionar cliente", edit: "Editar cliente" },
+  project: { add: "Adicionar projeto", edit: "Editar projeto" },
+  product: { add: "Adicionar produto", edit: "Editar produto" },
+  environment: { add: "Adicionar ambiente", edit: "Editar ambiente" },
+  urlRelation: { add: "Adicionar URL", edit: "Editar URL" },
+  testAccount: { add: "Adicionar conta", edit: "Editar conta" },
+  paymentMethod: { add: "Adicionar pagamento", edit: "Editar pagamento" },
+  inspector: { add: "Adicionar Inspector", edit: "Editar Inspector" },
+  api: { add: "Adicionar API", edit: "Editar API" },
+  resource: { add: "Adicionar recurso", edit: "Editar recurso" },
+};
+
+function setComposerEditing(prefix, isEditing) {
+  const title = document.getElementById(`${prefix}ComposerTitle`);
+  const variants = COMPOSER_TITLES[prefix];
+  if (!title || !variants) return;
+  title.textContent = t(isEditing ? variants.edit : variants.add);
+}
+
+// Sensitive fields (card number, CVV, account password, API token) are never pre-filled when
+// editing - same reasoning as never re-displaying a saved password - but a bare blank input with
+// no context reads as "this got erased". Swap in a placeholder that says otherwise only when the
+// item actually already has a value; a genuinely new/empty item keeps its normal placeholder.
+function markSensitiveFieldSaved(elementId, hasExistingValue) {
+  const element = document.getElementById(elementId);
+  if (!element) return;
+  if (!element.dataset.defaultPlaceholder) element.dataset.defaultPlaceholder = element.placeholder;
+  element.placeholder = hasExistingValue ? t("Já salvo - deixe em branco para manter") : element.dataset.defaultPlaceholder;
+}
+
 function editItem(collection, item) {
   const prefix = COLLECTION_UI[collection].prefix;
   const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations" };
@@ -1407,6 +1452,10 @@ function editItem(collection, item) {
   if (composer && !composer.open) composer.showModal();
   document.getElementById(`${prefix}EditId`).value = item.id;
   document.querySelector(`[data-cancel="${prefix}"]`).hidden = false;
+  setComposerEditing(prefix, true);
+  if (collection === "testAccounts") markSensitiveFieldSaved("testAccountPassword", Boolean(item.password));
+  if (collection === "paymentMethods") { markSensitiveFieldSaved("paymentMethodValue", Boolean(item.value)); markSensitiveFieldSaved("paymentMethodCvv", Boolean(item.cvv)); }
+  if (collection === "apis") markSensitiveFieldSaved("apiToken", Boolean(item.token));
   const values = {
     clients: { clientName: item.name, clientLogoUrl: item.logoUrl, clientAbbreviation: item.abbreviation, clientShowLabel: item.showLabel !== false },
     projects: { projectClient: item.clientId, projectName: item.name, projectLogoUrl: item.logoUrl, projectAbbreviation: item.abbreviation, projectShowLabel: item.showLabel !== false },
