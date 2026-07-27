@@ -27,6 +27,16 @@ import { OPEN_ACCOUNT_MODAL_EVENT } from "../lib/accountModal";
 
 const voucherPattern = /^[A-Z0-9-]{6,64}$/;
 
+function compareVersions(a: string, b: string): number {
+  const partsA = a.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  const partsB = b.split(".").map((part) => Number.parseInt(part, 10) || 0);
+  for (let index = 0; index < Math.max(partsA.length, partsB.length); index += 1) {
+    const diff = (partsA[index] ?? 0) - (partsB[index] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
+}
+
 function formatPrice(price: DisplayPrice | undefined, locale: string, unavailable: string): string {
   if (!price) return unavailable;
   const localeTag = locale === "en" ? "en-US" : locale === "es" ? "es-ES" : "pt-BR";
@@ -87,11 +97,14 @@ export function PricingSection() {
         setStoreLookupState("ready");
       }, () => setStoreLookupState("error"));
   }, []);
-  // The Store lags the package the moment its recorded version differs from what's actually
-  // shipping, OR the founder hasn't marked it "live" yet - comparing status alone isn't enough,
-  // since a stale "live" row from a previous version would otherwise read as caught up.
+  // The Store lags the package when the founder hasn't marked it "live" yet, or when its recorded
+  // version is numerically behind what's actually shipping - a plain !== would also flag a store
+  // version that's merely formatted differently (or, after a rollback, actually ahead) as "behind",
+  // showing a confusing pending-review notice for a package that's already caught up.
   const storeIsBehind = storeListingStatus
-    ? storeListingStatus.status !== "live" || storeListingStatus.chrome_web_store_version !== __EXTENSION_PACKAGE_VERSION__
+    ? storeListingStatus.status !== "live"
+      || !storeListingStatus.chrome_web_store_version
+      || compareVersions(__EXTENSION_PACKAGE_VERSION__, storeListingStatus.chrome_web_store_version) > 0
     : true;
 
   useEffect(() => {
@@ -191,19 +204,34 @@ export function PricingSection() {
     // broken in prod. Only the actual checkout-return flow gets to touch the status banner now.
     const isCheckoutReturn = checkoutReturn === "success";
     let attempts = isCheckoutReturn ? 5 : 1;
+    // This effect re-runs on every `session` reference change, not just on a real sign-in - a
+    // same-session Supabase auth event (e.g. TOKEN_REFRESHED, fired automatically soon after
+    // sign-in) swaps in a new session object and restarts this whole effect from scratch. Once
+    // we've confirmed access is active during this effect's lifetime, a single subsequent
+    // "inactive" read is more likely a transient backend/race blip than a real revocation -
+    // demoting the panel on that alone is what made a working download card flash and vanish.
+    let confirmedActive = false;
+    let demoteRetries = 0;
 
     const refresh = async () => {
       try {
         const nextAccess = await loadAccessStatus();
         if (stopped) return;
-        setAccess(nextAccess);
         if (nextAccess.active) {
+          confirmedActive = true;
+          setAccess(nextAccess);
           if (isCheckoutReturn) {
             setStatusError(false);
             setStatusMessage(t.pricing.accessActive);
           }
           return;
         }
+        if (confirmedActive && demoteRetries < 2) {
+          demoteRetries += 1;
+          timer = window.setTimeout(() => void refresh(), 2_000);
+          return;
+        }
+        setAccess(nextAccess);
       } catch {
         if (!stopped && isCheckoutReturn) {
           setStatusError(true);
