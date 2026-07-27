@@ -506,9 +506,14 @@ export function normalizeWorkspace(rawWorkspace) {
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
       .map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
     paymentMethods: copyCollection("paymentMethods").map((item) => {
-      const { environmentId, productId, product_id, ...rest } = item;
+      // "number" was never a real field in this schema (the composers always write "value") -
+      // it only shows up in records created outside the composer UI (a hand-built seed/import
+      // file, for instance). Without this alias those cards silently render with no "Número" row
+      // and nothing to copy, with no error to explain why.
+      const { environmentId, productId, product_id, number, ...rest } = item;
       return {
         ...rest,
+        value: text(item?.value, 240) || text(number, 240),
         environmentIds: normalizeIdArray(item?.environmentIds, environmentId, environments),
         productIds: normalizeIdArray(item?.productIds, productId ?? product_id, products),
       };
