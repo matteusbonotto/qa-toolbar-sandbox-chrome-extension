@@ -15,12 +15,24 @@ a direct conversion of the original Tampermonkey userscript.
   [`supabase/bootstrap-admin-account.mjs`](supabase/bootstrap-admin-account.mjs).
 - `supabase/` — schema, migrations, Edge Functions, and the local-only provisioning/seed
   scripts (never run by CI, always by a human with the service-role key).
-- `docs/` — product spec, per-decision ADRs, the QA tools guide, Chrome Web Store deploy
-  guide, and `docs/PENDENCIAS_USUARIO.md` for anything only the founder can action.
+- `docs/` — start at [`docs/ecosystem-audit.md`](docs/ecosystem-audit.md) for the map of all
+  three apps, then [`docs/architecture.md`](docs/architecture.md) for stack/folder layout.
+  Reference docs per topic: [`permissions`](docs/permissions.md),
+  [`security`](docs/security.md), [`plans`](docs/plans.md),
+  [`integrations`](docs/integrations.md), [`analytics`](docs/analytics.md),
+  [`migration-strategy`](docs/migration-strategy.md),
+  [`testing-strategy`](docs/testing-strategy.md),
+  [`release-checklist`](docs/release-checklist.md). Per-decision ADRs live in `docs/adr/`, the
+  QA tools guide in `docs/GUIA_FERRAMENTAS_QA.md`, and `docs/PENDENCIAS_USUARIO.md` tracks
+  anything only the founder can action.
 
-See [`docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md`](docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md)
-for the full product spec, and [`docs/handoff/CHECKLIST_RECONSTRUCAO.md`](docs/handoff/CHECKLIST_RECONSTRUCAO.md)
-for what's built and verified so far.
+The original rebuild spec and its completion checklist are archived (fully executed, kept for
+historical rationale, not a live plan) at
+[`docs/handoff/archive/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md`](docs/handoff/archive/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md)
+and
+[`docs/handoff/archive/CHECKLIST_RECONSTRUCAO.md`](docs/handoff/archive/CHECKLIST_RECONSTRUCAO.md).
+For current, actively-tracked work see `docs/CHECKLIST_BUGFIX_PASS2.md`,
+`docs/CHECKLIST_OPTIONS_OVERHAUL.md` and `docs/PENDENCIAS_USUARIO.md`.
 
 ## Load and verify the extension
 

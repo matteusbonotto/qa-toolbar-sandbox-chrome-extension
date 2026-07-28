@@ -56,6 +56,46 @@ Na lista de macros é possível executar, editar, fixar/desafixar no menu, expor
 
 Clique, Escrever, Selecionar, Checkbox, Tecla, Esperar, Scroll, Multiclick e Faker Fill. Os blocos podem ser adicionados pela paleta e reordenados por drag and drop.
 
+## Sessão de Teste
+
+Abra **Tools → Sessão de Teste** para agrupar o que acontece entre "comecei a testar isso" e
+"terminei" - sem isso, status marcados, evidências e erros HTTP ficam espalhados por ferramentas
+separadas, sem um fio condutor. Disponível em todos os planos.
+
+1. **Iniciar sessão de teste** captura o contexto atual (cliente/projeto/produto/ambiente/URL) e
+   mostra um indicador com cronômetro na barra enquanto está ativa - nunca fica rodando escondida.
+2. Durante a sessão, cada status marcado em Test Suite e cada screenshot/gravação capturada é
+   contado automaticamente; erros HTTP (Error Monitor) no período também entram no resumo.
+3. **Finalizar sessão** abre um resumo editável: cenário (texto livre), contexto, duração,
+   resultado, evidências, contexto técnico, observações e próximos passos. Dá para **Salvar**
+   (histórico local), **Copiar** (Markdown) ou **Exportar** (arquivo `.md`).
+
+A sessão é local (`chrome.storage.local`), não faz parte do workspace exportável/importável, e
+"Desativar ferramentas ativas" descarta uma sessão em andamento sem abrir o resumo (mesmo
+comportamento de cancelar uma gravação de macro/passos em andamento).
+
+## Report Builder
+
+Abra **Tools → Report Builder** para montar um relatório estruturado (bug, aprovação,
+limitação, impedimento, reteste, melhoria ou risco) sem reescrever título, passos e contexto do
+zero toda vez. Disponível em todos os planos.
+
+- Campos: tipo, título, descrição, pré-condições, passos para reproduzir, resultado esperado,
+  resultado atual, severidade, prioridade e tags. Ambiente, navegador, viewport e URL são
+  capturados automaticamente do contexto atual.
+- **Salvar como template** guarda o formato atual (sem o resultado atual, que é específico do
+  incidente) com um nome, pra reaproveitar depois - útil pra times que sempre preenchem o mesmo
+  tipo de relatório com a mesma estrutura. **Carregar template** aparece assim que existir pelo
+  menos um salvo.
+- **Salvar rascunho**, **Copiar** (Markdown) e **Exportar** (arquivo `.md`) funcionam como nas
+  outras ferramentas de evidência.
+- O botão **Criar relatório** no resumo da Sessão de Teste abre o Report Builder já preenchido
+  com o cenário como título e o tipo mapeado a partir do último status marcado na sessão (Pass →
+  Aprovação, Fail → Bug, Blocked → Impedimento, Limitation → Limitação).
+
+Assim como a Sessão de Teste, é local (`chrome.storage.local`) e não faz parte do workspace
+exportável/importável.
+
 ## Capturar Elementos
 
 Abra **Tools → Capturar elementos** para escanear a página atual e exportar um CSV com todos os

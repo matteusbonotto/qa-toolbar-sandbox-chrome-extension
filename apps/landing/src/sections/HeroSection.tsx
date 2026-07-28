@@ -20,6 +20,9 @@ export function HeroSection() {
             <a className="qts-btn qts-btn-ghost" href="#simulador">
               {t.hero.ctaSimulate}
             </a>
+            <a className="qts-btn qts-btn-ghost" href={`${import.meta.env.BASE_URL}permissoes`}>
+              {t.hero.ctaPermissions}
+            </a>
           </div>
         </div>
       </div>

@@ -24,6 +24,8 @@
     ["languageValidator","Validador de textos","languageValidatorMenuItem","braces",""],
     ["qrCode","QR Code","qrCodeMenuItem","qrCode",""],
     ["pixelPerfect","Pixel Perfect","pixelPerfectMenuItem","ruler",""],
+    ["testSession","Sessão de Teste","testSessionMenuItem","wait",""],
+    ["reportBuilder","Report Builder","reportBuilderMenuItem","edit",""],
   ].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
   const DEFAULT_ENABLED_TOOLS = Object.freeze(FEATURE_REGISTRY.map((feature) => feature.key));
   const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
@@ -36,6 +38,8 @@
   const SCHEMA_11_TOOLS = ["stepsRecorder"];
   const SCHEMA_12_TOOLS = ["pixelPerfect"];
   const SCHEMA_13_TOOLS = ["testStatus"];
+  const SCHEMA_14_TOOLS = ["testSession"];
+  const SCHEMA_15_TOOLS = ["reportBuilder"];
   const DEMO_CLIENT_ID = "qts-demo-client";
   const DEMO_PROJECT_ID = "qts-demo-project";
   const DEMO_PRODUCT_ID = "qts-demo-product";
@@ -131,7 +135,7 @@
   }
   function createEmptyWorkspace() {
     return {
-      schemaVersion: 13,
+      schemaVersion: 15,
       updatedAt: new Date().toISOString(),
       clients: [],
       projects: [],
@@ -202,6 +206,8 @@
       productId,
       environmentIds,
       primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2048)) ? text(item?.primaryUrl, 2048) : "",
+      displayMode: item?.displayMode === "relative" ? "relative" : "full",
+      label: text(item?.label, 120),
       active: item?.active !== false,
     };
   }
@@ -402,9 +408,11 @@
     if (Number(source.schemaVersion || 0) < 11) for (const tool of SCHEMA_11_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 12) for (const tool of SCHEMA_12_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 13) for (const tool of SCHEMA_13_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    if (Number(source.schemaVersion || 0) < 14) for (const tool of SCHEMA_14_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    if (Number(source.schemaVersion || 0) < 15) for (const tool of SCHEMA_15_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     return {
       ...empty,
-      schemaVersion: 13,
+      schemaVersion: 15,
       updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
       clients,
       projects,
@@ -413,9 +421,14 @@
       urlBindings,
       testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : []).map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
       paymentMethods: copy("paymentMethods").map((item) => {
-        const { environmentId, productId, product_id, ...rest } = item;
+        // "number" was never a real field in this schema (the composers always write "value") -
+        // it only shows up in records created outside the composer UI (a hand-built seed/import
+        // file, for instance). Without this alias those cards silently render with no "Número" row
+        // and nothing to copy, with no error to explain why. Keep in sync with storage.js.
+        const { environmentId, productId, product_id, number, ...rest } = item;
         return {
           ...rest,
+          value: text(item?.value, 240) || text(number, 240),
           environmentIds: normalizeIdArray(item?.environmentIds, environmentId, environments),
           productIds: normalizeIdArray(item?.productIds, productId ?? product_id, products),
         };

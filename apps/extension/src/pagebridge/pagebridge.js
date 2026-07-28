@@ -40,7 +40,38 @@
     document.dispatchEvent(new CustomEvent(NETWORK_EVENT, { detail: entry }));
   }
 
-  function captureJsonPayload({ url, method, status, source, payload }) {
+  // Normalizes any of the three shapes fetch()/Request accept (Headers instance, [[k,v],...]
+  // pairs, or a plain object) into a plain object - capped in count/length so a pathological
+  // request can't bloat the captured entry. Returns null (not {}) when there's nothing to show,
+  // so callers can cheaply skip building a headers block.
+  function normalizeRequestHeaders(headersInit) {
+    if (!headersInit) return null;
+    try {
+      const entries = headersInit instanceof Headers ? [...headersInit.entries()]
+        : Array.isArray(headersInit) ? headersInit
+          : Object.entries(headersInit);
+      const result = {};
+      for (const [key, value] of entries.slice(0, 40)) {
+        if (typeof key !== "string" || !key) continue;
+        result[key] = String(value ?? "").slice(0, 2_000);
+      }
+      return Object.keys(result).length ? result : null;
+    } catch {
+      return null;
+    }
+  }
+
+  // Only string-shaped bodies (the common case for JSON/form APIs) are captured as text.
+  // FormData/Blob/ArrayBuffer/ReadableStream bodies are skipped rather than guessed at, so a
+  // reconstructed cURL command never silently sends the wrong bytes for a file upload.
+  function stringifyRequestBody(body) {
+    if (body == null) return null;
+    if (typeof body === "string") return body.length > MAX_PAYLOAD_CHARS ? `${body.slice(0, MAX_PAYLOAD_CHARS)}…` : body;
+    if (body instanceof URLSearchParams) return body.toString();
+    return null;
+  }
+
+  function captureJsonPayload({ url, method, status, source, payload, requestHeaders, requestBody }) {
     const preview = safeStringifyPreview(payload);
     if (preview === null) return;
     publishCapture({
@@ -52,6 +83,8 @@
       capturedAt: Date.now(),
       payload: JSON.parse(preview.endsWith("…") ? preview.slice(0, -1) : preview),
       truncated: preview.endsWith("…"),
+      requestHeaders: requestHeaders || null,
+      requestBody: requestBody ?? null,
     });
   }
 
@@ -60,7 +93,7 @@
   // they already have a parsed body (so Error Monitor can show the actual error message/raw JSON,
   // not just a bare status/URL), and omit it otherwise. Deliberately excludes Force HTTP's forced
   // responses: those are a QA tester deliberately simulating a status, not a real page error.
-  function publishHttpError({ url, method, status, source, payload }) {
+  function publishHttpError({ url, method, status, source, payload, requestHeaders, requestBody }) {
     if (!enabled || !(Number(status) >= 400)) return;
     let safePayload = null;
     let truncated = false;
@@ -81,6 +114,8 @@
         capturedAt: Date.now(),
         payload: safePayload,
         truncated,
+        requestHeaders: requestHeaders || null,
+        requestBody: requestBody ?? null,
       },
     }));
   }
@@ -92,14 +127,17 @@
   if (typeof originalFetch === "function" && !originalFetch.__qtsPatched) {
     const patchedFetch = function (...args) {
       if (!enabled) return originalFetch.apply(this, args);
+      const requestIsRequestObject = typeof Request === "function" && args[0] instanceof Request;
       const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url;
       const method = args[1]?.method || (typeof args[0] === "object" ? args[0]?.method : undefined) || "GET";
+      const requestHeaders = normalizeRequestHeaders(args[1]?.headers ?? (requestIsRequestObject ? args[0].headers : undefined));
+      const requestBody = stringifyRequestBody(args[1]?.body);
 
       if (window.__qtsForcedStatus) {
         const forcedStatus = Number(window.__qtsForcedStatus);
         window.__qtsForcedStatus = null;
         const forcedPayload = { forced: true, status: forcedStatus, requestUrl: String(requestUrl || "") };
-        captureJsonPayload({ url: requestUrl, method, status: forcedStatus, source: "forced", payload: forcedPayload });
+        captureJsonPayload({ url: requestUrl, method, status: forcedStatus, source: "forced", payload: forcedPayload, requestHeaders, requestBody });
         document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: false } }));
         return Promise.resolve(new Response(JSON.stringify(forcedPayload), {
           status: forcedStatus,
@@ -111,10 +149,10 @@
       result.then((response) => {
         response.clone().json()
           .then((payload) => {
-            captureJsonPayload({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload });
-            publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload });
+            captureJsonPayload({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload, requestHeaders, requestBody });
+            publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch", payload, requestHeaders, requestBody });
           })
-          .catch(() => publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch" }));
+          .catch(() => publishHttpError({ url: response.url || requestUrl, method, status: response.status, source: "fetch", requestHeaders, requestBody }));
       }).catch(() => {});
       return result;
     };
@@ -126,14 +164,22 @@
   if (XhrProto && !XhrProto.__qtsPatched) {
     const originalOpen = XhrProto.open;
     const originalSend = XhrProto.send;
+    const originalSetRequestHeader = XhrProto.setRequestHeader;
     Object.defineProperty(XhrProto, "__qtsPatched", { value: true });
     XhrProto.open = function (method, url, ...rest) {
       this.__qtsMethod = method;
       this.__qtsUrl = url;
+      this.__qtsHeaders = null;
       return originalOpen.call(this, method, url, ...rest);
+    };
+    XhrProto.setRequestHeader = function (name, value) {
+      (this.__qtsHeaders ??= {})[name] = value;
+      return originalSetRequestHeader.call(this, name, value);
     };
     XhrProto.send = function (...args) {
       if (!enabled) return originalSend.apply(this, args);
+      const requestHeaders = this.__qtsHeaders && Object.keys(this.__qtsHeaders).length ? this.__qtsHeaders : null;
+      const requestBody = stringifyRequestBody(args[0]);
       // Force HTTP previously only ever armed window.fetch - on any site whose HTTP client uses
       // XMLHttpRequest under the hood (Angular's HttpClient by default, many jQuery/legacy stacks),
       // the button visibly did nothing. This mirrors the fetch branch above: consume the armed
@@ -153,7 +199,7 @@
         defineOwn("responseURL", String(this.__qtsUrl || ""));
         this.getAllResponseHeaders = () => "content-type: application/json\r\nx-qts-forced: true\r\n";
         this.getResponseHeader = (name) => (String(name || "").toLowerCase() === "content-type" ? "application/json" : null);
-        captureJsonPayload({ url: this.__qtsUrl, method: this.__qtsMethod, status: forcedStatus, source: "forced", payload: forcedPayload });
+        captureJsonPayload({ url: this.__qtsUrl, method: this.__qtsMethod, status: forcedStatus, source: "forced", payload: forcedPayload, requestHeaders, requestBody });
         window.setTimeout(() => {
           this.dispatchEvent(new Event("readystatechange"));
           this.dispatchEvent(new Event("load"));
@@ -170,8 +216,8 @@
         } catch {
           // Non-JSON response bodies are not inspector material - ignored, not an error.
         }
-        publishHttpError({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload: payload ?? undefined });
-        if (payload !== null) captureJsonPayload({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload });
+        publishHttpError({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload: payload ?? undefined, requestHeaders, requestBody });
+        if (payload !== null) captureJsonPayload({ url: this.responseURL || this.__qtsUrl, method: this.__qtsMethod, status: this.status, source: "xhr", payload, requestHeaders, requestBody });
       }, { once: true });
       return originalSend.apply(this, args);
     };

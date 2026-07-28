@@ -58,6 +58,7 @@ const state = {
   lastHref: window.location.href,
   macroRecording: null,
   stepsRecording: null,
+  testSession: null, // null | { startedAt, context, statusPicks: [], evidenceCount, httpErrorsAtStart }
   macroPlaying: false,
   selectionCleanup: null,
   keyView: {
@@ -736,6 +737,9 @@ function buildShadowHost() {
       #macroRecordingBar.isPaused { background: #7a5b00; animation: none; }
       #stepsRecordingBar { position: relative; display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 9px; background: #8f0909; border: 1px solid #fff; animation: qts-rec-pulse 1.3s ease-in-out infinite; }
       #stepsRecordingBar.isPaused { background: #7a5b00; animation: none; }
+      #testSessionBar { display: flex; align-items: center; gap: 3px; padding: 3px; border-radius: 9px; background: var(--qts-ui-primary, #2563eb); border: 1px solid #fff; }
+      #testSessionBar button { color: var(--qts-ui-primary-contrast, #fff); }
+      #testSessionElapsed { font-variant-numeric: tabular-nums; }
       #macroRecHistoryPanel { position: absolute; top: 30px; right: 0; width: 260px; max-height: 260px; overflow: auto; padding: 6px; display: grid; gap: 4px; border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18); box-shadow: 0 16px 40px rgba(0,0,0,.45); z-index: 10; }
       .qts-macro-hist-row { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: 6px; background: #171717; font-size: 11px; color: #fff; }
       .qts-macro-hist-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -908,6 +912,10 @@ function buildShadowHost() {
           <button id="stepsRecDoneButton" class="iconOnly" type="button" title="${escapeHtml(t.stepsRecorderStop || "Parar e revisar")}">${ICON("pass")}</button>
           <div id="stepsRecHistoryPanel" class="isHidden"></div>
         </div>
+        <div id="testSessionBar" class="isHidden">
+          <button id="testSessionInfoButton" type="button" title="${escapeHtml(t.testSessionActiveTitle)}">${ICON("wait")} <span id="testSessionElapsed">00:00</span></button>
+          <button id="testSessionFinishButton" class="iconOnly" type="button" title="${escapeHtml(t.testSessionFinish)}">${ICON("checkSquare")}</button>
+        </div>
         <div id="notificationBellWrapper">
           <button id="notificationBellButton" class="iconOnly" type="button" title="Notificações">${ICON("bell")}<span id="notificationBellBadge" class="qts-bell-badge">0</span></button>
           <div id="notificationBellPanel" class="isHidden"></div>
@@ -930,6 +938,8 @@ function buildShadowHost() {
             <div id="pinnedMacrosMenu"></div>
             <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} Test Suite</button>
+            <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(t.testSessionMenuLabel)}</button>
+            <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(t.reportBuilderMenuLabel)}</button>
             <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
@@ -1079,6 +1089,14 @@ function buildShadowHost() {
   // for them (see the #mobileActionsMenu media query), not a separate feature.
   shadow.getElementById("mobileTestStatusItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
   shadow.getElementById("statusMenuItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
+  shadow.getElementById("testSessionMenuItem").addEventListener("click", () => {
+    if (state.testSession) finishTestSession(); else startTestSession();
+  });
+  shadow.getElementById("testSessionInfoButton").addEventListener("click", () => {
+    if (state.testSession) showQaToast(`${state.t.testSessionActiveTitle} · ${formatElapsed(Date.now() - state.testSession.startedAt)}`);
+  });
+  shadow.getElementById("testSessionFinishButton").addEventListener("click", finishTestSession);
+  shadow.getElementById("reportBuilderMenuItem").addEventListener("click", () => { openReportBuilder(); closeToolsMenu(); });
   shadow.getElementById("mobilePassItem").addEventListener("click", (event) => { enablePlacementMode("pass", shadow.getElementById("passButton")); closeToolsMenu(); });
   shadow.getElementById("mobileFailItem").addEventListener("click", () => { enablePlacementMode("fail", shadow.getElementById("failButton")); closeToolsMenu(); });
   shadow.getElementById("mobileNoteItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
@@ -1885,6 +1903,324 @@ async function recordTestStatus(option) {
   const history = Array.isArray(stored[TEST_STATUS_HISTORY_KEY]) ? stored[TEST_STATUS_HISTORY_KEY] : [];
   history.unshift({ status: option.key, label: option.label, url: window.location.href, at: new Date().toISOString() });
   await chrome.storage.local.set({ [TEST_STATUS_HISTORY_KEY]: history.slice(0, 200) });
+  if (state.testSession) state.testSession.statusPicks.push({ status: option.key, label: option.label, at: Date.now() });
+}
+
+// ---------------------------------------------------------------------------
+// Sessão de Teste: "iniciar → durante → finalizar" grouping so evidence, status
+// picks and network errors captured while testing a scenario can be reviewed
+// and exported together, instead of scattered across separate tools with no
+// shared thread. Local-only (chrome.storage.local), like TEST_STATUS_HISTORY_KEY
+// above - no workspace/backend schema involved.
+// ---------------------------------------------------------------------------
+
+const TEST_SESSION_REPORTS_KEY = "qtsTestSessionReportsV1";
+let testSessionTimer = 0;
+
+function sessionContextSnapshot() {
+  const environment = state.environment;
+  if (!environment) return { client: "", project: "", product: "", environment: "", url: window.location.href };
+  const workspace = state.workspace || { clients: [], projects: [], products: [] };
+  const client = findById(workspace.clients, environment.clientId);
+  const project = findById(workspace.projects, environment.projectId);
+  const product = findById(workspace.products, environment.productId);
+  return {
+    client: client?.name || "", project: project?.name || "", product: product?.name || "",
+    environment: environment.name || "", url: window.location.href,
+  };
+}
+
+function formatElapsed(ms) {
+  const totalSeconds = Math.max(0, Math.floor(ms / 1000));
+  const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
+  const seconds = String(totalSeconds % 60).padStart(2, "0");
+  return `${minutes}:${seconds}`;
+}
+
+function startTestSession() {
+  if (state.testSession) return;
+  state.testSession = {
+    startedAt: Date.now(),
+    context: sessionContextSnapshot(),
+    statusPicks: [],
+    evidenceCount: 0,
+    httpErrorsAtStart: state.httpErrors.length,
+  };
+  const bar = state.shadowRoot.getElementById("testSessionBar");
+  bar.classList.remove("isHidden");
+  const elapsedEl = state.shadowRoot.getElementById("testSessionElapsed");
+  testSessionTimer = window.setInterval(() => {
+    if (!state.testSession) return;
+    elapsedEl.textContent = formatElapsed(Date.now() - state.testSession.startedAt);
+  }, 1_000);
+  showQaToast(state.t.testSessionStarted);
+  closeToolsMenu();
+}
+
+function renderTestSessionSummary(container, session) {
+  const t = state.t;
+  const durationLabel = formatElapsed(Date.now() - session.startedAt);
+  const httpErrorsDuringSession = state.httpErrors.filter((entry) => entry.capturedAt >= session.startedAt);
+  const lastStatus = session.statusPicks.at(-1);
+  container.innerHTML = `
+    <div class="qts-card">
+      <p><b>${escapeHtml(t.testSessionScenario)}</b></p>
+      <input type="text" data-session-scenario placeholder="${escapeHtml(t.testSessionScenarioPlaceholder)}" />
+      <p style="margin-top:10px"><b>${escapeHtml(t.testSessionContext)}</b><br>
+        ${[session.context.client, session.context.project, session.context.product, session.context.environment].filter(Boolean).map(escapeHtml).join(" · ") || escapeHtml(t.testSessionNoContext)}
+        <br><small style="word-break:break-all">${escapeHtml(session.context.url)}</small>
+      </p>
+      <p><b>${escapeHtml(t.testSessionDuration)}</b> ${escapeHtml(durationLabel)}</p>
+      <p><b>${escapeHtml(t.testSessionResult)}</b> ${lastStatus ? escapeHtml(lastStatus.label) : escapeHtml(t.testSessionNoResult)}</p>
+      <p><b>${escapeHtml(t.testSessionEvidence)}</b> ${session.evidenceCount}</p>
+      <p><b>${escapeHtml(t.testSessionTechnicalContext)}</b> ${httpErrorsDuringSession.length ? `${httpErrorsDuringSession.length} × ${escapeHtml(t.testSessionHttpErrors)}` : escapeHtml(t.testSessionNoErrors)}</p>
+      <label class="qts-field-label">${escapeHtml(t.testSessionNotes)}<textarea data-session-notes rows="3" placeholder="${escapeHtml(t.testSessionNotesPlaceholder)}"></textarea></label>
+      <label class="qts-field-label">${escapeHtml(t.testSessionNextSteps)}<textarea data-session-next-steps rows="2" placeholder="${escapeHtml(t.testSessionNextStepsPlaceholder)}"></textarea></label>
+      <div class="qts-card-actions">
+        <button type="button" class="action" data-session-save>${escapeHtml(t.testSessionSave)}</button>
+        <button type="button" class="action" data-session-copy>${escapeHtml(t.testSessionCopy)}</button>
+        <button type="button" class="action" data-session-export>${escapeHtml(t.testSessionExport)}</button>
+        <button type="button" class="action" data-session-report>${escapeHtml(t.reportCreateFromSession)}</button>
+      </div>
+    </div>
+  `;
+  const buildSummaryText = () => {
+    const scenario = container.querySelector("[data-session-scenario]").value.trim() || t.testSessionScenarioPlaceholder;
+    const notes = container.querySelector("[data-session-notes]").value.trim();
+    const nextSteps = container.querySelector("[data-session-next-steps]").value.trim();
+    return [
+      `# ${scenario}`,
+      `${t.testSessionContext} ${[session.context.client, session.context.project, session.context.product, session.context.environment].filter(Boolean).join(" · ") || t.testSessionNoContext}`,
+      session.context.url,
+      `${t.testSessionDuration} ${durationLabel}`,
+      `${t.testSessionResult} ${lastStatus ? lastStatus.label : t.testSessionNoResult}`,
+      `${t.testSessionEvidence} ${session.evidenceCount}`,
+      `${t.testSessionTechnicalContext} ${httpErrorsDuringSession.length ? `${httpErrorsDuringSession.length} × ${t.testSessionHttpErrors}` : t.testSessionNoErrors}`,
+      notes ? `\n${t.testSessionNotes}\n${notes}` : "",
+      nextSteps ? `\n${t.testSessionNextSteps}\n${nextSteps}` : "",
+    ].filter(Boolean).join("\n");
+  };
+  container.querySelector("[data-session-copy]").addEventListener("click", () => {
+    navigator.clipboard?.writeText(buildSummaryText()).then(() => showQaToast(t.testSessionCopied));
+  });
+  container.querySelector("[data-session-export]").addEventListener("click", () => {
+    const blob = new Blob([buildSummaryText()], { type: "text/markdown" });
+    triggerBlobDownload(blob, `${buildEvidenceFileBaseName(lastStatus?.status || null)}_sessao.md`);
+  });
+  container.querySelector("[data-session-save]").addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(TEST_SESSION_REPORTS_KEY);
+    const reports = Array.isArray(stored[TEST_SESSION_REPORTS_KEY]) ? stored[TEST_SESSION_REPORTS_KEY] : [];
+    reports.unshift({
+      scenario: container.querySelector("[data-session-scenario]").value.trim(),
+      context: session.context,
+      startedAt: session.startedAt,
+      finishedAt: Date.now(),
+      result: lastStatus?.status || null,
+      evidenceCount: session.evidenceCount,
+      httpErrorCount: httpErrorsDuringSession.length,
+      notes: container.querySelector("[data-session-notes]").value.trim(),
+      nextSteps: container.querySelector("[data-session-next-steps]").value.trim(),
+    });
+    await chrome.storage.local.set({ [TEST_SESSION_REPORTS_KEY]: reports.slice(0, 100) });
+    showQaToast(t.testSessionSaved);
+  });
+  container.querySelector("[data-session-report]").addEventListener("click", () => {
+    const scenario = container.querySelector("[data-session-scenario]").value.trim();
+    const notes = container.querySelector("[data-session-notes]").value.trim();
+    openReportBuilder({
+      kind: lastStatus?.status === "pass" ? "approval" : lastStatus?.status === "limitation" ? "limitation" : lastStatus?.status === "blocked" ? "blocker" : "bug",
+      title: scenario,
+      actual: notes,
+    }, session.context);
+  });
+}
+
+function finishTestSession() {
+  if (!state.testSession) return;
+  const session = state.testSession;
+  window.clearInterval(testSessionTimer);
+  state.testSession = null;
+  state.shadowRoot.getElementById("testSessionBar")?.classList.add("isHidden");
+  openDrawer({
+    title: state.t.testSessionSummaryTitle,
+    bodyHtml: "",
+    view: "testSession",
+    onReady: (drawerBody) => renderTestSessionSummary(drawerBody, session),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Report Builder: one structured form for the report kinds a QA session
+// actually produces (bug/aprovação/limitação/impedimento/reteste/melhoria/
+// risco), instead of writing the same title/steps/expected/actual shape from
+// scratch in a chat message every time. Local-only, like Sessão de Teste -
+// drafts and templates live in chrome.storage.local, not the workspace.
+// ---------------------------------------------------------------------------
+
+const REPORT_DRAFTS_KEY = "qtsReportBuilderDraftsV1";
+const REPORT_TEMPLATES_KEY = "qtsReportBuilderTemplatesV1";
+const REPORT_FIELD_SELECTORS = {
+  kind: "[data-report-kind]", title: "[data-report-title]", description: "[data-report-description]",
+  preconditions: "[data-report-preconditions]", steps: "[data-report-steps]", expected: "[data-report-expected]",
+  actual: "[data-report-actual]", severity: "[data-report-severity]", priority: "[data-report-priority]", tags: "[data-report-tags]",
+};
+
+function reportKindOptions() {
+  const t = state.t;
+  return [
+    { key: "bug", label: t.reportKindBug },
+    { key: "approval", label: t.reportKindApproval },
+    { key: "limitation", label: t.reportKindLimitation },
+    { key: "blocker", label: t.reportKindBlocker },
+    { key: "retest", label: t.reportKindRetest },
+    { key: "improvement", label: t.reportKindImprovement },
+    { key: "risk", label: t.reportKindRisk },
+  ];
+}
+
+function detectBrowserLabel() {
+  const ua = navigator.userAgent || "";
+  if (/Edg\//.test(ua)) return "Edge";
+  if (/OPR\//.test(ua)) return "Opera";
+  if (/Chrome\//.test(ua)) return "Chrome";
+  if (/Firefox\//.test(ua)) return "Firefox";
+  if (/Safari\//.test(ua)) return "Safari";
+  return ua.slice(0, 40) || "-";
+}
+
+function openReportBuilder(prefill = {}, context = null) {
+  openDrawer({
+    title: state.t.reportBuilderTitle,
+    bodyHtml: "",
+    view: "reportBuilder",
+    variant: "modal",
+    onReady: (drawerBody) => renderReportBuilder(drawerBody, context || sessionContextSnapshot(), prefill),
+  });
+}
+
+function renderReportBuilder(container, context, prefill) {
+  const t = state.t;
+  const kinds = reportKindOptions();
+  const contextLine = [context.client, context.project, context.product, context.environment].filter(Boolean).join(" · ") || t.testSessionNoContext;
+  const severities = ["low", "medium", "high", "critical"];
+  const priorities = ["low", "medium", "high"];
+  const severityLabel = { low: t.reportSeverityLow, medium: t.reportSeverityMedium, high: t.reportSeverityHigh, critical: t.reportSeverityCritical };
+  const priorityLabel = { low: t.reportPriorityLow, medium: t.reportPriorityMedium, high: t.reportPriorityHigh };
+  container.innerHTML = `
+    <div class="qts-card">
+      <div class="qts-toolbar-row">
+        <label class="qts-field-label">${escapeHtml(t.reportKind)}<select data-report-kind>${kinds.map((k) => `<option value="${k.key}" ${prefill.kind === k.key ? "selected" : ""}>${escapeHtml(k.label)}</option>`).join("")}</select></label>
+        <label class="qts-field-label" id="reportTemplateField" style="display:none">${escapeHtml(t.reportLoadTemplate)}<select data-report-template><option value="">${escapeHtml(t.reportLoadTemplate)}</option></select></label>
+      </div>
+      <label class="qts-field-label">${escapeHtml(t.reportTitle)}<input type="text" data-report-title value="${escapeHtml(prefill.title || "")}" placeholder="${escapeHtml(t.reportTitlePlaceholder)}" /></label>
+      <label class="qts-field-label">${escapeHtml(t.reportDescription)}<textarea data-report-description rows="2" placeholder="${escapeHtml(t.reportDescriptionPlaceholder)}">${escapeHtml(prefill.description || "")}</textarea></label>
+      <label class="qts-field-label">${escapeHtml(t.reportPreconditions)}<textarea data-report-preconditions rows="2" placeholder="${escapeHtml(t.reportPreconditionsPlaceholder)}"></textarea></label>
+      <label class="qts-field-label">${escapeHtml(t.reportSteps)}<textarea data-report-steps rows="3" placeholder="${escapeHtml(t.reportStepsPlaceholder)}"></textarea></label>
+      <label class="qts-field-label">${escapeHtml(t.reportExpected)}<textarea data-report-expected rows="2"></textarea></label>
+      <label class="qts-field-label">${escapeHtml(t.reportActual)}<textarea data-report-actual rows="2">${escapeHtml(prefill.actual || "")}</textarea></label>
+      <div class="qts-toolbar-row">
+        <label class="qts-field-label">${escapeHtml(t.reportSeverity)}<select data-report-severity>${severities.map((s) => `<option value="${s}">${escapeHtml(severityLabel[s])}</option>`).join("")}</select></label>
+        <label class="qts-field-label">${escapeHtml(t.reportPriority)}<select data-report-priority>${priorities.map((p) => `<option value="${p}">${escapeHtml(priorityLabel[p])}</option>`).join("")}</select></label>
+      </div>
+      <label class="qts-field-label">${escapeHtml(t.reportTags)}<input type="text" data-report-tags placeholder="${escapeHtml(t.reportTagsPlaceholder)}" /></label>
+      <p class="qts-status">${escapeHtml(t.reportContext)} ${escapeHtml(contextLine)} · ${escapeHtml(detectBrowserLabel())} · ${window.innerWidth}×${window.innerHeight}<br><small style="word-break:break-all">${escapeHtml(context.url)}</small></p>
+      <div class="qts-card-actions">
+        <button type="button" class="action" data-report-save-template>${escapeHtml(t.reportSaveTemplate)}</button>
+        <button type="button" class="action" data-report-save-draft>${escapeHtml(t.reportSaveDraft)}</button>
+        <button type="button" class="action" data-report-copy>${escapeHtml(t.reportCopy)}</button>
+        <button type="button" class="action" data-report-copy-slack title="${escapeHtml(t.reportCopySlackHint)}">${escapeHtml(t.reportCopySlack)}</button>
+        <button type="button" class="action" data-report-export>${escapeHtml(t.reportExport)}</button>
+      </div>
+    </div>
+  `;
+  const field = (name) => container.querySelector(REPORT_FIELD_SELECTORS[name]);
+  const readFields = () => Object.fromEntries(Object.keys(REPORT_FIELD_SELECTORS).map((name) => [name, field(name).value.trim()]));
+  const applyFields = (values) => {
+    for (const name of Object.keys(REPORT_FIELD_SELECTORS)) if (values[name] != null) field(name).value = values[name];
+  };
+
+  chrome.storage.local.get(REPORT_TEMPLATES_KEY).then((stored) => {
+    const templates = Array.isArray(stored[REPORT_TEMPLATES_KEY]) ? stored[REPORT_TEMPLATES_KEY] : [];
+    if (!templates.length) return;
+    const templateField = container.querySelector("#reportTemplateField");
+    const templateSelect = container.querySelector("[data-report-template]");
+    templateField.style.display = "";
+    templateSelect.innerHTML = `<option value="">${escapeHtml(t.reportLoadTemplate)}</option>${templates.map((tpl, index) => `<option value="${index}">${escapeHtml(tpl.name)}</option>`).join("")}`;
+    templateSelect.addEventListener("change", () => {
+      const template = templates[Number(templateSelect.value)];
+      if (template) applyFields(template.fields);
+      templateSelect.value = "";
+    });
+  });
+
+  const buildReportText = () => {
+    const values = readFields();
+    const kindLabel = kinds.find((k) => k.key === values.kind)?.label || values.kind;
+    const lines = [
+      `# [${kindLabel}] ${values.title || t.reportTitlePlaceholder}`,
+      `${t.reportContext} ${contextLine} · ${detectBrowserLabel()} · ${window.innerWidth}×${window.innerHeight}`,
+      context.url,
+      `${t.reportSeverity}: ${severityLabel[values.severity]} · ${t.reportPriority}: ${priorityLabel[values.priority]}`,
+      values.tags ? `${t.reportTags}: ${values.tags}` : "",
+      values.description ? `\n${t.reportDescription}\n${values.description}` : "",
+      values.preconditions ? `\n${t.reportPreconditions}\n${values.preconditions}` : "",
+      values.steps ? `\n${t.reportSteps}\n${values.steps}` : "",
+      values.expected ? `\n${t.reportExpected}\n${values.expected}` : "",
+      values.actual ? `\n${t.reportActual}\n${values.actual}` : "",
+    ];
+    return lines.filter(Boolean).join("\n");
+  };
+
+  // Slack/Teams mrkdwn uses *single asterisks* for bold and has no header syntax - a Markdown
+  // "#"/"**" report pasted as-is shows up littered with literal symbols. No OAuth app, no
+  // webhook config: this is the "copiar mensagem formatada" first phase - resolves the common
+  // case (paste a well-formatted report into a channel) without needing anyone's Slack/Teams
+  // admin to approve an app first.
+  const buildSlackText = () => {
+    const values = readFields();
+    const kindLabel = kinds.find((k) => k.key === values.kind)?.label || values.kind;
+    const lines = [
+      `*[${kindLabel}] ${values.title || t.reportTitlePlaceholder}*`,
+      `${t.reportContext} ${contextLine} · ${detectBrowserLabel()} · ${window.innerWidth}×${window.innerHeight}`,
+      context.url,
+      `*${t.reportSeverity}:* ${severityLabel[values.severity]}   *${t.reportPriority}:* ${priorityLabel[values.priority]}`,
+      values.tags ? `*${t.reportTags}:* ${values.tags}` : "",
+      values.description ? `\n*${t.reportDescription}*\n${values.description}` : "",
+      values.preconditions ? `\n*${t.reportPreconditions}*\n${values.preconditions}` : "",
+      values.steps ? `\n*${t.reportSteps}*\n${values.steps}` : "",
+      values.expected ? `\n*${t.reportExpected}*\n${values.expected}` : "",
+      values.actual ? `\n*${t.reportActual}*\n${values.actual}` : "",
+    ];
+    return lines.filter(Boolean).join("\n");
+  };
+
+  container.querySelector("[data-report-copy]").addEventListener("click", () => {
+    navigator.clipboard?.writeText(buildReportText()).then(() => showQaToast(t.reportCopied));
+  });
+  container.querySelector("[data-report-copy-slack]").addEventListener("click", () => {
+    navigator.clipboard?.writeText(buildSlackText()).then(() => showQaToast(t.reportCopiedSlack));
+  });
+  container.querySelector("[data-report-export]").addEventListener("click", () => {
+    const blob = new Blob([buildReportText()], { type: "text/markdown" });
+    triggerBlobDownload(blob, `${buildEvidenceFileBaseName(null)}_relatorio.md`);
+  });
+  container.querySelector("[data-report-save-draft]").addEventListener("click", async () => {
+    const stored = await chrome.storage.local.get(REPORT_DRAFTS_KEY);
+    const drafts = Array.isArray(stored[REPORT_DRAFTS_KEY]) ? stored[REPORT_DRAFTS_KEY] : [];
+    drafts.unshift({ ...readFields(), context, savedAt: Date.now() });
+    await chrome.storage.local.set({ [REPORT_DRAFTS_KEY]: drafts.slice(0, 100) });
+    showQaToast(t.reportSaved);
+  });
+  container.querySelector("[data-report-save-template]").addEventListener("click", async () => {
+    const name = prompt(t.reportSaveTemplatePrompt);
+    if (!name || !name.trim()) return;
+    const stored = await chrome.storage.local.get(REPORT_TEMPLATES_KEY);
+    const templates = Array.isArray(stored[REPORT_TEMPLATES_KEY]) ? stored[REPORT_TEMPLATES_KEY] : [];
+    const { actual, ...reusableFields } = readFields();
+    templates.unshift({ name: name.trim(), fields: reusableFields, savedAt: Date.now() });
+    await chrome.storage.local.set({ [REPORT_TEMPLATES_KEY]: templates.slice(0, 50) });
+    showQaToast(t.reportTemplateSaved);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -1918,6 +2254,11 @@ async function disableAllActiveTools() {
     state.stepsRecording.cleanup();
     state.stepsRecording = null;
     updateStepsRecordingUi();
+  }
+  if (state.testSession) {
+    window.clearInterval(testSessionTimer);
+    state.testSession = null;
+    state.shadowRoot.getElementById("testSessionBar")?.classList.add("isHidden");
   }
   const keyView = getKeyViewPreferences();
   if (keyView.enabled) {
@@ -2569,7 +2910,7 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      container-type:inline-size; position:relative; width: min(400px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
+      container-type:inline-size; position:relative; width: min(430px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4); resize: both; overflow: hidden;
     }
     .qts-drawer-backdrop[data-position="left"] { justify-content:flex-start; }
@@ -2721,6 +3062,12 @@ function drawerStyles() {
     .qts-step:not(:last-child)::after { content: "↓"; position: absolute; left: 14px; bottom: -18px; color: var(--qts-panel-accent, #ffd700); }
     .qts-step-index { display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); font-weight: 900; }
     .qts-code { min-height: 350px; padding: 14px; border: 1px solid #2c2c2c; border-radius: 10px; background: #080808; color: #9bffb0; font: 12px/1.55 ui-monospace, Consolas, monospace; white-space: pre; overflow: auto; }
+    .qts-curl-preview { margin-bottom: 10px; }
+    .qts-curl-preview pre { margin: 0 0 6px; padding: 12px; border: 1px solid #2c2c2c; border-radius: 10px; background: #080808; color: #9bffb0; font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-all; overflow: auto; max-height: 260px; }
+    .qts-curl-hint { display: block; color: var(--qts-panel-muted); }
+    .qts-curl-result { margin-top: 10px; padding: 10px 12px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); }
+    .qts-curl-result pre { margin: 6px 0 0; white-space: pre-wrap; word-break: break-all; max-height: 220px; overflow: auto; font: 11px/1.5 ui-monospace, Consolas, monospace; }
+    .qts-icon-btn.isActive { background: var(--qts-ui-primary, #b20808) !important; color: var(--qts-ui-primary-contrast, #fff) !important; }
     .qts-status { min-height: 18px; margin-top: 8px; color: var(--qts-panel-accent, #ffd700); overflow-wrap: anywhere; }
     .qts-faker-report { display:grid; gap:7px; margin-top:10px; max-height:45vh; overflow:auto; }
     .qts-faker-report-row { display:grid; grid-template-columns:minmax(120px,1fr) minmax(0,1.4fr); gap:10px; align-items:center; border-top:1px solid #2a2a2a; padding-top:7px; }
@@ -3233,26 +3580,59 @@ function locateValueOnPage(rawValue) {
   window.setTimeout(() => match.classList.remove("qts-locate-highlight"), 2200);
 }
 
+// Header names whose values never appear in the "Ver cURL" preview by default (Copy and
+// Execute always use the real captured value - those are deliberate, user-initiated actions on
+// data the user already has access to; the preview is what might get glanced at or screen-shared).
+const SENSITIVE_HEADER_PATTERN = /^(authorization|cookie|proxy-authorization|x-api-key|x-auth-token|x-access-token)$/i;
+
+// Single-quotes a value for a POSIX shell; escapes any literal single quote the standard way
+// ('\'' closes the quote, inserts an escaped quote, reopens it).
+function shQuote(value) {
+  return `'${String(value).replace(/'/g, "'\\''")}'`;
+}
+
+function buildCurlCommand(method, url, headers, body, { redactSensitive = false } = {}) {
+  const parts = ["curl"];
+  const upperMethod = String(method || "GET").toUpperCase();
+  if (upperMethod !== "GET") parts.push("-X", upperMethod);
+  parts.push(shQuote(url));
+  for (const [key, value] of Object.entries(headers || {})) {
+    const shown = redactSensitive && SENSITIVE_HEADER_PATTERN.test(key) ? "[REDACTED]" : value;
+    parts.push("-H", shQuote(`${key}: ${shown}`));
+  }
+  if (body != null && body !== "") parts.push("--data-raw", shQuote(body));
+  return parts.join(" \\\n  ");
+}
+
 /**
  * Renders a JSON value with a friendly/raw switch (friendly is the default)
  * plus a search box that filters the friendly view, and a "minimizar" toggle
  * that collapses everything down to just the header for a minimal view.
  */
 // method/url are optional -- only the three network-entry detail views (Inspectors x2, Error
-// Monitor) have a real request to rebuild, so the cURL button only renders when both are given.
-// Request headers/body were never captured (pagebridge.js only records method/url/status/response
-// payload), so this is deliberately method+URL only rather than guessing at headers that don't
-// exist -- still useful to quickly re-hit the same endpoint, just not a byte-exact replay.
-function renderJsonDetail(container, value, method, url) {
+// Monitor) have a real request to rebuild, so the cURL controls only render when both are given.
+// requestHeaders/requestBody are best-effort (pagebridge.js captures them for fetch()/XHR calls
+// with a string-shaped body; FormData/Blob bodies are skipped, not guessed at) -- when absent,
+// the rebuilt command still works, it's just method+URL only, same as before this existed.
+function renderJsonDetail(container, value, method, url, requestHeaders, requestBody) {
   const t = state.t;
+  const hasRequest = Boolean(method && url);
+  const hasSensitiveHeaders = Object.keys(requestHeaders || {}).some((key) => SENSITIVE_HEADER_PATTERN.test(key));
   container.innerHTML = `
     <div class="qts-toolbar-row">
       <div class="qts-view-switch"><button type="button" data-mode="friendly" class="isSelected">${escapeHtml(t.friendly)}</button><button type="button" data-mode="raw">${escapeHtml(t.raw)}</button></div>
       <input type="search" placeholder="${escapeHtml(t.jsonSearchPlaceholder)}" data-json-search />
-      ${method && url ? `<button type="button" class="qts-icon-btn" data-json-copy-curl title="${escapeHtml(t.copyAsCurl)}">${ICON("copy")}</button>` : ""}
+      ${hasRequest ? `<button type="button" class="qts-icon-btn" data-json-view-curl title="${escapeHtml(t.viewAsCurl)}">${ICON("braces")}</button>
+      <button type="button" class="qts-icon-btn" data-json-copy-curl title="${escapeHtml(t.copyAsCurl)}">${ICON("copy")}</button>
+      <button type="button" class="qts-icon-btn" data-json-execute-curl title="${escapeHtml(t.executeCurl)}">${ICON("play")}</button>` : ""}
       <button type="button" class="qts-icon-btn" data-json-minimize title="${escapeHtml(t.minimizeTitle)}">${ICON("collapse")}</button>
     </div>
+    ${hasRequest ? `<div class="qts-curl-preview" data-curl-preview hidden>
+      <pre data-curl-text></pre>
+      ${hasSensitiveHeaders ? `<small class="qts-curl-hint">${escapeHtml(t.curlSensitiveHeadersHidden)}</small>` : ""}
+    </div>` : ""}
     <div data-json-content></div>
+    ${hasRequest ? `<div class="qts-curl-result" data-curl-result hidden></div>` : ""}
   `;
   const content = container.querySelector("[data-json-content]");
   const searchInput = container.querySelector("[data-json-search]");
@@ -3260,13 +3640,40 @@ function renderJsonDetail(container, value, method, url) {
     const button = event.target.closest("[data-locate-value]");
     if (button) locateValueOnPage(button.dataset.locateValue);
   });
-  container.querySelector("[data-json-copy-curl]")?.addEventListener("click", () => {
-    // Single-quote the URL for POSIX shells; escape any literal single quote inside it the
-    // standard way ('\'' closes the quote, inserts an escaped quote, reopens it).
-    const safeUrl = String(url).replace(/'/g, "'\\''");
-    const curl = method.toUpperCase() === "GET" ? `curl '${safeUrl}'` : `curl -X ${method.toUpperCase()} '${safeUrl}'`;
-    navigator.clipboard?.writeText(curl).then(() => showQaToast(t.copiedAsCurl));
-  });
+  if (hasRequest) {
+    const preview = container.querySelector("[data-curl-preview]");
+    const previewText = container.querySelector("[data-curl-text]");
+    container.querySelector("[data-json-view-curl]").addEventListener("click", (event) => {
+      const willShow = preview.hasAttribute("hidden");
+      preview.toggleAttribute("hidden");
+      event.currentTarget.classList.toggle("isActive", willShow);
+      event.currentTarget.title = willShow ? t.hideCurl : t.viewAsCurl;
+      if (willShow) previewText.textContent = buildCurlCommand(method, url, requestHeaders, requestBody, { redactSensitive: true });
+    });
+    container.querySelector("[data-json-copy-curl]").addEventListener("click", () => {
+      const curl = buildCurlCommand(method, url, requestHeaders, requestBody);
+      navigator.clipboard?.writeText(curl).then(() => showQaToast(t.copiedAsCurl));
+    });
+    container.querySelector("[data-json-execute-curl]").addEventListener("click", async () => {
+      if (!confirm(t.executeCurlConfirm)) return;
+      const resultBox = container.querySelector("[data-curl-result]");
+      try {
+        const response = await fetch(url, {
+          method: String(method || "GET").toUpperCase(),
+          headers: requestHeaders || undefined,
+          body: requestBody ?? undefined,
+        });
+        const text = await response.text();
+        resultBox.hidden = false;
+        resultBox.innerHTML = `<b>${response.status} ${escapeHtml(response.statusText || "")}</b><pre>${escapeHtml(text.slice(0, 20_000))}</pre>`;
+        showQaToast(t.curlExecuted);
+      } catch (err) {
+        resultBox.hidden = false;
+        resultBox.innerHTML = `<b>${escapeHtml(t.curlExecuteFailed)}</b><pre>${escapeHtml(String(err?.message || err))}</pre>`;
+        showQaToast(t.curlExecuteFailed, "error");
+      }
+    });
+  }
   let mode = "friendly";
   const renderMode = () => {
     content.innerHTML = mode === "friendly" ? renderFriendlyJson(value) : `<div class="qts-json-tree">${renderJsonTree(value)}</div>`;
@@ -3629,7 +4036,7 @@ function renderInspectorDashboard(listBody) {
     // "in-app-notifications GET200"), not just the bare method+status -- otherwise two pinned
     // Inspectors hitting different endpoints with the same verb/status look identical in the
     // drawer title.
-    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title: `${inspector?.label || inspector?.id || ""} ${entry.method}${entry.status}`.trim(), bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url, entry.requestHeaders, entry.requestBody) });
   }));
   listBody.querySelectorAll("[data-retry-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3693,7 +4100,7 @@ function renderInspectorsList() {
     const entry = state.networkHistory.find((item) => item.id === row.dataset.id);
     const matchedInspector = configuredInspectors().find((item) => (entry.matchedInspectorIds || []).includes(item.id));
     const title = matchedInspector ? `${matchedInspector.label || matchedInspector.id} ${entry.method}${entry.status}` : `${entry.method} ${entry.status}`;
-    openDrawer({ title, bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title, bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url, entry.requestHeaders, entry.requestBody) });
   }));
   listBody.querySelectorAll("[data-mark-inspector]").forEach((button) => button.addEventListener("click", (event) => {
     event.stopPropagation();
@@ -3878,7 +4285,7 @@ function renderErrorMonitorList() {
   body.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.httpErrors.find((item) => item.id === row.dataset.id);
     if (!entry?.payload) return;
-    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", view: "errorMonitor", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url) });
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", view: "errorMonitor", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url, entry.requestHeaders, entry.requestBody) });
   }));
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
@@ -4220,7 +4627,7 @@ function openResourcesDrawer() {
 // ---------------------------------------------------------------------------
 
 // Recursive structural diff between two parsed JSON values - the original spec (see
-// docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md's jsonDiff.enabled capability) called for real
+// docs/handoff/archive/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md's jsonDiff.enabled capability) called for real
 // comparison, not just reformatting; this is the founder-facing shipment of that, kept dependency-
 // free (no bundled JSON-diff/schema library) to match this content script's zero-runtime-deps
 // convention. Object/array structural mismatches (e.g. a field that was an object and became an
@@ -5976,10 +6383,10 @@ function attachCharacterCounterBadge(element) {
     if (!badge.isConnected || !element.isConnected) { window.clearInterval(timer); characterCounterOverlays.delete(element); return; }
     reposition();
   }, 200);
-  let fadeTimer = 0; let removeTimer = 0;
-  const cleanup = () => { badge.remove(); window.clearInterval(timer); window.clearTimeout(fadeTimer); window.clearTimeout(removeTimer); };
-  fadeTimer = window.setTimeout(() => badge.classList.add("isFading"), 4_000);
-  removeTimer = window.setTimeout(() => { cleanup(); characterCounterOverlays.delete(element); }, 5_000);
+  // Persists until the user clicks "Remover" - the toast shown when this badge is attached
+  // promises exactly that ("Clique no botão Remover do indicador para excluí-lo"), so it must
+  // not auto-fade or auto-remove itself on a timer.
+  const cleanup = () => { badge.remove(); window.clearInterval(timer); };
   badge.querySelector("[data-close]").addEventListener("click", () => { cleanup(); characterCounterOverlays.delete(element); });
   characterCounterOverlays.set(element, cleanup);
   reposition();
@@ -7201,6 +7608,7 @@ function compactTimestamp() {
 // attributed to this specific piece of evidence -- never guessed, never left stale from an
 // unrelated earlier action).
 function buildEvidenceFileBaseName(statusKey) {
+  if (state.testSession) state.testSession.evidenceCount += 1;
   const prefix = state.t.recordFilenamePrefix || "evidencia";
   const segments = [prefix];
   if (statusKey) segments.push(statusKey);

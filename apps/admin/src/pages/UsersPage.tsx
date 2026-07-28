@@ -107,7 +107,7 @@ export function UsersPage() {
                             type="button"
                             className="qa-btn danger"
                             style={{ marginRight: 6 }}
-                            onClick={() => revokeRole(profile.id, role.id).then(userRoles.reload)}
+                            onClick={() => revokeRole(profile.id, role.id).then(userRoles.reload).catch((err) => setFormError(errorMessage(err)))}
                           >
                             Remover {key}
                           </button>

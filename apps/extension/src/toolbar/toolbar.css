@@ -146,7 +146,6 @@ body.qts-placement-mode, body.qts-placement-mode * {
   box-shadow: 0 6px 16px rgba(0,0,0,.35) !important; pointer-events: auto !important;
   opacity: 1 !important; transition: opacity 1s ease !important;
 }
-.qts-char-counter-badge.isFading { opacity: 0 !important; pointer-events: none !important; }
 /* Edit/remove/resize all stay hidden until the always-visible eye toggle is clicked -
    previously every one of these sat exposed on the page at all times, cluttering screenshots and
    getting in the way of whatever the marker/note/shape was pointing at. */

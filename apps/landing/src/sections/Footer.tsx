@@ -24,6 +24,7 @@ export function Footer() {
           <a href="#sobre">{t.footer.navAbout}</a>
           <a href="#planos">{t.footer.navPricing}</a>
           <a href="#suporte">{t.footer.navSupport}</a>
+          <a href={`${import.meta.env.BASE_URL}permissoes`}>{t.footer.navTrust}</a>
           <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.footer.navPrivacy}</a>
           <a href={`${import.meta.env.BASE_URL}propriedade-intelectual`}>{t.footer.navIp}</a>
         </nav>
