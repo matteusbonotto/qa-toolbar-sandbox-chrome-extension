@@ -132,6 +132,26 @@
   font-family: inherit;
 }
 
+.qts-site-toolbar-account {
+  flex-shrink: 0;
+  padding: 6px 14px;
+  border-radius: var(--qts-radius-pill);
+  background: transparent;
+  border: 1px solid var(--qts-border-strong);
+  color: var(--qts-text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.qts-site-toolbar-account:hover {
+  background: var(--qts-bg-card-hover);
+  border-color: var(--qts-accent);
+}
+
 @media (max-width: 720px) {
   .qts-site-toolbar-inner {
     gap: 10px;
@@ -148,6 +168,11 @@
   .qts-site-toolbar-cta {
     padding: 7px 11px;
     font-size: 0.74rem;
+  }
+
+  .qts-site-toolbar-account {
+    padding: 6px 10px;
+    font-size: 0.72rem;
   }
 }
 
@@ -180,6 +205,15 @@
     padding: 6px 8px;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .qts-site-toolbar-account {
+    min-width: 0;
+    max-width: 90px;
+    padding: 6px 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 }
 

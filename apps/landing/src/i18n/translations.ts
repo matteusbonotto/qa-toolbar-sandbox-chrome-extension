@@ -33,6 +33,7 @@ export interface Dictionary {
     install: string;
     installGuest: string;
     installAuthenticated: string;
+    myAccount: string;
   };
   hero: {
     eyebrow: string;
@@ -327,6 +328,7 @@ const pt: Dictionary = {
     install: "Entrar",
     installGuest: "Criar conta e instalar",
     installAuthenticated: "Instalar extensão",
+    myAccount: "Minha conta",
   },
   hero: {
     eyebrow: "De QA para QA, ou melhor: para qualquer um",
@@ -535,6 +537,11 @@ const pt: Dictionary = {
         short: "Linhas guia e uma régua inteligente para conferir alinhamentos pixel a pixel.",
         details: "Ative para ver linhas guia (cruz, horizontal ou vertical, cor e espessura configuráveis) acompanhando o mouse, e clique em qualquer ponto pra fixar uma régua inteligente que mede a distância exata até o cursor - ajustável com precisão de 1px pelo scroll. Inspirado no Screen Ruler do PowerToys.",
       },
+      languageValidator: {
+        title: "Validador de textos",
+        short: "Compara os textos visíveis da página com um arquivo JSON de idioma.",
+        details: "Importe um JSON de idioma e veja lado a lado quais textos da tela estão iguais, ausentes ou divergentes do arquivo oficial. Revalide depois de navegar numa SPA sem reenviar o arquivo, útil pra pegar texto esquecido em português numa tela que deveria estar em espanhol ou inglês.",
+      },
       characterCounter: {
         title: "Contador de caracteres",
         short: "Conta caracteres, palavras, linhas e bytes UTF-8.",
@@ -554,6 +561,11 @@ const pt: Dictionary = {
         title: "Faker Fill",
         short: "Preenche a página ou um formulário com dados sintéticos realistas.",
         details: "Preenche automaticamente nome, e-mail, endereço e outros campos comuns com dados fictícios plausíveis, pulando sempre senha, cartão, CVV, token e segredo, acelera o preenchimento repetitivo sem tocar em dado sensível.",
+      },
+      qrCode: {
+        title: "QR Code",
+        short: "Gera e baixa um QR offline para a URL atual ou uma URL salva.",
+        details: "Gere o QR Code da aba atual ou de uma URL do workspace e baixe o PNG na hora - útil pra abrir rapidamente o mesmo ambiente no celular sem digitar o endereço à mão. Query e hash são removidos por segurança, salvo confirmação explícita.",
       },
       macroStudio: {
         title: "Macro Studio",
@@ -884,6 +896,7 @@ const es: Dictionary = {
     install: "Entrar",
     installGuest: "Crear cuenta e instalar",
     installAuthenticated: "Instalar extensión",
+    myAccount: "Mi cuenta",
   },
   hero: {
     eyebrow: "De QA para QA, o mejor dicho: para cualquier persona",
@@ -1092,6 +1105,11 @@ const es: Dictionary = {
         short: "Líneas guía y una regla inteligente para verificar alineaciones píxel a píxel.",
         details: "Actívalo para ver líneas guía (cruz, horizontal o vertical, color y grosor configurables) siguiendo al mouse, y haz clic en cualquier punto para fijar una regla inteligente que mide la distancia exacta hasta el cursor - ajustable con precisión de 1px con el scroll. Inspirado en Screen Ruler de PowerToys.",
       },
+      languageValidator: {
+        title: "Validador de textos",
+        short: "Compara los textos visibles de la página con un archivo JSON de idioma.",
+        details: "Importa un JSON de idioma y mira lado a lado qué textos de la pantalla son iguales, están ausentes o difieren del archivo oficial. Vuelve a validar después de navegar en una SPA sin reenviar el archivo - útil para detectar texto olvidado en portugués en una pantalla que debería estar en español o inglés.",
+      },
       characterCounter: {
         title: "Contador de caracteres",
         short: "Cuenta caracteres, palabras, líneas y bytes UTF-8.",
@@ -1111,6 +1129,11 @@ const es: Dictionary = {
         title: "Faker Fill",
         short: "Rellena la página o un formulario con datos sintéticos realistas.",
         details: "Rellena automáticamente nombre, correo, dirección y otros campos comunes con datos ficticios plausibles, siempre saltando contraseña, tarjeta, CVV, token y secreto.",
+      },
+      qrCode: {
+        title: "Código QR",
+        short: "Genera y descarga un QR offline para la URL actual o una URL guardada.",
+        details: "Genera el código QR de la pestaña actual o de una URL del workspace y descarga el PNG al instante - útil para abrir rápidamente el mismo entorno en el celular sin escribir la dirección a mano. Query y hash se eliminan por seguridad, salvo confirmación explícita.",
       },
       macroStudio: {
         title: "Macro Studio",
@@ -1441,6 +1464,7 @@ const en: Dictionary = {
     install: "Sign in",
     installGuest: "Create account and install",
     installAuthenticated: "Install extension",
+    myAccount: "My account",
   },
   hero: {
     eyebrow: "By QA, for QA, or rather: for anyone",
@@ -1649,6 +1673,11 @@ const en: Dictionary = {
         short: "Guide lines and a smart ruler for checking pixel-perfect alignment.",
         details: "Turn it on to see guide lines (cross, horizontal, or vertical, with configurable color and thickness) following the mouse, and click anywhere to anchor a smart ruler that measures the exact distance to the cursor - fine-tunable to 1px with the scroll wheel. Inspired by PowerToys' Screen Ruler.",
       },
+      languageValidator: {
+        title: "Text Validator",
+        short: "Compares the page's visible text against a language JSON file.",
+        details: "Import a language JSON and see side by side which on-screen text matches, is missing, or differs from the official file. Re-validate after navigating an SPA without re-uploading the file - handy for catching leftover Portuguese text on a screen that should be in Spanish or English.",
+      },
       characterCounter: {
         title: "Character counter",
         short: "Counts characters, words, lines and UTF-8 bytes.",
@@ -1668,6 +1697,11 @@ const en: Dictionary = {
         title: "Faker Fill",
         short: "Fills the page or a form with realistic synthetic data.",
         details: "Automatically fills name, email, address and other common fields with plausible fake data, always skipping password, card, CVV, token and secret fields.",
+      },
+      qrCode: {
+        title: "QR Code",
+        short: "Generates and downloads an offline QR for the current URL or a saved one.",
+        details: "Generate a QR code for the current tab or a workspace URL and download the PNG instantly - handy for quickly opening the same environment on your phone without typing the address by hand. Query string and hash are stripped for safety unless you confirm otherwise.",
       },
       macroStudio: {
         title: "Macro Studio",
