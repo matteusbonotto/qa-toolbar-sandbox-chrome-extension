@@ -21,9 +21,9 @@ export function Footer() {
           <span>QA Toolbar Sandbox</span>
         </div>
         <nav className="qts-footer-nav">
-          <a href="#sobre">{t.footer.navAbout}</a>
-          <a href="#planos">{t.footer.navPricing}</a>
-          <a href="#suporte">{t.footer.navSupport}</a>
+          <a href={`${import.meta.env.BASE_URL}#sobre`}>{t.footer.navAbout}</a>
+          <a href={`${import.meta.env.BASE_URL}#planos`}>{t.footer.navPricing}</a>
+          <a href={`${import.meta.env.BASE_URL}#suporte`}>{t.footer.navSupport}</a>
           <a href={`${import.meta.env.BASE_URL}permissoes`}>{t.footer.navTrust}</a>
           <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.footer.navPrivacy}</a>
           <a href={`${import.meta.env.BASE_URL}propriedade-intelectual`}>{t.footer.navIp}</a>
