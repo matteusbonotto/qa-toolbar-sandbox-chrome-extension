@@ -1,3 +1,4 @@
+import { signAccessToken } from "../_shared/access_token.ts";
 import { adminClient, authenticatedUser, enforceRateLimit } from "../_shared/auth.ts";
 import { chromeWebStoreUrl } from "../_shared/config.ts";
 import { serve } from "../_shared/handler.ts";
@@ -79,6 +80,12 @@ serve(async (request) => {
     for (const row of featureRows ?? []) features[row.key] = true;
   }
 
+  // Signed separately from the rest of the response: this is the only part the client is allowed
+  // to trust without a fresh round trip to this function (see access_token.ts). Everything else
+  // below (billing, installUrl, ...) is either UI-only or re-derived from `active`/`features` on
+  // every real check anyway, so it doesn't need to ride inside the signature.
+  const token = await signAccessToken({ active, plan: rawPlan ? { key: rawPlan.key, name: rawPlan.name } : null, features });
+
   return jsonResponse(request, {
     active,
     plan: rawPlan ? { key: rawPlan.key, name: rawPlan.name } : null,
@@ -90,6 +97,7 @@ serve(async (request) => {
       paymentConfirmed: Boolean(confirmedPayment),
     } : null,
     features,
+    token,
     installUrl: active ? chromeWebStoreUrl() : null,
     checkedAt: now,
   });
