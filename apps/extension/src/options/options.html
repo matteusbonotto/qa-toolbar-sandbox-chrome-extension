@@ -74,46 +74,68 @@
 
       <section data-panel="general" class="panel protectedPanel">
         <header class="panelHead"><h1>Barra e aparência</h1><p>Defina onde a barra aparece e quais atalhos ficam visíveis.</p></header>
-        <div class="grid2">
-          <div class="card">
-            <div class="cardHead"><h2>Onde a barra aparece</h2></div>
-            <label class="radioRow"><input type="radio" name="scopeMode" value="all" /><div><b>Todos os sites</b><small>Exibe a toolbar em qualquer site permitido pelo navegador.</small></div></label>
-            <label class="radioRow"><input type="radio" name="scopeMode" value="environments" /><div><b>URLs dos ambientes</b><small>Usa as URLs configuradas em cada ambiente do Workspace.</small></div></label>
-            <label class="radioRow"><input type="radio" name="scopeMode" value="custom" /><div><b>Restringir com lista personalizada</b><small>A URL também precisa pertencer a um ambiente. Use padrões como <code>https://*.exemplo.com/*</code>, um por linha.</small></div></label>
-            <textarea id="scopePatterns" rows="5" placeholder="https://app.exemplo.com/*" disabled></textarea>
-          </div>
-          <div class="card">
-            <div class="cardHead"><h2>Exibição</h2></div>
-            <fieldset class="themeFieldset"><legend>Tema da plataforma</legend>
-              <div class="themeToggle" id="appearanceThemeToggle" role="radiogroup" aria-label="Tema da plataforma">
-                <button type="button" data-theme-choice="light" role="radio" aria-checked="false"><span data-qts-icon="sun" aria-hidden="true"></span> Claro</button>
-                <button type="button" data-theme-choice="dark" role="radio" aria-checked="false"><span data-qts-icon="moon" aria-hidden="true"></span> Escuro</button>
-              </div>
-              <select id="appearanceTheme" class="visuallyHidden" aria-hidden="true" tabindex="-1"><option value="dark">Escuro</option><option value="light">Claro</option></select>
-              <small class="cardLead">A alteração é aplicada e salva imediatamente na configuração e na toolbar.</small>
-            </fieldset>
-            <fieldset><legend>Tema de cores</legend>
-              <p class="cardLead">Escolha uma paleta para os botões, drawers, toasts e destaques do Key View/mouse. Cada paleta já define o modo claro ou escuro correspondente.</p>
-              <div class="colorThemeGrid" id="colorThemeGrid" role="radiogroup" aria-label="Tema de cores"></div>
-              <div class="actions"><button type="button" class="button" id="colorThemeReset">Restaurar padrão</button></div>
-            </fieldset>
-            <fieldset><legend>Posição dos sidebars</legend><label>Desktop<select id="drawerPosition"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label><label>Mobile<select id="mobileDrawerPosition"><option value="bottom">Baixo - bottom sheet</option><option value="top">Cima</option><option value="right">Direita</option><option value="left">Esquerda</option></select></label><small class="cardLead">Também pode ser alterada no cabeçalho de qualquer sidebar.</small></fieldset>
-            <fieldset><legend>Posição da toolbar</legend><label>Desktop<select id="toolbarPosition"><option value="top">Horizontal - cima</option><option value="bottom">Horizontal - baixo</option><option value="left">Vertical - esquerda</option><option value="right">Vertical - direita</option></select></label><label>Mobile<select id="mobileToolbarPosition"><option value="top">Horizontal - cima</option><option value="bottom">Horizontal - baixo</option><option value="left">Vertical - esquerda</option><option value="right">Vertical - direita</option></select></label></fieldset>
-            <div class="barPreviewWrap"><div class="barPreview" id="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia da barra com as configurações atuais (atualiza antes de salvar).</small></div>
-            <input id="compactMode" type="checkbox" hidden />
-            <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
-            <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Empurrar conteúdo do site</b><small>Reserva o espaço da barra no topo da página.</small></span></label>
-            <label class="toggleRow"><input id="soundEffects" type="checkbox" /><span><b>Efeitos sonoros</b><small>Toca um som ao marcar status de teste, capturar erro HTTP ou iniciar uma macro.</small></span></label>
-            <label class="toggleRow"><input id="remindTestStatusOnRecording" type="checkbox" /><span><b>Lembrar de atribuir status na gravação</b><small>Ao parar uma gravação de evidência, pede o Test Status antes de liberar o download - garante que toda gravação tenha um resultado marcado.</small></span></label>
-            <label>Formato das imagens (cliente/projeto/produto)<select id="avatarShape"><option value="square">Quadrado</option><option value="round">Redondo</option></select></label>
-            <fieldset><legend>Mostrar no breadcrumb</legend><div class="checkGrid">
-              <label><input type="checkbox" data-breadcrumb="client" /> Cliente</label>
-              <label><input type="checkbox" data-breadcrumb="project" /> Projeto</label>
-              <label><input type="checkbox" data-breadcrumb="product" /> Produto</label>
-              <label><input type="checkbox" data-breadcrumb="environment" /> Ambiente</label>
-            </div></fieldset>
-            <fieldset><legend>Ordem no breadcrumb</legend><p class="cardLead">Arraste ou use as setas para definir a prioridade de cliente, projeto e produto.</p><ol class="breadcrumbOrderList" id="breadcrumbOrderList"></ol></fieldset>
-            <fieldset><legend>Atalhos fixados</legend>
+        <div class="settingsAccordionList">
+          <details class="settingsAccordion" open>
+            <summary><h2>Tema</h2></summary>
+            <div class="settingsAccordionBody">
+              <fieldset class="themeFieldset"><legend>Tema da plataforma</legend>
+                <div class="themeToggle" id="appearanceThemeToggle" role="radiogroup" aria-label="Tema da plataforma">
+                  <button type="button" data-theme-choice="light" role="radio" aria-checked="false"><span data-qts-icon="sun" aria-hidden="true"></span> Claro</button>
+                  <button type="button" data-theme-choice="dark" role="radio" aria-checked="false"><span data-qts-icon="moon" aria-hidden="true"></span> Escuro</button>
+                </div>
+                <select id="appearanceTheme" class="visuallyHidden" aria-hidden="true" tabindex="-1"><option value="dark">Escuro</option><option value="light">Claro</option></select>
+                <small class="cardLead">A alteração é aplicada e salva imediatamente na configuração e na toolbar.</small>
+              </fieldset>
+              <fieldset><legend>Tema de cores</legend>
+                <p class="cardLead">Escolha uma paleta para os botões, drawers, toasts e destaques do Key View/mouse. Cada paleta já define o modo claro ou escuro correspondente.</p>
+                <div class="colorThemeGrid" id="colorThemeGrid" role="radiogroup" aria-label="Tema de cores"></div>
+                <div class="actions"><button type="button" class="button" id="colorThemeReset">Restaurar padrão</button></div>
+              </fieldset>
+            </div>
+          </details>
+          <details class="settingsAccordion">
+            <summary><h2>Onde a barra aparece</h2></summary>
+            <div class="settingsAccordionBody">
+              <label class="radioRow"><input type="radio" name="scopeMode" value="all" /><div><b>Todos os sites</b><small>Exibe a toolbar em qualquer site permitido pelo navegador.</small></div></label>
+              <label class="radioRow"><input type="radio" name="scopeMode" value="environments" /><div><b>URLs dos ambientes</b><small>Usa as URLs configuradas em cada ambiente do Workspace.</small></div></label>
+              <label class="radioRow"><input type="radio" name="scopeMode" value="custom" /><div><b>Restringir com lista personalizada</b><small>A URL também precisa pertencer a um ambiente. Use padrões como <code>https://*.exemplo.com/*</code>, um por linha.</small></div></label>
+              <textarea id="scopePatterns" rows="5" placeholder="https://app.exemplo.com/*" disabled></textarea>
+            </div>
+          </details>
+          <details class="settingsAccordion">
+            <summary><h2>Posição</h2></summary>
+            <div class="settingsAccordionBody">
+              <fieldset><legend>Posição dos sidebars</legend><span class="fieldLabel">Desktop</span><div id="drawerPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileDrawerPosition"></div><small class="cardLead">Também pode ser alterada no cabeçalho de qualquer sidebar.</small></fieldset>
+              <fieldset><legend>Posição da toolbar</legend><span class="fieldLabel">Desktop</span><div id="toolbarPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileToolbarPosition"></div></fieldset>
+              <div class="barPreviewWrap"><div class="barPreview" id="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia da barra com as configurações atuais (atualiza antes de salvar).</small></div>
+            </div>
+          </details>
+          <details class="settingsAccordion">
+            <summary><h2>Preferências gerais</h2></summary>
+            <div class="settingsAccordionBody">
+              <input id="compactMode" type="checkbox" hidden />
+              <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
+              <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Empurrar conteúdo do site</b><small>Reserva o espaço da barra no topo da página.</small></span></label>
+              <label class="toggleRow"><input id="soundEffects" type="checkbox" /><span><b>Efeitos sonoros</b><small>Toca um som ao marcar status de teste, capturar erro HTTP ou iniciar uma macro.</small></span></label>
+              <label class="toggleRow"><input id="remindTestStatusOnRecording" type="checkbox" /><span><b>Lembrar de atribuir status na gravação</b><small>Ao parar uma gravação de evidência, pede o Test Status antes de liberar o download - garante que toda gravação tenha um resultado marcado.</small></span></label>
+              <label>Formato das imagens (cliente/projeto/produto)<select id="avatarShape"><option value="square">Quadrado</option><option value="round">Redondo</option></select></label>
+            </div>
+          </details>
+          <details class="settingsAccordion">
+            <summary><h2>Breadcrumb</h2></summary>
+            <div class="settingsAccordionBody">
+              <fieldset><legend>Mostrar no breadcrumb</legend><div class="checkGrid">
+                <label><input type="checkbox" data-breadcrumb="client" /> Cliente</label>
+                <label><input type="checkbox" data-breadcrumb="project" /> Projeto</label>
+                <label><input type="checkbox" data-breadcrumb="product" /> Produto</label>
+                <label><input type="checkbox" data-breadcrumb="environment" /> Ambiente</label>
+              </div></fieldset>
+              <fieldset><legend>Ordem no breadcrumb</legend><p class="cardLead">Arraste ou use as setas para definir a prioridade de cliente, projeto e produto.</p><ol class="breadcrumbOrderList" id="breadcrumbOrderList"></ol></fieldset>
+            </div>
+          </details>
+          <details class="settingsAccordion">
+            <summary><h2>Atalhos fixados</h2></summary>
+            <div class="settingsAccordionBody">
               <p class="cardLead">Pass, Fail, Screenshot e Gravação ficam sempre visíveis. Escolha de 0 a 4 ferramentas adicionais do menu Tools.</p>
               <p class="formMessage isError" id="pinnedToolsLimitHint" role="alert" hidden>Você só pode ter 4 atalhos adicionais por vez. Desmarque um atalho para escolher outro.</p>
               <div class="checkGrid">
@@ -139,48 +161,56 @@
                 <label><input type="checkbox" data-pinned="blurElements" /> Borrar elementos</label>
                 <label><input type="checkbox" data-pinned="holofote" /> Modo Holofote</label>
               </div>
-            </fieldset>
-            <fieldset><legend>Ferramentas no menu</legend><div class="checkGrid">
-              <label><input type="checkbox" data-tool="testStatus" /> Test Suite</label>
-              <label><input type="checkbox" data-tool="clickSpy" /> Click Spy</label>
-              <label><input type="checkbox" data-tool="freezeClock" /> Freeze Clock</label>
-              <label><input type="checkbox" data-tool="forceHttp" /> Force HTTP</label>
-              <label><input type="checkbox" data-tool="errorMonitor" /> Error Monitor</label>
-              <label><input type="checkbox" data-tool="inspectors" /> Inspectors</label>
-              <label><input type="checkbox" data-tool="jsonStudio" /> JSON Studio</label>
-              <label><input type="checkbox" data-tool="breakpoints" /> Breakpoints</label>
-              <label><input type="checkbox" data-tool="testAccounts" /> Contas de teste</label>
-              <label><input type="checkbox" data-tool="paymentMethods" /> Meios de pagamento</label>
-              <label><input type="checkbox" data-tool="resources" /> Recursos e links</label>
-              <label><input type="checkbox" data-tool="characterCounter" /> Contador de caracteres</label>
-              <label><input type="checkbox" data-tool="macroStudio" /> Macro Studio</label>
-              <label><input type="checkbox" data-tool="stepsRecorder" /> Gravador de Passos</label>
-              <label><input type="checkbox" data-tool="multiClick" /> Multiclick</label>
-              <label><input type="checkbox" data-tool="inputLab" /> Input Lab</label>
-              <label><input type="checkbox" data-tool="fakerFill" /> Faker Fill</label>
-              <label><input type="checkbox" data-tool="keyView" /> Key View</label>
-              <label><input type="checkbox" data-tool="elementCapture" /> Capturar elementos</label>
-              <label><input type="checkbox" data-tool="blurElements" /> Borrar elementos</label>
-              <label><input type="checkbox" data-tool="holofote" /> Modo Holofote</label>
-              <label><input type="checkbox" data-tool="pixelPerfect" /> Pixel Perfect</label>
-            </div></fieldset>
-            <fieldset><legend>Ordem no menu Tools</legend>
-              <label>Ordenar por<select id="toolsSortMode">
-                <option value="custom">Personalizado (a ordem definida abaixo)</option>
-                <option value="az">Nome, A-Z</option>
-                <option value="za">Nome, Z-A</option>
-                <option value="mostUsed">Mais usados primeiro</option>
-              </select></label>
-              <p class="cardLead" id="toolsMenuOrderHint">Arraste ou use as setas para definir a ordem das ferramentas no menu.</p>
-              <ol class="breadcrumbOrderList toolsMenuOrderList" id="toolsMenuOrderList"></ol>
-            </fieldset>
-            <fieldset><legend>Atalhos de teclado personalizados</legend>
+            </div>
+          </details>
+          <details class="settingsAccordion">
+            <summary><h2>Menu Tools</h2></summary>
+            <div class="settingsAccordionBody">
+              <fieldset><legend>Ferramentas no menu</legend><div class="checkGrid">
+                <label><input type="checkbox" data-tool="testStatus" /> Test Suite</label>
+                <label><input type="checkbox" data-tool="clickSpy" /> Click Spy</label>
+                <label><input type="checkbox" data-tool="freezeClock" /> Freeze Clock</label>
+                <label><input type="checkbox" data-tool="forceHttp" /> Force HTTP</label>
+                <label><input type="checkbox" data-tool="errorMonitor" /> Error Monitor</label>
+                <label><input type="checkbox" data-tool="inspectors" /> Inspectors</label>
+                <label><input type="checkbox" data-tool="jsonStudio" /> JSON Studio</label>
+                <label><input type="checkbox" data-tool="breakpoints" /> Breakpoints</label>
+                <label><input type="checkbox" data-tool="testAccounts" /> Contas de teste</label>
+                <label><input type="checkbox" data-tool="paymentMethods" /> Meios de pagamento</label>
+                <label><input type="checkbox" data-tool="resources" /> Recursos e links</label>
+                <label><input type="checkbox" data-tool="characterCounter" /> Contador de caracteres</label>
+                <label><input type="checkbox" data-tool="macroStudio" /> Macro Studio</label>
+                <label><input type="checkbox" data-tool="stepsRecorder" /> Gravador de Passos</label>
+                <label><input type="checkbox" data-tool="multiClick" /> Multiclick</label>
+                <label><input type="checkbox" data-tool="inputLab" /> Input Lab</label>
+                <label><input type="checkbox" data-tool="fakerFill" /> Faker Fill</label>
+                <label><input type="checkbox" data-tool="keyView" /> Key View</label>
+                <label><input type="checkbox" data-tool="elementCapture" /> Capturar elementos</label>
+                <label><input type="checkbox" data-tool="blurElements" /> Borrar elementos</label>
+                <label><input type="checkbox" data-tool="holofote" /> Modo Holofote</label>
+                <label><input type="checkbox" data-tool="pixelPerfect" /> Pixel Perfect</label>
+              </div></fieldset>
+              <fieldset><legend>Ordem no menu Tools</legend>
+                <label>Ordenar por<select id="toolsSortMode">
+                  <option value="custom">Personalizado (a ordem definida abaixo)</option>
+                  <option value="az">Nome, A-Z</option>
+                  <option value="za">Nome, Z-A</option>
+                  <option value="mostUsed">Mais usados primeiro</option>
+                </select></label>
+                <p class="cardLead" id="toolsMenuOrderHint">Arraste ou use as setas para definir a ordem das ferramentas no menu.</p>
+                <ol class="breadcrumbOrderList toolsMenuOrderList" id="toolsMenuOrderList"></ol>
+              </fieldset>
+            </div>
+          </details>
+          <details class="settingsAccordion">
+            <summary><h2>Atalhos de teclado personalizados</h2></summary>
+            <div class="settingsAccordionBody">
               <p class="cardLead">Clique em um campo e pressione uma combinação com Ctrl, Alt, Shift ou Meta. Conflitos e atalhos reservados são recusados.</p>
               <div id="customShortcutsList" class="shortcutSettingsList"></div>
               <div class="actions"><button type="button" class="button" id="resetCustomShortcuts">Restaurar todos</button></div>
               <p class="formMessage isError" id="customShortcutError" role="alert" hidden></p>
-            </fieldset>
-          </div>
+            </div>
+          </details>
         </div>
         <div class="stickySaveBar"><span class="savedHint" id="generalSavedHint"></span><button type="button" class="button primary" id="saveGeneralSettings">Salvar</button></div>
       </section>
@@ -196,7 +226,7 @@
         </div>
         <div class="workspaceStudio">
           <div class="workspaceTabs" role="tablist" aria-label="Seções do workspace">
-            <button type="button" class="workspaceTab isActive" data-workspace-tab="structure" role="tab">Estrutura</button>
+            <button type="button" class="workspaceTab isActive" data-workspace-tab="structure" role="tab">Clientes e Produtos</button>
             <button type="button" class="workspaceTab" data-workspace-tab="environments" role="tab">Ambientes</button>
             <button type="button" class="workspaceTab" data-workspace-tab="urls" role="tab">URLs</button>
             <button type="button" class="workspaceTab" data-workspace-tab="accounts" role="tab">Contas</button>
@@ -205,7 +235,7 @@
           </div>
 
           <div class="workspacePane isActive" data-workspace-pane="structure" role="tabpanel">
-            <div class="paneIntro"><div><h2>Estrutura da barra</h2><p>Monte a hierarquia na ordem cliente → projeto → produto.</p></div><span class="relationHint">1 cliente · N projetos · N produtos</span></div>
+            <div class="paneIntro"><div><h2>Clientes, projetos e produtos</h2><p>Cliente é a empresa (a sua ou a de quem você atende); projeto é uma frente de trabalho dela; produto é o app/sistema testado. Monte na ordem cliente → projeto → produto.</p></div><span class="relationHint">1 cliente · N projetos · N produtos</span></div>
             <div class="studioGrid studioGrid3">
               <article class="entityCard"><div class="cardHead"><div><span class="stepBadge">01</span><h2>Clientes</h2></div><span class="count" id="clientCount">0</span></div><div class="list" id="clientList"></div>
                 <button type="button" class="composerTrigger" data-open-composer="clientComposer">Adicionar cliente</button>
@@ -319,7 +349,7 @@
   </dialog>
   <dialog class="formDialog formDialogWide" id="testAccountComposer" aria-labelledby="testAccountComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">Conta de teste</span><h2 id="testAccountComposerTitle">Adicionar conta</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
-    <form class="inlineForm formWide" id="testAccountForm"><input type="hidden" id="testAccountEditId" /><div class="scopePicker fullRow" id="testAccountScopePicker"></div><p class="hint isError fullRow" id="testAccountScopeError" hidden>Selecione ao menos um ambiente.</p><input type="text" placeholder="Nome da conta" required id="testAccountLabel" /><input type="text" placeholder="Tipo de conta (ex.: VIP, Gold)" id="testAccountType" /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone do tipo (opcional)" id="testAccountTypeImage" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><input type="text" placeholder="Usuário / e-mail" id="testAccountUsername" /><input type="password" placeholder="Senha" id="testAccountPassword" autocomplete="new-password" /><input type="text" placeholder="Observações" id="testAccountNotes" /><div class="fieldSuggestions fullRow" id="testAccountFieldSuggestions"></div><div class="customFieldsEditor" id="testAccountCustomFields"></div><div class="actions fullRow"><button type="button" class="button" id="testAccountAddField">+ Campo personalizado</button></div><div class="formActions"><button type="submit" class="button primary">Salvar conta</button><button type="button" class="button cancelEdit" data-cancel="testAccount" hidden>Cancelar</button></div></form>
+    <form class="inlineForm formWide" id="testAccountForm"><input type="hidden" id="testAccountEditId" /><div class="scopePicker fullRow" id="testAccountScopePicker"></div><p class="hint isError fullRow" id="testAccountScopeError" hidden>Selecione ao menos um ambiente.</p><input type="text" placeholder="Nome da conta" required id="testAccountLabel" /><input type="text" placeholder="Tipo de conta (ex.: VIP, Gold)" id="testAccountType" /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone (opcional)" id="testAccountTypeImage" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><input type="text" placeholder="Usuário / e-mail" id="testAccountUsername" /><input type="password" placeholder="Senha" id="testAccountPassword" autocomplete="new-password" /><input type="text" placeholder="Observações" id="testAccountNotes" /><div class="fieldSuggestions fullRow" id="testAccountFieldSuggestions"></div><div class="customFieldsEditor" id="testAccountCustomFields"></div><div class="actions fullRow"><button type="button" class="button" id="testAccountAddField">+ Campo personalizado</button></div><div class="formActions"><button type="submit" class="button primary">Salvar conta</button><button type="button" class="button cancelEdit" data-cancel="testAccount" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog formDialogWide" id="paymentMethodComposer" aria-labelledby="paymentMethodComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">Pagamento</span><h2 id="paymentMethodComposerTitle">Adicionar pagamento</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>

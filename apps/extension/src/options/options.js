@@ -375,6 +375,52 @@ function applyColorThemeToPage(colorTheme) {
   }
 }
 
+// A visual preview of the option instead of a plain word in a <select> - "top" reads faster as a
+// little highlighted top edge than as text, especially across 4 near-identical toolbar options
+// that only differ by one word. `kind: "bar"` (toolbar dock) draws a thin highlighted strip on the
+// chosen edge; `kind: "panel"` (sidebar dock) draws a thicker one, echoing how much of that edge
+// each element actually occupies on the real page.
+function positionPickerIcon(kind, side) {
+  const stripThickness = kind === "panel" ? 5 : 2.2;
+  const x = 1, y = 1, w = 20, h = 14;
+  const strip = side === "top" ? `x="${x}" y="${y}" width="${w}" height="${stripThickness}"`
+    : side === "bottom" ? `x="${x}" y="${y + h - stripThickness}" width="${w}" height="${stripThickness}"`
+      : side === "left" ? `x="${x}" y="${y}" width="${stripThickness}" height="${h}"`
+        : `x="${x + w - stripThickness}" y="${y}" width="${stripThickness}" height="${h}"`;
+  return `<svg viewBox="0 0 22 16" width="22" height="16" aria-hidden="true"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="2.5" fill="none" stroke="currentColor" stroke-width="1.4" opacity=".5"></rect><rect ${strip} rx="1.1" fill="currentColor"></rect></svg>`;
+}
+
+// Renders/re-renders a segmented icon-button group into `#${id}` (replaces what used to be a
+// plain <select> for toolbar/sidebar position) and wires click-to-select. The chosen value lives
+// in the container's `dataset.value` - read it back with pickerValue(id), same spirit as
+// `select.value` but for a widget with no native value of its own.
+function renderPositionPicker(id, { kind, options, current, label }) {
+  const container = document.getElementById(id);
+  if (!container) return;
+  container.className = "positionPicker";
+  container.setAttribute("role", "radiogroup");
+  if (label) container.setAttribute("aria-label", t(label));
+  container.dataset.value = current;
+  container.innerHTML = options.map(({ value, title }) => `<button type="button" class="positionPickerBtn" data-value="${value}" title="${escapeHtml(t(title))}" aria-pressed="${value === current}">${positionPickerIcon(kind, value)}</button>`).join("");
+  container.querySelectorAll(".positionPickerBtn").forEach((button) => {
+    button.addEventListener("click", () => {
+      container.dataset.value = button.dataset.value;
+      container.querySelectorAll(".positionPickerBtn").forEach((btn) => btn.setAttribute("aria-pressed", String(btn === button)));
+    });
+  });
+}
+
+function pickerValue(id) {
+  return document.getElementById(id)?.dataset.value || "";
+}
+
+const TOOLBAR_POSITION_OPTIONS = [
+  { value: "top", title: "Horizontal - cima" },
+  { value: "bottom", title: "Horizontal - baixo" },
+  { value: "left", title: "Vertical - esquerda" },
+  { value: "right", title: "Vertical - direita" },
+];
+
 function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
   ensureFeatureRegistryControls();
@@ -387,10 +433,18 @@ function loadPreferenceUi() {
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
   document.getElementById("remindTestStatusOnRecording").checked = preferences.remindTestStatusOnRecording === true;
-  document.getElementById("drawerPosition").value = ["left", "right", "top", "bottom"].includes(preferences.drawerPosition) ? preferences.drawerPosition : "right";
-  document.getElementById("toolbarPosition").value = ["top", "bottom", "left", "right"].includes(preferences.toolbarPosition) ? preferences.toolbarPosition : "top";
-  document.getElementById("mobileDrawerPosition").value = ["left", "right", "top", "bottom"].includes(preferences.mobileDrawerPosition) ? preferences.mobileDrawerPosition : "bottom";
-  document.getElementById("mobileToolbarPosition").value = ["top", "bottom", "left", "right"].includes(preferences.mobileToolbarPosition) ? preferences.mobileToolbarPosition : "top";
+  renderPositionPicker("drawerPosition", {
+    kind: "panel", label: "Posição do sidebar (desktop)",
+    current: ["left", "right", "top", "bottom"].includes(preferences.drawerPosition) ? preferences.drawerPosition : "right",
+    options: [{ value: "right", title: "Direita" }, { value: "left", title: "Esquerda" }, { value: "top", title: "Cima" }, { value: "bottom", title: "Baixo" }],
+  });
+  renderPositionPicker("toolbarPosition", { kind: "bar", label: "Posição da toolbar (desktop)", current: ["top", "bottom", "left", "right"].includes(preferences.toolbarPosition) ? preferences.toolbarPosition : "top", options: TOOLBAR_POSITION_OPTIONS });
+  renderPositionPicker("mobileDrawerPosition", {
+    kind: "panel", label: "Posição do sidebar (mobile)",
+    current: ["left", "right", "top", "bottom"].includes(preferences.mobileDrawerPosition) ? preferences.mobileDrawerPosition : "bottom",
+    options: [{ value: "bottom", title: "Baixo - bottom sheet" }, { value: "top", title: "Cima" }, { value: "right", title: "Direita" }, { value: "left", title: "Esquerda" }],
+  });
+  renderPositionPicker("mobileToolbarPosition", { kind: "bar", label: "Posição da toolbar (mobile)", current: ["top", "bottom", "left", "right"].includes(preferences.mobileToolbarPosition) ? preferences.mobileToolbarPosition : "top", options: TOOLBAR_POSITION_OPTIONS });
   document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
   const pinned = new Set(preferences.pinnedTools || []);
   document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
@@ -670,10 +724,10 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
     pushSiteContent: document.getElementById("pushSiteContent").checked,
     soundEffects: document.getElementById("soundEffects").checked,
     remindTestStatusOnRecording: document.getElementById("remindTestStatusOnRecording").checked,
-    drawerPosition: document.getElementById("drawerPosition").value,
-    toolbarPosition: document.getElementById("toolbarPosition").value,
-    mobileDrawerPosition: document.getElementById("mobileDrawerPosition").value,
-    mobileToolbarPosition: document.getElementById("mobileToolbarPosition").value,
+    drawerPosition: pickerValue("drawerPosition"),
+    toolbarPosition: pickerValue("toolbarPosition"),
+    mobileDrawerPosition: pickerValue("mobileDrawerPosition"),
+    mobileToolbarPosition: pickerValue("mobileToolbarPosition"),
     avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
     pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
     enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
@@ -852,7 +906,7 @@ function renderUrlRelationList() {
     const key = environment ? environment.id : "__none__";
     const name = environment ? environmentDisplayName(environment) : t("Sem ambiente");
     const color = environment ? environment.color : "#5b6172";
-    return `<details class="environmentAccordion" data-accordion-key="${escapeHtml(key)}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}>
+    return `<details class="environmentAccordion${environment ? " isColorTinted" : ""}" data-accordion-key="${escapeHtml(key)}" style="--environment-color:${escapeHtml(color)}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}>
       <summary><span class="environmentDot" style="--environment-color:${escapeHtml(color)}"></span><b>${escapeHtml(name)}</b><span class="count">${items.length}</span></summary>
       <div class="list listComfortable">${items.length ? items.map(renderUrlRelationRow).join("") : `<div class="listEmpty">${escapeHtml(t("Nenhuma URL cadastrada neste ambiente."))}</div>`}</div>
     </details>`;
@@ -961,8 +1015,11 @@ function renderScopePicker(key, { requireEnvironment }) {
     const visibleItems = facet.items.filter((item) => !query || facet.optionText(item).toLowerCase().includes(query));
     const isOpen = state.openFacet === facet.field;
     const isEmpty = !selected.size;
+    // A full sentence ("Selecione ao menos um ambiente") never fit in this badge - it always
+    // truncated so hard the field's own name got cut too ("Ambi…"). The red isRequiredEmpty
+    // border already signals "this needs attention"; the badge just needs one short word.
     const emptyLabel = facet.required
-      ? t("Selecione ao menos um ambiente")
+      ? t("Obrigatório")
       : t("Todos");
     return `
       <div class="scopeFacet${index === facets.length - 1 ? " alignRight" : ""}" data-facet="${facet.field}">
