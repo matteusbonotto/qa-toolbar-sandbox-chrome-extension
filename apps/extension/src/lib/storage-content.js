@@ -97,6 +97,39 @@
     const validIds = new Set(validEntities.map((entity) => entity.id));
     return [...new Set(source.map((value) => text(value, 120)))].filter((value) => validIds.has(value));
   }
+  // Keep in sync with storage.js's twin of these - "sistema operacional"/"navegador" catalogs and
+  // "dispositivo" records that pick freely from both (schemaVersion 17).
+  function normalizeCatalogEntries(input, prefix) {
+    return (Array.isArray(input) ? input : []).slice(0, 200).map((item, index) => ({
+      id: id(item?.id, prefix, index),
+      name: text(item?.name ?? item?.label, 60) || `Item ${index + 1}`,
+      icon: text(item?.icon, IMAGE_VALUE_MAX_CHARS),
+      active: item?.active !== false,
+    }));
+  }
+  const DEFAULT_OPERATING_SYSTEMS = Object.freeze([
+    Object.freeze({ id: "operatingSystem_windows", name: "Windows", icon: "", active: true }),
+    Object.freeze({ id: "operatingSystem_macos", name: "macOS", icon: "", active: true }),
+    Object.freeze({ id: "operatingSystem_linux", name: "Linux", icon: "", active: true }),
+    Object.freeze({ id: "operatingSystem_android", name: "Android", icon: "", active: true }),
+    Object.freeze({ id: "operatingSystem_ios", name: "iOS", icon: "", active: true }),
+  ]);
+  const DEFAULT_BROWSERS = Object.freeze([
+    Object.freeze({ id: "browser_chrome", name: "Chrome", icon: "", active: true }),
+    Object.freeze({ id: "browser_firefox", name: "Firefox", icon: "", active: true }),
+    Object.freeze({ id: "browser_safari", name: "Safari", icon: "", active: true }),
+    Object.freeze({ id: "browser_edge", name: "Edge", icon: "", active: true }),
+  ]);
+  function normalizeDevice(item, index, operatingSystems, browsers) {
+    return {
+      id: id(item?.id, "device", index),
+      label: text(item?.label, 120) || `Dispositivo ${index + 1}`,
+      operatingSystemIds: normalizeIdArray(item?.operatingSystemIds, null, operatingSystems),
+      browserIds: normalizeIdArray(item?.browserIds, null, browsers),
+      notes: text(item?.notes, 1000),
+      active: item?.active !== false,
+    };
+  }
   function normalizeTestAccount(item, index, environments, products) {
     const environmentIds = normalizeIdArray(item?.environmentIds, item?.environmentId, environments);
     if (!environmentIds.length) return null;
@@ -135,7 +168,7 @@
   }
   function createEmptyWorkspace() {
     return {
-      schemaVersion: 15,
+      schemaVersion: 17,
       updatedAt: new Date().toISOString(),
       clients: [],
       projects: [],
@@ -149,6 +182,9 @@
       resources: [],
       macros: [],
       stepRecordings: [],
+      operatingSystems: DEFAULT_OPERATING_SYSTEMS.map((entry) => ({ ...entry })),
+      browsers: DEFAULT_BROWSERS.map((entry) => ({ ...entry })),
+      devices: [],
       preferences: {
         language: "pt-BR",
         appearanceTheme: "light",
@@ -410,15 +446,24 @@
     if (Number(source.schemaVersion || 0) < 13) for (const tool of SCHEMA_13_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 14) for (const tool of SCHEMA_14_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 15) for (const tool of SCHEMA_15_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    let operatingSystems = normalizeCatalogEntries(source.operatingSystems, "operatingSystem");
+    let browsers = normalizeCatalogEntries(source.browsers, "browser");
+    if (Number(source.schemaVersion || 0) < 17) {
+      if (!operatingSystems.length) operatingSystems = DEFAULT_OPERATING_SYSTEMS.map((entry) => ({ ...entry }));
+      if (!browsers.length) browsers = DEFAULT_BROWSERS.map((entry) => ({ ...entry }));
+    }
     return {
       ...empty,
-      schemaVersion: 15,
+      schemaVersion: 17,
       updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
       clients,
       projects,
       products,
       environments,
       urlBindings,
+      operatingSystems,
+      browsers,
+      devices: (Array.isArray(source.devices) ? source.devices : []).map((item, index) => normalizeDevice(item, index, operatingSystems, browsers)),
       testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : []).map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
       paymentMethods: copy("paymentMethods").map((item) => {
         // "number" was never a real field in this schema (the composers always write "value") -

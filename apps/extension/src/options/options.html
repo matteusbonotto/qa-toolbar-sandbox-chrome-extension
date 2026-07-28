@@ -234,6 +234,7 @@
             <button type="button" class="workspaceTab" data-workspace-tab="urls" role="tab">URLs</button>
             <button type="button" class="workspaceTab" data-workspace-tab="accounts" role="tab">Contas</button>
             <button type="button" class="workspaceTab" data-workspace-tab="payments" role="tab">Pagamentos</button>
+            <button type="button" class="workspaceTab" data-workspace-tab="devices" role="tab">Dispositivos</button>
             <button type="button" class="workspaceTab" data-workspace-tab="integrations" role="tab">Integrações</button>
           </div>
 
@@ -277,6 +278,21 @@
             <div class="paneIntro"><div><h2>Meios de pagamento</h2><p>Dados sandbox reutilizáveis, com valor e CVV sempre tratados como sensíveis.</p></div><span class="count" id="paymentMethodCount">0</span></div>
             <article class="entityCard entityCardWide"><p class="sandboxWarning">Somente dados sandbox. O valor sensível nunca entra na exportação.</p><div class="list listComfortable" id="paymentMethodList"></div>
               <button type="button" class="composerTrigger" data-open-composer="paymentMethodComposer">Adicionar pagamento</button>
+            </article>
+          </div>
+
+          <div class="workspacePane" data-workspace-pane="devices" role="tabpanel">
+            <div class="paneIntro"><div><h2>Dispositivos</h2><p>Cadastre um dispositivo com os sistemas e navegadores em que ele roda - útil para anexar ao reportar um bug.</p></div><span class="count" id="deviceCount">0</span></div>
+            <div class="studioGrid">
+              <article class="entityCard typeCatalogCard"><div class="cardHead"><h3>Sistemas operacionais</h3><span class="count" id="operatingSystemCount">0</span></div><div class="list typeCatalogList" id="operatingSystemList"></div>
+                <button type="button" class="composerTrigger" data-open-composer="operatingSystemComposer">Adicionar sistema</button>
+              </article>
+              <article class="entityCard typeCatalogCard"><div class="cardHead"><h3>Navegadores</h3><span class="count" id="browserCount">0</span></div><div class="list typeCatalogList" id="browserList"></div>
+                <button type="button" class="composerTrigger" data-open-composer="browserComposer">Adicionar navegador</button>
+              </article>
+            </div>
+            <article class="entityCard entityCardWide"><div class="list listComfortable" id="deviceList"></div>
+              <button type="button" class="composerTrigger" data-open-composer="deviceComposer">Adicionar dispositivo</button>
             </article>
           </div>
 
@@ -357,6 +373,25 @@
   <dialog class="formDialog formDialogWide" id="paymentMethodComposer" aria-labelledby="paymentMethodComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">Pagamento</span><h2 id="paymentMethodComposerTitle">Adicionar pagamento</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm formWide" id="paymentMethodForm"><input type="hidden" id="paymentMethodEditId" /><div class="scopePicker fullRow" id="paymentMethodScopePicker"></div><label class="field">Nome<input type="text" id="paymentMethodLabel" placeholder="Ex.: Visa aprovado" required /></label><label class="field">Tipo<select id="paymentMethodType"><option value="card">Cartão</option><option value="pix">PIX</option><option value="bank">Conta bancária</option><option value="other">Outro</option></select></label><label class="field imageField">Ícone/bandeira<span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone/bandeira (opcional)" id="paymentMethodIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span></label><label class="field">Número/token sandbox<input type="text" id="paymentMethodValue" placeholder="Somente dados sandbox" /></label><label class="field">Titular<input type="text" id="paymentMethodHolder" placeholder="Opcional" /></label><label class="field fieldNarrow">Validade<input type="text" id="paymentMethodExpiry" placeholder="MM/AA" /></label><label class="field fieldNarrow">CVV sandbox<input type="text" id="paymentMethodCvv" placeholder="Opcional" /></label><label class="field fullRow">Observações<input type="text" id="paymentMethodNotes" placeholder="Notas internas (opcional)" /></label><div class="formActions"><button type="submit" class="button primary">Salvar pagamento</button><button type="button" class="button cancelEdit" data-cancel="paymentMethod" hidden>Cancelar</button></div></form>
+  </dialog>
+  <dialog class="formDialog" id="operatingSystemComposer" aria-labelledby="operatingSystemComposerTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Sistema operacional</span><h2 id="operatingSystemComposerTitle">Adicionar sistema</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
+    <form class="inlineForm" id="operatingSystemForm"><input type="hidden" id="operatingSystemEditId" /><input type="text" id="operatingSystemName" placeholder="Nome (ex.: Windows, macOS)" required /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone (opcional)" id="operatingSystemIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><div class="formActions"><button type="submit" class="button primary">Salvar sistema</button><button type="button" class="button cancelEdit" data-cancel="operatingSystem" hidden>Cancelar</button></div></form>
+  </dialog>
+  <dialog class="formDialog" id="browserComposer" aria-labelledby="browserComposerTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Navegador</span><h2 id="browserComposerTitle">Adicionar navegador</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
+    <form class="inlineForm" id="browserForm"><input type="hidden" id="browserEditId" /><input type="text" id="browserName" placeholder="Nome (ex.: Chrome, Firefox)" required /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone (opcional)" id="browserIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><div class="formActions"><button type="submit" class="button primary">Salvar navegador</button><button type="button" class="button cancelEdit" data-cancel="browser" hidden>Cancelar</button></div></form>
+  </dialog>
+  <dialog class="formDialog" id="deviceComposer" aria-labelledby="deviceComposerTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Dispositivo</span><h2 id="deviceComposerTitle">Adicionar dispositivo</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
+    <form class="inlineForm" id="deviceForm">
+      <input type="hidden" id="deviceEditId" />
+      <input type="text" id="deviceLabel" placeholder="Nome do dispositivo (ex.: Notebook QA, iPhone 13)" required class="fullRow" />
+      <div class="fullRow"><div class="fieldLabelRow"><span class="fieldLabel">Sistemas operacionais</span><button type="button" class="button linkButton" data-quick-add-type="operatingSystem">+ novo</button></div><div class="checkboxGrid" id="deviceOperatingSystems"></div></div>
+      <div class="fullRow"><div class="fieldLabelRow"><span class="fieldLabel">Navegadores</span><button type="button" class="button linkButton" data-quick-add-type="browser">+ novo</button></div><div class="checkboxGrid" id="deviceBrowsers"></div></div>
+      <input type="text" id="deviceNotes" placeholder="Observações (opcional)" class="fullRow" />
+      <div class="formActions"><button type="submit" class="button primary">Salvar dispositivo</button><button type="button" class="button cancelEdit" data-cancel="device" hidden>Cancelar</button></div>
+    </form>
   </dialog>
   <dialog class="formDialog" id="inspectorComposer" aria-labelledby="inspectorComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">Inspector</span><h2 id="inspectorComposerTitle">Adicionar Inspector</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>

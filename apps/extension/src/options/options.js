@@ -140,6 +140,9 @@ const COLLECTION_UI = {
   inspectors: { listId: "inspectorList", prefix: "inspector" },
   apis: { listId: "apiList", prefix: "api" },
   resources: { listId: "resourceList", prefix: "resource" },
+  operatingSystems: { listId: "operatingSystemList", prefix: "operatingSystem" },
+  browsers: { listId: "browserList", prefix: "browser" },
+  devices: { listId: "deviceList", prefix: "device" },
 };
 
 function uid(prefix) {
@@ -1115,12 +1118,36 @@ document.addEventListener("keydown", (event) => {
   for (const key of Object.keys(scopePickerStates)) closeOpenScopeFacet(key);
 });
 
+// Preserves whatever's already checked in the pill grid across re-renders (the same grid is
+// repainted every time a related "+" quick-add composer saves), so a device being filled out
+// never loses its picks just because a new operating system/browser was added mid-form.
+function renderCheckboxGrid(containerId, catalog) {
+  const container = document.getElementById(containerId);
+  const previouslyChecked = new Set([...container.querySelectorAll("input:checked")].map((input) => input.value));
+  container.innerHTML = catalog.map((entry) => `
+    <label class="checkboxPill">
+      <input type="checkbox" value="${escapeHtml(entry.id)}" ${previouslyChecked.has(entry.id) ? "checked" : ""} />
+      ${entry.icon ? `<img src="${escapeHtml(entry.icon)}" alt="" />` : ""}
+      ${escapeHtml(entry.name)}
+    </label>`).join("") || `<span class="hint">${escapeHtml(t("Nada cadastrado ainda."))}</span>`;
+}
+
 function renderWorkspace() {
-  for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {
+  for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount", operatingSystems: "operatingSystemCount", browsers: "browserCount", devices: "deviceCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
   }
   document.getElementById("structureRelationHint").textContent = t("{clients} cliente(s) · {projects} projeto(s) · {products} produto(s)", { clients: workspace.clients.length, projects: workspace.projects.length, products: workspace.products.length });
   const badge = (entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 22 });
+  const typeRowFormatter = (item) => `<b>${item.icon ? `<img src="${escapeHtml(item.icon)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : ""}${escapeHtml(item.name)}</b>`;
+  renderRows("operatingSystems", typeRowFormatter);
+  renderRows("browsers", typeRowFormatter);
+  renderRows("devices", (item) => {
+    const osNames = item.operatingSystemIds.map((entryId) => findById("operatingSystems", entryId)?.name).filter(Boolean);
+    const browserNames = item.browserIds.map((entryId) => findById("browsers", entryId)?.name).filter(Boolean);
+    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml([...osNames, ...browserNames].join(", ") || t("Nenhum sistema/navegador selecionado"))}</small>${item.notes ? `<small>${escapeHtml(item.notes)}</small>` : ""}`;
+  });
+  renderCheckboxGrid("deviceOperatingSystems", workspace.operatingSystems);
+  renderCheckboxGrid("deviceBrowsers", workspace.browsers);
   renderRows("clients", (item) => `<b>${badge(item)}</b>`);
   renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "-")}</small>`);
   renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "-")}</small>`);
@@ -1530,6 +1557,9 @@ function clearEdit(prefix) {
     resetScopePickerState("paymentMethod");
     renderScopePicker("paymentMethod", { requireEnvironment: false });
   }
+  if (prefix === "device") {
+    document.querySelectorAll("#deviceOperatingSystems input, #deviceBrowsers input").forEach((input) => { input.checked = false; });
+  }
   const composer = document.getElementById(`${prefix}Composer`);
   if (composer?.open) composer.close();
 }
@@ -1689,6 +1719,40 @@ document.getElementById("paymentMethodForm").addEventListener("submit", async (e
   clearEdit("paymentMethod");
   await persistWorkspace();
 });
+// After a quick-add ("+ novo") from inside the device composer, the newly created system/browser
+// is checked back into the pill it came from, instead of leaving the user to find and tick it.
+let quickAddTypeTarget = null;
+document.querySelectorAll("[data-quick-add-type]").forEach((button) => button.addEventListener("click", () => {
+  quickAddTypeTarget = button.dataset.quickAddType;
+  document.getElementById(`${quickAddTypeTarget}Composer`).showModal();
+}));
+document.getElementById("operatingSystemForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("operatingSystemEditId").value;
+  const newId = editId || uid("operatingSystem");
+  upsert("operatingSystems", { id: newId, name: document.getElementById("operatingSystemName").value.trim(), icon: document.getElementById("operatingSystemIcon").value.trim(), active: true }, editId);
+  clearEdit("operatingSystem");
+  await persistWorkspace();
+  if (quickAddTypeTarget === "operatingSystem") { const input = document.querySelector(`#deviceOperatingSystems input[value="${newId}"]`); if (input) input.checked = true; quickAddTypeTarget = null; }
+});
+document.getElementById("browserForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("browserEditId").value;
+  const newId = editId || uid("browser");
+  upsert("browsers", { id: newId, name: document.getElementById("browserName").value.trim(), icon: document.getElementById("browserIcon").value.trim(), active: true }, editId);
+  clearEdit("browser");
+  await persistWorkspace();
+  if (quickAddTypeTarget === "browser") { const input = document.querySelector(`#deviceBrowsers input[value="${newId}"]`); if (input) input.checked = true; quickAddTypeTarget = null; }
+});
+document.getElementById("deviceForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("deviceEditId").value;
+  const operatingSystemIds = [...document.querySelectorAll("#deviceOperatingSystems input:checked")].map((input) => input.value);
+  const browserIds = [...document.querySelectorAll("#deviceBrowsers input:checked")].map((input) => input.value);
+  upsert("devices", { id: editId || uid("device"), label: document.getElementById("deviceLabel").value.trim(), operatingSystemIds, browserIds, notes: document.getElementById("deviceNotes").value.trim(), active: true }, editId);
+  clearEdit("device");
+  await persistWorkspace();
+});
 document.getElementById("inspectorForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("inspectorEditId").value; upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId); clearEdit("inspector"); await persistWorkspace(); });
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
 document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), icon: document.getElementById("resourceIcon").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
@@ -1772,7 +1836,7 @@ function markSensitiveFieldSaved(elementId, hasExistingValue) {
 
 function editItem(collection, item) {
   const prefix = COLLECTION_UI[collection].prefix;
-  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations" };
+  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations", operatingSystems: "devices", browsers: "devices", devices: "devices" };
   activateWorkspaceTab(workspaceTabs[collection] || "structure", { syncNavigation: true });
   const composer = document.getElementById(`${prefix}Composer`);
   if (composer && !composer.open) composer.showModal();
@@ -1793,6 +1857,9 @@ function editItem(collection, item) {
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
     apis: { apiLabel: item.label, apiBaseUrl: item.baseUrl, apiToken: "" },
     resources: { resourceLabel: item.label, resourceUrl: item.url, resourceCategory: item.category, resourceIcon: item.icon },
+    operatingSystems: { operatingSystemName: item.name, operatingSystemIcon: item.icon },
+    browsers: { browserName: item.name, browserIcon: item.icon },
+    devices: { deviceLabel: item.label, deviceNotes: item.notes },
   }[collection];
   for (const [elementId, value] of Object.entries(values || {})) {
     const element = document.getElementById(elementId);
@@ -1814,6 +1881,10 @@ function editItem(collection, item) {
     renderUrlEnvironmentPicker();
     urlPatternsDraft = [...(item.patterns || [])];
     renderUrlPatternsPicker();
+  }
+  if (collection === "devices") {
+    const checkedIds = new Set([...(item.operatingSystemIds || []), ...(item.browserIds || [])]);
+    document.querySelectorAll("#deviceOperatingSystems input, #deviceBrowsers input").forEach((input) => { input.checked = checkedIds.has(input.value); });
   }
   document.getElementById(`${prefix}Form`).scrollIntoView({ behavior: "smooth", block: "center" });
 }
@@ -1865,6 +1936,14 @@ function cascadeRemove(collection, removeId) {
     const removeIdSet = new Set([removeId]);
     workspace.testAccounts = pruneScopedCollection(workspace.testAccounts, "environmentIds", removeIdSet);
     workspace.paymentMethods = pruneScopedCollection(workspace.paymentMethods, "environmentIds", removeIdSet);
+  }
+  // Unlike environments (required, non-empty), a device is still a valid device with zero
+  // systems/browsers left checked - only the reference is dropped, the device itself stays.
+  if (collection === "operatingSystems") {
+    workspace.devices = workspace.devices.map((item) => ({ ...item, operatingSystemIds: item.operatingSystemIds.filter((entryId) => entryId !== removeId) }));
+  }
+  if (collection === "browsers") {
+    workspace.devices = workspace.devices.map((item) => ({ ...item, browserIds: item.browserIds.filter((entryId) => entryId !== removeId) }));
   }
   removeSet(collection, (item) => item.id === removeId);
 }
@@ -1991,7 +2070,7 @@ document.getElementById("aiPromptButton").addEventListener("click", async () => 
 // silently turning `"a string"` or `null` into a fake "Cliente 2" with zero indication is exactly
 // the "imported with errors" the founder ran into. So the import path validates the raw shape
 // first and refuses the whole file rather than normalizing garbage into phantom records.
-const IMPORTABLE_COLLECTIONS = ["clients", "projects", "products", "environments", "urlBindings", "testAccounts", "paymentMethods", "apis", "inspectors", "resources", "macros"];
+const IMPORTABLE_COLLECTIONS = ["clients", "projects", "products", "environments", "urlBindings", "testAccounts", "paymentMethods", "apis", "inspectors", "resources", "macros", "operatingSystems", "browsers", "devices"];
 function validateImportShape(candidate) {
   for (const key of IMPORTABLE_COLLECTIONS) {
     const value = candidate[key];
@@ -2232,6 +2311,7 @@ const SETTINGS_TOUR_STEPS = [
   { tab: "workspace", workspaceTab: "urls", selector: '[data-open-composer="urlRelationComposer"]', title: "5. Vincular URL", text: "Adicione a URL, escolha o produto e seus ambientes. Essa associação determina em quais páginas a toolbar aparece." },
   { tab: "workspace", workspaceTab: "accounts", selector: '[data-open-composer="testAccountComposer"]', title: "Contas de teste", text: "Adicione apenas credenciais sandbox, defina o escopo e salve. Valores sensíveis são mascarados e não entram na exportação." },
   { tab: "workspace", workspaceTab: "payments", selector: '[data-open-composer="paymentMethodComposer"]', title: "Meios de pagamento", text: "Cadastre cartões e métodos exclusivamente sandbox. Número, valor sensível e CVV recebem proteção especial." },
+  { tab: "workspace", workspaceTab: "devices", selector: '[data-open-composer="deviceComposer"]', title: "Dispositivos", text: "Cadastre um dispositivo e marque quantos sistemas e navegadores quiser - útil para anexar ao reportar um bug." },
   { tab: "workspace", workspaceTab: "integrations", selector: '[data-open-composer="inspectorComposer"]', title: "Configurar Inspectors", text: "Adicione regras para reconhecer respostas de rede pelo nome, método ou URL. O monitor usa essas regras na página testada." },
   { tab: "workspace", workspaceTab: "integrations", selector: '[data-open-composer="apiComposer"]', title: "Cadastrar APIs", text: "Registre endpoints úteis do projeto para consulta rápida, sem executar JavaScript fornecido pelo usuário." },
   { tab: "workspace", workspaceTab: "integrations", selector: '[data-open-composer="resourceComposer"]', title: "Integrações, recursos e links", text: "Adicione documentação, dashboards e links da equipe. Ao salvar, o novo recurso fica disponível imediatamente na sidebar." },
