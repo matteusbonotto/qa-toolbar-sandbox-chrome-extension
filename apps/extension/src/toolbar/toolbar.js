@@ -2966,7 +2966,7 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      container-type:inline-size; position:relative; width: min(430px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
+      container-type:inline-size; position:relative; width: min(480px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4); resize: both; overflow: hidden;
     }
     .qts-drawer-backdrop[data-position="left"] { justify-content:flex-start; }

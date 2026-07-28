@@ -1115,6 +1115,7 @@ function renderWorkspace() {
   for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
   }
+  document.getElementById("structureRelationHint").textContent = t("{clients} cliente(s) · {projects} projeto(s) · {products} produto(s)", { clients: workspace.clients.length, projects: workspace.projects.length, products: workspace.products.length });
   const badge = (entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 22 });
   renderRows("clients", (item) => `<b>${badge(item)}</b>`);
   renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "-")}</small>`);
@@ -1331,9 +1332,9 @@ function bindWizardStepEvents(step) {
         record[step.parentField] = parentId;
       }
       workspace[step.collection].push(record);
-      await persistWorkspace();
       wizardSelection[step.key].add(record.id);
       renderWizardStep();
+      await persistWorkspace();
     };
     document.getElementById("wizardEntityAdd").addEventListener("click", () => void addEntity());
     document.getElementById("wizardEntityInput").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void addEntity(); } });
@@ -1355,9 +1356,9 @@ function bindWizardStepEvents(step) {
       if (!name) { nameInput.focus(); return; }
       const record = { id: uid("environment"), name, color: colorInput.value };
       workspace.environments.push(record);
-      await persistWorkspace();
       wizardSelection.environment.add(record.id);
       renderWizardStep();
+      await persistWorkspace();
     });
   }
 
@@ -1369,9 +1370,9 @@ function bindWizardStepEvents(step) {
       const productId = productSelect?.value;
       if (!pattern || !productId) { patternInput.focus(); return; }
       workspace.urlBindings.push({ id: uid("binding"), productId, environmentIds: [...wizardSelection.environment], patterns: normalizeUrlPatterns(pattern) });
-      await persistWorkspace();
       patternInput.value = "";
       renderWizardStep();
+      await persistWorkspace();
     });
   }
 
