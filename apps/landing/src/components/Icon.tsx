@@ -45,6 +45,8 @@ import iconChevronUp from "bootstrap-icons/icons/chevron-up.svg?raw";
 import iconLockFill from "bootstrap-icons/icons/lock-fill.svg?raw";
 import iconClock from "bootstrap-icons/icons/clock.svg?raw";
 import iconPencil from "bootstrap-icons/icons/pencil.svg?raw";
+import iconQrCode from "bootstrap-icons/icons/qr-code.svg?raw";
+import iconTranslate from "bootstrap-icons/icons/translate.svg?raw";
 
 const ICONS = {
   archive: iconArchive,
@@ -92,6 +94,8 @@ const ICONS = {
   lockFill: iconLockFill,
   clock: iconClock,
   pencil: iconPencil,
+  qrCode: iconQrCode,
+  translate: iconTranslate,
 } as const;
 
 export type IconName = keyof typeof ICONS;

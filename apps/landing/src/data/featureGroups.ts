@@ -40,6 +40,7 @@ export const featureGroups: FeatureGroup[] = [
       { key: "clickSpy", icon: "mouse2" },
       { key: "breakpointViewer", icon: "aspectRatio" },
       { key: "pixelPerfect", icon: "rulers" },
+      { key: "languageValidator", icon: "translate" },
     ],
   },
   {
@@ -50,6 +51,7 @@ export const featureGroups: FeatureGroup[] = [
       { key: "multiClick", icon: "lightningCharge" },
       { key: "inputLab", icon: "checkSquare" },
       { key: "fakerFill", icon: "stars" },
+      { key: "qrCode", icon: "qrCode" },
     ],
   },
   {

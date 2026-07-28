@@ -83,6 +83,11 @@ export function SiteNavToolbar() {
             </button>
           ))}
         </div>
+        {signedIn ? (
+          <button type="button" className="qts-site-toolbar-account" onClick={() => openAccountModal()}>
+            {t.nav.myAccount}
+          </button>
+        ) : null}
         <button type="button" className="qts-site-toolbar-cta" onClick={() => {
           if (signedIn) {
             const pricing = document.getElementById("planos");
