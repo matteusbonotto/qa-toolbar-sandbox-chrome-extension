@@ -1456,6 +1456,45 @@ try {
   await host.goto("http://127.0.0.1:43117/");
   await toolbar.waitFor({ timeout: 10_000 });
 
+  // A live recording (Gravador de Passos / Macro Studio) used to be pure in-memory - a reload
+  // silently lost everything captured so far. It should now resume, via the same tab-scoped
+  // chrome.storage.session pattern macro *replay* already used (see qts:recording-run).
+  await host.locator("#toolsButton").click();
+  await host.locator("#stepsRecorderMenuItem").click();
+  await host.locator("#newStepsName").fill("Sobrevive ao reload");
+  await host.locator("#startSteps").click();
+  await host.locator("#macroTarget").click();
+  await host.reload();
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await host.locator("#stepsRecordingBar:not(.isHidden)").waitFor({ timeout: 10_000 });
+  const stepsCountAfterReload = Number(await host.locator("#stepsRecCount").textContent());
+  if (!(stepsCountAfterReload >= 2)) throw new Error(`Steps recording bar did not resume with its pre-reload steps: ${stepsCountAfterReload}`);
+  await host.locator("#multiTarget").click();
+  const stepsCountAfterResume = Number(await host.locator("#stepsRecCount").textContent());
+  if (!(stepsCountAfterResume > stepsCountAfterReload)) throw new Error("Resumed steps recording did not keep capturing new actions");
+  await host.locator("#stepsRecDoneButton").click();
+  await host.locator("#stepsSave").click();
+  await host.getByText("Sobrevive ao reload").waitFor();
+  await host.locator("#drawerClose").click();
+  trace("step recorder survives reload (pre-reload steps kept, capture continued)");
+
+  await host.locator("#toolsButton").click();
+  await host.locator("#macroStudioMenuItem").click();
+  await host.locator("#startMacroRecording").click();
+  await host.locator("#macroTarget").click();
+  await host.reload();
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await host.locator("#macroRecordingBar:not(.isHidden)").waitFor({ timeout: 10_000 });
+  const macroCountAfterReload = Number(await host.locator("#macroStepCount").textContent());
+  if (!(macroCountAfterReload >= 1)) throw new Error(`Macro recording bar did not resume with its pre-reload steps: ${macroCountAfterReload}`);
+  await host.locator("#multiTarget").click();
+  const macroCountAfterResume = Number(await host.locator("#macroStepCount").textContent());
+  if (!(macroCountAfterResume > macroCountAfterReload)) throw new Error("Resumed macro recording did not keep capturing new actions");
+  await host.locator("#macroRecDoneButton").click();
+  await host.locator("#macroBack").click();
+  await host.locator("#drawerClose").click();
+  trace("macro recording survives reload (pre-reload steps kept, capture continued)");
+
   // Compact mode hides project/product names, preserving their image/initial badges and environment.
   await options.getByRole("button", { name: "Barra e aparência" }).click();
   // "Barra e aparência" is a list of collapsible accordions now (all closed by default except
