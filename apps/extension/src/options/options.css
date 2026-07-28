@@ -316,6 +316,12 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .field > small { color:var(--muted); font-size:10px; font-weight:500; }
 .colorField { flex:0 0 100px; }
 .colorField input { width:100%; }
+/* Every meaningful composer field is now a labeled .field (was placeholder-only text before -
+   founder feedback: "muito feios e bagunçados" - a placeholder that vanishes the moment you start
+   typing isn't a label). .imageField keeps the same URL/Upload row, just with a real caption above
+   it; .fieldNarrow is for short values (sigla, validade, CVV) that don't need a full-width slot. */
+.imageField .imageInputGroup { flex:1 1 auto; width:100%; }
+.fieldNarrow { flex:0 1 110px; }
 .environmentPicker { flex-basis:100%; }
 .environmentToggles { display:flex; flex-wrap:wrap; gap:8px; }
 .environmentToggle { display:inline-flex; align-items:center; gap:7px; min-height:36px; padding:0 12px; border:1px solid var(--border); border-radius:999px; background:var(--control-bg); color:var(--muted); cursor:pointer; font-size:11px; font-weight:750; transition:.16s ease; }
