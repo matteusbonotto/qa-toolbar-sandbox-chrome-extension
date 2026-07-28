@@ -336,6 +336,35 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch(() => sendResponse({ ok: false, error: "macro_run_failed" }));
     return true;
   }
+  if (message.type === "qts:recording-run") {
+    getAccessState().then(async (access) => {
+      // Same tab-scoped, session-only pattern as qts:macro-run above, generalized to the two
+      // *recording* phases (Gravador de Passos / Macro Studio) - neither writes anything while
+      // capturing today, so a page reload mid-recording silently loses everything already
+      // captured. This lets the content script check in on every step and pick back up right
+      // where it left off after boot() reinjects.
+      if (!access.active || !sender.tab?.id) return sendResponse({ ok: false, error: "authentication_required" });
+      const kind = message.kind === "macro" ? "macro" : "steps";
+      const key = `qts${kind === "macro" ? "Macro" : "Steps"}RecordingTab${sender.tab.id}`;
+      if (message.operation === "get") {
+        const stored = await chrome.storage.session.get(key);
+        return sendResponse({ ok: true, run: stored[key] || null });
+      }
+      if (message.operation === "clear") {
+        await chrome.storage.session.remove(key);
+        return sendResponse({ ok: true });
+      }
+      if (message.operation === "set" && message.run && typeof message.run === "object") {
+        if (JSON.stringify(message.run).length > 200_000) return sendResponse({ ok: false, error: "recording_too_large" });
+        const run = { ...message.run, expiresAt: Math.min(Date.now() + 60 * 60_000, Number(message.run.expiresAt) || 0) };
+        if (run.expiresAt <= Date.now()) return sendResponse({ ok: false, error: "invalid_recording_run" });
+        await chrome.storage.session.set({ [key]: run });
+        return sendResponse({ ok: true });
+      }
+      return sendResponse({ ok: false, error: "invalid_operation" });
+    }).catch(() => sendResponse({ ok: false, error: "recording_run_failed" }));
+    return true;
+  }
   if (message.type === "qts:auth-sign-in" && isOwnOptionsPage(sender)) {
     signIn(message.email, message.password)
       .then(() => getAccessState({ force: true }))

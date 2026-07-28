@@ -3456,10 +3456,19 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   if (!view && title === stepsCopy().title) view = "stepsRecorder";
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
-  // Every open must reset (or set) this flag - handleNetworkCaptured() checks it to decide
-  // whether to live-refresh the Inspectors list. Leaving a stale "inspectors" value here after
-  // switching to a different panel made Inspectors content silently overwrite other drawers.
+  // Every open must reset (or set) this flag - handleNetworkCaptured()/updateHttpErrorSurfaces()
+  // check it to decide whether to live-refresh the Inspectors/Error Monitor list. Leaving a stale
+  // "inspectors" value here after switching to a different panel made Inspectors content silently
+  // overwrite other drawers.
   drawerHost.dataset.view = view;
+  // A detail view (Inspectors' or Error Monitor's "endpoint" screen) reuses the SAME `view` tag as
+  // its own list - it's a `onBack`-driven sub-screen, not a different tool - so the live-refresh
+  // checks above can't tell a detail screen apart from the list using `view` alone. Found live: a
+  // background capture arriving while looking at an endpoint's detail forced the list back onto
+  // screen, discarding the drill-down (and, from the search box being gone too, reading as "my
+  // filter got undone"). `onBack` is only ever passed for a detail/drill-down screen, so it's
+  // already the exact signal needed - nothing new to track.
+  drawerHost.dataset.drawerHasBack = String(Boolean(onBack));
   const preferredDrawerPosition = effectiveDrawerPosition();
   const drawerPosition = ["left", "right", "top", "bottom"].includes(preferredDrawerPosition) ? preferredDrawerPosition : "right";
   const detachedWindow = Boolean(state.detachedToolKey);
@@ -3989,7 +3998,8 @@ function handleNetworkCaptured(entry) {
     badge.textContent = String(state.networkHistory.length);
     badge.style.display = state.networkHistory.length ? "inline-flex" : "none";
   }
-  if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
+  const inspectorsDrawerHost = state.shadowRoot?.getElementById("drawerHost");
+  if (inspectorsDrawerHost?.dataset.view === "inspectors" && inspectorsDrawerHost.dataset.drawerHasBack !== "true") renderInspectorsList();
 }
 
 // "auto" means "not yet manually chosen" - resolved once per drawer session by
@@ -4230,7 +4240,8 @@ function updateHttpErrorSurfaces() {
   const bellBadge = root.getElementById("notificationBellBadge");
   if (bellBadge) { bellBadge.textContent = count > 99 ? "99+" : String(count); bellBadge.classList.toggle("isVisible", count > 0); }
   if (!root.getElementById("notificationBellPanel")?.classList.contains("isHidden")) renderNotificationBellPanel();
-  if (root.getElementById("drawerHost")?.dataset.view === "errorMonitor") renderErrorMonitorList();
+  const errorMonitorDrawerHost = root.getElementById("drawerHost");
+  if (errorMonitorDrawerHost?.dataset.view === "errorMonitor" && errorMonitorDrawerHost.dataset.drawerHasBack !== "true") renderErrorMonitorList();
 }
 
 function clearHttpErrors() {
@@ -6855,6 +6866,20 @@ function appendRecordedStep(step) {
   else recording.steps.push(step);
   recording.lastAt = Date.now();
   updateMacroRecordingUi();
+  persistMacroRecordingRun();
+}
+
+// Snapshot of the in-progress macro recording, so a page reload mid-capture has something to
+// resume from - mirrors playMacro/continueMacroRun's own chrome.storage.session persistence for
+// *replay*, which this recording phase never had. Written synchronously (not debounced) on every
+// call: a reload can happen at any moment, including right after the very first captured step, and
+// a debounce timer doesn't survive the reload it's racing against - each individual action here is
+// already coalesced upstream (e.g. onInput's own 350ms debounce before it ever calls append), so
+// this isn't actually a write-per-keystroke.
+function persistMacroRecordingRun() {
+  const recording = state.macroRecording;
+  if (!recording) return;
+  void recordingRunRequest("macro", "set", { steps: recording.steps, lastAt: recording.lastAt, paused: recording.paused, expiresAt: Date.now() + 60 * 60_000 });
 }
 
 // One-line human description for the recording history panel - mirrors the same action set
@@ -6907,6 +6932,7 @@ function toggleMacroRecordingPause() {
   // Resuming starts a fresh interval so the paused gap itself is never recorded as a "wait" step.
   if (!recording.paused) recording.lastAt = Date.now();
   updateMacroRecordingUi();
+  persistMacroRecordingRun();
   showQaToast(recording.paused ? "Gravação pausada." : "Gravação retomada.");
 }
 
@@ -6915,6 +6941,7 @@ function undoLastMacroStep() {
   if (!recording?.steps.length) return;
   recording.steps.pop();
   updateMacroRecordingUi();
+  persistMacroRecordingRun();
 }
 
 function cancelMacroRecording() {
@@ -6923,6 +6950,7 @@ function cancelMacroRecording() {
   recording.cleanup();
   state.macroRecording = null;
   updateMacroRecordingUi();
+  void recordingRunRequest("macro", "clear");
   showQaToast("Gravação cancelada.");
 }
 
@@ -6934,9 +6962,9 @@ function toggleMacroHistoryPanel() {
   if (willShow) renderMacroHistoryPanel();
 }
 
-function startMacroRecording() {
+function startMacroRecording(resumeData = null) {
   if (state.macroRecording) return;
-  closeDrawer();
+  if (!resumeData) closeDrawer();
   const click = (event) => {
     const element = event.target;
     if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || window.QTS_QA_TOOLS.isSensitiveElement(element)) return;
@@ -6961,9 +6989,13 @@ function startMacroRecording() {
   document.addEventListener("click", click, true);
   document.addEventListener("change", change, true);
   document.addEventListener("keydown", keydown, true);
-  state.macroRecording = { steps: [], lastAt: Date.now(), paused: false, cleanup: () => { document.removeEventListener("click", click, true); document.removeEventListener("change", change, true); document.removeEventListener("keydown", keydown, true); } };
+  const cleanup = () => { document.removeEventListener("click", click, true); document.removeEventListener("change", change, true); document.removeEventListener("keydown", keydown, true); };
+  state.macroRecording = resumeData
+    ? { steps: resumeData.steps || [], lastAt: Date.now(), paused: resumeData.paused === true, cleanup }
+    : { steps: [], lastAt: Date.now(), paused: false, cleanup };
   updateMacroRecordingUi();
-  showQaToast("Gravação iniciada. Senhas e dados sensíveis não serão capturados.");
+  showQaToast(resumeData ? "Gravação de macro retomada após o recarregamento da página." : "Gravação iniciada. Senhas e dados sensíveis não serão capturados.");
+  if (!resumeData) persistMacroRecordingRun();
 }
 
 function stopMacroRecording() {
@@ -6972,11 +7004,19 @@ function stopMacroRecording() {
   recording.cleanup();
   state.macroRecording = null;
   updateMacroRecordingUi();
+  void recordingRunRequest("macro", "clear");
   openMacroEditor({ id: crypto.randomUUID(), name: `Macro ${new Date().toLocaleTimeString().slice(0, 5)}`, description: "", steps: recording.steps.filter((step, index, all) => !(step.action === "wait" && index === all.length - 1)) });
 }
 
 function macroRunRequest(operation, run) {
   return new Promise((resolve) => chrome.runtime.sendMessage({ type: "qts:macro-run", operation, run }, (response) => resolve(chrome.runtime.lastError ? { ok: false } : response || { ok: false })));
+}
+
+// Same tab-scoped chrome.storage.session pattern as macroRunRequest (macro *replay*), but for the
+// two *recording* phases (Gravador de Passos / Macro Studio) - see qts:recording-run in
+// background.js. `kind` is "steps" or "macro".
+function recordingRunRequest(kind, operation, run) {
+  return new Promise((resolve) => chrome.runtime.sendMessage({ type: "qts:recording-run", kind, operation, run }, (response) => resolve(chrome.runtime.lastError ? { ok: false } : response || { ok: false })));
 }
 
 async function continueMacroRun(run, { announce = false } = {}) {
@@ -7167,7 +7207,7 @@ function openMacroStudio() {
       <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
     onReady(body) {
-      body.querySelector("#startMacroRecording").addEventListener("click", startMacroRecording);
+      body.querySelector("#startMacroRecording").addEventListener("click", () => startMacroRecording());
       body.querySelector("#newMacro").addEventListener("click", () => openMacroEditor({ id: crypto.randomUUID(), name: "Nova macro", description: "", steps: [] }));
       body.querySelector("#exportAllMacros").addEventListener("click", () => downloadMacroJson(macros));
       const file = body.querySelector("#macroFile");
@@ -7238,9 +7278,9 @@ function pickRecordingMimeType() {
 }
 
 const STEPS_COPY = {
-  "pt-BR": { title: "Gravador de Passos", intro: "Cada clique, campo preenchido e mensagem de retorno vira um passo - simples de ler, fácil de repetir.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Estou na tela", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher o campo", select: "no menu suspenso", check: "Marcar a caixa", uncheck: "Desmarcar a caixa", submit: "Enviar o formulário", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "O que apareceu na tela", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "com", selectWord: "Selecionar", onWord: "em", occurs: "acontece" },
-  "es": { title: "Grabador de pasos", intro: "Cada clic, campo completado y mensaje de retorno se vuelve un paso - simple de leer, fácil de repetir.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Estoy en la pantalla", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar el campo", select: "en el menú desplegable", check: "Marcar la casilla", uncheck: "Desmarcar la casilla", submit: "Enviar el formulario", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Qué apareció en la pantalla", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "con", selectWord: "Seleccionar", onWord: "en", occurs: "ocurre" },
-  "en": { title: "Step Recorder", intro: "Every click, filled field and returned message becomes one step - easy to read, easy to repeat.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "I am on the screen", click: "Click", contextmenu: "Right-click", input: "Fill the field", select: "in the dropdown menu", check: "Check the box", uncheck: "Uncheck the box", submit: "Submit the form", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "What appeared on the screen", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result", withWord: "with", selectWord: "Select", onWord: "on", occurs: "happens" },
+  "pt-BR": { title: "Gravador de Passos", intro: "Cada clique, campo preenchido e mensagem de retorno vira um passo - simples de ler, fácil de repetir.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Estou na tela", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher o campo", select: "no menu suspenso", check: "Marcar a caixa", uncheck: "Desmarcar a caixa", submit: "Enviar o formulário", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "O que apareceu na tela", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", resumedAfterReload: "Gravação de passos retomada após o recarregamento da página.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "com", selectWord: "Selecionar", onWord: "em", occurs: "acontece" },
+  "es": { title: "Grabador de pasos", intro: "Cada clic, campo completado y mensaje de retorno se vuelve un paso - simple de leer, fácil de repetir.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Estoy en la pantalla", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar el campo", select: "en el menú desplegable", check: "Marcar la casilla", uncheck: "Desmarcar la casilla", submit: "Enviar el formulario", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Qué apareció en la pantalla", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", resumedAfterReload: "Grabación de pasos reanudada después de recargar la página.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "con", selectWord: "Seleccionar", onWord: "en", occurs: "ocurre" },
+  "en": { title: "Step Recorder", intro: "Every click, filled field and returned message becomes one step - easy to read, easy to repeat.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "I am on the screen", click: "Click", contextmenu: "Right-click", input: "Fill the field", select: "in the dropdown menu", check: "Check the box", uncheck: "Uncheck the box", submit: "Submit the form", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "What appeared on the screen", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", resumedAfterReload: "Step recording resumed after the page reloaded.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result", withWord: "with", selectWord: "Select", onWord: "on", occurs: "happens" },
 };
 
 // Keeps every recorded step in the right Gherkin bucket automatically -- setup actions (filling
@@ -7309,6 +7349,17 @@ function appendDocumentedStep(step) {
   else recording.steps.push(step);
   recording.lastActionAt = Date.now();
   updateStepsRecordingUi();
+  persistStepsRecordingRun();
+}
+
+// chrome.storage.session snapshot of the in-progress steps recording (same rationale as
+// persistMacroRecordingRun, including why it's synchronous rather than debounced) - without this,
+// a reload mid-recording lost everything captured so far since only the *finished* recording (on
+// Salvar) was ever written to storage.
+function persistStepsRecordingRun() {
+  const recording = state.stepsRecording;
+  if (!recording) return;
+  void recordingRunRequest("steps", "set", { id: recording.id, name: recording.name, mode: recording.mode, paused: recording.paused, phase: recording.phase, lastActionAt: recording.lastActionAt, steps: recording.steps, expiresAt: Date.now() + 60 * 60_000 });
 }
 
 function updateStepsRecordingUi() {
@@ -7348,13 +7399,13 @@ function renderStepsHistory() {
 }
 
 function toggleStepsHistory() { const panel = state.shadowRoot?.getElementById("stepsRecHistoryPanel"); if (!panel) return; panel.classList.toggle("isHidden"); renderStepsHistory(); }
-function toggleStepsPause() { if (!state.stepsRecording) return; state.stepsRecording.paused = !state.stepsRecording.paused; updateStepsRecordingUi(); showQaToast(state.stepsRecording.paused ? stepsCopy().paused : stepsCopy().resumed); }
-function undoStepsRecording() { state.stepsRecording?.steps.pop(); updateStepsRecordingUi(); }
-function cancelStepsRecording() { if (!state.stepsRecording || !confirm(stepsCopy().discard)) return; state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); }
+function toggleStepsPause() { if (!state.stepsRecording) return; state.stepsRecording.paused = !state.stepsRecording.paused; updateStepsRecordingUi(); persistStepsRecordingRun(); showQaToast(state.stepsRecording.paused ? stepsCopy().paused : stepsCopy().resumed); }
+function undoStepsRecording() { state.stepsRecording?.steps.pop(); updateStepsRecordingUi(); persistStepsRecordingRun(); }
+function cancelStepsRecording() { if (!state.stepsRecording || !confirm(stepsCopy().discard)) return; state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); void recordingRunRequest("steps", "clear"); }
 
-function startStepsRecording({ name, mode }) {
+function startStepsRecording({ name, mode } = {}, resumeData = null) {
   if (!requirePlanFeature("stepsRecorder") || state.stepsRecording) return;
-  closeDrawer();
+  if (!resumeData) closeDrawer();
   const copy = stepsCopy();
   const inputTimers = new WeakMap();
   const addInput = (element) => {
@@ -7407,11 +7458,16 @@ function startStepsRecording({ name, mode }) {
     }
   });
   document.addEventListener("input", onInput, true); document.addEventListener("change", onChange, true); document.addEventListener("click", onClick, true); document.addEventListener("contextmenu", onContext, true); document.addEventListener("submit", onSubmit, true); document.addEventListener("keydown", onKey, true); window.addEventListener("popstate", onNavigate); window.addEventListener("hashchange", onNavigate); resultObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
-  state.stepsRecording = { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", paused: false, phase: "given", lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start} ${document.title || safeCurrentUrl()}`)], cleanup() { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); } };
-  updateStepsRecordingUi(); showQaToast(copy.recording);
+  const cleanup = () => { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); };
+  state.stepsRecording = resumeData
+    ? { id: resumeData.id, name: resumeData.name, mode: resumeData.mode, paused: resumeData.paused === true, phase: resumeData.phase || "given", lastActionAt: Date.now(), steps: resumeData.steps || [], cleanup }
+    : { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", paused: false, phase: "given", lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start} ${document.title || safeCurrentUrl()}`)], cleanup };
+  updateStepsRecordingUi();
+  showQaToast(resumeData ? copy.resumedAfterReload : copy.recording);
+  if (!resumeData) persistStepsRecordingRun();
 }
 
-function stopStepsRecording() { const recording = state.stepsRecording; if (!recording) return; recording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); openStepsEditor({ id: recording.id, name: recording.name, mode: recording.mode, locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: recording.steps }); }
+function stopStepsRecording() { const recording = state.stepsRecording; if (!recording) return; recording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); void recordingRunRequest("steps", "clear"); openStepsEditor({ id: recording.id, name: recording.name, mode: recording.mode, locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: recording.steps }); }
 
 function csvCell(value) { let text = String(value ?? "").replace(/^([=+\-@\t\r])/, "'$1"); return `"${text.replaceAll('"', '""')}"`; }
 // In Gherkin mode, a captured result ("Cadastro realizado com sucesso") becomes its own real
@@ -7870,6 +7926,13 @@ async function boot() {
   if (authorizedAtBoot) {
     const pendingRun = await macroRunRequest("get");
     if (pendingRun?.ok && pendingRun.run) void continueMacroRun(pendingRun.run, { announce: true });
+    // Same idea, for the two *recording* phases (see qts:recording-run/persistStepsRecordingRun/
+    // persistMacroRecordingRun): a snapshot left behind by the previous page load, before it got
+    // torn down by the reload, is picked back up here instead of silently vanishing.
+    const pendingStepsRecording = await recordingRunRequest("steps", "get");
+    if (pendingStepsRecording?.ok && pendingStepsRecording.run) startStepsRecording({}, pendingStepsRecording.run);
+    const pendingMacroRecording = await recordingRunRequest("macro", "get");
+    if (pendingMacroRecording?.ok && pendingMacroRecording.run) startMacroRecording(pendingMacroRecording.run);
   }
 }
 
