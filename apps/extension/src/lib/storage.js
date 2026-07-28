@@ -50,6 +50,8 @@ export const FEATURE_REGISTRY = Object.freeze([
   ["languageValidator","Validador de textos","languageValidatorMenuItem","braces",""],
   ["qrCode","QR Code","qrCodeMenuItem","qrCode",""],
   ["pixelPerfect","Pixel Perfect","pixelPerfectMenuItem","ruler",""],
+  ["testSession","Sessão de Teste","testSessionMenuItem","wait",""],
+  ["reportBuilder","Report Builder","reportBuilderMenuItem","edit",""],
 ].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
 export const DEFAULT_ENABLED_TOOLS = Object.freeze(FEATURE_REGISTRY.map((feature) => feature.key));
 const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
@@ -62,6 +64,8 @@ const SCHEMA_8_TOOLS = ["holofote"];
 const SCHEMA_11_TOOLS = ["stepsRecorder"];
 const SCHEMA_12_TOOLS = ["pixelPerfect"];
 const SCHEMA_13_TOOLS = ["testStatus"];
+const SCHEMA_14_TOOLS = ["testSession"];
+const SCHEMA_15_TOOLS = ["reportBuilder"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -201,6 +205,8 @@ function normalizeUrlBinding(item, index, products, environments) {
     id: id(item?.id, "binding", index),
     patterns, productId, environmentIds,
     primaryUrl: /^https?:\/\//i.test(text(item?.primaryUrl, 2_048)) ? text(item?.primaryUrl, 2_048) : "",
+    displayMode: item?.displayMode === "relative" ? "relative" : "full",
+    label: text(item?.label, 120),
     active: item?.active !== false,
   };
 }
@@ -260,7 +266,7 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 13,
+    schemaVersion: 15,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], stepRecordings: [],
@@ -498,9 +504,15 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 13) {
     for (const tool of SCHEMA_13_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 14) {
+    for (const tool of SCHEMA_14_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
+  if (Number(source.schemaVersion || 0) < 15) {
+    for (const tool of SCHEMA_15_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 13,
+    schemaVersion: 15,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])

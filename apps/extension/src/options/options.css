@@ -367,6 +367,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .faqAnswer.list { display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap; }
 .faqAnswer img { width:180px; max-width:100%; border-radius:8px; flex:none; display:block; cursor:zoom-in; }
 .faqAnswer p { flex:1; min-width:220px; }
+.faqAnswer p.faqExample { flex-basis:100%; font-style:italic; opacity:.85; padding-top:2px; border-top:1px dashed var(--border); margin-top:6px !important; }
 .imageLightbox { position:fixed; inset:0; z-index:200; display:flex; align-items:center; justify-content:center; background:rgba(4,5,8,.88); padding:32px; cursor:zoom-out; }
 .imageLightbox img { max-width:100%; max-height:100%; border-radius:10px; box-shadow:0 20px 60px rgba(0,0,0,.5); }
 .imageLightboxClose { position:absolute; top:18px; right:22px; width:36px; height:36px; border-radius:999px; border:1px solid var(--border); background:var(--surface-2); color:var(--text); font-size:20px; cursor:pointer; }

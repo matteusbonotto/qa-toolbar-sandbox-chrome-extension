@@ -2,7 +2,7 @@
 // supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql defines? Migration files
 // living in the repo prove nothing about what's deployed — nothing in this project auto-applies
 // them (no CI step does `supabase db push`), so every migration after the one confirmed in
-// docs/handoff/CHECKLIST_RECONSTRUCAO.md needs a human to actually run it against the real
+// docs/handoff/archive/CHECKLIST_RECONSTRUCAO.md needs a human to actually run it against the real
 // database. This script exists because that gap silently blocked release-manager users from six
 // tools they're entitled to (characterCounter/multiClick/inputLab/fakerFill/macroStudio/keyView)
 // even though the code, the schema.sql source of truth, and the migration file were all correct.

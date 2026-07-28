@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Icon } from "../components/Icon";
 import type { Session } from "@supabase/supabase-js";
@@ -52,6 +52,20 @@ export function PricingSection() {
   const [priceCatalog, setPriceCatalog] = useState<PriceCatalog>({});
   const [pricingLoading, setPricingLoading] = useState(true);
   const [pricingError, setPricingError] = useState<string | null>(null);
+  // Derived from the real catalog (not a fixed marketing number) so this badge can never
+  // diverge from the monthly/yearly prices actually charged - see docs/CHECKLIST_BUGFIX_PASS2.md
+  // note about hardcoded discount claims.
+  const yearlySavingsPercent = useMemo(() => {
+    let max = 0;
+    for (const plan of pricingPlans) {
+      const monthly = priceCatalog[plan.id]?.monthly;
+      const yearly = priceCatalog[plan.id]?.yearly;
+      if (!monthly || !yearly || monthly.amountMinor <= 0) continue;
+      const percent = Math.round((1 - yearly.amountMinor / (monthly.amountMinor * 12)) * 100);
+      if (percent > max) max = percent;
+    }
+    return max;
+  }, [priceCatalog]);
   const [voucherInput, setVoucherInput] = useState("");
   const [appliedVoucher, setAppliedVoucher] = useState<string | null>(null);
   const [voucherPreview, setVoucherPreview] = useState<VoucherPreview | null>(null);
@@ -603,7 +617,12 @@ export function PricingSection() {
             onChange={(value) => setBillingCycle(value as BillingCycle)}
             options={[
               { id: "monthly", label: t.pricing.billingMonthly },
-              { id: "yearly", label: `${t.pricing.billingYearly} · ${t.pricing.billingYearlySavings}` },
+              {
+                id: "yearly",
+                label: yearlySavingsPercent > 0
+                  ? `${t.pricing.billingYearly} · ${t.pricing.billingYearlySavings.replace("{percent}", String(yearlySavingsPercent))}`
+                  : t.pricing.billingYearly,
+              },
             ]}
           />
         </div>

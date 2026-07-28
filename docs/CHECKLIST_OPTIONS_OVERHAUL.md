@@ -173,7 +173,7 @@
 - [x] Verificado ao vivo: badge aparece ao selecionar um campo real, contagem atualiza ao digitar
       (“Hello world” → 11), badge acompanha a posição do campo, fechar pelo × remove, e selecionar
       o mesmo campo de novo reanexa um badge novo.
-- [x] **JSON Studio**: achei a intenção original — `docs/handoff/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md`
+- [x] **JSON Studio**: achei a intenção original — `docs/handoff/archive/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md`
       linha 145 lista `jsonDiff.enabled` e `schemaValidation.enabled` no inventário de capacidades
       planejadas, mas nenhuma das duas foi implementada; só sobrou o formatador (textarea + 3
       botões), daí a confusão de "não entendi pra que serve". Adicionei a aba "Comparar" (mesmo

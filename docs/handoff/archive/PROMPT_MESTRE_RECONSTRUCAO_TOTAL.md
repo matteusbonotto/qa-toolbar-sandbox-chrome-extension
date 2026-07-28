@@ -1,5 +1,11 @@
 # PROMPT MESTRE — QA Toolbar Sandbox
 
+> **Arquivado em 2026-07-27.** Este foi o prompt original que guiou a reconstrução completa do
+> produto (2026-07-16 em diante); o plano que ele descreve já foi executado e verificado (ver
+> `docs/handoff/archive/CHECKLIST_RECONSTRUCAO.md`). Mantido como referência histórica — ainda
+> citado por comentários no código como origem de certas decisões de escopo — mas não reflete
+> mais o roadmap ativo.
+
 ## Papel e contrato de execução
 
 Atue como uma equipe sênior integrada de Product Management, Product Design, UX Research, UI/Design System, Arquitetura de Software, React/TypeScript, Chrome Extensions Manifest V3/WXT, Supabase/PostgreSQL/RLS/Edge Functions, Stripe/Checkout/Webhooks, AppSec/LGPD, DevOps, CRO/SEO, QA funcional/API/segurança/acessibilidade/performance e engenharia de prompts.

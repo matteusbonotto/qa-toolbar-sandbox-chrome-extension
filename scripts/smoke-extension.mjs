@@ -636,6 +636,62 @@ try {
   await passSoundRequestPromise;
   trace("toolbar hierarchy verified");
 
+  // Sessão de Teste: starting it must show the visible, ticking indicator (never a silently
+  // active mode); a status picked while it's running must show up in the finish summary;
+  // Finalizar must open a drawer with the real duration/result, not a placeholder.
+  await host.locator("#toolsButton").click();
+  await host.locator("#testSessionMenuItem").click();
+  await host.locator("#testSessionBar:not(.isHidden)").waitFor({ timeout: 5_000 });
+  await host.waitForTimeout(2_100);
+  const elapsedText = await host.locator("#testSessionElapsed").innerText();
+  if (!/^00:0[1-3]$/.test(elapsedText)) throw new Error(`Sessão de Teste elapsed indicator did not tick: "${elapsedText}"`);
+  await host.locator("#toolsButton").click();
+  await host.locator("#statusMenuItem").click();
+  await host.locator('#qts-test-status-modal [data-status="fail"]').click();
+  await host.locator("#testSessionFinishButton").click();
+  if (await host.locator("#testSessionBar:not(.isHidden)").count()) throw new Error("Sessão de Teste bar stayed visible after Finalizar");
+  const sessionSummary = host.locator(".qts-drawer:has([data-session-scenario])");
+  await sessionSummary.locator("[data-session-scenario]").waitFor();
+  await sessionSummary.locator("[data-session-scenario]").fill("Fluxo de checkout com cupom expirado");
+  const summaryBody = await sessionSummary.innerText();
+  if (!/\d{2}:\d{2}/.test(summaryBody)) throw new Error(`Sessão de Teste summary is missing a real duration: ${summaryBody}`);
+  if (!/Fail|Falha/i.test(summaryBody)) throw new Error(`Sessão de Teste summary did not carry the status picked during the session: ${summaryBody}`);
+  await sessionSummary.locator("[data-session-notes]").fill("Reproduzido em ambiente de QA.");
+  await sessionSummary.locator("[data-session-save]").click();
+  await host.getByText(/Sessão salva|Sesión guardada|Session saved/).waitFor({ timeout: 5_000 });
+  trace("Sessão de Teste verified (visible ticking indicator, status carried into summary, save persisted)");
+
+  // Report Builder: "Criar relatório" from a finished (Fail) session must open pre-filled with
+  // the scenario as title and "bug" as kind - the whole point is not retyping what's already
+  // known. Then verify save-as-template + copy actually work, and that a saved template really
+  // round-trips back into the form on a fresh open (not just accepted without effect).
+  await sessionSummary.locator("[data-session-report]").click();
+  const reportDrawer = host.locator(".qts-drawer:has([data-report-title])");
+  await reportDrawer.locator("[data-report-title]").waitFor();
+  const prefilledTitle = await reportDrawer.locator("[data-report-title]").inputValue();
+  if (prefilledTitle !== "Fluxo de checkout com cupom expirado") throw new Error(`Report Builder did not inherit the session scenario as title: "${prefilledTitle}"`);
+  const prefilledKind = await reportDrawer.locator("[data-report-kind]").inputValue();
+  if (prefilledKind !== "bug") throw new Error(`Report Builder did not map a Fail session to kind "bug": "${prefilledKind}"`);
+  await reportDrawer.locator("[data-report-steps]").fill("1. Aplicar cupom expirado\n2. Finalizar compra");
+  await reportDrawer.locator("[data-report-expected]").fill("Sistema recusa o cupom com mensagem clara.");
+  host.once("dialog", (dialog) => dialog.accept("Bug de checkout"));
+  await reportDrawer.locator("[data-report-save-template]").click();
+  await host.getByText(/Template salvo|Template guardado|Template saved/).waitFor({ timeout: 5_000 });
+  await reportDrawer.locator("[data-report-copy]").click();
+  await host.getByText(/Relatório copiado|Informe copiado|Report copied/).waitFor({ timeout: 5_000 });
+  await reportDrawer.locator("[data-report-copy-slack]").click();
+  await host.locator("#qtsToastContainer").getByText(/Slack\/Teams/).waitFor({ timeout: 5_000 });
+  await host.locator("#drawerClose").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#reportBuilderMenuItem").click();
+  const freshReportDrawer = host.locator(".qts-drawer:has([data-report-title])");
+  await freshReportDrawer.locator("[data-report-template]").waitFor({ timeout: 5_000 });
+  await freshReportDrawer.locator("[data-report-template]").selectOption({ label: "Bug de checkout" });
+  const loadedTitle = await freshReportDrawer.locator("[data-report-title]").inputValue();
+  if (loadedTitle !== "Fluxo de checkout com cupom expirado") throw new Error(`Loading a saved Report Builder template did not restore its fields: title="${loadedTitle}"`);
+  await host.locator("#drawerClose").click();
+  trace("Report Builder verified (pre-filled from a finished session, template save/load round-trips real field values)");
+
   // The first-run callout moved from a popup card (which sat right where the tour balloon and
   // evidence recordings needed that space) into the notification bell.
   if (await host.locator("#firstRunIntro").count()) throw new Error("First-run intro still renders as a popup card instead of a bell notification");

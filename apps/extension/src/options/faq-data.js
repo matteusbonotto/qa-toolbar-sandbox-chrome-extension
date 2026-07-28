@@ -74,6 +74,11 @@
       answer: "Abra Importar / Exportar e use Exportação segura para baixar o JSON com checksum e sem segredos. Para restaurar ou transferir, use Importar JSON; os vínculos e URLs são validados antes de substituir o Workspace atual. Baixar template mostra a estrutura aceita.",
     },
     {
+      key: "entityImage",
+      question: "Pra que serve a imagem do cliente, projeto ou produto - e dá pra trocar?",
+      answer: "A imagem (ou as iniciais, quando não há imagem) aparece no breadcrumb da barra e ajuda a reconhecer de relance em qual contexto você está testando, sem precisar ler o nome todo - útil quando você alterna entre vários clientes ou produtos parecidos no mesmo dia. Ela é só visual, não afeta nenhum dado do workspace. Para trocar, abra o cliente, projeto ou produto em Workspace e use o editor de imagem: upload de arquivo ou URL, com zoom, posição e recorte quadrado antes de aplicar. Também dá pra ocultar o nome e deixar só a imagem (ou as iniciais) no modo compacto de cada entidade, em Barra e aparência.",
+    },
+    {
       key: "support",
       question: "Encontrei um problema ou tenho uma sugestão, para onde envio?",
       answer: "Escreva para contato@matheusbonotto.com.br com o máximo de contexto possível: screenshot, passos e o que você esperava que acontecesse.",
