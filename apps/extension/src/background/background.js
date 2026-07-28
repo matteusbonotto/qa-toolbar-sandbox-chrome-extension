@@ -61,22 +61,23 @@ async function removeToolbarFromOpenTabs() {
 // network call (right as chrome.runtime.onInstalled/onStartup fires after an update or browser
 // restart). Treating that the same as "access really ended" used to unregister the content
 // scripts and rip the toolbar out of every open tab, with nothing to bring it back except another
-// update or restart - no retry, no explanation to whoever was mid-test. A transient failure
-// (reason: "access_unavailable") now falls back to the last confirmed status instead of assuming
-// the worst, and schedules a retry via chrome.alarms (survives the service worker going idle,
-// unlike a plain setTimeout) so a genuine lapse still gets caught shortly after.
+// update or restart - no retry, no explanation to whoever was mid-test. getAccessState() itself
+// now absorbs a transient failure (reason: "access_unavailable") by falling back to a
+// signature-verified, not-yet-expired cached token instead of assuming the worst (see auth.js's
+// readVerifiedCachedAccess/verifyAccessToken) - `access.active` below already reflects that. This
+// only still needs to schedule a retry via chrome.alarms (survives the service worker going idle,
+// unlike a plain setTimeout) so a genuine lapse gets caught shortly after the token's short TTL
+// runs out, instead of leaving the toolbar in limbo until the next natural check.
 const ACCESS_RETRY_ALARM = "qts-access-retry";
 
 async function applyContentScriptRegistrationNow({ forceAccess = false } = {}) {
   const access = await getAccessState({ force: forceAccess });
-  let effectiveActive = access.active;
+  const effectiveActive = access.active;
   if (access.reason === "access_unavailable") {
-    const stored = await chrome.storage.local.get(STORAGE_KEYS.accessStatus);
-    effectiveActive = stored[STORAGE_KEYS.accessStatus]?.active === true;
     // Published (packed) extensions clamp delayInMinutes below 1 back up to 1 anyway, so this is
     // the real-world floor, not just a nicer round number.
     await chrome.alarms.create(ACCESS_RETRY_ALARM, { delayInMinutes: 1 });
-    if (!effectiveActive) return; // never had confirmed access - nothing to preserve; wait for the retry
+    if (!effectiveActive) return; // no verified access survived the outage - nothing to preserve; wait for the retry
   } else {
     await chrome.alarms.clear(ACCESS_RETRY_ALARM);
   }

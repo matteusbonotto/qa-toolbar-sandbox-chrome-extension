@@ -1,10 +1,40 @@
-import { createHash } from "node:crypto";
+import { createHash, webcrypto } from "node:crypto";
 import { createServer } from "node:http";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
+
+// Mints an access-status token the same way supabase/functions/_shared/access_token.ts does, so
+// the mocked route below produces something apps/extension/src/background/auth.js's
+// verifyAccessToken() will actually accept - without this the whole suite would fail closed the
+// moment the signature-verification fix landed (a plain, unsigned mock response is now correctly
+// rejected, same as a forged one). The private key is read from the gitignored .env, never
+// committed - see that file's own comment for how to (re)provision it.
+async function readEnvValue(path, key) {
+  if (!existsSync(path)) return undefined;
+  const text = await readFile(path, "utf8");
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.startsWith(`${key}=`)) continue;
+    return trimmed.slice(key.length + 1);
+  }
+  return undefined;
+}
+const accessTokenPrivateKeyJwk = await readEnvValue(resolve(root, ".env"), "ACCESS_TOKEN_PRIVATE_KEY_JWK");
+if (!accessTokenPrivateKeyJwk) throw new Error("Missing ACCESS_TOKEN_PRIVATE_KEY_JWK in .env - required to mint a mock access-status token the extension will accept.");
+const accessTokenSigningKey = await webcrypto.subtle.importKey("jwk", JSON.parse(accessTokenPrivateKeyJwk), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+function base64UrlEncode(bytes) {
+  return Buffer.from(bytes).toString("base64url");
+}
+async function signMockAccessToken(payload) {
+  const body = { ...payload, exp: Math.floor(Date.now() / 1_000) + 600 };
+  const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(body)));
+  const signature = await webcrypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, accessTokenSigningKey, new TextEncoder().encode(encodedPayload));
+  return `${encodedPayload}.${base64UrlEncode(new Uint8Array(signature))}`;
+}
 const extensionPathArgument = process.argv.find((argument) => argument.startsWith("--extension-path="))?.slice("--extension-path=".length);
 const extensionPath = resolve(root, extensionPathArgument || "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-smoke-profile");
@@ -92,7 +122,12 @@ const fakeSession = {
 await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", async (route) => {
   const name = new URL(route.request().url()).pathname.split("/").pop();
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
-  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true }, checkedAt: new Date().toISOString() }) });
+  if (name === "access-status") {
+    const plan = { key: "release-manager", name: "Release Manager" };
+    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true };
+    const token = await signMockAccessToken({ active: true, plan, features });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
+  }
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -167,6 +202,27 @@ try {
     throw new Error(`Authentication did not unlock options: ${authMessage || "no auth message"}; options console: ${optionsErrors.join(" | ") || "none"}; worker console: ${workerErrors.join(" | ") || "none"}`, { cause: error });
   }
   trace("authenticated");
+
+  // Regression test for the paywall-bypass vulnerability: forging {active:true,...} directly into
+  // chrome.storage.local (exactly what a real user did via "Inspect service worker" -> console)
+  // must NOT grant access anymore, because getAccessState() now only trusts active/plan/features
+  // that come from a signature-verified token (see auth.js's verifyAccessToken/
+  // readVerifiedCachedAccess). Network is deliberately broken for this check so there's no way the
+  // extension could quietly "fix itself" via a real re-fetch and mask a regression here.
+  await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/access-status", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "simulated_outage_for_forgery_test" }) }));
+  // chrome.* is only reachable from an extension page (like this options tab) or a content
+  // script's isolated world - not from a plain page's own evaluate() context, which is why this
+  // runs on `options` rather than `host`.
+  const forgeryResult = await options.evaluate(async () => {
+    await chrome.storage.local.set({ qtsAccessStatusV1: { active: true, authenticated: true, plan: { key: "forged", name: "Forged Plan" }, features: { macroStudio: true, stepsRecorder: true }, cachedAt: Date.now() + 1e15, checkedAt: new Date().toISOString() } });
+    return chrome.runtime.sendMessage({ type: "qts:get-access-state", force: false });
+  });
+  if (forgeryResult?.active === true) throw new Error(`SECURITY REGRESSION: a forged, unsigned chrome.storage.local entry was trusted as active access: ${JSON.stringify(forgeryResult)}`);
+  await context.unroute("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/access-status");
+  const recoveredResult = await options.evaluate(() => chrome.runtime.sendMessage({ type: "qts:get-access-state", force: true }));
+  if (recoveredResult?.active !== true) throw new Error(`Access did not recover after the simulated outage cleared: ${JSON.stringify(recoveredResult)}`);
+  trace("forged local access-status is rejected; only a signature-verified token grants access");
+
   let firstAccessTourTabs = [];
   for (let attempt = 0; attempt < 50 && firstAccessTourTabs.length === 0; attempt += 1) {
     await new Promise((resolveTourTab) => setTimeout(resolveTourTab, 100));
