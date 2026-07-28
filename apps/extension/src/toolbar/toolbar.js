@@ -3080,7 +3080,7 @@ function drawerStyles() {
     .qts-combo summary .qts-combo-count { color: var(--qts-panel-accent, #ffd700); }
     .qts-combo[open] > .qts-combo-panel { display: flex; }
     .qts-combo-panel {
-      display: none; flex-direction: column; gap: 6px; position: absolute; top: 34px; left: 0; z-index: 5;
+      display: none; flex-direction: column; gap: 6px; position: absolute; top: 34px; left: 0; z-index: 100;
       width: max(220px, 100%); max-height: 260px; padding: 8px; border: 1px solid #333; border-radius: 8px;
       background: #101010; box-shadow: 0 12px 30px rgba(0,0,0,.5); overflow: auto;
     }

@@ -295,7 +295,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .scopeFacetCaret svg { width:11px; height:11px; }
 .scopeFacetTrigger.isOpen .scopeFacetCaret { transform:rotate(180deg); }
 .scopeFacetPanel {
-  position:absolute; top:calc(100% + 6px); left:0; z-index:60; width:max(100%,220px);
+  position:absolute; top:calc(100% + 6px); left:0; z-index:500; width:max(100%,220px);
   padding:9px; border:1px solid var(--border); border-radius:10px; background:var(--control-bg);
   box-shadow:0 18px 40px var(--shadow);
 }
