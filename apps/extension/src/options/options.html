@@ -218,11 +218,14 @@
       <section data-panel="workspace" class="panel protectedPanel workspacePanel">
         <header class="panelHead studioHero">
           <div><span class="eyebrow">Workspace Studio</span><h1>Organize tudo em um só lugar</h1><p>Clientes, projetos, produtos, ambientes, URLs e dados de teste conectados. Toda alteração reflete na barra imediatamente.</p></div>
-          <label class="searchBox">Buscar no workspace<input id="workspaceSearch" type="search" placeholder="Nome, URL ou ambiente" /></label>
+          <div class="studioHeroActions">
+            <button type="button" class="button" id="openOnboardingWizard"><span data-qts-icon="compass" aria-hidden="true"></span> Configuração guiada</button>
+            <label class="searchBox">Buscar no workspace<input id="workspaceSearch" type="search" placeholder="Nome, URL ou ambiente" /></label>
+          </div>
         </header>
-        <div class="wizardCard" id="workspaceWizard" hidden>
-          <p class="wizardIntro">Configure seu primeiro ambiente em 5 passos rápidos. Cada etapa usa os mesmos cadastros abaixo.</p>
-          <ol class="wizardSteps" id="wizardSteps"></ol>
+        <div class="wizardNudge" id="workspaceWizard" hidden>
+          <div><strong id="workspaceWizardNudgeTitle">Configure seu primeiro ambiente</strong><p>Um passo a passo guiado por cliente, projeto, produto e ambiente - leva menos de 2 minutos.</p></div>
+          <button type="button" class="button primary" id="workspaceWizardNudgeOpen">Começar configuração guiada</button>
         </div>
         <div class="workspaceStudio">
           <div class="workspaceTabs" role="tablist" aria-label="Seções do workspace">
@@ -381,6 +384,24 @@
     <div class="formDialogHead"><div><span class="eyebrow">Excluir</span><h2 id="deleteConfirmTitle">Confirmar exclusão</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <p class="cardLead" id="deleteConfirmBody"></p>
     <div class="formActions"><button type="button" class="button" id="deleteConfirmCancel">Cancelar</button><button type="button" class="button danger" id="deleteConfirmAccept">Excluir</button></div>
+  </dialog>
+
+  <dialog class="formDialog wizardDialog" id="onboardingWizard" aria-labelledby="onboardingWizardTitle">
+    <button type="button" class="dialogClose" id="onboardingWizardClose" aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button>
+    <div class="wizardStepDots" id="onboardingWizardDots" role="tablist" aria-label="Etapas da configuração guiada"></div>
+    <div class="wizardStage">
+      <span class="eyebrow" id="onboardingWizardEyebrow"></span>
+      <h2 id="onboardingWizardTitle"></h2>
+      <p class="wizardLead" id="onboardingWizardLead"></p>
+      <div class="wizardStageBody" id="onboardingWizardBody"></div>
+    </div>
+    <div class="wizardActions">
+      <button type="button" class="button" id="onboardingWizardBack">Voltar</button>
+      <button type="button" class="button linkButton" id="onboardingWizardTemplate">Usar template completo</button>
+      <span class="wizardActionsSpacer"></span>
+      <button type="button" class="button linkButton" id="onboardingWizardSkip">Pular esta etapa</button>
+      <button type="button" class="button primary" id="onboardingWizardNext">Continuar</button>
+    </div>
   </dialog>
 
   <dialog class="formDialog tutorialVideoDialog" id="tutorialVideoDialog" aria-labelledby="tutorialVideoTitle">

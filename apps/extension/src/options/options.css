@@ -174,14 +174,14 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .customFieldRow .customFieldValue { flex:1 1 140px; min-width:0; display:flex; align-items:center; }
 .customFieldRow .customFieldValue input[type="text"],.customFieldRow .customFieldValue input[type="number"] { width:100%; }
 .customFieldRow button[data-field-remove] { flex:0 0 auto; }
-.wizardCard { margin-bottom:14px; padding:14px 16px; border:1px solid var(--accent); border-radius:12px; background:linear-gradient(135deg, rgba(118,87,255,.14), rgba(66,213,194,.08)); }
-.wizardIntro { margin:0 0 10px; color:var(--text); font-size:12px; }
-.wizardSteps { display:flex; gap:8px; flex-wrap:wrap; margin:0; padding:0; list-style:none; }
-.wizardSteps li { display:flex; align-items:center; gap:6px; padding:6px 10px; border-radius:999px; background:var(--surface-2); border:1px solid var(--border); font-size:11px; font-weight:700; color:var(--muted); cursor:pointer; }
-.wizardSteps li.isActive { background:var(--accent); color:#fff; border-color:var(--accent); }
-.wizardSteps li.isDone { color:var(--accent-2); }
-.wizardStepNum { display:inline-flex; align-items:center; justify-content:center; width:16px; height:16px; }
-.wizardStepNum svg { width:12px; height:12px; }
+.wizardNudge {
+  display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:14px;
+  padding:14px 18px; border:1px solid var(--accent); border-radius:12px;
+  background:linear-gradient(135deg, rgba(118,87,255,.14), rgba(66,213,194,.08));
+}
+.wizardNudge strong { display:block; font-size:13px; }
+.wizardNudge p { margin:2px 0 0; color:var(--muted); font-size:12px; }
+.wizardNudge .button { flex:none; }
 .qts-badge-name { margin-left:6px; vertical-align:middle; }
 .sandboxWarning { margin:-3px 0 0; padding:9px 10px; border:1px solid var(--warning-border); border-radius:9px; background:var(--warning-bg); color:var(--warning-text); font-size:11px; font-weight:700; }
 .actions { display:flex; gap:9px; align-items:center; flex-wrap:wrap; }
@@ -200,6 +200,8 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 /* Workspace Studio: one cohesive surface with progressive disclosure. */
 .workspacePanel { max-width:1380px; }
 .studioHero { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:4px 2px 20px; }
+.studioHeroActions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
+.studioHeroActions .button { flex:none; white-space:nowrap; }
 .studioHero .searchBox { width:min(390px,38vw); margin:0; }
 .eyebrow { display:block; margin-bottom:5px; color:var(--accent-2); font-size:10px; font-weight:900; letter-spacing:.15em; text-transform:uppercase; }
 .workspaceStudio { overflow:hidden; border:1px solid var(--border); border-radius:20px; background:var(--card-bg); box-shadow:0 30px 80px var(--shadow); }
@@ -228,6 +230,74 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .formDialog { width:min(560px,calc(100vw - 28px)); max-height:min(680px,calc(100vh - 40px)); overflow:auto; padding:18px; border:1px solid var(--border); border-radius:18px; background:var(--dialog-bg); color:var(--text); box-shadow:0 30px 100px var(--shadow); }
 .formDialog::backdrop { background:rgba(4,5,8,.78); backdrop-filter:blur(5px); }
 .formDialogWide { width:min(720px,calc(100vw - 28px)); }
+
+/* Onboarding wizard - guides Cliente -> Projeto -> Produto -> Ambiente -> URLs, then three
+   optional steps (contas/pagamentos/inspectors), reusing the exact same storage mutations as the
+   flat CRUD tabs (workspace.X.push + persistWorkspace) so nothing here is a second, divergent way
+   to write data - just a guided front door onto the same one. */
+.wizardDialog { width:min(680px,calc(100vw - 28px)); max-height:min(720px,calc(100vh - 40px)); padding:0; flex-direction:column; }
+.wizardDialog[open] { display:flex; }
+.wizardDialog .dialogClose { position:absolute; top:14px; right:14px; width:32px; height:32px; border-radius:9px; border:1px solid var(--border); background:var(--control-bg); color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; z-index:2; }
+.wizardDialog .dialogClose:hover { color:var(--hover-text); }
+.wizardStepDots { display:flex; align-items:center; gap:4px; padding:20px 52px 0; flex:none; }
+.wizardStepDot {
+  flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0;
+  background:none; border:0; cursor:default; color:var(--muted); font-size:9px; font-weight:800; text-align:center;
+}
+.wizardStepDot .dot {
+  width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  background:var(--surface-2); border:1px solid var(--border); font-size:10px; font-weight:900; color:var(--muted);
+}
+.wizardStepDot.isDone .dot { background:var(--accent-2); border-color:var(--accent-2); color:#08221d; }
+.wizardStepDot.isActive .dot { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent); }
+.wizardStepDot.isActive { color:var(--text); }
+.wizardStepDot .label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
+.wizardStage { flex:1; min-height:0; overflow:auto; padding:18px 28px 4px; }
+.wizardStage .eyebrow { margin-bottom:8px; }
+.wizardStage h2 { margin:0 0 6px; font-size:20px; letter-spacing:-.015em; }
+.wizardLead { margin:0 0 18px; color:var(--muted); font-size:13px; max-width:52ch; }
+.wizardStageBody { display:grid; gap:14px; }
+.wizardAddRow { display:flex; gap:8px; flex-wrap:wrap; }
+.wizardAddRow input[type="text"] { flex:1 1 220px; min-width:0; }
+.wizardAddRow select { flex:0 1 180px; }
+.wizardAddRow .button { flex:none; }
+.wizardChipList { display:flex; flex-wrap:wrap; gap:8px; }
+.wizardChip {
+  display:inline-flex; align-items:center; gap:6px; padding:7px 13px; border-radius:999px;
+  border:1px solid var(--border); background:var(--control-bg); color:var(--muted); font-size:12px; font-weight:700; cursor:pointer;
+}
+.wizardChip:hover { border-color:color-mix(in srgb,var(--accent) 45%,var(--border)); color:var(--hover-text); }
+.wizardChip.isSelected { background:color-mix(in srgb,var(--accent) 16%,var(--control-bg)); border-color:var(--accent); color:var(--text); }
+.wizardChip .parentTag { color:var(--text-dim,var(--muted)); font-weight:600; opacity:.75; }
+.wizardChipEmpty { color:var(--muted); font-size:12px; font-style:italic; }
+.wizardColorRow { display:flex; align-items:center; gap:10px; }
+.wizardColorRow input[type="color"] { width:44px; height:38px; padding:2px; flex:none; }
+.wizardEnvPreview {
+  display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:12px;
+  border:1px solid color-mix(in srgb,var(--wizard-preview-color,var(--accent)) 45%,var(--border));
+  background:color-mix(in srgb,var(--wizard-preview-color,var(--accent)) 8%,var(--subtle-bg));
+}
+.wizardEnvPreview .dot { width:10px; height:10px; border-radius:50%; background:var(--wizard-preview-color,var(--accent)); flex:none; }
+.wizardEnvPreview strong { font-size:12px; }
+.wizardOptionalCard { display:grid; gap:10px; padding:16px; border:1px dashed var(--border); border-radius:14px; background:var(--subtle-bg); }
+.wizardOptionalCard p { margin:0; color:var(--muted); font-size:12px; }
+.wizardOptionalActions { display:flex; gap:8px; flex-wrap:wrap; }
+.wizardCsvImport { display:grid; gap:6px; }
+.wizardCsvImport textarea { min-height:90px; font-family:var(--mono,monospace); font-size:11px; }
+.wizardCsvHint { margin:0; color:var(--muted); font-size:10px; }
+.wizardActions {
+  flex:none; display:flex; align-items:center; gap:8px; padding:14px 28px; border-top:1px solid var(--border);
+  background:var(--dialog-bg);
+}
+.wizardActionsSpacer { flex:1; }
+.wizardTemplateSuccess { margin:0; padding:10px 14px; border-radius:10px; background:color-mix(in srgb,var(--accent-2) 14%,transparent); color:var(--accent-2); font-size:12px; font-weight:700; }
+@media (max-width:640px) {
+  .wizardStepDots { padding:16px 16px 0; }
+  .wizardStepDot .label { display:none; }
+  .wizardStage { padding:16px 18px 4px; }
+  .wizardActions { padding:12px 16px; flex-wrap:wrap; }
+  .wizardActionsSpacer { flex-basis:100%; height:0; }
+}
 .formDialogHead { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:14px; }
 .formDialogHead h2 { margin:0; font-size:18px; }
 .formDialog .inlineForm { margin:0; padding-top:0; }

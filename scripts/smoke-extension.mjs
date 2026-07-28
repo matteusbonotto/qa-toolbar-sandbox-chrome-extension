@@ -1682,6 +1682,57 @@ try {
   if (settingsTourTitles.length < 18) throw new Error(`Settings tour is too short: ${settingsTourTitles.length}`);
   trace("complete settings/workspace CRUD tour verified");
 
+  // Onboarding wizard: a guided Cliente -> Projeto -> Produto -> Ambiente -> URLs flow (plus 3
+  // skippable optional steps) that writes through the exact same workspace.X.push() +
+  // persistWorkspace() path as every flat CRUD tab - verify it actually reaches storage, not just
+  // that the dialog opens.
+  await options.getByRole("button", { name: "Workspace" }).click();
+  await options.locator("#openOnboardingWizard").click();
+  await options.locator("#onboardingWizard[open]").waitFor();
+  await options.locator("#wizardEntityInput").fill("Cliente Smoke Wizard");
+  await options.locator("#wizardEntityAdd").click();
+  await options.locator("#wizardChipList .wizardChip.isSelected").waitFor();
+  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardEntityInput").fill("Projeto Smoke Wizard");
+  await options.locator("#wizardEntityAdd").click();
+  await options.locator("#wizardChipList .wizardChip.isSelected").waitFor();
+  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardEntityInput").fill("Produto Smoke Wizard");
+  await options.locator("#wizardEntityAdd").click();
+  await options.locator("#wizardChipList .wizardChip.isSelected").waitFor();
+  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardEnvName").fill("QA Smoke Wizard");
+  await options.locator("#wizardEnvColor").fill("#33d6b0");
+  await options.locator("#wizardEnvAdd").click();
+  await options.locator("#wizardChipList .wizardChip.isSelected").waitFor();
+  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardUrlPattern").fill("https://app.smoke-wizard-teste.com/*");
+  await options.locator("#wizardUrlAdd").click();
+  await options.waitForTimeout(200);
+  await options.locator("#onboardingWizardNext").click();
+  // Optional step: exercise the CSV import path, not just "Adicionar agora"/Pular.
+  await options.locator('[data-wizard-csv="testAccounts"]').click();
+  await options.locator("#wizardCsvInput-testAccounts").fill("label,username,password,notes\nConta Smoke CSV,csv-smoke@exemplo.com,SenhaCsv1,Importada via smoke test");
+  await options.locator('[data-wizard-csv-submit="testAccounts"]').click();
+  if (!(await options.locator("#wizardCsvMessage-testAccounts").innerText()).includes("1")) throw new Error("Wizard CSV import did not report 1 imported row");
+  await options.locator("#onboardingWizardSkip").click();
+  await options.locator("#onboardingWizardSkip").click();
+  await options.locator("#onboardingWizardNext").click();
+  if (await options.locator("#onboardingWizard[open]").count()) throw new Error("Onboarding wizard did not close after the last step");
+  const wizardResult = await options.evaluate(async () => {
+    const created = await window.QTS_STORAGE.getWorkspace();
+    return {
+      client: created.clients.some((item) => item.name === "Cliente Smoke Wizard"),
+      project: created.projects.some((item) => item.name === "Projeto Smoke Wizard"),
+      product: created.products.some((item) => item.name === "Produto Smoke Wizard"),
+      environment: created.environments.some((item) => item.name === "QA Smoke Wizard" && item.color === "#33d6b0"),
+      url: created.urlBindings.some((binding) => (binding.patterns || []).some((pattern) => pattern.includes("smoke-wizard-teste"))),
+      csvAccount: created.testAccounts.some((account) => account.label === "Conta Smoke CSV" && account.username === "csv-smoke@exemplo.com"),
+    };
+  });
+  if (Object.values(wizardResult).some((value) => value !== true)) throw new Error(`Onboarding wizard did not persist everything it created: ${JSON.stringify(wizardResult)}`);
+  trace("onboarding wizard verified (Cliente->Projeto->Produto->Ambiente->URLs, optional step CSV import, all persisted)");
+
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();
   await host.waitForTimeout(500);

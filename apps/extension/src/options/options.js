@@ -1152,57 +1152,321 @@ function renderWorkspace() {
   window.QTS_OPTIONS_I18N.apply(currentLocale);
 }
 
-// First-access wizard: guides Client -> Project -> Product -> Environment using the SAME forms
-// already in this panel (no parallel UI) - just a progress strip that tracks which step is next
-// and auto-scrolls there the moment the previous one is saved, so creating the first environment
-// reads as one guided flow instead of four unrelated, easy-to-miss cards.
-let wizardLastActiveStep = -1;
+// First-access nudge: a single banner (not the multi-step checklist this used to be - that's now
+// the full onboardingWizard dialog below) pointing at the guided setup while the workspace is
+// still empty. Disappears the moment there's at least one client, project, product AND
+// environment - past that point it's the founder's own workspace, not a fresh install anymore.
 function renderWorkspaceWizard() {
   const wizard = document.getElementById("workspaceWizard");
-  const steps = [
-    { label: t("Cliente"), done: workspace.clients.length > 0, targetId: "clientName", tab: "structure", composer: "clientComposer" },
-    { label: t("Projeto"), done: workspace.projects.length > 0, targetId: "projectClient", tab: "structure", composer: "projectComposer" },
-    { label: t("Produto"), done: workspace.products.length > 0, targetId: "productProject", tab: "structure", composer: "productComposer" },
-    { label: t("Ambiente"), done: workspace.environments.length > 0, targetId: "environmentName", tab: "environments", composer: "environmentComposer" },
-    { label: t("URL"), done: workspace.urlBindings.length > 0, targetId: "urlRelationProduct", tab: "urls", composer: "urlRelationComposer" },
-  ];
-  const activeIndex = steps.findIndex((step) => !step.done);
-  if (activeIndex === -1) {
-    wizard.hidden = true;
-    wizardLastActiveStep = -1;
-    return;
+  const stillEmpty = !workspace.clients.length || !workspace.projects.length || !workspace.products.length || !workspace.environments.length;
+  wizard.hidden = !stillEmpty;
+}
+
+// ---------------------------------------------------------------------
+// Onboarding wizard: Cliente -> Projeto -> Produto -> Ambiente -> URLs, then three optional steps
+// (contas de teste, meios de pagamento, inspectors). Every "Adicionar" writes through the exact
+// same workspace.X.push(...) + persistWorkspace() every other CRUD action in this file uses - this
+// is a guided front door onto that one path, not a second way to create data.
+// ---------------------------------------------------------------------
+const WIZARD_STEPS = [
+  { key: "client", collection: "clients", label: () => t("Cliente"), title: () => t("Qual é o cliente?"), lead: () => t("A empresa que você atende - ou a sua própria, se for testar seu próprio produto. Pode adicionar mais de um.") },
+  { key: "project", collection: "projects", parentKey: "client", parentField: "clientId", label: () => t("Projeto"), title: () => t("Quais projetos esse cliente tem?"), lead: () => t("Uma frente de trabalho do cliente. Esse projeto é de outro cliente? É só trocar no seletor ao lado.") },
+  { key: "product", collection: "products", parentKey: "project", parentField: "projectId", label: () => t("Produto"), title: () => t("Qual produto esse projeto tem?"), lead: () => t("O app, sistema ou site que você vai testar. Também pode pertencer a outro projeto - é só trocar.") },
+  { key: "environment", label: () => t("Ambiente"), title: () => t("Crie um ambiente"), lead: () => t("QA, Staging, Produção... escolha uma cor - ela identifica esse ambiente na barra e na lista de URLs.") },
+  { key: "urls", label: () => t("URLs"), title: () => t("Onde esse produto roda?"), lead: () => t("Associe uma ou mais URLs ao ambiente que você acabou de criar. Pode pular e cadastrar depois.") },
+  { key: "testAccounts", collection: "testAccounts", label: () => t("Contas"), title: () => t("Quer cadastrar contas de teste?"), lead: () => t("Credenciais sandbox por ambiente, mascaradas na barra. Totalmente opcional.") },
+  { key: "paymentMethods", collection: "paymentMethods", label: () => t("Pagamentos"), title: () => t("Quer cadastrar meios de pagamento?"), lead: () => t("Cartões de teste sandbox, filtrados pelo ambiente. Totalmente opcional.") },
+  { key: "inspectors", collection: "inspectors", label: () => t("Inspectors"), title: () => t("Quer observar endpoints?"), lead: () => t("Inspectors capturam respostas de API que batem com um padrão de URL. Totalmente opcional.") },
+];
+const WIZARD_OPTIONAL_COMPOSER = { testAccounts: "testAccountComposer", paymentMethods: "paymentMethodComposer", inspectors: "inspectorComposer" };
+const WIZARD_CSV_SCHEMA = {
+  testAccounts: { columns: ["label", "username", "password", "notes"], example: "label,username,password,notes\nConta QA,qa@exemplo.com,Senha123,Uso interno" },
+  paymentMethods: { columns: ["label", "holder", "value", "expiry", "cvv", "notes"], example: "label,holder,value,expiry,cvv,notes\nCartão Visa,QA Sandbox,4242424242424242,12/2030,123,Somente teste" },
+};
+
+let wizardStepIndex = 0;
+// What THIS wizard session has created/picked at each level, so the next step defaults sensibly
+// (a project you just added under "Cliente X" makes "Cliente X" the product step's default
+// parent) without ever forcing it - every add row still lets you repoint to any existing parent.
+let wizardSelection = { client: new Set(), project: new Set(), product: new Set(), environment: new Set() };
+
+function resetWizardSelection() {
+  wizardSelection = { client: new Set(), project: new Set(), product: new Set(), environment: new Set() };
+  wizardStepIndex = 0;
+}
+
+function wizardStep() {
+  return WIZARD_STEPS[wizardStepIndex];
+}
+
+// Required for the core hierarchy (client/project/product/environment) - optional for URLs and
+// the three trailing steps, which all have their own explicit "Pular" action anyway.
+function wizardStepCanAdvance() {
+  const step = wizardStep();
+  if (["testAccounts", "paymentMethods", "inspectors", "urls"].includes(step.key)) return true;
+  return wizardSelection[step.key]?.size > 0;
+}
+
+function wizardEntityChip(item, selectionKey) {
+  const selected = wizardSelection[selectionKey].has(item.id);
+  return `<button type="button" class="wizardChip${selected ? " isSelected" : ""}" data-wizard-chip="${escapeHtml(item.id)}">${selected ? ICON("pass") : ""} ${escapeHtml(item.name)}</button>`;
+}
+
+function renderWizardEntityStep(step) {
+  const items = workspace[step.collection] || [];
+  const parentStep = step.parentKey ? WIZARD_STEPS.find((candidate) => candidate.key === step.parentKey) : null;
+  const parentItems = parentStep ? workspace[parentStep.collection] || [] : null;
+  const parentSelectionIds = step.parentKey ? [...wizardSelection[step.parentKey]] : null;
+  const relevantParentId = parentSelectionIds?.length ? parentSelectionIds[parentSelectionIds.length - 1] : null;
+  const visibleItems = step.parentField && parentSelectionIds?.length
+    ? items.filter((item) => parentSelectionIds.includes(item[step.parentField]))
+    : items;
+  const parentOptions = parentItems
+    ? (parentItems.length ? parentItems.map((parent) => `<option value="${escapeHtml(parent.id)}" ${parent.id === relevantParentId ? "selected" : ""}>${escapeHtml(parent.name)}</option>`).join("") : `<option value="">${escapeHtml(t("Nenhum cadastrado ainda"))}</option>`)
+    : "";
+  return `
+    <div class="wizardAddRow">
+      <input type="text" id="wizardEntityInput" placeholder="${escapeHtml(t("Nome do {entity}", { entity: step.label().toLowerCase() }))}" />
+      ${parentItems ? `<select id="wizardEntityParent" aria-label="${escapeHtml(parentStep.label())}" ${parentItems.length ? "" : "disabled"}>${parentOptions}</select>` : ""}
+      <button type="button" class="button primary" id="wizardEntityAdd">${escapeHtml(t("Adicionar"))}</button>
+    </div>
+    <div>
+      <p class="cardLead" style="margin:0 0 8px">${escapeHtml(t("Já cadastrados:"))}</p>
+      <div class="wizardChipList" id="wizardChipList">${visibleItems.length ? visibleItems.map((item) => wizardEntityChip(item, step.key)).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhum ainda - adicione o primeiro acima."))}</span>`}</div>
+    </div>`;
+}
+
+function renderWizardEnvironmentStep() {
+  const existing = workspace.environments || [];
+  return `
+    <div class="wizardAddRow">
+      <input type="text" id="wizardEnvName" placeholder="${escapeHtml(t("Nome do ambiente (ex.: QA, Staging)"))}" />
+      <div class="wizardColorRow"><input type="color" id="wizardEnvColor" value="#7c5cff" title="${escapeHtml(t("Cor da barra"))}" /><button type="button" class="button primary" id="wizardEnvAdd">${escapeHtml(t("Adicionar"))}</button></div>
+    </div>
+    <div class="wizardEnvPreview" id="wizardEnvPreview" style="--wizard-preview-color:#7c5cff"><span class="dot"></span><strong id="wizardEnvPreviewName">${escapeHtml(t("Prévia"))}</strong></div>
+    <div>
+      <p class="cardLead" style="margin:0 0 8px">${escapeHtml(t("Já cadastrados:"))}</p>
+      <div class="wizardChipList" id="wizardChipList">${existing.length ? existing.map((env) => wizardEntityChip(env, "environment")).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhum ainda - adicione o primeiro acima."))}</span>`}</div>
+    </div>`;
+}
+
+function renderWizardUrlsStep() {
+  const environmentIds = [...wizardSelection.environment];
+  const productIds = [...wizardSelection.product];
+  if (!environmentIds.length) return `<p class="wizardChipEmpty">${escapeHtml(t("Volte e crie/selecione um ambiente primeiro."))}</p>`;
+  const environments = environmentIds.map((id) => findById("environments", id)).filter(Boolean);
+  const products = productIds.map((id) => findById("products", id)).filter(Boolean);
+  const relevantBindings = (workspace.urlBindings || []).filter((binding) => (binding.environmentIds || []).some((id) => environmentIds.includes(id)));
+  return `
+    <div class="wizardAddRow">
+      <input type="text" id="wizardUrlPattern" placeholder="${escapeHtml(t("https://app.exemplo.com/*"))}" />
+      <select id="wizardUrlProduct" aria-label="${escapeHtml(t("Produto"))}">${products.length ? products.map((product) => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>`).join("") : `<option value="">${escapeHtml(t("Nenhum produto selecionado"))}</option>`}</select>
+      <button type="button" class="button primary" id="wizardUrlAdd">${escapeHtml(t("Adicionar"))}</button>
+    </div>
+    <p class="cardLead" style="margin:0">${escapeHtml(t("Será associada ao ambiente: {env}", { env: environments.map((environment) => environment.name).join(", ") }))}</p>
+    <div class="wizardChipList" id="wizardChipList">${relevantBindings.length ? relevantBindings.map((binding) => `<span class="wizardChip">${escapeHtml((binding.patterns || []).join(", "))}</span>`).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhuma URL ainda."))}</span>`}</div>`;
+}
+
+function wizardCsvPanelHtml(key) {
+  const schema = WIZARD_CSV_SCHEMA[key];
+  if (!schema) return "";
+  return `
+    <div class="wizardCsvImport" id="wizardCsvPanel-${key}" hidden>
+      <textarea id="wizardCsvInput-${key}" placeholder="${escapeHtml(schema.example)}"></textarea>
+      <p class="wizardCsvHint">${escapeHtml(t("Colunas esperadas: {columns}. A primeira linha pode ser o cabeçalho ou já ser o primeiro registro.", { columns: schema.columns.join(", ") }))}</p>
+      <div class="wizardOptionalActions"><button type="button" class="button primary" data-wizard-csv-submit="${key}">${escapeHtml(t("Importar linhas"))}</button></div>
+      <p class="formMessage" id="wizardCsvMessage-${key}" role="status"></p>
+    </div>`;
+}
+
+function renderWizardOptionalStep(step) {
+  const composerId = WIZARD_OPTIONAL_COMPOSER[step.key];
+  const count = (workspace[step.collection] || []).length;
+  return `
+    <div class="wizardOptionalCard">
+      <p>${count ? escapeHtml(t("{count} já cadastrado(s).", { count })) : escapeHtml(t("Nada cadastrado ainda - totalmente opcional."))}</p>
+      <div class="wizardOptionalActions">
+        <button type="button" class="button primary" data-wizard-open-composer="${composerId}">${escapeHtml(t("Adicionar agora"))}</button>
+        ${WIZARD_CSV_SCHEMA[step.key] ? `<button type="button" class="button" data-wizard-csv="${step.key}">${escapeHtml(t("Importar CSV"))}</button>` : ""}
+      </div>
+    </div>
+    ${wizardCsvPanelHtml(step.key)}`;
+}
+
+// A CSV's first line might be a real header row (matches every expected column name) or might
+// already be the first data record - only skip it as a header when every expected column is
+// actually present, so a header-less paste never silently loses its first row.
+function parseWizardCsv(text, columns) {
+  const lines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+  if (!lines.length) return [];
+  const firstCells = lines[0].split(",").map((cell) => cell.trim().toLowerCase());
+  const isHeader = columns.every((column) => firstCells.includes(column));
+  const order = isHeader ? firstCells : columns;
+  const dataLines = isHeader ? lines.slice(1) : lines;
+  return dataLines.map((line) => {
+    const cells = line.split(",").map((cell) => cell.trim());
+    const record = {};
+    order.forEach((column, index) => { if (columns.includes(column)) record[column] = cells[index] || ""; });
+    return record;
+  }).filter((record) => record.label);
+}
+
+function bindWizardStepEvents(step) {
+  document.querySelectorAll("#wizardChipList [data-wizard-chip]").forEach((chip) => chip.addEventListener("click", () => {
+    const set = wizardSelection[step.key];
+    const id = chip.dataset.wizardChip;
+    if (set.has(id)) set.delete(id); else set.add(id);
+    renderWizardStep();
+  }));
+
+  if (["client", "project", "product"].includes(step.key)) {
+    const addEntity = async () => {
+      const input = document.getElementById("wizardEntityInput");
+      const name = input.value.trim();
+      if (!name) { input.focus(); return; }
+      const record = { id: uid(step.collection.replace(/s$/, "")), name };
+      if (step.parentField) {
+        const parentId = document.getElementById("wizardEntityParent")?.value;
+        if (!parentId) { input.focus(); return; }
+        record[step.parentField] = parentId;
+      }
+      workspace[step.collection].push(record);
+      await persistWorkspace();
+      wizardSelection[step.key].add(record.id);
+      renderWizardStep();
+    };
+    document.getElementById("wizardEntityAdd").addEventListener("click", () => void addEntity());
+    document.getElementById("wizardEntityInput").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void addEntity(); } });
   }
-  wizard.hidden = false;
-  document.getElementById("wizardSteps").innerHTML = steps.map((step, index) => `
-    <li class="${step.done ? "isDone" : index === activeIndex ? "isActive" : ""}" data-wizard-step="${index}">
-      <span class="wizardStepNum">${step.done ? ICON("pass") : index + 1}</span>
-      <span>${escapeHtml(step.label)}</span>
-    </li>
-  `).join("");
-  // Explicitly clicking a step chip opens its dialog (the user asked to go there) - but since
-  // dialogs are real modals now (unlike the old inline <details>), auto-advancing the wizard
-  // reactively on every render must NOT force one open unprompted; it only switches tabs and
-  // draws attention to the "+ Adicionar" trigger, letting the founder open it when ready.
-  const focusStep = (step) => {
-    activateWorkspaceTab(step.tab, { syncNavigation: true });
-    const composer = document.getElementById(step.composer);
-    if (composer && !composer.open) composer.showModal();
-    const target = document.getElementById(step.targetId);
-    target?.scrollIntoView({ behavior: "smooth", block: "center" });
-    target?.focus();
-  };
-  const revealStep = (step) => {
-    activateWorkspaceTab(step.tab, { syncNavigation: true });
-    const trigger = document.querySelector(`[data-open-composer="${step.composer}"]`);
-    trigger?.scrollIntoView({ behavior: "smooth", block: "center" });
-    trigger?.focus();
-  };
-  document.querySelectorAll("#wizardSteps [data-wizard-step]").forEach((item) => item.addEventListener("click", () => focusStep(steps[Number(item.dataset.wizardStep)])));
-  if (activeIndex !== wizardLastActiveStep && accessState?.active && document.querySelector('[data-panel="workspace"]')?.classList.contains("isActive")) {
-    wizardLastActiveStep = activeIndex;
-    revealStep(steps[activeIndex]);
+
+  if (step.key === "environment") {
+    const nameInput = document.getElementById("wizardEnvName");
+    const colorInput = document.getElementById("wizardEnvColor");
+    const preview = document.getElementById("wizardEnvPreview");
+    const previewName = document.getElementById("wizardEnvPreviewName");
+    const syncPreview = () => {
+      preview.style.setProperty("--wizard-preview-color", colorInput.value);
+      previewName.textContent = nameInput.value.trim() || t("Prévia");
+    };
+    nameInput.addEventListener("input", syncPreview);
+    colorInput.addEventListener("input", syncPreview);
+    document.getElementById("wizardEnvAdd").addEventListener("click", async () => {
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.focus(); return; }
+      const record = { id: uid("environment"), name, color: colorInput.value };
+      workspace.environments.push(record);
+      await persistWorkspace();
+      wizardSelection.environment.add(record.id);
+      renderWizardStep();
+    });
+  }
+
+  if (step.key === "urls") {
+    document.getElementById("wizardUrlAdd")?.addEventListener("click", async () => {
+      const patternInput = document.getElementById("wizardUrlPattern");
+      const productSelect = document.getElementById("wizardUrlProduct");
+      const pattern = patternInput.value.trim();
+      const productId = productSelect?.value;
+      if (!pattern || !productId) { patternInput.focus(); return; }
+      workspace.urlBindings.push({ id: uid("binding"), productId, environmentIds: [...wizardSelection.environment], patterns: normalizeUrlPatterns(pattern) });
+      await persistWorkspace();
+      patternInput.value = "";
+      renderWizardStep();
+    });
+  }
+
+  if (["testAccounts", "paymentMethods", "inspectors"].includes(step.key)) {
+    document.querySelectorAll("[data-wizard-open-composer]").forEach((button) => button.addEventListener("click", () => {
+      document.getElementById(button.dataset.wizardOpenComposer)?.showModal();
+    }));
+    document.querySelectorAll("[data-wizard-csv]").forEach((button) => button.addEventListener("click", () => {
+      const panel = document.getElementById(`wizardCsvPanel-${button.dataset.wizardCsv}`);
+      if (panel) panel.hidden = !panel.hidden;
+    }));
+    document.querySelectorAll("[data-wizard-csv-submit]").forEach((button) => button.addEventListener("click", async () => {
+      const key = button.dataset.wizardCsvSubmit;
+      const schema = WIZARD_CSV_SCHEMA[key];
+      const textarea = document.getElementById(`wizardCsvInput-${key}`);
+      const message = document.getElementById(`wizardCsvMessage-${key}`);
+      const records = parseWizardCsv(textarea.value, schema.columns);
+      if (!records.length) { message.textContent = t("Nenhuma linha válida encontrada."); message.classList.add("isError"); return; }
+      const environmentIds = [...wizardSelection.environment];
+      const productIds = [...wizardSelection.product];
+      for (const record of records) {
+        if (key === "testAccounts") {
+          workspace.testAccounts.push({ id: uid("testAccount"), environmentIds, productIds, label: record.label, username: record.username || "", password: record.password || "", notes: record.notes || "" });
+        } else {
+          workspace.paymentMethods.push({ id: uid("paymentMethod"), environmentIds, productIds, label: record.label, holder: record.holder || "", value: record.value || "", expiry: record.expiry || "", cvv: record.cvv || "", notes: record.notes || "" });
+        }
+      }
+      await persistWorkspace();
+      message.classList.remove("isError");
+      message.textContent = t("{count} registro(s) importado(s).", { count: records.length });
+      textarea.value = "";
+    }));
   }
 }
+
+function renderWizardDots() {
+  document.getElementById("onboardingWizardDots").innerHTML = WIZARD_STEPS.map((step, index) => `
+    <button type="button" class="wizardStepDot${index === wizardStepIndex ? " isActive" : ""}${index < wizardStepIndex ? " isDone" : ""}" data-wizard-dot="${index}" title="${escapeHtml(step.label())}">
+      <span class="dot">${index < wizardStepIndex ? ICON("pass") : index + 1}</span>
+      <span class="label">${escapeHtml(step.label())}</span>
+    </button>`).join("");
+  document.querySelectorAll("[data-wizard-dot]").forEach((button) => button.addEventListener("click", () => {
+    const target = Number(button.dataset.wizardDot);
+    if (target <= wizardStepIndex || wizardStepCanAdvance()) { wizardStepIndex = target; renderWizardStep(); }
+  }));
+}
+
+function renderWizardStep() {
+  const step = wizardStep();
+  document.getElementById("onboardingWizardEyebrow").textContent = t("Passo {current} de {total}", { current: wizardStepIndex + 1, total: WIZARD_STEPS.length });
+  document.getElementById("onboardingWizardTitle").textContent = step.title();
+  document.getElementById("onboardingWizardLead").textContent = step.lead();
+  const body = document.getElementById("onboardingWizardBody");
+  if (["client", "project", "product"].includes(step.key)) body.innerHTML = renderWizardEntityStep(step);
+  else if (step.key === "environment") body.innerHTML = renderWizardEnvironmentStep();
+  else if (step.key === "urls") body.innerHTML = renderWizardUrlsStep();
+  else body.innerHTML = renderWizardOptionalStep(step);
+  renderWizardDots();
+  bindWizardStepEvents(step);
+  document.getElementById("onboardingWizardBack").disabled = wizardStepIndex === 0;
+  document.getElementById("onboardingWizardSkip").hidden = ["client", "project", "product", "environment"].includes(step.key);
+  document.getElementById("onboardingWizardTemplate").hidden = wizardStepIndex !== 0;
+  document.getElementById("onboardingWizardNext").textContent = wizardStepIndex === WIZARD_STEPS.length - 1 ? t("Concluir") : t("Continuar");
+}
+
+function openOnboardingWizard() {
+  resetWizardSelection();
+  renderWizardStep();
+  document.getElementById("onboardingWizard").showModal();
+}
+
+function closeOnboardingWizard() {
+  document.getElementById("onboardingWizard").close();
+}
+
+document.getElementById("openOnboardingWizard").addEventListener("click", () => openOnboardingWizard());
+document.getElementById("workspaceWizardNudgeOpen").addEventListener("click", () => openOnboardingWizard());
+document.getElementById("onboardingWizardClose").addEventListener("click", () => closeOnboardingWizard());
+document.getElementById("onboardingWizardBack").addEventListener("click", () => { if (wizardStepIndex > 0) { wizardStepIndex -= 1; renderWizardStep(); } });
+document.getElementById("onboardingWizardSkip").addEventListener("click", () => {
+  if (wizardStepIndex < WIZARD_STEPS.length - 1) { wizardStepIndex += 1; renderWizardStep(); } else closeOnboardingWizard();
+});
+document.getElementById("onboardingWizardNext").addEventListener("click", () => {
+  if (!wizardStepCanAdvance()) return;
+  if (wizardStepIndex < WIZARD_STEPS.length - 1) { wizardStepIndex += 1; renderWizardStep(); } else closeOnboardingWizard();
+});
+// Fast path for someone who just wants realistic example data instead of typing their own -
+// reuses the exact same one-of-everything template as "Baixar template" (Importar/Exportar), so
+// the two never drift into showing different shapes.
+document.getElementById("onboardingWizardTemplate").addEventListener("click", async () => {
+  const template = buildTemplateWorkspace();
+  for (const collection of IMPORTABLE_COLLECTIONS) workspace[collection].push(...template[collection]);
+  await persistWorkspace();
+  closeOnboardingWizard();
+});
 
 // Founder feedback: with enough clients/products/accounts registered (especially ones carrying
 // base64 logos/icons), saving felt sluggish because the UI waited for the full chrome.storage.local
