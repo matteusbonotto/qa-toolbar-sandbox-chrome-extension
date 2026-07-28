@@ -228,7 +228,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .multiSelectOptions { display:grid; gap:4px; max-height:190px; overflow:auto; }
 .multiSelectOptions label { display:flex; align-items:center; gap:8px; padding:7px; border-radius:7px; color:var(--muted); cursor:pointer; font-size:11px; }
 .multiSelectOptions label:hover { background:var(--surface-2); color:var(--hover-text); }
-.multiSelectOptions input { width:auto; min-height:0; accent-color:var(--accent); }
+.multiSelectOptions input { flex:none; width:auto; min-height:0; accent-color:var(--accent); }
 /* Test account / payment method "scope" combobox: replaces two plain <select> elements with a
    cascading multi-select - clients/projects narrow which environments/products even show up,
    environments further narrow products, and only environmentIds/productIds are actually stored
