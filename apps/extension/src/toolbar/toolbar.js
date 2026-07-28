@@ -100,6 +100,18 @@ function escapeHtml(value) {
     .replaceAll("'", "&#039;");
 }
 
+// A small preview of what the option looks like (a highlighted edge on a little rectangle)
+// instead of a plain word - matches the equivalent picker in options.js (positionPickerIcon),
+// just smaller since this one lives inside a drawer header among other icon-only buttons.
+function drawerPositionIcon(side) {
+  const x = 1, y = 1, w = 14, h = 10, thickness = 3.2;
+  const strip = side === "top" ? `x="${x}" y="${y}" width="${w}" height="${thickness}"`
+    : side === "bottom" ? `x="${x}" y="${y + h - thickness}" width="${w}" height="${thickness}"`
+      : side === "left" ? `x="${x}" y="${y}" width="${thickness}" height="${h}"`
+        : `x="${x + w - thickness}" y="${y}" width="${thickness}" height="${h}"`;
+  return `<svg viewBox="0 0 16 12" width="16" height="12" aria-hidden="true"><rect x="${x}" y="${y}" width="${w}" height="${h}" rx="1.8" fill="none" stroke="currentColor" stroke-width="1.1" opacity=".5"></rect><rect ${strip} rx=".8" fill="currentColor"></rect></svg>`;
+}
+
 // These list views rebuild body.innerHTML from scratch on every search keystroke, which destroys
 // and recreates the <input> element - without this, focus (and the caret) is lost after each
 // character, forcing the user to click back into the field to type the next one.
@@ -324,6 +336,8 @@ function resolveEnvironmentUrl(environment) {
  * resolves to a real URL) clickable to jump back to it - wired via event delegation in
  * buildShadowHost(), since this only ever returns markup, not listeners.
  */
+const CRUMB_TOOLTIP_KEYS = { client: "crumbTooltipClient", project: "crumbTooltipProject", product: "crumbTooltipProduct", environment: "crumbTooltipEnvironment" };
+
 function buildBreadcrumb(workspace, environment) {
   if (!environment) {
     return { clientHtml: "", mainHtml: "", color: "#3a3a3a", text: "#ffffff" };
@@ -343,11 +357,16 @@ function buildBreadcrumb(workspace, environment) {
 
   const legacyCompact = workspace.preferences?.compactMode === true;
   const compactEntities = workspace.preferences?.compactEntities || { project: legacyCompact, product: legacyCompact };
+  // A layperson landing on this bar for the first time has no way to know what these four words
+  // mean in this product specifically (they're generic business terms otherwise) - a native title
+  // tooltip on hover explains each one right where it's actually used, instead of only in a help
+  // doc nobody reads before their first click.
   const badge = (key, size, maxChars) => {
-    if (key === "environment") return wrapCrumb(`<strong class="qts-environment-name">${escapeHtml(environment.name)}</strong>`);
+    const tooltip = escapeHtml(state.t[CRUMB_TOOLTIP_KEYS[key]] || "");
+    if (key === "environment") return wrapCrumb(`<strong class="qts-environment-name" title="${tooltip}">${escapeHtml(environment.name)}</strong>`);
     const entity = entityFor[key];
     if (!entity) return "";
-    return wrapCrumb(window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compactEntities[key] === true ? false : entity.showLabel !== false }, { size, maxChars }));
+    return wrapCrumb(`<span class="qts-crumb-tooltip" title="${tooltip}">${window.QTS_AVATAR.buildEntityHtml({ ...entity, showLabel: compactEntities[key] === true ? false : entity.showLabel !== false }, { size, maxChars })}</span>`);
   };
 
   const order = workspace.preferences?.breadcrumbOrder || ["client", "project", "product"];
@@ -684,6 +703,7 @@ function buildShadowHost() {
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
       .qts-crumb-link { all: unset; cursor: pointer; display: inline-flex; align-items: center; }
+      .qts-crumb-tooltip { display: inline-flex; align-items: center; cursor: help; }
       .qts-crumb-link:hover { opacity: .8; text-decoration: underline; }
       .qts-client-label {
         display: inline-flex; align-items: center; gap: 4px; width: max-content; max-width: 220px;
@@ -2989,10 +3009,14 @@ function drawerStyles() {
     .qts-drawer-head button { width:34px; height:34px; border:0; border-radius:9px; background:var(--qts-ui-primary,#2563eb); color:var(--qts-ui-primary-contrast,#fff); font-size:18px; cursor:pointer; flex:none; }
     .qts-drawer-head button { display:inline-flex; align-items:center; justify-content:center; padding:0; }
     .qts-drawer-head #drawerClose { background:var(--qts-ui-danger,#c70e0e); color:#fff; }
-    .qts-drawer-position { width:auto; display:grid; gap:2px; color:var(--qts-panel-muted); font-size:9px; font-weight:750; line-height:1; }
-    .qts-drawer .qts-drawer-head select {
-      box-sizing:border-box; width:auto; min-width:104px; max-width:126px; height:34px;
-      min-height:34px; padding:0 28px 0 9px; line-height:normal; text-overflow:ellipsis;
+    .qts-drawer-position { width:auto; display:flex; gap:3px; flex:none; }
+    .qts-drawer-head .qts-drawer-position-btn {
+      width:22px; height:22px; min-width:0; padding:0; border:1px solid var(--qts-panel-border,#262626);
+      border-radius:6px; background:transparent; color:var(--qts-panel-muted);
+    }
+    .qts-drawer-head .qts-drawer-position-btn[aria-pressed="true"] {
+      color:var(--qts-ui-primary,#2563eb); border-color:var(--qts-ui-primary,#2563eb);
+      background:color-mix(in srgb, var(--qts-ui-primary,#2563eb) 14%, transparent);
     }
     @container (max-width: 430px) {
       .qts-drawer-head { flex-wrap:wrap; align-items:center; }
@@ -3446,8 +3470,8 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
         ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
         <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<div class="qts-drawer-title"><h2>${escapeHtml(title)}</h2><span class="qts-drawer-kicker">${variant === "modal" ? "Janela de trabalho" : detachedWindow ? "Ferramenta em janela separada" : "Ferramenta lateral"}</span></div>
           <div class="qts-drawer-controls">${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
-          ${sidebarControls ? `<label class="qts-drawer-position"><select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label>
-          <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
+          ${sidebarControls ? `<div class="qts-drawer-position" id="drawerPosition" role="radiogroup" aria-label="Posição do sidebar">${["right", "left", "top", "bottom"].map((side) => `<button type="button" class="qts-drawer-position-btn" data-position="${side}" aria-pressed="${side === drawerPosition}" title="${escapeHtml({ right: "Direita", left: "Esquerda", top: "Cima", bottom: "Baixo" }[side])}">${drawerPositionIcon(side)}</button>`).join("")}</div>` : ""}
+          ${sidebarControls ? `<button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
           <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div></div>
         ${sidebarControls ? `<div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>` : ""}
@@ -3456,14 +3480,17 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     </div>`;
   const backdrop = drawerHost.querySelector("#drawerBackdrop");
   const drawer = drawerHost.querySelector(".qts-drawer");
-  const positionSelect = drawerHost.querySelector("#drawerPosition");
+  const positionButtons = [...drawerHost.querySelectorAll(".qts-drawer-position-btn")];
   drawerHost.querySelector("#drawerDetach")?.addEventListener("click", () => openToolInNewTab(view));
-  if (positionSelect) positionSelect.value = drawerPosition;
-  positionSelect?.addEventListener("change", async () => {
-    backdrop.dataset.position = positionSelect.value;
-    const preferenceKey = isMobileViewport() ? "mobileDrawerPosition" : "drawerPosition";
-    state.workspace.preferences = { ...(state.workspace.preferences || {}), [preferenceKey]: positionSelect.value };
-    state.workspace = await saveWorkspace(state.workspace);
+  positionButtons.forEach((button) => {
+    button.addEventListener("click", async () => {
+      const value = button.dataset.position;
+      backdrop.dataset.position = value;
+      positionButtons.forEach((candidate) => candidate.setAttribute("aria-pressed", String(candidate === button)));
+      const preferenceKey = isMobileViewport() ? "mobileDrawerPosition" : "drawerPosition";
+      state.workspace.preferences = { ...(state.workspace.preferences || {}), [preferenceKey]: value };
+      state.workspace = await saveWorkspace(state.workspace);
+    });
   });
   drawerHost.querySelector("#drawerPin")?.addEventListener("click", (event) => {
     const pinned = backdrop.classList.toggle("isPinned");

@@ -463,26 +463,13 @@ try {
     if (!(await host.locator(control).count())) throw new Error(`Shared sidebar control is missing: ${control}`);
   }
   if (!(await host.locator("#drawerDetach").count())) throw new Error("Sidebar is missing the open-in-new-window action");
-  const positionSelectLayout = await host.locator("#drawerPosition").evaluate((select) => {
-    const style = getComputedStyle(select);
-    const rect = select.getBoundingClientRect();
-    const contentHeight = rect.height
-      - Number.parseFloat(style.paddingTop)
-      - Number.parseFloat(style.paddingBottom)
-      - Number.parseFloat(style.borderTopWidth)
-      - Number.parseFloat(style.borderBottomWidth);
-    const requiredTextHeight = Number.parseFloat(style.fontSize) * 1.25;
-    return {
-      height: rect.height,
-      contentHeight,
-      requiredTextHeight,
-      lineHeight: style.lineHeight,
-      paddingTop: style.paddingTop,
-      paddingBottom: style.paddingBottom,
-    };
-  });
-  if (positionSelectLayout.height < 34 || positionSelectLayout.contentHeight < positionSelectLayout.requiredTextHeight) {
-    throw new Error(`Sidebar position text is vertically clipped: ${JSON.stringify(positionSelectLayout)}`);
+  // The position <select> became a 4-button icon picker (right/left/top/bottom) - verify all four
+  // render with a real, clickable size instead of the old single-select text-clipping check.
+  const positionButtonSizes = await host.locator("#drawerPosition .qts-drawer-position-btn").evaluateAll(
+    (buttons) => buttons.map((button) => button.getBoundingClientRect()),
+  );
+  if (positionButtonSizes.length !== 4 || positionButtonSizes.some((rect) => rect.width < 14 || rect.height < 14)) {
+    throw new Error(`Sidebar position picker buttons are missing or too small: ${JSON.stringify(positionButtonSizes)}`);
   }
   const detachedPagePromise = context.waitForEvent("page");
   await host.locator("#drawerDetach").click();
@@ -555,7 +542,7 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#inputLabMenuItem").click();
   await host.locator(".qts-drawer").waitFor();
-  await host.locator("#drawerPosition").selectOption("left");
+  await host.locator('#drawerPosition .qts-drawer-position-btn[data-position="left"]').click();
   if (await host.locator("#drawerBackdrop").getAttribute("data-position") !== "left") throw new Error("Sidebar did not move to the left");
   await host.locator("#drawerPin").click();
   if (await host.locator("#drawerPin").getAttribute("aria-pressed") !== "true") throw new Error("Sidebar pin did not activate");
@@ -1376,6 +1363,12 @@ try {
 
   // Compact mode hides project/product names, preserving their image/initial badges and environment.
   await options.getByRole("button", { name: "Barra e aparência" }).click();
+  // "Barra e aparência" is a list of collapsible accordions now (all closed by default except
+  // "Tema") - a checkbox inside a closed <details> isn't visible/interactable, same as a real
+  // user would need to expand the section first. Open the two this block needs.
+  await options.locator(".settingsAccordion:has(#toolsMenuOrderHint) summary").click();
+  await options.locator(".settingsAccordion:has(.compactEntityGrid) summary").click();
+  await options.locator('.settingsAccordion:has([data-pinned="testStatus"]) summary').click();
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Key View configuration should remain in its own sidebar");
   if (await options.locator('[data-tool="keyView"]').count() !== 1 || await options.locator('[data-tool="keyView"]').isChecked() !== true) throw new Error("Key View menu preference did not persist in options");
   if (await options.locator('[data-tool="testStatus"]').count() !== 1 || await options.locator('[data-pinned="testStatus"]').count() !== 1) throw new Error("Test Suite is missing from menu/pinned preferences");

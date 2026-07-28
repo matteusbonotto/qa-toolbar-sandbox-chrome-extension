@@ -40,6 +40,19 @@ button,input,select,textarea { font:inherit; color:inherit; }
 .card { padding:18px; border:1px solid var(--border); border-radius:15px; background:var(--card-bg); display:grid; align-content:start; gap:13px; box-shadow:0 16px 42px var(--shadow); }
 .cardHead { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .cardHead h2 { margin:0; font-size:15px; }
+/* Founder feedback: "Barra e aparência" used to be one long card with ~10 always-expanded
+   fieldsets stacked end to end - collapsing each logical group into its own accordion (state not
+   persisted on purpose; re-opening on every visit is one click, and nothing here is so long you'd
+   want it to stay hidden across sessions) makes the panel scannable instead of a wall of settings. */
+.settingsAccordionList { display:grid; gap:12px; }
+.settingsAccordion { border:1px solid var(--border); border-radius:15px; background:var(--card-bg); box-shadow:0 16px 42px var(--shadow); overflow:hidden; }
+.settingsAccordion > summary { display:flex; align-items:center; gap:10px; padding:16px 18px; cursor:pointer; list-style:none; }
+.settingsAccordion > summary::-webkit-details-marker { display:none; }
+.settingsAccordion > summary::after { content:"⌄"; margin-left:auto; color:var(--muted); font-size:13px; transition:transform .16s ease; flex:0 0 auto; }
+.settingsAccordion:not([open]) > summary::after { transform:rotate(-90deg); }
+.settingsAccordion > summary:hover { background:var(--surface-2); }
+.settingsAccordion > summary h2 { margin:0; font-size:15px; }
+.settingsAccordionBody { display:grid; gap:13px; padding:0 18px 18px; }
 .cardLead,.securityHint { margin:0; color:var(--muted); font-size:12px; }
 .securityHint { padding:10px; border:1px solid rgba(66,213,194,.28); border-radius:9px; background:rgba(66,213,194,.06); }
 .formGrid2 { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -67,6 +80,20 @@ button,input,select,textarea { font:inherit; color:inherit; }
 .radioRow code { color:var(--accent-2); }
 fieldset { margin:0; padding:12px; border:1px solid var(--border); border-radius:10px; }
 legend { padding:0 6px; color:var(--muted); font-size:11px; font-weight:800; }
+.fieldLabel { display:block; margin:10px 0 4px; font-size:12px; color:var(--muted); }
+.fieldLabel:first-of-type { margin-top:0; }
+/* Replaces a plain <select> of "top/bottom/left/right" text with a small preview of what each
+   option actually looks like on the page - a highlighted edge on a little rectangle reads faster
+   than four nearly-identical words. See positionPickerIcon()/renderPositionPicker() in options.js. */
+.positionPicker { display:flex; gap:6px; }
+.positionPickerBtn {
+  flex:1; display:flex; align-items:center; justify-content:center; min-height:39px; padding:6px;
+  border:1px solid var(--border); border-radius:9px; background:var(--control-bg); color:var(--muted); cursor:pointer;
+}
+.positionPickerBtn:hover { color:var(--text); border-color:var(--accent); }
+.positionPickerBtn[aria-pressed="true"] { color:var(--accent-2); border-color:var(--accent); background:var(--surface-2); box-shadow:0 0 0 2px var(--accent) inset; }
+.positionPickerBtn:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.positionPickerBtn svg { pointer-events:none; }
 .checkGrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; }
 .checkGrid label { display:flex; align-items:center; gap:8px; }
 .compactEntityGrid { grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -124,7 +151,11 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .checkRow { display:flex; align-items:center; gap:6px; flex:0 0 auto; color:var(--muted); font-size:11px; white-space:nowrap; }
 .checkRow input { width:auto; min-height:0; }
 .qts-badge-avatar { display:inline-flex; align-items:center; justify-content:center; border-radius:6px; color:#fff; font-weight:850; flex-shrink:0; object-fit:cover; vertical-align:middle; }
-.imageInputGroup { display:flex; align-items:center; gap:6px; flex:1 1 220px; min-width:0; }
+/* Was flex-basis 220px, which left the URL input too little room once the URL/Upload toggle
+   took its share - "URL do logo" placeholder truncated to "URL do lo" mid-word. 280px gives the
+   input enough space to show its placeholder in full at the composer's normal (560px) width. */
+.imageInputGroup { display:flex; align-items:center; gap:6px; flex:1 1 280px; min-width:0; }
+.imageInputGroup [data-image-url] { flex:1 1 160px; }
 .imageInputGroup[data-mode="file"] [data-image-url] { display:none; }
 .imageModeToggle { display:flex; border:1px solid var(--border); border-radius:8px; overflow:hidden; flex:0 0 auto; }
 .imageModeToggle button { border:0; background:transparent; color:var(--muted); font-size:10px; font-weight:800; padding:6px 8px; cursor:pointer; }
@@ -200,7 +231,15 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .formDialogHead { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:14px; }
 .formDialogHead h2 { margin:0; font-size:18px; }
 .formDialog .inlineForm { margin:0; padding-top:0; }
-.formActions { flex-basis:100%; display:flex; justify-content:flex-end; gap:8px; margin-top:2px; }
+/* Sticky, not just "at the end of the form": .formDialog scrolls as one unit (see its own
+   max-height/overflow above), so on a tall composer (Contas de teste, Meios de pagamento) the
+   Salvar button used to scroll off with the rest of the fields - stuck to the bottom of the
+   dialog's own scroll area, it stays reachable no matter how far down you've scrolled. */
+.formActions {
+  flex-basis:100%; display:flex; justify-content:flex-end; gap:8px;
+  position:sticky; bottom:-18px; margin:10px -18px -18px; padding:10px 18px 18px;
+  background:var(--dialog-bg); border-top:1px solid var(--border); z-index:2;
+}
 .fullRow { flex-basis:100%!important; width:100%; }
 .field { display:grid; gap:5px; flex:1 1 180px; color:var(--muted); font-size:11px; font-weight:750; }
 .field > span { color:var(--muted); }
@@ -290,6 +329,12 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .environmentAccordion > summary b { flex:1; font-size:12px; }
 .environmentAccordion > summary:hover { background:var(--surface-2); }
 .environmentDot { width:9px; height:9px; border-radius:50%; background:var(--environment-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--environment-color) 20%,transparent); flex:0 0 auto; }
+/* The environment's chosen color used to only show up as a small dot next to its name - founder
+   feedback: with several environments this was hard to tell apart at a glance while scrolling.
+   Tinting the whole accordion (border + a faint wash of the same color) makes each one instantly
+   recognizable, the way the toolbar's own environment badge already looks. */
+.environmentAccordion.isColorTinted { border-color:color-mix(in srgb,var(--environment-color) 45%,var(--border)); background:color-mix(in srgb,var(--environment-color) 7%,var(--subtle-bg)); }
+.environmentAccordion.isColorTinted > summary:hover { background:color-mix(in srgb,var(--environment-color) 14%,var(--subtle-bg)); }
 .environmentAccordion .list { margin:0 13px 13px; max-height:none; overflow:visible; }
 /* #urlRelationList (id, wins over .list/.listComfortable regardless of source order) now holds
    self-managing accordions, one per environment, instead of one flat scrollable list - capping
