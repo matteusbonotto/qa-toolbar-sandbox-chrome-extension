@@ -16,7 +16,7 @@ assert.match(background, /pendingReleaseNote/);
 assert.match(toolbar, /openReleaseNotes/);
 assert.match(toolbar, /lastSeenReleaseVersion/);
 assert.match(options, /showPendingReleaseNotes/);
-assert.match(storage, /schemaVersion:\s*13/);
+assert.match(storage, /schemaVersion:\s*15/);
 assert.match(storage, /source\.schemaVersion[^\n]*< 11/);
 assert.match(storage, /source\.schemaVersion[^\n]*< 13/);
 console.log(`Update experience checks passed for v${manifest.version}.`);

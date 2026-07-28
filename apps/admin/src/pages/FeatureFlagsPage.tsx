@@ -85,6 +85,11 @@ export function FeatureFlagsPage() {
                       return (
                         <td key={plan.id}>
                           <input
+                            // Keying on the loaded value (not just plan.id) forces React to remount
+                            // - and refresh defaultValue - when planFeatures.reload() brings back a
+                            // value changed elsewhere (another admin, another tab); otherwise this
+                            // uncontrolled input keeps showing what was on screen at first load.
+                            key={`${cellKey}:${String(rawValue ?? "")}`}
                             type="number"
                             className="qa-cell-input"
                             defaultValue={typeof rawValue === "number" ? rawValue : ""}
@@ -102,6 +107,7 @@ export function FeatureFlagsPage() {
                     return (
                       <td key={plan.id}>
                         <input
+                          key={`${cellKey}:${String(rawValue ?? "")}`}
                           type="text"
                           className="qa-cell-input"
                           defaultValue={typeof rawValue === "string" ? rawValue : ""}

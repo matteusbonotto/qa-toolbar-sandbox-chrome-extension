@@ -1,5 +1,11 @@
 # Checklist de reconstrução — QA Toolbar Sandbox
 
+> **Arquivado em 2026-07-27.** Todo o plano de reconstrução total descrito aqui já foi
+> executado e verificado; este documento não é mais atualizado. Para o trabalho em
+> andamento, veja `docs/CHECKLIST_BUGFIX_PASS2.md`, `docs/CHECKLIST_OPTIONS_OVERHAUL.md` e
+> `docs/PENDENCIAS_USUARIO.md`. Mantido aqui apenas como referência histórica (citado por
+> comentários no código como rationale de decisões originais).
+
 > Documento vivo. Atualizado a cada rodada de trabalho para que o progresso não se perca
 > entre sessões (limite de uso, troca de agente, etc.). Marque `[x]` somente com evidência executável;
 > deixe `[ ]` quando ainda depender de uma ação humana ou externa.

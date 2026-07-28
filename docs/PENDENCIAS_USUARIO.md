@@ -122,6 +122,34 @@ quiser — não mexi no Stripe sozinho.
       Capturar Elementos realmente somem do menu — a matriz real já foi verificada via API, mas
       esse teste visual ainda exige uma segunda conta/assinatura.
 
+## 9. [RESOLVIDO] Nova migration: auditoria de reward_programs/reward_prizes (2026-07-27)
+
+Auditoria de código achou que `reward_programs`/`reward_prizes` (kill switch da roleta, pesos e
+limites de prêmios) eram as únicas tabelas editadas diretamente pelo founder via PostgREST sem
+gerar linha em `audit_logs` — todas as outras (planos, feature flags, vouchers, licenças…) já
+tinham esse rastro desde a criação do trigger `trg_audit_founder_mutation`, mas essas duas
+tabelas foram criadas depois do loop que anexa esse trigger e nunca foram incluídas. Corrigido em
+`supabase/schema.sql` (bootstrap de projeto novo) e em `supabase/migrations/20260727060000_audit_reward_program_mutations.sql`
+(banco já existente).
+
+- [x] Você mesmo rodou `supabase link` + `supabase db push --linked` no seu terminal (a escrita em
+      produção é bloqueada para mim pelo classificador de segurança do Claude Code — nem
+      "resolver a pendência" em texto no chat nem tentar ajustar a permissão da sessão contorna
+      isso). Confirmado depois via `supabase db push --dry-run --linked`:
+      `{"upToDate":true,...,"message":"Remote database is up to date."}` — nada pendente.
+- Novo script para as próximas vezes: `npm run backend:apply-pending` (ou
+  `node scripts/apply-pending-backend-actions.mjs --apply`) lê `SUPABASE_ACCESS_TOKEN` do `.env`
+  e `SUPABASE_PROJECT_REF`/`SUPABASE_URL` do `.env.edge.local`, e roda `db push` +
+  `functions deploy --use-api` por você. Sem `--apply` ele só mostra o que faria (seguro).
+  Continua exigindo que você mesmo aprove/rode a parte que escreve em produção.
+
+## 2b. Redeploy das Edge Functions rodado em 2026-07-27
+
+Você rodou `npx supabase functions deploy --project-ref xhusvkylbouwtpcevgri --use-api` no seu
+terminal depois de aplicar a migration acima (isso também cobre o deploy de `account-delete` do
+item 7). Não tenho o output final desse comando nesta conversa — confirme que ele terminou sem
+erro; se sim, os itens 2 e 7 abaixo ficam só com a parte de teste ao vivo pendente.
+
 ## O que já está confirmado certo (verificado de novo em 2026-07-20, não é suposição)
 
 Rodado na versão final: `security:repo`, `security:extension`, testes unitários, `typecheck`

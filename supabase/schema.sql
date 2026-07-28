@@ -1588,9 +1588,8 @@ join public.features f on f.key = v.feature_key
 on conflict (plan_id, feature_id) do update set value = excluded.value;
 
 -- QA Rewards: points, secure wheel, benefits, anti-abuse and administrative controls.
+-- Sustainable referral/community rewards: auditable points and a server-side wheel.
 drop function if exists public.reward_referral(uuid);
-update public.reward_programs set enabled=true,updated_at=now() where key='qa-rewards-2026';
-+-- Sustainable referral/community rewards: auditable points and a server-side wheel.
 create extension if not exists pgcrypto;
 
 create table if not exists public.reward_programs (
@@ -1631,7 +1630,7 @@ create table if not exists public.reward_prizes (
   key text not null, label_pt text not null, label_es text not null, label_en text not null,
   kind text not null check (kind in ('discount_percent','plan_days')),
   discount_percent integer check (discount_percent between 5 and 15), plan_id uuid references public.plans(id),
-  grant_days integer check (grant_days in (10,15)), weight integer not null check (weight > 0),
+  grant_days integer check (grant_days is null or grant_days = 8), weight integer not null check (weight > 0),
   minimum_lifetime_points integer not null default 0 check (minimum_lifetime_points >= 0),
   maximum_global_awards integer check (maximum_global_awards is null or maximum_global_awards > 0),
   awarded_count integer not null default 0 check (awarded_count >= 0), enabled boolean not null default true,
@@ -1640,6 +1639,20 @@ create table if not exists public.reward_prizes (
   check ((kind='discount_percent' and discount_percent is not null and plan_id is null and grant_days is null)
     or (kind='plan_days' and discount_percent is null and plan_id is not null and grant_days is not null))
 );
+
+-- reward_programs/reward_prizes are edited directly by the founder through PostgREST
+-- (pause the wheel, change prize weights/limits) exactly like plans/feature_flags/vouchers
+-- above, so they need the same audit trigger - otherwise a payout-affecting change leaves
+-- no trace in audit_logs despite the comment above claiming full coverage.
+do $$
+declare table_name text;
+begin
+  foreach table_name in array array['reward_programs','reward_prizes'] loop
+    execute format('drop trigger if exists trg_audit_founder_mutation on public.%I', table_name);
+    execute format('create trigger trg_audit_founder_mutation after insert or update or delete on public.%I for each row execute function public.audit_founder_table_mutation()', table_name);
+  end loop;
+end;
+$$;
 
 create table if not exists public.reward_spins (
   id uuid primary key default gen_random_uuid(), user_id uuid not null references auth.users(id) on delete cascade,
@@ -1685,6 +1698,8 @@ from program cross join (values
  ('root-10d','8 dias de Root Cause Analyst','8 días de Root Cause Analyst','8 days of Root Cause Analyst','plan_days',null,'root-cause-analyst',8,6,0,9),
  ('full-15d','8 dias de Release Manager','8 días de Release Manager','8 days of Release Manager','plan_days',null,'release-manager',8,3,0,10)
 ) as v(key,pt,es,en,kind,discount,plan_key,days,weight,minimum,ord) on conflict(program_id,key) do nothing;
+
+update public.reward_programs set enabled=true,updated_at=now() where key='qa-rewards-2026';
 
 create or replace function public.credit_reward_points(target_user_id uuid,event_kind_input text,points_input integer,source_type_input text,source_reference_input text,metadata_input jsonb default '{}'::jsonb)
 returns table(entry_id uuid,available_points integer,created boolean) language plpgsql security definer set search_path=public,pg_temp as $$

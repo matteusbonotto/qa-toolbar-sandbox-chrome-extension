@@ -41,6 +41,7 @@ export interface Dictionary {
     lead: string;
     ctaPricing: string;
     ctaSimulate: string;
+    ctaPermissions: string;
   };
   simulator: {
     hint: string;
@@ -215,6 +216,7 @@ export interface Dictionary {
     navSupport: string;
     navPrivacy: string;
     navIp: string;
+    navTrust: string;
     allRightsReserved: string;
     creditPrefix: string;
   };
@@ -267,6 +269,16 @@ export interface Dictionary {
     contactTitle: string;
     contactBody: string;
   };
+  trust: {
+    back: string;
+    eyebrow: string;
+    title: string;
+    lead: string;
+    permissionsAnchorTitle: string;
+    simpleExplanationBody: string;
+    securityAnchorTitle: string;
+    fullPolicyLinkLabel: string;
+  };
   resetPassword: {
     eyebrow: string;
     title: string;
@@ -317,6 +329,7 @@ const pt: Dictionary = {
     lead: "O QA Toolbar Sandbox roda direto na página que você já está testando: mostra sempre onde você está, registra evidências num clique e cuida do trabalho repetitivo, pra sua atenção sobrar pro que só um humano faz bem, que é pensar como testador.",
     ctaPricing: "Ver planos",
     ctaSimulate: "Simular agora",
+    ctaPermissions: "Entender permissões",
   },
   simulator: {
     hint: "Simule a troca de contexto e use as ferramentas de teste: tudo funciona de verdade aqui dentro.",
@@ -594,7 +607,7 @@ const pt: Dictionary = {
     perYear: "por ano",
     billingMonthly: "Mensal",
     billingYearly: "Anual",
-    billingYearlySavings: "economize até 20%",
+    billingYearlySavings: "economize até {percent}%",
     free: "Grátis",
     freeNote: "Grátis por 30 dias, depois escolha um plano",
     ctaFree: "Começar grátis",
@@ -716,6 +729,7 @@ const pt: Dictionary = {
     navSupport: "Suporte",
     navPrivacy: "Política de Privacidade",
     navIp: "Propriedade Intelectual",
+    navTrust: "Permissões e segurança",
     allRightsReserved: "Todos os direitos reservados.",
     creditPrefix: "desenvolvido por",
   },
@@ -801,6 +815,16 @@ const pt: Dictionary = {
     contactTitle: "Contato",
     contactBody: "Dúvidas sobre privacidade ou quer exercer algum desses direitos? Escreva para contato@matheusbonotto.com.br.",
   },
+  trust: {
+    back: "Voltar",
+    eyebrow: "Central de confiança",
+    title: "Permissões explicadas, dados sob seu controle",
+    lead: "Sem letras miúdas: o que a extensão acessa, por que precisa disso e como você controla cada parte.",
+    permissionsAnchorTitle: "O que a extensão acessa",
+    simpleExplanationBody: "Alguns recursos precisam interagir com a página aberta para identificar elementos, capturar evidências ou inspecionar requisições. Cada acesso abaixo está associado a uma ferramenta visível e controlável - nada roda escondido. O aviso do Chrome descreve o nível técnico máximo de acesso permitido; a QA Toolbar usa esse acesso somente para as ferramentas que você ativa.",
+    securityAnchorTitle: "Como protegemos seus dados",
+    fullPolicyLinkLabel: "Ver a política de privacidade completa",
+  },
   resetPassword: {
     eyebrow: "QA Toolbar Sandbox",
     title: "Redefinir senha",
@@ -851,6 +875,7 @@ const es: Dictionary = {
     lead: "QA Toolbar Sandbox corre directo en la página que ya estás probando: siempre muestra dónde estás, registra evidencias con un clic y se encarga del trabajo repetitivo, para que tu atención quede libre para lo que solo un humano hace bien: pensar como tester.",
     ctaPricing: "Ver planes",
     ctaSimulate: "Simular ahora",
+    ctaPermissions: "Entender permisos",
   },
   simulator: {
     hint: "Simula el cambio de contexto y usa las herramientas de prueba: todo funciona de verdad aquí dentro.",
@@ -1128,7 +1153,7 @@ const es: Dictionary = {
     perYear: "por año",
     billingMonthly: "Mensual",
     billingYearly: "Anual",
-    billingYearlySavings: "ahorra hasta 20%",
+    billingYearlySavings: "ahorra hasta {percent}%",
     free: "Gratis",
     freeNote: "Gratis por 30 días, luego elige un plan",
     ctaFree: "Empezar gratis",
@@ -1250,6 +1275,7 @@ const es: Dictionary = {
     navSupport: "Soporte",
     navPrivacy: "Política de Privacidad",
     navIp: "Propiedad Intelectual",
+    navTrust: "Permisos y seguridad",
     allRightsReserved: "Todos los derechos reservados.",
     creditPrefix: "desarrollado por",
   },
@@ -1335,6 +1361,16 @@ const es: Dictionary = {
     contactTitle: "Contacto",
     contactBody: "¿Dudas sobre privacidad o quieres ejercer alguno de estos derechos? Escribe a contato@matheusbonotto.com.br.",
   },
+  trust: {
+    back: "Volver",
+    eyebrow: "Centro de confianza",
+    title: "Permisos explicados, datos bajo tu control",
+    lead: "Sin letra pequeña: qué accede la extensión, por qué lo necesita y cómo controlas cada parte.",
+    permissionsAnchorTitle: "Qué accede la extensión",
+    simpleExplanationBody: "Algunas herramientas necesitan interactuar con la página abierta para identificar elementos, capturar evidencias o inspeccionar solicitudes. Cada acceso de abajo está asociado a una herramienta visible y controlable - nada se ejecuta oculto. El aviso de Chrome describe el nivel técnico máximo de acceso permitido; QA Toolbar solo lo usa para las herramientas que activas.",
+    securityAnchorTitle: "Cómo protegemos tus datos",
+    fullPolicyLinkLabel: "Ver la política de privacidad completa",
+  },
   resetPassword: {
     eyebrow: "QA Toolbar Sandbox",
     title: "Restablecer contraseña",
@@ -1385,6 +1421,7 @@ const en: Dictionary = {
     lead: "QA Toolbar Sandbox runs right inside the page you're already testing: it always shows where you are, logs evidence in one click, and handles the repetitive grind, so your attention stays free for the one thing only a human does well: thinking like a tester.",
     ctaPricing: "See pricing",
     ctaSimulate: "Try the simulator",
+    ctaPermissions: "Understand permissions",
   },
   simulator: {
     hint: "Switch context and use the testing tools: everything here actually works.",
@@ -1662,7 +1699,7 @@ const en: Dictionary = {
     perYear: "per year",
     billingMonthly: "Monthly",
     billingYearly: "Yearly",
-    billingYearlySavings: "save up to 20%",
+    billingYearlySavings: "save up to {percent}%",
     free: "Free",
     freeNote: "Free for 30 days, then pick a plan",
     ctaFree: "Start for free",
@@ -1784,6 +1821,7 @@ const en: Dictionary = {
     navSupport: "Support",
     navPrivacy: "Privacy Policy",
     navIp: "Intellectual Property",
+    navTrust: "Permissions and security",
     allRightsReserved: "All rights reserved.",
     creditPrefix: "built by",
   },
@@ -1868,6 +1906,16 @@ const en: Dictionary = {
     limitedUseBody: "QA Toolbar Sandbox's use and transfer of information complies with the Chrome Web Store User Data Policy, including the Limited Use requirements. We use data only to provide or improve user-requested QA tools, authenticate accounts, verify paid access, process payments, and meet legal or security obligations. We do not sell data or use it for personalized advertising, commercial profiling, credit assessment, or lending, and we do not permit human reading except with specific user consent, for security, or when legally required.",
     contactTitle: "Contact",
     contactBody: "Questions about privacy, or want to exercise any of these rights? Write to contato@matheusbonotto.com.br.",
+  },
+  trust: {
+    back: "Back",
+    eyebrow: "Trust center",
+    title: "Permissions explained, data under your control",
+    lead: "No fine print: what the extension accesses, why it needs it, and how you control each part.",
+    permissionsAnchorTitle: "What the extension accesses",
+    simpleExplanationBody: "Some tools need to interact with the open page to identify elements, capture evidence, or inspect requests. Each access below is tied to a visible, controllable tool - nothing runs hidden. Chrome's warning describes the maximum technical access level allowed; QA Toolbar only uses it for the tools you enable.",
+    securityAnchorTitle: "How we protect your data",
+    fullPolicyLinkLabel: "See the full privacy policy",
   },
   resetPassword: {
     eyebrow: "QA Toolbar Sandbox",

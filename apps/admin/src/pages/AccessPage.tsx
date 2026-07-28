@@ -101,7 +101,7 @@ export function AccessPage() {
                   </td>
                   <td>
                     {!grant.revoked_at ? (
-                      <button type="button" className="qa-btn danger" onClick={() => revokeEntitlementGrant(grant.id).then(grants.reload)}>
+                      <button type="button" className="qa-btn danger" onClick={() => revokeEntitlementGrant(grant.id).then(grants.reload).catch((err) => setFormError(errorMessage(err)))}>
                         Revogar
                       </button>
                     ) : null}

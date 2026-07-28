@@ -10,6 +10,7 @@ import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
 import { IntellectualPropertyPage } from "./pages/IntellectualPropertyPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
+import { TrustCenterPage } from "./pages/TrustCenterPage";
 import { ParticleBackground } from "./components/ParticleBackground";
 import { SiteNavToolbar } from "./components/SiteNavToolbar";
 
@@ -23,6 +24,8 @@ export default function App() {
   const isPrivacyPage = matchesPath(pathname, "privacidade");
   const isIpPage = matchesPath(pathname, "propriedade-intelectual");
   const isResetPasswordPage = matchesPath(pathname, "redefinir-senha");
+  const isPermissionsPage = matchesPath(pathname, "permissoes");
+  const isSecurityPage = matchesPath(pathname, "seguranca");
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
   const isHomePage = pathname === basePath || pathname === `${basePath}/`;
 
@@ -46,6 +49,19 @@ export default function App() {
         <SiteNavToolbar />
         <div className="qts-page-content">
           <IntellectualPropertyPage />
+          <Footer />
+        </div>
+      </>
+    );
+  }
+
+  if (isPermissionsPage || isSecurityPage) {
+    return (
+      <>
+        <ParticleBackground />
+        <SiteNavToolbar />
+        <div className="qts-page-content">
+          <TrustCenterPage focus={isSecurityPage ? "security" : "permissions"} />
           <Footer />
         </div>
       </>

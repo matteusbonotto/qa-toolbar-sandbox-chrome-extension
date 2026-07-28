@@ -23,6 +23,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Install Playwright's Chromium (needed by scripts/test-gif-encoder.mjs, part of npm test)
+        run: npx playwright install --with-deps chromium
       - run: npm run typecheck
       - run: npm run test
       - name: Build isolated extension test package

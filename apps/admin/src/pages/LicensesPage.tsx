@@ -101,7 +101,7 @@ export function LicensesPage() {
                     <button
                       type="button"
                       className="qa-btn danger"
-                      onClick={() => (license.revoked_at ? unrevokeLicenseKey(license.id) : revokeLicenseKey(license.id)).then(licenses.reload)}
+                      onClick={() => (license.revoked_at ? unrevokeLicenseKey(license.id) : revokeLicenseKey(license.id)).then(licenses.reload).catch((err) => setFormError(errorMessage(err)))}
                     >
                       {license.revoked_at ? "Reativar" : "Revogar"}
                     </button>{" "}
@@ -110,7 +110,7 @@ export function LicensesPage() {
                         type="button"
                         className="qa-btn danger"
                         style={{ marginLeft: 6 }}
-                        onClick={() => { if (window.confirm("Excluir esta chave de licença?")) void deleteLicenseKey(license.id).then(licenses.reload); }}
+                        onClick={() => { if (window.confirm("Excluir esta chave de licença?")) void deleteLicenseKey(license.id).then(licenses.reload).catch((err) => setFormError(errorMessage(err))); }}
                       >
                         Excluir
                       </button>

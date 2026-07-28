@@ -149,7 +149,7 @@ export function VouchersPage() {
         label: campaignLabel,
         kind: campaignKind,
         planId: campaignKind === "discount" ? (campaignPlanId || null) : campaignPlanId,
-        grantDays: campaignKind === "lifetime" ? null : (Number(campaignGrantDays) || 30),
+        grantDays: campaignKind === "days" ? (Number(campaignGrantDays) || 30) : null,
         discountPercentOff: percentOff,
         discountAmountOffMinor: amountOffMinor,
         maximumRedemptions: campaignMaxRedemptions ? Number(campaignMaxRedemptions) : null,
@@ -279,12 +279,12 @@ export function VouchersPage() {
                       <button
                         type="button"
                         className="qa-btn danger"
-                        onClick={() => setVoucherStatus(voucher.id, voucher.status === "disabled" ? "available" : "disabled").then(vouchers.reload)}
+                        onClick={() => setVoucherStatus(voucher.id, voucher.status === "disabled" ? "available" : "disabled").then(vouchers.reload).catch((err) => setVoucherFormError(errorMessage(err)))}
                       >
                         {voucher.status === "disabled" ? "Reativar" : "Desativar"}
                       </button>
                     ) : null}
-                    <button type="button" className="qa-btn danger" style={{ marginLeft: 6 }} onClick={() => { if (window.confirm("Excluir este voucher? O código não poderá ser recuperado.")) void deleteVoucher(voucher.id).then(vouchers.reload); }}>Excluir</button>
+                    <button type="button" className="qa-btn danger" style={{ marginLeft: 6 }} onClick={() => { if (window.confirm("Excluir este voucher? O código não poderá ser recuperado.")) void deleteVoucher(voucher.id).then(vouchers.reload).catch((err) => setVoucherFormError(errorMessage(err))); }}>Excluir</button>
                   </td>
                 </tr>
               ))}
@@ -375,11 +375,11 @@ export function VouchersPage() {
                       <button
                         type="button"
                         className="qa-btn danger"
-                        onClick={() => setVoucherCampaignEnabled(campaign.id, !campaign.enabled).then(campaigns.reload)}
+                        onClick={() => setVoucherCampaignEnabled(campaign.id, !campaign.enabled).then(campaigns.reload).catch((err) => setCampaignFormError(errorMessage(err)))}
                       >
                         {campaign.enabled ? "Desativar" : "Reativar"}
                       </button>
-                      {campaign.redemption_count === 0 ? <button type="button" className="qa-btn danger" style={{ marginLeft: 6 }} onClick={() => { if (window.confirm("Excluir esta campanha sem resgates?")) void deleteVoucherCampaign(campaign.id).then(campaigns.reload); }}>Excluir</button> : null}
+                      {campaign.redemption_count === 0 ? <button type="button" className="qa-btn danger" style={{ marginLeft: 6 }} onClick={() => { if (window.confirm("Excluir esta campanha sem resgates?")) void deleteVoucherCampaign(campaign.id).then(campaigns.reload).catch((err) => setCampaignFormError(errorMessage(err))); }}>Excluir</button> : null}
                     </td>
                   </tr>
                 );

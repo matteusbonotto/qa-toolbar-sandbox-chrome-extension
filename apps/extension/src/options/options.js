@@ -1821,7 +1821,7 @@ function renderFaqPanel() {
     <details class="environmentAccordion faqGroupAccordion" open>
       <summary><b>${escapeHtml(t(groupLabels[group.key] || group.key))}</b></summary>
       <div class="list">${group.modules.map((module) => `
-        <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t("Para que serve {tool}?", { tool: t(module.title) }))}</b></summary><div class="list faqAnswer">${module.screenshot ? `<img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />` : ""}<p>${escapeHtml(t(module.short))} ${escapeHtml(t(module.instructions))}</p></div></details>
+        <details class="environmentAccordion faqAccordion"><summary><b>${escapeHtml(t("Para que serve {tool}?", { tool: t(module.title) }))}</b></summary><div class="list faqAnswer">${module.screenshot ? `<img src="${escapeHtml(module.screenshot)}" alt="${escapeHtml(t(module.title))}" loading="lazy" />` : ""}<p>${escapeHtml(t(module.short))} ${escapeHtml(t(module.instructions))}</p>${module.example ? `<p class="faqExample">${escapeHtml(t(module.example))}</p>` : ""}</div></details>
       `).join("")}</div>
     </details>
   `).join("");
