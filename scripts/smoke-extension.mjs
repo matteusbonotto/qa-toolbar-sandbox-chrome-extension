@@ -1278,7 +1278,6 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#stepsRecorderMenuItem").click();
   await host.locator("#newStepsName").fill("Fluxo de checkout");
-  await host.locator("#newStepsMode").selectOption("gherkin");
   await host.locator("#startSteps").click();
   await host.locator("#macroTarget").click();
   await host.locator("#macroText").fill("produto 123");
@@ -1289,6 +1288,9 @@ try {
   if (await host.locator("#stepsRecCount").textContent() !== pausedCount) throw new Error("Step Recorder captured actions while paused");
   await host.locator("#stepsRecPauseButton").click();
   await host.locator("#stepsRecDoneButton").click();
+  // There's no upfront mode picker anymore (see openStepsRecorder's own comment) - numbered vs
+  // Gherkin is now purely a view toggle here in the editor, on the exact same recorded steps.
+  await host.locator("#stepsMode").selectOption("gherkin");
   await host.locator('[data-doc-step="0"] summary').click();
   await host.locator('[data-doc-step="0"] [data-step-expected]').fill("Tela inicial disponível");
   await host.locator("#stepsSave").click();

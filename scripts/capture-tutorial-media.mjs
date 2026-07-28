@@ -501,7 +501,6 @@ try {
     await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "stepsRecorderMenuItem");
     await page.locator("#newStepsName").fill("Validar cadastro de usuário");
-    await page.locator("#newStepsMode").selectOption("gherkin");
     await page.locator("#startSteps").click();
     await page.locator("#contactName").fill("Matheus QA");
     await page.locator("#contactEmail").fill("qa@example.com");
@@ -511,6 +510,8 @@ try {
     await page.locator("#contactSubmit").click();
     await page.waitForTimeout(900);
     await page.locator("#stepsRecDoneButton").click();
+    // No upfront mode picker anymore - numbered vs Gherkin is a view toggle in the editor now.
+    await page.locator("#stepsMode").selectOption("gherkin");
     await page.locator('[data-doc-step="0"] summary').click();
     await page.locator('[data-doc-step="0"] [data-step-expected]').fill("Formulário disponível para preenchimento");
     await page.waitForTimeout(1_200);
