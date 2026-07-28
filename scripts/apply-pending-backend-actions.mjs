@@ -48,10 +48,25 @@ function envValue(key) {
   return process.env[key] ?? edgeLocalEnv[key] ?? rootEnv[key];
 }
 
-const accessToken = envValue("SUPABASE_ACCESS_TOKEN");
-const projectRef = envValue("SUPABASE_PROJECT_REF")
-  ?? envValue("SUPABASE_URL")?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+// Supabase project refs are always a 20-char lowercase alphanumeric slug. Enforcing that shape
+// here (rather than passing the env-derived value straight through) is what makes it safe to
+// hand to execFileSync below — CodeQL's js/indirect-command-line-injection check wants proof an
+// environment-sourced argv value can't smuggle extra flags/shell metacharacters, and a full-match
+// allowlist regex is exactly that proof.
+const PROJECT_REF_PATTERN = /^[a-z0-9]{20}$/;
 
+const accessToken = envValue("SUPABASE_ACCESS_TOKEN");
+const rawProjectRef = envValue("SUPABASE_PROJECT_REF")
+  ?? envValue("SUPABASE_URL")?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+const projectRef = rawProjectRef && PROJECT_REF_PATTERN.test(rawProjectRef) ? rawProjectRef : undefined;
+
+if (rawProjectRef && !projectRef) {
+  console.error(
+    `SUPABASE_PROJECT_REF/SUPABASE_URL resolved to "${rawProjectRef}", which isn't a valid ` +
+      "20-character lowercase alphanumeric Supabase project ref. Refusing to use it.",
+  );
+  process.exit(1);
+}
 if (!accessToken) {
   console.error(
     "Missing SUPABASE_ACCESS_TOKEN. Generate a Personal Access Token at\n" +
