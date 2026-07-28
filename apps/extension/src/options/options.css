@@ -82,6 +82,21 @@ fieldset { margin:0; padding:12px; border:1px solid var(--border); border-radius
 legend { padding:0 6px; color:var(--muted); font-size:11px; font-weight:800; }
 .fieldLabel { display:block; margin:10px 0 4px; font-size:12px; color:var(--muted); }
 .fieldLabel:first-of-type { margin-top:0; }
+.fieldLabelRow { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+.fieldLabelRow .fieldLabel { margin:10px 0 4px; }
+.fieldLabelRow .linkButton { margin:6px 0 2px; font-size:11px; }
+/* N:N pickers (a Dispositivo can carry several Sistemas/Navegadores) - small toggleable pills
+   instead of a native multi-select listbox, which is unreadable past 2-3 selected options. */
+.checkboxGrid { display:flex; flex-wrap:wrap; gap:6px; }
+.checkboxPill { display:inline-flex; align-items:center; gap:6px; padding:6px 10px; border:1px solid var(--border); border-radius:999px; background:var(--subtle-bg); font-size:12px; cursor:pointer; }
+.checkboxPill:has(input:checked) { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 14%,transparent); color:var(--hover-text); }
+.checkboxPill input { margin:0; }
+.checkboxPill img { width:14px; height:14px; border-radius:3px; object-fit:cover; }
+/* "Sistemas operacionais"/"Navegadores" catalogs sit beside each other above the device list - a
+   subtle tinted background reads as "this is the shared list feeding the pills below". */
+.typeCatalogCard { background:var(--subtle-bg); box-shadow:none; }
+.typeCatalogCard .cardHead h3 { margin:0; font-size:13px; }
+.typeCatalogList { max-height:160px; }
 /* Replaces a plain <select> of "top/bottom/left/right" text with a small preview of what each
    option actually looks like on the page - a highlighted edge on a little rectangle reads faster
    than four nearly-identical words. See positionPickerIcon()/renderPositionPicker() in options.js. */

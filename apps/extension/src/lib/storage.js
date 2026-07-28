@@ -12,6 +12,7 @@ export const STORAGE_KEYS = Object.freeze({
 const COLLECTION_KEYS = [
   "clients", "projects", "products", "environments", "urlBindings", "testAccounts",
   "paymentMethods", "apis", "inspectors", "resources", "macros", "stepRecordings",
+  "operatingSystems", "browsers", "devices",
 ];
 
 // Fixed ids for the Cliente=Toolbar/Projeto=Sandbox/Produto=STAGE demo entities the onboarding
@@ -145,6 +146,44 @@ function normalizeIdArray(rawArray, rawSingular, validEntities) {
   return [...new Set(source.map((value) => text(value, 120)))].filter((value) => validIds.has(value));
 }
 
+// Reusable "sistema operacional"/"navegador" catalogs, and the "dispositivo" records that pick
+// freely from both (a device can carry several OSs and several browsers - e.g. a notebook tested
+// under both Chrome and Firefox - schemaVersion 17). Seeded with common defaults so the catalog
+// isn't empty on first use, but every entry is a normal, fully editable/removable item.
+function normalizeCatalogEntries(input, prefix) {
+  return (Array.isArray(input) ? input : []).slice(0, 200).map((item, index) => ({
+    id: id(item?.id, prefix, index),
+    name: text(item?.name ?? item?.label, 60) || `Item ${index + 1}`,
+    icon: text(item?.icon, IMAGE_VALUE_MAX_CHARS),
+    active: item?.active !== false,
+  }));
+}
+
+const DEFAULT_OPERATING_SYSTEMS = Object.freeze([
+  Object.freeze({ id: "operatingSystem_windows", name: "Windows", icon: "", active: true }),
+  Object.freeze({ id: "operatingSystem_macos", name: "macOS", icon: "", active: true }),
+  Object.freeze({ id: "operatingSystem_linux", name: "Linux", icon: "", active: true }),
+  Object.freeze({ id: "operatingSystem_android", name: "Android", icon: "", active: true }),
+  Object.freeze({ id: "operatingSystem_ios", name: "iOS", icon: "", active: true }),
+]);
+const DEFAULT_BROWSERS = Object.freeze([
+  Object.freeze({ id: "browser_chrome", name: "Chrome", icon: "", active: true }),
+  Object.freeze({ id: "browser_firefox", name: "Firefox", icon: "", active: true }),
+  Object.freeze({ id: "browser_safari", name: "Safari", icon: "", active: true }),
+  Object.freeze({ id: "browser_edge", name: "Edge", icon: "", active: true }),
+]);
+
+function normalizeDevice(item, index, operatingSystems, browsers) {
+  return {
+    id: id(item?.id, "device", index),
+    label: text(item?.label, 120) || `Dispositivo ${index + 1}`,
+    operatingSystemIds: normalizeIdArray(item?.operatingSystemIds, null, operatingSystems),
+    browserIds: normalizeIdArray(item?.browserIds, null, browsers),
+    notes: text(item?.notes, 1_000),
+    active: item?.active !== false,
+  };
+}
+
 function normalizeTestAccount(item, index, environments, products) {
   const environmentIds = normalizeIdArray(item?.environmentIds, item?.environmentId, environments);
   if (!environmentIds.length) return null;
@@ -271,10 +310,13 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 15,
+    schemaVersion: 17,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], stepRecordings: [],
+    operatingSystems: DEFAULT_OPERATING_SYSTEMS.map((entry) => ({ ...entry })),
+    browsers: DEFAULT_BROWSERS.map((entry) => ({ ...entry })),
+    devices: [],
     preferences: {
       language: "pt-BR",
       appearanceTheme: "light",
@@ -478,6 +520,15 @@ export function normalizeWorkspace(rawWorkspace) {
   const copyCollection = (key) => (Array.isArray(source[key]) ? source[key] : []).map((item, index) => ({
     ...item, id: id(item?.id, key.replace(/s$/, ""), index), active: item?.active !== false,
   }));
+  // "Dispositivo" catalog (schemaVersion 17) - below 17, an empty catalog is seeded with common
+  // defaults so it isn't blank on upgrade either (nothing to migrate/link from, unlike the
+  // account/payment type catalogs - this collection is brand new).
+  let operatingSystems = normalizeCatalogEntries(source.operatingSystems, "operatingSystem");
+  let browsers = normalizeCatalogEntries(source.browsers, "browser");
+  if (Number(source.schemaVersion || 0) < 17) {
+    if (!operatingSystems.length) operatingSystems = DEFAULT_OPERATING_SYSTEMS.map((entry) => ({ ...entry }));
+    if (!browsers.length) browsers = DEFAULT_BROWSERS.map((entry) => ({ ...entry }));
+  }
   const preferences = source.preferences && typeof source.preferences === "object" ? source.preferences : {};
   const normalizedEnabledTools = Array.isArray(preferences.enabledTools)
     ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value))
@@ -517,9 +568,12 @@ export function normalizeWorkspace(rawWorkspace) {
   }
   const workspace = {
     ...empty,
-    schemaVersion: 15,
+    schemaVersion: 17,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
+    operatingSystems, browsers,
+    devices: (Array.isArray(source.devices) ? source.devices : [])
+      .map((item, index) => normalizeDevice(item, index, operatingSystems, browsers)),
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
       .map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
     paymentMethods: copyCollection("paymentMethods").map((item) => {

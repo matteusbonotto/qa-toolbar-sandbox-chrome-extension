@@ -240,7 +240,7 @@ try {
   trace("options light/dark theme persistence and contrast verified");
 
   await options.getByRole("button", { name: "Workspace" }).click();
-  if (await options.locator(".workspaceTab").count() !== 6) throw new Error("Workspace Studio tabs are incomplete");
+  if (await options.locator(".workspaceTab").count() !== 7) throw new Error("Workspace Studio tabs are incomplete");
   await options.locator('[data-open-composer="clientComposer"]').click();
   await options.locator("#clientName").fill("Cliente Demo");
   await options.locator("#clientAbbreviation").fill("CD");
@@ -1443,6 +1443,32 @@ try {
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();
+
+  // Dispositivo catalog: a device can pick freely from several operating systems AND several
+  // browsers (checkboxes, not a single select) - exercise a quick-add mid-form plus a
+  // pre-seeded default to confirm both paths land in the persisted record.
+  await options.locator('[data-workspace-tab="devices"]').click();
+  await options.locator('[data-open-composer="deviceComposer"]').click();
+  await options.locator("#deviceLabel").fill("Notebook QA");
+  await options.locator('[data-quick-add-type="operatingSystem"]').click();
+  await options.locator("#operatingSystemComposer[open]").waitFor();
+  await options.locator("#operatingSystemName").fill("ChromeOS");
+  await options.locator("#operatingSystemForm button[type=submit]").click();
+  if (await options.locator("#operatingSystemComposer[open]").count()) throw new Error("Operating system composer did not close after saving");
+  if (!(await options.locator('#deviceOperatingSystems input[value^="operatingSystem_"]').evaluateAll((inputs) => inputs.some((input) => input.checked)))) throw new Error("Quick-added operating system was not checked back into the device form");
+  await options.locator('#deviceBrowsers label', { hasText: "Chrome" }).locator("input").check();
+  await options.locator("#deviceForm button[type=submit]").click();
+  const deviceResult = await options.evaluate(async () => {
+    const ws = await window.QTS_STORAGE.getWorkspace();
+    const device = ws.devices.find((item) => item.label === "Notebook QA");
+    return {
+      hasChromeOs: Boolean(device) && device.operatingSystemIds.some((id) => ws.operatingSystems.find((entry) => entry.id === id)?.name === "ChromeOS"),
+      hasChromeBrowser: Boolean(device) && device.browserIds.includes("browser_chrome"),
+    };
+  });
+  if (!deviceResult.hasChromeOs || !deviceResult.hasChromeBrowser) throw new Error(`Device did not persist its N:N system/browser picks: ${JSON.stringify(deviceResult)}`);
+  trace("device catalog verified (N:N operating systems + browsers, quick-add, persisted)");
+
   await options.getByRole("button", { name: "Inspectors e recursos" }).click();
   await options.locator('[data-open-composer="apiComposer"]').click();
   await options.locator("#apiLabel").fill("API Demo");
