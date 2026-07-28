@@ -24,6 +24,11 @@ export const DEMO_PRODUCT_ID = "qts-demo-product";
 export const DEMO_ENVIRONMENT_ID = "qts-demo-env";
 export const DEMO_URL_BINDING_ID = "qts-demo-url-binding";
 export const DEMO_SITE_URL_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
+// Unlike the five ids above, these two aren't re-asserted by normalizeWorkspace (nothing in the
+// tour depends on their exact content) - just seeded once so a fresh install already shows what a
+// filled-in test account / sandbox card looks like, editable/removable like any real entry.
+export const DEMO_TEST_ACCOUNT_ID = "qts-demo-test-account";
+export const DEMO_PAYMENT_METHOD_ID = "qts-demo-payment-method";
 
 export const FEATURE_REGISTRY = Object.freeze([
   ["testStatus","Test Suite","statusMenuItem","checkSquare",""],

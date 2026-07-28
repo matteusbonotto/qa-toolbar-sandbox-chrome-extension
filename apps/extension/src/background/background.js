@@ -1,4 +1,4 @@
-import { getSiteScope, getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN } from "../lib/storage.js";
+import { getSiteScope, getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN, DEMO_TEST_ACCOUNT_ID, DEMO_PAYMENT_METHOD_ID } from "../lib/storage.js";
 import { acceptSessionHandoff, deleteAccount, getAccessState, redeemVoucher, requestPasswordReset, signIn, signOut } from "./auth.js";
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
@@ -184,6 +184,20 @@ async function ensureDemoWorkspace() {
     products: [{ id: DEMO_PRODUCT_ID, projectId: DEMO_PROJECT_ID, name: "STAGE", locked: true }],
     environments: [{ id: DEMO_ENVIRONMENT_ID, name: "QA", color: "#5b21b6", locked: true }],
     urlBindings: [{ id: DEMO_URL_BINDING_ID, productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], patterns: [DEMO_SITE_URL_PATTERN], locked: true }],
+    // Not locked (unlike the five entities above): nothing in the tour depends on their exact
+    // content, they're just here so a fresh install already shows what a filled-in test account /
+    // sandbox card looks like - editable or removable like any real entry.
+    testAccounts: [{
+      id: DEMO_TEST_ACCOUNT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], productIds: [DEMO_PRODUCT_ID],
+      label: "Admin", accountType: "Administrador", username: "admin", password: "admin",
+      notes: "Conta de demonstração - substitua pelas suas credenciais sandbox reais.",
+    }],
+    paymentMethods: [{
+      id: DEMO_PAYMENT_METHOD_ID, environmentIds: [DEMO_ENVIRONMENT_ID], productIds: [DEMO_PRODUCT_ID],
+      label: "Cartão de teste", type: "card", holder: "QA Sandbox", value: "4242 4242 4242 4242",
+      expiry: "12/2030", cvv: "123",
+      notes: "Cartão de demonstração (número de teste público do Stripe) - substitua pelo seu meio de pagamento sandbox real.",
+    }],
     preferences: { demoWorkspaceSeeded: true },
   });
 }

@@ -725,20 +725,20 @@ function matchesSearch(item) {
 }
 
 function rowActions(collection, item, { reveal = false } = {}) {
-  const reorderable = ["clients", "projects", "products"].includes(collection) && (workspace[collection] || []).length > 1;
   // Toolbar/Sandbox/STAGE (the seeded demo entities the tour/tutorial points at) are fixed on
-  // purpose -- no delete button at all, just a padlock explaining why, instead of a button that
-  // would visibly do nothing (or worse, look broken) if clicked.
-  const removeControl = item.locked
-    ? `<span class="lockedBadge" title="${escapeHtml(t("Item fixo do ambiente de demonstração - não pode ser excluído"))}">🔒 ${escapeHtml(t("Fixo"))}</span>`
-    : `<button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Excluir"))}">${escapeHtml(t("Excluir"))}</button>`;
+  // purpose -- no CRUD buttons at all (they'd all either no-op or visibly break the tour target),
+  // just a padlock badge explaining why.
+  if (item.locked) {
+    return `<div class="rowActions"><span class="lockedBadge" title="${escapeHtml(t("Item fixo do ambiente de demonstração - não pode ser editado"))}">🔒 ${escapeHtml(t("Fixo"))}</span></div>`;
+  }
+  const reorderable = ["clients", "projects", "products"].includes(collection) && (workspace[collection] || []).length > 1;
   return `<div class="rowActions">
     ${reveal ? `<button type="button" data-action="reveal" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mostrar/ocultar senha"))}">${escapeHtml(t(revealedAccountIds.has(item.id) ? "Ocultar" : "Ver"))}</button>` : ""}
     ${reorderable ? `<button type="button" data-action="move-up" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para cima"))}">↑</button><button type="button" data-action="move-down" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para baixo"))}">↓</button>` : ""}
     <button type="button" data-action="edit" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Editar"))}">${escapeHtml(t("Editar"))}</button>
     <button type="button" data-action="duplicate" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Duplicar"))}">${escapeHtml(t("Duplicar"))}</button>
     <button type="button" data-action="toggle" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Ativar/desativar"))}">${escapeHtml(t(item.active === false ? "Ativar" : "Pausar"))}</button>
-    ${removeControl}
+    <button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Excluir"))}">${escapeHtml(t("Excluir"))}</button>
   </div>`;
 }
 
@@ -1588,15 +1588,16 @@ async function buildExportEnvelope(workspaceData, filenamePrefix) {
   window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
 }
 
-document.getElementById("exportButton").addEventListener("click", () => buildExportEnvelope(workspace, "qa-toolbar-workspace"));
-document.getElementById("downloadTemplateButton").addEventListener("click", () => {
-  // A minimal, generic (no real customer name) one-of-*everything* workspace - normalized the
-  // same way an import would be, so this is guaranteed to be a file that imports cleanly. Founder
-  // feedback: the old template only had structure/URL examples, so a hand-edited copy that also
-  // needed test accounts or payment methods had no shape to copy from and came out wrong (most
-  // often the old singular environmentId/productId instead of the current environmentIds[]/
-  // productIds[] arrays). Every importable collection gets a real example now.
-  const template = normalizeWorkspace({
+// A minimal, generic (no real customer name) one-of-*everything* workspace - normalized the same
+// way an import would be, so this is guaranteed to be a file that imports cleanly. Founder
+// feedback: the old template only had structure/URL examples, so a hand-edited copy that also
+// needed test accounts or payment methods had no shape to copy from and came out wrong (most
+// often the old singular environmentId/productId instead of the current environmentIds[]/
+// productIds[] arrays). Every importable collection gets a real example now. Shared by the
+// "Baixar template" button and the "Copiar prompt para IA" button below, so both always show the
+// exact same accepted shape.
+function buildTemplateWorkspace() {
+  return normalizeWorkspace({
     clients: [{ id: "client-exemplo", name: "Cliente Exemplo" }],
     projects: [{ id: "project-exemplo", clientId: "client-exemplo", name: "Projeto Exemplo" }],
     products: [{ id: "product-exemplo", projectId: "project-exemplo", name: "Produto Exemplo" }],
@@ -1621,7 +1622,41 @@ document.getElementById("downloadTemplateButton").addEventListener("click", () =
     resources: [{ id: "resource-exemplo", label: "Recurso Exemplo", url: "https://exemplo.com/docs", category: "Documentação" }],
     macros: [{ id: "macro-exemplo", name: "Macro Exemplo", description: "Exemplo de macro gravada.", steps: [{ action: "click", selector: "#exemplo-botao" }] }],
   });
-  void buildExportEnvelope(template, "qa-toolbar-template");
+}
+
+document.getElementById("exportButton").addEventListener("click", () => buildExportEnvelope(workspace, "qa-toolbar-workspace"));
+document.getElementById("downloadTemplateButton").addEventListener("click", () => {
+  void buildExportEnvelope(buildTemplateWorkspace(), "qa-toolbar-template");
+});
+// Not run through t() on purpose: this is copied into an external AI chat, not rendered as app
+// UI - an LLM reads instructions in any language fine, and keeping the JSON shape (the part that
+// actually has to be exact) in a single canonical string avoids a 3-locale copy silently drifting
+// out of sync with IMPORTABLE_COLLECTIONS/normalizeWorkspace over time.
+function buildAiImportPrompt() {
+  const shape = JSON.stringify(buildTemplateWorkspace(), null, 2);
+  return `Gere um arquivo JSON de workspace para o QA Toolbar Sandbox (extensão de QA), pronto para importar em Configurações -> Importar/Exportar -> Importar JSON.
+
+Regras obrigatórias:
+- A saída deve ser SOMENTE o JSON (sem markdown, sem comentários, sem texto antes/depois).
+- Preserve exatamente as chaves e o formato de arrays do exemplo abaixo (ex.: environmentIds e productIds são sempre arrays, mesmo com um único item).
+- Cada client/project/product/environment/testAccount/paymentMethod/api/inspector/resource/macro precisa de um "id" único (string curta, sem espaços).
+- projects[].clientId, products[].projectId, urlBindings[].productId e urlBindings[].environmentIds devem referenciar ids que realmente existem no mesmo arquivo.
+- Não invente credenciais reais: use dados fictícios, claramente de teste/sandbox.
+- Pode remover coleções vazias, mas nunca altere o nome dos campos.
+
+Descreva para a IA, junto com este prompt, os clientes/projetos/produtos/ambientes reais que você quer (nomes, quantas URLs por ambiente, quais contas de teste e cartões sandbox precisa) - ela deve preencher a estrutura abaixo com esses dados.
+
+Estrutura de exemplo (formato aceito pelo importador):
+${shape}`;
+}
+
+document.getElementById("aiPromptButton").addEventListener("click", async () => {
+  try {
+    await navigator.clipboard.writeText(buildAiImportPrompt());
+    document.getElementById("dataHint").textContent = t("Prompt copiado! Cole numa IA (ChatGPT, Claude etc.) junto com os dados que você quer, e ela devolve um JSON pronto para importar.");
+  } catch {
+    document.getElementById("dataHint").textContent = t("Não foi possível copiar automaticamente. Permita a permissão de área de transferência e tente de novo.");
+  }
 });
 // normalizeWorkspace() is deliberately forgiving (it has to be - it's also what reads whatever's
 // already in local storage across schema versions, and silently healing a slightly-off value
@@ -1975,10 +2010,10 @@ async function showPendingReleaseNotes() {
   const note = stored[STORAGE_KEYS.uiState]?.pendingReleaseNote;
   if (!note) return;
   const texts = currentLocale.startsWith("en")
-    ? { title: `Updated to version ${note.version}`, intro: "Your previous data and settings were preserved.", done: "Got it", items: ["Payment methods created outside the composer form (e.g. an imported file) now show and copy the card number correctly again"] }
+    ? { title: `Updated to version ${note.version}`, intro: "Your previous data and settings were preserved.", done: "Got it", items: ["Vertical mode (left/right): the Tools button no longer shows two overlapping icons", "Vertical mode: \"Push content\" now works correctly when docked left, right or bottom too, not just at the top", "Vertical mode: the minimize button now sits at the top of the bar instead of the bottom", "The \"Posição\" label was removed from the sidebar position selector - just the dropdown shows now"] }
     : currentLocale.startsWith("es")
-      ? { title: `Actualizado a la versión ${note.version}`, intro: "Tus datos y configuraciones se conservaron.", done: "Entendido", items: ["Los métodos de pago creados fuera del formulario (por ejemplo, un archivo importado) vuelven a mostrar y copiar el número de tarjeta correctamente"] }
-      : { title: `Atualizado para a versão ${note.version}`, intro: "Seus dados e configurações anteriores foram preservados.", done: "Entendi", items: ["Meios de pagamento cadastrados fora do formulário (ex.: um arquivo importado) voltam a mostrar e copiar o número do cartão corretamente"] };
+      ? { title: `Actualizado a la versión ${note.version}`, intro: "Tus datos y configuraciones se conservaron.", done: "Entendido", items: ["Modo vertical (izquierda/derecha): el botón Herramientas ya no muestra dos íconos superpuestos", "Modo vertical: \"Empujar contenido\" ahora funciona correctamente también con la barra a la izquierda, a la derecha o abajo, no solo arriba", "Modo vertical: el botón de minimizar ahora está en la parte superior de la barra, no abajo", "Se eliminó la etiqueta \"Posición\" del selector de posición del sidebar - ahora solo aparece el combobox"] }
+      : { title: `Atualizado para a versão ${note.version}`, intro: "Seus dados e configurações anteriores foram preservados.", done: "Entendi", items: ["Modo vertical (esquerda/direita): o botão Ferramentas não mostra mais dois ícones sobrepostos", "Modo vertical: \"Empurrar conteúdo\" agora funciona corretamente também com a barra à esquerda, à direita ou embaixo, não só no topo", "Modo vertical: o botão de minimizar agora fica no topo da barra, não mais embaixo", "O rótulo \"Posição\" foi removido do seletor de posição do sidebar - só o combobox aparece"] };
   const dialog = document.createElement("dialog");
   dialog.className = "composerDialog";
   dialog.innerHTML = `<div class="dialogHead"><h2>${escapeHtml(texts.title)}</h2></div><div class="dialogBody"><p>${escapeHtml(texts.intro)}</p><ul>${texts.items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div><div class="dialogActions"><button class="primary" type="button">${escapeHtml(texts.done)}</button></div>`;
