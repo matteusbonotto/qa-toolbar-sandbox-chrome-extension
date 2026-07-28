@@ -9,6 +9,9 @@ const ICON = window.QTS_ICONS.svg;
 // the real-Chrome smoke test), used everywhere else that needs the bar's height in JS (spacer,
 // marker placement floor, header-offset math) since those can't just ask the DOM before it exists.
 const TOOLBAR_HEIGHT = 37;
+// Matches #bar's fixed `width:58px` when docked left/right (see the <style> block in render()) -
+// the horizontal equivalent of TOOLBAR_HEIGHT for push-mode math on a vertical dock.
+const VERTICAL_TOOLBAR_WIDTH = 58;
 const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
 const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
@@ -177,12 +180,20 @@ function contrastTextColor(hexColor) {
   return luminance > 0.6 ? "#111111" : "#ffffff";
 }
 
+function pushSiteContentEnabled() {
+  return !state.minimized && state.workspace?.preferences?.pushSiteContent !== false;
+}
+
 function getCurrentHeight() {
-  return state.minimized
-    || state.workspace?.preferences?.pushSiteContent === false
-    || effectiveToolbarPosition() !== "top"
-    ? 0
-    : TOOLBAR_HEIGHT;
+  if (!pushSiteContentEnabled()) return 0;
+  const position = effectiveToolbarPosition();
+  return position === "top" || position === "bottom" ? TOOLBAR_HEIGHT : 0;
+}
+
+function getCurrentPushWidth() {
+  if (!pushSiteContentEnabled()) return 0;
+  const position = effectiveToolbarPosition();
+  return position === "left" || position === "right" ? VERTICAL_TOOLBAR_WIDTH : 0;
 }
 
 function isMobileViewport() {
@@ -201,6 +212,23 @@ function effectiveDrawerPosition() {
 
 function setSpacerHeight() {
   document.documentElement.style.setProperty("--qts-toolbar-height", `${getCurrentHeight()}px`);
+  if (!document.body) return;
+  const position = effectiveToolbarPosition();
+  // A spacer as the *first* child of body pushes content down (top dock); as the *last* child it
+  // only grows the document so content isn't hidden behind a bottom-fixed bar when you scroll all
+  // the way down. Left/right docks can't push via a block spacer at all (block layout doesn't
+  // reflow horizontally around a sibling's width) - those push via body margin instead, below.
+  const spacer = document.getElementById(SPACER_ID);
+  if (spacer) {
+    if (position === "bottom") {
+      if (document.body.lastElementChild !== spacer) document.body.appendChild(spacer);
+    } else if (document.body.firstChild !== spacer) {
+      document.body.insertBefore(spacer, document.body.firstChild);
+    }
+  }
+  const pushWidth = getCurrentPushWidth();
+  document.body.style.marginLeft = position === "left" && pushWidth ? `${pushWidth}px` : "";
+  document.body.style.marginRight = position === "right" && pushWidth ? `${pushWidth}px` : "";
 }
 
 const HEADER_OFFSET_ATTR = "data-qts-header-offset";
@@ -576,12 +604,16 @@ function buildShadowHost() {
       :host([data-toolbar-position="right"]) #right > * { flex:0 0 auto; margin-inline:auto; }
       :host([data-toolbar-position="left"]) #right button,
       :host([data-toolbar-position="right"]) #right button { width:38px; min-width:38px; height:30px; padding:5px; overflow:visible; }
+      :host([data-toolbar-position="left"]) #minimizeButton,
+      :host([data-toolbar-position="right"]) #minimizeButton { order:-1; }
       :host([data-toolbar-position="left"]) #testStatusButton,
       :host([data-toolbar-position="right"]) #testStatusButton { font-size:0; }
       :host([data-toolbar-position="left"]) #testStatusButton::before,
       :host([data-toolbar-position="right"]) #testStatusButton::before { content:"✓"; font-size:14px; }
       :host([data-toolbar-position="left"]) #toolsButton,
       :host([data-toolbar-position="right"]) #toolsButton { font-size:0; justify-content:center; }
+      :host([data-toolbar-position="left"]) #toolsButton svg,
+      :host([data-toolbar-position="right"]) #toolsButton svg { display:none; }
       :host([data-toolbar-position="left"]) #toolsButton::before,
       :host([data-toolbar-position="right"]) #toolsButton::before { content:"☷"; font-size:17px; line-height:1; }
       :host([data-toolbar-position="left"]) #toolsMenu,
@@ -1689,9 +1721,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los métodos de pago creados fuera del formulario (por ejemplo, un archivo importado) vuelven a mostrar y copiar el número de tarjeta correctamente."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Payment methods created outside the composer form (e.g. an imported file) now show and copy the card number correctly again."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Meios de pagamento cadastrados fora do formulário (ex.: um arquivo importado) voltam a mostrar e copiar o número do cartão corretamente."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Modo vertical (izquierda/derecha): el botón Herramientas ya no muestra dos íconos superpuestos.", "Modo vertical: \"Empujar contenido\" ahora funciona correctamente también con la barra a la izquierda, a la derecha o abajo, no solo arriba.", "Modo vertical: el botón de minimizar ahora está en la parte superior de la barra, no abajo.", "Se eliminó la etiqueta \"Posición\" del selector de posición del sidebar - ahora solo aparece el combobox."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Vertical mode (left/right): the Tools button no longer shows two overlapping icons.", "Vertical mode: \"Push content\" now works correctly when docked left, right or bottom too, not just at the top.", "Vertical mode: the minimize button now sits at the top of the bar instead of the bottom.", "The \"Posição\" label was removed from the sidebar position selector - just the dropdown shows now."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Modo vertical (esquerda/direita): o botão Ferramentas não mostra mais dois ícones sobrepostos.", "Modo vertical: \"Empurrar conteúdo\" agora funciona corretamente também com a barra à esquerda, à direita ou embaixo, não só no topo.", "Modo vertical: o botão de minimizar agora fica no topo da barra, não mais embaixo.", "O rótulo \"Posição\" foi removido do seletor de posição do sidebar - só o combobox aparece."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -1738,6 +1770,10 @@ function removeToolbar({ disableBridge = false } = {}) {
   clearSiteFixedHeaderOffsets();
   state.shadowRoot = null;
   document.documentElement.style.setProperty("--qts-toolbar-height", "0px");
+  if (document.body) {
+    document.body.style.marginLeft = "";
+    document.body.style.marginRight = "";
+  }
   document.dispatchEvent(new CustomEvent("qts:pagebridge-active", { detail: { active: false } }));
   if (disableBridge) document.dispatchEvent(new CustomEvent("qts:pagebridge-disable"));
 }
@@ -3410,7 +3446,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
         ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
         <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<div class="qts-drawer-title"><h2>${escapeHtml(title)}</h2><span class="qts-drawer-kicker">${variant === "modal" ? "Janela de trabalho" : detachedWindow ? "Ferramenta em janela separada" : "Ferramenta lateral"}</span></div>
           <div class="qts-drawer-controls">${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
-          ${sidebarControls ? `<label class="qts-drawer-position"><span>Posição</span><select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label>
+          ${sidebarControls ? `<label class="qts-drawer-position"><select id="drawerPosition" aria-label="Posição do sidebar"><option value="right">Direita</option><option value="left">Esquerda</option><option value="top">Cima</option><option value="bottom">Baixo</option></select></label>
           <button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
           <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div></div>
