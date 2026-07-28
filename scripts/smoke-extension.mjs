@@ -201,7 +201,7 @@ try {
   await options.locator('#langSwitch [data-locale="en"]').click();
   await options.getByRole("button", { name: "My account" }).waitFor();
   if (await options.locator("html").getAttribute("lang") !== "en") throw new Error("Options locale did not switch to English");
-  if (await options.locator("#clientName").getAttribute("placeholder") !== "Client name") throw new Error("Options placeholders were not translated to English");
+  if (!(await options.locator("label:has(#clientName)").innerText()).startsWith("Client name")) throw new Error("Options field labels were not translated to English");
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Duplicated Key View settings card should live only in its sidebar");
   await options.locator('#langSwitch [data-locale="es"]').click();
   await options.getByRole("button", { name: "Mi cuenta" }).waitFor();

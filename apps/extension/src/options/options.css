@@ -166,7 +166,7 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .fieldSuggestionRow { display:flex; flex-wrap:wrap; gap:6px; }
 .fieldSuggestionChip { display:inline-flex; align-items:center; min-height:28px; padding:0 10px; border:1px dashed var(--border); border-radius:999px; background:transparent; color:var(--accent-2); font-size:11px; font-weight:750; cursor:pointer; }
 .fieldSuggestionChip:hover { border-color:var(--accent-2); border-style:solid; color:var(--hover-text); background:color-mix(in srgb,var(--accent-2) 10%,transparent); }
-.customFieldsEditor { flex-basis:100%; display:grid; gap:6px; }
+.customFieldsEditor { flex-basis:100%; grid-column:1/-1; display:grid; gap:6px; }
 .customFieldsEditor:empty { display:none; }
 .customFieldRow { display:flex; gap:6px; align-items:center; }
 .customFieldRow input[data-field-key] { flex:1 1 140px; min-width:0; }
@@ -227,9 +227,24 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .composerTrigger { display:flex; align-items:center; justify-content:center; gap:8px; padding:10px 14px; border:1px dashed var(--border); border-radius:12px; background:var(--subtle-bg); color:var(--text); font-size:12px; font-weight:800; cursor:pointer; }
 .composerTrigger:hover { border-color:color-mix(in srgb,var(--accent) 55%,transparent); color:var(--hover-text); background:color-mix(in srgb,var(--accent) 8%,transparent); }
 .composerTrigger::before { content:"+"; color:var(--accent-2); font-size:16px; font-weight:600; }
-.formDialog { width:min(560px,calc(100vw - 28px)); max-height:min(680px,calc(100vh - 40px)); overflow:auto; padding:18px; border:1px solid var(--border); border-radius:18px; background:var(--dialog-bg); color:var(--text); box-shadow:0 30px 100px var(--shadow); }
+/* Visual pass on the composer dialogs: these used to be a single flex-wrap column of bare
+   placeholder inputs with no real header presence - flat and identical whether you were adding a
+   Cliente or a Payment Method. A colored top edge (keyed to the same accent every other "premium"
+   surface in this file already uses - the wizard's step dots, the color-theme swatches) plus a
+   real two-column layout on the wider composers reads as one coherent design system instead of a
+   later afterthought bolted onto the wizard's own dialog. */
+.formDialog {
+  width:min(560px,calc(100vw - 28px)); max-height:min(680px,calc(100vh - 40px)); overflow:auto;
+  padding:24px 22px 20px; border:1px solid var(--border); border-radius:20px; background:var(--dialog-bg);
+  color:var(--text); box-shadow:0 30px 100px var(--shadow), 0 0 0 1px color-mix(in srgb,var(--accent) 8%,transparent);
+  position:relative;
+}
+.formDialog::before {
+  content:""; position:absolute; top:0; left:20px; right:20px; height:3px; border-radius:0 0 3px 3px;
+  background:linear-gradient(90deg,var(--accent),var(--accent-2));
+}
 .formDialog::backdrop { background:rgba(4,5,8,.78); backdrop-filter:blur(5px); }
-.formDialogWide { width:min(720px,calc(100vw - 28px)); }
+.formDialogWide { width:min(760px,calc(100vw - 28px)); }
 
 /* Onboarding wizard - guides Cliente -> Projeto -> Produto -> Ambiente -> URLs, then three
    optional steps (contas/pagamentos/inspectors), reusing the exact same storage mutations as the
@@ -298,22 +313,38 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
   .wizardActions { padding:12px 16px; flex-wrap:wrap; }
   .wizardActionsSpacer { flex-basis:100%; height:0; }
 }
-.formDialogHead { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:14px; }
-.formDialogHead h2 { margin:0; font-size:18px; }
+.formDialogHead { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; margin-bottom:18px; padding-bottom:16px; border-bottom:1px solid var(--border); }
+.formDialogHead .eyebrow { margin-bottom:6px; }
+.formDialogHead h2 { margin:0; font-size:21px; font-weight:850; letter-spacing:-.02em; }
 .formDialog .inlineForm { margin:0; padding-top:0; }
+/* The wide composers (client/project/product/testAccount/paymentMethod/environment/urlRelation)
+   read as a real form now - two aligned columns instead of whatever happened to fit on each flex
+   line - while the simple ones (inspector/api/resource) stay single-column, which already suits
+   their handful of fields. .fullRow keeps working in both: flex-basis for the narrow composers,
+   grid-column for the wide ones. */
+.inlineForm.formWide { display:grid; grid-template-columns:1fr 1fr; gap:16px 18px; align-items:start; }
+.inlineForm.formWide > .fullRow { grid-column:1/-1; }
+.inlineForm.formWide > .formActions { grid-column:1/-1; }
 /* Sticky, not just "at the end of the form": .formDialog scrolls as one unit (see its own
    max-height/overflow above), so on a tall composer (Contas de teste, Meios de pagamento) the
    Salvar button used to scroll off with the rest of the fields - stuck to the bottom of the
    dialog's own scroll area, it stays reachable no matter how far down you've scrolled. */
 .formActions {
-  flex-basis:100%; display:flex; justify-content:flex-end; gap:8px;
-  position:sticky; bottom:-18px; margin:10px -18px -18px; padding:10px 18px 18px;
+  flex-basis:100%; display:flex; justify-content:flex-end; gap:10px;
+  position:sticky; bottom:-20px; margin:14px -22px -20px; padding:14px 22px 20px;
   background:var(--dialog-bg); border-top:1px solid var(--border); z-index:2;
 }
+.formActions .button.primary { padding:0 22px; box-shadow:0 10px 24px color-mix(in srgb,var(--accent) 35%,transparent); }
 .fullRow { flex-basis:100%!important; width:100%; }
-.field { display:grid; gap:5px; flex:1 1 180px; color:var(--muted); font-size:11px; font-weight:750; }
+/* Was a flat, tiny, un-styled label - now reads as a real field caption at a glance (uppercase +
+   letter-spacing separates "this is a label" from "this is the value" the way the rest of this
+   file's eyebrows already do), with the input itself given more breathing room and a slightly
+   deeper focus glow to match the dialog's own new accent edge. */
+.field { display:grid; gap:6px; flex:1 1 180px; color:var(--muted); font-size:10.5px; font-weight:800; letter-spacing:.03em; text-transform:uppercase; }
 .field > span { color:var(--muted); }
-.field > small { color:var(--muted); font-size:10px; font-weight:500; }
+.field > small { color:var(--muted); font-size:10px; font-weight:500; text-transform:none; letter-spacing:normal; }
+.field input, .field select, .field textarea { min-height:42px; padding:9px 12px; border-radius:10px; }
+.field input:focus, .field select:focus, .field textarea:focus { box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 16%,transparent); }
 .colorField { flex:0 0 100px; }
 .colorField input { width:100%; }
 /* Every meaningful composer field is now a labeled .field (was placeholder-only text before -
