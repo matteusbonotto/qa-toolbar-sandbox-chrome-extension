@@ -786,13 +786,17 @@ function rowActions(collection, item, { reveal = false } = {}) {
     return `<div class="rowActions"><span class="lockedBadge" title="${escapeHtml(t("Item fixo do ambiente de demonstração - não pode ser editado"))}">🔒 ${escapeHtml(t("Fixo"))}</span></div>`;
   }
   const reorderable = ["clients", "projects", "products"].includes(collection) && (workspace[collection] || []).length > 1;
+  // Icon-only buttons (title carries the label for a11y/tooltip) - this used to spell out
+  // "Editar Duplicar Pausar Excluir" in full text on every single row, which never fit inside an
+  // entity card and forced a horizontal scrollbar under every row just to reach "Excluir". Found
+  // live, screenshots included: "a listagem tá antiga, tá horrível".
   return `<div class="rowActions">
-    ${reveal ? `<button type="button" data-action="reveal" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mostrar/ocultar senha"))}">${escapeHtml(t(revealedAccountIds.has(item.id) ? "Ocultar" : "Ver"))}</button>` : ""}
-    ${reorderable ? `<button type="button" data-action="move-up" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para cima"))}">↑</button><button type="button" data-action="move-down" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para baixo"))}">↓</button>` : ""}
-    <button type="button" data-action="edit" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Editar"))}">${escapeHtml(t("Editar"))}</button>
-    <button type="button" data-action="duplicate" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Duplicar"))}">${escapeHtml(t("Duplicar"))}</button>
-    <button type="button" data-action="toggle" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Ativar/desativar"))}">${escapeHtml(t(item.active === false ? "Ativar" : "Pausar"))}</button>
-    <button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Excluir"))}">${escapeHtml(t("Excluir"))}</button>
+    ${reveal ? `<button type="button" data-action="reveal" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(revealedAccountIds.has(item.id) ? "Ocultar" : "Ver"))}">${ICON(revealedAccountIds.has(item.id) ? "eyeSlash" : "eye")}</button>` : ""}
+    ${reorderable ? `<button type="button" data-action="move-up" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para cima"))}">${ICON("chevronUp")}</button><button type="button" data-action="move-down" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Mover para baixo"))}">${ICON("chevronDown")}</button>` : ""}
+    <button type="button" data-action="edit" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Editar"))}">${ICON("edit")}</button>
+    <button type="button" data-action="duplicate" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Duplicar"))}">${ICON("copy")}</button>
+    <button type="button" data-action="toggle" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t(item.active === false ? "Ativar" : "Pausar"))}">${ICON(item.active === false ? "play" : "pause")}</button>
+    <button type="button" data-action="remove" data-collection="${collection}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(t("Excluir"))}">${ICON("eraser")}</button>
   </div>`;
 }
 

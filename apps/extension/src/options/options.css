@@ -138,8 +138,12 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .listRow { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px; border:1px solid var(--border); border-radius:10px; background:var(--subtle-bg); font-size:12px; }
 .listRow.isInactive { opacity:.55; }
 .listRow small { color:var(--muted); display:block; margin-top:2px; overflow-wrap:anywhere; }
-.rowActions { display:flex; align-items:center; gap:4px; flex-shrink:0; }
-.rowActions button { min-width:27px; height:27px; padding:0 6px; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; font-size:11px; font-weight:850; }
+.rowActions { display:flex; align-items:center; gap:2px; flex-shrink:0; }
+/* Icon-only now (title carries the tooltip) - was full text labels ("Editar Duplicar Pausar
+   Excluir") that never fit next to the entity name, forcing a horizontal scrollbar under every
+   single row just to reach "Excluir". */
+.rowActions button { display:inline-flex; align-items:center; justify-content:center; width:28px; height:28px; min-width:28px; padding:0; border:1px solid transparent; border-radius:7px; background:transparent; color:var(--muted); cursor:pointer; }
+.rowActions button svg { width:14px; height:14px; pointer-events:none; }
 .rowActions button:hover { border-color:var(--border); color:var(--hover-text); background:var(--surface-2); }
 .rowActions button[data-action="remove"] { color:var(--danger); }
 .lockedBadge { display:inline-flex; align-items:center; gap:4px; height:27px; padding:0 8px; border-radius:7px; background:var(--surface-2); color:var(--muted); font-size:11px; font-weight:700; white-space:nowrap; }
@@ -200,6 +204,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 /* Workspace Studio: one cohesive surface with progressive disclosure. */
 .workspacePanel { max-width:1380px; }
 .studioHero { display:flex; align-items:flex-end; justify-content:space-between; gap:24px; padding:4px 2px 20px; }
+.studioHero h1 { font-size:28px; font-weight:850; }
 .studioHeroActions { display:flex; align-items:center; gap:12px; flex-wrap:wrap; justify-content:flex-end; }
 .studioHeroActions .button { flex:none; white-space:nowrap; }
 .studioHero .searchBox { width:min(390px,38vw); margin:0; }
