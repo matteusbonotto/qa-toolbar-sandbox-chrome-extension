@@ -60,7 +60,7 @@ export function TrustCenterPage({ focus }: { focus: "permissions" | "security" }
             <p>{t.privacy.securityBody}</p>
           </section>
 
-          <section className="qts-legal-section">
+          <section className="qts-legal-section qts-legal-section-wide">
             <div className="qts-legal-section-head"><Icon name="envelope" className="qts-legal-section-icon" /><h2>{t.privacy.contactTitle}</h2></div>
             <p className="qts-section-lead">{t.privacy.contactBody}</p>
             <a className="qts-back-link" href={`${import.meta.env.BASE_URL}privacidade`}>{t.trust.fullPolicyLinkLabel}</a>

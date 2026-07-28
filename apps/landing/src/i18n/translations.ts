@@ -279,24 +279,6 @@ export interface Dictionary {
     architectureEyebrow: string;
     architectureTitle: string;
     architectureLead: string;
-    architectureGroupClient: string;
-    architectureGroupBackend: string;
-    architectureGroupExternal: string;
-    architectureNodes: {
-      landing: { label: string; caption: string };
-      admin: { label: string; caption: string };
-      extension: { label: string; caption: string };
-      postgres: { label: string; caption: string };
-      auth: { label: string; caption: string };
-      edgeFunctions: { label: string; caption: string };
-      stripe: { label: string; caption: string };
-      email: { label: string; caption: string };
-      chromeStore: { label: string; caption: string };
-    };
-    architectureFlows: {
-      clientToBackend: string;
-      backendToStripe: string;
-    };
     architectureFootnote: string;
     permissionsAnchorTitle: string;
     simpleExplanationBody: string;
@@ -854,24 +836,6 @@ const pt: Dictionary = {
     architectureEyebrow: "Como os dados circulam",
     architectureTitle: "Três aplicações, um backend, nenhuma surpresa",
     architectureLead: "Landing page, painel administrativo e extensão são três apps independentes no mesmo monorepo - nenhum deles fala direto com banco de dados fora do Supabase, e nenhum tem um backend próprio escondido.",
-    architectureGroupClient: "No seu navegador",
-    architectureGroupBackend: "Supabase (projeto único)",
-    architectureGroupExternal: "Serviços externos",
-    architectureNodes: {
-      landing: { label: "Landing Page", caption: "Site público - planos, cadastro/login, central de confiança" },
-      admin: { label: "Painel Admin", caption: "Uso restrito ao founder - usuários, planos, vouchers, auditoria" },
-      extension: { label: "Extensão Chrome", caption: "Onde você testa - guarda o workspace localmente" },
-      postgres: { label: "Postgres + RLS", caption: "Dados relacionais, acesso negado por padrão" },
-      auth: { label: "Auth", caption: "E-mail/senha e sessão (código único para o admin)" },
-      edgeFunctions: { label: "Edge Functions", caption: "Checkout, webhooks, exclusão de conta, vouchers" },
-      stripe: { label: "Stripe", caption: "Checkout hospedado e cobrança recorrente" },
-      email: { label: "Resend", caption: "Confirmação de conta e recuperação de senha" },
-      chromeStore: { label: "Chrome Web Store", caption: "Distribuição pública da extensão" },
-    },
-    architectureFlows: {
-      clientToBackend: "autenticação, dados do plano, checkout",
-      backendToStripe: "checkout e webhooks de cobrança",
-    },
     architectureFootnote: "Não existe um backend próprio fora das Edge Functions: a extensão e a landing conversam com o Supabase via API pública (PostgREST + RPC + Functions), nunca com um servidor intermediário nosso.",
     permissionsAnchorTitle: "O que a extensão acessa",
     simpleExplanationBody: "Alguns recursos precisam interagir com a página aberta para identificar elementos, capturar evidências ou inspecionar requisições. Cada acesso abaixo está associado a uma ferramenta visível e controlável - nada roda escondido. O aviso do Chrome descreve o nível técnico máximo de acesso permitido; a QA Toolbar usa esse acesso somente para as ferramentas que você ativa.",
@@ -1429,24 +1393,6 @@ const es: Dictionary = {
     architectureEyebrow: "Cómo circulan los datos",
     architectureTitle: "Tres aplicaciones, un backend, ninguna sorpresa",
     architectureLead: "Landing page, panel de administración y extensión son tres apps independientes en el mismo monorepo: ninguna habla directamente con la base de datos fuera de Supabase, y ninguna tiene un backend propio oculto.",
-    architectureGroupClient: "En tu navegador",
-    architectureGroupBackend: "Supabase (proyecto único)",
-    architectureGroupExternal: "Servicios externos",
-    architectureNodes: {
-      landing: { label: "Landing Page", caption: "Sitio público: planes, registro/login, centro de confianza" },
-      admin: { label: "Panel Admin", caption: "Uso restringido al founder: usuarios, planes, vouchers, auditoría" },
-      extension: { label: "Extensión Chrome", caption: "Donde pruebas: guarda el workspace localmente" },
-      postgres: { label: "Postgres + RLS", caption: "Datos relacionales, acceso denegado por defecto" },
-      auth: { label: "Auth", caption: "E-mail/contraseña y sesión (código único para el admin)" },
-      edgeFunctions: { label: "Edge Functions", caption: "Checkout, webhooks, eliminación de cuenta, vouchers" },
-      stripe: { label: "Stripe", caption: "Checkout alojado y cobro recurrente" },
-      email: { label: "Resend", caption: "Confirmación de cuenta y recuperación de contraseña" },
-      chromeStore: { label: "Chrome Web Store", caption: "Distribución pública de la extensión" },
-    },
-    architectureFlows: {
-      clientToBackend: "autenticación, datos del plan, checkout",
-      backendToStripe: "checkout y webhooks de cobro",
-    },
     architectureFootnote: "No existe un backend propio fuera de las Edge Functions: la extensión y la landing hablan con Supabase vía API pública (PostgREST + RPC + Functions), nunca con un servidor intermediario nuestro.",
     permissionsAnchorTitle: "Qué accede la extensión",
     simpleExplanationBody: "Algunas herramientas necesitan interactuar con la página abierta para identificar elementos, capturar evidencias o inspeccionar solicitudes. Cada acceso de abajo está asociado a una herramienta visible y controlable - nada se ejecuta oculto. El aviso de Chrome describe el nivel técnico máximo de acceso permitido; QA Toolbar solo lo usa para las herramientas que activas.",
@@ -2004,24 +1950,6 @@ const en: Dictionary = {
     architectureEyebrow: "How data flows",
     architectureTitle: "Three apps, one backend, no surprises",
     architectureLead: "The landing page, admin panel and extension are three independent apps in the same monorepo - none of them talks to a database outside Supabase, and none has a hidden backend of its own.",
-    architectureGroupClient: "In your browser",
-    architectureGroupBackend: "Supabase (single project)",
-    architectureGroupExternal: "External services",
-    architectureNodes: {
-      landing: { label: "Landing Page", caption: "Public site - plans, sign up/in, trust center" },
-      admin: { label: "Admin Panel", caption: "Founder-only - users, plans, vouchers, audit trail" },
-      extension: { label: "Chrome Extension", caption: "Where you test - keeps the workspace local" },
-      postgres: { label: "Postgres + RLS", caption: "Relational data, denied by default" },
-      auth: { label: "Auth", caption: "E-mail/password and session (one-time code for admin)" },
-      edgeFunctions: { label: "Edge Functions", caption: "Checkout, webhooks, account deletion, vouchers" },
-      stripe: { label: "Stripe", caption: "Hosted checkout and recurring billing" },
-      email: { label: "Resend", caption: "Account confirmation and password recovery" },
-      chromeStore: { label: "Chrome Web Store", caption: "Public distribution of the extension" },
-    },
-    architectureFlows: {
-      clientToBackend: "auth, plan data, checkout",
-      backendToStripe: "checkout and billing webhooks",
-    },
     architectureFootnote: "There's no backend of our own outside the Edge Functions: the extension and landing page talk to Supabase over its public API (PostgREST + RPC + Functions), never through an intermediary server we run.",
     permissionsAnchorTitle: "What the extension accesses",
     simpleExplanationBody: "Some tools need to interact with the open page to identify elements, capture evidence, or inspect requests. Each access below is tied to a visible, controllable tool - nothing runs hidden. Chrome's warning describes the maximum technical access level allowed; QA Toolbar only uses it for the tools you enable.",
