@@ -97,9 +97,43 @@
     const validIds = new Set(validEntities.map((entity) => entity.id));
     return [...new Set(source.map((value) => text(value, 120)))].filter((value) => validIds.has(value));
   }
-  function normalizeTestAccount(item, index, environments, products) {
+  // Keep in sync with storage.js's twin of these - reusable "tipo de conta"/"tipo de pagamento"
+  // catalogs (schemaVersion 16).
+  function normalizeCatalogEntries(input, prefix) {
+    return (Array.isArray(input) ? input : []).slice(0, 200).map((item, index) => ({
+      id: id(item?.id, prefix, index),
+      name: text(item?.name ?? item?.label, 60) || `Tipo ${index + 1}`,
+      icon: text(item?.icon, IMAGE_VALUE_MAX_CHARS),
+      active: item?.active !== false,
+    }));
+  }
+  function resolveCatalogId(catalog, name) {
+    const needle = text(name, 60).toLowerCase();
+    if (!needle) return "";
+    return catalog.find((entry) => entry.name.toLowerCase() === needle)?.id || "";
+  }
+  function deriveAccountTypesFromLegacyTestAccounts(rawTestAccounts) {
+    const seen = new Map();
+    for (const item of Array.isArray(rawTestAccounts) ? rawTestAccounts : []) {
+      const name = text(item?.accountType, 60);
+      if (!name || seen.has(name.toLowerCase())) continue;
+      seen.set(name.toLowerCase(), { id: id(null, "accountType", seen.size), name, icon: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS), active: true });
+    }
+    return [...seen.values()];
+  }
+  const DEFAULT_PAYMENT_METHOD_TYPES = Object.freeze([
+    Object.freeze({ id: "paymentMethodType_card", name: "Cartão", icon: "", active: true }),
+    Object.freeze({ id: "paymentMethodType_pix", name: "PIX", icon: "", active: true }),
+    Object.freeze({ id: "paymentMethodType_bank", name: "Conta bancária", icon: "", active: true }),
+    Object.freeze({ id: "paymentMethodType_other", name: "Outro", icon: "", active: true }),
+  ]);
+  const LEGACY_PAYMENT_METHOD_TYPE_IDS = Object.freeze({ card: "paymentMethodType_card", pix: "paymentMethodType_pix", bank: "paymentMethodType_bank", other: "paymentMethodType_other" });
+  function normalizeTestAccount(item, index, environments, products, accountTypes) {
     const environmentIds = normalizeIdArray(item?.environmentIds, item?.environmentId, environments);
     if (!environmentIds.length) return null;
+    const accountTypeId = accountTypes.some((entry) => entry.id === item?.accountTypeId)
+      ? item.accountTypeId
+      : resolveCatalogId(accountTypes, item?.accountType);
     return {
       id: id(item?.id, "testAccount", index),
       environmentIds,
@@ -107,6 +141,7 @@
       label: text(item?.label, 120) || `Conta ${index + 1}`,
       accountType: text(item?.accountType, 60),
       accountTypeImage: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
+      accountTypeId,
       username: text(item?.username, 200),
       password: text(item?.password, 200),
       notes: text(item?.notes, 1000),
@@ -135,7 +170,7 @@
   }
   function createEmptyWorkspace() {
     return {
-      schemaVersion: 15,
+      schemaVersion: 16,
       updatedAt: new Date().toISOString(),
       clients: [],
       projects: [],
@@ -149,6 +184,8 @@
       resources: [],
       macros: [],
       stepRecordings: [],
+      accountTypes: [],
+      paymentMethodTypes: DEFAULT_PAYMENT_METHOD_TYPES.map((entry) => ({ ...entry })),
       preferences: {
         language: "pt-BR",
         appearanceTheme: "light",
@@ -397,6 +434,14 @@
         id: id(item?.id, key.replace(/s$/, ""), index),
         active: item?.active !== false,
       }));
+    let accountTypes = normalizeCatalogEntries(source.accountTypes, "accountType");
+    let paymentMethodTypes = normalizeCatalogEntries(source.paymentMethodTypes, "paymentMethodType");
+    if (Number(source.schemaVersion || 0) < 16) {
+      for (const derived of deriveAccountTypesFromLegacyTestAccounts(source.testAccounts)) {
+        if (!accountTypes.some((entry) => entry.name.toLowerCase() === derived.name.toLowerCase())) accountTypes.push(derived);
+      }
+      if (!paymentMethodTypes.length) paymentMethodTypes = DEFAULT_PAYMENT_METHOD_TYPES.map((entry) => ({ ...entry }));
+    }
     const preferences = source.preferences && typeof source.preferences === "object" ? source.preferences : {};
     const normalizedEnabledTools = Array.isArray(preferences.enabledTools) ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value)) : [...empty.preferences.enabledTools];
     if (Number(source.schemaVersion || 0) < 3) for (const tool of SCHEMA_3_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
@@ -412,25 +457,32 @@
     if (Number(source.schemaVersion || 0) < 15) for (const tool of SCHEMA_15_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     return {
       ...empty,
-      schemaVersion: 15,
+      schemaVersion: 16,
       updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
       clients,
       projects,
       products,
       environments,
       urlBindings,
-      testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : []).map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
+      accountTypes,
+      paymentMethodTypes,
+      testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : []).map((item, index) => normalizeTestAccount(item, index, environments, products, accountTypes)).filter(Boolean),
       paymentMethods: copy("paymentMethods").map((item) => {
         // "number" was never a real field in this schema (the composers always write "value") -
         // it only shows up in records created outside the composer UI (a hand-built seed/import
         // file, for instance). Without this alias those cards silently render with no "Número" row
         // and nothing to copy, with no error to explain why. Keep in sync with storage.js.
         const { environmentId, productId, product_id, number, ...rest } = item;
+        const legacyTypeId = LEGACY_PAYMENT_METHOD_TYPE_IDS[item?.type] || "";
+        const typeId = paymentMethodTypes.some((entry) => entry.id === item?.typeId)
+          ? item.typeId
+          : paymentMethodTypes.some((entry) => entry.id === legacyTypeId) ? legacyTypeId : "";
         return {
           ...rest,
           value: text(item?.value, 240) || text(number, 240),
           environmentIds: normalizeIdArray(item?.environmentIds, environmentId, environments),
           productIds: normalizeIdArray(item?.productIds, productId ?? product_id, products),
+          typeId: paymentMethodTypes.some((entry) => entry.id === typeId) ? typeId : "",
         };
       }),
       apis: copy("apis"),

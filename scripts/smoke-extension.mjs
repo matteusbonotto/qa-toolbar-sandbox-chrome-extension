@@ -1432,6 +1432,14 @@ try {
   await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#testAccountLabel").fill("Conta sandbox");
+  // Reusable "tipo de conta" catalog: quick-add a type from inside this same form (stacked
+  // dialog), confirm it comes back selected without the user having to reopen the select.
+  await options.locator('[data-quick-add-type="accountType"]').click();
+  await options.locator("#accountTypeComposer[open]").waitFor();
+  await options.locator("#accountTypeName").fill("VIP");
+  await options.locator("#accountTypeForm button[type=submit]").click();
+  if (await options.locator("#accountTypeComposer[open]").count()) throw new Error("Account type composer did not close after saving");
+  if ((await options.locator("#testAccountTypeId option:checked").innerText()) !== "VIP") throw new Error("Quick-added account type was not selected back into the test account form");
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
@@ -1441,8 +1449,25 @@ try {
   await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
+  await options.locator('[data-quick-add-type="paymentMethodType"]').click();
+  await options.locator("#paymentMethodTypeComposer[open]").waitFor();
+  await options.locator("#paymentMethodTypeName").fill("Cartão de teste");
+  await options.locator("#paymentMethodTypeForm button[type=submit]").click();
+  if (await options.locator("#paymentMethodTypeComposer[open]").count()) throw new Error("Payment method type composer did not close after saving");
+  if ((await options.locator("#paymentMethodTypeId option:checked").innerText()) !== "Cartão de teste") throw new Error("Quick-added payment method type was not selected back into the payment method form");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();
+  const typeCatalogResult = await options.evaluate(async () => {
+    const ws = await window.QTS_STORAGE.getWorkspace();
+    const account = ws.testAccounts.find((item) => item.label === "Conta sandbox");
+    const payment = ws.paymentMethods.find((item) => item.label === "Visa sandbox");
+    return {
+      accountTypeLinked: Boolean(account?.accountTypeId) && ws.accountTypes.some((entry) => entry.id === account.accountTypeId && entry.name === "VIP"),
+      paymentTypeLinked: Boolean(payment?.typeId) && ws.paymentMethodTypes.some((entry) => entry.id === payment.typeId && entry.name === "Cartão de teste"),
+    };
+  });
+  if (!typeCatalogResult.accountTypeLinked || !typeCatalogResult.paymentTypeLinked) throw new Error(`Account/payment type catalog did not persist correctly: ${JSON.stringify(typeCatalogResult)}`);
+  trace("account/payment method type catalogs verified (quick-add, select-back, persisted link)");
   await options.getByRole("button", { name: "Inspectors e recursos" }).click();
   await options.locator('[data-open-composer="apiComposer"]').click();
   await options.locator("#apiLabel").fill("API Demo");

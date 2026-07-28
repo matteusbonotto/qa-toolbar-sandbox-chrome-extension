@@ -137,6 +137,8 @@ const COLLECTION_UI = {
   urlBindings: { listId: "urlRelationList", prefix: "urlRelation" },
   testAccounts: { listId: "testAccountList", prefix: "testAccount" },
   paymentMethods: { listId: "paymentMethodList", prefix: "paymentMethod" },
+  accountTypes: { listId: "accountTypeList", prefix: "accountType" },
+  paymentMethodTypes: { listId: "paymentMethodTypeList", prefix: "paymentMethodType" },
   inspectors: { listId: "inspectorList", prefix: "inspector" },
   apis: { listId: "apiList", prefix: "api" },
   resources: { listId: "resourceList", prefix: "resource" },
@@ -1112,10 +1114,13 @@ document.addEventListener("keydown", (event) => {
 });
 
 function renderWorkspace() {
-  for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount" })) {
+  for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount", accountTypes: "accountTypeCount", paymentMethodTypes: "paymentMethodTypeCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
   }
   const badge = (entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 22 });
+  const typeRowFormatter = (item) => `<b>${item.icon ? `<img src="${escapeHtml(item.icon)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : ""}${escapeHtml(item.name)}</b>`;
+  renderRows("accountTypes", typeRowFormatter);
+  renderRows("paymentMethodTypes", typeRowFormatter);
   renderRows("clients", (item) => `<b>${badge(item)}</b>`);
   renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "-")}</small>`);
   renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "-")}</small>`);
@@ -1128,15 +1133,19 @@ function renderWorkspace() {
   renderUrlPatternsPicker();
   renderRows("testAccounts", (item) => {
     const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "-";
+    const accountType = findById("accountTypes", item.accountTypeId);
+    const typeName = accountType?.name || item.accountType || "";
     // The toolbar's own read-only drawer already renders this image (renderTestAccountsList in
     // toolbar.js) - this options-page list never did, so the same uploaded/URL icon that shows
     // up later was invisible here while managing the account.
-    const typeImage = item.accountTypeImage ? `<img src="${escapeHtml(item.accountTypeImage)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : "";
-    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
+    const typeImageSrc = accountType?.icon || item.accountTypeImage || "";
+    const typeImage = typeImageSrc ? `<img src="${escapeHtml(typeImageSrc)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : "";
+    return `<b>${typeImage}${escapeHtml(item.label)}${typeName ? ` <span class="accountType">${escapeHtml(typeName)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
   }, { reveal: (item) => Boolean(item.password) });
   renderCustomFieldSuggestions();
   renderRows("paymentMethods", (item) => {
-    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
+    const typeName = findById("paymentMethodTypes", item.typeId)?.name || item.type || t("Outro");
+    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(typeName)} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
   });
   renderRows("inspectors", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml((item.patterns || []).join(", "))}</small>`);
   renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "-")} · ${escapeHtml(t(item.token ? "token local configurado" : "sem token"))}</small>`);
@@ -1144,6 +1153,8 @@ function renderWorkspace() {
   renderSelect("projectClient", workspace.clients, t("Selecione o cliente"));
   renderSelect("productProject", workspace.projects, t("Selecione o projeto"));
   renderSelect("urlRelationProduct", workspace.products, t("Selecione o produto"));
+  renderSelect("testAccountTypeId", workspace.accountTypes, t("Tipo de conta (opcional)"));
+  renderSelect("paymentMethodTypeId", workspace.paymentMethodTypes, t("Tipo (opcional)"));
   renderScopePicker("testAccount", { requireEnvironment: true });
   renderScopePicker("paymentMethod", { requireEnvironment: false });
   loadPreferenceUi();
@@ -1407,7 +1418,12 @@ document.getElementById("testAccountForm").addEventListener("submit", async (eve
   const editId = document.getElementById("testAccountEditId").value;
   const existing = findById("testAccounts", editId);
   const password = document.getElementById("testAccountPassword").value;
-  upsert("testAccounts", { id: editId || uid("account"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId);
+  // The dedicated catalog (`accountTypes`) is the source of truth from here on - `accountType`/
+  // `accountTypeImage` are kept in sync as plain derived text/icon so the toolbar drawer's own
+  // rendering (which still reads those two fields directly) keeps showing the right label/icon
+  // without needing its own lookup against the catalog.
+  const accountType = findById("accountTypes", document.getElementById("testAccountTypeId").value);
+  upsert("testAccounts", { id: editId || uid("account"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("testAccountLabel").value.trim(), accountTypeId: accountType?.id || "", accountType: accountType?.name || "", accountTypeImage: accountType?.icon || "", username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId);
   clearEdit("testAccount");
   await persistWorkspace();
 });
@@ -1416,9 +1432,35 @@ document.getElementById("paymentMethodForm").addEventListener("submit", async (e
   const scope = scopePickerStates.paymentMethod;
   const editId = document.getElementById("paymentMethodEditId").value;
   const existing = findById("paymentMethods", editId);
-  upsert("paymentMethods", { id: editId || uid("payment"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId);
+  const paymentMethodType = findById("paymentMethodTypes", document.getElementById("paymentMethodTypeId").value);
+  upsert("paymentMethods", { id: editId || uid("payment"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("paymentMethodLabel").value.trim(), typeId: paymentMethodType?.id || "", type: paymentMethodType?.name || "", icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId);
   clearEdit("paymentMethod");
   await persistWorkspace();
+});
+// After a quick-add ("+") from inside the account/payment composer, the newly created type is
+// selected back into whichever select triggered it, instead of leaving the user to pick it again.
+let quickAddTypeTarget = null;
+document.querySelectorAll("[data-quick-add-type]").forEach((button) => button.addEventListener("click", () => {
+  quickAddTypeTarget = button.dataset.quickAddType;
+  document.getElementById(`${quickAddTypeTarget}Composer`).showModal();
+}));
+document.getElementById("accountTypeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("accountTypeEditId").value;
+  const newId = editId || uid("accountType");
+  upsert("accountTypes", { id: newId, name: document.getElementById("accountTypeName").value.trim(), icon: document.getElementById("accountTypeIcon").value.trim(), active: true }, editId);
+  clearEdit("accountType");
+  await persistWorkspace();
+  if (quickAddTypeTarget === "accountType") { document.getElementById("testAccountTypeId").value = newId; quickAddTypeTarget = null; }
+});
+document.getElementById("paymentMethodTypeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("paymentMethodTypeEditId").value;
+  const newId = editId || uid("paymentMethodType");
+  upsert("paymentMethodTypes", { id: newId, name: document.getElementById("paymentMethodTypeName").value.trim(), icon: document.getElementById("paymentMethodTypeIcon").value.trim(), active: true }, editId);
+  clearEdit("paymentMethodType");
+  await persistWorkspace();
+  if (quickAddTypeTarget === "paymentMethodType") { document.getElementById("paymentMethodTypeId").value = newId; quickAddTypeTarget = null; }
 });
 document.getElementById("inspectorForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("inspectorEditId").value; upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId); clearEdit("inspector"); await persistWorkspace(); });
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
@@ -1503,7 +1545,7 @@ function markSensitiveFieldSaved(elementId, hasExistingValue) {
 
 function editItem(collection, item) {
   const prefix = COLLECTION_UI[collection].prefix;
-  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations" };
+  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations", accountTypes: "accounts", paymentMethodTypes: "payments" };
   activateWorkspaceTab(workspaceTabs[collection] || "structure", { syncNavigation: true });
   const composer = document.getElementById(`${prefix}Composer`);
   if (composer && !composer.open) composer.showModal();
@@ -1519,11 +1561,13 @@ function editItem(collection, item) {
     products: { productProject: item.projectId, productName: item.name, productLogoUrl: item.logoUrl, productAbbreviation: item.abbreviation, productShowLabel: item.showLabel !== false },
     environments: { environmentName: item.name, environmentColor: item.color },
     urlBindings: { urlRelationProduct: item.productId, urlPatternInput: "" },
-    testAccounts: { testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
-    paymentMethods: { paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
+    testAccounts: { testAccountLabel: item.label, testAccountTypeId: item.accountTypeId, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
+    paymentMethods: { paymentMethodLabel: item.label, paymentMethodTypeId: item.typeId, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
     apis: { apiLabel: item.label, apiBaseUrl: item.baseUrl, apiToken: "" },
     resources: { resourceLabel: item.label, resourceUrl: item.url, resourceCategory: item.category, resourceIcon: item.icon },
+    accountTypes: { accountTypeName: item.name, accountTypeIcon: item.icon },
+    paymentMethodTypes: { paymentMethodTypeName: item.name, paymentMethodTypeIcon: item.icon },
   }[collection];
   for (const [elementId, value] of Object.entries(values || {})) {
     const element = document.getElementById(elementId);
@@ -1596,6 +1640,14 @@ function cascadeRemove(collection, removeId) {
     const removeIdSet = new Set([removeId]);
     workspace.testAccounts = pruneScopedCollection(workspace.testAccounts, "environmentIds", removeIdSet);
     workspace.paymentMethods = pruneScopedCollection(workspace.paymentMethods, "environmentIds", removeIdSet);
+  }
+  // Removing a type is not the same as removing what's tagged with it - only the reference is
+  // cleared (back to "sem tipo"), the account/payment method itself stays exactly as it was.
+  if (collection === "accountTypes") {
+    workspace.testAccounts = workspace.testAccounts.map((item) => (item.accountTypeId === removeId ? { ...item, accountTypeId: "" } : item));
+  }
+  if (collection === "paymentMethodTypes") {
+    workspace.paymentMethods = workspace.paymentMethods.map((item) => (item.typeId === removeId ? { ...item, typeId: "" } : item));
   }
   removeSet(collection, (item) => item.id === removeId);
 }
@@ -1722,7 +1774,7 @@ document.getElementById("aiPromptButton").addEventListener("click", async () => 
 // silently turning `"a string"` or `null` into a fake "Cliente 2" with zero indication is exactly
 // the "imported with errors" the founder ran into. So the import path validates the raw shape
 // first and refuses the whole file rather than normalizing garbage into phantom records.
-const IMPORTABLE_COLLECTIONS = ["clients", "projects", "products", "environments", "urlBindings", "testAccounts", "paymentMethods", "apis", "inspectors", "resources", "macros"];
+const IMPORTABLE_COLLECTIONS = ["clients", "projects", "products", "environments", "urlBindings", "testAccounts", "paymentMethods", "apis", "inspectors", "resources", "macros", "accountTypes", "paymentMethodTypes"];
 function validateImportShape(candidate) {
   for (const key of IMPORTABLE_COLLECTIONS) {
     const value = candidate[key];

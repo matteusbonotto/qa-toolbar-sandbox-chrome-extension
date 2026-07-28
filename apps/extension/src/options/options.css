@@ -161,6 +161,15 @@ input[type="checkbox"].switch:focus-visible, .toggleRow input[type="checkbox"]:f
 .imageModeToggle button { border:0; background:transparent; color:var(--muted); font-size:10px; font-weight:800; padding:6px 8px; cursor:pointer; }
 .imageModeToggle button.isActive { background:var(--accent); color:#111; }
 .imageEditButton { min-height:32px; padding:0 10px; font-size:10px; }
+/* "Tipos de conta"/"Tipos de pagamento" catalogs sit inside the same pane as the accounts/payment
+   methods they back - a subtle tinted background is enough to read as "this is the shared list
+   feeding the select below", without a full second card competing for attention. */
+.typeCatalogCard { background:var(--subtle-bg); box-shadow:none; }
+.typeCatalogCard .cardHead h3 { margin:0; font-size:13px; }
+.typeCatalogList { max-height:140px; }
+.typePickerGroup { display:flex; align-items:center; gap:6px; flex:1 1 220px; min-width:0; }
+.typePickerGroup select { flex:1 1 auto; min-width:0; }
+.typePickerGroup button { flex:0 0 auto; min-width:32px; padding:0 10px; }
 .fieldSuggestions:empty { display:none; }
 .fieldSuggestions > small { display:block; margin-bottom:6px; color:var(--muted); font-size:10px; font-weight:750; }
 .fieldSuggestionRow { display:flex; flex-wrap:wrap; gap:6px; }
