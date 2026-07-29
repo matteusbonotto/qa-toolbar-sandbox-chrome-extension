@@ -15,6 +15,8 @@ assert.match(background, /details\.previousVersion/);
 assert.match(background, /pendingReleaseNote/);
 assert.match(toolbar, /Nova identidade colorida na extensão, no site e no Admin/);
 assert.match(options, /Nova identidade colorida na extensão, no site e no Admin/);
+assert.match(toolbar, /Buscas mantêm o foco e preservam o sidebar aberto enquanto você digita/);
+assert.match(options, /Buscas mantêm o foco e preservam o sidebar aberto enquanto você digita/);
 assert.match(toolbar, /openReleaseNotes/);
 assert.match(toolbar, /lastSeenReleaseVersion/);
 assert.match(options, /showPendingReleaseNotes/);

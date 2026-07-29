@@ -582,6 +582,34 @@ try {
   // since it's easy for this specific surface to silently drift back out of sync with the rest).
   const optionsAccent = await options.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--accent").trim());
   if (optionsAccent !== "#3b82f6") throw new Error(`Settings page --accent did not follow the selected color theme: ${optionsAccent}`);
+  await options.locator('.navItem[data-tab="workspace"]').click();
+  const workspaceSearch = options.locator("#workspaceSearch");
+  await workspaceSearch.evaluate((input) => {
+    window.__qtsWorkspaceSearchLog = [];
+    for (const type of ["focus", "input", "change", "search", "blur", "keydown", "keyup"]) {
+      input.addEventListener(type, (event) => window.__qtsWorkspaceSearchLog.push({
+        type,
+        key: event.key || "",
+        value: input.value,
+        active: document.activeElement?.id || document.activeElement?.tagName || "",
+        at: performance.now(),
+      }), true);
+    }
+  });
+  await workspaceSearch.focus();
+  await workspaceSearch.pressSequentially("Sandbox", { delay: 35 });
+  await options.waitForTimeout(250);
+  const workspaceSearchState = await workspaceSearch.evaluate((input) => ({
+    value: input.value,
+    focused: document.activeElement === input,
+    caret: input.selectionStart,
+  }));
+  if (workspaceSearchState.value !== "Sandbox" || !workspaceSearchState.focused || workspaceSearchState.caret !== 7) {
+    const workspaceSearchLog = await options.evaluate(() => window.__qtsWorkspaceSearchLog);
+    throw new Error(`Workspace search interrupted typing or lost focus: ${JSON.stringify(workspaceSearchState)} events=${JSON.stringify(workspaceSearchLog)}`);
+  }
+  await workspaceSearch.fill("");
+  await options.locator('.navItem[data-tab="general"]').click();
   await options.screenshot({ path: resolve(evidencePath, "extension-theme-options-page.png"), fullPage: false });
   await host.locator("#toolsButton").click();
   await host.locator("#toolsMenu.isOpen").waitFor();
@@ -618,6 +646,17 @@ try {
   for (const control of ["#drawerSearch", "#drawerPosition", "#drawerPin", "#drawerMinimize", "#drawerClose"]) {
     if (!(await host.locator(control).count())) throw new Error(`Shared sidebar control is missing: ${control}`);
   }
+  const drawerSearch = host.locator("#drawerSearch");
+  await drawerSearch.focus();
+  await drawerSearch.pressSequentially("input", { delay: 35 });
+  const drawerSearchState = await host.locator("#qts-toolbar-host").evaluate((element) => {
+    const input = element.shadowRoot.querySelector("#drawerSearch");
+    return { value: input.value, focused: element.shadowRoot.activeElement === input, caret: input.selectionStart };
+  });
+  if (drawerSearchState.value !== "input" || !drawerSearchState.focused || drawerSearchState.caret !== 5) {
+    throw new Error(`Shared sidebar search interrupted typing or lost focus: ${JSON.stringify(drawerSearchState)}`);
+  }
+  await drawerSearch.fill("");
   if (!(await host.locator("#drawerDetach").count())) throw new Error("Sidebar is missing the open-in-new-window action");
   // The position <select> became a 4-button icon picker (right/left/top/bottom) - verify all four
   // render with a real, clickable size instead of the old single-select text-clipping check.
@@ -709,6 +748,67 @@ try {
   await host.locator(".qts-drawer").waitFor();
   const drawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
   if (drawerCloseBg !== "rgb(199, 14, 14)") throw new Error(`Drawer close button is not the allowed red exception: ${drawerCloseBg}`);
+  await host.locator("#drawerClose").click();
+  await host.locator("#toolsButton").click();
+  await host.locator("#inspectorsMenuItem").click();
+  await host.locator(".qts-drawer").waitFor();
+  const allInspectorsTab = host.locator('[data-inspector-scope="all"]');
+  if (await allInspectorsTab.count()) await allInspectorsTab.click();
+  const inspectorsSearch = host.locator("#inspectorsSearch");
+  await inspectorsSearch.focus();
+  await inspectorsSearch.pressSequentially("checkout", { delay: 35 });
+  await host.evaluate(() => {
+    document.dispatchEvent(new CustomEvent("qts:network-captured", {
+      detail: {
+        id: "focus-regression-entry",
+        url: `${location.origin}/api/checkout`,
+        method: "GET",
+        status: 200,
+        source: "fetch",
+        capturedAt: Date.now(),
+        payload: { ok: true },
+      },
+    }));
+  });
+  await host.waitForTimeout(100);
+  const inspectorsTypingState = await host.locator("#qts-toolbar-host").evaluate((element) => {
+    const shadow = element.shadowRoot;
+    const input = shadow.querySelector("#inspectorsSearch");
+    return {
+      value: input?.value,
+      focused: shadow.activeElement === input,
+      caret: input?.selectionStart,
+      view: shadow.querySelector("#drawerHost")?.dataset.view,
+      hasBack: shadow.querySelector("#drawerHost")?.dataset.drawerHasBack,
+    };
+  });
+  if (inspectorsTypingState.value !== "checkout"
+      || !inspectorsTypingState.focused
+      || inspectorsTypingState.caret !== 8
+      || inspectorsTypingState.view !== "inspectors"
+      || inspectorsTypingState.hasBack !== "false") {
+    throw new Error(`Inspector live refresh interrupted search or changed the open sidebar: ${JSON.stringify(inspectorsTypingState)}`);
+  }
+  await inspectorsSearch.blur();
+  await host.locator('[data-id="focus-regression-entry"]').waitFor();
+  await host.locator('[data-id="focus-regression-entry"]').click();
+  await host.locator("#drawerBack").waitFor();
+  await host.evaluate(() => {
+    document.dispatchEvent(new CustomEvent("qts:network-captured", {
+      detail: {
+        id: "detail-regression-entry",
+        url: `${location.origin}/api/checkout/refresh`,
+        method: "GET",
+        status: 200,
+        source: "fetch",
+        capturedAt: Date.now(),
+        payload: { refreshed: true },
+      },
+    }));
+  });
+  if (!(await host.locator("#drawerBack").count()) || await host.locator("#drawerHost").getAttribute("data-drawer-has-back") !== "true") {
+    throw new Error("Inspector live refresh returned an open detail sidebar to its list.");
+  }
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();

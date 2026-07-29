@@ -81,6 +81,28 @@ Validação posterior:
   preservados até o capturador ser corrigido e a captura poder ser concluída de forma atômica.
 - Essa limitação deve permanecer explícita na PR. Não declarar os tutoriais visuais atualizados.
 
+## Correção crítica de foco nas buscas
+
+- Os filtros de Inspectors, Monitor de Erros, contas de teste, pagamentos e recursos reconstruíam
+  o próprio campo de busca a cada caractere.
+- A restauração anterior dependia do elemento ativo do Shadow DOM e não era confiável durante
+  digitação rápida. Agora o valor, foco e cursor são preservados a partir do próprio evento.
+- Atualizações de rede de Inspectors e Monitor de Erros ficam em espera enquanto um campo do
+  sidebar está em edição. A atualização mais recente é aplicada depois que a pessoa termina.
+- Um detalhe aberto de Inspector ou erro não volta sozinho para a listagem quando chegam eventos.
+- O smoke Chrome agora digita caractere por caractere na busca global das Configurações, na busca
+  compartilhada do sidebar e na busca de Inspectors, inclusive durante uma atualização ao vivo.
+- Tutoriais, FAQ e mídia não descrevem o comportamento interno de foco dos filtros e não exigem
+  alteração por esta correção.
+- `npm run test:all:clean` foi aprovado no estado final da extensão `1.4.22`.
+- A busca global, a busca compartilhada e a busca de Inspectors foram validadas com digitação
+  caractere por caractere e preservação do cursor.
+- O evento de rede recebido durante a digitação ficou em espera e o detalhe aberto permaneceu
+  na mesma tela.
+- Console da página: zero erros. Service worker: zero erros.
+- Fingerprint do pacote validado:
+  `df859c6bbae7f955759eee22da87dc7ff7508e465354c300e47bf9e177317125`.
+
 ## Correções visuais e de imagens concluídas em 29/07/2026
 
 - O modal de URL preserva os nomes completos de ambientes e produtos. Um seletor CSS amplo estava
