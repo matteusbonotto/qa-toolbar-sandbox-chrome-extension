@@ -852,10 +852,13 @@ function relationshipEntityCard(collection, item, { context = "", children = "",
     <summary class="relationshipNodeSummary">
       <span class="relationshipType">${escapeHtml(t(type))}</span>
       <span class="relationshipIdentity">${entityHtml}${context ? `<small>${escapeHtml(context)}</small>` : ""}</span>
-      <span class="relationshipNodeActions">${rowActions(collection, item)}<span class="hierarchyChevron" aria-hidden="true"></span></span>
+      <span class="relationshipNodeActions">
+        ${childCollection ? `<button type="button" class="relationshipAdd" data-tree-create="${childCollection}" data-parent-id="${escapeHtml(item.id)}">+ ${escapeHtml(t(childLabel))}</button>` : ""}
+        ${rowActions(collection, item)}
+        <span class="hierarchyChevron" aria-hidden="true"></span>
+      </span>
     </summary>
     ${children ? `<div class="relationshipChildren">${children}</div>` : childCollection ? `<div class="relationshipEmpty">${escapeHtml(t("Nenhum item relacionado."))}</div>` : ""}
-    ${childCollection ? `<button type="button" class="relationshipAdd" data-tree-create="${childCollection}" data-parent-id="${escapeHtml(item.id)}">+ ${escapeHtml(t(childLabel))}</button>` : ""}
   </details>`;
 }
 

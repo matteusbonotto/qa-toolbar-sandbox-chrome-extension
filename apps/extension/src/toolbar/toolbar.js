@@ -6129,7 +6129,13 @@ function applyPixelPerfectSettings(overlay) {
 
 function effectivePixelPerfectColor() {
   if (pixelPerfectSettings.color) return pixelPerfectSettings.color;
-  return THEME_PRESETS.find((item) => item.id === state.workspace?.preferences?.colorTheme)?.primary || "#2563eb";
+  // Read the token actually applied to the page first. Settings updates the live theme and
+  // storage asynchronously, so relying only on state.workspace could briefly reuse the previous
+  // family when Pixel Perfect opens immediately after Restaurar tema padrão.
+  const appliedThemeColor = getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim();
+  return appliedThemeColor
+    || THEME_PRESETS.find((item) => item.id === state.workspace?.preferences?.colorTheme)?.primary
+    || "#2563eb";
 }
 
 function updatePixelPerfectCrosshair(x, y) {

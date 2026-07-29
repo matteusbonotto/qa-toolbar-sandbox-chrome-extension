@@ -10,7 +10,9 @@ visual quando aplicável.
   testes de prioridade impedem voucher ou grant inferior de reduzir o acesso.
 - [x] 02. Tour atualizado para a navegação lateral, Workspace hierárquico e nove etapas do wizard.
   O smoke percorre o tour completo e valida cada painel realmente aberto.
-- [x] 03. As 30 imagens e os 30 vídeos de Tutorial e FAQ foram recriados a partir do worktree atual.
+- [x] 03. Tutorial e FAQ foram auditados pelo diff. Somente a mídia do Workspace foi afetada e
+  recapturada a partir do worktree atual. Os outros 29 pares foram preservados por não terem
+  mudança visual ou funcional correspondente.
 - [x] 04. Minha conta usa uma grade responsiva, hierarquia de conta/plano e cards com respiro.
 - [x] 17. Cada cadastro obrigatório do wizard abre confirmação de sucesso com as opções de
   cadastrar outro item ou continuar.
@@ -65,11 +67,12 @@ visual quando aplicável.
 
 - [x] 25. Este checklist registra conclusão, explicação e prova.
 - [x] Código temporário, builds, perfis Chrome e pacotes de automação são removidos antes da entrega.
-- [x] PT-BR, EN e ES, testes, FAQ, tutorial, documentação, imagens e vídeos foram atualizados.
+- [x] PT-BR, EN e ES, testes, FAQ, tutorial, documentação e a mídia afetada foram atualizados.
 - [x] Desktop, mobile, claro, escuro, console e service worker são cobertos pelo smoke Chrome.
 - [x] PRs foram auditadas. O escopo de #116 e #117 foi consolidado na #115.
-- [ ] Produção: configurar `ACCESS_TOKEN_PRIVATE_KEY_JWK` e republicar `access-status`. Esta ação
-  altera o Supabase produtivo e permanece bloqueada até autorização explícita do fundador.
+- [x] Produção: `ACCESS_TOKEN_PRIVATE_KEY_JWK` configurado e `access-status` republicada em
+  29/07/2026. O hash do segredo corresponde à chave privada local e a chave pública da extensão.
+  O fundador confirmou que o login voltou a funcionar.
 
 ## Incrementos adicionais identificados no handoff
 

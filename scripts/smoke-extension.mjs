@@ -395,6 +395,22 @@ try {
   await productAccordion.locator(":scope > summary").click();
   if (await productAccordion.getAttribute("open") === null) throw new Error("Product hierarchy accordion did not expand");
   await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
+  await options.setViewportSize({ width: 390, height: 844 });
+  const mobileWorkspaceLayout = await options.locator(".workspacePanel").evaluate((panel) => ({
+    viewportWidth: document.documentElement.clientWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    panelWidth: Math.round(panel.getBoundingClientRect().width),
+    hierarchyLevels: panel.querySelectorAll(".structureExplorer .relationshipNode").length,
+  }));
+  if (
+    mobileWorkspaceLayout.documentWidth > mobileWorkspaceLayout.viewportWidth + 1
+    || mobileWorkspaceLayout.panelWidth > mobileWorkspaceLayout.viewportWidth
+    || mobileWorkspaceLayout.hierarchyLevels !== 3
+  ) {
+    throw new Error(`Workspace mobile hierarchy overflowed or lost context: ${JSON.stringify(mobileWorkspaceLayout)}`);
+  }
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio-mobile.png"), fullPage: true });
+  await options.setViewportSize({ width: 1440, height: 960 });
   await options.locator('[data-workspace-nav="urls"]').click();
   const environmentCountBeforePreviews = Number(await options.locator("#environmentCount").textContent());
   await options.evaluate(async () => {

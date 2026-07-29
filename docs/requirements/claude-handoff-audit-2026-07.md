@@ -1,5 +1,10 @@
 # Auditoria do histórico entregue pelo Claude
 
+> Atualização em 29/07/2026: a matriz abaixo registra o estado encontrado no início da auditoria
+> e não deve ser usada isoladamente como estado atual. Assinatura de acesso, Steps Recorder,
+> validação completa e mídia do Workspace foram integrados posteriormente. O estado operacional
+> atual está em `docs/handoff/CODEX_PR121_CONTEXTO_2026-07-29.md`.
+
 ## Fonte de autoridade
 
 Esta auditoria registra as solicitações do fundador contidas no histórico anexado em 28/07/2026.

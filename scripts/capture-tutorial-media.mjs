@@ -242,70 +242,48 @@ try {
   await options.locator("#settingsTourSkip").click({ force: true }).catch(() => {});
   trace("authenticated");
 
-  await options.getByRole("button", { name: "Workspace", exact: true }).click();
-  await options.locator('[data-open-composer="clientComposer"]').click();
-  await options.locator("#clientName").fill("Cliente Demo");
-  await options.locator("#clientAbbreviation").fill("CD");
-  await options.locator("#clientForm button[type=submit]").click();
-  await options.locator('[data-tree-create="project"]').click();
-  await options.locator("#projectClient").selectOption({ label: "Cliente Demo" });
-  await options.locator("#projectName").fill("Projeto Demo");
-  await options.locator("#projectForm button[type=submit]").click();
-  await options.locator('[data-tree-create="product"]').click();
-  await options.locator("#productProject").selectOption({ label: "Projeto Demo" });
-  await options.locator("#productName").fill("Produto Demo");
-  await options.locator("#productForm button[type=submit]").click();
-  await options.locator('[data-workspace-nav="urls"]').click();
-  await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
-  await options.locator("#environmentName").fill("QA");
-  await options.locator("#environmentColor").fill("#2563eb");
-  await options.locator("#environmentForm button[type=submit]").click();
-  await options.locator('[data-workspace-nav="urls"]').click();
-  for (const pattern of [`http://127.0.0.1:${capturePort}/sandbox/*`]) {
-    await options.locator('[data-open-composer="urlRelationComposer"]').click();
-    await options.locator('#urlProductPicker [data-url-product]', { hasText: "Produto Demo" }).click();
-    await options.locator("#urlPatternInput").fill(pattern);
-    await options.locator("#urlPatternAdd").click();
-    await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
-    await options.locator("#urlRelationForm button[type=submit]").click();
-  }
-
-  // Seed a test account, a payment method and a resource too, so the corresponding tools have
-  // something real to display instead of an empty drawer.
-  if (!captureOnly || captureOnly === "workspace") {
-  await options.locator('[data-workspace-nav="accounts"]').click();
-  await options.locator('[data-open-composer="testAccountComposer"]').click();
-  await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
-  await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
-  await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
-  await options.locator("#testAccountLabel").fill("Conta sandbox");
-  await options.locator("#testAccountUsername").fill("sandbox@example.com");
-  await options.locator("#testAccountPassword").fill("local-password-value");
-  await options.locator("#testAccountForm button[type=submit]").click();
-  await options.locator('[data-workspace-nav="payments"]').click();
-  await options.locator('[data-open-composer="paymentMethodComposer"]').click();
-  await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
-  await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
-  await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
-  await options.locator("#paymentMethodLabel").fill("Visa sandbox");
-  await options.locator("#paymentMethodValue").fill("4242424242424242");
-  await options.locator("#paymentMethodForm button[type=submit]").click();
-  await options.locator('[data-workspace-nav="integrations"]').click();
-  await options.locator('[data-open-composer="resourceComposer"]').click();
-  await options.locator("#resourceLabel").fill("Runbook QA");
-  await options.locator("#resourceUrl").fill("https://example.com/runbook");
-  await options.locator("#resourceForm button[type=submit]").click();
-  }
+  // Seed through the extension's official storage API. This setup is not part of the published
+  // clip, so driving eleven animated dialogs here only made selective recapture slow and flaky.
+  // The visible walkthrough below still opens every real CRUD composer the user needs to learn.
+  await options.evaluate(async ({ demoUrl }) => {
+    const workspace = await window.QTS_STORAGE.getWorkspace();
+    workspace.clients.push({ id: "tutorial-client", name: "Cliente Demo", abbreviation: "CD", logoUrl: "", showLabel: true, active: true });
+    workspace.projects.push({ id: "tutorial-project", clientId: "tutorial-client", name: "Projeto Demo", abbreviation: "PD", logoUrl: "", showLabel: true, active: true });
+    workspace.products.push({ id: "tutorial-product", projectId: "tutorial-project", name: "Produto Demo", abbreviation: "PR", logoUrl: "", showLabel: true, active: true });
+    workspace.environments.push({ id: "tutorial-environment", name: "QA", color: "#2563eb", active: true });
+    workspace.urlBindings.push({
+      id: "tutorial-url", productId: "tutorial-product", productIds: ["tutorial-product"],
+      environmentIds: ["tutorial-environment"], patterns: [`${demoUrl.replace(/\/$/, "")}/*`],
+      primaryUrl: demoUrl, active: true,
+    });
+    workspace.testAccounts.push({
+      id: "tutorial-account", environmentIds: ["tutorial-environment"], productIds: ["tutorial-product"],
+      label: "Conta sandbox", username: "sandbox@example.com", password: "",
+      accountTypeId: "", accountType: "", accountTypeImage: "", notes: "", customFields: [], active: true,
+    });
+    workspace.paymentMethods.push({
+      id: "tutorial-payment", environmentIds: ["tutorial-environment"], productIds: ["tutorial-product"],
+      label: "Visa sandbox", typeId: "", type: "", icon: "", value: "4242424242424242",
+      holder: "QA Sandbox", expiry: "12/30", cvv: "123", notes: "", active: true,
+    });
+    workspace.resources.push({ id: "tutorial-resource", label: "Runbook QA", url: "https://example.com/runbook", category: "Documentação", icon: "", active: true });
+    await window.QTS_STORAGE.saveWorkspace(workspace);
+  }, { demoUrl: DEMO_URL });
   trace("workspace ready (client/project/product/environment/URLs/account/payment/resource)");
 
   if (!captureOnly || captureOnly === "workspace") {
-  await options.locator('[data-workspace-nav="structure"]').click();
-  await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
+  await options.close();
+  const workspaceEvidence = await context.newPage();
+  await workspaceEvidence.goto(`chrome-extension://${extensionId}/src/options/options.html`);
+  await workspaceEvidence.locator('.protectedNav[data-tab="workspace"]:not(:disabled)').waitFor();
+  await workspaceEvidence.locator('.navItem[data-tab="workspace"]').click();
+  await workspaceEvidence.locator('[data-workspace-nav="structure"]').click();
+  await workspaceEvidence.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
+  await workspaceEvidence.close();
   trace("captured workspace-setup.png");
 
   // Close the long setup page without publishing its recording. A fresh page below records only
   // the concise demonstration, keeping the shipped tutorial clip small and easy to follow.
-  await options.close();
   const walkthrough = await context.newPage();
   await walkthrough.goto(`chrome-extension://${extensionId}/src/options/options.html`);
   await walkthrough.locator('.protectedNav[data-tab="general"]:not(:disabled)').waitFor();
@@ -319,14 +297,20 @@ try {
   await walkthrough.locator('[data-color-family="blue"]').click();
   await walkthrough.locator('.navItem[data-tab="workspace"]').click();
   const demos = [
-    ["structure", "clientComposer"], ["structure", "projectComposer"], ["structure", "productComposer"],
-    ["urls", "environmentComposer"], ["urls", "urlRelationComposer"], ["accounts", "testAccountComposer"],
-    ["payments", "paymentMethodComposer"], ["integrations", "inspectorComposer"], ["integrations", "apiComposer"],
-    ["integrations", "resourceComposer"],
+    ["structure", '[data-open-composer="clientComposer"]', "clientComposer"],
+    ["structure", '[data-tree-create="project"]', "projectComposer"],
+    ["structure", '[data-tree-create="product"]', "productComposer"],
+    ["urls", '[data-open-composer="environmentComposer"]', "environmentComposer"],
+    ["urls", '[data-open-composer="urlRelationComposer"]', "urlRelationComposer"],
+    ["accounts", '[data-open-composer="testAccountComposer"]', "testAccountComposer"],
+    ["payments", '[data-open-composer="paymentMethodComposer"]', "paymentMethodComposer"],
+    ["integrations", '[data-open-composer="inspectorComposer"]', "inspectorComposer"],
+    ["integrations", '[data-open-composer="apiComposer"]', "apiComposer"],
+    ["integrations", '[data-open-composer="resourceComposer"]', "resourceComposer"],
   ];
-  for (const [tab, composer] of demos) {
+  for (const [tab, trigger, composer] of demos) {
     await walkthrough.locator(`[data-workspace-nav="${tab}"]`).click();
-    await walkthrough.locator(`[data-open-composer="${composer}"]`).first().click();
+    await walkthrough.locator(trigger).first().click();
     await walkthrough.waitForTimeout(500);
     await walkthrough.locator(`#${composer} [data-close-composer]`).first().click();
   }

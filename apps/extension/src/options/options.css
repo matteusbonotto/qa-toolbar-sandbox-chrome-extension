@@ -722,11 +722,13 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .relationshipIdentity small { grid-column:1/-1; display:block; color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .relationshipNodeActions { display:flex; align-items:center; gap:8px; }
 .relationshipNodeActions .rowActions { flex-wrap:nowrap; }
+.relationshipNodeActions .relationshipAdd { min-height:30px; margin:0; padding:0 10px; white-space:nowrap; }
 .relationshipChildren { display:grid; gap:10px; margin:12px 0 0 22px; padding:0 0 0 16px; border-left:2px solid color-mix(in srgb,var(--relationship-color) 46%,var(--border)); }
 .relationshipEmpty { margin:12px 0 0 22px; padding:10px 12px; border:1px dashed var(--border); border-radius:9px; color:var(--muted); font-size:10px; }
 .relationshipAdd { min-height:32px; margin-top:10px; border:1px dashed var(--border); border-radius:9px; background:transparent; color:var(--text); font-size:10px; font-weight:800; cursor:pointer; }
 .relationshipNode:not([open]) > :is(.relationshipChildren,.relationshipEmpty,.relationshipAdd) { display:none; }
-.structureCreateRoot { max-width:960px; margin:12px auto 0; }
+.paneIntroActions { display:flex; align-items:center; justify-content:flex-end; gap:10px; flex-wrap:wrap; }
+.structureCreateRoot { width:auto; margin:0; white-space:nowrap; }
 .paneCounts,.composerActions { display:flex; align-items:center; gap:8px; }
 .composerActions { margin-top:10px; }
 .composerActions .composerTrigger { flex:1 1 0; margin:0; }
@@ -892,3 +894,10 @@ summary:focus-visible,.environmentToggle:focus-visible,.scopeFacetTrigger:focus-
 .shortcutSetting .button { min-height:40px; }
 @media (max-width:680px) { .shortcutSetting { grid-template-columns:1fr auto; } .shortcutSetting span { grid-column:1/-1; } }
 @media (max-width:680px) { .breadcrumbOrderItem { flex-wrap:wrap; } .breadcrumbOrderItem strong { min-width:0; flex:1 1 calc(100% - 34px); } .inlineShortcutInput { order:6; flex:1 1 100%; width:100%; } }
+@media (max-width:720px) {
+  .paneIntroActions { width:100%; justify-content:space-between; }
+  .structureCreateRoot { flex:1 1 auto; }
+  .relationshipNodeSummary { grid-template-columns:auto minmax(0,1fr); }
+  .relationshipNodeActions { grid-column:1/-1; justify-content:flex-end; min-width:0; }
+  .relationshipNodeActions .relationshipAdd { margin-right:auto; }
+}

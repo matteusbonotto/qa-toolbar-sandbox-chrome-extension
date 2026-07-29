@@ -24,7 +24,8 @@
   hierarquia, estados de drop e layout responsivo.
 - `toolbar.js`: menus e dropdowns abrem para cima nas posições inferiores.
 - Assets: Windows 11 flat, Tux e Android flat em PNG.
-- FAQ, tutorial textual e traduções PT-BR, espanhol e inglês atualizados. A mídia não foi alterada.
+- FAQ, tutorial textual e traduções PT-BR, espanhol e inglês atualizados. A screenshot e o vídeo
+  do Workspace foram recapturados seletivamente; mídias não afetadas foram preservadas.
 - Manifesto preparado como `1.4.21`.
 
 ## Validação
