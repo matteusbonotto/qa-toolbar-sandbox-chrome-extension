@@ -103,6 +103,19 @@ Validação posterior:
 - Fingerprint do pacote validado:
   `df859c6bbae7f955759eee22da87dc7ff7508e465354c300e47bf9e177317125`.
 
+## Versão 1.4.23
+
+- A correção crítica das buscas é uma mudança funcional posterior ao pacote `1.4.22`.
+- Por regra de release e exigência da Chrome Web Store, o manifest foi incrementado para `1.4.23`.
+- Toda alteração destinada à Chrome Web Store deve incrementar a versão antes de gerar o pacote.
+- O pacote de produção desta entrega deve ser gerado somente depois da validação limpa e deve
+  declarar `1.4.23` no manifest interno.
+- `npm run test:all:clean` foi aprovado novamente com a versão `1.4.23`.
+- Fingerprint do pacote de teste:
+  `24f5458e90f5fdade1a799601a2bf3813f849af4c5a31cae6939301ea30984a8`.
+- Pacote preparado para upload manual:
+  `artifacts/chrome-web-store-package-v1.4.23.zip`.
+
 ## Correções visuais e de imagens concluídas em 29/07/2026
 
 - O modal de URL preserva os nomes completos de ambientes e produtos. Um seletor CSS amplo estava
