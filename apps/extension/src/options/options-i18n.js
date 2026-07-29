@@ -72,8 +72,9 @@
       "Exibição": "Visualización",
       "Modo compacto": "Modo compacto",
       "Oculta os nomes de projeto e produto; mantém ícones e ambiente.": "Oculta los nombres del proyecto y producto; conserva los iconos y el entorno.",
-      "Empurrar conteúdo do site": "Desplazar el contenido del sitio",
-      "Reserva o espaço da barra no topo da página.": "Reserva el espacio de la barra en la parte superior de la página.",
+      "Reservar espaço para a toolbar": "Reservar espacio para la barra",
+      "Evita sobreposição e desloca o site na borda escolhida, horizontal ou vertical.": "Evita superposiciones y desplaza el sitio en el borde elegido, horizontal o vertical.",
+      "Escolha uma das nove famílias. A opção Claro ou Escuro acima aplica automaticamente a variante correta.": "Elige una de las nueve familias. La opción Claro u Oscuro aplica automáticamente la variante correcta.",
       "Efeitos sonoros": "Efectos de sonido",
       "Toca um som ao marcar status de teste, capturar erro HTTP ou iniciar uma macro.": "Reproduce un sonido al marcar el estado de la prueba, capturar un error HTTP o iniciar una macro.",
       "Tema de cores": "Tema de colores",
@@ -717,8 +718,9 @@
       "Exibição": "Display",
       "Modo compacto": "Compact mode",
       "Oculta os nomes de projeto e produto; mantém ícones e ambiente.": "Hides project and product names; keeps icons and environment.",
-      "Empurrar conteúdo do site": "Push website content",
-      "Reserva o espaço da barra no topo da página.": "Reserves toolbar space at the top of the page.",
+      "Reservar espaço para a toolbar": "Reserve space for the toolbar",
+      "Evita sobreposição e desloca o site na borda escolhida, horizontal ou vertical.": "Prevents overlap and shifts the site at the selected horizontal or vertical edge.",
+      "Escolha uma das nove famílias. A opção Claro ou Escuro acima aplica automaticamente a variante correta.": "Choose one of nine families. Light or Dark automatically applies the matching variant.",
       "Efeitos sonoros": "Sound effects",
       "Toca um som ao marcar status de teste, capturar erro HTTP ou iniciar uma macro.": "Plays a sound when marking a test status, capturing an HTTP error, or starting a macro.",
       "Tema de cores": "Color theme",
@@ -1299,6 +1301,9 @@
     "Roxo": "Morado",
     "Amarelo": "Amarillo",
     "Lego multicolorido": "Lego multicolor",
+    "Escolha o dispositivo e grave somente os passos, passos com vídeo ou passos com GIF. Depois revise em formato numerado ou Gherkin, repita o fluxo pelo executor seguro, exporte o CSV ou abra um relatório já preenchido.": "Elige el dispositivo y graba solo los pasos, pasos con vídeo o pasos con GIF. Después revisa en formato numerado o Gherkin, repite el flujo con el ejecutor seguro, exporta el CSV o abre un informe ya completado.",
+    "Vídeo e GIF usam o gravador local de evidências. Campos sensíveis nunca têm valores registrados nem são repetidos.": "El vídeo y el GIF usan el grabador local de evidencias. Los campos sensibles nunca registran valores ni se repiten.",
+    "Ex.: grave a recuperação de senha com vídeo, revise em Gherkin e envie os passos e o dispositivo diretamente ao Report Builder.": "Ej.: graba la recuperación de contraseña con vídeo, revísala en Gherkin y envía los pasos y el dispositivo directamente al generador de informes.",
   });
   Object.assign(translations.en, {
     "Buscar no workspace": "Search workspace",
@@ -1309,6 +1314,9 @@
     "Roxo": "Purple",
     "Amarelo": "Yellow",
     "Lego multicolorido": "Multicolor Lego",
+    "Escolha o dispositivo e grave somente os passos, passos com vídeo ou passos com GIF. Depois revise em formato numerado ou Gherkin, repita o fluxo pelo executor seguro, exporte o CSV ou abra um relatório já preenchido.": "Choose the device and record steps only, steps with video, or steps with GIF. Then review as numbered steps or Gherkin, replay through the safe executor, export CSV, or open a prefilled report.",
+    "Vídeo e GIF usam o gravador local de evidências. Campos sensíveis nunca têm valores registrados nem são repetidos.": "Video and GIF use the local evidence recorder. Sensitive fields never have their values recorded or replayed.",
+    "Ex.: grave a recuperação de senha com vídeo, revise em Gherkin e envie os passos e o dispositivo diretamente ao Report Builder.": "Example: record password recovery with video, review it in Gherkin, and send the steps and device directly to Report Builder.",
   });
 
   const originals = new WeakMap();

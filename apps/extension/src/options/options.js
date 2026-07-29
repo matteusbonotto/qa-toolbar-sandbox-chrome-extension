@@ -425,10 +425,13 @@ function renderPositionPicker(id, { kind, options, current, label }) {
   container.setAttribute("role", "radiogroup");
   if (label) container.setAttribute("aria-label", t(label));
   container.dataset.value = current;
+  const preview = document.getElementById(id === "drawerPosition" ? "drawerPositionPreview" : id === "toolbarPosition" ? "toolbarPositionPreview" : "");
+  if (preview) preview.dataset.position = current;
   container.innerHTML = options.map(({ value, title }) => `<button type="button" class="positionPickerBtn" data-value="${value}" title="${escapeHtml(t(title))}" aria-pressed="${value === current}">${positionPickerIcon(kind, value)}</button>`).join("");
   container.querySelectorAll(".positionPickerBtn").forEach((button) => {
     button.addEventListener("click", () => {
       container.dataset.value = button.dataset.value;
+      if (preview) preview.dataset.position = button.dataset.value;
       container.querySelectorAll(".positionPickerBtn").forEach((btn) => btn.setAttribute("aria-pressed", String(btn === button)));
     });
   });

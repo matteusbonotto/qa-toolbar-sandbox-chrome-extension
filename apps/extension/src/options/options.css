@@ -134,10 +134,18 @@ legend { padding:0 6px; color:var(--muted); font-size:11px; font-weight:800; }
 .positionSettingsGrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .positionSettingsGrid fieldset { display:grid; align-content:start; gap:5px; }
 .surfaceThumbnail { position:relative; height:92px; margin:2px 0 7px; border:1px solid var(--border); border-radius:12px; background:linear-gradient(135deg,var(--surface),var(--surface-2)); overflow:hidden; }
-.surfaceThumbnail::before { content:""; position:absolute; inset:12px; border:1px solid color-mix(in srgb,var(--muted) 35%,transparent); border-radius:7px; background:repeating-linear-gradient(0deg,transparent 0 12px,color-mix(in srgb,var(--muted) 12%,transparent) 12px 13px); }
-.surfaceThumbnail span { position:absolute; z-index:1; border-radius:6px; background:var(--accent); box-shadow:0 5px 14px color-mix(in srgb,var(--accent) 35%,transparent); }
-.surfaceThumbnailSidebar span { top:12px; right:12px; bottom:12px; width:30%; }
-.surfaceThumbnailToolbar span { left:12px; right:12px; top:12px; height:14px; }
+.surfaceThumbnail svg { display:block; width:100%; height:100%; }
+.surfaceThumbnail .previewBrowser { fill:var(--surface); stroke:color-mix(in srgb,var(--muted) 42%,transparent); stroke-width:1.5; }
+.surfaceThumbnail .previewContent { fill:none; stroke:color-mix(in srgb,var(--muted) 35%,transparent); stroke-width:5; stroke-linecap:round; }
+.surfaceThumbnail .previewDock { fill:var(--accent); filter:drop-shadow(0 5px 7px color-mix(in srgb,var(--accent) 32%,transparent)); transition:all .18s ease; }
+.surfaceThumbnailSidebar[data-position="left"] .previewDock { x:12px; y:10px; width:60px; height:76px; }
+.surfaceThumbnailSidebar[data-position="right"] .previewDock { x:168px; y:10px; width:60px; height:76px; }
+.surfaceThumbnailSidebar[data-position="top"] .previewDock { x:12px; y:10px; width:216px; height:30px; }
+.surfaceThumbnailSidebar[data-position="bottom"] .previewDock { x:12px; y:56px; width:216px; height:30px; }
+.surfaceThumbnailToolbar[data-position="left"] .previewDock { x:12px; y:10px; width:16px; height:76px; }
+.surfaceThumbnailToolbar[data-position="right"] .previewDock { x:212px; y:10px; width:16px; height:76px; }
+.surfaceThumbnailToolbar[data-position="top"] .previewDock { x:12px; y:10px; width:216px; height:16px; }
+.surfaceThumbnailToolbar[data-position="bottom"] .previewDock { x:12px; y:70px; width:216px; height:16px; }
 .checkGrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; }
 .checkGrid label { display:flex; align-items:center; gap:8px; }
 .compactEntityGrid { grid-template-columns:repeat(3,minmax(0,1fr)); }

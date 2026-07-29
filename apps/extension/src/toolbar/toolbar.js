@@ -2017,6 +2017,7 @@ function startTestSession() {
     context: sessionContextSnapshot(),
     statusPicks: [],
     evidenceCount: 0,
+    stepRecordingIds: [],
     httpErrorsAtStart: state.httpErrors.length,
   };
   const bar = state.shadowRoot.getElementById("testSessionBar");
@@ -2046,6 +2047,7 @@ function renderTestSessionSummary(container, session) {
       <p><b>${escapeHtml(t.testSessionDuration)}</b> ${escapeHtml(durationLabel)}</p>
       <p><b>${escapeHtml(t.testSessionResult)}</b> ${lastStatus ? escapeHtml(lastStatus.label) : escapeHtml(t.testSessionNoResult)}</p>
       <p><b>${escapeHtml(t.testSessionEvidence)}</b> ${session.evidenceCount}</p>
+      <p><b>${escapeHtml(stepsCopy().title)}</b> ${(session.stepRecordingIds || []).filter((id) => (state.workspace.stepRecordings || []).some((item) => item.id === id)).length}</p>
       <p><b>${escapeHtml(t.testSessionTechnicalContext)}</b> ${httpErrorsDuringSession.length ? `${httpErrorsDuringSession.length} × ${escapeHtml(t.testSessionHttpErrors)}` : escapeHtml(t.testSessionNoErrors)}</p>
       <label class="qts-field-label">${escapeHtml(t.testSessionNotes)}<textarea data-session-notes rows="3" placeholder="${escapeHtml(t.testSessionNotesPlaceholder)}"></textarea></label>
       <label class="qts-field-label">${escapeHtml(t.testSessionNextSteps)}<textarea data-session-next-steps rows="2" placeholder="${escapeHtml(t.testSessionNextStepsPlaceholder)}"></textarea></label>
@@ -2100,10 +2102,17 @@ function renderTestSessionSummary(container, session) {
   container.querySelector("[data-session-report]").addEventListener("click", () => {
     const scenario = container.querySelector("[data-session-scenario]").value.trim();
     const notes = container.querySelector("[data-session-notes]").value.trim();
+    const recordedSteps = (session.stepRecordingIds || [])
+      .map((id) => (state.workspace.stepRecordings || []).find((item) => item.id === id))
+      .filter(Boolean)
+      .flatMap((recording) => recording.steps || [])
+      .map((step, index) => `${index + 1}. ${step.text}`)
+      .join("\n");
     openReportBuilder({
       kind: lastStatus?.status === "pass" ? "approval" : lastStatus?.status === "limitation" ? "limitation" : lastStatus?.status === "blocked" ? "blocker" : "bug",
       title: scenario,
       actual: notes,
+      steps: recordedSteps,
     }, session.context);
   });
 }
@@ -2188,7 +2197,7 @@ function renderReportBuilder(container, context, prefill) {
       <label class="qts-field-label">${escapeHtml(t.reportTitle)}<input type="text" data-report-title value="${escapeHtml(prefill.title || "")}" placeholder="${escapeHtml(t.reportTitlePlaceholder)}" /></label>
       <label class="qts-field-label">${escapeHtml(t.reportDescription)}<textarea data-report-description rows="2" placeholder="${escapeHtml(t.reportDescriptionPlaceholder)}">${escapeHtml(prefill.description || "")}</textarea></label>
       <label class="qts-field-label">${escapeHtml(t.reportPreconditions)}<textarea data-report-preconditions rows="2" placeholder="${escapeHtml(t.reportPreconditionsPlaceholder)}"></textarea></label>
-      <label class="qts-field-label">${escapeHtml(t.reportSteps)}<textarea data-report-steps rows="3" placeholder="${escapeHtml(t.reportStepsPlaceholder)}"></textarea></label>
+      <label class="qts-field-label">${escapeHtml(t.reportSteps)}<textarea data-report-steps rows="3" placeholder="${escapeHtml(t.reportStepsPlaceholder)}">${escapeHtml(prefill.steps || "")}</textarea></label>
       <label class="qts-field-label">${escapeHtml(t.reportExpected)}<textarea data-report-expected rows="2"></textarea></label>
       <label class="qts-field-label">${escapeHtml(t.reportActual)}<textarea data-report-actual rows="2">${escapeHtml(prefill.actual || "")}</textarea></label>
       <div class="qts-toolbar-row">
@@ -7340,6 +7349,16 @@ function stepsCopy() {
   return STEPS_COPY[language] || STEPS_COPY[language.split("-")[0]] || STEPS_COPY["pt-BR"];
 }
 
+function stepsExtraCopy() {
+  const language = state.workspace?.preferences?.language || "pt-BR";
+  const copy = {
+    "pt-BR": { recordVideo: "Passos + vídeo", recordGif: "Passos + GIF", replay: "Repetir fluxo", replayUnavailable: "Este roteiro antigo não possui seletores seguros para repetição.", replayDone: "Fluxo repetido com sucesso.", report: "Criar relatório", device: "Dispositivo testado", noDevice: "Sem dispositivo" },
+    es: { recordVideo: "Pasos + vídeo", recordGif: "Pasos + GIF", replay: "Repetir flujo", replayUnavailable: "Este guion antiguo no tiene selectores seguros para repetirlo.", replayDone: "Flujo repetido correctamente.", report: "Crear informe", device: "Dispositivo probado", noDevice: "Sin dispositivo" },
+    en: { recordVideo: "Steps + video", recordGif: "Steps + GIF", replay: "Replay flow", replayUnavailable: "This older scenario has no safe selectors for replay.", replayDone: "Flow replayed successfully.", report: "Create report", device: "Tested device", noDevice: "No device" },
+  };
+  return copy[language] || copy[language.split("-")[0]] || copy["pt-BR"];
+}
+
 // Falling straight back to the bare tag name ("div", "span") once no label/text/placeholder is
 // found produced steps like "Clique em div" -- unreadable, since a bare tag says nothing about
 // which div. Test-id/role/id hooks (the same attributes Revelar test-id/seletor/XPath surfaces)
@@ -7421,9 +7440,9 @@ function renderStepsHistory() {
 function toggleStepsHistory() { const panel = state.shadowRoot?.getElementById("stepsRecHistoryPanel"); if (!panel) return; panel.classList.toggle("isHidden"); renderStepsHistory(); }
 function toggleStepsPause() { if (!state.stepsRecording) return; state.stepsRecording.paused = !state.stepsRecording.paused; updateStepsRecordingUi(); showQaToast(state.stepsRecording.paused ? stepsCopy().paused : stepsCopy().resumed); }
 function undoStepsRecording() { state.stepsRecording?.steps.pop(); updateStepsRecordingUi(); }
-function cancelStepsRecording() { if (!state.stepsRecording || !confirm(stepsCopy().discard)) return; state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); }
+function cancelStepsRecording() { if (!state.stepsRecording || !confirm(stepsCopy().discard)) return; const hadMedia = Boolean(state.stepsRecording.mediaMode); state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); if (hadMedia && recordingState.status !== "idle") stopEvidenceRecording(); }
 
-function startStepsRecording({ name, mode }) {
+function startStepsRecording({ name, mode, deviceId = "" }) {
   if (!requirePlanFeature("stepsRecorder") || state.stepsRecording) return;
   closeDrawer();
   const copy = stepsCopy();
@@ -7442,18 +7461,18 @@ function startStepsRecording({ name, mode }) {
       : isSelect
         ? (value ? `${copy.selectWord} "${value}" ${copy.select} ${targetName}` : `${copy.selectWord} ${targetName}`)
         : (value ? `${copy.input} ${targetName} ${copy.withWord} "${value}"` : `${copy.input} ${targetName}`);
-    appendDocumentedStep({ ...makeDocumentedStep(action, text), targetKey: window.QTS_QA_TOOLS.uniqueSelector(element) || targetName });
+    appendDocumentedStep({ ...makeDocumentedStep(action, text), targetKey: window.QTS_QA_TOOLS.uniqueSelector(element) || "", value });
   };
   const onInput = (event) => { const element = event.target; clearTimeout(inputTimers.get(element)); inputTimers.set(element, setTimeout(() => addInput(element), 350)); };
   const onChange = (event) => {
     const element = event.target;
-    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) appendDocumentedStep(makeDocumentedStep("check", `${element.checked ? copy.check : copy.uncheck} ${stepsTargetName(element)}`));
+    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) appendDocumentedStep({ ...makeDocumentedStep("check", `${element.checked ? copy.check : copy.uncheck} ${stepsTargetName(element)}`), targetKey: window.QTS_QA_TOOLS.uniqueSelector(element) || "", checked: element.checked });
     else addInput(element);
   };
-  const onClick = (event) => { const element = event.target; if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || element.matches("input,textarea,select,option")) return; const target = element.closest("button,a,[role=button],label") || element; const label = stepsTargetName(target); const submit = target.matches("button[type=submit],input[type=submit]"); appendDocumentedStep(makeDocumentedStep(submit ? "submit" : "click", `${submit ? copy.submit : copy.click} ${label}`)); };
+  const onClick = (event) => { const element = event.target; if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || element.matches("input,textarea,select,option")) return; const target = element.closest("button,a,[role=button],label") || element; const label = stepsTargetName(target); const submit = target.matches("button[type=submit],input[type=submit]"); appendDocumentedStep({ ...makeDocumentedStep(submit ? "submit" : "click", `${submit ? copy.submit : copy.click} ${label}`), targetKey: window.QTS_QA_TOOLS.uniqueSelector(target) || "" }); };
   const onContext = (event) => { const element = event.target; if (element instanceof Element && !element.closest(`#${HOST_ID}`)) appendDocumentedStep(makeDocumentedStep("contextmenu", `${copy.contextmenu} ${stepsTargetName(element)}`)); };
-  const onSubmit = (event) => appendDocumentedStep(makeDocumentedStep("submit", `${copy.submit} ${stepsTargetName(event.target)}`));
-  const onKey = (event) => { if (["Enter", "Tab"].includes(event.key) && event.target instanceof Element && !window.QTS_QA_TOOLS.isSensitiveElement(event.target)) appendDocumentedStep(makeDocumentedStep("key", `${copy.key} "${event.key}" ${copy.onWord} ${stepsTargetName(event.target)}`)); };
+  const onSubmit = (event) => appendDocumentedStep({ ...makeDocumentedStep("submit", `${copy.submit} ${stepsTargetName(event.target)}`), targetKey: window.QTS_QA_TOOLS.uniqueSelector(event.target) || "" });
+  const onKey = (event) => { if (["Enter", "Tab"].includes(event.key) && event.target instanceof Element && !window.QTS_QA_TOOLS.isSensitiveElement(event.target)) appendDocumentedStep({ ...makeDocumentedStep("key", `${copy.key} "${event.key}" ${copy.onWord} ${stepsTargetName(event.target)}`), targetKey: window.QTS_QA_TOOLS.uniqueSelector(event.target) || "", value: event.key }); };
   const onNavigate = () => appendDocumentedStep(makeDocumentedStep("navigation", `${copy.navigation} ${document.title || safeCurrentUrl()}`));
   // Once a result message is picked up here, the recording's phase resets so the *next*
   // click/submit/key opens a fresh "Quando" instead of continuing to chain onto the one that just
@@ -7478,11 +7497,27 @@ function startStepsRecording({ name, mode }) {
     }
   });
   document.addEventListener("input", onInput, true); document.addEventListener("change", onChange, true); document.addEventListener("click", onClick, true); document.addEventListener("contextmenu", onContext, true); document.addEventListener("submit", onSubmit, true); document.addEventListener("keydown", onKey, true); window.addEventListener("popstate", onNavigate); window.addEventListener("hashchange", onNavigate); resultObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
-  state.stepsRecording = { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", paused: false, phase: "given", lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start} ${document.title || safeCurrentUrl()}`)], cleanup() { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); } };
+  state.stepsRecording = { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", deviceId, paused: false, phase: "given", lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start} ${document.title || safeCurrentUrl()}`)], cleanup() { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); } };
   updateStepsRecordingUi(); showQaToast(copy.recording);
 }
 
-function stopStepsRecording() { const recording = state.stepsRecording; if (!recording) return; recording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); openStepsEditor({ id: recording.id, name: recording.name, mode: recording.mode, locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: recording.steps }); }
+async function startStepsWithMedia(data, mediaMode) {
+  await startEvidenceRecording(mediaMode);
+  if (recordingState.status !== "recording") return;
+  startStepsRecording(data);
+  if (state.stepsRecording) state.stepsRecording.mediaMode = mediaMode;
+}
+
+async function stopStepsRecording() {
+  const recording = state.stepsRecording;
+  if (!recording) return;
+  recording.cleanup();
+  if (state.testSession && !state.testSession.stepRecordingIds.includes(recording.id)) state.testSession.stepRecordingIds.push(recording.id);
+  state.stepsRecording = null;
+  updateStepsRecordingUi();
+  if (recording.mediaMode && recordingState.status !== "idle") await stopEvidenceRecording();
+  openStepsEditor({ id: recording.id, name: recording.name, mode: recording.mode, deviceId: recording.deviceId || "", mediaMode: recording.mediaMode || "", locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: recording.steps, context: sessionContextSnapshot() });
+}
 
 function csvCell(value) { let text = String(value ?? "").replace(/^([=+\-@\t\r])/, "'$1"); return `"${text.replaceAll('"', '""')}"`; }
 // In Gherkin mode, a captured result ("Cadastro realizado com sucesso") becomes its own real
@@ -7510,15 +7545,97 @@ function openStepsEditor(recording) {
   openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<div class="qts-toolbar-row"><button id="stepsBack" class="action" type="button">${escapeHtml(copy.back)}</button><input id="stepsName" value="${escapeHtml(draft.name || "")}" placeholder="${escapeHtml(copy.name)}" style="flex:1"/><select id="stepsMode"><option value="numbered" ${draft.mode !== "gherkin" ? "selected" : ""}>${escapeHtml(copy.numbered)}</option><option value="gherkin" ${draft.mode === "gherkin" ? "selected" : ""}>${escapeHtml(copy.gherkin)}</option></select><button id="stepsExport" class="action" type="button">${escapeHtml(copy.export)}</button><button id="stepsSave" class="action primary" type="button">${escapeHtml(copy.save)}</button></div><div id="stepsEditorList"></div><button id="stepsAdd" class="action" type="button">+ ${escapeHtml(copy.add)}</button>`, onReady(body) { renderRows(body); body.querySelector("#stepsBack").addEventListener("click", openStepsRecorder); body.querySelector("#stepsMode").addEventListener("change", e => { draft.mode=e.target.value; renderRows(body); }); body.querySelector("#stepsAdd").addEventListener("click", () => { draft.steps.push(makeDocumentedStep("manual", "", "manual")); renderRows(body); }); body.querySelector("#stepsExport").addEventListener("click", () => { draft.name=body.querySelector("#stepsName").value; exportStepsCsv(draft); }); body.querySelector("#stepsSave").addEventListener("click", async () => { draft.name=body.querySelector("#stepsName").value.trim() || copy.title; draft.updatedAt=new Date().toISOString(); const index=(state.workspace.stepRecordings || []).findIndex(item=>item.id===draft.id); if(index>=0) state.workspace.stepRecordings[index]=draft; else state.workspace.stepRecordings.push(draft); await persistWorkspaceState(); openStepsRecorder(); showQaToast(copy.saved); }); } });
 }
 
+function executableDocumentedSteps(recording) {
+  return (recording.steps || []).flatMap((step) => {
+    if (!step.targetKey) return [];
+    if (step.action === "click" || step.action === "submit") return [{ action: "click", selector: step.targetKey }];
+    if (step.action === "input") return [{ action: "fill", selector: step.targetKey, value: String(step.value ?? "") }];
+    if (step.action === "select") return [{ action: "select", selector: step.targetKey, value: String(step.value ?? "") }];
+    if (step.action === "check") return [{ action: step.checked === false ? "uncheck" : "check", selector: step.targetKey }];
+    if (step.action === "key") return [{ action: "press", selector: step.targetKey, value: String(step.value || "Enter") }];
+    return [];
+  });
+}
+
+async function replayDocumentedSteps(recording) {
+  const copy = stepsExtraCopy();
+  const steps = executableDocumentedSteps(recording);
+  if (!steps.length) { showQaToast(copy.replayUnavailable, "error"); return; }
+  closeDrawer();
+  try {
+    for (const step of steps) await window.QTS_QA_TOOLS.executeStep(step);
+    showQaToast(copy.replayDone);
+  } catch (error) {
+    showQaToast(String(error?.message || error), "error");
+  }
+}
+
+function reportDocumentedSteps(recording) {
+  const steps = (recording.steps || []).map((step, index) => `${index + 1}. ${step.text}`).join("\n");
+  const device = (state.workspace.devices || []).find((item) => item.id === recording.deviceId);
+  openReportBuilder({
+    title: recording.name || stepsCopy().title,
+    steps,
+    description: device ? `${stepsExtraCopy().device}: ${device.label}` : "",
+  }, recording.context || sessionContextSnapshot());
+}
+
 function openStepsRecorder() {
-  if (!requirePlanFeature("stepsRecorder")) return; const copy=stepsCopy(); const recordings=state.workspace.stepRecordings || [];
-  // No mode picker here anymore: "numbered" vs "Gherkin" was never two different capture
-  // mechanisms (same {keyword,action,text,expectedResult,url} steps[] either way, see
-  // makeDocumentedStep/nextStepsKeyword) - it only ever controlled which text rendering showed,
-  // and the editor's own #stepsMode toggle (openStepsEditor below) already switches between them
-  // freely on any recording, live, no re-recording required. Asking the user to lock that in
-  // before even starting was a fake choice - one recording, two equally-available views.
-  openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<p class="qts-tool-lead">${escapeHtml(copy.intro)}</p><div class="qts-toolbar-row"><input id="newStepsName" placeholder="${escapeHtml(copy.name)}"/><button id="startSteps" class="action primary" type="button">${ICON("recordStart")} ${escapeHtml(copy.record)}</button><button id="manualSteps" class="action" type="button">+ ${escapeHtml(copy.manual)}</button></div><div id="stepsList">${recordings.length ? recordings.map(item=>`<article class="qts-card" data-recording-id="${escapeHtml(item.id)}"><div class="qts-card-head"><b>${escapeHtml(item.name)}</b><small>${item.steps.length} ${escapeHtml(copy.steps)}</small></div><div class="qts-card-actions"><button class="action" data-action="edit">${escapeHtml(copy.edit)}</button><button class="action" data-action="export">${escapeHtml(copy.export)}</button><button class="action" data-action="delete">${escapeHtml(copy.remove)}</button></div></article>`).join("") : `<div class="qts-empty">${escapeHtml(copy.empty)}</div>`}</div>`, onReady(body) { const data=()=>({name:body.querySelector("#newStepsName").value.trim()||`${copy.title} ${new Date().toLocaleTimeString().slice(0,5)}`,mode:"numbered"}); body.querySelector("#startSteps").addEventListener("click",()=>startStepsRecording(data())); body.querySelector("#manualSteps").addEventListener("click",()=>openStepsEditor({id:crypto.randomUUID(),...data(),locale:state.workspace.preferences.language,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),steps:[]})); body.querySelectorAll("[data-recording-id]").forEach(card=>card.addEventListener("click",async event=>{const action=event.target.dataset.action;if(!action)return;const item=state.workspace.stepRecordings.find(value=>value.id===card.dataset.recordingId);if(action==="edit")openStepsEditor(item);if(action==="export")exportStepsCsv(item);if(action==="delete"&&confirm(copy.delete)){state.workspace.stepRecordings=state.workspace.stepRecordings.filter(value=>value.id!==item.id);await persistWorkspaceState();openStepsRecorder();}})); } });
+  if (!requirePlanFeature("stepsRecorder")) return;
+  const copy = stepsCopy();
+  const extra = stepsExtraCopy();
+  const recordings = state.workspace.stepRecordings || [];
+  const cards = recordings.map((item) => {
+    const canReplay = executableDocumentedSteps(item).length > 0;
+    return `<article class="qts-card" data-recording-id="${escapeHtml(item.id)}">
+      <div class="qts-card-head"><div><b>${escapeHtml(item.name)}</b><br><small>${item.steps.length} ${escapeHtml(copy.steps)}</small></div></div>
+      <div class="qts-card-actions">
+        <button class="action primary" data-action="replay" type="button" ${canReplay ? "" : "disabled"} title="${canReplay ? "" : escapeHtml(extra.replayUnavailable)}">${ICON("play")} ${escapeHtml(extra.replay)}</button>
+        <button class="action" data-action="edit" type="button">${escapeHtml(copy.edit)}</button>
+        <button class="action" data-action="report" type="button">${escapeHtml(extra.report)}</button>
+        <button class="action" data-action="export" type="button">${escapeHtml(copy.export)}</button>
+        <button class="action" data-action="delete" type="button">${escapeHtml(copy.remove)}</button>
+      </div>
+    </article>`;
+  }).join("");
+  openDrawer({
+    title: copy.title,
+    variant: "modal",
+    bodyHtml: `<p class="qts-tool-lead">${escapeHtml(copy.intro)}</p>
+      <div class="qts-card">
+        <label class="qts-field-label">${escapeHtml(copy.name)}<input id="newStepsName" placeholder="${escapeHtml(copy.name)}"/></label>
+        <label class="qts-field-label">${escapeHtml(extra.device)}<select id="newStepsDevice"><option value="">${escapeHtml(extra.noDevice)}</option>${(state.workspace.devices || []).map((device) => `<option value="${escapeHtml(device.id)}">${escapeHtml(device.label)}</option>`).join("")}</select></label>
+        <div class="qts-card-actions">
+          <button id="startSteps" class="action primary" type="button">${ICON("recordStart")} ${escapeHtml(copy.record)}</button>
+          <button id="startStepsVideo" class="action" type="button">${ICON("recordStart")} ${escapeHtml(extra.recordVideo)}</button>
+          <button id="startStepsGif" class="action" type="button">${ICON("recordStart")} ${escapeHtml(extra.recordGif)}</button>
+          <button id="manualSteps" class="action" type="button">+ ${escapeHtml(copy.manual)}</button>
+        </div>
+      </div>
+      <div id="stepsList">${cards || `<div class="qts-empty">${escapeHtml(copy.empty)}</div>`}</div>`,
+    onReady(body) {
+      const data = () => ({ name: body.querySelector("#newStepsName").value.trim() || `${copy.title} ${new Date().toLocaleTimeString().slice(0, 5)}`, mode: "numbered", deviceId: body.querySelector("#newStepsDevice").value });
+      body.querySelector("#startSteps").addEventListener("click", () => startStepsRecording(data()));
+      body.querySelector("#startStepsVideo").addEventListener("click", () => startStepsWithMedia(data(), "video"));
+      body.querySelector("#startStepsGif").addEventListener("click", () => startStepsWithMedia(data(), "gif"));
+      body.querySelector("#manualSteps").addEventListener("click", () => openStepsEditor({ id: crypto.randomUUID(), ...data(), locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: [], context: sessionContextSnapshot() }));
+      body.querySelectorAll("[data-recording-id]").forEach((card) => card.addEventListener("click", async (event) => {
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        if (!action) return;
+        const item = state.workspace.stepRecordings.find((value) => value.id === card.dataset.recordingId);
+        if (!item) return;
+        if (action === "replay") await replayDocumentedSteps(item);
+        if (action === "edit") openStepsEditor(item);
+        if (action === "report") reportDocumentedSteps(item);
+        if (action === "export") exportStepsCsv(item);
+        if (action === "delete" && confirm(copy.delete)) {
+          state.workspace.stepRecordings = state.workspace.stepRecordings.filter((value) => value.id !== item.id);
+          await persistWorkspaceState();
+          openStepsRecorder();
+        }
+      }));
+    },
+  });
 }
 
 function createEvidenceMediaRecorder(stream, mimeType) {

@@ -94,7 +94,7 @@
                 <small class="cardLead">A alteração é aplicada e salva imediatamente na configuração e na toolbar.</small>
               </fieldset>
               <fieldset><legend>Tema de cores</legend>
-                <p class="cardLead">Escolha uma das seis cores. A opção Claro ou Escuro acima aplica automaticamente a variante correta.</p>
+                <p class="cardLead">Escolha uma das nove famílias. A opção Claro ou Escuro acima aplica automaticamente a variante correta.</p>
                 <div class="colorThemeGrid" id="colorThemeGrid" role="radiogroup" aria-label="Tema de cores"></div>
                 <div class="actions themeResetActions"><button type="button" class="button" id="colorThemeReset">Restaurar tema padrão</button></div>
               </fieldset>
@@ -111,8 +111,8 @@
             <summary><h2>Posição</h2></summary>
             <div class="settingsAccordionBody">
               <div class="positionSettingsGrid">
-                <fieldset><legend>Sidebar de ferramentas</legend><div class="surfaceThumbnail surfaceThumbnailSidebar" aria-hidden="true"><span></span></div><p class="cardLead">Painel com detalhes, formulários e resultados.</p><span class="fieldLabel">Desktop</span><div id="drawerPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileDrawerPosition"></div><small class="cardLead">A posição também pode ser alterada dentro da sidebar.</small></fieldset>
-                <fieldset><legend>Toolbar de ações rápidas</legend><div class="surfaceThumbnail surfaceThumbnailToolbar" aria-hidden="true"><span></span></div><p class="cardLead">Barra compacta que permanece sobre o site testado.</p><span class="fieldLabel">Desktop</span><div id="toolbarPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileToolbarPosition"></div></fieldset>
+                <fieldset><legend>Sidebar de ferramentas</legend><div class="surfaceThumbnail surfaceThumbnailSidebar" id="drawerPositionPreview" data-position="right" aria-hidden="true"><svg viewBox="0 0 240 96"><rect class="previewBrowser" x="12" y="10" width="216" height="76" rx="8"/><path class="previewContent" d="M27 31h92M27 44h126M27 57h108M27 70h72"/><rect class="previewDock" x="168" y="10" width="60" height="76" rx="7"/></svg></div><p class="cardLead">Painel com detalhes, formulários e resultados.</p><span class="fieldLabel">Desktop</span><div id="drawerPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileDrawerPosition"></div><small class="cardLead">A posição também pode ser alterada dentro da sidebar.</small></fieldset>
+                <fieldset><legend>Toolbar de ações rápidas</legend><div class="surfaceThumbnail surfaceThumbnailToolbar" id="toolbarPositionPreview" data-position="top" aria-hidden="true"><svg viewBox="0 0 240 96"><rect class="previewBrowser" x="12" y="10" width="216" height="76" rx="8"/><path class="previewContent" d="M27 35h92M27 48h126M27 61h108M27 74h72"/><rect class="previewDock" x="12" y="10" width="216" height="16" rx="7"/></svg></div><p class="cardLead">Barra compacta que permanece sobre o site testado.</p><span class="fieldLabel">Desktop</span><div id="toolbarPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileToolbarPosition"></div></fieldset>
               </div>
             </div>
           </details>
@@ -120,7 +120,7 @@
             <summary><h2>Preferências gerais</h2></summary>
             <div class="settingsAccordionBody">
               <input id="compactMode" type="checkbox" hidden />
-              <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Empurrar conteúdo do site</b><small>Reserva o espaço da barra no topo da página.</small></span></label>
+              <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Reservar espaço para a toolbar</b><small>Evita sobreposição e desloca o site na borda escolhida, horizontal ou vertical.</small></span></label>
               <label class="toggleRow"><input id="pushSiteContentForDrawer" type="checkbox" /><span><b>Reservar espaço para a sidebar</b><small>Redimensiona o site enquanto a sidebar estiver aberta, em qualquer borda.</small></span></label>
               <label class="toggleRow"><input id="soundEffects" type="checkbox" /><span><b>Efeitos sonoros</b><small>Toca um som ao marcar status de teste, capturar erro HTTP ou iniciar uma macro.</small></span></label>
               <label class="toggleRow"><input id="remindTestStatusOnRecording" type="checkbox" /><span><b>Lembrar de atribuir status na gravação</b><small>Ao parar uma gravação de evidência, pede o Test Status antes de liberar o download - garante que toda gravação tenha um resultado marcado.</small></span></label>

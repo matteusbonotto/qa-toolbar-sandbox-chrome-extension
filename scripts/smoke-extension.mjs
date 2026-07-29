@@ -214,12 +214,20 @@ try {
   // script's isolated world - not from a plain page's own evaluate() context, which is why this
   // runs on `options` rather than `host`.
   const forgeryResult = await options.evaluate(async () => {
+    const stored = await chrome.storage.local.get("qtsAuthSessionV1");
+    const session = stored.qtsAuthSessionV1;
+    await chrome.storage.local.set({ qtsAuthSessionV1: { ...session, user: { ...session.user, id: "00000000-0000-4000-8000-000000000001" } } });
     await chrome.storage.local.set({ qtsAccessStatusV1: { active: true, authenticated: true, plan: { key: "forged", name: "Forged Plan" }, features: { macroStudio: true, stepsRecorder: true }, cachedAt: Date.now() + 1e15, checkedAt: new Date().toISOString() } });
     return chrome.runtime.sendMessage({ type: "qts:get-access-state", force: false });
   });
   if (forgeryResult?.active === true) throw new Error(`SECURITY REGRESSION: a forged, unsigned chrome.storage.local entry was trusted as active access: ${JSON.stringify(forgeryResult)}`);
   await context.unroute("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/access-status");
-  const recoveredResult = await options.evaluate(() => chrome.runtime.sendMessage({ type: "qts:get-access-state", force: true }));
+  const recoveredResult = await options.evaluate(async () => {
+    const stored = await chrome.storage.local.get("qtsAuthSessionV1");
+    const session = stored.qtsAuthSessionV1;
+    await chrome.storage.local.set({ qtsAuthSessionV1: { ...session, user: { ...session.user, id: "00000000-0000-4000-8000-000000000014" } } });
+    return chrome.runtime.sendMessage({ type: "qts:get-access-state", force: true });
+  });
   if (recoveredResult?.active !== true) throw new Error(`Access did not recover after the simulated outage cleared: ${JSON.stringify(recoveredResult)}`);
   trace("forged local access-status is rejected; only a signature-verified token grants access");
 
@@ -1352,6 +1360,9 @@ try {
   // the expected result in a separate, spreadsheet-safe CSV column.
   await host.locator("#toolsButton").click();
   await host.locator("#stepsRecorderMenuItem").click();
+  for (const selector of ["#startSteps", "#startStepsVideo", "#startStepsGif", "#newStepsDevice"]) {
+    if (await host.locator(selector).count() !== 1) throw new Error(`Step Recorder is missing ${selector}`);
+  }
   await host.locator("#newStepsName").fill("Fluxo de checkout");
   await host.locator("#startSteps").click();
   await host.locator("#macroTarget").click();
@@ -1375,7 +1386,14 @@ try {
   const stepsDownload = await stepsDownloadPromise;
   const stepsCsv = await readFile(await stepsDownload.path(), "utf8");
   if (!stepsCsv.includes("resultado esperado") || !stepsCsv.includes("Tela inicial disponível") || stepsCsv.includes("segredo-nao-exportar")) throw new Error("Step Recorder CSV format/security mismatch");
-  trace("step recorder capture, pause, Gherkin edit and secure CSV verified");
+  await host.locator("#macroText").fill("");
+  await host.locator("#stepsList .qts-card").first().locator('[data-action="replay"]').click();
+  await host.waitForFunction(() => document.querySelector("#macroText")?.value === "produto 123");
+  await host.locator("#toolsButton").click();
+  await host.locator("#stepsRecorderMenuItem").click();
+  await host.locator("#stepsList .qts-card").first().locator('[data-action="report"]').click();
+  if (!(await host.locator("[data-report-steps]").inputValue()).includes("produto 123")) throw new Error("Step Recorder did not prefill Report Builder");
+  trace("step recorder capture, replay, Report Builder handoff, Gherkin edit and secure CSV verified");
   await host.locator("#drawerClose").click();
 
   // Macro recording captures normal interactions but ignores password content.

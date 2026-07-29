@@ -12,12 +12,13 @@
 // Not part of CI -- run manually with `npm run tutorial:capture` and review the media before
 // committing. Each tool capture is wrapped so one failure doesn't abort the whole batch; failures
 // are reported at the end so they're easy to re-run individually later.
-import { cp, mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
+import { cp, mkdir, open, readFile, readdir, rename, rm, stat } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { homedir, platform } from "node:os";
+import { webcrypto } from "node:crypto";
 import { chromium } from "playwright";
 
 const execFileAsync = promisify(execFile);
@@ -68,6 +69,25 @@ async function compressVideo(ffmpegPath, videoPath) {
 }
 
 const root = resolve(import.meta.dirname, "..");
+async function readEnvValue(path, key) {
+  try {
+    const text = await readFile(path, "utf8");
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith(`${key}=`)) return trimmed.slice(key.length + 1);
+    }
+  } catch {}
+  return undefined;
+}
+const accessTokenPrivateKeyJwk = await readEnvValue(resolve(root, ".env"), "ACCESS_TOKEN_PRIVATE_KEY_JWK");
+if (!accessTokenPrivateKeyJwk) throw new Error("Missing ACCESS_TOKEN_PRIVATE_KEY_JWK in .env.");
+const accessTokenSigningKey = await webcrypto.subtle.importKey("jwk", JSON.parse(accessTokenPrivateKeyJwk), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+async function signMockAccessToken(payload) {
+  const body = { ...payload, exp: Math.floor(Date.now() / 1_000) + 600 };
+  const encodedPayload = Buffer.from(new TextEncoder().encode(JSON.stringify(body))).toString("base64url");
+  const signature = await webcrypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, accessTokenSigningKey, new TextEncoder().encode(encodedPayload));
+  return `${encodedPayload}.${Buffer.from(signature).toString("base64url")}`;
+}
 const extensionPath = resolve(root, "apps/extension");
 const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
 const captureSuffix = captureOnly ? `-${captureOnly.replace(/[^a-z0-9_-]/gi, "-")}` : "";
@@ -133,7 +153,12 @@ await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", 
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
   // All plan-gated features enabled -- this run is about capturing what each tool looks like in
   // action, not about exercising the lock/upgrade UI (that's covered by the real smoke test).
-  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true }, checkedAt: new Date().toISOString() }) });
+  if (name === "access-status") {
+    const plan = { key: "release-manager", name: "Release Manager" };
+    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true };
+    const token = await signMockAccessToken({ active: true, plan, features });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
+  }
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -561,7 +586,8 @@ try {
     "inspectors", "jsonStudio", "breakpoints", "characterCounter", "multiClick", "inputLab", "fakerFill",
     "macroStudio", "stepsRecorder", "keyView", "elementCapture", "languageValidator", "qrCode", "testAccounts", "paymentMethods", "resources",
   ];
-  for (const key of expectedMediaKeys) {
+  const mediaKeysToValidate = captureOnly ? [captureOnly] : expectedMediaKeys;
+  for (const key of mediaKeysToValidate) {
     for (const extension of ["png", "webm"]) {
       try { await stat(resolve(assetsPath, `${key}.${extension}`)); }
       catch { failures.push(`${key}.${extension}`); }
@@ -570,6 +596,12 @@ try {
   if (failures.length) {
     trace(`done with failures: ${failures.join(", ")} -- existing tutorial assets were preserved`);
     process.exitCode = 1;
+  } else if (captureOnly) {
+    await mkdir(finalAssetsPath, { recursive: true });
+    for (const extension of ["png", "webm"]) {
+      await cp(resolve(assetsPath, `${captureOnly}.${extension}`), resolve(finalAssetsPath, `${captureOnly}.${extension}`));
+    }
+    trace(`done: ${captureOnly}.png and ${captureOnly}.webm were refreshed`);
   } else {
     await rm(finalAssetsPath, { recursive: true, force: true });
     await cp(assetsPath, finalAssetsPath, { recursive: true });

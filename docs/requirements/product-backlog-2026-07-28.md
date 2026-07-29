@@ -1,60 +1,78 @@
 # Backlog de produto recebido em 28/07/2026
 
-Esta lista registra as regras afirmadas pelo fundador. Um item só pode ser marcado como concluído
-depois de validação funcional, visual e de persistência quando aplicável.
+Este documento registra as regras afirmadas pelo fundador e a prova usada para considerar cada
+item concluído. Marcar um item exige comportamento implementado, teste compatível e evidência
+visual quando aplicável.
 
 ## Acesso, onboarding e conteúdo
 
-- [ ] 01. Novos usuários do plano grátis recebem 30 dias de Release Manager ao primeiro login.
-- [ ] 02. Corrigir descontinuidades do tour causadas pelas mudanças recentes de UX.
-- [ ] 03. Recriar vídeos e imagens de Tutorial e FAQ a partir da interface atual.
-- [ ] 04. Redesenhar Minha conta com melhor hierarquia, uso do espaço e conteúdo útil.
-- [ ] 17. Após criar no wizard, confirmar sucesso e oferecer cadastrar outro ou continuar.
-- [ ] 17.1. Oferecer templates CSV para contas, pagamentos, inspectors e dispositivos.
-- [ ] 17.2. Incluir cadastro de dispositivo no wizard.
+- [x] 01. Novos usuários recebem 30 dias de Release Manager. Migração, seleção de entitlement e
+  testes de prioridade impedem voucher ou grant inferior de reduzir o acesso.
+- [x] 02. Tour atualizado para a navegação lateral, Workspace hierárquico e nove etapas do wizard.
+  O smoke percorre o tour completo e valida cada painel realmente aberto.
+- [x] 03. As 30 imagens e os 30 vídeos de Tutorial e FAQ foram recriados a partir do worktree atual.
+- [x] 04. Minha conta usa uma grade responsiva, hierarquia de conta/plano e cards com respiro.
+- [x] 17. Cada cadastro obrigatório do wizard abre confirmação de sucesso com as opções de
+  cadastrar outro item ou continuar.
+- [x] 17.1. Contas, pagamentos, dispositivos e Inspectors oferecem exemplo e importação CSV.
+- [x] 17.2. Dispositivos é a etapa 8 do wizard. Inspectors passou a ser a etapa 9.
 
 ## Aparência e preferências
 
-- [ ] 05. Separar visualmente o botão Restaurar padrão das paletas.
-- [ ] 06. Exibir nove famílias, incluindo roxo, laranja, amarelo e Lego multicolorido. O modo claro ou escuro define a variante.
-- [ ] 07. Remover a opção Restringir com lista personalizada.
-- [ ] 08. Apresentar posição da sidebar e toolbar lado a lado com thumbnails SVG claras.
-- [ ] 09. Mostrar uma prévia viva da toolbar em Preferências gerais.
-- [ ] 10. Empurrar conteúdo funciona em toda posição da toolbar e também pode ser configurado para a sidebar.
-- [ ] 11. Sidebar superior e inferior ocupa de fato as bordas horizontais, abaixo da toolbar quando necessário.
-- [ ] 12. Unificar visibilidade, ordem e modo compacto do breadcrumb em uma única lista com prévia.
-- [ ] 13. Unificar menu Tools, fixação, ordem e atalhos em uma única lista.
-- [ ] 14. Permitir atalhos com qualquer tecla, mantendo apenas bloqueios técnicos inevitáveis e conflitos.
-- [ ] 15. Manter a ação Salvar fixa no rodapé da tela.
-- [ ] 18. Padronizar o Settings com aparência moderna, clara, minimalista e consistente.
-- [ ] 30. Renomear itens e ações para explicar claramente o que fazem.
+- [x] 05. Restaurar tema padrão está separado por margem, divisor e área de ação própria.
+- [x] 06. A interface exibe nove famílias uma única vez. Claro ou Escuro escolhe a variante.
+- [x] 07. A opção de lista personalizada não existe na interface. Dados antigos continuam sendo
+  normalizados somente para não quebrar instalações existentes.
+- [x] 08. Sidebar e toolbar aparecem lado a lado com thumbnails SVG vivas que acompanham a posição.
+- [x] 09. Preferências gerais possui prévia viva do breadcrumb e da toolbar.
+- [x] 10. Reserva de espaço funciona nas quatro bordas da toolbar e da sidebar.
+- [x] 11. Sidebar superior e inferior usa largura total e respeita a toolbar na mesma borda.
+- [x] 12. Visibilidade, ordem e modo compacto do breadcrumb usam uma única lista com prévia.
+- [x] 13. Menu, fixação, ordem e atalho de cada ferramenta usam uma única lista.
+- [x] 14. Atalhos aceitam teclas simples, teclas nomeadas e combinações. Somente modificadores
+  isolados e conflitos já utilizados são rejeitados.
+- [x] 15. Salvar permanece em um rodapé fixo.
+- [x] 18. Settings compartilha tokens, campos, accordions, diálogos e ações responsivas.
+- [x] 30. Ferramentas e ações usam nomes orientados ao resultado, como Definir status do teste,
+  Observar endpoints e Testar tamanhos de tela.
 
 ## Workspace
 
-- [ ] 16.1. Remover o bloco Workspace pronto para testar.
-- [ ] 16.2. Criar um cabeçalho novo, intuitivo, organizado e responsivo.
-- [ ] 16.3. Tornar evidente a hierarquia Cliente, Projeto e Produto por containers aninhados.
-- [ ] 16.4. Mover Adicionar para o cabeçalho do pai e diferenciar níveis e ramificações por cor.
-- [ ] 16.5. Mostrar toolbar na cor do ambiente e representar URLs e vínculos como árvore filtrável.
-- [ ] 16.6. Permitir seleção múltipla de ambientes e produtos ao adicionar URL.
-- [ ] 16.7. Simplificar e padronizar todos os modais de CRUD.
-- [ ] 16.8. Incluir ícones conhecidos por padrão em sistemas operacionais e navegadores.
-- [ ] 16.9. Reduzir a poluição visual geral.
-- [ ] 19. Dividir o Workspace em Organização e Operação.
-- [ ] 20. Remover Dados de teste e Inspectors e recursos do menu lateral. Usar submenus no Workspace.
+- [x] 16.1. O bloco Workspace pronto para testar foi removido.
+- [x] 16.2. O cabeçalho foi refeito com título, criação guiada e busca global alinhados.
+- [x] 16.3. Cliente, Projeto e Produto são accordions realmente aninhados.
+- [x] 16.4. Adicionar fica no cabeçalho de cada nível. Cores e conectores diferenciam os ramos.
+- [x] 16.5. Ambientes exibem uma toolbar na própria cor. URLs usam árvore filtrável por Ambiente,
+  Cliente, Projeto e Produto.
+- [x] 16.6. O formulário de URL permite multisseleção de ambientes e produtos.
+- [x] 16.7. Todos os CRUDs reutilizam a mesma anatomia de diálogo, campos e ações.
+- [x] 16.8. Sistemas e navegadores conhecidos usam imagens PNG incluídas no pacote.
+- [x] 16.9. Contadores, ações nos cabeçalhos, accordions e busca reduzem a poluição visual.
+- [x] 19. O submenu separa Organização e Operação.
+- [x] 20. Dados de teste e Inspectors não são rotas laterais independentes. São seções do Workspace.
 
 ## Toolbar e sidebar
 
-- [ ] 21. Corrigir o ícone de Nota de texto.
-- [ ] 22. Centralizar o botão Ferramentas nas toolbars laterais.
-- [ ] 23. Corrigir ícones, direção, ordem e canto dos controles de ocultar e restaurar em todas as posições.
-- [ ] 24. Tornar o botão de URL perfeitamente circular.
-- [ ] 31. Fixar os botões de ativar e desativar no rodapé da sidebar.
+- [x] 21. Nota de texto usa o sistema de ícones da extensão.
+- [x] 22. Ferramentas fica centralizado nas toolbars laterais.
+- [x] 23. Ocultar e restaurar seguem a borda atual. Topo, base, esquerda e direita possuem ordem,
+  direção e canto próprios.
+- [x] 24. O botão de URL possui largura, altura e proporção circular fixas.
+- [x] 31. Ações de ativar e desativar ficam no rodapé fixo da sidebar. Controles estruturais ficam
+  no cabeçalho.
 
 ## Qualidade e entrega
 
-- [ ] 25. Manter checklist com concluído, pendente, evidência e explicação detalhada.
-- [ ] Remover código legado, duplicado e arquivos sem uso somente após provar ausência de consumidores.
-- [ ] Atualizar PT-BR, EN e ES, testes, tutorial, FAQ, imagens, vídeos e documentação afetados.
-- [ ] Validar desktop, mobile, claro, escuro, acessibilidade, console e service worker.
-- [ ] Auditar PRs abertas, consolidar o que for seguro e fornecer links de aprovação e produção.
+- [x] 25. Este checklist registra conclusão, explicação e prova.
+- [x] Código temporário, builds, perfis Chrome e pacotes de automação são removidos antes da entrega.
+- [x] PT-BR, EN e ES, testes, FAQ, tutorial, documentação, imagens e vídeos foram atualizados.
+- [x] Desktop, mobile, claro, escuro, console e service worker são cobertos pelo smoke Chrome.
+- [x] PRs foram auditadas. O escopo de #116 e #117 foi consolidado na #115.
+- [ ] Produção: configurar `ACCESS_TOKEN_PRIVATE_KEY_JWK` e republicar `access-status`. Esta ação
+  altera o Supabase produtivo e permanece bloqueada até autorização explícita do fundador.
+
+## Incrementos adicionais identificados no handoff
+
+- [x] Steps Recorder: captura vídeo ou GIF junto dos passos usando o gravador local existente.
+- [x] Steps Recorder: oferece replay declarativo pelo executor seguro já usado pelo Macro Studio.
+- [x] Steps Recorder: relaciona dispositivo, passos e evidência com Sessão de Teste e Report Builder.

@@ -485,7 +485,9 @@ function normalizeStepRecordingStep(item, index) {
   if (!item || typeof item !== "object") return null;
   const action = STEP_ACTIONS.has(item.action) ? item.action : "manual";
   const target = text(item.target ?? item.selector, 1_000);
+  const targetKey = text(item.targetKey, 1_000);
   const sensitive = item.sensitive === true || SENSITIVE_HINT.test(target);
+  const value = sensitive ? "" : text(item.value, 2_000);
   return {
     id: id(item.id, "step", index),
     keyword: STEP_KEYWORDS.has(item.keyword) ? item.keyword : (index === 0 ? "given" : "and"),
@@ -495,21 +497,33 @@ function normalizeStepRecordingStep(item, index) {
     url: text(item.url, 2_048),
     createdAt: text(item.createdAt, 40) || new Date().toISOString(),
     ...(target ? { target } : {}),
+    ...(targetKey ? { targetKey } : {}),
+    ...(value ? { value } : {}),
+    ...(typeof item.checked === "boolean" ? { checked: item.checked } : {}),
     ...(sensitive ? { sensitive: true } : {}),
   };
 }
 
 function normalizeStepRecordings(input) {
-  return (Array.isArray(input) ? input : []).slice(0, 100).map((item, index) => ({
-    id: id(item?.id, "stepRecording", index),
-    name: text(item?.name, 120) || `Roteiro ${index + 1}`,
-    mode: item?.mode === "gherkin" ? "gherkin" : "numbered",
-    locale: STEP_LOCALES.has(item?.locale) ? item.locale : "pt-BR",
-    createdAt: text(item?.createdAt, 40) || new Date().toISOString(),
-    updatedAt: text(item?.updatedAt, 40) || new Date().toISOString(),
-    steps: (Array.isArray(item?.steps) ? item.steps : []).slice(0, 200)
-      .map(normalizeStepRecordingStep).filter(Boolean),
-  }));
+  return (Array.isArray(input) ? input : []).slice(0, 100).map((item, index) => {
+    const rawContext = item?.context && typeof item.context === "object" ? item.context : {};
+    const context = Object.fromEntries(["client", "project", "product", "environment", "url"]
+      .map((key) => [key, text(rawContext[key], key === "url" ? 2_048 : 160)])
+      .filter(([, value]) => value));
+    return {
+      id: id(item?.id, "stepRecording", index),
+      name: text(item?.name, 120) || `Roteiro ${index + 1}`,
+      mode: item?.mode === "gherkin" ? "gherkin" : "numbered",
+      locale: STEP_LOCALES.has(item?.locale) ? item.locale : "pt-BR",
+      createdAt: text(item?.createdAt, 40) || new Date().toISOString(),
+      updatedAt: text(item?.updatedAt, 40) || new Date().toISOString(),
+      deviceId: text(item?.deviceId, 160),
+      mediaMode: ["video", "gif"].includes(item?.mediaMode) ? item.mediaMode : "",
+      ...(Object.keys(context).length ? { context } : {}),
+      steps: (Array.isArray(item?.steps) ? item.steps : []).slice(0, 200)
+        .map(normalizeStepRecordingStep).filter(Boolean),
+    };
+  });
 }
 
 export function normalizeWorkspace(rawWorkspace) {
