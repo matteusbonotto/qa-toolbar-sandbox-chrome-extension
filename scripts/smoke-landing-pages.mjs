@@ -79,6 +79,13 @@ try {
   });
 
   await page.goto(`${origin}${basePath}`, { waitUntil: "networkidle" });
+  const landingBrand = page.locator(".qts-site-toolbar-logo");
+  if (!await landingBrand.getAttribute("src").then((value) => value?.endsWith("qa-toolbar-sandbox-logo.svg"))) {
+    throw new Error("Landing navigation does not use the new color SVG logo.");
+  }
+  if (!await landingBrand.evaluate((image) => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0)) {
+    throw new Error("Landing color SVG logo did not load.");
+  }
   if (await page.locator(".qts-plan-card").count() !== 4) {
     throw new Error(`Expected four pricing plans. URL=${page.url()} title=${await page.title()} resources=${failedResources.join(" | ")} console=${consoleErrors.join(" | ")}`);
   }
@@ -227,6 +234,10 @@ try {
 
   await page.goto(`${origin}${basePath}admin/`, { waitUntil: "networkidle" });
   if (!(await page.title()).includes("Admin")) throw new Error("Admin artifact did not load.");
+  const adminBrand = page.locator('img[src$="qa-toolbar-sandbox-logo.svg"]').first();
+  if (!await adminBrand.count() || !await adminBrand.evaluate((image) => image.complete && image.naturalWidth > 0 && image.naturalHeight > 0)) {
+    throw new Error("Admin does not render the new color SVG logo.");
+  }
   if (await page.locator('input[type="email"]').count() !== 0 || await page.locator('input[type="password"]').count() !== 1) {
     throw new Error("Admin founder/password login form did not render.");
   }

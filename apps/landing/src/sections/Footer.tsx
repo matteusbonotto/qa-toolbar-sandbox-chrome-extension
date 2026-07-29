@@ -17,7 +17,7 @@ export function Footer() {
     <footer className="qts-footer">
       <div className="qts-container qts-footer-inner">
         <div className="qts-footer-brand">
-          <img className="qts-footer-logo" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.png`} alt="" aria-hidden="true" width={24} height={24} />
+          <img className="qts-footer-logo" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.svg`} alt="" aria-hidden="true" width={24} height={24} />
           <span>QA Toolbar Sandbox</span>
         </div>
         <nav className="qts-footer-nav">

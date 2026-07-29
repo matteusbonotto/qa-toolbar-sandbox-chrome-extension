@@ -53,6 +53,19 @@ export async function verifyExtensionSource(sourceDirectory) {
 
   const manifest = JSON.parse(await readFile(resolve(source, "manifest.json"), "utf8"));
   if (manifest.manifest_version !== 3 || manifest.key) throw new Error("Manifest must be MV3 and must not contain manifest.key");
+  for (const size of [16, 32, 48, 128]) {
+    const expectedPath = `icons/icon-${size}.png`;
+    if (manifest.icons?.[size] !== expectedPath || manifest.action?.default_icon?.[size] !== expectedPath) {
+      throw new Error(`Manifest does not use the canonical ${size}px brand icon`);
+    }
+    const png = await readFile(resolve(source, expectedPath));
+    const validSignature = png.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+    const width = validSignature ? png.readUInt32BE(16) : 0;
+    const height = validSignature ? png.readUInt32BE(20) : 0;
+    if (!validSignature || width !== size || height !== size) {
+      throw new Error(`Brand icon ${expectedPath} is not a valid ${size}x${size} PNG`);
+    }
+  }
   return { files: entries.length, totalBytes, version: manifest.version };
 }
 

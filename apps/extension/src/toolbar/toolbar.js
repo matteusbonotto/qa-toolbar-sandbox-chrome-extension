@@ -144,6 +144,58 @@ function restoreListFocus(body, focus) {
   }
 }
 
+// Search result lists are rebuilt to keep their filters, actions and empty states consistent.
+// The input event gives us a direct reference to the field that is being replaced, which is more
+// reliable than asking the ShadowRoot for its active element during a rapid sequence of events.
+// Restore synchronously so the next physical key always reaches the replacement input.
+function updateListSearch(event, filterState, renderList) {
+  const input = event.currentTarget;
+  const focus = {
+    id: input.id,
+    value: input.value,
+    selStart: input.selectionStart,
+    selEnd: input.selectionEnd,
+  };
+  filterState.query = focus.value;
+  renderList();
+  const body = state.shadowRoot?.getElementById("drawerBody");
+  const restored = focus.id ? body?.querySelector(`#${focus.id}`) : null;
+  if (!restored) return;
+  if (restored.value !== focus.value) restored.value = focus.value;
+  restored.focus({ preventScroll: true });
+  if (typeof focus.selStart === "number" && restored.setSelectionRange) {
+    try { restored.setSelectionRange(focus.selStart, focus.selEnd); } catch {}
+  }
+}
+
+let pendingLiveDrawerRefresh = null;
+
+function drawerEditingField() {
+  const active = state.shadowRoot?.activeElement;
+  if (!active?.closest?.("#drawerHost")) return null;
+  return active.matches("input,textarea,select,[contenteditable='true'],[contenteditable='plaintext-only']") ? active : null;
+}
+
+// Network events may arrive several times while somebody is writing a query. Repainting the list
+// at that moment previously replaced the field, reset its caret and could return a detail view to
+// the list. Coalesce those refreshes and apply the latest one only after editing ends.
+function refreshLiveDrawerWhenIdle(refresh) {
+  const active = drawerEditingField();
+  if (!active) {
+    pendingLiveDrawerRefresh = null;
+    refresh();
+    return;
+  }
+  pendingLiveDrawerRefresh = refresh;
+  if (active.dataset.qtsRefreshAfterEditing === "true") return;
+  active.dataset.qtsRefreshAfterEditing = "true";
+  active.addEventListener("blur", () => {
+    const pending = pendingLiveDrawerRefresh;
+    pendingLiveDrawerRefresh = null;
+    if (pending) window.queueMicrotask(pending);
+  }, { once: true });
+}
+
 function urlPathFor(rawUrl) {
   try { return new URL(rawUrl).pathname || rawUrl; } catch { return rawUrl || "-"; }
 }
@@ -1771,9 +1823,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Modo vertical (izquierda/derecha): el botón Herramientas ya no muestra dos íconos superpuestos.", "Modo vertical: \"Empujar contenido\" ahora funciona correctamente también con la barra a la izquierda, a la derecha o abajo, no solo arriba.", "Modo vertical: el botón de minimizar ahora está en la parte superior de la barra, no abajo.", "Se eliminó la etiqueta \"Posición\" del selector de posición del sidebar - ahora solo aparece el combobox."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Vertical mode (left/right): the Tools button no longer shows two overlapping icons.", "Vertical mode: \"Push content\" now works correctly when docked left, right or bottom too, not just at the top.", "Vertical mode: the minimize button now sits at the top of the bar instead of the bottom.", "The \"Posição\" label was removed from the sidebar position selector - just the dropdown shows now."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Modo vertical (esquerda/direita): o botão Ferramentas não mostra mais dois ícones sobrepostos.", "Modo vertical: \"Empurrar conteúdo\" agora funciona corretamente também com a barra à esquerda, à direita ou embaixo, não só no topo.", "Modo vertical: o botão de minimizar agora fica no topo da barra, não mais embaixo.", "O rótulo \"Posição\" foi removido do seletor de posição do sidebar - só o combobox aparece."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Nueva identidad a color en la extensión, el sitio y el Admin.", "Las relaciones del Workspace ahora muestran nombres completos, logos e iniciales sin accordions recortados.", "Las vistas previas mobile del sidebar y la toolbar ahora corresponden a la posición seleccionada.", "La exportación e importación JSON del Workspace conserva imágenes subidas o registradas por URL.", "Las búsquedas conservan el foco y el sidebar abierto mientras escribes."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["New color identity across the extension, website and Admin.", "Workspace relationships now show complete names, logos and initials without clipped accordions.", "Mobile sidebar and toolbar position previews now match the selected edge.", "Workspace JSON export and import preserve uploaded and URL-based images.", "Search fields keep focus and preserve the open sidebar while you type."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Nova identidade colorida na extensão, no site e no Admin.", "Relações do Workspace agora exibem nomes completos, logos e iniciais sem accordions cortados.", "Prévias mobile de sidebar e toolbar agora correspondem à posição selecionada.", "Exportação e importação JSON do Workspace preservam imagens enviadas ou cadastradas por URL.", "Buscas mantêm o foco e preservam o sidebar aberto enquanto você digita."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -3638,7 +3690,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     const query = event.target.value.trim().toLocaleLowerCase();
     const body = drawerHost.querySelector("#drawerBody");
     const candidates = body.querySelectorAll(".qts-card,.qts-net-item,.qts-list-row,.qts-friendly-field,.qts-switch-row,.qts-metric,.qts-step");
-    (candidates.length ? candidates : body.children).forEach((element) => {
+    [...(candidates.length ? candidates : body.children)].forEach((element) => {
       element.classList.toggle("qts-friendly-hidden", Boolean(query) && !element.textContent.toLocaleLowerCase().includes(query));
     });
   });
@@ -4096,7 +4148,9 @@ function handleNetworkCaptured(entry) {
     badge.style.display = state.networkHistory.length ? "inline-flex" : "none";
   }
   const inspectorsDrawerHost = state.shadowRoot?.getElementById("drawerHost");
-  if (inspectorsDrawerHost?.dataset.view === "inspectors" && inspectorsDrawerHost.dataset.drawerHasBack !== "true") renderInspectorsList();
+  if (inspectorsDrawerHost?.dataset.view === "inspectors" && inspectorsDrawerHost.dataset.drawerHasBack !== "true") {
+    refreshLiveDrawerWhenIdle(renderInspectorsList);
+  }
 }
 
 // "auto" means "not yet manually chosen" - resolved once per drawer session by
@@ -4282,10 +4336,7 @@ function renderInspectorsList() {
     inspectorsFilterState.scope = button.dataset.inspectorScope;
     renderInspectorsList();
   }));
-  body.querySelector("#inspectorsSearch").addEventListener("input", (event) => {
-    inspectorsFilterState.query = event.target.value;
-    renderInspectorsList();
-  });
+  body.querySelector("#inspectorsSearch").addEventListener("input", (event) => updateListSearch(event, inspectorsFilterState, renderInspectorsList));
   body.querySelector("#inspectorsCollapseToggle").addEventListener("click", () => {
     inspectorsFilterState.collapsed = !inspectorsFilterState.collapsed;
     renderInspectorsList();
@@ -4338,7 +4389,9 @@ function updateHttpErrorSurfaces() {
   if (bellBadge) { bellBadge.textContent = count > 99 ? "99+" : String(count); bellBadge.classList.toggle("isVisible", count > 0); }
   if (!root.getElementById("notificationBellPanel")?.classList.contains("isHidden")) renderNotificationBellPanel();
   const errorMonitorDrawerHost = root.getElementById("drawerHost");
-  if (errorMonitorDrawerHost?.dataset.view === "errorMonitor" && errorMonitorDrawerHost.dataset.drawerHasBack !== "true") renderErrorMonitorList();
+  if (errorMonitorDrawerHost?.dataset.view === "errorMonitor" && errorMonitorDrawerHost.dataset.drawerHasBack !== "true") {
+    refreshLiveDrawerWhenIdle(renderErrorMonitorList);
+  }
 }
 
 function clearHttpErrors() {
@@ -4458,7 +4511,7 @@ function renderErrorMonitorList() {
     if (!entry?.payload) return;
     openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", view: "errorMonitor", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url, entry.requestHeaders, entry.requestBody) });
   }));
-  body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => { errorMonitorFilterState.query = event.target.value; renderErrorMonitorList(); });
+  body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => updateListSearch(event, errorMonitorFilterState, renderErrorMonitorList));
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorClear").addEventListener("click", () => clearHttpErrors());
   wireSmartFilter(body.querySelector("#errorMonitorFilterBar"), (key, value, isSelected) => {
@@ -4580,10 +4633,7 @@ function renderTestAccountsList() {
   `;
   wireDrawerAddButton(body, "testAccount");
 
-  body.querySelector("#testAccountsSearch").addEventListener("input", (event) => {
-    testAccountsFilterState.query = event.target.value;
-    renderTestAccountsList();
-  });
+  body.querySelector("#testAccountsSearch").addEventListener("input", (event) => updateListSearch(event, testAccountsFilterState, renderTestAccountsList));
   body.querySelector("#testAccountsCollapseToggle").addEventListener("click", () => {
     testAccountsFilterState.collapsed = !testAccountsFilterState.collapsed;
     renderTestAccountsList();
@@ -4702,7 +4752,7 @@ function renderPaymentMethodsList() {
   }).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
   `;
   wireDrawerAddButton(body, "paymentMethod");
-  body.querySelector("#paymentMethodsSearch").addEventListener("input", (event) => { paymentMethodsFilterState.query = event.target.value; renderPaymentMethodsList(); });
+  body.querySelector("#paymentMethodsSearch").addEventListener("input", (event) => updateListSearch(event, paymentMethodsFilterState, renderPaymentMethodsList));
   body.querySelector("#paymentMethodsCollapseToggle").addEventListener("click", () => { paymentMethodsFilterState.collapsed = !paymentMethodsFilterState.collapsed; renderPaymentMethodsList(); });
   wireSmartFilter(body.querySelector("#paymentMethodsFilterBar"), (key, value, isSelected) => {
     if (isSelected) paymentMethodsFilterState[key].add(value); else paymentMethodsFilterState[key].delete(value);
@@ -4779,7 +4829,7 @@ function renderResourcesList() {
     `).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
   `;
   wireDrawerAddButton(body, "resource");
-  body.querySelector("#resourcesSearch").addEventListener("input", (event) => { resourcesFilterState.query = event.target.value; renderResourcesList(); });
+  body.querySelector("#resourcesSearch").addEventListener("input", (event) => updateListSearch(event, resourcesFilterState, renderResourcesList));
   body.querySelector("#resourcesCollapseToggle").addEventListener("click", () => { resourcesFilterState.collapsed = !resourcesFilterState.collapsed; renderResourcesList(); });
   wireSmartFilter(body.querySelector("#resourcesFilterBar"), (key, value, isSelected) => {
     if (isSelected) resourcesFilterState[key].add(value); else resourcesFilterState[key].delete(value);

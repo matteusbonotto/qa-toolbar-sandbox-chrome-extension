@@ -55,7 +55,7 @@ export function SiteNavToolbar() {
     <div className="qts-site-toolbar" role="navigation" aria-label={t.meta.pageNavigation}>
       <div className="qts-site-toolbar-inner">
         <a className="qts-site-toolbar-brand" href={`${import.meta.env.BASE_URL}#hero`}>
-          <img className="qts-site-toolbar-logo" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.png`} alt="QA Toolbar Sandbox" width={28} height={28} />
+          <img className="qts-site-toolbar-logo" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.svg`} alt="QA Toolbar Sandbox" width={28} height={28} />
           <span>QA Sandbox</span>
         </a>
         <nav className="qts-site-toolbar-nav">
