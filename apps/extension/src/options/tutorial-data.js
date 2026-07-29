@@ -232,7 +232,7 @@
       group: "inspection",
       title: "Breakpoint Viewer (Responsive View)",
       short: "Veja a mesma página em vários tamanhos de tela ao mesmo tempo.",
-      instructions: "Abra o Breakpoint Viewer, confira a URL, escolha os dois dispositivos e use Recarregar para reiniciar os previews. Ajuste o zoom apenas para visualizar melhor; ative Sincronizar scroll e Sincronizar clique quando quiser comparar a mesma interação nas duas telas. O tour ao vivo destaca cada controle em sequência.",
+      instructions: "Abra Testar tamanhos de tela, confira a URL, escolha os dois dispositivos e use Recarregar para reiniciar as prévias. Use o zoom superior para dimensionar os frames e o Zoom do site de cada dispositivo para ampliar ou reduzir somente a página dentro dele. Ative Sincronizar scroll e Sincronizar clique quando quiser comparar a mesma interação nas duas telas.",
       tip: "Use antes de reportar um bug de layout - a comparação lado a lado já mostra em qual tamanho de tela o problema aparece.",
       example: "Ex.: o menu sobrepõe o card no mobile mas não no desktop - abra o Breakpoint Viewer com um preset de celular e um de desktop lado a lado e veja exatamente em qual largura o problema começa.",
       screenshot: "tutorial-assets/breakpoints.png",

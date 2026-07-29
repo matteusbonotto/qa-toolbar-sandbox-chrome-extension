@@ -1013,34 +1013,34 @@ function buildShadowHost() {
             </div>
             <div id="pinnedMacrosMenu"></div>
             <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
-            <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} Test Suite</button>
-            <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(t.testSessionMenuLabel)}</button>
-            <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(t.reportBuilderMenuLabel)}</button>
+            <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testStatus))}</button>
+            <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testSession))}</button>
+            <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.reportBuilder))}</button>
             <button type="button" id="notesMenuItem" role="menuitem">${ICON("noteText")} ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
-            <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
-            <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("stepsRecorder")} ${escapeHtml(t.stepsRecorderMenuLabel || "Gravador de Passos")}</button>
-            <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(t.characterCounterMenuLabel)}</button>
-            <button type="button" id="multiClickMenuItem" role="menuitem">${ICON("multiClick")} ${escapeHtml(t.multiClickMenuLabel)}</button>
-            <button type="button" id="inputLabMenuItem" role="menuitem">${ICON("inputLab")} ${escapeHtml(t.inputLabMenuLabel)}</button>
-            <button type="button" id="fakerFillMenuItem" role="menuitem">${ICON("fakerFill")} ${escapeHtml(t.fakerFillMenuLabel)}</button>
-            <button type="button" id="keyViewMenuItem" role="menuitem">${ICON("keyView")} ${escapeHtml(t.keyViewMenuLabel || "Key View")}</button>
-            <button type="button" id="clickSpyMenuItem" role="menuitem">${ICON("mouse")} Click Spy</button>
-            <button type="button" id="freezeClockMenuItem" role="menuitem">${ICON("freezeClock")} Freeze Clock</button>
-            <button type="button" id="forceHttpMenuItem" role="menuitem">${ICON("forceHttp")} Force HTTP</button>
-            <button type="button" id="errorMonitorMenuItem" role="menuitem">${ICON("errorMonitor")} ${escapeHtml(t.errorMonitorTitle)}<span id="errorMonitorBadge" class="qts-badge" style="display:none">0</span></button>
-            <button type="button" id="inspectorsMenuItem" role="menuitem">${ICON("inspectors")} ${escapeHtml(t.inspectorsTitle)}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
-            <button type="button" id="jsonStudioMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(t.jsonStudioTitle)}</button>
-            <button type="button" id="breakpointMenuItem" role="menuitem">${ICON("breakpointViewer")} Breakpoint Viewer</button>
-            <button type="button" id="testAccountsMenuItem" role="menuitem">${ICON("key")} ${escapeHtml(t.testAccountsMenuLabel)}</button>
-            <button type="button" id="paymentMethodsMenuItem" role="menuitem">${ICON("paymentMethods")} ${escapeHtml(t.paymentMethodsMenuLabel)}</button>
-            <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(t.resourcesMenuLabel)}</button>
-            <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(t.elementCaptureMenuLabel || "Capturar elementos")}</button>
-            <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(t.blurElementsMenuLabel || "Borrar elementos")}</button>
-            <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("lightbulb")} ${escapeHtml(t.holofoteMenuLabel || "Modo Holofote")}</button>
-            <button type="button" id="languageValidatorMenuItem" role="menuitem">${ICON("languageValidator")} ${escapeHtml(translateQaSurfaceText("Validador de textos"))}</button>
-            <button type="button" id="qrCodeMenuItem" role="menuitem">${ICON("qrCode")} QR Code</button>
-            <button type="button" id="pixelPerfectMenuItem" role="menuitem">${ICON("ruler")} ${escapeHtml(t.pixelPerfectMenuLabel || "Pixel Perfect")}</button>
+            <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.macroStudio))}</button>
+            <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("stepsRecorder")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.stepsRecorder))}</button>
+            <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.characterCounter))}</button>
+            <button type="button" id="multiClickMenuItem" role="menuitem">${ICON("multiClick")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.multiClick))}</button>
+            <button type="button" id="inputLabMenuItem" role="menuitem">${ICON("inputLab")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.inputLab))}</button>
+            <button type="button" id="fakerFillMenuItem" role="menuitem">${ICON("fakerFill")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.fakerFill))}</button>
+            <button type="button" id="keyViewMenuItem" role="menuitem">${ICON("keyView")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.keyView))}</button>
+            <button type="button" id="clickSpyMenuItem" role="menuitem">${ICON("mouse")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.clickSpy))}</button>
+            <button type="button" id="freezeClockMenuItem" role="menuitem">${ICON("freezeClock")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.freezeClock))}</button>
+            <button type="button" id="forceHttpMenuItem" role="menuitem">${ICON("forceHttp")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.forceHttp))}</button>
+            <button type="button" id="errorMonitorMenuItem" role="menuitem">${ICON("errorMonitor")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.errorMonitor))}<span id="errorMonitorBadge" class="qts-badge" style="display:none">0</span></button>
+            <button type="button" id="inspectorsMenuItem" role="menuitem">${ICON("inspectors")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.inspectors))}<span id="inspectorsBadge" class="qts-badge" style="display:none">0</span></button>
+            <button type="button" id="jsonStudioMenuItem" role="menuitem">${ICON("braces")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.jsonStudio))}</button>
+            <button type="button" id="breakpointMenuItem" role="menuitem">${ICON("breakpointViewer")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.breakpoints))}</button>
+            <button type="button" id="testAccountsMenuItem" role="menuitem">${ICON("key")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testAccounts))}</button>
+            <button type="button" id="paymentMethodsMenuItem" role="menuitem">${ICON("paymentMethods")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.paymentMethods))}</button>
+            <button type="button" id="resourcesMenuItem" role="menuitem">${ICON("resources")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.resources))}</button>
+            <button type="button" id="elementCaptureMenuItem" role="menuitem">${ICON("elementCapture")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.elementCapture))}</button>
+            <button type="button" id="blurElementsMenuItem" role="menuitem">${ICON("eyeSlash")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.blurElements))}</button>
+            <button type="button" id="holofoteMenuItem" role="menuitem">${ICON("lightbulb")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.holofote))}</button>
+            <button type="button" id="languageValidatorMenuItem" role="menuitem">${ICON("languageValidator")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.languageValidator))}</button>
+            <button type="button" id="qrCodeMenuItem" role="menuitem">${ICON("qrCode")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.qrCode))}</button>
+            <button type="button" id="pixelPerfectMenuItem" role="menuitem">${ICON("ruler")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.pixelPerfect))}</button>
           </div>
         </div>
         <button id="settingsButton" class="iconOnly" type="button" title="${escapeHtml(t.settings)}">${ICON("settings")}<span id="tutorialDot" class="qts-tutorial-dot" hidden></span></button>
@@ -1652,7 +1652,9 @@ const BREAKPOINT_TOUR_STEPS = [
   { selector: "#bpDeviceA", title: "Primeiro dispositivo", text: "Escolha o primeiro tamanho de tela para a comparação responsiva." },
   { selector: "#bpDeviceB", title: "Segundo dispositivo", text: "Escolha o segundo dispositivo. As duas telas mantêm a proporção real entre si." },
   { selector: "#bpReload", title: "Recarregar previews", text: "Use Recarregar depois de alterar a URL ou quando quiser repetir o cenário nas duas telas." },
-  { selector: "#bpZoom", title: "Zoom", text: "Ajuste somente a visualização; a resolução emulada de cada dispositivo não é alterada." },
+  { selector: "#bpZoom", title: "Zoom dos frames", text: "Ajuste o tamanho externo dos dois frames na tela sem alterar o conteúdo simulado." },
+  { selector: '[data-content-zoom="a"]', title: "Zoom interno do primeiro site", text: "Amplie ou reduza somente a página dentro do primeiro dispositivo." },
+  { selector: '[data-content-zoom="b"]', title: "Zoom interno do segundo site", text: "Ajuste a página do segundo dispositivo de forma independente." },
   { selector: "#bpSyncScroll", title: "Sincronizar scroll", text: "Ative para rolar as duas páginas juntas e comparar o mesmo trecho." },
   { selector: "#bpSyncClick", title: "Sincronizar clique", text: "Ative para repetir o clique na posição equivalente da outra tela quando a página permitir." },
 ];
@@ -4917,7 +4919,14 @@ const DEVICE_PRESETS = [
   { id: "iphone-se", label: "iPhone SE", width: 375, height: 667, kind: "phone" },
 ];
 
-const breakpointViewerState = { syncScroll: false, syncClick: false, zoomMultiplier: 1, resizeObserver: null, cleanupFns: [] };
+const breakpointViewerState = {
+  syncScroll: false,
+  syncClick: false,
+  zoomMultiplier: 1,
+  contentZoom: { a: 1, b: 1 },
+  resizeObserver: null,
+  cleanupFns: [],
+};
 
 function buildDeviceFrameHtml(pane, device) {
   const chrome = device.kind === "phone"
@@ -4931,6 +4940,13 @@ function buildDeviceFrameHtml(pane, device) {
           <iframe data-bp-iframe style="width:${device.width}px;height:${device.height}px"></iframe>
         </div>
         ${device.kind === "phone" ? `<div class="qts-bp-home-indicator"></div>` : ""}
+      </div>
+      <div class="qts-bp-content-zoom" data-content-zoom-controls="${pane}">
+        <span>Zoom do site</span>
+        <button type="button" data-content-zoom-step="-10" aria-label="Reduzir zoom do site">−</button>
+        <input type="range" min="50" max="200" step="10" value="${Math.round(breakpointViewerState.contentZoom[pane] * 100)}" data-content-zoom="${pane}" aria-label="Zoom interno do site" />
+        <strong data-content-zoom-label="${pane}">${Math.round(breakpointViewerState.contentZoom[pane] * 100)}%</strong>
+        <button type="button" data-content-zoom-step="10" aria-label="Aumentar zoom do site">+</button>
       </div>
       <div class="qts-bp-scale-label" data-scale-label></div>
     </div>
@@ -4954,7 +4970,7 @@ function breakpointStyles() {
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
     .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--qts-ui-danger, #c70e0e); color:#fff; font-size: 18px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
-    .qts-bp-pane { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 0 1 auto; min-width: 0; max-width: 100%; }
+    .qts-bp-pane { position:relative; display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 1 auto; min-width:0; max-width:100%; padding-bottom:48px; }
     .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: var(--bp-control); border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.25); }
     .qts-bp-frame.kind-phone { border-radius: 34px; padding: 14px 8px; border: 2px solid #2c2c2c; }
     .qts-bp-laptop-bar { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
@@ -4965,7 +4981,11 @@ function breakpointStyles() {
     .qts-bp-viewport-wrap { position: relative; overflow: hidden; background: #fff; border-radius: 4px; }
     .qts-bp-viewport-wrap iframe { position: absolute; top: 0; left: 0; transform-origin: top left; border: 0; }
     .qts-bp-home-indicator { width: 90px; height: 4px; border-radius: 99px; background: #444; margin-top: 8px; }
-    .qts-bp-scale-label { color: var(--bp-muted); font-size: 10px; }
+    .qts-bp-content-zoom { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); display:flex; align-items:center; gap:7px; min-height:32px; padding:4px 8px; border:1px solid var(--bp-border); border-radius:9px; background:var(--bp-surface); color:var(--bp-muted); font-size:10px; white-space:nowrap; }
+    .qts-bp-content-zoom input { width:90px; }
+    .qts-bp-content-zoom button { all:unset; display:grid; place-items:center; width:22px; height:22px; border-radius:6px; background:var(--bp-control); color:var(--bp-text); cursor:pointer; font-size:14px; font-weight:900; }
+    .qts-bp-content-zoom strong { min-width:34px; color:var(--bp-text); text-align:center; font-variant-numeric:tabular-nums; }
+    .qts-bp-scale-label { position:absolute; left:50%; bottom:0; transform:translateX(-50%); color:var(--bp-muted); font-size:10px; white-space:nowrap; }
   `;
 }
 
@@ -4980,6 +5000,7 @@ function openBreakpointViewer() {
   const t = state.t;
   cleanupBreakpointViewer();
   breakpointViewerState.zoomMultiplier = 1;
+  breakpointViewerState.contentZoom = { a: 1, b: 1 };
   const drawerHost = ensureDrawerHost();
   const initialUrl = /^https?:\/\//i.test(window.location.href) ? window.location.href : "https://example.com";
   drawerHost.innerHTML = `<style>${breakpointStyles()}</style>
@@ -4989,9 +5010,9 @@ function openBreakpointViewer() {
         <select id="bpDeviceA">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 0 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
         <select id="bpDeviceB">${DEVICE_PRESETS.map((device, index) => `<option value="${device.id}" ${index === 3 ? "selected" : ""}>${escapeHtml(device.label)}</option>`).join("")}</select>
         <button type="button" class="qts-bp-toggle" id="bpReload" title="Recarregar as duas visualizações">${ICON("undo")} Recarregar</button>
-        <div class="qts-bp-zoom">
+        <div class="qts-bp-zoom" title="Ajusta somente o tamanho dos frames na tela">
           <button type="button" class="qts-bp-zoom-btn" id="bpZoomOut" title="Reduzir zoom">−</button>
-          <input type="range" id="bpZoom" min="50" max="200" step="10" value="100" title="Zoom" />
+          <input type="range" id="bpZoom" min="50" max="200" step="10" value="100" title="Zoom dos frames" />
           <span id="bpZoomLabel">100%</span>
           <button type="button" class="qts-bp-zoom-btn" id="bpZoomIn" title="Aumentar zoom">+</button>
         </div>
@@ -5049,8 +5070,41 @@ function openBreakpointViewer() {
 
   function layout() {
     stage.innerHTML = buildDeviceFrameHtml("a", findDevice(selectA.value)) + buildDeviceFrameHtml("b", findDevice(selectB.value));
+    wireContentZoom();
     fitAndLoad();
     wireSync();
+  }
+
+  function applyContentZoom(pane, { notify = false } = {}) {
+    const frame = stage.querySelector(`[data-pane="${pane}"]`);
+    const iframe = frame?.querySelector("[data-bp-iframe]");
+    if (!iframe) return false;
+    try {
+      iframe.contentWindow.document.documentElement.style.zoom = String(breakpointViewerState.contentZoom[pane]);
+      return true;
+    } catch {
+      if (notify) showToolbarToast("O zoom interno exige uma página do mesmo site por segurança do navegador.");
+      return false;
+    }
+  }
+
+  function wireContentZoom() {
+    stage.querySelectorAll("[data-content-zoom-controls]").forEach((controls) => {
+      const pane = controls.dataset.contentZoomControls;
+      const input = controls.querySelector("[data-content-zoom]");
+      const label = controls.querySelector("[data-content-zoom-label]");
+      const update = (percent, notify = true) => {
+        const clamped = Math.min(200, Math.max(50, percent));
+        breakpointViewerState.contentZoom[pane] = clamped / 100;
+        input.value = String(clamped);
+        label.textContent = `${clamped}%`;
+        applyContentZoom(pane, { notify });
+      };
+      input.addEventListener("input", () => update(Number(input.value)));
+      controls.querySelectorAll("[data-content-zoom-step]").forEach((button) => button.addEventListener("click", () => update(Number(input.value) + Number(button.dataset.contentZoomStep))));
+      const iframe = stage.querySelector(`[data-pane="${pane}"] [data-bp-iframe]`);
+      iframe?.addEventListener("load", () => applyContentZoom(pane), { passive: true });
+    });
   }
 
   function fitAndLoad() {

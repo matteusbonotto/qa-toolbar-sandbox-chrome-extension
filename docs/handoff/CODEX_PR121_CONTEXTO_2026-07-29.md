@@ -71,6 +71,20 @@ Validação posterior:
   `8693fb2856c5c63d38fd7e6662a082cdd045473ba94560e6e97acee82da956f1`.
 - Console: zero erros. Service worker: zero erros.
 
+## Catálogo de ferramentas e Breakpoint em 29/07/2026
+
+- Settings e menu Tools agora renderizam nomes pelo mesmo `FEATURE_REGISTRY`.
+- O smoke compara todos os nomes item a item e falha diante de qualquer divergência.
+- Testar tamanhos de tela mantém o zoom superior apenas para dimensionar os frames.
+- Cada frame desktop, tablet ou mobile possui Zoom do site independente entre 50% e 200%.
+- O zoom interno altera o documento do iframe sem modificar as dimensões do dispositivo.
+- Páginas de outra origem continuam protegidas pela política do navegador e recebem uma mensagem
+  clara quando o zoom interno não pode ser aplicado.
+- Tutorial, FAQ gerada pelo tutorial e Tour contextual foram atualizados.
+- Smoke Chrome aprovado com fingerprint completo
+  `b43fbff17b055a69d2c2e889a8bf35497c039dbe7464605be3814f6ef7e11fcb`.
+- Console: zero erros. Service worker: zero erros.
+
 ## Evidência mobile adicionada
 
 Alteração local ainda não commitada em `scripts/smoke-extension.mjs`:

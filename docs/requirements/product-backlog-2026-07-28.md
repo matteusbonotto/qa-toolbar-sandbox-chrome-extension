@@ -52,6 +52,9 @@ visual quando aplicável.
 - [x] 16.9. Contadores, ações nos cabeçalhos, accordions e busca reduzem a poluição visual.
 - [x] 16.10. Cada contexto relacional aparece uma única vez. URLs e dados de teste não repetem
   Ambiente, Cliente, Projeto ou Produto quando o mesmo contexto já está no accordion pai.
+- [x] 16.11. Settings e menu Tools usam o mesmo catálogo de nomes para todas as ferramentas.
+- [x] 16.12. Testar tamanhos de tela oferece zoom externo dos frames e zoom interno independente
+  para a página simulada em cada dispositivo.
 - [x] 19. O submenu separa Organização e Operação.
 - [x] 20. Dados de teste e Inspectors não são rotas laterais independentes. São seções do Workspace.
 

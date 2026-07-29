@@ -1253,6 +1253,23 @@ try {
 
   // Responsive View keeps the two differently sized devices centered as one visual group.
   await host.locator("#toolsButton").click();
+  const settingsTools = await options.locator("#toolsMenuOrderList > li[data-order-key]").evaluateAll((rows) => rows.map((row) => {
+    const feature = window.QTS_STORAGE.FEATURE_REGISTRY.find((entry) => entry.key === row.dataset.orderKey);
+    return { key: row.dataset.orderKey, menuItemId: feature?.menuItemId, label: row.querySelector("strong")?.textContent.trim() };
+  }));
+  const toolbarToolLabels = await host.evaluate((tools) => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    return Object.fromEntries(tools.map((tool) => {
+      const item = root?.getElementById(tool.menuItemId);
+      const clone = item?.cloneNode(true);
+      clone?.querySelectorAll(".qts-badge,.qts-lock-badge").forEach((badge) => badge.remove());
+      return [tool.key, clone?.textContent.trim() || ""];
+    }));
+  }, settingsTools);
+  for (const { key, label: settingsLabel } of settingsTools) {
+    if (toolbarToolLabels[key] !== settingsLabel) throw new Error(`Tool label differs between Settings and Tools for ${key}: ${settingsLabel} != ${toolbarToolLabels[key]}`);
+  }
+  await host.screenshot({ path: resolve(evidencePath, "extension-tools-canonical-labels.png"), fullPage: false });
   await host.locator("#breakpointMenuItem").click();
   await host.locator("#bpStage .qts-bp-frame").nth(1).waitFor();
   const responsiveCentering = await host.evaluate(() => {
@@ -1266,6 +1283,23 @@ try {
     };
   });
   if (responsiveCentering.frameCount !== 2 || Math.abs(responsiveCentering.stageCenter - responsiveCentering.groupCenter) > 2) throw new Error(`Responsive View is not centered: ${JSON.stringify(responsiveCentering)}`);
+  if (await host.locator("[data-content-zoom]").count() !== 2) throw new Error("Responsive View does not expose independent internal zoom controls for both frames");
+  const desktopWrapBeforeZoom = await host.locator('[data-pane="a"] [data-viewport-wrap]').evaluate((element) => ({ width: element.offsetWidth, height: element.offsetHeight }));
+  await host.locator('[data-content-zoom="a"]').fill("150");
+  await host.waitForFunction(() => {
+    const iframe = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector('[data-pane="a"] iframe');
+    return iframe?.contentWindow?.document?.documentElement?.style.zoom === "1.5";
+  });
+  const breakpointZoomResult = await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    const zoom = (pane) => root?.querySelector(`[data-pane="${pane}"] iframe`)?.contentWindow?.document?.documentElement?.style.zoom;
+    const wrap = root?.querySelector('[data-pane="a"] [data-viewport-wrap]');
+    return { desktop: zoom("a"), mobile: zoom("b"), width: wrap?.offsetWidth, height: wrap?.offsetHeight };
+  });
+  if (breakpointZoomResult.desktop !== "1.5" || !["", "1"].includes(breakpointZoomResult.mobile) || breakpointZoomResult.width !== desktopWrapBeforeZoom.width || breakpointZoomResult.height !== desktopWrapBeforeZoom.height) {
+    throw new Error(`Internal Breakpoint zoom changed the frame instead of only its site: ${JSON.stringify({ before: desktopWrapBeforeZoom, after: breakpointZoomResult })}`);
+  }
+  await host.screenshot({ path: resolve(evidencePath, "extension-breakpoint-independent-internal-zoom.png"), fullPage: false });
   await host.locator("#bpClose").click();
 
   // Key View renders SVG keycaps for three seconds, keeps opt-in typing only in

@@ -646,7 +646,8 @@ function normalizeToolsMenuOrderDraft(value) {
 }
 
 function toolsMenuItemLabel(key) {
-  return window.QTS_STORAGE.FEATURE_REGISTRY.find((feature) => feature.key === key)?.label || key;
+  const label = window.QTS_STORAGE.FEATURE_REGISTRY.find((feature) => feature.key === key)?.label || key;
+  return t(label);
 }
 
 // The manual drag/arrow order only has any visible effect in "Personalizado" mode -- A-Z/Z-A/mais
