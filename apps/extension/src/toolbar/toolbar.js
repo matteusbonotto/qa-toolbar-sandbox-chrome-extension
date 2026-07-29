@@ -1823,9 +1823,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Nueva identidad a color en la extensión, el sitio y el Admin.", "Las relaciones del Workspace ahora muestran nombres completos, logos e iniciales sin accordions recortados.", "Las vistas previas mobile del sidebar y la toolbar ahora corresponden a la posición seleccionada.", "La exportación e importación JSON del Workspace conserva imágenes subidas o registradas por URL.", "Las búsquedas conservan el foco y el sidebar abierto mientras escribes."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["New color identity across the extension, website and Admin.", "Workspace relationships now show complete names, logos and initials without clipped accordions.", "Mobile sidebar and toolbar position previews now match the selected edge.", "Workspace JSON export and import preserve uploaded and URL-based images.", "Search fields keep focus and preserve the open sidebar while you type."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Nova identidade colorida na extensão, no site e no Admin.", "Relações do Workspace agora exibem nomes completos, logos e iniciais sem accordions cortados.", "Prévias mobile de sidebar e toolbar agora correspondem à posição selecionada.", "Exportação e importação JSON do Workspace preservam imagens enviadas ou cadastradas por URL.", "Buscas mantêm o foco e preservam o sidebar aberto enquanto você digita."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["El dispositivo utilizado ahora acompaña los pasos, informes y el resumen de la sesión.", "Los formularios de los paneles laterales reutilizan tipos, relaciones e imágenes de Settings.", "Las imágenes de los catálogos son más grandes y legibles.", "Maximizar ahora está al lado de cerrar en los paneles laterales.", "Los formularios tienen ayudas discretas y accesibles en español."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["The device used now follows steps, reports, and the test session summary.", "Sidebar forms reuse types, relationships, and images from Settings.", "Catalog images are larger and easier to identify.", "Maximize now sits next to close in sidebar headers.", "Forms include discreet, accessible help in English."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["O dispositivo usado agora acompanha passos, relatórios e o resumo da sessão.", "Formulários dos sidebars reutilizam tipos, relações e imagens dos Settings.", "Imagens dos catálogos estão maiores e mais fáceis de identificar.", "Maximizar agora fica ao lado de fechar nos sidebars.", "Formulários receberam ajudas discretas e acessíveis em português."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -2114,6 +2114,7 @@ function renderTestSessionSummary(container, session) {
       <p><b>${escapeHtml(t.testSessionEvidence)}</b> ${session.evidenceCount}</p>
       <p><b>${escapeHtml(stepsCopy().title)}</b> ${(session.stepRecordingIds || []).filter((id) => (state.workspace.stepRecordings || []).some((item) => item.id === id)).length}</p>
       <p><b>${escapeHtml(t.testSessionTechnicalContext)}</b> ${httpErrorsDuringSession.length ? `${httpErrorsDuringSession.length} × ${escapeHtml(t.testSessionHttpErrors)}` : escapeHtml(t.testSessionNoErrors)}</p>
+      <label class="qts-field-label">${escapeHtml(t.testedDevice)} ${helpBalloon(t.testedDeviceHelp)}<select data-session-device>${workspaceDeviceOptions(session.deviceId || "")}</select></label>
       <label class="qts-field-label">${escapeHtml(t.testSessionNotes)}<textarea data-session-notes rows="3" placeholder="${escapeHtml(t.testSessionNotesPlaceholder)}"></textarea></label>
       <label class="qts-field-label">${escapeHtml(t.testSessionNextSteps)}<textarea data-session-next-steps rows="2" placeholder="${escapeHtml(t.testSessionNextStepsPlaceholder)}"></textarea></label>
       <div class="qts-card-actions">
@@ -2128,6 +2129,7 @@ function renderTestSessionSummary(container, session) {
     const scenario = container.querySelector("[data-session-scenario]").value.trim() || t.testSessionScenarioPlaceholder;
     const notes = container.querySelector("[data-session-notes]").value.trim();
     const nextSteps = container.querySelector("[data-session-next-steps]").value.trim();
+    const deviceLabel = selectedDeviceLabel(container.querySelector("[data-session-device]").value);
     return [
       `# ${scenario}`,
       `${t.testSessionContext} ${[session.context.client, session.context.project, session.context.product, session.context.environment].filter(Boolean).join(" · ") || t.testSessionNoContext}`,
@@ -2135,6 +2137,7 @@ function renderTestSessionSummary(container, session) {
       `${t.testSessionDuration} ${durationLabel}`,
       `${t.testSessionResult} ${lastStatus ? lastStatus.label : t.testSessionNoResult}`,
       `${t.testSessionEvidence} ${session.evidenceCount}`,
+      deviceLabel ? `${t.testedDevice} ${deviceLabel}` : "",
       `${t.testSessionTechnicalContext} ${httpErrorsDuringSession.length ? `${httpErrorsDuringSession.length} × ${t.testSessionHttpErrors}` : t.testSessionNoErrors}`,
       notes ? `\n${t.testSessionNotes}\n${notes}` : "",
       nextSteps ? `\n${t.testSessionNextSteps}\n${nextSteps}` : "",
@@ -2160,6 +2163,7 @@ function renderTestSessionSummary(container, session) {
       httpErrorCount: httpErrorsDuringSession.length,
       notes: container.querySelector("[data-session-notes]").value.trim(),
       nextSteps: container.querySelector("[data-session-next-steps]").value.trim(),
+      deviceId: container.querySelector("[data-session-device]").value,
     });
     await chrome.storage.local.set({ [TEST_SESSION_REPORTS_KEY]: reports.slice(0, 100) });
     showQaToast(t.testSessionSaved);
@@ -2178,6 +2182,7 @@ function renderTestSessionSummary(container, session) {
       title: scenario,
       actual: notes,
       steps: recordedSteps,
+      deviceId: container.querySelector("[data-session-device]").value,
     }, session.context);
   });
 }
@@ -2209,8 +2214,24 @@ const REPORT_TEMPLATES_KEY = "qtsReportBuilderTemplatesV1";
 const REPORT_FIELD_SELECTORS = {
   kind: "[data-report-kind]", title: "[data-report-title]", description: "[data-report-description]",
   preconditions: "[data-report-preconditions]", steps: "[data-report-steps]", expected: "[data-report-expected]",
-  actual: "[data-report-actual]", severity: "[data-report-severity]", priority: "[data-report-priority]", tags: "[data-report-tags]",
+  actual: "[data-report-actual]", severity: "[data-report-severity]", priority: "[data-report-priority]",
+  tags: "[data-report-tags]", deviceId: "[data-report-device]",
 };
+
+function helpBalloon(text) {
+  return `<button type="button" class="qts-help-balloon" data-tooltip="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">?</button>`;
+}
+
+function workspaceDeviceOptions(selectedId = "") {
+  return `<option value="">${escapeHtml(state.t.noDeviceSelected)}</option>${(state.workspace.devices || [])
+    .filter((device) => device.active !== false)
+    .map((device) => `<option value="${escapeHtml(device.id)}" ${device.id === selectedId ? "selected" : ""}>${escapeHtml(device.label)}</option>`)
+    .join("")}`;
+}
+
+function selectedDeviceLabel(deviceId) {
+  return (state.workspace.devices || []).find((device) => device.id === deviceId)?.label || "";
+}
 
 function reportKindOptions() {
   const t = state.t;
@@ -2269,6 +2290,7 @@ function renderReportBuilder(container, context, prefill) {
         <label class="qts-field-label">${escapeHtml(t.reportSeverity)}<select data-report-severity>${severities.map((s) => `<option value="${s}">${escapeHtml(severityLabel[s])}</option>`).join("")}</select></label>
         <label class="qts-field-label">${escapeHtml(t.reportPriority)}<select data-report-priority>${priorities.map((p) => `<option value="${p}">${escapeHtml(priorityLabel[p])}</option>`).join("")}</select></label>
       </div>
+      <label class="qts-field-label">${escapeHtml(t.testedDevice)} ${helpBalloon(t.testedDeviceHelp)}<select data-report-device>${workspaceDeviceOptions(prefill.deviceId || context.deviceId || "")}</select></label>
       <label class="qts-field-label">${escapeHtml(t.reportTags)}<input type="text" data-report-tags placeholder="${escapeHtml(t.reportTagsPlaceholder)}" /></label>
       <p class="qts-status">${escapeHtml(t.reportContext)} ${escapeHtml(contextLine)} · ${escapeHtml(detectBrowserLabel())} · ${window.innerWidth}×${window.innerHeight}<br><small style="word-break:break-all">${escapeHtml(context.url)}</small></p>
       <div class="qts-card-actions">
@@ -2303,11 +2325,13 @@ function renderReportBuilder(container, context, prefill) {
   const buildReportText = () => {
     const values = readFields();
     const kindLabel = kinds.find((k) => k.key === values.kind)?.label || values.kind;
+    const deviceLabel = selectedDeviceLabel(values.deviceId);
     const lines = [
       `# [${kindLabel}] ${values.title || t.reportTitlePlaceholder}`,
       `${t.reportContext} ${contextLine} · ${detectBrowserLabel()} · ${window.innerWidth}×${window.innerHeight}`,
       context.url,
       `${t.reportSeverity}: ${severityLabel[values.severity]} · ${t.reportPriority}: ${priorityLabel[values.priority]}`,
+      deviceLabel ? `${t.testedDevice}: ${deviceLabel}` : "",
       values.tags ? `${t.reportTags}: ${values.tags}` : "",
       values.description ? `\n${t.reportDescription}\n${values.description}` : "",
       values.preconditions ? `\n${t.reportPreconditions}\n${values.preconditions}` : "",
@@ -2326,11 +2350,13 @@ function renderReportBuilder(container, context, prefill) {
   const buildSlackText = () => {
     const values = readFields();
     const kindLabel = kinds.find((k) => k.key === values.kind)?.label || values.kind;
+    const deviceLabel = selectedDeviceLabel(values.deviceId);
     const lines = [
       `*[${kindLabel}] ${values.title || t.reportTitlePlaceholder}*`,
       `${t.reportContext} ${contextLine} · ${detectBrowserLabel()} · ${window.innerWidth}×${window.innerHeight}`,
       context.url,
       `*${t.reportSeverity}:* ${severityLabel[values.severity]}   *${t.reportPriority}:* ${priorityLabel[values.priority]}`,
+      deviceLabel ? `*${t.testedDevice}:* ${deviceLabel}` : "",
       values.tags ? `*${t.reportTags}:* ${values.tags}` : "",
       values.description ? `\n*${t.reportDescription}*\n${values.description}` : "",
       values.preconditions ? `\n*${t.reportPreconditions}*\n${values.preconditions}` : "",
@@ -3103,6 +3129,21 @@ function drawerStyles() {
     .qts-drawer-head button { width:34px; height:34px; border:0; border-radius:9px; background:var(--qts-ui-primary,#2563eb); color:var(--qts-ui-primary-contrast,#fff); font-size:18px; cursor:pointer; flex:none; }
     .qts-drawer-head button { display:inline-flex; align-items:center; justify-content:center; padding:0; }
     .qts-drawer-head #drawerClose { background:#c70e0e; color:#fff; }
+    .qts-help-balloon {
+      position:relative; display:inline-grid !important; place-items:center; width:18px !important; min-width:18px !important;
+      height:18px !important; min-height:18px !important; margin-left:5px; padding:0 !important; border:1px solid var(--qts-panel-border) !important;
+      border-radius:50% !important; background:transparent !important; color:var(--qts-panel-muted) !important;
+      font-size:11px !important; font-weight:900 !important; vertical-align:middle; cursor:help !important;
+    }
+    .qts-help-balloon::after {
+      content:attr(data-tooltip); position:absolute; z-index:20; left:50%; bottom:calc(100% + 8px); width:max-content; max-width:240px;
+      padding:7px 9px; border:1px solid var(--qts-panel-border); border-radius:8px; background:var(--qts-panel-2); color:var(--qts-panel-text);
+      box-shadow:0 8px 24px rgba(0,0,0,.35); font-size:11px; font-weight:600; line-height:1.4; text-align:left;
+      opacity:0; visibility:hidden; transform:translate(-50%,4px); transition:opacity 120ms ease, transform 120ms ease;
+      pointer-events:none; white-space:normal;
+    }
+    .qts-help-balloon:hover::after, .qts-help-balloon:focus-visible::after { opacity:1; visibility:visible; transform:translate(-50%,0); }
+    .qts-catalog-image { width:44px; height:44px; flex:0 0 44px; margin:4px 8px 4px 2px; border-radius:9px; object-fit:cover; background:var(--qts-panel-2); }
     .qts-drawer-position { width:auto; display:flex; gap:3px; flex:none; }
     .qts-drawer-head .qts-drawer-position-btn {
       width:22px; height:22px; min-width:0; padding:0; border:1px solid var(--qts-panel-border,#262626);
@@ -3192,7 +3233,9 @@ function drawerStyles() {
       top:auto; bottom:calc(100% + 6px);
     }
     .qts-combo-option { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 11px; cursor: pointer; }
-    .qts-combo-option img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex: 0 0 auto; }
+    .qts-combo-option img { width:44px; height:44px; margin:4px 8px 4px 2px; border-radius:9px; object-fit:cover; flex:0 0 44px; }
+    .qts-check-grid { display:grid; gap:8px; margin-top:8px; }
+    .qts-check-grid label { display:flex; align-items:center; gap:9px; min-height:34px; }
     .qts-combo-clear { align-self: flex-end; background: none; border: 0; color: #ff8a8a; font-size: 10px; cursor: pointer; padding: 2px 4px; }
 
     /* Friendly (default) vs raw JSON detail view. */
@@ -3500,7 +3543,7 @@ function renderSmartFilter({ key, label, options }, selected, onChange) {
         ${options.map((option) => `
           <label class="qts-combo-option" data-combo-option data-search="${escapeHtml(option.label.toLowerCase())}">
             <input type="checkbox" data-value="${escapeHtml(option.value)}" ${selected.has(option.value) ? "checked" : ""} />
-            ${option.image ? `<img src="${escapeHtml(option.image)}" alt="" />` : ""}
+            ${option.image ? `<img class="qts-catalog-image" src="${escapeHtml(option.image)}" alt="" />` : ""}
             <span>${escapeHtml(option.label)}</span>
           </label>
         `).join("")}
@@ -3606,10 +3649,10 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
       <div class="qts-drawer">
         ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
         <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<div class="qts-drawer-title"><h2>${escapeHtml(title)}</h2><span class="qts-drawer-kicker">${variant === "modal" ? "Janela de trabalho" : detachedWindow ? "Ferramenta em janela separada" : "Ferramenta lateral"}</span></div>
-          <div class="qts-drawer-controls">${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
-          ${sidebarControls ? `<div class="qts-drawer-position" id="drawerPosition" role="radiogroup" aria-label="Posição do sidebar">${["right", "left", "top", "bottom"].map((side) => `<button type="button" class="qts-drawer-position-btn" data-position="${side}" aria-pressed="${side === drawerPosition}" title="${escapeHtml({ right: "Direita", left: "Esquerda", top: "Cima", bottom: "Baixo" }[side])}">${drawerPositionIcon(side)}</button>`).join("")}</div>` : ""}
+          <div class="qts-drawer-controls">${sidebarControls ? `<div class="qts-drawer-position" id="drawerPosition" role="radiogroup" aria-label="Posição do sidebar">${["right", "left", "top", "bottom"].map((side) => `<button type="button" class="qts-drawer-position-btn" data-position="${side}" aria-pressed="${side === drawerPosition}" title="${escapeHtml({ right: "Direita", left: "Esquerda", top: "Cima", bottom: "Baixo" }[side])}">${drawerPositionIcon(side)}</button>`).join("")}</div>` : ""}
           ${sidebarControls ? `<button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Recolher sidebar">${ICON("collapse")}</button>` : ""}
+          ${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
           <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div></div>
         ${sidebarControls ? `<div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>` : ""}
         <div class="qts-drawer-body" id="drawerBody">${bodyHtml}${sidebarControls ? `<div class="qts-drawer-footer-actions" id="drawerFooterActions"></div>` : ""}</div>
@@ -4615,7 +4658,7 @@ function renderTestAccountsList() {
       return `
         <div class="qts-net-item" data-account-id="${escapeHtml(account.id)}" style="cursor:default">
           <div style="display:flex;align-items:center;gap:6px">
-            ${account.accountTypeImage ? `<img src="${escapeHtml(account.accountTypeImage)}" alt="" style="width:18px;height:18px;border-radius:4px;object-fit:cover" />` : ""}
+            ${account.accountTypeImage ? `<img class="qts-catalog-image" src="${escapeHtml(account.accountTypeImage)}" alt="" />` : ""}
             <b>${escapeHtml(account.label)}</b>${account.accountType ? ` <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(account.accountType)}</span>` : ""}
           </div>
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -4712,7 +4755,10 @@ function renderPaymentMethodsList() {
     return;
   }
   const types = [...new Set(allMethods.map((method) => method.type || "other"))].sort();
-  const fields = [{ key: "type", label: "Tipo", options: types.map((value) => ({ value, label: value })) }];
+  const fields = [{ key: "type", label: "Tipo", options: types.map((value) => {
+    const catalogType = (state.workspace.paymentMethodTypes || []).find((type) => type.name === value);
+    return { value, label: value, image: catalogType?.icon || "" };
+  }) }];
   const methods = allMethods.filter(matchesPaymentMethodFilters);
   const focus = captureListFocus(body);
 
@@ -4734,7 +4780,7 @@ function renderPaymentMethodsList() {
     };
     return `<div class="qts-net-item" style="cursor:default">
       <div style="display:flex;align-items:center;gap:6px">
-        ${method.icon ? `<img src="${escapeHtml(method.icon)}" alt="" style="width:18px;height:18px;border-radius:4px;object-fit:cover" />` : ""}
+        ${(method.icon || (state.workspace.paymentMethodTypes || []).find((type) => type.id === method.typeId)?.icon) ? `<img class="qts-catalog-image" src="${escapeHtml(method.icon || (state.workspace.paymentMethodTypes || []).find((type) => type.id === method.typeId)?.icon)}" alt="" />` : ""}
         <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(method.type || "other")}</span>
       </div>
       <div style="margin-top:6px;display:grid;gap:4px">
@@ -4823,7 +4869,7 @@ function renderResourcesList() {
     </div>
     <div style="display:grid;gap:10px">${resources.length ? resources.map((resource) => `
       <a class="qts-net-item" href="${escapeHtml(resource.safeUrl)}" target="_blank" rel="noopener noreferrer" style="display:block;color:#fff;text-decoration:none">
-        ${resource.icon ? `<img src="${escapeHtml(resource.icon)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : ""}<b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(resource.category)}</span>` : ""}
+        ${resource.icon ? `<img class="qts-catalog-image" src="${escapeHtml(resource.icon)}" alt="" />` : ""}<b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(resource.category)}</span>` : ""}
         <small style="display:block;margin-top:4px;color:#888">${escapeHtml(resource.safeUrl)}</small>
       </a>
     `).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
@@ -5923,23 +5969,27 @@ function wireDrawerAddButton(body, kind) {
 }
 
 function openWorkspaceQuickComposer(kind) {
+  const relationChecks = (name, items, selectedId, help) => `<fieldset class="qts-card"><legend>${escapeHtml(name)} ${helpBalloon(help)}</legend><div class="qts-check-grid">${items.map((item) => `<label><input type="checkbox" name="${escapeHtml(name)}Ids" value="${escapeHtml(item.id)}" ${item.id === selectedId ? "checked" : ""}/><span>${escapeHtml(item.name || item.label)}</span></label>`).join("") || `<small>${escapeHtml(state.t.noCatalogOptions)}</small>`}</div></fieldset>`;
+  const typeOptions = (items, selectedLabel = "") => items.map((item) => `<option value="${escapeHtml(item.id)}" ${item.name === selectedLabel ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("");
+  const environmentField = relationChecks("environment", state.workspace.environments || [], state.environment?.id, state.t.environmentRelationHelp);
+  const productField = relationChecks("product", state.workspace.products || [], state.environment?.productId, state.t.productRelationHelp);
   const definitions = {
     testAccount: { title: "Adicionar conta de teste", collection: "testAccounts", reopen: openTestAccountsDrawer,
-      fields: `<label>Nome<input name="label" required maxlength="120" /></label><label>Tipo<input name="accountType" maxlength="60" /></label><label>Usuário / e-mail<input name="username" maxlength="200" autocomplete="off" /></label><label>Senha sandbox<input name="password" type="password" maxlength="200" autocomplete="new-password" /></label><label>Observações<textarea name="notes" maxlength="1000"></textarea></label>`,
-      build: v => ({ id: crypto.randomUUID(), environmentIds: [state.environment.id], productIds: state.environment.productId ? [state.environment.productId] : [], label: v.label, accountType: v.accountType, username: v.username, password: v.password, notes: v.notes, customFields: [], active: true }) },
+      fields: `${environmentField}${productField}<label>Nome ${helpBalloon(state.t.accountNameHelp)}<input name="label" required maxlength="120" /></label><label>Tipo de conta ${helpBalloon(state.t.accountTypeHelp)}<select name="typeId"><option value="">${escapeHtml(state.t.noTypeSelected)}</option>${typeOptions(state.workspace.accountTypes || [])}</select></label><label>Usuário / e-mail ${helpBalloon(state.t.sandboxCredentialHelp)}<input name="username" maxlength="200" autocomplete="off" /></label><label>Senha sandbox ${helpBalloon(state.t.sandboxCredentialHelp)}<input name="password" type="password" maxlength="200" autocomplete="new-password" /></label><label>Observações<textarea name="notes" maxlength="1000"></textarea></label>`,
+      build: (v, form) => { const type = (state.workspace.accountTypes || []).find((item) => item.id === v.typeId); return { id: crypto.randomUUID(), environmentIds: new FormData(form).getAll("environmentIds"), productIds: new FormData(form).getAll("productIds"), label: v.label, accountTypeId: type?.id || "", accountType: type?.name || "", accountTypeImage: type?.icon || "", username: v.username, password: v.password, notes: v.notes, customFields: [], active: true }; } },
     paymentMethod: { title: "Adicionar pagamento sandbox", collection: "paymentMethods", reopen: openPaymentMethodsDrawer,
-      fields: `<label>Nome<input name="label" required maxlength="120" /></label><label>Tipo<select name="type"><option value="card">Cartão</option><option value="pix">PIX</option><option value="bank">Conta bancária</option><option value="other">Outro</option></select></label><label>Número ou token sandbox<input name="value" maxlength="240" autocomplete="off" /></label><label>Titular<input name="holder" maxlength="120" /></label><label>Validade<input name="expiry" maxlength="20" placeholder="MM/AA" /></label><label>CVV sandbox<input name="cvv" maxlength="20" autocomplete="off" /></label><label>Observações<textarea name="notes" maxlength="1000"></textarea></label>`,
-      build: v => ({ id: crypto.randomUUID(), environmentIds: state.environment ? [state.environment.id] : [], productIds: state.environment?.productId ? [state.environment.productId] : [], label: v.label, type: v.type, value: v.value, holder: v.holder, expiry: v.expiry, cvv: v.cvv, notes: v.notes, active: true }) },
+      fields: `${environmentField}${productField}<label>Nome ${helpBalloon(state.t.paymentNameHelp)}<input name="label" required maxlength="120" /></label><label>Tipo de pagamento ${helpBalloon(state.t.paymentTypeHelp)}<select name="typeId"><option value="">${escapeHtml(state.t.noTypeSelected)}</option>${typeOptions(state.workspace.paymentMethodTypes || [])}</select></label><label>Ícone próprio (URL ou imagem exportável)<input name="icon" maxlength="2000000" placeholder="https://... ou data:image/..." /></label><label>Número ou token sandbox ${helpBalloon(state.t.sandboxCredentialHelp)}<input name="value" maxlength="240" autocomplete="off" /></label><label>Titular<input name="holder" maxlength="120" /></label><label>Validade<input name="expiry" maxlength="20" placeholder="MM/AA" /></label><label>CVV sandbox ${helpBalloon(state.t.sandboxCredentialHelp)}<input name="cvv" maxlength="20" autocomplete="off" /></label><label>Observações<textarea name="notes" maxlength="1000"></textarea></label>`,
+      build: (v, form) => { const type = (state.workspace.paymentMethodTypes || []).find((item) => item.id === v.typeId); return { id: crypto.randomUUID(), environmentIds: new FormData(form).getAll("environmentIds"), productIds: new FormData(form).getAll("productIds"), label: v.label, typeId: type?.id || "", type: type?.name || "", icon: v.icon || type?.icon || "", value: v.value, holder: v.holder, expiry: v.expiry, cvv: v.cvv, notes: v.notes, active: true }; } },
     resource: { title: "Adicionar recurso ou link", collection: "resources", reopen: openResourcesDrawer,
-      fields: `<label>Nome<input name="label" required maxlength="120" /></label><label>URL<input name="url" type="url" required maxlength="2048" placeholder="https://..." /></label><label>Categoria<input name="category" maxlength="60" /></label>`,
-      build: v => ({ id: crypto.randomUUID(), label: v.label, url: v.url, category: v.category, active: true }) },
+      fields: `<label>Nome ${helpBalloon(state.t.resourceNameHelp)}<input name="label" required maxlength="120" /></label><label>URL ${helpBalloon(state.t.resourceUrlHelp)}<input name="url" type="url" required maxlength="2048" placeholder="https://..." /></label><label>Categoria<input name="category" maxlength="60" /></label><label>Ícone (URL ou imagem exportável)<input name="icon" maxlength="2000000" placeholder="https://... ou data:image/..." /></label>`,
+      build: v => ({ id: crypto.randomUUID(), label: v.label, url: v.url, category: v.category, icon: v.icon, active: true }) },
   };
   const definition = definitions[kind];
   if (!definition) return;
   if (kind === "testAccount" && !state.environment) { showQaToast("Vincule esta página a um ambiente antes de criar uma conta.", "error"); return; }
   openDrawer({ title: definition.title, variant: "modal", bodyHtml: `<p class="qts-tool-lead">Salvo no mesmo workspace das Configurações e carregado imediatamente.</p><form id="workspaceQuickComposer" style="display:grid;gap:12px">${definition.fields}<div class="qts-toolbar-row" style="justify-content:flex-end"><button type="button" class="action" id="quickComposerCancel">Cancelar</button><button type="submit" class="action primary">Salvar</button></div></form>`, onReady(body) {
     body.querySelector("#quickComposerCancel").addEventListener("click", definition.reopen);
-    body.querySelector("#workspaceQuickComposer").addEventListener("submit", async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries()); state.workspace[definition.collection] = [...(state.workspace[definition.collection] || []), definition.build(values)]; state.workspace = await saveWorkspace(state.workspace); definition.reopen(); showQaToast("Item salvo e carregado no sidebar."); });
+    body.querySelector("#workspaceQuickComposer").addEventListener("submit", async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries()); state.workspace[definition.collection] = [...(state.workspace[definition.collection] || []), definition.build(values, event.currentTarget)]; state.workspace = await saveWorkspace(state.workspace); definition.reopen(); showQaToast("Item salvo e carregado no sidebar."); });
   } });
 }
 
@@ -7728,7 +7778,7 @@ function exportStepsCsv(recording) {
 function openStepsEditor(recording) {
   const copy = stepsCopy(); const draft = structuredClone(recording); draft.steps ||= [];
   const renderRows = (body) => { const list = body.querySelector("#stepsEditorList"); list.innerHTML = draft.steps.map((step, index) => `<article class="qts-card" data-doc-step="${index}"><div class="qts-toolbar-row"><b>${index + 1}.</b><select data-step-keyword ${draft.mode === "gherkin" ? "" : "hidden"}>${[["given","Dado que / Given"],["and","E / And"],["when","Quando / When"],["then","Então / Then"]].map(([value,label]) => `<option value="${value}" ${step.keyword === value ? "selected" : ""}>${label}</option>`).join("")}</select><input data-step-text value="${escapeHtml(step.text)}" style="flex:1"/><button class="action" data-duplicate-step type="button">${escapeHtml(copy.duplicate)}</button><button class="action" data-remove-step type="button">${escapeHtml(copy.remove)}</button></div><details><summary>${escapeHtml(copy.expected)}</summary><textarea data-step-expected rows="2" placeholder="${escapeHtml(copy.expected)}">${escapeHtml(step.expectedResult || "")}</textarea></details></article>`).join("") || `<div class="qts-empty">${escapeHtml(copy.empty)}</div>`; list.querySelectorAll("[data-doc-step]").forEach((row) => { const index = Number(row.dataset.docStep); row.querySelector("[data-step-text]").addEventListener("input", e => draft.steps[index].text = e.target.value.slice(0,500)); row.querySelector("[data-step-expected]").addEventListener("input", e => draft.steps[index].expectedResult = e.target.value.slice(0,2000)); row.querySelector("[data-step-keyword]").addEventListener("change", e => draft.steps[index].keyword = e.target.value); row.querySelector("[data-remove-step]").addEventListener("click", () => { draft.steps.splice(index,1); renderRows(body); }); row.querySelector("[data-duplicate-step]").addEventListener("click", () => { draft.steps.splice(index+1,0,{...structuredClone(draft.steps[index]),id:crypto.randomUUID(),source:"manual"}); renderRows(body); }); }); };
-  openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<div class="qts-toolbar-row"><button id="stepsBack" class="action" type="button">${escapeHtml(copy.back)}</button><input id="stepsName" value="${escapeHtml(draft.name || "")}" placeholder="${escapeHtml(copy.name)}" style="flex:1"/><select id="stepsMode"><option value="numbered" ${draft.mode !== "gherkin" ? "selected" : ""}>${escapeHtml(copy.numbered)}</option><option value="gherkin" ${draft.mode === "gherkin" ? "selected" : ""}>${escapeHtml(copy.gherkin)}</option></select><button id="stepsExport" class="action" type="button">${escapeHtml(copy.export)}</button><button id="stepsSave" class="action primary" type="button">${escapeHtml(copy.save)}</button></div><div id="stepsEditorList"></div><button id="stepsAdd" class="action" type="button">+ ${escapeHtml(copy.add)}</button>`, onReady(body) { renderRows(body); body.querySelector("#stepsBack").addEventListener("click", openStepsRecorder); body.querySelector("#stepsMode").addEventListener("change", e => { draft.mode=e.target.value; renderRows(body); }); body.querySelector("#stepsAdd").addEventListener("click", () => { draft.steps.push(makeDocumentedStep("manual", "", "manual")); renderRows(body); }); body.querySelector("#stepsExport").addEventListener("click", () => { draft.name=body.querySelector("#stepsName").value; exportStepsCsv(draft); }); body.querySelector("#stepsSave").addEventListener("click", async () => { draft.name=body.querySelector("#stepsName").value.trim() || copy.title; draft.updatedAt=new Date().toISOString(); const index=(state.workspace.stepRecordings || []).findIndex(item=>item.id===draft.id); if(index>=0) state.workspace.stepRecordings[index]=draft; else state.workspace.stepRecordings.push(draft); await persistWorkspaceState(); openStepsRecorder(); showQaToast(copy.saved); }); } });
+  openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<div class="qts-toolbar-row"><button id="stepsBack" class="action" type="button">${escapeHtml(copy.back)}</button><input id="stepsName" value="${escapeHtml(draft.name || "")}" placeholder="${escapeHtml(copy.name)}" style="flex:1"/><select id="stepsMode"><option value="numbered" ${draft.mode !== "gherkin" ? "selected" : ""}>${escapeHtml(copy.numbered)}</option><option value="gherkin" ${draft.mode === "gherkin" ? "selected" : ""}>${escapeHtml(copy.gherkin)}</option></select><button id="stepsExport" class="action" type="button">${escapeHtml(copy.export)}</button><button id="stepsSave" class="action primary" type="button">${escapeHtml(copy.save)}</button></div><label class="qts-field-label">${escapeHtml(state.t.testedDevice)} ${helpBalloon(state.t.testedDeviceHelp)}<select id="stepsDevice">${workspaceDeviceOptions(draft.deviceId || "")}</select></label><div id="stepsEditorList"></div><button id="stepsAdd" class="action" type="button">+ ${escapeHtml(copy.add)}</button>`, onReady(body) { renderRows(body); body.querySelector("#stepsBack").addEventListener("click", openStepsRecorder); body.querySelector("#stepsMode").addEventListener("change", e => { draft.mode=e.target.value; renderRows(body); }); body.querySelector("#stepsDevice").addEventListener("change", e => { draft.deviceId=e.target.value; }); body.querySelector("#stepsAdd").addEventListener("click", () => { draft.steps.push(makeDocumentedStep("manual", "", "manual")); renderRows(body); }); body.querySelector("#stepsExport").addEventListener("click", () => { draft.name=body.querySelector("#stepsName").value; exportStepsCsv(draft); }); body.querySelector("#stepsSave").addEventListener("click", async () => { draft.name=body.querySelector("#stepsName").value.trim() || copy.title; draft.deviceId=body.querySelector("#stepsDevice").value; draft.updatedAt=new Date().toISOString(); const index=(state.workspace.stepRecordings || []).findIndex(item=>item.id===draft.id); if(index>=0) state.workspace.stepRecordings[index]=draft; else state.workspace.stepRecordings.push(draft); await persistWorkspaceState(); openStepsRecorder(); showQaToast(copy.saved); }); } });
 }
 
 function executableDocumentedSteps(recording) {
@@ -7763,6 +7813,7 @@ function reportDocumentedSteps(recording) {
     title: recording.name || stepsCopy().title,
     steps,
     description: device ? `${stepsExtraCopy().device}: ${device.label}` : "",
+    deviceId: recording.deviceId || "",
   }, recording.context || sessionContextSnapshot());
 }
 

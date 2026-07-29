@@ -658,6 +658,8 @@ try {
   }
   await drawerSearch.fill("");
   if (!(await host.locator("#drawerDetach").count())) throw new Error("Sidebar is missing the open-in-new-window action");
+  const finalDrawerControlIds = await host.locator(".qts-drawer-controls > button").evaluateAll((buttons) => buttons.slice(-2).map((button) => button.id));
+  if (finalDrawerControlIds.join(",") !== "drawerDetach,drawerClose") throw new Error(`Maximize and close controls are not adjacent at the end of the sidebar header: ${finalDrawerControlIds}`);
   // The position <select> became a 4-button icon picker (right/left/top/bottom) - verify all four
   // render with a real, clickable size instead of the old single-select text-clipping check.
   const positionButtonSizes = await host.locator("#drawerPosition .qts-drawer-position-btn").evaluateAll(
@@ -898,6 +900,7 @@ try {
   const sessionSummary = host.locator(".qts-drawer:has([data-session-scenario])");
   await sessionSummary.locator("[data-session-scenario]").waitFor();
   await sessionSummary.locator("[data-session-scenario]").fill("Fluxo de checkout com cupom expirado");
+  if (!(await sessionSummary.locator("[data-session-device]").count())) throw new Error("Test session summary is missing the tested device selector");
   const summaryBody = await sessionSummary.innerText();
   if (!/\d{2}:\d{2}/.test(summaryBody)) throw new Error(`Sessão de Teste summary is missing a real duration: ${summaryBody}`);
   if (!/Fail|Falha/i.test(summaryBody)) throw new Error(`Sessão de Teste summary did not carry the status picked during the session: ${summaryBody}`);
@@ -917,6 +920,7 @@ try {
   if (prefilledTitle !== "Fluxo de checkout com cupom expirado") throw new Error(`Report Builder did not inherit the session scenario as title: "${prefilledTitle}"`);
   const prefilledKind = await reportDrawer.locator("[data-report-kind]").inputValue();
   if (prefilledKind !== "bug") throw new Error(`Report Builder did not map a Fail session to kind "bug": "${prefilledKind}"`);
+  if (!(await reportDrawer.locator("[data-report-device]").count())) throw new Error("Report Builder is missing the tested device selector");
   await reportDrawer.locator("[data-report-steps]").fill("1. Aplicar cupom expirado\n2. Finalizar compra");
   await reportDrawer.locator("[data-report-expected]").fill("Sistema recusa o cupom com mensagem clara.");
   host.once("dialog", (dialog) => dialog.accept("Bug de checkout"));
