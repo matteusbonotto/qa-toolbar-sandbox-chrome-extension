@@ -310,6 +310,29 @@ try {
   await options.reload();
   await options.locator("#signedInState").waitFor({ state: "visible" });
   if (await options.locator("html").getAttribute("data-theme") !== "dark") throw new Error("Dark theme did not survive options reload");
+  const mobilePreviewBounds = await options.evaluate(() => {
+    const results = [];
+    for (const id of ["mobileDrawerPositionPreview", "mobileToolbarPositionPreview"]) {
+      const preview = document.getElementById(id);
+      const browser = preview.querySelector(".previewBrowser");
+      const dock = preview.querySelector(".previewDock");
+      const browserBox = browser.getBBox();
+      for (const position of ["top", "bottom", "left", "right"]) {
+        preview.dataset.position = position;
+        const dockBox = dock.getBBox();
+        results.push({
+          id,
+          position,
+          inside: dockBox.x >= browserBox.x
+            && dockBox.y >= browserBox.y
+            && dockBox.x + dockBox.width <= browserBox.x + browserBox.width
+            && dockBox.y + dockBox.height <= browserBox.y + browserBox.height,
+        });
+      }
+    }
+    return results;
+  });
+  if (mobilePreviewBounds.some(({ inside }) => !inside)) throw new Error(`Mobile position preview overflowed its phone frame: ${JSON.stringify(mobilePreviewBounds)}`);
   trace("options light/dark theme persistence and contrast verified");
 
   await options.getByRole("button", { name: "Workspace" }).click();
@@ -432,7 +455,22 @@ try {
   if (await options.locator("[data-url-environment]").count()) throw new Error("URL environment picker did not switch to searchable multiselect above four environments");
   await options.locator("[data-environment-search]").fill("Beta");
   if (await options.locator('.multiSelectOptions [data-environment-option]:not([hidden])').count() !== 1) throw new Error("URL environment multiselect search did not filter environments");
+  const productPickerLabels = await options.locator("#urlProductPicker [data-url-product]").evaluateAll((buttons) => buttons.map((button) => ({
+    text: button.textContent.trim(),
+    avatarCount: button.querySelectorAll(".qts-badge-avatar").length,
+    labelWidth: Math.round(button.querySelector(".environmentToggleLabel")?.getBoundingClientRect().width || 0),
+  })));
+  if (!productPickerLabels.length || productPickerLabels.some(({ text, avatarCount, labelWidth }) => !text || avatarCount !== 1 || labelWidth < 12)) {
+    throw new Error(`URL product picker lost product names or avatars: ${JSON.stringify(productPickerLabels)}`);
+  }
   await options.locator("#urlRelationComposer [data-close-composer]").click();
+  const urlTreeEntityIdentities = await options.locator('#urlRelationList [data-tree-dimension="client"] > summary .urlTreeIdentity, #urlRelationList [data-tree-dimension="project"] > summary .urlTreeIdentity, #urlRelationList [data-tree-dimension="product"] > summary .urlTreeIdentity').evaluateAll((identities) => identities.map((identity) => ({
+    text: identity.textContent.trim(),
+    avatarCount: identity.querySelectorAll(".qts-badge-avatar").length,
+  })));
+  if (!urlTreeEntityIdentities.length || urlTreeEntityIdentities.some(({ text, avatarCount }) => !text || avatarCount !== 1)) {
+    throw new Error(`URL hierarchy lost client, project or product identity: ${JSON.stringify(urlTreeEntityIdentities)}`);
+  }
   trace("workspace relationships verified");
 
   // Exercise the popup with a controlled host-tab URL. In production the same sourceUrl variable
@@ -805,6 +843,7 @@ try {
   await host.locator("#notificationBellButton").click();
   await host.getByText("A barra está pronta").waitFor({ timeout: 5_000 });
   await host.locator('[data-dismiss-intro]').click();
+  await host.locator("#notificationBellBadge.isVisible").waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   if (await host.locator("#notificationBellBadge.isVisible").count()) throw new Error("Notification bell badge stayed visible after dismissing the first-run entry");
   await host.locator("#notificationBellButton").click();
   trace("first-run notification moved to the bell");
@@ -1482,6 +1521,7 @@ try {
   await host.locator("#macroList .qts-card").first().waitFor();
   await host.locator('#macroList .qts-card').first().locator('[data-macro-action="pin"]').click();
   await host.locator("#macroList .qts-card").first().waitFor();
+  await host.locator("#pinnedMacrosMenu [data-pinned-macro]").waitFor({ state: "attached", timeout: 5_000 });
   const pinnedMacroCount = await host.locator("#pinnedMacrosMenu [data-pinned-macro]").count();
   if (pinnedMacroCount !== 1) throw new Error("Pinned macro was not added to the tools menu");
   await host.locator('#macroList .qts-card').first().locator('[data-macro-action="edit"]').click();
@@ -1653,6 +1693,19 @@ try {
   if (await accountEnvironmentGroup.locator(":scope > summary .urlTreeIdentity small, :scope > .urlTreeChildren .relationBadge", { hasText: "QA" }).count()) {
     throw new Error("Test account card repeats the environment already shown by its parent heading");
   }
+  const accountAccordionLayout = await accountEnvironmentGroup.evaluate((node) => {
+    const body = node.querySelector(":scope > .urlTreeChildren");
+    const row = body?.querySelector(".listRow");
+    return {
+      nodeHeight: Math.round(node.getBoundingClientRect().height),
+      bodyHeight: Math.round(body?.getBoundingClientRect().height || 0),
+      rowHeight: Math.round(row?.getBoundingClientRect().height || 0),
+      overflowY: body ? getComputedStyle(body).overflowY : "",
+    };
+  });
+  if (accountAccordionLayout.bodyHeight < accountAccordionLayout.rowHeight || !["auto", "visible"].includes(accountAccordionLayout.overflowY)) {
+    throw new Error(`Relational accordion clipped its rows: ${JSON.stringify(accountAccordionLayout)}`);
+  }
   await options.screenshot({ path: resolve(evidencePath, "extension-options-test-accounts-deduplicated.png"), fullPage: true });
   await options.locator('[data-workspace-nav="payments"]').click();
   await options.locator('[data-open-composer="paymentMethodTypeComposer"]').click();
@@ -1739,6 +1792,39 @@ try {
   });
   const resourceUrl = new URL(resourcesDrawer.href);
   if (!resourcesDrawer.text.includes("Runbook QA") || resourceUrl.protocol !== "https:" || resourceUrl.hostname !== "example.com" || resourceUrl.pathname !== "/runbook") throw new Error(`Resources drawer mismatch: ${JSON.stringify(resourcesDrawer)}`);
+  await context.route("https://example.com/assets/workspace-icon.png", (route) => route.fulfill({
+    status: 200,
+    contentType: "image/png",
+    body: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XkWPWQAAAABJRU5ErkJggg==", "base64"),
+  }));
+  const imageRoundTripFixture = await options.evaluate(async () => {
+    const ws = await window.QTS_STORAGE.getWorkspace();
+    const uploadedImage = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAF/gL+XkWPWQAAAABJRU5ErkJggg==";
+    const remoteImage = "https://example.com/assets/workspace-icon.png";
+    const setFirst = (collection, field, value) => {
+      if (ws[collection]?.[0]) ws[collection][0][field] = value;
+    };
+    setFirst("clients", "logoUrl", uploadedImage);
+    setFirst("projects", "logoUrl", remoteImage);
+    setFirst("products", "logoUrl", uploadedImage);
+    setFirst("accountTypes", "icon", remoteImage);
+    setFirst("paymentMethodTypes", "icon", uploadedImage);
+    setFirst("operatingSystems", "icon", remoteImage);
+    setFirst("browsers", "icon", uploadedImage);
+    setFirst("paymentMethods", "icon", remoteImage);
+    setFirst("resources", "icon", uploadedImage);
+    const accountType = ws.accountTypes?.[0];
+    for (const account of ws.testAccounts || []) {
+      if (account.accountTypeId === accountType?.id) account.accountTypeImage = accountType.icon;
+    }
+    await window.QTS_STORAGE.saveWorkspace(ws);
+    return { uploadedImage, remoteImage, accountTypeId: accountType?.id };
+  });
+  await options.locator('[data-tab="workspace"]').click();
+  await options.locator('[data-workspace-nav="accounts"]').click();
+  await options.locator('[data-relational-view="testAccounts"][data-relational-dimension="type"]').click();
+  const accountTypeGroupImage = options.locator(`#testAccountList .relationalDataNode .urlTreeIdentity img[src="${imageRoundTripFixture.remoteImage}"]`);
+  if (!await accountTypeGroupImage.count()) throw new Error("Test account grouping by type did not reuse the registered type image");
   await options.getByRole("button", { name: "Importar / Exportar" }).click();
   const downloadPromise = options.waitForEvent("download");
   await options.locator("#exportButton").click();
@@ -1747,6 +1833,37 @@ try {
   for (const secret of ["local-password-value", "4242424242424242", "local-api-token-value"]) if (exported.includes(secret)) throw new Error("Secure export leaked a local secret");
   const exportedPayload = JSON.parse(exported);
   if (!/^sha256:[a-f0-9]{64}$/i.test(exportedPayload.checksum || "")) throw new Error("Secure export did not include an integrity checksum");
+  const imageFields = [
+    exportedPayload.workspace.clients?.[0]?.logoUrl,
+    exportedPayload.workspace.projects?.[0]?.logoUrl,
+    exportedPayload.workspace.products?.[0]?.logoUrl,
+    exportedPayload.workspace.accountTypes?.[0]?.icon,
+    exportedPayload.workspace.paymentMethodTypes?.[0]?.icon,
+    exportedPayload.workspace.operatingSystems?.[0]?.icon,
+    exportedPayload.workspace.browsers?.[0]?.icon,
+    exportedPayload.workspace.paymentMethods?.[0]?.icon,
+    exportedPayload.workspace.resources?.[0]?.icon,
+  ];
+  if (!imageFields.includes(imageRoundTripFixture.uploadedImage) || !imageFields.includes(imageRoundTripFixture.remoteImage) || imageFields.some((value) => !value)) {
+    throw new Error("Workspace export did not preserve every uploaded and URL image field");
+  }
+  const normalizedImageFields = await options.evaluate((candidate) => {
+    const normalized = window.QTS_STORAGE.normalizeWorkspace(candidate);
+    return [
+      normalized.clients?.[0]?.logoUrl,
+      normalized.projects?.[0]?.logoUrl,
+      normalized.products?.[0]?.logoUrl,
+      normalized.accountTypes?.[0]?.icon,
+      normalized.paymentMethodTypes?.[0]?.icon,
+      normalized.operatingSystems?.[0]?.icon,
+      normalized.browsers?.[0]?.icon,
+      normalized.paymentMethods?.[0]?.icon,
+      normalized.resources?.[0]?.icon,
+    ];
+  }, exportedPayload.workspace);
+  if (!normalizedImageFields.includes(imageRoundTripFixture.uploadedImage) || !normalizedImageFields.includes(imageRoundTripFixture.remoteImage) || normalizedImageFields.some((value) => !value)) {
+    throw new Error("Workspace import normalization did not restore every uploaded and URL image field");
+  }
   trace("settings and secure export verified");
 
   // Tutorial (Part B + live-tour revision): banner stays visible until dismissed (its "Fazer o
@@ -2003,7 +2120,8 @@ try {
 
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();
-  await host.waitForTimeout(500);
+  await host.locator("#qts-toolbar-host").waitFor({ state: "detached", timeout: 5_000 });
+  await options.waitForFunction(() => document.querySelector('.protectedNav[data-tab="workspace"]')?.disabled === true);
   if (await host.locator("#qts-toolbar-host").count()) throw new Error("Toolbar remained after logout");
   if (!await options.locator('.protectedNav[data-tab="workspace"]').isDisabled()) throw new Error("Protected settings remained enabled after logout");
 

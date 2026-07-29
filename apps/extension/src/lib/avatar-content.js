@@ -35,15 +35,16 @@
   }
 
   /**
-   * @param {{ name?: string, logoUrl?: string, abbreviation?: string }} entity
+   * @param {{ name?: string, logoUrl?: string, icon?: string, imageUrl?: string, accountTypeImage?: string, abbreviation?: string }} entity
    * @param {{ size?: number }} [options]
    * @returns {string} HTML for a single badge element.
    */
   function buildBadgeHtml(entity, options) {
     const size = options?.size || 20;
     const name = entity?.name || "";
-    if (entity?.logoUrl) {
-      return `<img class="qts-badge-avatar" src="${escapeHtml(entity.logoUrl)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" style="width:${size}px;height:${size}px" />`;
+    const imageSource = entity?.logoUrl || entity?.icon || entity?.imageUrl || entity?.accountTypeImage;
+    if (imageSource) {
+      return `<img class="qts-badge-avatar" src="${escapeHtml(imageSource)}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" style="width:${size}px;height:${size}px" />`;
     }
     const label = (entity?.abbreviation || autoInitials(name)).slice(0, 4);
     const hue = hashHue(name || label);

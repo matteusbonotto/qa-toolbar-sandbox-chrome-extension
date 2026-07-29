@@ -56,6 +56,31 @@ Validação posterior:
 - Console: zero erros.
 - Service worker: zero erros.
 
+## Correções visuais e de imagens concluídas em 29/07/2026
+
+- O modal de URL preserva os nomes completos de ambientes e produtos. Um seletor CSS amplo estava
+  reduzindo todo `span` interno para 8 px, por isso apareciam apenas fragmentos de letras.
+- A árvore de Ambientes e URLs voltou a exibir imagem cadastrada ou avatar de iniciais para cliente,
+  projeto e produto.
+- Os accordions relacionais de contas, pagamentos e dispositivos não herdam mais o limite de altura
+  da lista genérica. O corpo expandido cresce e passa a usar rolagem interna somente acima de 420 px.
+- As prévias mobile de sidebar e toolbar possuem coordenadas próprias para topo, base, esquerda e
+  direita. Nenhuma barra usa mais as dimensões do mockup desktop.
+- O agrupamento de contas por tipo reutiliza a imagem cadastrada no catálogo de tipos.
+- O renderizador compartilhado de avatar reconhece `logoUrl`, `icon`, `imageUrl` e
+  `accountTypeImage`. Imagem remota e upload em data URL seguem o mesmo caminho.
+- O smoke exporta e normaliza novamente imagens de cliente, projeto, produto, tipo de conta, tipo de
+  pagamento, sistema, navegador, pagamento e recurso. Isso prova a preservação no JSON e no caminho
+  real usado pela importação.
+- `npm run test:chrome:test-package` foi aprovado com console e service worker sem erros.
+- O script principal da toolbar agora possui inicialização idempotente e escopo isolado. Reinjeções na
+  mesma página não redeclaram variáveis nem registram listeners duplicados.
+- Esperas do smoke para badge, macro fixada e logout observam o estado real em vez de atrasos fixos.
+- `npm run test:all:clean` foi aprovado no estado final.
+- Fingerprint do pacote Chrome desta rodada: `f8d3c313b0de67ba0ff31cc3f6c5fc5921a57ad51d6acde8e125c6e545b96fde`.
+- Mídias de tutorial não foram regravadas nesta rodada, conforme a orientação de estabilizar primeiro
+  todas as correções visuais e evitar retrabalho.
+
 ## Deduplicação visual solicitada em 29/07/2026
 
 - Tags de Cliente, Projeto, Produto e agrupamentos relacionais foram alinhadas ao topo.
