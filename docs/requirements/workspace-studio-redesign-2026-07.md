@@ -45,8 +45,9 @@ navegadores. Esses cadastros não podem ficar ocultos nem existir apenas como um
 - [x] Inspectors possuem área principal própria, padrões visíveis na listagem, exemplos rápidos no
   formulário e separação clara de APIs e recursos de apoio.
 - [x] Evidência visual desktop recriada no Chrome descartável.
-- [ ] Evidência visual mobile recriada após aprovação da arquitetura desktop.
-- [ ] Tutorial e mídia do Workspace recriados após aprovação visual final.
+- [x] Evidência visual mobile adicionada ao smoke com viewport 390 por 844, prova de ausência de
+  overflow e preservação dos três níveis hierárquicos.
+- [x] Tutorial e mídia do Workspace recapturados seletivamente depois da validação funcional.
 
 ## Testes que provam a regra
 

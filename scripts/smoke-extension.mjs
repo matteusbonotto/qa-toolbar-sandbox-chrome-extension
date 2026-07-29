@@ -1,7 +1,7 @@
 import { createHash, webcrypto } from "node:crypto";
 import { createServer } from "node:http";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
@@ -39,11 +39,19 @@ const extensionPathArgument = process.argv.find((argument) => argument.startsWit
 const extensionPath = resolve(root, extensionPathArgument || "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-smoke-profile");
 const evidencePath = resolve(root, "artifacts/runtime-evidence");
-const sourceFingerprint = createHash("sha256")
-  .update(await readFile(resolve(extensionPath, "manifest.json")))
-  .update(await readFile(resolve(extensionPath, "src/background/background.js")))
-  .update(await readFile(resolve(extensionPath, "src/toolbar/toolbar.js")))
-  .digest("hex");
+async function fingerprintDirectory(directory, base = directory, hash = createHash("sha256")) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) await fingerprintDirectory(path, base, hash);
+    else {
+      hash.update(path.slice(base.length).replaceAll("\\", "/"));
+      hash.update(await readFile(path));
+    }
+  }
+  return hash;
+}
+const sourceFingerprint = (await fingerprintDirectory(extensionPath)).digest("hex");
 console.log(`[chrome-smoke] source fingerprint ${sourceFingerprint}`);
 console.log(`[chrome-smoke] extension path ${extensionPath}`);
 let lastTrace = "startup";
@@ -305,7 +313,7 @@ try {
   trace("options light/dark theme persistence and contrast verified");
 
   await options.getByRole("button", { name: "Workspace" }).click();
-  if (await options.locator(".workspaceTab").count() !== 7) throw new Error("Workspace Studio tabs are incomplete");
+  if (await options.locator(".workspaceTab").count() !== 6) throw new Error("Workspace Studio tabs are incomplete");
   await options.locator('[data-open-composer="clientComposer"]').click();
   await options.locator("#clientName").fill("Cliente Demo");
   await options.locator("#clientAbbreviation").fill("CD");
@@ -318,47 +326,44 @@ try {
   await options.locator("#imageEditorApply").click();
   if (!await options.locator("#clientLogoUrl").inputValue().then((value) => value.startsWith("data:image/webp"))) throw new Error("Image editor did not apply a safe local crop");
   await options.locator("#clientForm button[type=submit]").click();
-  await options.locator('[data-open-composer="projectComposer"]').click();
+  await options.locator('[data-tree-create="project"]').click();
   await options.locator("#projectClient").selectOption({ label: "Cliente Demo" });
   await options.locator("#projectName").fill("Webapp Demo");
   await options.locator("#projectAbbreviation").fill("WEB");
   await options.locator("#projectForm button[type=submit]").click();
-  await options.locator('[data-open-composer="productComposer"]').click();
+  await options.locator('[data-tree-create="product"]').click();
   await options.locator("#productProject").selectOption({ label: "Webapp Demo" });
   await options.locator("#productName").fill("Checkout");
   await options.locator("#productAbbreviation").fill("CHK");
   await options.locator("#productForm button[type=submit]").click();
-  await options.locator('[data-workspace-nav="environments"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#5b21b6");
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-nav="urls"]').click();
-  await options.locator('[data-open-composer="urlRelationComposer"]').click();
+  await options.locator('[data-add-url-for-environment]').first().click();
   await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("http://127.0.0.1:43117/*");
-  await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
   await options.locator("#urlRelationForm button[type=submit]").click();
   await options.waitForTimeout(600);
   trace("primary workspace created");
 
   // Environments are reusable tiers (no product of their own); the product association — and one
   // pattern belonging to multiple environments — lives entirely on the URL binding.
-  await options.locator('[data-workspace-nav="environments"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("Beta");
   await options.locator("#environmentColor").fill("#0f766e");
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-nav="urls"]').click();
-  await options.locator('[data-open-composer="urlRelationComposer"]').click();
+  await options.locator('[data-add-url-for-environment]').last().click();
   await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("http://beta.example.invalid/*");
-  await options.locator(".environmentToggle", { hasText: "Beta" }).click();
   await options.locator("#urlRelationForm button[type=submit]").click();
-  await options.locator('[data-open-composer="urlRelationComposer"]').click();
+  await options.locator('[data-add-url-for-environment]').first().click();
   await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("https://shared.example.com/*");
-  await options.locator("[data-url-environment]").nth(0).click();
   await options.locator("[data-url-environment]").nth(1).click();
   await options.locator("#urlRelationForm button[type=submit]").click();
   const urlBindings = await options.evaluate(async () => {
@@ -369,16 +374,18 @@ try {
   if (!sharedBinding || sharedBinding.environmentIds.length !== 2) throw new Error(`Relational URL association failed: ${JSON.stringify(urlBindings)}`);
   // The URLs tab now groups bindings into one accordion per environment (see
   // renderUrlRelationList), so a binding shared across two environments (like this one) renders
-  // once under EACH — two .listRow matches, not one — each still showing both environment badges.
+  // once under EACH. The environment is already conveyed by the parent accordion, so each URL row
+  // must not repeat those same badges.
   const sharedBindingRows = options.locator('#urlRelationList .listRow').filter({ hasText: "https://shared.example.com/*" });
   if (await sharedBindingRows.count() !== 2) throw new Error("Shared URL binding did not render once per linked environment accordion");
-  if (await sharedBindingRows.first().locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
+  if (await sharedBindingRows.first().locator(".relationBadge").count()) throw new Error("URL row repeated context already shown by its environment and product parents");
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-environments-urls-deduplicated.png"), fullPage: true });
   await options.locator('[data-workspace-nav="structure"]').click();
   if (await options.locator(".structureExplorer").count() !== 1) throw new Error("Workspace structure is missing the hierarchical explorer");
   const workspaceNavigationFits = await options.locator(".workspaceTabs").evaluate((navigation) => navigation.scrollWidth <= navigation.clientWidth + 1);
   if (!workspaceNavigationFits) throw new Error("Workspace navigation introduced horizontal overflow");
-  const hierarchyAccordions = options.locator(".structureExplorer .hierarchyAccordion");
-  if (await hierarchyAccordions.count() !== 3) throw new Error("Workspace hierarchy must expose one accordion for clients, projects, and products");
+  const hierarchyAccordions = options.locator(".structureExplorer .relationshipNode");
+  if (await hierarchyAccordions.count() !== 3) throw new Error("Workspace hierarchy must expose the actual client, project and product entities");
   const structureViewButtons = options.locator("[data-structure-view]");
   if (await structureViewButtons.count() !== 3) throw new Error("Workspace hierarchy view filters are incomplete");
   await options.locator('[data-structure-view="project"]').click();
@@ -389,12 +396,28 @@ try {
   if (!await options.locator("#productList .listRow").first().innerText().then((text) => text.includes("Cliente Demo") && text.includes("Webapp Demo"))) throw new Error("Product-focused workspace view is missing its client and project context");
   await options.locator('[data-structure-view="client"]').click();
   if (await options.locator(".structureExplorer").getAttribute("data-structure-view-mode") !== "client") throw new Error("Client-focused workspace view did not restore the hierarchy");
-  const productAccordion = hierarchyAccordions.nth(2);
+  const productAccordion = options.locator('.relationshipNode[data-entity-collection="products"]').first();
   await productAccordion.locator(":scope > summary").click();
   if (await productAccordion.getAttribute("open") !== null) throw new Error("Product hierarchy accordion did not collapse");
   await productAccordion.locator(":scope > summary").click();
   if (await productAccordion.getAttribute("open") === null) throw new Error("Product hierarchy accordion did not expand");
   await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
+  await options.setViewportSize({ width: 390, height: 844 });
+  const mobileWorkspaceLayout = await options.locator(".workspacePanel").evaluate((panel) => ({
+    viewportWidth: document.documentElement.clientWidth,
+    documentWidth: document.documentElement.scrollWidth,
+    panelWidth: Math.round(panel.getBoundingClientRect().width),
+    hierarchyLevels: panel.querySelectorAll(".structureExplorer .relationshipNode").length,
+  }));
+  if (
+    mobileWorkspaceLayout.documentWidth > mobileWorkspaceLayout.viewportWidth + 1
+    || mobileWorkspaceLayout.panelWidth > mobileWorkspaceLayout.viewportWidth
+    || mobileWorkspaceLayout.hierarchyLevels !== 3
+  ) {
+    throw new Error(`Workspace mobile hierarchy overflowed or lost context: ${JSON.stringify(mobileWorkspaceLayout)}`);
+  }
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio-mobile.png"), fullPage: true });
+  await options.setViewportSize({ width: 1440, height: 960 });
   await options.locator('[data-workspace-nav="urls"]').click();
   const environmentCountBeforePreviews = Number(await options.locator("#environmentCount").textContent());
   await options.evaluate(async () => {
@@ -403,7 +426,7 @@ try {
     await window.QTS_STORAGE.saveWorkspace(next);
   });
   await options.waitForFunction((expected) => Number(document.querySelector("#environmentCount")?.textContent) === expected, environmentCountBeforePreviews + 3);
-  await options.locator('[data-open-composer="urlRelationComposer"]').click();
+  await options.locator('[data-add-url-for-environment]').first().click();
   await options.locator("#urlEnvironmentPicker .environmentMultiSelect > summary").click();
   await options.locator("[data-environment-search]").waitFor();
   if (await options.locator("[data-url-environment]").count()) throw new Error("URL environment picker did not switch to searchable multiselect above four environments");
@@ -442,8 +465,9 @@ try {
 
   // Deletion now goes through a themed <dialog> instead of window.confirm() — verify both the
   // Cancelar (no-op) and Excluir (removes) paths against one of the injected preview environments.
-  await options.locator('[data-workspace-nav="environments"]').click();
-  const previewRow = options.locator("#environmentList .listRow", { hasText: "Preview 1" });
+  await options.locator('[data-workspace-nav="urls"]').click();
+  const previewRow = options.locator('#urlRelationList [data-tree-dimension="environment"][data-tree-entity-id="env_picker_0"]');
+  if (await previewRow.locator(".relationshipType, .urlTreeIdentity").count()) throw new Error("URL environment accordion repeats its type or name outside the toolbar preview");
   await previewRow.locator('[data-action="remove"]').click();
   await options.locator("#deleteConfirmDialog[open]").waitFor();
   await options.locator("#deleteConfirmCancel").click();
@@ -503,10 +527,14 @@ try {
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
   trace("toolbar menu/drawer light/dark contrast verified");
 
-  // Nine color families follow the independently selected light/dark appearance mode. Picking one writes CSS custom properties on
+  // Eleven color families follow the independently selected light/dark appearance mode. Picking one writes CSS custom properties on
   // <html> (not the shadow host) so both the shadow-DOM toolbar/drawers/toasts and the light-DOM
   // Key View/mouse overlays -- which live directly in document.body -- read the same tokens.
-  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 9) throw new Error("Color theme grid does not expose the nine supported families");
+  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 11) throw new Error("Color theme grid does not expose the eleven supported families");
+  await options.locator('[data-color-family="black"]').click();
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#262626");
+  await options.locator('[data-color-family="gray"]').click();
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#94a3b8");
   await options.locator('[data-color-family="blue"]').click();
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
@@ -707,7 +735,7 @@ try {
   const resetDrawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
   if (resetDrawerCloseBg !== "rgb(199, 14, 14)") throw new Error(`Color theme reset did not preserve the red close-button exception: ${resetDrawerCloseBg}`);
   await host.locator("#drawerClose").click();
-  trace("nine color families verified in light and dark modes (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
+  trace("eleven color families verified in light and dark modes (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
   await host.locator("#toolsButton").click();
   await host.locator("#statusMenuItem").click();
@@ -1225,6 +1253,23 @@ try {
 
   // Responsive View keeps the two differently sized devices centered as one visual group.
   await host.locator("#toolsButton").click();
+  const settingsTools = await options.locator("#toolsMenuOrderList > li[data-order-key]").evaluateAll((rows) => rows.map((row) => {
+    const feature = window.QTS_STORAGE.FEATURE_REGISTRY.find((entry) => entry.key === row.dataset.orderKey);
+    return { key: row.dataset.orderKey, menuItemId: feature?.menuItemId, label: row.querySelector("strong")?.textContent.trim() };
+  }));
+  const toolbarToolLabels = await host.evaluate((tools) => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    return Object.fromEntries(tools.map((tool) => {
+      const item = root?.getElementById(tool.menuItemId);
+      const clone = item?.cloneNode(true);
+      clone?.querySelectorAll(".qts-badge,.qts-lock-badge").forEach((badge) => badge.remove());
+      return [tool.key, clone?.textContent.trim() || ""];
+    }));
+  }, settingsTools);
+  for (const { key, label: settingsLabel } of settingsTools) {
+    if (toolbarToolLabels[key] !== settingsLabel) throw new Error(`Tool label differs between Settings and Tools for ${key}: ${settingsLabel} != ${toolbarToolLabels[key]}`);
+  }
+  await host.screenshot({ path: resolve(evidencePath, "extension-tools-canonical-labels.png"), fullPage: false });
   await host.locator("#breakpointMenuItem").click();
   await host.locator("#bpStage .qts-bp-frame").nth(1).waitFor();
   const responsiveCentering = await host.evaluate(() => {
@@ -1238,6 +1283,23 @@ try {
     };
   });
   if (responsiveCentering.frameCount !== 2 || Math.abs(responsiveCentering.stageCenter - responsiveCentering.groupCenter) > 2) throw new Error(`Responsive View is not centered: ${JSON.stringify(responsiveCentering)}`);
+  if (await host.locator("[data-content-zoom]").count() !== 2) throw new Error("Responsive View does not expose independent internal zoom controls for both frames");
+  const desktopWrapBeforeZoom = await host.locator('[data-pane="a"] [data-viewport-wrap]').evaluate((element) => ({ width: element.offsetWidth, height: element.offsetHeight }));
+  await host.locator('[data-content-zoom="a"]').fill("150");
+  await host.waitForFunction(() => {
+    const iframe = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector('[data-pane="a"] iframe');
+    return iframe?.contentWindow?.document?.documentElement?.style.zoom === "1.5";
+  });
+  const breakpointZoomResult = await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    const zoom = (pane) => root?.querySelector(`[data-pane="${pane}"] iframe`)?.contentWindow?.document?.documentElement?.style.zoom;
+    const wrap = root?.querySelector('[data-pane="a"] [data-viewport-wrap]');
+    return { desktop: zoom("a"), mobile: zoom("b"), width: wrap?.offsetWidth, height: wrap?.offsetHeight };
+  });
+  if (breakpointZoomResult.desktop !== "1.5" || !["", "1"].includes(breakpointZoomResult.mobile) || breakpointZoomResult.width !== desktopWrapBeforeZoom.width || breakpointZoomResult.height !== desktopWrapBeforeZoom.height) {
+    throw new Error(`Internal Breakpoint zoom changed the frame instead of only its site: ${JSON.stringify({ before: desktopWrapBeforeZoom, after: breakpointZoomResult })}`);
+  }
+  await host.screenshot({ path: resolve(evidencePath, "extension-breakpoint-independent-internal-zoom.png"), fullPage: false });
   await host.locator("#bpClose").click();
 
   // Key View renders SVG keycaps for three seconds, keeps opt-in typing only in
@@ -1584,6 +1646,14 @@ try {
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
+  const accountEnvironmentGroup = options.locator("#testAccountList .relationalDataNode", { hasText: "Conta sandbox" });
+  if (await accountEnvironmentGroup.locator(":scope > summary .environmentToolbarPreview > span").allTextContents().then((labels) => labels.filter((label) => label.trim() === "QA").length) !== 1) {
+    throw new Error("Test account environment heading does not identify QA exactly once");
+  }
+  if (await accountEnvironmentGroup.locator(":scope > summary .urlTreeIdentity small, :scope > .urlTreeChildren .relationBadge", { hasText: "QA" }).count()) {
+    throw new Error("Test account card repeats the environment already shown by its parent heading");
+  }
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-test-accounts-deduplicated.png"), fullPage: true });
   await options.locator('[data-workspace-nav="payments"]').click();
   await options.locator('[data-open-composer="paymentMethodTypeComposer"]').click();
   await options.locator("#paymentMethodTypeName").fill("Voucher");
