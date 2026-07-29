@@ -1441,7 +1441,7 @@ function renderWorkspace() {
     const typeImageSrc = accountType?.icon || item.accountTypeImage || "";
     const typeImage = typeImageSrc ? `<img class="catalogTypeIcon" src="${escapeHtml(typeImageSrc)}" alt="" />` : "";
     const scopeBadges = scopeBadgesHtml(item, { excludeDimension: relationalViewDimension.testAccounts });
-    return `<b>${typeImage}${escapeHtml(item.label)}${typeName ? ` <span class="accountType">${escapeHtml(typeName)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small>${scopeBadges ? `<small class="relationBadges">${scopeBadges}</small>` : ""}`;
+    return `<b class="catalogTypeName">${typeImage}${escapeHtml(item.label)}${typeName ? ` <span class="accountType">${escapeHtml(typeName)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small>${scopeBadges ? `<small class="relationBadges">${scopeBadges}</small>` : ""}`;
   }, { reveal: (item) => Boolean(item.password) });
   renderCustomFieldSuggestions();
   document.querySelectorAll("#clientList .listRow").forEach((row) => {
@@ -1460,9 +1460,13 @@ function renderWorkspace() {
     });
   });
   renderRelationalRows("paymentMethods", (item) => {
-    const typeName = findById("paymentMethodTypes", item.typeId)?.name || item.type || t("Outro");
+    const paymentType = findById("paymentMethodTypes", item.typeId)
+      || workspace.paymentMethodTypes.find((type) => type.name === item.type);
+    const typeName = paymentType?.name || item.type || t("Outro");
+    const typeImageSrc = item.icon || paymentType?.icon || "";
+    const typeImage = typeImageSrc ? `<img class="catalogTypeIcon" src="${escapeHtml(typeImageSrc)}" alt="" />` : "";
     const scopeBadges = scopeBadgesHtml(item, { excludeDimension: relationalViewDimension.paymentMethods });
-    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(typeName)} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small>${scopeBadges ? `<small class="relationBadges">${scopeBadges}</small>` : ""}`;
+    return `<b class="catalogTypeName">${typeImage}${escapeHtml(item.label)}</b><small>${escapeHtml(typeName)} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small>${scopeBadges ? `<small class="relationBadges">${scopeBadges}</small>` : ""}`;
   });
   renderRows("inspectors", (item) => {
     const patterns = (item.patterns || []).map((pattern) => `<span class="inspectorPatternPill" title="${escapeHtml(pattern)}">${escapeHtml(pattern)}</span>`).join("");
@@ -2922,10 +2926,10 @@ async function showPendingReleaseNotes() {
   const note = stored[STORAGE_KEYS.uiState]?.pendingReleaseNote;
   if (!note) return;
   const texts = currentLocale.startsWith("en")
-    ? { title: `Updated to version ${note.version}`, intro: "Your previous data and settings were preserved.", done: "Got it", items: ["The device used now follows steps, reports, and the test session summary", "Sidebar forms reuse types, relationships, and images from Settings", "Catalog images are larger and easier to identify", "Maximize now sits next to close in sidebar headers", "Forms include discreet, accessible help in English"] }
+    ? { title: `Updated to version ${note.version}`, intro: "Your previous data and settings were preserved.", done: "Got it", items: ["Devices show their name, systems, and browsers in reports and selectors", "Adding from a sidebar opens the original Settings form", "Type images appear in Settings, cards, and filters at 44 px with comfortable spacing", "Help balloons render above every form without clipping", "Maximize remains next to close in sidebar headers"] }
     : currentLocale.startsWith("es")
-      ? { title: `Actualizado a la versión ${note.version}`, intro: "Tus datos y configuraciones se conservaron.", done: "Entendido", items: ["El dispositivo utilizado ahora acompaña los pasos, informes y el resumen de la sesión", "Los formularios de los paneles laterales reutilizan tipos, relaciones e imágenes de Settings", "Las imágenes de los catálogos son más grandes y legibles", "Maximizar ahora está al lado de cerrar en los paneles laterales", "Los formularios tienen ayudas discretas y accesibles en español"] }
-      : { title: `Atualizado para a versão ${note.version}`, intro: "Seus dados e configurações anteriores foram preservados.", done: "Entendi", items: ["O dispositivo usado agora acompanha passos, relatórios e o resumo da sessão", "Formulários dos sidebars reutilizam tipos, relações e imagens dos Settings", "Imagens dos catálogos estão maiores e mais fáceis de identificar", "Maximizar agora fica ao lado de fechar nos sidebars", "Formulários receberam ajudas discretas e acessíveis em português"] };
+      ? { title: `Actualizado a la versión ${note.version}`, intro: "Tus datos y configuraciones se conservaron.", done: "Entendido", items: ["Los dispositivos muestran nombre, sistemas y navegadores en informes y selectores", "Agregar desde un panel lateral abre el formulario original de Settings", "Las imágenes de tipos aparecen en Settings, tarjetas y filtros con 44 px y separación cómoda", "Las ayudas se muestran por encima de cualquier formulario sin recortes", "Maximizar permanece al lado de cerrar en los paneles laterales"] }
+      : { title: `Atualizado para a versão ${note.version}`, intro: "Seus dados e configurações anteriores foram preservados.", done: "Entendi", items: ["Dispositivos exibem nome, sistemas e navegadores nos relatórios e seletores", "Adicionar pelo sidebar abre o formulário original dos Settings", "Imagens dos tipos aparecem nos Settings, cards e filtros com 44 px e espaçamento confortável", "Balloons de ajuda aparecem acima de qualquer formulário sem recortes", "Maximizar permanece ao lado de fechar nos sidebars"] };
   const dialog = document.createElement("dialog");
   dialog.className = "composerDialog";
   dialog.innerHTML = `<div class="dialogHead"><h2>${escapeHtml(texts.title)}</h2></div><div class="dialogBody"><p>${escapeHtml(texts.intro)}</p><ul>${texts.items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div><div class="dialogActions"><button class="primary" type="button">${escapeHtml(texts.done)}</button></div>`;
@@ -2965,6 +2969,21 @@ document.getElementById("resetButton").addEventListener("click", async () => {
   const requestedTab = launchParams.get("tab");
   if (requestedTab) {
     switchTab(requestedTab, { allowInactive: settingsTourTrustedHandoff });
+  }
+  const requestedWorkspaceTab = launchParams.get("workspaceTab");
+  if (requestedTab === "workspace" && requestedWorkspaceTab) {
+    activateWorkspaceTab(requestedWorkspaceTab, { syncNavigation: true });
+  }
+  const requestedComposer = launchParams.get("composer");
+  if (requestedTab === "workspace" && requestedComposer) {
+    const allowedComposers = new Set(["testAccountComposer", "paymentMethodComposer", "resourceComposer"]);
+    const dialog = allowedComposers.has(requestedComposer) ? document.getElementById(requestedComposer) : null;
+    const blockingDialog = document.querySelector("dialog[open]");
+    if (dialog && !dialog.open && blockingDialog && blockingDialog !== dialog) {
+      blockingDialog.addEventListener("close", () => { if (!dialog.open) dialog.showModal(); }, { once: true });
+    } else if (dialog && !dialog.open) {
+      dialog.showModal();
+    }
   }
   if (launchParams.get("settingsTour") === "1") {
     startSettingsTour();

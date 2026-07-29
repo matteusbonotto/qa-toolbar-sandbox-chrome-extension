@@ -1823,9 +1823,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["El dispositivo utilizado ahora acompaña los pasos, informes y el resumen de la sesión.", "Los formularios de los paneles laterales reutilizan tipos, relaciones e imágenes de Settings.", "Las imágenes de los catálogos son más grandes y legibles.", "Maximizar ahora está al lado de cerrar en los paneles laterales.", "Los formularios tienen ayudas discretas y accesibles en español."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["The device used now follows steps, reports, and the test session summary.", "Sidebar forms reuse types, relationships, and images from Settings.", "Catalog images are larger and easier to identify.", "Maximize now sits next to close in sidebar headers.", "Forms include discreet, accessible help in English."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["O dispositivo usado agora acompanha passos, relatórios e o resumo da sessão.", "Formulários dos sidebars reutilizam tipos, relações e imagens dos Settings.", "Imagens dos catálogos estão maiores e mais fáceis de identificar.", "Maximizar agora fica ao lado de fechar nos sidebars.", "Formulários receberam ajudas discretas e acessíveis em português."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los dispositivos muestran nombre, sistemas y navegadores en informes y selectores.", "Agregar desde un panel lateral abre el formulario original de Settings.", "Las imágenes de tipos aparecen en Settings, tarjetas y filtros con 44 px y separación cómoda.", "Las ayudas se muestran por encima de cualquier formulario sin recortes.", "Maximizar permanece al lado de cerrar en los paneles laterales."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Devices show their name, systems, and browsers in reports and selectors.", "Adding from a sidebar opens the original Settings form.", "Type images appear in Settings, cards, and filters at 44 px with comfortable spacing.", "Help balloons render above every form without clipping.", "Maximize remains next to close in sidebar headers."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Dispositivos exibem nome, sistemas e navegadores nos relatórios e seletores.", "Adicionar pelo sidebar abre o formulário original dos Settings.", "Imagens dos tipos aparecem nos Settings, cards e filtros com 44 px e espaçamento confortável.", "Balloons de ajuda aparecem acima de qualquer formulário sem recortes.", "Maximizar permanece ao lado de fechar nos sidebars."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -2222,15 +2222,52 @@ function helpBalloon(text) {
   return `<button type="button" class="qts-help-balloon" data-tooltip="${escapeHtml(text)}" aria-label="${escapeHtml(text)}">?</button>`;
 }
 
+function wireHelpBalloons(drawerHost) {
+  let popover = null;
+  const hide = () => { popover?.remove(); popover = null; };
+  const show = (button) => {
+    hide();
+    popover = document.createElement("div");
+    popover.className = "qts-help-popover";
+    popover.textContent = button.dataset.tooltip || "";
+    drawerHost.appendChild(popover);
+    const trigger = button.getBoundingClientRect();
+    const box = popover.getBoundingClientRect();
+    const left = Math.min(window.innerWidth - box.width - 8, Math.max(8, trigger.left + trigger.width / 2 - box.width / 2));
+    const preferredTop = trigger.top - box.height - 8;
+    popover.style.left = `${left}px`;
+    popover.style.top = `${preferredTop >= 8 ? preferredTop : trigger.bottom + 8}px`;
+  };
+  drawerHost.querySelectorAll(".qts-help-balloon").forEach((button) => {
+    button.addEventListener("mouseenter", () => show(button));
+    button.addEventListener("mouseleave", hide);
+    button.addEventListener("focus", () => show(button));
+    button.addEventListener("blur", hide);
+    button.addEventListener("click", () => { if (popover) hide(); else show(button); });
+  });
+}
+
 function workspaceDeviceOptions(selectedId = "") {
   return `<option value="">${escapeHtml(state.t.noDeviceSelected)}</option>${(state.workspace.devices || [])
     .filter((device) => device.active !== false)
-    .map((device) => `<option value="${escapeHtml(device.id)}" ${device.id === selectedId ? "selected" : ""}>${escapeHtml(device.label)}</option>`)
+    .map((device) => `<option value="${escapeHtml(device.id)}" ${device.id === selectedId ? "selected" : ""}>${escapeHtml(deviceSummary(device))}</option>`)
     .join("")}`;
 }
 
+function deviceSummary(device) {
+  if (!device) return "";
+  const operatingSystems = (device.operatingSystemIds || [])
+    .map((id) => (state.workspace.operatingSystems || []).find((item) => item.id === id)?.name)
+    .filter(Boolean);
+  const browsers = (device.browserIds || [])
+    .map((id) => (state.workspace.browsers || []).find((item) => item.id === id)?.name)
+    .filter(Boolean);
+  const configuration = [...operatingSystems, ...browsers].join(", ");
+  return configuration ? `${device.label} (${configuration})` : device.label;
+}
+
 function selectedDeviceLabel(deviceId) {
-  return (state.workspace.devices || []).find((device) => device.id === deviceId)?.label || "";
+  return deviceSummary((state.workspace.devices || []).find((device) => device.id === deviceId));
 }
 
 function reportKindOptions() {
@@ -3135,14 +3172,12 @@ function drawerStyles() {
       border-radius:50% !important; background:transparent !important; color:var(--qts-panel-muted) !important;
       font-size:11px !important; font-weight:900 !important; vertical-align:middle; cursor:help !important;
     }
-    .qts-help-balloon::after {
-      content:attr(data-tooltip); position:absolute; z-index:20; left:50%; bottom:calc(100% + 8px); width:max-content; max-width:240px;
+    .qts-help-popover {
+      position:fixed; z-index:2147483647; width:max-content; max-width:240px;
       padding:7px 9px; border:1px solid var(--qts-panel-border); border-radius:8px; background:var(--qts-panel-2); color:var(--qts-panel-text);
       box-shadow:0 8px 24px rgba(0,0,0,.35); font-size:11px; font-weight:600; line-height:1.4; text-align:left;
-      opacity:0; visibility:hidden; transform:translate(-50%,4px); transition:opacity 120ms ease, transform 120ms ease;
-      pointer-events:none; white-space:normal;
+      pointer-events:none; white-space:normal; overflow-wrap:anywhere;
     }
-    .qts-help-balloon:hover::after, .qts-help-balloon:focus-visible::after { opacity:1; visibility:visible; transform:translate(-50%,0); }
     .qts-catalog-image { width:44px; height:44px; flex:0 0 44px; margin:4px 8px 4px 2px; border-radius:9px; object-fit:cover; background:var(--qts-panel-2); }
     .qts-drawer-position { width:auto; display:flex; gap:3px; flex:none; }
     .qts-drawer-head .qts-drawer-position-btn {
@@ -3216,7 +3251,7 @@ function drawerStyles() {
     .qts-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
     .qts-filter-bar.isCollapsed { display: none; }
     .qts-toggle-group { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #262626; border-radius: 8px; background: #131313; }
-    .qts-toggle-group button { height: 26px; padding: 0 9px; border: 0; border-radius: 6px; background: transparent; color: #ccc; font-size: 11px; font-weight: 700; cursor: pointer; }
+    .qts-toggle-group button { min-height:52px; padding:4px 10px; border:0; border-radius:6px; background:transparent; color:#ccc; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:10px; }
     .qts-toggle-group button.isSelected { background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-combo { position: relative; border: 1px solid #262626; border-radius: 8px; background: #131313; }
     .qts-combo summary { list-style: none; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ddd; }
@@ -3531,7 +3566,7 @@ function renderSmartFilter({ key, label, options }, selected, onChange) {
   if (!options.length) return "";
   if (options.length <= 4) {
     return `<div class="qts-toggle-group" data-filter-key="${escapeHtml(key)}">
-      ${options.map((option) => `<button type="button" data-value="${escapeHtml(option.value)}" class="${selected.has(option.value) ? "isSelected" : ""}">${escapeHtml(option.label)}</button>`).join("")}
+      ${options.map((option) => `<button type="button" data-value="${escapeHtml(option.value)}" class="${selected.has(option.value) ? "isSelected" : ""}">${option.image ? `<img class="qts-catalog-image" src="${escapeHtml(option.image)}" alt="" />` : ""}<span>${escapeHtml(option.label)}</span></button>`).join("")}
     </div>`;
   }
   return `<details class="qts-combo" data-filter-key="${escapeHtml(key)}">
@@ -3740,6 +3775,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   localizeQaSurface(drawerHost);
   const drawerBody = drawerHost.querySelector("#drawerBody");
   onReady?.(drawerBody);
+  wireHelpBalloons(drawerHost);
   const footerActions = drawerHost.querySelector("#drawerFooterActions");
   if (footerActions) {
     const directButtons = [...drawerBody.children].filter((element) => element.matches("button.action"));
@@ -4581,6 +4617,7 @@ const testAccountsFilterState = { query: "", accountType: new Set(), collapsed: 
 
 function buildTestAccountFilterFields(accounts) {
   const typeImages = new Map();
+  (state.workspace.accountTypes || []).forEach((type) => { if (type.name && type.icon) typeImages.set(type.name, type.icon); });
   accounts.forEach((account) => { if (account.accountType && account.accountTypeImage) typeImages.set(account.accountType, account.accountTypeImage); });
   const types = [...new Set(accounts.map((account) => account.accountType).filter(Boolean))].sort();
   return [
@@ -4655,10 +4692,13 @@ function renderTestAccountsList() {
     <div id="testAccountsListBody" style="display:grid;gap:10px">${accounts.length ? accounts.map((account) => {
       const revealed = revealedTestAccountIds.has(account.id);
       const passwordDisplay = account.password ? (revealed ? escapeHtml(account.password) : "•".repeat(Math.min(10, account.password.length))) : "-";
+      const accountType = (state.workspace.accountTypes || []).find((type) => type.id === account.accountTypeId)
+        || (state.workspace.accountTypes || []).find((type) => type.name === account.accountType);
+      const accountTypeImage = accountType?.icon || account.accountTypeImage || "";
       return `
         <div class="qts-net-item" data-account-id="${escapeHtml(account.id)}" style="cursor:default">
           <div style="display:flex;align-items:center;gap:6px">
-            ${account.accountTypeImage ? `<img class="qts-catalog-image" src="${escapeHtml(account.accountTypeImage)}" alt="" />` : ""}
+            ${accountTypeImage ? `<img class="qts-catalog-image" src="${escapeHtml(accountTypeImage)}" alt="" />` : ""}
             <b>${escapeHtml(account.label)}</b>${account.accountType ? ` <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(account.accountType)}</span>` : ""}
           </div>
           <div style="margin-top:4px;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -4756,7 +4796,9 @@ function renderPaymentMethodsList() {
   }
   const types = [...new Set(allMethods.map((method) => method.type || "other"))].sort();
   const fields = [{ key: "type", label: "Tipo", options: types.map((value) => {
-    const catalogType = (state.workspace.paymentMethodTypes || []).find((type) => type.name === value);
+    const method = allMethods.find((item) => (item.type || "other") === value);
+    const catalogType = (state.workspace.paymentMethodTypes || []).find((type) => type.id === method?.typeId)
+      || (state.workspace.paymentMethodTypes || []).find((type) => type.name === value);
     return { value, label: value, image: catalogType?.icon || "" };
   }) }];
   const methods = allMethods.filter(matchesPaymentMethodFilters);
@@ -4778,9 +4820,12 @@ function renderPaymentMethodsList() {
       const displayValue = revealed ? escapeHtml(rawValue) : escapeHtml(dataAttr === "value" ? maskedPaymentValue(rawValue) : "•".repeat(Math.min(8, rawValue.length)));
       return `<div style="display:flex;align-items:center;gap:6px"><small style="color:#888;min-width:56px">${escapeHtml(fieldLabel)}</small><small>${displayValue}</small><button type="button" class="qts-icon-btn" data-copy-payment-field="${escapeHtml(method.id)}" data-field="${dataAttr}" style="width:22px;height:22px" title="Copiar">${ICON("copy")}</button></div>`;
     };
+    const paymentType = (state.workspace.paymentMethodTypes || []).find((type) => type.id === method.typeId)
+      || (state.workspace.paymentMethodTypes || []).find((type) => type.name === method.type);
+    const paymentTypeImage = method.icon || paymentType?.icon || "";
     return `<div class="qts-net-item" style="cursor:default">
       <div style="display:flex;align-items:center;gap:6px">
-        ${(method.icon || (state.workspace.paymentMethodTypes || []).find((type) => type.id === method.typeId)?.icon) ? `<img class="qts-catalog-image" src="${escapeHtml(method.icon || (state.workspace.paymentMethodTypes || []).find((type) => type.id === method.typeId)?.icon)}" alt="" />` : ""}
+        ${paymentTypeImage ? `<img class="qts-catalog-image" src="${escapeHtml(paymentTypeImage)}" alt="" />` : ""}
         <b>${escapeHtml(method.label || state.t.paymentMethodFallback)}</b> <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(method.type || "other")}</span>
       </div>
       <div style="margin-top:6px;display:grid;gap:4px">
@@ -5965,32 +6010,16 @@ function drawerAddButton(kind, label) {
 }
 
 function wireDrawerAddButton(body, kind) {
-  body.querySelector(`[data-add-workspace-item="${kind}"]`)?.addEventListener("click", () => openWorkspaceQuickComposer(kind));
-}
-
-function openWorkspaceQuickComposer(kind) {
-  const relationChecks = (name, items, selectedId, help) => `<fieldset class="qts-card"><legend>${escapeHtml(name)} ${helpBalloon(help)}</legend><div class="qts-check-grid">${items.map((item) => `<label><input type="checkbox" name="${escapeHtml(name)}Ids" value="${escapeHtml(item.id)}" ${item.id === selectedId ? "checked" : ""}/><span>${escapeHtml(item.name || item.label)}</span></label>`).join("") || `<small>${escapeHtml(state.t.noCatalogOptions)}</small>`}</div></fieldset>`;
-  const typeOptions = (items, selectedLabel = "") => items.map((item) => `<option value="${escapeHtml(item.id)}" ${item.name === selectedLabel ? "selected" : ""}>${escapeHtml(item.name)}</option>`).join("");
-  const environmentField = relationChecks("environment", state.workspace.environments || [], state.environment?.id, state.t.environmentRelationHelp);
-  const productField = relationChecks("product", state.workspace.products || [], state.environment?.productId, state.t.productRelationHelp);
-  const definitions = {
-    testAccount: { title: "Adicionar conta de teste", collection: "testAccounts", reopen: openTestAccountsDrawer,
-      fields: `${environmentField}${productField}<label>Nome ${helpBalloon(state.t.accountNameHelp)}<input name="label" required maxlength="120" /></label><label>Tipo de conta ${helpBalloon(state.t.accountTypeHelp)}<select name="typeId"><option value="">${escapeHtml(state.t.noTypeSelected)}</option>${typeOptions(state.workspace.accountTypes || [])}</select></label><label>Usuário / e-mail ${helpBalloon(state.t.sandboxCredentialHelp)}<input name="username" maxlength="200" autocomplete="off" /></label><label>Senha sandbox ${helpBalloon(state.t.sandboxCredentialHelp)}<input name="password" type="password" maxlength="200" autocomplete="new-password" /></label><label>Observações<textarea name="notes" maxlength="1000"></textarea></label>`,
-      build: (v, form) => { const type = (state.workspace.accountTypes || []).find((item) => item.id === v.typeId); return { id: crypto.randomUUID(), environmentIds: new FormData(form).getAll("environmentIds"), productIds: new FormData(form).getAll("productIds"), label: v.label, accountTypeId: type?.id || "", accountType: type?.name || "", accountTypeImage: type?.icon || "", username: v.username, password: v.password, notes: v.notes, customFields: [], active: true }; } },
-    paymentMethod: { title: "Adicionar pagamento sandbox", collection: "paymentMethods", reopen: openPaymentMethodsDrawer,
-      fields: `${environmentField}${productField}<label>Nome ${helpBalloon(state.t.paymentNameHelp)}<input name="label" required maxlength="120" /></label><label>Tipo de pagamento ${helpBalloon(state.t.paymentTypeHelp)}<select name="typeId"><option value="">${escapeHtml(state.t.noTypeSelected)}</option>${typeOptions(state.workspace.paymentMethodTypes || [])}</select></label><label>Ícone próprio (URL ou imagem exportável)<input name="icon" maxlength="2000000" placeholder="https://... ou data:image/..." /></label><label>Número ou token sandbox ${helpBalloon(state.t.sandboxCredentialHelp)}<input name="value" maxlength="240" autocomplete="off" /></label><label>Titular<input name="holder" maxlength="120" /></label><label>Validade<input name="expiry" maxlength="20" placeholder="MM/AA" /></label><label>CVV sandbox ${helpBalloon(state.t.sandboxCredentialHelp)}<input name="cvv" maxlength="20" autocomplete="off" /></label><label>Observações<textarea name="notes" maxlength="1000"></textarea></label>`,
-      build: (v, form) => { const type = (state.workspace.paymentMethodTypes || []).find((item) => item.id === v.typeId); return { id: crypto.randomUUID(), environmentIds: new FormData(form).getAll("environmentIds"), productIds: new FormData(form).getAll("productIds"), label: v.label, typeId: type?.id || "", type: type?.name || "", icon: v.icon || type?.icon || "", value: v.value, holder: v.holder, expiry: v.expiry, cvv: v.cvv, notes: v.notes, active: true }; } },
-    resource: { title: "Adicionar recurso ou link", collection: "resources", reopen: openResourcesDrawer,
-      fields: `<label>Nome ${helpBalloon(state.t.resourceNameHelp)}<input name="label" required maxlength="120" /></label><label>URL ${helpBalloon(state.t.resourceUrlHelp)}<input name="url" type="url" required maxlength="2048" placeholder="https://..." /></label><label>Categoria<input name="category" maxlength="60" /></label><label>Ícone (URL ou imagem exportável)<input name="icon" maxlength="2000000" placeholder="https://... ou data:image/..." /></label>`,
-      build: v => ({ id: crypto.randomUUID(), label: v.label, url: v.url, category: v.category, icon: v.icon, active: true }) },
-  };
-  const definition = definitions[kind];
-  if (!definition) return;
-  if (kind === "testAccount" && !state.environment) { showQaToast("Vincule esta página a um ambiente antes de criar uma conta.", "error"); return; }
-  openDrawer({ title: definition.title, variant: "modal", bodyHtml: `<p class="qts-tool-lead">Salvo no mesmo workspace das Configurações e carregado imediatamente.</p><form id="workspaceQuickComposer" style="display:grid;gap:12px">${definition.fields}<div class="qts-toolbar-row" style="justify-content:flex-end"><button type="button" class="action" id="quickComposerCancel">Cancelar</button><button type="submit" class="action primary">Salvar</button></div></form>`, onReady(body) {
-    body.querySelector("#quickComposerCancel").addEventListener("click", definition.reopen);
-    body.querySelector("#workspaceQuickComposer").addEventListener("submit", async event => { event.preventDefault(); const values = Object.fromEntries(new FormData(event.currentTarget).entries()); state.workspace[definition.collection] = [...(state.workspace[definition.collection] || []), definition.build(values, event.currentTarget)]; state.workspace = await saveWorkspace(state.workspace); definition.reopen(); showQaToast("Item salvo e carregado no sidebar."); });
-  } });
+  body.querySelector(`[data-add-workspace-item="${kind}"]`)?.addEventListener("click", () => {
+    const target = {
+      testAccount: { workspaceTab: "accounts", composer: "testAccountComposer" },
+      paymentMethod: { workspaceTab: "payments", composer: "paymentMethodComposer" },
+      resource: { workspaceTab: "integrations", composer: "resourceComposer" },
+    }[kind];
+    if (!target) return;
+    chrome.runtime.sendMessage({ type: "qts:open-options", tab: "workspace", ...target });
+    showQaToast(state.t.openedSettingsComposer);
+  });
 }
 
 function syncModeShortcutStates() {
@@ -7841,7 +7870,7 @@ function openStepsRecorder() {
     bodyHtml: `<p class="qts-tool-lead">${escapeHtml(copy.intro)}</p>
       <div class="qts-card">
         <label class="qts-field-label">${escapeHtml(copy.name)}<input id="newStepsName" placeholder="${escapeHtml(copy.name)}"/></label>
-        <label class="qts-field-label">${escapeHtml(extra.device)}<select id="newStepsDevice"><option value="">${escapeHtml(extra.noDevice)}</option>${(state.workspace.devices || []).map((device) => `<option value="${escapeHtml(device.id)}">${escapeHtml(device.label)}</option>`).join("")}</select></label>
+        <label class="qts-field-label">${escapeHtml(extra.device)} ${helpBalloon(state.t.testedDeviceHelp)}<select id="newStepsDevice">${workspaceDeviceOptions()}</select></label>
         <div class="qts-card-actions">
           <button id="startSteps" class="action primary" type="button">${ICON("recordStart")} ${escapeHtml(copy.record)}</button>
           <button id="startStepsVideo" class="action" type="button">${ICON("recordStart")} ${escapeHtml(extra.recordVideo)}</button>

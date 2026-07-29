@@ -139,6 +139,31 @@ Validação posterior:
 - SHA-256 do pacote:
   `3d7e0f76893cc828c3ad7d8f6986d6b083363da564ca7f1a26ca4a4e6e8d4f31`.
 
+## Versão 1.4.25
+
+- Os formulários paralelos criados nos sidebars foram removidos. Cada botão Adicionar agora abre
+  diretamente o composer original dos Settings na aba correta.
+- O deep-link aceita apenas os composers de conta, pagamento e recurso previstos, mantendo os
+  mesmos campos, relações N:N, upload, validações e campos personalizados dos Settings.
+- Dispositivos passaram a exibir nome, sistemas operacionais e navegadores nos seletores e no texto
+  exportado pelo Report Builder e pelo resumo da sessão.
+- Imagens de tipos de conta e pagamento são resolvidas pelo ID atual e também pelo nome legado.
+  Elas aparecem nos Settings, cards e filtros dos sidebars.
+- Imagens de catálogo usam 44 px e margem lateral consistente.
+- O balloon de ajuda deixou de usar pseudo-elemento preso ao container rolável. Agora é um popover
+  fixo com `z-index: 2147483647`, posicionado dentro da viewport.
+- A extensão foi incrementada para `1.4.25` somente depois da revisão dos critérios solicitados.
+- `npm run test:all:clean` foi aprovado com LP/Admin, 9 testes de backend, verificações de
+  segurança e smoke completo da extensão.
+- O smoke validou o composer original dos Settings, dispositivo com sistema/navegador, imagens de
+  44 px nos Settings e sidebars e o popover acima da pilha visual.
+- Resultado final: `consoleErrors: 0`, `workerErrors: 0` e fingerprint
+  `4f4db78682ffe74fd66a97a07f1d7d8d3291f834da3ce5d98dce297edf7cd652`.
+- Pacote preparado para upload manual:
+  `artifacts/chrome-web-store-package-v1.4.25.zip`.
+- SHA-256 do pacote:
+  `00728d7e93c0749802e016d9ba0a0e8f6123a218d4dee66a7f7e8e6111ecc2ac`.
+
 ## Correções visuais e de imagens concluídas em 29/07/2026
 
 - O modal de URL preserva os nomes completos de ambientes e produtos. Um seletor CSS amplo estava

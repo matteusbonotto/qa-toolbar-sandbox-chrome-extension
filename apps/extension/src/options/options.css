@@ -112,8 +112,8 @@ legend { padding:0 6px; color:var(--muted); font-size:11px; font-weight:800; }
 .typeCatalogCard { background:var(--subtle-bg); box-shadow:none; }
 .typeCatalogCard .cardHead h3 { margin:0; font-size:13px; }
 .typeCatalogList { max-height:160px; }
-.catalogTypeName { display:inline-flex; align-items:center; gap:7px; }
-.catalogTypeName img,.catalogTypeIcon { width:16px; height:16px; border-radius:4px; object-fit:cover; vertical-align:middle; }
+.catalogTypeName { display:inline-flex; align-items:center; gap:12px; }
+.catalogTypeName img,.catalogTypeIcon { width:44px; height:44px; flex:0 0 44px; margin:4px 10px 4px 2px; border-radius:9px; object-fit:cover; vertical-align:middle; }
 .wizardExistingLabel { margin:0 0 8px; }
 .wizardRelationSummary { margin:0; }
 .typePickerGroup { display:flex; align-items:center; gap:8px; min-width:0; }
