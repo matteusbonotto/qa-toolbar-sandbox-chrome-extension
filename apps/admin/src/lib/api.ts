@@ -216,11 +216,27 @@ export async function listEntitlementGrants(): Promise<EntitlementGrant[]> {
 
 export async function createEntitlementGrant(input: {
   userId: string;
-  planId: string | null;
-  source: EntitlementSource;
+  planId: string;
+  source: Extract<EntitlementSource, "manual" | "founder" | "trial">;
   expiresAt: string | null;
 }) {
-  const { error } = await requireClient().from("entitlement_grants").insert({
+  const client = requireClient();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(input.userId)) {
+    throw new Error("Selecione um usuário válido.");
+  }
+  if (!input.planId) throw new Error("Selecione o plano que será concedido.");
+  const { data: plan, error: planError } = await client.from("plans")
+    .select("id").eq("id", input.planId).eq("is_active", true).maybeSingle();
+  if (planError || !plan) throw new Error("O plano selecionado não está ativo.");
+  const { data: activeAdministrativeGrants, error: grantError } = await client.from("entitlement_grants")
+    .select("id").eq("user_id", input.userId)
+    .in("source", ["manual", "founder", "trial"]).is("revoked_at", null)
+    .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`).limit(1);
+  if (grantError) throw grantError;
+  if (activeAdministrativeGrants?.length) {
+    throw new Error("Este usuário já possui uma concessão administrativa ativa. Revogue a concessão anterior antes de criar outra.");
+  }
+  const { error } = await client.from("entitlement_grants").insert({
     user_id: input.userId,
     plan_id: input.planId,
     source: input.source,

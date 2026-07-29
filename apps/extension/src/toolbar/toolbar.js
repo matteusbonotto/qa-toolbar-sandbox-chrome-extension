@@ -16,7 +16,7 @@ const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
 const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
 
-// Preset data (24 = 12 color families x light/dark) lives in lib/theme-presets-content.js, shared
+// Preset data (nine color families with light and dark variants) lives in lib/theme-presets-content.js, shared
 // with options.js so both surfaces read the exact same source instead of two data sets drifting.
 const THEME_PRESETS = window.QTS_THEME_PRESETS.presets;
 const COLOR_THEME_SEMANTICS = window.QTS_THEME_PRESETS.semantics;
@@ -32,7 +32,16 @@ function applyColorTheme() {
   const preset = THEME_PRESETS.find((item) => item.id === state.workspace?.preferences?.colorTheme);
   const root = document.documentElement.style;
   const semantics = COLOR_THEME_SEMANTICS[preset?.mode || "dark"];
-  const tokens = preset ? { "--qts-ui-primary": preset.primary, "--qts-ui-primary-contrast": preset.primaryContrast, "--qts-ui-highlight": preset.primary, ...semantics } : null;
+  const tokens = preset ? {
+    "--qts-ui-primary": preset.primary,
+    "--qts-ui-primary-contrast": preset.primaryContrast,
+    "--qts-ui-highlight": preset.primary,
+    "--qts-ui-secondary": preset.secondary || semantics.secondary,
+    "--qts-ui-success": preset.success || semantics.success,
+    "--qts-ui-warning": preset.warning || semantics.warning,
+    "--qts-ui-danger": preset.danger || semantics.danger,
+    "--qts-ui-info": preset.info || semantics.info,
+  } : null;
   const keys = ["--qts-ui-primary", "--qts-ui-primary-contrast", "--qts-ui-highlight", "--qts-ui-secondary", "--qts-ui-success", "--qts-ui-warning", "--qts-ui-danger", "--qts-ui-info"];
   for (const key of keys) { if (tokens?.[key]) root.setProperty(key, tokens[key]); else root.removeProperty(key); }
 }
@@ -431,14 +440,14 @@ const TOOLS_MENU_LABELS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY
 const TOOLS_MENU_ITEM_KEY_BY_ID = Object.fromEntries(Object.entries(TOOLS_MENU_ITEM_IDS).map(([key, id]) => [id, key]));
 
 function customShortcutFromEvent(event) {
-  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
-  if (!/^(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(key)) return "";
+  const key = event.key.length === 1 ? event.key.toLocaleUpperCase() : event.key;
+  if (["Control", "Alt", "Shift", "Meta"].includes(key)) return "";
   const parts = [];
   if (event.ctrlKey) parts.push("Ctrl");
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
   if (event.metaKey) parts.push("Meta");
-  return parts.length ? [...parts, key].join("+") : "";
+  return [...parts, key].join("+");
 }
 
 function handleCustomToolShortcut(event) {
@@ -556,6 +565,11 @@ function render() {
   bar.style.setProperty("--qts-text", breadcrumb.text);
   bar.classList.toggle("isMinimized", state.minimized);
   bar.classList.toggle("isLoggedOut", !state.authorized);
+  const toolbarPosition = effectiveToolbarPosition();
+  const minimizeIcon = { top: "chevronUp", bottom: "chevronDown", left: "chevronLeft", right: "chevronRight" }[toolbarPosition];
+  const restoreIcon = { top: "chevronDown", bottom: "chevronUp", left: "chevronRight", right: "chevronLeft" }[toolbarPosition];
+  root.getElementById("minimizeButton").innerHTML = ICON(minimizeIcon);
+  root.getElementById("restoreButton").innerHTML = ICON(restoreIcon);
   root.getElementById("restoreButton").classList.toggle("isVisible", state.minimized);
   if (!state.authorized) { setSpacerHeight(); offsetSiteFixedHeaders(); return; }
 
@@ -632,9 +646,9 @@ function buildShadowHost() {
       :host([data-toolbar-position="left"]) #toolsButton,
       :host([data-toolbar-position="right"]) #toolsButton { font-size:0; justify-content:center; }
       :host([data-toolbar-position="left"]) #toolsButton svg,
-      :host([data-toolbar-position="right"]) #toolsButton svg { display:none; }
+      :host([data-toolbar-position="right"]) #toolsButton svg { display:block; margin:auto; }
       :host([data-toolbar-position="left"]) #toolsButton::before,
-      :host([data-toolbar-position="right"]) #toolsButton::before { content:"☷"; font-size:17px; line-height:1; }
+      :host([data-toolbar-position="right"]) #toolsButton::before { content:none; }
       :host([data-toolbar-position="left"]) #toolsMenu,
       :host([data-toolbar-position="right"]) #toolsMenu {
         position:fixed; top:8px; bottom:auto; width:min(278px,calc(100vw - 78px));
@@ -647,7 +661,7 @@ function buildShadowHost() {
       :host([data-toolbar-position="right"]) #urlToggleWrapper { display:block; }
       :host([data-toolbar-position="left"]) #urlToggleButton,
       :host([data-toolbar-position="right"]) #urlToggleButton {
-        width:38px; min-width:38px; height:38px; padding:0; border-radius:50%; justify-content:center;
+        width:38px; min-width:38px; max-width:38px; height:38px; min-height:38px; aspect-ratio:1; flex:0 0 38px; box-sizing:border-box; padding:0; border-radius:50%; justify-content:center;
         background:color-mix(in srgb,var(--qts-ui-primary,#2563eb) 24%,rgba(0,0,0,.22));
       }
       #verticalUrlPanel {
@@ -756,6 +770,9 @@ function buildShadowHost() {
         font: 900 13px sans-serif; cursor: pointer; box-shadow: 0 8px 18px rgba(0,0,0,.34);
       }
       #restoreButton.isVisible { display: inline-flex; }
+      :host([data-toolbar-position="bottom"]) #restoreButton { top:auto; bottom:6px; }
+      :host([data-toolbar-position="left"]) #restoreButton { top:8px; right:auto; left:6px; }
+      :host([data-toolbar-position="right"]) #restoreButton { top:8px; right:6px; }
       #toolsWrapper { position: relative; }
       #toolsMenu {
         position: absolute; top: 30px; right: 0; width: 260px; padding: 7px; display: grid; gap: 5px;
@@ -917,7 +934,7 @@ function buildShadowHost() {
             <button type="button" data-marker-pick="question" role="menuitem">${ICON("question")} ${escapeHtml(t.markerQuestion)}</button>
           </div>
         </div>
-        <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
+        <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">${ICON("noteText")}</button>
         <div id="shapeWrapper">
           <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
           <div id="shapeTypeMenu" class="isHidden" role="menu">
@@ -992,7 +1009,7 @@ function buildShadowHost() {
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} Test Suite</button>
             <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(t.testSessionMenuLabel)}</button>
             <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(t.reportBuilderMenuLabel)}</button>
-            <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
+            <button type="button" id="notesMenuItem" role="menuitem">${ICON("noteText")} ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
             <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("stepsRecorder")} ${escapeHtml(t.stepsRecorderMenuLabel || "Gravador de Passos")}</button>
@@ -2000,6 +2017,7 @@ function startTestSession() {
     context: sessionContextSnapshot(),
     statusPicks: [],
     evidenceCount: 0,
+    stepRecordingIds: [],
     httpErrorsAtStart: state.httpErrors.length,
   };
   const bar = state.shadowRoot.getElementById("testSessionBar");
@@ -2029,6 +2047,7 @@ function renderTestSessionSummary(container, session) {
       <p><b>${escapeHtml(t.testSessionDuration)}</b> ${escapeHtml(durationLabel)}</p>
       <p><b>${escapeHtml(t.testSessionResult)}</b> ${lastStatus ? escapeHtml(lastStatus.label) : escapeHtml(t.testSessionNoResult)}</p>
       <p><b>${escapeHtml(t.testSessionEvidence)}</b> ${session.evidenceCount}</p>
+      <p><b>${escapeHtml(stepsCopy().title)}</b> ${(session.stepRecordingIds || []).filter((id) => (state.workspace.stepRecordings || []).some((item) => item.id === id)).length}</p>
       <p><b>${escapeHtml(t.testSessionTechnicalContext)}</b> ${httpErrorsDuringSession.length ? `${httpErrorsDuringSession.length} × ${escapeHtml(t.testSessionHttpErrors)}` : escapeHtml(t.testSessionNoErrors)}</p>
       <label class="qts-field-label">${escapeHtml(t.testSessionNotes)}<textarea data-session-notes rows="3" placeholder="${escapeHtml(t.testSessionNotesPlaceholder)}"></textarea></label>
       <label class="qts-field-label">${escapeHtml(t.testSessionNextSteps)}<textarea data-session-next-steps rows="2" placeholder="${escapeHtml(t.testSessionNextStepsPlaceholder)}"></textarea></label>
@@ -2083,10 +2102,17 @@ function renderTestSessionSummary(container, session) {
   container.querySelector("[data-session-report]").addEventListener("click", () => {
     const scenario = container.querySelector("[data-session-scenario]").value.trim();
     const notes = container.querySelector("[data-session-notes]").value.trim();
+    const recordedSteps = (session.stepRecordingIds || [])
+      .map((id) => (state.workspace.stepRecordings || []).find((item) => item.id === id))
+      .filter(Boolean)
+      .flatMap((recording) => recording.steps || [])
+      .map((step, index) => `${index + 1}. ${step.text}`)
+      .join("\n");
     openReportBuilder({
       kind: lastStatus?.status === "pass" ? "approval" : lastStatus?.status === "limitation" ? "limitation" : lastStatus?.status === "blocked" ? "blocker" : "bug",
       title: scenario,
       actual: notes,
+      steps: recordedSteps,
     }, session.context);
   });
 }
@@ -2171,7 +2197,7 @@ function renderReportBuilder(container, context, prefill) {
       <label class="qts-field-label">${escapeHtml(t.reportTitle)}<input type="text" data-report-title value="${escapeHtml(prefill.title || "")}" placeholder="${escapeHtml(t.reportTitlePlaceholder)}" /></label>
       <label class="qts-field-label">${escapeHtml(t.reportDescription)}<textarea data-report-description rows="2" placeholder="${escapeHtml(t.reportDescriptionPlaceholder)}">${escapeHtml(prefill.description || "")}</textarea></label>
       <label class="qts-field-label">${escapeHtml(t.reportPreconditions)}<textarea data-report-preconditions rows="2" placeholder="${escapeHtml(t.reportPreconditionsPlaceholder)}"></textarea></label>
-      <label class="qts-field-label">${escapeHtml(t.reportSteps)}<textarea data-report-steps rows="3" placeholder="${escapeHtml(t.reportStepsPlaceholder)}"></textarea></label>
+      <label class="qts-field-label">${escapeHtml(t.reportSteps)}<textarea data-report-steps rows="3" placeholder="${escapeHtml(t.reportStepsPlaceholder)}">${escapeHtml(prefill.steps || "")}</textarea></label>
       <label class="qts-field-label">${escapeHtml(t.reportExpected)}<textarea data-report-expected rows="2"></textarea></label>
       <label class="qts-field-label">${escapeHtml(t.reportActual)}<textarea data-report-actual rows="2">${escapeHtml(prefill.actual || "")}</textarea></label>
       <div class="qts-toolbar-row">
@@ -2966,7 +2992,7 @@ function drawerStyles() {
       background: rgba(0,0,0,.5); font: 13px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     }
     .qts-drawer {
-      container-type:inline-size; position:relative; width: min(430px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
+      container-type:inline-size; position:relative; width: min(480px, 92vw); height: 100%; background: var(--qts-panel,#0b0b0b); color: var(--qts-panel-text,#fff); border-left: 2px solid var(--qts-ui-primary, #b20808);
       display: flex; flex-direction: column; box-shadow: -18px 0 40px rgba(0,0,0,.4); resize: both; overflow: hidden;
     }
     .qts-drawer-backdrop[data-position="left"] { justify-content:flex-start; }
@@ -3005,10 +3031,13 @@ function drawerStyles() {
     .qts-drawer-title { min-width:0; flex:1 1 180px; display:grid; gap:2px; }
     .qts-drawer-head h2 { margin:0; font-size:15px; line-height:1.25; min-width:0; overflow-wrap:anywhere; }
     .qts-drawer-kicker { color:var(--qts-panel-muted); font-size:10px; font-weight:650; }
-    .qts-drawer-controls { min-width:0; display:flex; align-items:center; justify-content:flex-end; gap:6px; flex:0 1 auto; }
+    .qts-drawer-controls {
+      position:static; z-index:8; min-width:0; display:flex; flex:0 0 auto;
+      align-items:center; justify-content:flex-end; gap:6px; margin-left:auto;
+    }
     .qts-drawer-head button { width:34px; height:34px; border:0; border-radius:9px; background:var(--qts-ui-primary,#2563eb); color:var(--qts-ui-primary-contrast,#fff); font-size:18px; cursor:pointer; flex:none; }
     .qts-drawer-head button { display:inline-flex; align-items:center; justify-content:center; padding:0; }
-    .qts-drawer-head #drawerClose { background:var(--qts-ui-danger,#c70e0e); color:#fff; }
+    .qts-drawer-head #drawerClose { background:#c70e0e; color:#fff; }
     .qts-drawer-position { width:auto; display:flex; gap:3px; flex:none; }
     .qts-drawer-head .qts-drawer-position-btn {
       width:22px; height:22px; min-width:0; padding:0; border:1px solid var(--qts-panel-border,#262626);
@@ -3021,7 +3050,7 @@ function drawerStyles() {
     @container (max-width: 430px) {
       .qts-drawer-head { flex-wrap:wrap; align-items:center; }
       .qts-drawer-title { flex:1 1 calc(100% - 44px); }
-      .qts-drawer-controls { flex:1 0 100%; justify-content:flex-start; }
+      .qts-drawer-controls { justify-content:flex-end; }
       .qts-drawer-position { margin-right:auto; }
       .qts-drawer-head button { width:36px; height:36px; }
     }
@@ -3033,6 +3062,15 @@ function drawerStyles() {
     .qts-drawer-resize[data-edge="top"] { top:-4px; } .qts-drawer-resize[data-edge="bottom"] { bottom:-4px; }
     .qts-drawer-head #drawerBack { background: var(--qts-panel-surface-2,#171717); color: inherit; font-size: 15px; }
     .qts-drawer-body { flex:1; min-width:0; overflow:auto; padding:14px 16px; }
+    .qts-drawer-footer-actions {
+      position:sticky; bottom:-14px; z-index:7; display:grid; grid-template-columns:1fr; gap:8px;
+      margin:18px -16px -14px; padding:10px 12px;
+      border-top:1px solid var(--qts-panel-border); background:var(--qts-panel);
+    }
+    .qts-drawer-footer-actions:empty { display:none; }
+    .qts-drawer-footer-actions:has(> :nth-child(2):last-child) { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .qts-drawer-footer-actions:has(> :nth-child(3):last-child) { grid-template-columns:1fr; }
+    .qts-drawer-footer-actions > button { width:100%; min-height:40px; }
     .qts-drawer-body > *, .qts-card > *, .qts-list-row > * { min-width:0; max-width:100%; }
     .qts-drawer-body :is(h1,h2,h3,h4,p,small,b,label,span) { overflow-wrap:anywhere; }
     .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
@@ -3080,7 +3118,7 @@ function drawerStyles() {
     .qts-combo summary .qts-combo-count { color: var(--qts-panel-accent, #ffd700); }
     .qts-combo[open] > .qts-combo-panel { display: flex; }
     .qts-combo-panel {
-      display: none; flex-direction: column; gap: 6px; position: absolute; top: 34px; left: 0; z-index: 5;
+      display: none; flex-direction: column; gap: 6px; position: absolute; top: 34px; left: 0; z-index: 100;
       width: max(220px, 100%); max-height: 260px; padding: 8px; border: 1px solid #333; border-radius: 8px;
       background: #101010; box-shadow: 0 12px 30px rgba(0,0,0,.5); overflow: auto;
     }
@@ -3443,7 +3481,7 @@ function renderMinimizedDrawerShortcut() {
   restore.className = "iconOnly isActive";
   restore.type = "button";
   restore.title = `Restaurar ${descriptor.title}`;
-  restore.innerHTML = ICON(descriptor.view === "jsonStudio" ? "braces" : "square");
+  restore.innerHTML = ICON("square");
   restore.addEventListener("click", () => {
     state.minimizedDrawer = null;
     restore.remove();
@@ -3452,14 +3490,44 @@ function renderMinimizedDrawerShortcut() {
   tools.appendChild(restore);
 }
 
+function clearDrawerPageOffset() {
+  const snapshot = state.drawerPageOffset;
+  if (!snapshot || !document.body) return;
+  for (const [property, value] of Object.entries(snapshot)) document.body.style[property] = value;
+  state.drawerPageOffset = null;
+}
+
+function applyDrawerPageOffset(position, drawer, enabled) {
+  clearDrawerPageOffset();
+  if (!enabled || !document.body || !drawer) return;
+  state.drawerPageOffset = {
+    paddingLeft: document.body.style.paddingLeft,
+    paddingRight: document.body.style.paddingRight,
+    paddingTop: document.body.style.paddingTop,
+    paddingBottom: document.body.style.paddingBottom,
+  };
+  const size = drawer.getBoundingClientRect();
+  const property = { left: "paddingLeft", right: "paddingRight", top: "paddingTop", bottom: "paddingBottom" }[position];
+  document.body.style[property] = `${Math.ceil(["left", "right"].includes(position) ? size.width : size.height)}px`;
+}
+
 function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" }) {
   if (!view && title === stepsCopy().title) view = "stepsRecorder";
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
-  // Every open must reset (or set) this flag - handleNetworkCaptured() checks it to decide
-  // whether to live-refresh the Inspectors list. Leaving a stale "inspectors" value here after
-  // switching to a different panel made Inspectors content silently overwrite other drawers.
+  // Every open must reset (or set) this flag - handleNetworkCaptured()/updateHttpErrorSurfaces()
+  // check it to decide whether to live-refresh the Inspectors/Error Monitor list. Leaving a stale
+  // "inspectors" value here after switching to a different panel made Inspectors content silently
+  // overwrite other drawers.
   drawerHost.dataset.view = view;
+  // A detail view (Inspectors' or Error Monitor's "endpoint" screen) reuses the SAME `view` tag as
+  // its own list - it's a `onBack`-driven sub-screen, not a different tool - so the live-refresh
+  // checks above can't tell a detail screen apart from the list using `view` alone. Found live: a
+  // background capture arriving while looking at an endpoint's detail forced the list back onto
+  // screen, discarding the drill-down (and, from the search box being gone too, reading as "my
+  // filter got undone"). `onBack` is only ever passed for a detail/drill-down screen, so it's
+  // already the exact signal needed - nothing new to track.
+  drawerHost.dataset.drawerHasBack = String(Boolean(onBack));
   const preferredDrawerPosition = effectiveDrawerPosition();
   const drawerPosition = ["left", "right", "top", "bottom"].includes(preferredDrawerPosition) ? preferredDrawerPosition : "right";
   const detachedWindow = Boolean(state.detachedToolKey);
@@ -3472,20 +3540,32 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
           <div class="qts-drawer-controls">${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
           ${sidebarControls ? `<div class="qts-drawer-position" id="drawerPosition" role="radiogroup" aria-label="Posição do sidebar">${["right", "left", "top", "bottom"].map((side) => `<button type="button" class="qts-drawer-position-btn" data-position="${side}" aria-pressed="${side === drawerPosition}" title="${escapeHtml({ right: "Direita", left: "Esquerda", top: "Cima", bottom: "Baixo" }[side])}">${drawerPositionIcon(side)}</button>`).join("")}</div>` : ""}
           ${sidebarControls ? `<button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
-          <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
+          <button type="button" id="drawerMinimize" title="Recolher sidebar">${ICON("collapse")}</button>` : ""}
           <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div></div>
         ${sidebarControls ? `<div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>` : ""}
-        <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
+        <div class="qts-drawer-body" id="drawerBody">${bodyHtml}${sidebarControls ? `<div class="qts-drawer-footer-actions" id="drawerFooterActions"></div>` : ""}</div>
       </div>
     </div>`;
   const backdrop = drawerHost.querySelector("#drawerBackdrop");
   const drawer = drawerHost.querySelector(".qts-drawer");
+  const pushesSite = sidebarControls && state.workspace?.preferences?.pushSiteContentForDrawer === true;
+  const toolbarPosition = effectiveToolbarPosition();
+  const toolbarOffset = pushSiteContentEnabled() ? getCurrentHeight() : 0;
+  if (drawerPosition === "top" && toolbarPosition === "top") {
+    backdrop.style.top = `${toolbarOffset}px`;
+    backdrop.style.height = `calc(100% - ${toolbarOffset}px)`;
+  } else if (drawerPosition === "bottom" && toolbarPosition === "bottom") {
+    backdrop.style.bottom = `${toolbarOffset}px`;
+    backdrop.style.height = `calc(100% - ${toolbarOffset}px)`;
+  }
+  applyDrawerPageOffset(drawerPosition, drawer, pushesSite);
   const positionButtons = [...drawerHost.querySelectorAll(".qts-drawer-position-btn")];
   drawerHost.querySelector("#drawerDetach")?.addEventListener("click", () => openToolInNewTab(view));
   positionButtons.forEach((button) => {
     button.addEventListener("click", async () => {
       const value = button.dataset.position;
       backdrop.dataset.position = value;
+      applyDrawerPageOffset(value, drawer, pushesSite);
       positionButtons.forEach((candidate) => candidate.setAttribute("aria-pressed", String(candidate === button)));
       const preferenceKey = isMobileViewport() ? "mobileDrawerPosition" : "drawerPosition";
       state.workspace.preferences = { ...(state.workspace.preferences || {}), [preferenceKey]: value };
@@ -3497,7 +3577,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     event.currentTarget.setAttribute("aria-pressed", String(pinned));
   });
   drawerHost.querySelector("#drawerMinimize")?.addEventListener("click", () => {
-    state.minimizedDrawer = { title, bodyHtml, onReady, onBack, view, variant };
+    state.minimizedDrawer = { title, bodyHtml, onReady, onBack, view, variant, position: backdrop.dataset.position };
     renderMinimizedDrawerShortcut();
     closeDrawer();
   });
@@ -3546,12 +3626,21 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     });
   });
   localizeQaSurface(drawerHost);
-  onReady?.(drawerHost.querySelector("#drawerBody"));
+  const drawerBody = drawerHost.querySelector("#drawerBody");
+  onReady?.(drawerBody);
+  const footerActions = drawerHost.querySelector("#drawerFooterActions");
+  if (footerActions) {
+    const directButtons = [...drawerBody.children].filter((element) => element.matches("button.action"));
+    const groupedButtons = [...drawerBody.querySelectorAll(":scope > .qts-card-actions > button.action")];
+    [...directButtons, ...groupedButtons].forEach((button) => footerActions.appendChild(button));
+    drawerBody.querySelectorAll(":scope > .qts-card-actions:empty").forEach((group) => group.remove());
+  }
 }
 
 function closeDrawer() {
   const drawerHost = state.shadowRoot?.getElementById("drawerHost");
   if (drawerHost) drawerHost.innerHTML = "";
+  clearDrawerPageOffset();
 }
 
 function renderJsonTree(value, depth = 0) {
@@ -3989,7 +4078,8 @@ function handleNetworkCaptured(entry) {
     badge.textContent = String(state.networkHistory.length);
     badge.style.display = state.networkHistory.length ? "inline-flex" : "none";
   }
-  if (state.shadowRoot?.getElementById("drawerHost")?.dataset.view === "inspectors") renderInspectorsList();
+  const inspectorsDrawerHost = state.shadowRoot?.getElementById("drawerHost");
+  if (inspectorsDrawerHost?.dataset.view === "inspectors" && inspectorsDrawerHost.dataset.drawerHasBack !== "true") renderInspectorsList();
 }
 
 // "auto" means "not yet manually chosen" - resolved once per drawer session by
@@ -4230,7 +4320,8 @@ function updateHttpErrorSurfaces() {
   const bellBadge = root.getElementById("notificationBellBadge");
   if (bellBadge) { bellBadge.textContent = count > 99 ? "99+" : String(count); bellBadge.classList.toggle("isVisible", count > 0); }
   if (!root.getElementById("notificationBellPanel")?.classList.contains("isHidden")) renderNotificationBellPanel();
-  if (root.getElementById("drawerHost")?.dataset.view === "errorMonitor") renderErrorMonitorList();
+  const errorMonitorDrawerHost = root.getElementById("drawerHost");
+  if (errorMonitorDrawerHost?.dataset.view === "errorMonitor" && errorMonitorDrawerHost.dataset.drawerHasBack !== "true") renderErrorMonitorList();
 }
 
 function clearHttpErrors() {
@@ -6855,6 +6946,20 @@ function appendRecordedStep(step) {
   else recording.steps.push(step);
   recording.lastAt = Date.now();
   updateMacroRecordingUi();
+  persistMacroRecordingRun();
+}
+
+// Snapshot of the in-progress macro recording, so a page reload mid-capture has something to
+// resume from - mirrors playMacro/continueMacroRun's own chrome.storage.session persistence for
+// *replay*, which this recording phase never had. Written synchronously (not debounced) on every
+// call: a reload can happen at any moment, including right after the very first captured step, and
+// a debounce timer doesn't survive the reload it's racing against - each individual action here is
+// already coalesced upstream (e.g. onInput's own 350ms debounce before it ever calls append), so
+// this isn't actually a write-per-keystroke.
+function persistMacroRecordingRun() {
+  const recording = state.macroRecording;
+  if (!recording) return;
+  void recordingRunRequest("macro", "set", { steps: recording.steps, lastAt: recording.lastAt, paused: recording.paused, expiresAt: Date.now() + 60 * 60_000 });
 }
 
 // One-line human description for the recording history panel - mirrors the same action set
@@ -6907,6 +7012,7 @@ function toggleMacroRecordingPause() {
   // Resuming starts a fresh interval so the paused gap itself is never recorded as a "wait" step.
   if (!recording.paused) recording.lastAt = Date.now();
   updateMacroRecordingUi();
+  persistMacroRecordingRun();
   showQaToast(recording.paused ? "Gravação pausada." : "Gravação retomada.");
 }
 
@@ -6915,6 +7021,7 @@ function undoLastMacroStep() {
   if (!recording?.steps.length) return;
   recording.steps.pop();
   updateMacroRecordingUi();
+  persistMacroRecordingRun();
 }
 
 function cancelMacroRecording() {
@@ -6923,6 +7030,7 @@ function cancelMacroRecording() {
   recording.cleanup();
   state.macroRecording = null;
   updateMacroRecordingUi();
+  void recordingRunRequest("macro", "clear");
   showQaToast("Gravação cancelada.");
 }
 
@@ -6934,9 +7042,9 @@ function toggleMacroHistoryPanel() {
   if (willShow) renderMacroHistoryPanel();
 }
 
-function startMacroRecording() {
+function startMacroRecording(resumeData = null) {
   if (state.macroRecording) return;
-  closeDrawer();
+  if (!resumeData) closeDrawer();
   const click = (event) => {
     const element = event.target;
     if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || window.QTS_QA_TOOLS.isSensitiveElement(element)) return;
@@ -6961,9 +7069,13 @@ function startMacroRecording() {
   document.addEventListener("click", click, true);
   document.addEventListener("change", change, true);
   document.addEventListener("keydown", keydown, true);
-  state.macroRecording = { steps: [], lastAt: Date.now(), paused: false, cleanup: () => { document.removeEventListener("click", click, true); document.removeEventListener("change", change, true); document.removeEventListener("keydown", keydown, true); } };
+  const cleanup = () => { document.removeEventListener("click", click, true); document.removeEventListener("change", change, true); document.removeEventListener("keydown", keydown, true); };
+  state.macroRecording = resumeData
+    ? { steps: resumeData.steps || [], lastAt: Date.now(), paused: resumeData.paused === true, cleanup }
+    : { steps: [], lastAt: Date.now(), paused: false, cleanup };
   updateMacroRecordingUi();
-  showQaToast("Gravação iniciada. Senhas e dados sensíveis não serão capturados.");
+  showQaToast(resumeData ? "Gravação de macro retomada após o recarregamento da página." : "Gravação iniciada. Senhas e dados sensíveis não serão capturados.");
+  if (!resumeData) persistMacroRecordingRun();
 }
 
 function stopMacroRecording() {
@@ -6972,11 +7084,19 @@ function stopMacroRecording() {
   recording.cleanup();
   state.macroRecording = null;
   updateMacroRecordingUi();
+  void recordingRunRequest("macro", "clear");
   openMacroEditor({ id: crypto.randomUUID(), name: `Macro ${new Date().toLocaleTimeString().slice(0, 5)}`, description: "", steps: recording.steps.filter((step, index, all) => !(step.action === "wait" && index === all.length - 1)) });
 }
 
 function macroRunRequest(operation, run) {
   return new Promise((resolve) => chrome.runtime.sendMessage({ type: "qts:macro-run", operation, run }, (response) => resolve(chrome.runtime.lastError ? { ok: false } : response || { ok: false })));
+}
+
+// Same tab-scoped chrome.storage.session pattern as macroRunRequest (macro *replay*), but for the
+// two *recording* phases (Gravador de Passos / Macro Studio) - see qts:recording-run in
+// background.js. `kind` is "steps" or "macro".
+function recordingRunRequest(kind, operation, run) {
+  return new Promise((resolve) => chrome.runtime.sendMessage({ type: "qts:recording-run", kind, operation, run }, (response) => resolve(chrome.runtime.lastError ? { ok: false } : response || { ok: false })));
 }
 
 async function continueMacroRun(run, { announce = false } = {}) {
@@ -7167,7 +7287,7 @@ function openMacroStudio() {
       <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
     onReady(body) {
-      body.querySelector("#startMacroRecording").addEventListener("click", startMacroRecording);
+      body.querySelector("#startMacroRecording").addEventListener("click", () => startMacroRecording());
       body.querySelector("#newMacro").addEventListener("click", () => openMacroEditor({ id: crypto.randomUUID(), name: "Nova macro", description: "", steps: [] }));
       body.querySelector("#exportAllMacros").addEventListener("click", () => downloadMacroJson(macros));
       const file = body.querySelector("#macroFile");
@@ -7238,9 +7358,9 @@ function pickRecordingMimeType() {
 }
 
 const STEPS_COPY = {
-  "pt-BR": { title: "Gravador de Passos", intro: "Cada clique, campo preenchido e mensagem de retorno vira um passo - simples de ler, fácil de repetir.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Estou na tela", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher o campo", select: "no menu suspenso", check: "Marcar a caixa", uncheck: "Desmarcar a caixa", submit: "Enviar o formulário", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "O que apareceu na tela", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "com", selectWord: "Selecionar", onWord: "em", occurs: "acontece" },
-  "es": { title: "Grabador de pasos", intro: "Cada clic, campo completado y mensaje de retorno se vuelve un paso - simple de leer, fácil de repetir.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Estoy en la pantalla", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar el campo", select: "en el menú desplegable", check: "Marcar la casilla", uncheck: "Desmarcar la casilla", submit: "Enviar el formulario", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Qué apareció en la pantalla", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "con", selectWord: "Seleccionar", onWord: "en", occurs: "ocurre" },
-  "en": { title: "Step Recorder", intro: "Every click, filled field and returned message becomes one step - easy to read, easy to repeat.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "I am on the screen", click: "Click", contextmenu: "Right-click", input: "Fill the field", select: "in the dropdown menu", check: "Check the box", uncheck: "Uncheck the box", submit: "Submit the form", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "What appeared on the screen", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result", withWord: "with", selectWord: "Select", onWord: "on", occurs: "happens" },
+  "pt-BR": { title: "Gravador de Passos", intro: "Cada clique, campo preenchido e mensagem de retorno vira um passo - simples de ler, fácil de repetir.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Estou na tela", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher o campo", select: "no menu suspenso", check: "Marcar a caixa", uncheck: "Desmarcar a caixa", submit: "Enviar o formulário", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "O que apareceu na tela", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", resumedAfterReload: "Gravação de passos retomada após o recarregamento da página.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "com", selectWord: "Selecionar", onWord: "em", occurs: "acontece" },
+  "es": { title: "Grabador de pasos", intro: "Cada clic, campo completado y mensaje de retorno se vuelve un paso - simple de leer, fácil de repetir.", record: "Grabar pasos", manual: "Crear manualmente", numbered: "Pasos numerados", gherkin: "Gherkin", start: "Estoy en la pantalla", click: "Hacer clic en", contextmenu: "Hacer clic con el botón derecho en", input: "Completar el campo", select: "en el menú desplegable", check: "Marcar la casilla", uncheck: "Desmarcar la casilla", submit: "Enviar el formulario", key: "Presionar", navigation: "Navegar a", protected: "Completar campo protegido", expected: "Qué apareció en la pantalla", add: "Agregar paso", save: "Guardar guion", export: "Exportar CSV", empty: "No hay guiones guardados.", name: "Nombre del guion", steps: "pasos", saved: "Guion guardado.", paused: "Grabación de pasos pausada.", resumed: "Grabación de pasos reanudada.", recording: "Grabación de pasos iniciada.", resumedAfterReload: "Grabación de pasos reanudada después de recargar la página.", discard: "¿Descartar esta grabación de pasos?", delete: "¿Eliminar este guion?", edit: "Editar", remove: "Eliminar", duplicate: "Duplicar", back: "Guiones", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "con", selectWord: "Seleccionar", onWord: "en", occurs: "ocurre" },
+  "en": { title: "Step Recorder", intro: "Every click, filled field and returned message becomes one step - easy to read, easy to repeat.", record: "Record steps", manual: "Create manually", numbered: "Numbered steps", gherkin: "Gherkin", start: "I am on the screen", click: "Click", contextmenu: "Right-click", input: "Fill the field", select: "in the dropdown menu", check: "Check the box", uncheck: "Uncheck the box", submit: "Submit the form", key: "Press", navigation: "Navigate to", protected: "Fill protected field", expected: "What appeared on the screen", add: "Add step", save: "Save scenario", export: "Export CSV", empty: "No saved scenarios.", name: "Scenario name", steps: "steps", saved: "Scenario saved.", paused: "Step recording paused.", resumed: "Step recording resumed.", recording: "Step recording started.", resumedAfterReload: "Step recording resumed after the page reloaded.", discard: "Discard this step recording?", delete: "Delete this scenario?", edit: "Edit", remove: "Delete", duplicate: "Duplicate", back: "Scenarios", csvSteps: "steps", csvExpected: "expected result", withWord: "with", selectWord: "Select", onWord: "on", occurs: "happens" },
 };
 
 // Keeps every recorded step in the right Gherkin bucket automatically -- setup actions (filling
@@ -7267,6 +7387,16 @@ function nextStepsKeyword(recording, action) {
 function stepsCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
   return STEPS_COPY[language] || STEPS_COPY[language.split("-")[0]] || STEPS_COPY["pt-BR"];
+}
+
+function stepsExtraCopy() {
+  const language = state.workspace?.preferences?.language || "pt-BR";
+  const copy = {
+    "pt-BR": { recordVideo: "Passos + vídeo", recordGif: "Passos + GIF", replay: "Repetir fluxo", replayUnavailable: "Este roteiro antigo não possui seletores seguros para repetição.", replayDone: "Fluxo repetido com sucesso.", report: "Criar relatório", device: "Dispositivo testado", noDevice: "Sem dispositivo" },
+    es: { recordVideo: "Pasos + vídeo", recordGif: "Pasos + GIF", replay: "Repetir flujo", replayUnavailable: "Este guion antiguo no tiene selectores seguros para repetirlo.", replayDone: "Flujo repetido correctamente.", report: "Crear informe", device: "Dispositivo probado", noDevice: "Sin dispositivo" },
+    en: { recordVideo: "Steps + video", recordGif: "Steps + GIF", replay: "Replay flow", replayUnavailable: "This older scenario has no safe selectors for replay.", replayDone: "Flow replayed successfully.", report: "Create report", device: "Tested device", noDevice: "No device" },
+  };
+  return copy[language] || copy[language.split("-")[0]] || copy["pt-BR"];
 }
 
 // Falling straight back to the bare tag name ("div", "span") once no label/text/placeholder is
@@ -7309,6 +7439,17 @@ function appendDocumentedStep(step) {
   else recording.steps.push(step);
   recording.lastActionAt = Date.now();
   updateStepsRecordingUi();
+  persistStepsRecordingRun();
+}
+
+// chrome.storage.session snapshot of the in-progress steps recording (same rationale as
+// persistMacroRecordingRun, including why it's synchronous rather than debounced) - without this,
+// a reload mid-recording lost everything captured so far since only the *finished* recording (on
+// Salvar) was ever written to storage.
+function persistStepsRecordingRun() {
+  const recording = state.stepsRecording;
+  if (!recording) return;
+  void recordingRunRequest("steps", "set", { id: recording.id, name: recording.name, mode: recording.mode, deviceId: recording.deviceId || "", paused: recording.paused, phase: recording.phase, lastActionAt: recording.lastActionAt, steps: recording.steps, expiresAt: Date.now() + 60 * 60_000 });
 }
 
 function updateStepsRecordingUi() {
@@ -7348,13 +7489,13 @@ function renderStepsHistory() {
 }
 
 function toggleStepsHistory() { const panel = state.shadowRoot?.getElementById("stepsRecHistoryPanel"); if (!panel) return; panel.classList.toggle("isHidden"); renderStepsHistory(); }
-function toggleStepsPause() { if (!state.stepsRecording) return; state.stepsRecording.paused = !state.stepsRecording.paused; updateStepsRecordingUi(); showQaToast(state.stepsRecording.paused ? stepsCopy().paused : stepsCopy().resumed); }
-function undoStepsRecording() { state.stepsRecording?.steps.pop(); updateStepsRecordingUi(); }
-function cancelStepsRecording() { if (!state.stepsRecording || !confirm(stepsCopy().discard)) return; state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); }
+function toggleStepsPause() { if (!state.stepsRecording) return; state.stepsRecording.paused = !state.stepsRecording.paused; updateStepsRecordingUi(); persistStepsRecordingRun(); showQaToast(state.stepsRecording.paused ? stepsCopy().paused : stepsCopy().resumed); }
+function undoStepsRecording() { state.stepsRecording?.steps.pop(); updateStepsRecordingUi(); persistStepsRecordingRun(); }
+function cancelStepsRecording() { if (!state.stepsRecording || !confirm(stepsCopy().discard)) return; const hadMedia = Boolean(state.stepsRecording.mediaMode); state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); void recordingRunRequest("steps", "clear"); if (hadMedia && recordingState.status !== "idle") stopEvidenceRecording(); }
 
-function startStepsRecording({ name, mode }) {
+function startStepsRecording({ name, mode, deviceId = "" } = {}, resumeData = null) {
   if (!requirePlanFeature("stepsRecorder") || state.stepsRecording) return;
-  closeDrawer();
+  if (!resumeData) closeDrawer();
   const copy = stepsCopy();
   const inputTimers = new WeakMap();
   const addInput = (element) => {
@@ -7371,18 +7512,18 @@ function startStepsRecording({ name, mode }) {
       : isSelect
         ? (value ? `${copy.selectWord} "${value}" ${copy.select} ${targetName}` : `${copy.selectWord} ${targetName}`)
         : (value ? `${copy.input} ${targetName} ${copy.withWord} "${value}"` : `${copy.input} ${targetName}`);
-    appendDocumentedStep({ ...makeDocumentedStep(action, text), targetKey: window.QTS_QA_TOOLS.uniqueSelector(element) || targetName });
+    appendDocumentedStep({ ...makeDocumentedStep(action, text), targetKey: window.QTS_QA_TOOLS.uniqueSelector(element) || "", value });
   };
   const onInput = (event) => { const element = event.target; clearTimeout(inputTimers.get(element)); inputTimers.set(element, setTimeout(() => addInput(element), 350)); };
   const onChange = (event) => {
     const element = event.target;
-    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) appendDocumentedStep(makeDocumentedStep("check", `${element.checked ? copy.check : copy.uncheck} ${stepsTargetName(element)}`));
+    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) appendDocumentedStep({ ...makeDocumentedStep("check", `${element.checked ? copy.check : copy.uncheck} ${stepsTargetName(element)}`), targetKey: window.QTS_QA_TOOLS.uniqueSelector(element) || "", checked: element.checked });
     else addInput(element);
   };
-  const onClick = (event) => { const element = event.target; if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || element.matches("input,textarea,select,option")) return; const target = element.closest("button,a,[role=button],label") || element; const label = stepsTargetName(target); const submit = target.matches("button[type=submit],input[type=submit]"); appendDocumentedStep(makeDocumentedStep(submit ? "submit" : "click", `${submit ? copy.submit : copy.click} ${label}`)); };
+  const onClick = (event) => { const element = event.target; if (!(element instanceof Element) || element.closest(`#${HOST_ID}`) || element.matches("input,textarea,select,option")) return; const target = element.closest("button,a,[role=button],label") || element; const label = stepsTargetName(target); const submit = target.matches("button[type=submit],input[type=submit]"); appendDocumentedStep({ ...makeDocumentedStep(submit ? "submit" : "click", `${submit ? copy.submit : copy.click} ${label}`), targetKey: window.QTS_QA_TOOLS.uniqueSelector(target) || "" }); };
   const onContext = (event) => { const element = event.target; if (element instanceof Element && !element.closest(`#${HOST_ID}`)) appendDocumentedStep(makeDocumentedStep("contextmenu", `${copy.contextmenu} ${stepsTargetName(element)}`)); };
-  const onSubmit = (event) => appendDocumentedStep(makeDocumentedStep("submit", `${copy.submit} ${stepsTargetName(event.target)}`));
-  const onKey = (event) => { if (["Enter", "Tab"].includes(event.key) && event.target instanceof Element && !window.QTS_QA_TOOLS.isSensitiveElement(event.target)) appendDocumentedStep(makeDocumentedStep("key", `${copy.key} "${event.key}" ${copy.onWord} ${stepsTargetName(event.target)}`)); };
+  const onSubmit = (event) => appendDocumentedStep({ ...makeDocumentedStep("submit", `${copy.submit} ${stepsTargetName(event.target)}`), targetKey: window.QTS_QA_TOOLS.uniqueSelector(event.target) || "" });
+  const onKey = (event) => { if (["Enter", "Tab"].includes(event.key) && event.target instanceof Element && !window.QTS_QA_TOOLS.isSensitiveElement(event.target)) appendDocumentedStep({ ...makeDocumentedStep("key", `${copy.key} "${event.key}" ${copy.onWord} ${stepsTargetName(event.target)}`), targetKey: window.QTS_QA_TOOLS.uniqueSelector(event.target) || "", value: event.key }); };
   const onNavigate = () => appendDocumentedStep(makeDocumentedStep("navigation", `${copy.navigation} ${document.title || safeCurrentUrl()}`));
   // Once a result message is picked up here, the recording's phase resets so the *next*
   // click/submit/key opens a fresh "Quando" instead of continuing to chain onto the one that just
@@ -7403,15 +7544,41 @@ function startStepsRecording({ name, mode }) {
       step.expectedResult = result;
       recording.phase = "then";
       updateStepsRecordingUi();
+      persistStepsRecordingRun();
       break;
     }
   });
   document.addEventListener("input", onInput, true); document.addEventListener("change", onChange, true); document.addEventListener("click", onClick, true); document.addEventListener("contextmenu", onContext, true); document.addEventListener("submit", onSubmit, true); document.addEventListener("keydown", onKey, true); window.addEventListener("popstate", onNavigate); window.addEventListener("hashchange", onNavigate); resultObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
-  state.stepsRecording = { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", paused: false, phase: "given", lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start} ${document.title || safeCurrentUrl()}`)], cleanup() { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); } };
-  updateStepsRecordingUi(); showQaToast(copy.recording);
+  const cleanup = () => { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); };
+  state.stepsRecording = resumeData
+    ? { id: resumeData.id, name: resumeData.name, mode: resumeData.mode, deviceId: resumeData.deviceId || "", mediaMode: "", paused: resumeData.paused === true, phase: resumeData.phase || "given", lastActionAt: Date.now(), steps: resumeData.steps || [], cleanup }
+    : { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", deviceId, mediaMode: "", paused: false, phase: "given", lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start} ${document.title || safeCurrentUrl()}`)], cleanup };
+  updateStepsRecordingUi();
+  showQaToast(resumeData ? copy.resumedAfterReload : copy.recording);
+  if (!resumeData) persistStepsRecordingRun();
 }
 
-function stopStepsRecording() { const recording = state.stepsRecording; if (!recording) return; recording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); openStepsEditor({ id: recording.id, name: recording.name, mode: recording.mode, locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: recording.steps }); }
+async function startStepsWithMedia(data, mediaMode) {
+  await startEvidenceRecording(mediaMode);
+  if (recordingState.status !== "recording") return;
+  startStepsRecording(data);
+  if (state.stepsRecording) {
+    state.stepsRecording.mediaMode = mediaMode;
+    persistStepsRecordingRun();
+  }
+}
+
+async function stopStepsRecording() {
+  const recording = state.stepsRecording;
+  if (!recording) return;
+  recording.cleanup();
+  if (state.testSession && !state.testSession.stepRecordingIds.includes(recording.id)) state.testSession.stepRecordingIds.push(recording.id);
+  state.stepsRecording = null;
+  updateStepsRecordingUi();
+  void recordingRunRequest("steps", "clear");
+  if (recording.mediaMode && recordingState.status !== "idle") await stopEvidenceRecording();
+  openStepsEditor({ id: recording.id, name: recording.name, mode: recording.mode, deviceId: recording.deviceId || "", mediaMode: recording.mediaMode || "", locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: recording.steps, context: sessionContextSnapshot() });
+}
 
 function csvCell(value) { let text = String(value ?? "").replace(/^([=+\-@\t\r])/, "'$1"); return `"${text.replaceAll('"', '""')}"`; }
 // In Gherkin mode, a captured result ("Cadastro realizado com sucesso") becomes its own real
@@ -7439,9 +7606,97 @@ function openStepsEditor(recording) {
   openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<div class="qts-toolbar-row"><button id="stepsBack" class="action" type="button">${escapeHtml(copy.back)}</button><input id="stepsName" value="${escapeHtml(draft.name || "")}" placeholder="${escapeHtml(copy.name)}" style="flex:1"/><select id="stepsMode"><option value="numbered" ${draft.mode !== "gherkin" ? "selected" : ""}>${escapeHtml(copy.numbered)}</option><option value="gherkin" ${draft.mode === "gherkin" ? "selected" : ""}>${escapeHtml(copy.gherkin)}</option></select><button id="stepsExport" class="action" type="button">${escapeHtml(copy.export)}</button><button id="stepsSave" class="action primary" type="button">${escapeHtml(copy.save)}</button></div><div id="stepsEditorList"></div><button id="stepsAdd" class="action" type="button">+ ${escapeHtml(copy.add)}</button>`, onReady(body) { renderRows(body); body.querySelector("#stepsBack").addEventListener("click", openStepsRecorder); body.querySelector("#stepsMode").addEventListener("change", e => { draft.mode=e.target.value; renderRows(body); }); body.querySelector("#stepsAdd").addEventListener("click", () => { draft.steps.push(makeDocumentedStep("manual", "", "manual")); renderRows(body); }); body.querySelector("#stepsExport").addEventListener("click", () => { draft.name=body.querySelector("#stepsName").value; exportStepsCsv(draft); }); body.querySelector("#stepsSave").addEventListener("click", async () => { draft.name=body.querySelector("#stepsName").value.trim() || copy.title; draft.updatedAt=new Date().toISOString(); const index=(state.workspace.stepRecordings || []).findIndex(item=>item.id===draft.id); if(index>=0) state.workspace.stepRecordings[index]=draft; else state.workspace.stepRecordings.push(draft); await persistWorkspaceState(); openStepsRecorder(); showQaToast(copy.saved); }); } });
 }
 
+function executableDocumentedSteps(recording) {
+  return (recording.steps || []).flatMap((step) => {
+    if (!step.targetKey) return [];
+    if (step.action === "click" || step.action === "submit") return [{ action: "click", selector: step.targetKey }];
+    if (step.action === "input") return [{ action: "fill", selector: step.targetKey, value: String(step.value ?? "") }];
+    if (step.action === "select") return [{ action: "select", selector: step.targetKey, value: String(step.value ?? "") }];
+    if (step.action === "check") return [{ action: step.checked === false ? "uncheck" : "check", selector: step.targetKey }];
+    if (step.action === "key") return [{ action: "press", selector: step.targetKey, value: String(step.value || "Enter") }];
+    return [];
+  });
+}
+
+async function replayDocumentedSteps(recording) {
+  const copy = stepsExtraCopy();
+  const steps = executableDocumentedSteps(recording);
+  if (!steps.length) { showQaToast(copy.replayUnavailable, "error"); return; }
+  closeDrawer();
+  try {
+    for (const step of steps) await window.QTS_QA_TOOLS.executeStep(step);
+    showQaToast(copy.replayDone);
+  } catch (error) {
+    showQaToast(String(error?.message || error), "error");
+  }
+}
+
+function reportDocumentedSteps(recording) {
+  const steps = (recording.steps || []).map((step, index) => `${index + 1}. ${step.text}`).join("\n");
+  const device = (state.workspace.devices || []).find((item) => item.id === recording.deviceId);
+  openReportBuilder({
+    title: recording.name || stepsCopy().title,
+    steps,
+    description: device ? `${stepsExtraCopy().device}: ${device.label}` : "",
+  }, recording.context || sessionContextSnapshot());
+}
+
 function openStepsRecorder() {
-  if (!requirePlanFeature("stepsRecorder")) return; const copy=stepsCopy(); const recordings=state.workspace.stepRecordings || [];
-  openDrawer({ title: copy.title, variant: "modal", bodyHtml: `<p class="qts-tool-lead">${escapeHtml(copy.intro)}</p><div class="qts-toolbar-row"><input id="newStepsName" placeholder="${escapeHtml(copy.name)}"/><select id="newStepsMode"><option value="numbered">${escapeHtml(copy.numbered)}</option><option value="gherkin">${escapeHtml(copy.gherkin)}</option></select><button id="startSteps" class="action primary" type="button">${ICON("recordStart")} ${escapeHtml(copy.record)}</button><button id="manualSteps" class="action" type="button">+ ${escapeHtml(copy.manual)}</button></div><div id="stepsList">${recordings.length ? recordings.map(item=>`<article class="qts-card" data-recording-id="${escapeHtml(item.id)}"><div class="qts-card-head"><b>${escapeHtml(item.name)}</b><small>${item.steps.length} ${escapeHtml(copy.steps)}</small></div><div class="qts-card-actions"><button class="action" data-action="edit">${escapeHtml(copy.edit)}</button><button class="action" data-action="export">${escapeHtml(copy.export)}</button><button class="action" data-action="delete">${escapeHtml(copy.remove)}</button></div></article>`).join("") : `<div class="qts-empty">${escapeHtml(copy.empty)}</div>`}</div>`, onReady(body) { const data=()=>({name:body.querySelector("#newStepsName").value.trim()||`${copy.title} ${new Date().toLocaleTimeString().slice(0,5)}`,mode:body.querySelector("#newStepsMode").value}); body.querySelector("#startSteps").addEventListener("click",()=>startStepsRecording(data())); body.querySelector("#manualSteps").addEventListener("click",()=>openStepsEditor({id:crypto.randomUUID(),...data(),locale:state.workspace.preferences.language,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),steps:[]})); body.querySelectorAll("[data-recording-id]").forEach(card=>card.addEventListener("click",async event=>{const action=event.target.dataset.action;if(!action)return;const item=state.workspace.stepRecordings.find(value=>value.id===card.dataset.recordingId);if(action==="edit")openStepsEditor(item);if(action==="export")exportStepsCsv(item);if(action==="delete"&&confirm(copy.delete)){state.workspace.stepRecordings=state.workspace.stepRecordings.filter(value=>value.id!==item.id);await persistWorkspaceState();openStepsRecorder();}})); } });
+  if (!requirePlanFeature("stepsRecorder")) return;
+  const copy = stepsCopy();
+  const extra = stepsExtraCopy();
+  const recordings = state.workspace.stepRecordings || [];
+  const cards = recordings.map((item) => {
+    const canReplay = executableDocumentedSteps(item).length > 0;
+    return `<article class="qts-card" data-recording-id="${escapeHtml(item.id)}">
+      <div class="qts-card-head"><div><b>${escapeHtml(item.name)}</b><br><small>${item.steps.length} ${escapeHtml(copy.steps)}</small></div></div>
+      <div class="qts-card-actions">
+        <button class="action primary" data-action="replay" type="button" ${canReplay ? "" : "disabled"} title="${canReplay ? "" : escapeHtml(extra.replayUnavailable)}">${ICON("play")} ${escapeHtml(extra.replay)}</button>
+        <button class="action" data-action="edit" type="button">${escapeHtml(copy.edit)}</button>
+        <button class="action" data-action="report" type="button">${escapeHtml(extra.report)}</button>
+        <button class="action" data-action="export" type="button">${escapeHtml(copy.export)}</button>
+        <button class="action" data-action="delete" type="button">${escapeHtml(copy.remove)}</button>
+      </div>
+    </article>`;
+  }).join("");
+  openDrawer({
+    title: copy.title,
+    variant: "modal",
+    bodyHtml: `<p class="qts-tool-lead">${escapeHtml(copy.intro)}</p>
+      <div class="qts-card">
+        <label class="qts-field-label">${escapeHtml(copy.name)}<input id="newStepsName" placeholder="${escapeHtml(copy.name)}"/></label>
+        <label class="qts-field-label">${escapeHtml(extra.device)}<select id="newStepsDevice"><option value="">${escapeHtml(extra.noDevice)}</option>${(state.workspace.devices || []).map((device) => `<option value="${escapeHtml(device.id)}">${escapeHtml(device.label)}</option>`).join("")}</select></label>
+        <div class="qts-card-actions">
+          <button id="startSteps" class="action primary" type="button">${ICON("recordStart")} ${escapeHtml(copy.record)}</button>
+          <button id="startStepsVideo" class="action" type="button">${ICON("recordStart")} ${escapeHtml(extra.recordVideo)}</button>
+          <button id="startStepsGif" class="action" type="button">${ICON("recordStart")} ${escapeHtml(extra.recordGif)}</button>
+          <button id="manualSteps" class="action" type="button">+ ${escapeHtml(copy.manual)}</button>
+        </div>
+      </div>
+      <div id="stepsList">${cards || `<div class="qts-empty">${escapeHtml(copy.empty)}</div>`}</div>`,
+    onReady(body) {
+      const data = () => ({ name: body.querySelector("#newStepsName").value.trim() || `${copy.title} ${new Date().toLocaleTimeString().slice(0, 5)}`, mode: "numbered", deviceId: body.querySelector("#newStepsDevice").value });
+      body.querySelector("#startSteps").addEventListener("click", () => startStepsRecording(data()));
+      body.querySelector("#startStepsVideo").addEventListener("click", () => startStepsWithMedia(data(), "video"));
+      body.querySelector("#startStepsGif").addEventListener("click", () => startStepsWithMedia(data(), "gif"));
+      body.querySelector("#manualSteps").addEventListener("click", () => openStepsEditor({ id: crypto.randomUUID(), ...data(), locale: state.workspace.preferences.language, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), steps: [], context: sessionContextSnapshot() }));
+      body.querySelectorAll("[data-recording-id]").forEach((card) => card.addEventListener("click", async (event) => {
+        const action = event.target.closest("[data-action]")?.dataset.action;
+        if (!action) return;
+        const item = state.workspace.stepRecordings.find((value) => value.id === card.dataset.recordingId);
+        if (!item) return;
+        if (action === "replay") await replayDocumentedSteps(item);
+        if (action === "edit") openStepsEditor(item);
+        if (action === "report") reportDocumentedSteps(item);
+        if (action === "export") exportStepsCsv(item);
+        if (action === "delete" && confirm(copy.delete)) {
+          state.workspace.stepRecordings = state.workspace.stepRecordings.filter((value) => value.id !== item.id);
+          await persistWorkspaceState();
+          openStepsRecorder();
+        }
+      }));
+    },
+  });
 }
 
 function createEvidenceMediaRecorder(stream, mimeType) {
@@ -7870,6 +8125,13 @@ async function boot() {
   if (authorizedAtBoot) {
     const pendingRun = await macroRunRequest("get");
     if (pendingRun?.ok && pendingRun.run) void continueMacroRun(pendingRun.run, { announce: true });
+    // Same idea, for the two *recording* phases (see qts:recording-run/persistStepsRecordingRun/
+    // persistMacroRecordingRun): a snapshot left behind by the previous page load, before it got
+    // torn down by the reload, is picked back up here instead of silently vanishing.
+    const pendingStepsRecording = await recordingRunRequest("steps", "get");
+    if (pendingStepsRecording?.ok && pendingStepsRecording.run) startStepsRecording({}, pendingStepsRecording.run);
+    const pendingMacroRecording = await recordingRunRequest("macro", "get");
+    if (pendingMacroRecording?.ok && pendingMacroRecording.run) startMacroRecording(pendingMacroRecording.run);
   }
 }
 

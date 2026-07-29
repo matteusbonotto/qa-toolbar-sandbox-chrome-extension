@@ -1,10 +1,40 @@
-import { createHash } from "node:crypto";
+import { createHash, webcrypto } from "node:crypto";
 import { createServer } from "node:http";
+import { existsSync } from "node:fs";
 import { mkdir, readFile, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
 const root = resolve(import.meta.dirname, "..");
+
+// Mints an access-status token the same way supabase/functions/_shared/access_token.ts does, so
+// the mocked route below produces something apps/extension/src/background/auth.js's
+// verifyAccessToken() will actually accept - without this the whole suite would fail closed the
+// moment the signature-verification fix landed (a plain, unsigned mock response is now correctly
+// rejected, same as a forged one). The private key is read from the gitignored .env, never
+// committed - see that file's own comment for how to (re)provision it.
+async function readEnvValue(path, key) {
+  if (!existsSync(path)) return undefined;
+  const text = await readFile(path, "utf8");
+  for (const line of text.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#") || !trimmed.startsWith(`${key}=`)) continue;
+    return trimmed.slice(key.length + 1);
+  }
+  return undefined;
+}
+const accessTokenPrivateKeyJwk = await readEnvValue(resolve(root, ".env"), "ACCESS_TOKEN_PRIVATE_KEY_JWK");
+if (!accessTokenPrivateKeyJwk) throw new Error("Missing ACCESS_TOKEN_PRIVATE_KEY_JWK in .env - required to mint a mock access-status token the extension will accept.");
+const accessTokenSigningKey = await webcrypto.subtle.importKey("jwk", JSON.parse(accessTokenPrivateKeyJwk), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+function base64UrlEncode(bytes) {
+  return Buffer.from(bytes).toString("base64url");
+}
+async function signMockAccessToken(payload) {
+  const body = { ...payload, exp: Math.floor(Date.now() / 1_000) + 600 };
+  const encodedPayload = base64UrlEncode(new TextEncoder().encode(JSON.stringify(body)));
+  const signature = await webcrypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, accessTokenSigningKey, new TextEncoder().encode(encodedPayload));
+  return `${encodedPayload}.${base64UrlEncode(new Uint8Array(signature))}`;
+}
 const extensionPathArgument = process.argv.find((argument) => argument.startsWith("--extension-path="))?.slice("--extension-path=".length);
 const extensionPath = resolve(root, extensionPathArgument || "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-smoke-profile");
@@ -92,7 +122,12 @@ const fakeSession = {
 await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", async (route) => {
   const name = new URL(route.request().url()).pathname.split("/").pop();
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
-  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true }, checkedAt: new Date().toISOString() }) });
+  if (name === "access-status") {
+    const plan = { key: "release-manager", name: "Release Manager" };
+    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true };
+    const token = await signMockAccessToken({ active: true, plan, features });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
+  }
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -138,7 +173,7 @@ try {
   if (new URL(options.url()).searchParams.get("tab") !== "account") throw new Error(`Logged-out login action did not target Minha conta: ${options.url()}`);
   if (!(await options.locator('.panel[data-panel="account"].isActive').count())) throw new Error("Minha conta panel was not active after clicking Entrar");
   if (await options.locator("html").getAttribute("data-theme") !== "light") throw new Error("Fresh workspace did not default to light appearance");
-  if (await options.locator('[data-color-theme="blue-light"]').getAttribute("aria-checked") !== "true") throw new Error("Fresh workspace did not default to blue-light");
+  if (await options.locator('[data-color-family="blue"]').getAttribute("aria-checked") !== "true") throw new Error("Fresh workspace did not default to the blue family");
   await installDemoTabs[0].close();
   trace("fresh-install logged-out toolbar and Minha conta login handoff verified");
 
@@ -167,6 +202,35 @@ try {
     throw new Error(`Authentication did not unlock options: ${authMessage || "no auth message"}; options console: ${optionsErrors.join(" | ") || "none"}; worker console: ${workerErrors.join(" | ") || "none"}`, { cause: error });
   }
   trace("authenticated");
+
+  // Regression test for the paywall-bypass vulnerability: forging {active:true,...} directly into
+  // chrome.storage.local (exactly what a real user did via "Inspect service worker" -> console)
+  // must NOT grant access anymore, because getAccessState() now only trusts active/plan/features
+  // that come from a signature-verified token (see auth.js's verifyAccessToken/
+  // readVerifiedCachedAccess). Network is deliberately broken for this check so there's no way the
+  // extension could quietly "fix itself" via a real re-fetch and mask a regression here.
+  await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/access-status", (route) => route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: "simulated_outage_for_forgery_test" }) }));
+  // chrome.* is only reachable from an extension page (like this options tab) or a content
+  // script's isolated world - not from a plain page's own evaluate() context, which is why this
+  // runs on `options` rather than `host`.
+  const forgeryResult = await options.evaluate(async () => {
+    const stored = await chrome.storage.local.get("qtsAuthSessionV1");
+    const session = stored.qtsAuthSessionV1;
+    await chrome.storage.local.set({ qtsAuthSessionV1: { ...session, user: { ...session.user, id: "00000000-0000-4000-8000-000000000001" } } });
+    await chrome.storage.local.set({ qtsAccessStatusV1: { active: true, authenticated: true, plan: { key: "forged", name: "Forged Plan" }, features: { macroStudio: true, stepsRecorder: true }, cachedAt: Date.now() + 1e15, checkedAt: new Date().toISOString() } });
+    return chrome.runtime.sendMessage({ type: "qts:get-access-state", force: false });
+  });
+  if (forgeryResult?.active === true) throw new Error(`SECURITY REGRESSION: a forged, unsigned chrome.storage.local entry was trusted as active access: ${JSON.stringify(forgeryResult)}`);
+  await context.unroute("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/access-status");
+  const recoveredResult = await options.evaluate(async () => {
+    const stored = await chrome.storage.local.get("qtsAuthSessionV1");
+    const session = stored.qtsAuthSessionV1;
+    await chrome.storage.local.set({ qtsAuthSessionV1: { ...session, user: { ...session.user, id: "00000000-0000-4000-8000-000000000014" } } });
+    return chrome.runtime.sendMessage({ type: "qts:get-access-state", force: true });
+  });
+  if (recoveredResult?.active !== true) throw new Error(`Access did not recover after the simulated outage cleared: ${JSON.stringify(recoveredResult)}`);
+  trace("forged local access-status is rejected; only a signature-verified token grants access");
+
   let firstAccessTourTabs = [];
   for (let attempt = 0; attempt < 50 && firstAccessTourTabs.length === 0; attempt += 1) {
     await new Promise((resolveTourTab) => setTimeout(resolveTourTab, 100));
@@ -201,13 +265,14 @@ try {
   await options.locator('#langSwitch [data-locale="en"]').click();
   await options.getByRole("button", { name: "My account" }).waitFor();
   if (await options.locator("html").getAttribute("lang") !== "en") throw new Error("Options locale did not switch to English");
-  if (await options.locator("#clientName").getAttribute("placeholder") !== "Client name") throw new Error("Options placeholders were not translated to English");
+  if (!(await options.locator("label:has(#clientName)").innerText()).startsWith("Client name")) throw new Error("Options field labels were not translated to English");
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Duplicated Key View settings card should live only in its sidebar");
   await options.locator('#langSwitch [data-locale="es"]').click();
   await options.getByRole("button", { name: "Mi cuenta" }).waitFor();
   if (await options.locator("#environmentName").getAttribute("placeholder") !== "Nombre del entorno (ej.: QA, Staging)") throw new Error("Options placeholders were not translated to Spanish");
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Duplicated Key View settings card returned after locale change");
-  await options.locator('#langSwitch [data-locale="pt-BR"]').click();
+  await options.locator('#langSwitch [data-locale="pt-BR"]').evaluate((button) => button.click());
+  await options.waitForFunction(() => document.documentElement.lang === "pt-BR");
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signedInState").waitFor({ state: "visible" });
   await options.screenshot({ path: resolve(evidencePath, "extension-authenticated-account.png"), fullPage: true });
@@ -240,7 +305,7 @@ try {
   trace("options light/dark theme persistence and contrast verified");
 
   await options.getByRole("button", { name: "Workspace" }).click();
-  if (await options.locator(".workspaceTab").count() !== 6) throw new Error("Workspace Studio tabs are incomplete");
+  if (await options.locator(".workspaceTab").count() !== 7) throw new Error("Workspace Studio tabs are incomplete");
   await options.locator('[data-open-composer="clientComposer"]').click();
   await options.locator("#clientName").fill("Cliente Demo");
   await options.locator("#clientAbbreviation").fill("CD");
@@ -263,14 +328,14 @@ try {
   await options.locator("#productName").fill("Checkout");
   await options.locator("#productAbbreviation").fill("CHK");
   await options.locator("#productForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator('[data-workspace-nav="environments"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#5b21b6");
   await options.locator("#environmentForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('[data-open-composer="urlRelationComposer"]').click();
-  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
+  await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("http://127.0.0.1:43117/*");
   await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
   await options.locator("#urlRelationForm button[type=submit]").click();
@@ -279,19 +344,19 @@ try {
 
   // Environments are reusable tiers (no product of their own); the product association — and one
   // pattern belonging to multiple environments — lives entirely on the URL binding.
-  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator('[data-workspace-nav="environments"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("Beta");
   await options.locator("#environmentColor").fill("#0f766e");
   await options.locator("#environmentForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('[data-open-composer="urlRelationComposer"]').click();
-  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
+  await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("http://beta.example.invalid/*");
   await options.locator(".environmentToggle", { hasText: "Beta" }).click();
   await options.locator("#urlRelationForm button[type=submit]").click();
   await options.locator('[data-open-composer="urlRelationComposer"]').click();
-  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
+  await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("https://shared.example.com/*");
   await options.locator("[data-url-environment]").nth(0).click();
   await options.locator("[data-url-environment]").nth(1).click();
@@ -308,7 +373,29 @@ try {
   const sharedBindingRows = options.locator('#urlRelationList .listRow').filter({ hasText: "https://shared.example.com/*" });
   if (await sharedBindingRows.count() !== 2) throw new Error("Shared URL binding did not render once per linked environment accordion");
   if (await sharedBindingRows.first().locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
+  await options.locator('[data-workspace-nav="structure"]').click();
+  if (await options.locator(".structureExplorer").count() !== 1) throw new Error("Workspace structure is missing the hierarchical explorer");
+  const workspaceNavigationFits = await options.locator(".workspaceTabs").evaluate((navigation) => navigation.scrollWidth <= navigation.clientWidth + 1);
+  if (!workspaceNavigationFits) throw new Error("Workspace navigation introduced horizontal overflow");
+  const hierarchyAccordions = options.locator(".structureExplorer .hierarchyAccordion");
+  if (await hierarchyAccordions.count() !== 3) throw new Error("Workspace hierarchy must expose one accordion for clients, projects, and products");
+  const structureViewButtons = options.locator("[data-structure-view]");
+  if (await structureViewButtons.count() !== 3) throw new Error("Workspace hierarchy view filters are incomplete");
+  await options.locator('[data-structure-view="project"]').click();
+  if (await options.locator(".structureExplorer").getAttribute("data-structure-view-mode") !== "project") throw new Error("Project-focused workspace view did not activate");
+  if (await options.locator("#projectList .listRow").count() !== 1) throw new Error("Project-focused workspace view did not render projects independently");
+  await options.locator('[data-structure-view="product"]').click();
+  if (await options.locator(".structureExplorer").getAttribute("data-structure-view-mode") !== "product") throw new Error("Product-focused workspace view did not activate");
+  if (!await options.locator("#productList .listRow").first().innerText().then((text) => text.includes("Cliente Demo") && text.includes("Webapp Demo"))) throw new Error("Product-focused workspace view is missing its client and project context");
+  await options.locator('[data-structure-view="client"]').click();
+  if (await options.locator(".structureExplorer").getAttribute("data-structure-view-mode") !== "client") throw new Error("Client-focused workspace view did not restore the hierarchy");
+  const productAccordion = hierarchyAccordions.nth(2);
+  await productAccordion.locator(":scope > summary").click();
+  if (await productAccordion.getAttribute("open") !== null) throw new Error("Product hierarchy accordion did not collapse");
+  await productAccordion.locator(":scope > summary").click();
+  if (await productAccordion.getAttribute("open") === null) throw new Error("Product hierarchy accordion did not expand");
   await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
+  await options.locator('[data-workspace-nav="urls"]').click();
   const environmentCountBeforePreviews = Number(await options.locator("#environmentCount").textContent());
   await options.evaluate(async () => {
     const next = await window.QTS_STORAGE.getWorkspace();
@@ -355,7 +442,7 @@ try {
 
   // Deletion now goes through a themed <dialog> instead of window.confirm() — verify both the
   // Cancelar (no-op) and Excluir (removes) paths against one of the injected preview environments.
-  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator('[data-workspace-nav="environments"]').click();
   const previewRow = options.locator("#environmentList .listRow", { hasText: "Preview 1" });
   await previewRow.locator('[data-action="remove"]').click();
   await options.locator("#deleteConfirmDialog[open]").waitFor();
@@ -407,17 +494,20 @@ try {
   };
   await verifyToolbarTheme("dark");
   await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('.settingsAccordion:has([data-theme-choice="light"])').evaluate((accordion) => { accordion.open = true; });
   await options.locator('[data-theme-choice="light"]').click();
   await verifyToolbarTheme("light");
+  await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('.settingsAccordion:has([data-theme-choice="dark"])').evaluate((accordion) => { accordion.open = true; });
   await options.locator('[data-theme-choice="dark"]').click();
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
   trace("toolbar menu/drawer light/dark contrast verified");
 
-  // 24 color-theme presets (12 families x light/dark): picking one writes CSS custom properties on
+  // Nine color families follow the independently selected light/dark appearance mode. Picking one writes CSS custom properties on
   // <html> (not the shadow host) so both the shadow-DOM toolbar/drawers/toasts and the light-DOM
   // Key View/mouse overlays -- which live directly in document.body -- read the same tokens.
-  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 24) throw new Error("Color theme grid does not expose all 24 presets");
-  await options.locator('[data-color-theme="blue-dark"]').click();
+  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 9) throw new Error("Color theme grid does not expose the nine supported families");
+  await options.locator('[data-color-family="blue"]').click();
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
   // The Settings page is the extension's own chrome.runtime page (not a content script), so it has
@@ -606,7 +696,9 @@ try {
   await host.locator("#keyViewMenuItem").click();
   await host.locator("#keyViewToggle").click();
   await host.locator("#drawerClose").click();
-  if (await options.locator('[data-color-theme="blue-dark"]').getAttribute("aria-checked") !== "true") throw new Error("Selected color theme swatch did not stay marked as checked");
+  await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('.settingsAccordion:has(#colorThemeReset)').evaluate((accordion) => { accordion.open = true; });
+  if (await options.locator('[data-color-family="blue"]').getAttribute("aria-checked") !== "true") throw new Error("Selected color family did not stay marked as checked");
   await options.locator("#colorThemeReset").click();
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#2563eb");
   await host.locator("#toolsButton").click();
@@ -615,7 +707,7 @@ try {
   const resetDrawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
   if (resetDrawerCloseBg !== "rgb(199, 14, 14)") throw new Error(`Color theme reset did not preserve the red close-button exception: ${resetDrawerCloseBg}`);
   await host.locator("#drawerClose").click();
-  trace("24 color theme presets verified (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
+  trace("nine color families verified in light and dark modes (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
   await host.locator("#toolsButton").click();
   await host.locator("#statusMenuItem").click();
@@ -713,6 +805,7 @@ try {
   const shortcutInput = options.locator('[data-shortcut-key="inspectors"]');
   await shortcutInput.dispatchEvent("keydown", { key: "I", code: "KeyI", altKey: true, shiftKey: true, bubbles: true, cancelable: true });
   if (await shortcutInput.inputValue() !== "Alt+Shift+I") throw new Error("Custom shortcut capture did not format the key combination");
+  await options.locator('.protectedNav[data-tab="general"]').click();
   await options.locator("#saveGeneralSettings").click();
   await host.locator("h1").press("Alt+Shift+I");
   await host.locator(".qts-drawer").waitFor();
@@ -1277,8 +1370,10 @@ try {
   // the expected result in a separate, spreadsheet-safe CSV column.
   await host.locator("#toolsButton").click();
   await host.locator("#stepsRecorderMenuItem").click();
+  for (const selector of ["#startSteps", "#startStepsVideo", "#startStepsGif", "#newStepsDevice"]) {
+    if (await host.locator(selector).count() !== 1) throw new Error(`Step Recorder is missing ${selector}`);
+  }
   await host.locator("#newStepsName").fill("Fluxo de checkout");
-  await host.locator("#newStepsMode").selectOption("gherkin");
   await host.locator("#startSteps").click();
   await host.locator("#macroTarget").click();
   await host.locator("#macroText").fill("produto 123");
@@ -1289,6 +1384,9 @@ try {
   if (await host.locator("#stepsRecCount").textContent() !== pausedCount) throw new Error("Step Recorder captured actions while paused");
   await host.locator("#stepsRecPauseButton").click();
   await host.locator("#stepsRecDoneButton").click();
+  // There's no upfront mode picker anymore (see openStepsRecorder's own comment) - numbered vs
+  // Gherkin is now purely a view toggle here in the editor, on the exact same recorded steps.
+  await host.locator("#stepsMode").selectOption("gherkin");
   await host.locator('[data-doc-step="0"] summary').click();
   await host.locator('[data-doc-step="0"] [data-step-expected]').fill("Tela inicial disponível");
   await host.locator("#stepsSave").click();
@@ -1298,7 +1396,14 @@ try {
   const stepsDownload = await stepsDownloadPromise;
   const stepsCsv = await readFile(await stepsDownload.path(), "utf8");
   if (!stepsCsv.includes("resultado esperado") || !stepsCsv.includes("Tela inicial disponível") || stepsCsv.includes("segredo-nao-exportar")) throw new Error("Step Recorder CSV format/security mismatch");
-  trace("step recorder capture, pause, Gherkin edit and secure CSV verified");
+  await host.locator("#macroText").fill("");
+  await host.locator("#stepsList .qts-card").first().locator('[data-action="replay"]').click();
+  await host.waitForFunction(() => document.querySelector("#macroText")?.value === "produto 123");
+  await host.locator("#toolsButton").click();
+  await host.locator("#stepsRecorderMenuItem").click();
+  await host.locator("#stepsList .qts-card").first().locator('[data-action="report"]').click();
+  if (!(await host.locator("[data-report-steps]").inputValue()).includes("produto 123")) throw new Error("Step Recorder did not prefill Report Builder");
+  trace("step recorder capture, replay, Report Builder handoff, Gherkin edit and secure CSV verified");
   await host.locator("#drawerClose").click();
 
   // Macro recording captures normal interactions but ignores password content.
@@ -1361,22 +1466,61 @@ try {
   await host.goto("http://127.0.0.1:43117/");
   await toolbar.waitFor({ timeout: 10_000 });
 
+  // A live recording (Gravador de Passos / Macro Studio) used to be pure in-memory - a reload
+  // silently lost everything captured so far. It should now resume, via the same tab-scoped
+  // chrome.storage.session pattern macro *replay* already used (see qts:recording-run).
+  await host.locator("#toolsButton").click();
+  await host.locator("#stepsRecorderMenuItem").click();
+  await host.locator("#newStepsName").fill("Sobrevive ao reload");
+  await host.locator("#startSteps").click();
+  await host.locator("#macroTarget").click();
+  await host.reload();
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await host.locator("#stepsRecordingBar:not(.isHidden)").waitFor({ timeout: 10_000 });
+  const stepsCountAfterReload = Number(await host.locator("#stepsRecCount").textContent());
+  if (!(stepsCountAfterReload >= 2)) throw new Error(`Steps recording bar did not resume with its pre-reload steps: ${stepsCountAfterReload}`);
+  await host.locator("#multiTarget").click();
+  const stepsCountAfterResume = Number(await host.locator("#stepsRecCount").textContent());
+  if (!(stepsCountAfterResume > stepsCountAfterReload)) throw new Error("Resumed steps recording did not keep capturing new actions");
+  await host.locator("#stepsRecDoneButton").click();
+  await host.locator("#stepsSave").click();
+  await host.getByText("Sobrevive ao reload").waitFor();
+  await host.locator("#drawerClose").click();
+  trace("step recorder survives reload (pre-reload steps kept, capture continued)");
+
+  await host.locator("#toolsButton").click();
+  await host.locator("#macroStudioMenuItem").click();
+  await host.locator("#startMacroRecording").click();
+  await host.locator("#macroTarget").click();
+  await host.reload();
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await host.locator("#macroRecordingBar:not(.isHidden)").waitFor({ timeout: 10_000 });
+  const macroCountAfterReload = Number(await host.locator("#macroStepCount").textContent());
+  if (!(macroCountAfterReload >= 1)) throw new Error(`Macro recording bar did not resume with its pre-reload steps: ${macroCountAfterReload}`);
+  await host.locator("#multiTarget").click();
+  const macroCountAfterResume = Number(await host.locator("#macroStepCount").textContent());
+  if (!(macroCountAfterResume > macroCountAfterReload)) throw new Error("Resumed macro recording did not keep capturing new actions");
+  await host.locator("#macroRecDoneButton").click();
+  await host.locator("#macroBack").click();
+  await host.locator("#drawerClose").click();
+  trace("macro recording survives reload (pre-reload steps kept, capture continued)");
+
   // Compact mode hides project/product names, preserving their image/initial badges and environment.
   await options.getByRole("button", { name: "Barra e aparência" }).click();
   // "Barra e aparência" is a list of collapsible accordions now (all closed by default except
   // "Tema") - a checkbox inside a closed <details> isn't visible/interactable, same as a real
   // user would need to expand the section first. Open the two this block needs.
-  await options.locator(".settingsAccordion:has(#toolsMenuOrderHint) summary").click();
-  await options.locator(".settingsAccordion:has(.compactEntityGrid) summary").click();
-  await options.locator('.settingsAccordion:has([data-pinned="testStatus"]) summary').click();
+  await options.locator(".settingsAccordion:has(#toolsMenuOrderHint)").evaluate((accordion) => { accordion.open = true; });
+  await options.locator(".settingsAccordion:has(#breadcrumbOrderList)").evaluate((accordion) => { accordion.open = true; });
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Key View configuration should remain in its own sidebar");
   if (await options.locator('[data-tool="keyView"]').count() !== 1 || await options.locator('[data-tool="keyView"]').isChecked() !== true) throw new Error("Key View menu preference did not persist in options");
-  if (await options.locator('[data-tool="testStatus"]').count() !== 1 || await options.locator('[data-pinned="testStatus"]').count() !== 1) throw new Error("Test Suite is missing from menu/pinned preferences");
+  if (await options.locator('[data-tool="testStatus"]').count() !== 1 || await options.locator('[data-pin-tool="testStatus"]').count() !== 1) throw new Error("Definir status do teste is missing from menu/pinned preferences");
   await options.locator('[data-tool="testStatus"]').uncheck();
   await options.locator("#saveGeneralSettings").click();
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("statusMenuItem")?.classList.contains("isPreferenceHidden"));
   await options.locator('[data-tool="testStatus"]').check();
-  await options.locator('[data-pinned="testStatus"]').check();
+  const testStatusPin = options.locator('[data-pin-tool="testStatus"]');
+  if (await testStatusPin.getAttribute("aria-pressed") !== "true") await testStatusPin.click();
   await options.locator("#saveGeneralSettings").click();
   await host.waitForFunction(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
@@ -1398,7 +1542,7 @@ try {
 
   // Editing a URL binding's pattern uses the same canonical workspace and immediately changes registration.
   await options.getByRole("button", { name: "Workspace" }).click();
-  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator("#urlRelationList .listRow", { hasText: "http://127.0.0.1:43117/*" }).locator('[data-action="edit"]').click();
   // Editing now prefills every existing pattern as a removable pill (not just one) — remove the
   // old one before adding the new one, to actually replace it rather than adding a second pattern.
@@ -1423,7 +1567,11 @@ try {
   trace("environment and SPA reactivity verified");
 
   // Extra settings categories persist and secure export strips local secrets.
-  await options.getByRole("button", { name: "Dados de teste" }).click();
+  await options.locator('[data-tab="workspace"]').click();
+  await options.locator('[data-workspace-nav="accounts"]').click();
+  await options.locator('[data-open-composer="accountTypeComposer"]').click();
+  await options.locator("#accountTypeName").fill("Administrador");
+  await options.locator("#accountTypeForm button[type=submit]").click();
   await options.locator('[data-open-composer="testAccountComposer"]').click();
   // Environment/product are now a floating multi-select combobox (four independent facets,
   // see options.js's renderScopePicker) instead of a plain <select> — open the Ambientes facet,
@@ -1432,18 +1580,68 @@ try {
   await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#testAccountLabel").fill("Conta sandbox");
+  await options.locator("#testAccountTypeId").selectOption({ label: "Administrador" });
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="payments"]').click();
+  await options.locator('[data-workspace-nav="payments"]').click();
+  await options.locator('[data-open-composer="paymentMethodTypeComposer"]').click();
+  await options.locator("#paymentMethodTypeName").fill("Voucher");
+  await options.locator("#paymentMethodTypeForm button[type=submit]").click();
   await options.locator('[data-open-composer="paymentMethodComposer"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
+  await options.locator("#paymentMethodTypeId").selectOption({ label: "Voucher" });
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();
-  await options.getByRole("button", { name: "Inspectors e recursos" }).click();
+  const reusableCatalogResult = await options.evaluate(async () => {
+    const ws = await window.QTS_STORAGE.getWorkspace();
+    const accountType = ws.accountTypes.find((item) => item.name === "Administrador");
+    const paymentType = ws.paymentMethodTypes.find((item) => item.name === "Voucher");
+    return {
+      accountLinked: Boolean(accountType) && ws.testAccounts.some((item) => item.label === "Conta sandbox" && item.accountTypeId === accountType.id),
+      paymentLinked: Boolean(paymentType) && ws.paymentMethods.some((item) => item.label === "Visa sandbox" && item.typeId === paymentType.id),
+    };
+  });
+  if (!reusableCatalogResult.accountLinked || !reusableCatalogResult.paymentLinked) throw new Error(`Reusable account/payment catalogs were not persisted and linked: ${JSON.stringify(reusableCatalogResult)}`);
+  trace("account and payment type catalogs verified (CRUD, reusable relation, persisted)");
+
+  // Dispositivo catalog: a device can pick freely from several operating systems AND several
+  // browsers (checkboxes, not a single select) - exercise a quick-add mid-form plus a
+  // pre-seeded default to confirm both paths land in the persisted record.
+  await options.locator('[data-workspace-nav="devices"]').click();
+  await options.locator('[data-open-composer="deviceComposer"]').click();
+  await options.locator("#deviceLabel").fill("Notebook QA");
+  await options.locator('[data-quick-add-type="operatingSystem"]').click();
+  await options.locator("#operatingSystemComposer[open]").waitFor();
+  await options.locator("#operatingSystemName").fill("ChromeOS");
+  await options.locator("#operatingSystemForm button[type=submit]").click();
+  if (await options.locator("#operatingSystemComposer[open]").count()) throw new Error("Operating system composer did not close after saving");
+  if (!(await options.locator('#deviceOperatingSystems input[value^="operatingSystem_"]').evaluateAll((inputs) => inputs.some((input) => input.checked)))) throw new Error("Quick-added operating system was not checked back into the device form");
+  await options.locator('#deviceBrowsers label', { hasText: "Chrome" }).locator("input").check();
+  await options.locator("#deviceForm button[type=submit]").click();
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-device-catalog.png"), fullPage: true });
+  const deviceResult = await options.evaluate(async () => {
+    const ws = await window.QTS_STORAGE.getWorkspace();
+    const device = ws.devices.find((item) => item.label === "Notebook QA");
+    return {
+      hasChromeOs: Boolean(device) && device.operatingSystemIds.some((id) => ws.operatingSystems.find((entry) => entry.id === id)?.name === "ChromeOS"),
+      hasChromeBrowser: Boolean(device) && device.browserIds.includes("browser_chrome"),
+    };
+  });
+  if (!deviceResult.hasChromeOs || !deviceResult.hasChromeBrowser) throw new Error(`Device did not persist its N:N system/browser picks: ${JSON.stringify(deviceResult)}`);
+  trace("device catalog verified (N:N operating systems + browsers, quick-add, persisted)");
+
+  await options.locator('[data-workspace-nav="integrations"]').click();
+  await options.locator('[data-open-composer="inspectorComposer"]').click();
+  await options.locator("#inspectorLabel").fill("Checkout Inspector");
+  await options.locator('[data-inspector-pattern="*/api/*"]').click();
+  await options.locator('[data-inspector-pattern="*/checkout/*"]').click();
+  if ((await options.locator("#inspectorPatterns").inputValue()).split("\n").filter(Boolean).length !== 2) throw new Error("Inspector quick patterns did not populate one pattern per line");
+  await options.locator("#inspectorForm button[type=submit]").click();
+  if (await options.locator("#inspectorList .inspectorPatternPill").count() !== 2) throw new Error("Inspector list did not render its endpoint patterns");
   await options.locator('[data-open-composer="apiComposer"]').click();
   await options.locator("#apiLabel").fill("API Demo");
   await options.locator("#apiBaseUrl").fill("https://api.example.com");
@@ -1453,6 +1651,7 @@ try {
   await options.locator("#resourceLabel").fill("Runbook QA");
   await options.locator("#resourceUrl").fill("https://example.com/runbook");
   await options.locator("#resourceForm button[type=submit]").click();
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-inspectors.png"), fullPage: true });
 
   const paymentDrawer = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
@@ -1548,7 +1747,7 @@ try {
   for (const expected of ["Workspace", "aparência", "Inspectors", "APIs", "recursos", "importar", "exportar"]) {
     if (!faqText.toLocaleLowerCase("pt-BR").includes(expected.toLocaleLowerCase("pt-BR"))) throw new Error(`FAQ is missing onboarding guidance for ${expected}`);
   }
-  await options.locator(".faqAnswer img").first().click();
+  await options.locator(".faqGroupAccordion[open] .faqAccordion[open] .faqAnswer img").first().dispatchEvent("click");
   await options.locator("#imageLightbox:not([hidden])").waitFor();
   if (!(await options.locator("#imageLightboxImg").getAttribute("src"))) throw new Error("Image lightbox did not load the clicked screenshot");
   await options.locator("#imageLightboxClose").click();
@@ -1676,11 +1875,61 @@ try {
   }
   if (await options.locator(".settingsTourBalloon").count()) throw new Error("Settings tour did not finish");
   const settingsCoverage = settingsTourTitles.join(" | ");
-  for (const expected of ["Aparência", "cliente", "projeto", "produto", "ambiente", "URL", "Contas", "pagamento", "Inspectors", "APIs", "recursos", "Exportar", "Importar", "Tutorial", "FAQ"]) {
+  for (const expected of ["Tema", "cliente", "projeto", "produto", "ambiente", "URL", "Contas", "pagamento", "Dispositivos", "Inspectors", "APIs", "recursos", "Exportar", "Importar", "Tutorial", "FAQ"]) {
     if (!settingsCoverage.toLocaleLowerCase("pt-BR").includes(expected.toLocaleLowerCase("pt-BR"))) throw new Error(`Settings tour is missing ${expected}: ${settingsCoverage}`);
   }
   if (settingsTourTitles.length < 18) throw new Error(`Settings tour is too short: ${settingsTourTitles.length}`);
   trace("complete settings/workspace CRUD tour verified");
+
+  // Onboarding wizard: a guided Cliente -> Projeto -> Produto -> Ambiente -> URLs flow (plus 3
+  // skippable optional steps) that writes through the exact same workspace.X.push() +
+  // persistWorkspace() path as every flat CRUD tab - verify it actually reaches storage, not just
+  // that the dialog opens.
+  await options.getByRole("button", { name: "Workspace", exact: true }).click();
+  await options.locator("#openOnboardingWizard").click();
+  await options.locator("#onboardingWizard[open]").waitFor();
+  if (await options.locator("#onboardingWizard .wizardRail").count() !== 1) throw new Error("Onboarding wizard is missing its persistent navigation rail");
+  await options.locator("#wizardEntityInput").fill("Cliente Smoke Wizard");
+  await options.locator("#wizardEntityAdd").click();
+  await options.locator("#wizardSuccessContinue").click();
+  await options.locator("#wizardEntityInput").fill("Projeto Smoke Wizard");
+  await options.locator("#wizardEntityAdd").click();
+  await options.locator("#wizardSuccessContinue").click();
+  await options.locator("#wizardEntityInput").fill("Produto Smoke Wizard");
+  await options.locator("#wizardEntityAdd").click();
+  await options.locator("#wizardSuccessContinue").click();
+  await options.locator("#wizardEnvName").fill("QA Smoke Wizard");
+  await options.locator("#wizardEnvColor").fill("#33d6b0");
+  await options.locator("#wizardEnvAdd").click();
+  await options.locator("#wizardSuccessContinue").click();
+  await options.locator("#wizardUrlPattern").fill("https://app.smoke-wizard-teste.com/*");
+  await options.locator("#wizardUrlAdd").click();
+  await options.locator("#wizardSuccessContinue").click();
+  if (await options.locator(".wizardOptionalFact").count() !== 3) throw new Error("Accounts step is missing its field and relation guidance");
+  if (await options.locator('[data-wizard-open-composer="testAccountComposer"]').innerText() !== "Preencher formulário") throw new Error("Accounts step has no explicit form action");
+  // Optional step: exercise the CSV import path, not just "Adicionar agora"/Pular.
+  await options.locator('[data-wizard-csv="testAccounts"]').click();
+  await options.locator("#wizardCsvInput-testAccounts").fill("label,username,password,notes\nConta Smoke CSV,csv-smoke@exemplo.com,SenhaCsv1,Importada via smoke test");
+  await options.locator('[data-wizard-csv-submit="testAccounts"]').click();
+  if (!(await options.locator("#wizardCsvMessage-testAccounts").innerText()).includes("1")) throw new Error("Wizard CSV import did not report 1 imported row");
+  await options.locator("#onboardingWizardSkip").click();
+  await options.locator("#onboardingWizardSkip").click();
+  await options.locator("#onboardingWizardSkip").click();
+  await options.locator("#onboardingWizardNext").click();
+  if (await options.locator("#onboardingWizard[open]").count()) throw new Error("Onboarding wizard did not close after the last step");
+  const wizardResult = await options.evaluate(async () => {
+    const created = await window.QTS_STORAGE.getWorkspace();
+    return {
+      client: created.clients.some((item) => item.name === "Cliente Smoke Wizard"),
+      project: created.projects.some((item) => item.name === "Projeto Smoke Wizard"),
+      product: created.products.some((item) => item.name === "Produto Smoke Wizard"),
+      environment: created.environments.some((item) => item.name === "QA Smoke Wizard" && item.color === "#33d6b0"),
+      url: created.urlBindings.some((binding) => (binding.patterns || []).some((pattern) => pattern.includes("smoke-wizard-teste"))),
+      csvAccount: created.testAccounts.some((account) => account.label === "Conta Smoke CSV" && account.username === "csv-smoke@exemplo.com"),
+    };
+  });
+  if (Object.values(wizardResult).some((value) => value !== true)) throw new Error(`Onboarding wizard did not persist everything it created: ${JSON.stringify(wizardResult)}`);
+  trace("onboarding wizard verified (Cliente->Projeto->Produto->Ambiente->URLs, optional step CSV import, all persisted)");
 
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();

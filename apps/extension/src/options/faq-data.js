@@ -56,18 +56,28 @@
     {
       key: "workspaceOrder",
       question: "Qual é a ordem correta para configurar o Workspace?",
-      answer: "Cadastre cliente, projeto ligado ao cliente, produto ligado ao projeto, ambiente e por último a URL ligada ao produto e ao ambiente. Depois use Contas e Pagamentos para dados exclusivamente sandbox e Integrações para Inspectors, APIs e recursos. O Tour das Configurações aponta cada botão Adicionar nessa sequência.",
+      answer: "Abra Workspace no menu esquerdo e siga o submenu: Clientes e produtos, Ambientes e URLs e vínculos. A hierarquia é Cliente, Projeto e Produto. Uma relação de URL pode selecionar vários produtos e ambientes. Depois organize Contas de teste, Pagamentos de teste, Dispositivos e Inspectors.",
     },
     {
       key: "toolbarAppearance",
       question: "Como configuro a aparência e as ferramentas da barra?",
-      answer: "Abra Barra e aparência, escolha o tema pelo Sol ou Lua, ajuste breadcrumb, imagens e modo compacto, selecione as ferramentas e organize a ordem do menu Tools. Confira a prévia e clique em Salvar; a toolbar aberta recebe a alteração.",
+      answer: "Abra Barra e aparência, escolha Sol ou Lua e uma família visual, incluindo Roxo, Laranja, Amarelo e Lego multicolorido. Ajuste breadcrumb, modo compacto, ferramentas, atalhos e ordem numa única lista. Confira a prévia e clique em Salvar.",
     },
     {
       key: "configureInspectors",
       question: "Como configuro Inspectors, APIs e recursos do projeto?",
-      answer: "No Workspace, abra Integrações. Em Inspectors, crie regras de identificação de respostas de rede; em APIs, registre endpoints de consulta; em Recursos e links, adicione documentação e dashboards. Ao salvar, os dados ficam disponíveis nas respectivas sidebars.",
-    },
+      answer: "No menu esquerdo, abra Workspace e escolha Inspectors no submenu. Crie regras de identificação de respostas de rede, APIs de consulta e recursos úteis. Os controles de janela ficam fixos no topo do sidebar; ações como Ativar, Salvar e Limpar ficam no rodapé.",
+  },
+  {
+    key: "sidebarControls",
+    question: "Onde ficam os controles e ações dos sidebars?",
+    answer: "Mover, fixar, recolher, destacar e fechar ficam no cabeçalho fixo. Ações da ferramenta ficam no rodapé fixo. Uma ação ocupa toda a linha, duas dividem a linha em duas colunas e três aparecem em três linhas.",
+  },
+  {
+    key: "deviceCatalog",
+    question: "Como organizo dispositivos, sistemas e navegadores?",
+    answer: "Em Workspace, abra Dispositivos. Os catálogos já incluem logotipos bitmap para sistemas e navegadores conhecidos. Um dispositivo pode selecionar vários sistemas operacionais e vários navegadores.",
+  },
     {
       key: "backupWorkspace",
       question: "Como faço backup ou transfiro meu Workspace?",

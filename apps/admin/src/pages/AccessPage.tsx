@@ -4,34 +4,43 @@ import { errorMessage } from "../lib/errors";
 import { useAsyncData } from "../lib/useAsyncData";
 import type { EntitlementSource } from "../lib/types";
 
-const SOURCES: EntitlementSource[] = ["manual", "founder", "trial", "voucher", "license", "subscription"];
+type AdministrativeSource = Extract<EntitlementSource, "manual" | "founder" | "trial">;
+const SOURCES: { value: AdministrativeSource; label: string }[] = [
+  { value: "manual", label: "Cortesia manual" },
+  { value: "founder", label: "Fundador" },
+  { value: "trial", label: "Trial estendido" },
+];
 
 export function AccessPage() {
   const plans = useAsyncData(listPlans);
   const grants = useAsyncData(listEntitlementGrants);
   const profiles = useAsyncData(listProfiles);
   const emailByUserId = new Map((profiles.data ?? []).map((profile) => [profile.id, profile.email]));
-
+  const planById = new Map((plans.data ?? []).map((plan) => [plan.id, plan.name]));
   const [userId, setUserId] = useState("");
   const [planId, setPlanId] = useState("");
-  const [source, setSource] = useState<EntitlementSource>("manual");
+  const [source, setSource] = useState<AdministrativeSource>("manual");
   const [expiresAt, setExpiresAt] = useState("");
   const [busy, setBusy] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
   async function handleCreate(event: React.FormEvent) {
     event.preventDefault();
-    if (!userId.trim()) return;
+    if (!userId || !planId) {
+      setFormError("Selecione o usuário e o plano.");
+      return;
+    }
     setBusy(true);
     setFormError(null);
     try {
       await createEntitlementGrant({
-        userId: userId.trim(),
-        planId: planId || null,
+        userId,
+        planId,
         source,
-        expiresAt: expiresAt ? new Date(expiresAt).toISOString() : null,
+        expiresAt: expiresAt ? new Date(`${expiresAt}T23:59:59.999Z`).toISOString() : null,
       });
       setUserId("");
+      setPlanId("");
       setExpiresAt("");
       grants.reload();
     } catch (err) {
@@ -46,8 +55,8 @@ export function AccessPage() {
       <header className="qa-page-head">
         <h1>Acessos manuais</h1>
         <p>
-          Conceda ou revogue acesso a um plano sem passar pelo Stripe (founder, trial estendido,
-          cortesia). Deixe "Expira em" vazio para acesso permanente (<code>expires_at = null</code>).
+          Conceda um plano diretamente a um usuário. Voucher, licença e assinatura são gerenciados
+          em seus próprios fluxos. Deixe "Expira em" vazio para acesso permanente.
         </p>
       </header>
 
@@ -55,26 +64,27 @@ export function AccessPage() {
         <h2>Conceder acesso</h2>
         {formError ? <div className="qa-error">{formError}</div> : null}
         <form className="qa-form-row" onSubmit={handleCreate}>
-          <input placeholder="User ID (UUID do Supabase Auth)" value={userId} onChange={(e) => setUserId(e.target.value)} />
-          <select value={planId} onChange={(e) => setPlanId(e.target.value)}>
-            <option value="">Plano…</option>
-            {(plans.data ?? []).map((plan) => (
-              <option key={plan.id} value={plan.id}>
-                {plan.name}
+          <select aria-label="Usuário" value={userId} onChange={(event) => setUserId(event.target.value)}>
+            <option value="">Selecione o usuário</option>
+            {(profiles.data ?? []).map((profile) => (
+              <option key={profile.id} value={profile.id}>
+                {profile.email || profile.display_name || profile.id}
               </option>
             ))}
           </select>
-          <select value={source} onChange={(e) => setSource(e.target.value as EntitlementSource)}>
+          <select aria-label="Plano" value={planId} onChange={(event) => setPlanId(event.target.value)}>
+            <option value="">Selecione o plano</option>
+            {(plans.data ?? []).filter((plan) => plan.is_active).map((plan) => (
+              <option key={plan.id} value={plan.id}>{plan.name}</option>
+            ))}
+          </select>
+          <select aria-label="Origem" value={source} onChange={(event) => setSource(event.target.value as AdministrativeSource)}>
             {SOURCES.map((item) => (
-              <option key={item} value={item}>
-                {item}
-              </option>
+              <option key={item.value} value={item.value}>{item.label}</option>
             ))}
           </select>
-          <input type="date" placeholder="Expira em (opcional)" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} />
-          <button type="submit" className="qa-btn primary" disabled={busy}>
-            + Conceder
-          </button>
+          <input aria-label="Expira em" type="date" value={expiresAt} onChange={(event) => setExpiresAt(event.target.value)} />
+          <button type="submit" className="qa-btn primary" disabled={busy}>+ Conceder</button>
         </form>
 
         {grants.error ? <div className="qa-error">{grants.error}</div> : null}
@@ -85,6 +95,7 @@ export function AccessPage() {
               <tr>
                 <th>Usuário</th>
                 <th>Origem</th>
+                <th>Plano</th>
                 <th>Expira em</th>
                 <th>Status</th>
                 <th />
@@ -93,15 +104,22 @@ export function AccessPage() {
             <tbody>
               {(grants.data ?? []).map((grant) => (
                 <tr key={grant.id}>
-                  <td title={grant.user_id}>{emailByUserId.get(grant.user_id) || `${grant.user_id.slice(0, 8)}…`}</td>
+                  <td title={grant.user_id}>{emailByUserId.get(grant.user_id) || `${grant.user_id.slice(0, 8)}...`}</td>
                   <td>{grant.source}</td>
+                  <td>{grant.plan_id ? planById.get(grant.plan_id) || "Plano removido" : "Sem plano"}</td>
                   <td>{grant.expires_at ? new Date(grant.expires_at).toLocaleDateString("pt-BR") : "Permanente"}</td>
                   <td>
-                    <span className={`qa-badge ${grant.revoked_at ? "revoked" : "active"}`}>{grant.revoked_at ? "revogado" : "ativo"}</span>
+                    <span className={`qa-badge ${grant.revoked_at ? "revoked" : "active"}`}>
+                      {grant.revoked_at ? "revogado" : "ativo"}
+                    </span>
                   </td>
                   <td>
                     {!grant.revoked_at ? (
-                      <button type="button" className="qa-btn danger" onClick={() => revokeEntitlementGrant(grant.id).then(grants.reload).catch((err) => setFormError(errorMessage(err)))}>
+                      <button
+                        type="button"
+                        className="qa-btn danger"
+                        onClick={() => revokeEntitlementGrant(grant.id).then(grants.reload).catch((err) => setFormError(errorMessage(err)))}
+                      >
                         Revogar
                       </button>
                     ) : null}

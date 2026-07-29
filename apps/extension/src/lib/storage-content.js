@@ -8,24 +8,24 @@
     accessStatus: "qtsAccessStatusV1",
   });
   const FEATURE_REGISTRY = Object.freeze([
-    ["testStatus","Test Suite","statusMenuItem","checkSquare",""],
-    ["clickSpy","Click Spy","clickSpyMenuItem","mouse",""],["freezeClock","Freeze Clock","freezeClockMenuItem","freezeClock",""],
-    ["forceHttp","Force HTTP","forceHttpMenuItem","forceHttp",""],["errorMonitor","Error Monitor","errorMonitorMenuItem","errorMonitor",""],
-    ["inspectors","Inspectors","inspectorsMenuItem","inspectors",""],["jsonStudio","JSON Studio","jsonStudioMenuItem","braces",""],
-    ["breakpoints","Breakpoints","breakpointMenuItem","breakpointViewer",""],["testAccounts","Contas de teste","testAccountsMenuItem","key",""],
+    ["testStatus","Definir status do teste","statusMenuItem","checkSquare",""],
+    ["clickSpy","Inspecionar cliques","clickSpyMenuItem","mouse",""],["freezeClock","Congelar data e hora","freezeClockMenuItem","freezeClock",""],
+    ["forceHttp","Simular respostas HTTP","forceHttpMenuItem","forceHttp",""],["errorMonitor","Monitorar erros","errorMonitorMenuItem","errorMonitor",""],
+    ["inspectors","Observar endpoints","inspectorsMenuItem","inspectors",""],["jsonStudio","Analisar e comparar JSON","jsonStudioMenuItem","braces",""],
+    ["breakpoints","Testar tamanhos de tela","breakpointMenuItem","breakpointViewer",""],["testAccounts","Contas de teste","testAccountsMenuItem","key",""],
     ["paymentMethods","Meios de pagamento","paymentMethodsMenuItem","paymentMethods",""],["resources","Recursos e links","resourcesMenuItem","resources",""],
     ["characterCounter","Contador de caracteres","characterCounterMenuItem","characterCounter","characterCounter.enabled"],
-    ["macroStudio","Macro Studio","macroStudioMenuItem","macroStudio","macroStudio.enabled"],
-    ["multiClick","Multiclick","multiClickMenuItem","multiClick","multiClick.enabled"],["inputLab","Input Lab","inputLabMenuItem","inputLab","inputLab.enabled"],
-    ["fakerFill","Faker Fill","fakerFillMenuItem","fakerFill","fakerFill.enabled"],["keyView","Key View","keyViewMenuItem","keyView","keyView.enabled"],
+    ["macroStudio","Criar automações","macroStudioMenuItem","macroStudio","macroStudio.enabled"],
+    ["multiClick","Repetir cliques","multiClickMenuItem","multiClick","multiClick.enabled"],["inputLab","Testar campos de entrada","inputLabMenuItem","inputLab","inputLab.enabled"],
+    ["fakerFill","Preencher dados fictícios","fakerFillMenuItem","fakerFill","fakerFill.enabled"],["keyView","Exibir teclas e mouse","keyViewMenuItem","keyView","keyView.enabled"],
     ["elementCapture","Capturar elementos","elementCaptureMenuItem","elementCapture","elementCapture.enabled"],
-    ["blurElements","Borrar elementos","blurElementsMenuItem","eyeSlash",""],["holofote","Modo Holofote","holofoteMenuItem","lightbulb",""],
-    ["stepsRecorder","Gravador de Passos","stepsRecorderMenuItem","stepsRecorder","stepsRecorder.enabled"],
+    ["blurElements","Borrar elementos","blurElementsMenuItem","eyeSlash",""],["holofote","Destacar uma área","holofoteMenuItem","lightbulb",""],
+    ["stepsRecorder","Gravar passos do teste","stepsRecorderMenuItem","stepsRecorder","stepsRecorder.enabled"],
     ["languageValidator","Validador de textos","languageValidatorMenuItem","braces",""],
     ["qrCode","QR Code","qrCodeMenuItem","qrCode",""],
-    ["pixelPerfect","Pixel Perfect","pixelPerfectMenuItem","ruler",""],
-    ["testSession","Sessão de Teste","testSessionMenuItem","wait",""],
-    ["reportBuilder","Report Builder","reportBuilderMenuItem","edit",""],
+    ["pixelPerfect","Comparar layout visual","pixelPerfectMenuItem","ruler",""],
+    ["testSession","Iniciar sessão de teste","testSessionMenuItem","wait",""],
+    ["reportBuilder","Montar relatório","reportBuilderMenuItem","edit",""],
   ].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
   const DEFAULT_ENABLED_TOOLS = Object.freeze(FEATURE_REGISTRY.map((feature) => feature.key));
   const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
@@ -97,9 +97,77 @@
     const validIds = new Set(validEntities.map((entity) => entity.id));
     return [...new Set(source.map((value) => text(value, 120)))].filter((value) => validIds.has(value));
   }
-  function normalizeTestAccount(item, index, environments, products) {
+  // Keep in sync with storage.js's twin of these - "sistema operacional"/"navegador" catalogs and
+  // "dispositivo" records that pick freely from both (schemaVersion 17).
+  function normalizeCatalogEntries(input, prefix) {
+    return (Array.isArray(input) ? input : []).slice(0, 200).map((item, index) => ({
+      id: id(item?.id, prefix, index),
+      name: text(item?.name ?? item?.label, 60) || `Item ${index + 1}`,
+      icon: text(item?.icon, IMAGE_VALUE_MAX_CHARS),
+      active: item?.active !== false,
+    }));
+  }
+  const platformIcon = (name) => globalThis.chrome?.runtime?.getURL?.(`src/assets/platforms/${name}.png`) || `/src/assets/platforms/${name}.png`;
+  const DEFAULT_OPERATING_SYSTEMS = Object.freeze([
+    Object.freeze({ id: "operatingSystem_windows", name: "Windows", icon: platformIcon("windows"), active: true }),
+    Object.freeze({ id: "operatingSystem_macos", name: "macOS", icon: platformIcon("macos"), active: true }),
+    Object.freeze({ id: "operatingSystem_linux", name: "Linux", icon: platformIcon("linux"), active: true }),
+    Object.freeze({ id: "operatingSystem_android", name: "Android", icon: platformIcon("android"), active: true }),
+    Object.freeze({ id: "operatingSystem_ios", name: "iOS", icon: platformIcon("ios"), active: true }),
+  ]);
+  const DEFAULT_BROWSERS = Object.freeze([
+    Object.freeze({ id: "browser_chrome", name: "Chrome", icon: platformIcon("chrome"), active: true }),
+    Object.freeze({ id: "browser_firefox", name: "Firefox", icon: platformIcon("firefox"), active: true }),
+    Object.freeze({ id: "browser_safari", name: "Safari", icon: platformIcon("safari"), active: true }),
+    Object.freeze({ id: "browser_edge", name: "Edge", icon: platformIcon("edge"), active: true }),
+  ]);
+  const DEFAULT_PAYMENT_METHOD_TYPES = Object.freeze([
+    Object.freeze({ id: "paymentMethodType_card", name: "Cartão", icon: "", active: true }),
+    Object.freeze({ id: "paymentMethodType_pix", name: "PIX", icon: "", active: true }),
+    Object.freeze({ id: "paymentMethodType_bank", name: "Conta bancária", icon: "", active: true }),
+    Object.freeze({ id: "paymentMethodType_other", name: "Outro", icon: "", active: true }),
+  ]);
+  const LEGACY_PAYMENT_METHOD_TYPE_IDS = Object.freeze({
+    card: "paymentMethodType_card",
+    pix: "paymentMethodType_pix",
+    bank: "paymentMethodType_bank",
+    other: "paymentMethodType_other",
+  });
+  function resolveCatalogId(catalog, name) {
+    const needle = text(name, 60).toLowerCase();
+    if (!needle) return "";
+    return catalog.find((entry) => entry.name.toLowerCase() === needle)?.id || "";
+  }
+  function deriveAccountTypesFromLegacyTestAccounts(rawTestAccounts) {
+    const seen = new Map();
+    for (const item of Array.isArray(rawTestAccounts) ? rawTestAccounts : []) {
+      const name = text(item?.accountType, 60);
+      if (!name || seen.has(name.toLowerCase())) continue;
+      seen.set(name.toLowerCase(), {
+        id: id(null, "accountType", seen.size),
+        name,
+        icon: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
+        active: true,
+      });
+    }
+    return [...seen.values()];
+  }
+  function normalizeDevice(item, index, operatingSystems, browsers) {
+    return {
+      id: id(item?.id, "device", index),
+      label: text(item?.label, 120) || `Dispositivo ${index + 1}`,
+      operatingSystemIds: normalizeIdArray(item?.operatingSystemIds, null, operatingSystems),
+      browserIds: normalizeIdArray(item?.browserIds, null, browsers),
+      notes: text(item?.notes, 1000),
+      active: item?.active !== false,
+    };
+  }
+  function normalizeTestAccount(item, index, environments, products, accountTypes) {
     const environmentIds = normalizeIdArray(item?.environmentIds, item?.environmentId, environments);
     if (!environmentIds.length) return null;
+    const accountTypeId = accountTypes.some((entry) => entry.id === item?.accountTypeId)
+      ? item.accountTypeId
+      : resolveCatalogId(accountTypes, item?.accountType);
     return {
       id: id(item?.id, "testAccount", index),
       environmentIds,
@@ -107,6 +175,7 @@
       label: text(item?.label, 120) || `Conta ${index + 1}`,
       accountType: text(item?.accountType, 60),
       accountTypeImage: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
+      accountTypeId,
       username: text(item?.username, 200),
       password: text(item?.password, 200),
       notes: text(item?.notes, 1000),
@@ -135,7 +204,7 @@
   }
   function createEmptyWorkspace() {
     return {
-      schemaVersion: 15,
+      schemaVersion: 18,
       updatedAt: new Date().toISOString(),
       clients: [],
       projects: [],
@@ -149,6 +218,11 @@
       resources: [],
       macros: [],
       stepRecordings: [],
+      operatingSystems: DEFAULT_OPERATING_SYSTEMS.map((entry) => ({ ...entry })),
+      browsers: DEFAULT_BROWSERS.map((entry) => ({ ...entry })),
+      devices: [],
+      accountTypes: [],
+      paymentMethodTypes: DEFAULT_PAYMENT_METHOD_TYPES.map((entry) => ({ ...entry })),
       preferences: {
         language: "pt-BR",
         appearanceTheme: "light",
@@ -158,6 +232,7 @@
         mobileDrawerPosition: "bottom",
         mobileToolbarPosition: "top",
         pushSiteContent: true,
+        pushSiteContentForDrawer: false,
         compactMode: false,
         compactEntities: { client: false, project: false, product: false },
         avatarShape: "square",
@@ -322,7 +397,9 @@
     if (!item || typeof item !== "object") return null;
     const action = STEP_ACTIONS.has(item.action) ? item.action : "manual";
     const target = text(item.target ?? item.selector, 1000);
+    const targetKey = text(item.targetKey, 1000);
     const sensitive = item.sensitive === true || SENSITIVE_HINT.test(target);
+    const value = sensitive ? "" : text(item.value, 2000);
     return {
       id: id(item.id, "step", index),
       keyword: STEP_KEYWORDS.has(item.keyword) ? item.keyword : index === 0 ? "given" : "and",
@@ -332,19 +409,31 @@
       url: text(item.url, 2048),
       createdAt: text(item.createdAt, 40) || new Date().toISOString(),
       ...(target ? { target } : {}),
+      ...(targetKey ? { targetKey } : {}),
+      ...(value ? { value } : {}),
+      ...(typeof item.checked === "boolean" ? { checked: item.checked } : {}),
       ...(sensitive ? { sensitive: true } : {}),
     };
   }
   function normalizeStepRecordings(input) {
-    return (Array.isArray(input) ? input : []).slice(0, 100).map((item, index) => ({
-      id: id(item?.id, "stepRecording", index),
-      name: text(item?.name, 120) || `Roteiro ${index + 1}`,
-      mode: item?.mode === "gherkin" ? "gherkin" : "numbered",
-      locale: STEP_LOCALES.has(item?.locale) ? item.locale : "pt-BR",
-      createdAt: text(item?.createdAt, 40) || new Date().toISOString(),
-      updatedAt: text(item?.updatedAt, 40) || new Date().toISOString(),
-      steps: (Array.isArray(item?.steps) ? item.steps : []).slice(0, 200).map(normalizeStepRecordingStep).filter(Boolean),
-    }));
+    return (Array.isArray(input) ? input : []).slice(0, 100).map((item, index) => {
+      const rawContext = item?.context && typeof item.context === "object" ? item.context : {};
+      const context = Object.fromEntries(["client", "project", "product", "environment", "url"]
+        .map((key) => [key, text(rawContext[key], key === "url" ? 2048 : 160)])
+        .filter(([, value]) => value));
+      return {
+        id: id(item?.id, "stepRecording", index),
+        name: text(item?.name, 120) || `Roteiro ${index + 1}`,
+        mode: item?.mode === "gherkin" ? "gherkin" : "numbered",
+        locale: STEP_LOCALES.has(item?.locale) ? item.locale : "pt-BR",
+        createdAt: text(item?.createdAt, 40) || new Date().toISOString(),
+        updatedAt: text(item?.updatedAt, 40) || new Date().toISOString(),
+        deviceId: text(item?.deviceId, 160),
+        mediaMode: ["video", "gif"].includes(item?.mediaMode) ? item.mediaMode : "",
+        ...(Object.keys(context).length ? { context } : {}),
+        steps: (Array.isArray(item?.steps) ? item.steps : []).slice(0, 200).map(normalizeStepRecordingStep).filter(Boolean),
+      };
+    });
   }
   function normalizeWorkspace(rawWorkspace) {
     const source = rawWorkspace && typeof rawWorkspace === "object" ? rawWorkspace : {};
@@ -410,27 +499,53 @@
     if (Number(source.schemaVersion || 0) < 13) for (const tool of SCHEMA_13_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 14) for (const tool of SCHEMA_14_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 15) for (const tool of SCHEMA_15_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    let operatingSystems = normalizeCatalogEntries(source.operatingSystems, "operatingSystem");
+    let browsers = normalizeCatalogEntries(source.browsers, "browser");
+    if (Number(source.schemaVersion || 0) < 17) {
+      if (!operatingSystems.length) operatingSystems = DEFAULT_OPERATING_SYSTEMS.map((entry) => ({ ...entry }));
+      if (!browsers.length) browsers = DEFAULT_BROWSERS.map((entry) => ({ ...entry }));
+    }
+    operatingSystems = operatingSystems.map((item) => item.icon && !item.icon.startsWith("data:image/svg+xml") ? item : { ...item, icon: DEFAULT_OPERATING_SYSTEMS.find((value) => value.id === item.id)?.icon || item.icon || "" });
+    browsers = browsers.map((item) => item.icon && !item.icon.startsWith("data:image/svg+xml") ? item : { ...item, icon: DEFAULT_BROWSERS.find((value) => value.id === item.id)?.icon || item.icon || "" });
+    let accountTypes = normalizeCatalogEntries(source.accountTypes, "accountType");
+    let paymentMethodTypes = normalizeCatalogEntries(source.paymentMethodTypes, "paymentMethodType");
+    if (Number(source.schemaVersion || 0) < 17) {
+      for (const derived of deriveAccountTypesFromLegacyTestAccounts(source.testAccounts)) {
+        if (!accountTypes.some((entry) => entry.name.toLowerCase() === derived.name.toLowerCase())) accountTypes.push(derived);
+      }
+      if (!paymentMethodTypes.length) paymentMethodTypes = DEFAULT_PAYMENT_METHOD_TYPES.map((entry) => ({ ...entry }));
+    }
     return {
       ...empty,
-      schemaVersion: 15,
+      schemaVersion: 17,
       updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
       clients,
       projects,
       products,
       environments,
       urlBindings,
-      testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : []).map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
+      operatingSystems,
+      browsers,
+      accountTypes,
+      paymentMethodTypes,
+      devices: (Array.isArray(source.devices) ? source.devices : []).map((item, index) => normalizeDevice(item, index, operatingSystems, browsers)),
+      testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : []).map((item, index) => normalizeTestAccount(item, index, environments, products, accountTypes)).filter(Boolean),
       paymentMethods: copy("paymentMethods").map((item) => {
         // "number" was never a real field in this schema (the composers always write "value") -
         // it only shows up in records created outside the composer UI (a hand-built seed/import
         // file, for instance). Without this alias those cards silently render with no "Número" row
         // and nothing to copy, with no error to explain why. Keep in sync with storage.js.
         const { environmentId, productId, product_id, number, ...rest } = item;
+        const legacyTypeId = LEGACY_PAYMENT_METHOD_TYPE_IDS[item?.type] || "";
+        const typeId = paymentMethodTypes.some((entry) => entry.id === item?.typeId)
+          ? item.typeId
+          : (paymentMethodTypes.some((entry) => entry.id === legacyTypeId) ? legacyTypeId : "");
         return {
           ...rest,
           value: text(item?.value, 240) || text(number, 240),
           environmentIds: normalizeIdArray(item?.environmentIds, environmentId, environments),
           productIds: normalizeIdArray(item?.productIds, productId ?? product_id, products),
+          typeId,
         };
       }),
       apis: copy("apis"),
@@ -451,6 +566,7 @@
           product: preferences.compactEntities?.product === true || (!preferences.compactEntities && preferences.compactMode === true),
         },
         pushSiteContent: preferences.pushSiteContent !== false,
+        pushSiteContentForDrawer: preferences.pushSiteContentForDrawer === true,
         avatarShape: preferences.avatarShape === "round" ? "round" : "square",
         appearanceTheme: ["light", "dark"].includes(preferences.appearanceTheme) ? preferences.appearanceTheme : empty.preferences.appearanceTheme,
         colorTheme: text(preferences.colorTheme, 30) || empty.preferences.colorTheme,
@@ -471,7 +587,7 @@
         toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),
         toolsSortMode: normalizeToolsSortMode(preferences.toolsSortMode),
         toolUsageCounts: normalizeToolUsageCounts(preferences.toolUsageCounts),
-        customShortcuts: Object.fromEntries(Object.entries(preferences.customShortcuts && typeof preferences.customShortcuts === "object" ? preferences.customShortcuts : {}).filter(([key, shortcut]) => DEFAULT_ENABLED_TOOLS.includes(key) && /^(?:(?:Ctrl|Alt|Shift|Meta)\+)+(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(String(shortcut))).slice(0, DEFAULT_ENABLED_TOOLS.length)),
+        customShortcuts: Object.fromEntries(Object.entries(preferences.customShortcuts && typeof preferences.customShortcuts === "object" ? preferences.customShortcuts : {}).filter(([key, shortcut]) => DEFAULT_ENABLED_TOOLS.includes(key) && /^(?:(?:Ctrl|Alt|Shift|Meta)\+)*[^+]{1,24}$/.test(String(shortcut))).slice(0, DEFAULT_ENABLED_TOOLS.length)),
         demoWorkspaceSeeded: preferences.demoWorkspaceSeeded === true,
         soundEffects: preferences.soundEffects !== false,
         remindTestStatusOnRecording: preferences.remindTestStatusOnRecording === true,

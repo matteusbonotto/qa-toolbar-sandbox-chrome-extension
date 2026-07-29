@@ -12,12 +12,13 @@
 // Not part of CI -- run manually with `npm run tutorial:capture` and review the media before
 // committing. Each tool capture is wrapped so one failure doesn't abort the whole batch; failures
 // are reported at the end so they're easy to re-run individually later.
-import { cp, mkdir, open, readdir, rename, rm, stat } from "node:fs/promises";
+import { cp, mkdir, open, readFile, readdir, rename, rm, stat } from "node:fs/promises";
 import { extname, join, resolve } from "node:path";
 import { createServer } from "node:http";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { homedir, platform } from "node:os";
+import { webcrypto } from "node:crypto";
 import { chromium } from "playwright";
 
 const execFileAsync = promisify(execFile);
@@ -68,8 +69,28 @@ async function compressVideo(ffmpegPath, videoPath) {
 }
 
 const root = resolve(import.meta.dirname, "..");
+async function readEnvValue(path, key) {
+  try {
+    const text = await readFile(path, "utf8");
+    for (const line of text.split(/\r?\n/)) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith(`${key}=`)) return trimmed.slice(key.length + 1);
+    }
+  } catch {}
+  return undefined;
+}
+const accessTokenPrivateKeyJwk = await readEnvValue(resolve(root, ".env"), "ACCESS_TOKEN_PRIVATE_KEY_JWK");
+if (!accessTokenPrivateKeyJwk) throw new Error("Missing ACCESS_TOKEN_PRIVATE_KEY_JWK in .env.");
+const accessTokenSigningKey = await webcrypto.subtle.importKey("jwk", JSON.parse(accessTokenPrivateKeyJwk), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
+async function signMockAccessToken(payload) {
+  const body = { ...payload, exp: Math.floor(Date.now() / 1_000) + 600 };
+  const encodedPayload = Buffer.from(new TextEncoder().encode(JSON.stringify(body))).toString("base64url");
+  const signature = await webcrypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, accessTokenSigningKey, new TextEncoder().encode(encodedPayload));
+  return `${encodedPayload}.${Buffer.from(signature).toString("base64url")}`;
+}
 const extensionPath = resolve(root, "apps/extension");
 const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
+const captureMediaKey = captureOnly === "workspace" ? "workspace-setup" : captureOnly;
 const captureSuffix = captureOnly ? `-${captureOnly.replace(/[^a-z0-9_-]/gi, "-")}` : "";
 const profilePath = resolve(root, `artifacts/chrome-tutorial-capture-profile${captureSuffix}`);
 const videoTmpPath = resolve(root, `artifacts/tutorial-video-tmp${captureSuffix}`);
@@ -133,7 +154,12 @@ await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", 
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
   // All plan-gated features enabled -- this run is about capturing what each tool looks like in
   // action, not about exercising the lock/upgrade UI (that's covered by the real smoke test).
-  if (name === "access-status") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan: { key: "release-manager", name: "Release Manager" }, source: "manual", expiresAt: null, features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true }, checkedAt: new Date().toISOString() }) });
+  if (name === "access-status") {
+    const plan = { key: "release-manager", name: "Release Manager" };
+    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true };
+    const token = await signMockAccessToken({ active: true, plan, features });
+    return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
+  }
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -216,7 +242,7 @@ try {
   await options.locator("#settingsTourSkip").click({ force: true }).catch(() => {});
   trace("authenticated");
 
-  await options.getByRole("button", { name: "Workspace" }).click();
+  await options.getByRole("button", { name: "Workspace", exact: true }).click();
   await options.locator('[data-open-composer="clientComposer"]').click();
   await options.locator("#clientName").fill("Cliente Demo");
   await options.locator("#clientAbbreviation").fill("CD");
@@ -229,15 +255,15 @@ try {
   await options.locator("#productProject").selectOption({ label: "Projeto Demo" });
   await options.locator("#productName").fill("Produto Demo");
   await options.locator("#productForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator('[data-workspace-nav="environments"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#2563eb");
   await options.locator("#environmentForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   for (const pattern of [`http://127.0.0.1:${capturePort}/sandbox/*`]) {
     await options.locator('[data-open-composer="urlRelationComposer"]').click();
-    await options.locator("#urlRelationProduct").selectOption({ label: "Produto Demo" });
+    await options.locator('#urlProductPicker [data-url-product]', { hasText: "Produto Demo" }).click();
     await options.locator("#urlPatternInput").fill(pattern);
     await options.locator("#urlPatternAdd").click();
     await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
@@ -246,8 +272,8 @@ try {
 
   // Seed a test account, a payment method and a resource too, so the corresponding tools have
   // something real to display instead of an empty drawer.
-  if (!captureOnly) {
-  await options.locator('[data-workspace-tab="accounts"]').click();
+  if (!captureOnly || captureOnly === "workspace") {
+  await options.locator('[data-workspace-nav="accounts"]').click();
   await options.locator('[data-open-composer="testAccountComposer"]').click();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
@@ -256,7 +282,7 @@ try {
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="payments"]').click();
+  await options.locator('[data-workspace-nav="payments"]').click();
   await options.locator('[data-open-composer="paymentMethodComposer"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
@@ -264,7 +290,7 @@ try {
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="integrations"]').click();
+  await options.locator('[data-workspace-nav="integrations"]').click();
   await options.locator('[data-open-composer="resourceComposer"]').click();
   await options.locator("#resourceLabel").fill("Runbook QA");
   await options.locator("#resourceUrl").fill("https://example.com/runbook");
@@ -272,8 +298,8 @@ try {
   }
   trace("workspace ready (client/project/product/environment/URLs/account/payment/resource)");
 
-  if (!captureOnly) {
-  await options.locator('[data-workspace-tab="structure"]').click();
+  if (!captureOnly || captureOnly === "workspace") {
+  await options.locator('[data-workspace-nav="structure"]').click();
   await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
   trace("captured workspace-setup.png");
 
@@ -290,7 +316,7 @@ try {
   await walkthrough.locator('[data-theme-choice="dark"]').click();
   // Every shipped tutorial asset must end in the product default, never in the temporary dark
   // demonstration state used one action earlier.
-  await walkthrough.locator('[data-color-theme="blue-light"]').click();
+  await walkthrough.locator('[data-color-family="blue"]').click();
   await walkthrough.locator('.navItem[data-tab="workspace"]').click();
   const demos = [
     ["structure", "clientComposer"], ["structure", "projectComposer"], ["structure", "productComposer"],
@@ -299,7 +325,7 @@ try {
     ["integrations", "resourceComposer"],
   ];
   for (const [tab, composer] of demos) {
-    await walkthrough.locator(`[data-workspace-tab="${tab}"]`).click();
+    await walkthrough.locator(`[data-workspace-nav="${tab}"]`).click();
     await walkthrough.locator(`[data-open-composer="${composer}"]`).first().click();
     await walkthrough.waitForTimeout(500);
     await walkthrough.locator(`#${composer} [data-close-composer]`).first().click();
@@ -501,7 +527,6 @@ try {
     await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "stepsRecorderMenuItem");
     await page.locator("#newStepsName").fill("Validar cadastro de usuário");
-    await page.locator("#newStepsMode").selectOption("gherkin");
     await page.locator("#startSteps").click();
     await page.locator("#contactName").fill("Matheus QA");
     await page.locator("#contactEmail").fill("qa@example.com");
@@ -511,6 +536,8 @@ try {
     await page.locator("#contactSubmit").click();
     await page.waitForTimeout(900);
     await page.locator("#stepsRecDoneButton").click();
+    // No upfront mode picker anymore - numbered vs Gherkin is a view toggle in the editor now.
+    await page.locator("#stepsMode").selectOption("gherkin");
     await page.locator('[data-doc-step="0"] summary').click();
     await page.locator('[data-doc-step="0"] [data-step-expected]').fill("Formulário disponível para preenchimento");
     await page.waitForTimeout(1_200);
@@ -560,7 +587,8 @@ try {
     "inspectors", "jsonStudio", "breakpoints", "characterCounter", "multiClick", "inputLab", "fakerFill",
     "macroStudio", "stepsRecorder", "keyView", "elementCapture", "languageValidator", "qrCode", "testAccounts", "paymentMethods", "resources",
   ];
-  for (const key of expectedMediaKeys) {
+  const mediaKeysToValidate = captureOnly ? [captureMediaKey] : expectedMediaKeys;
+  for (const key of mediaKeysToValidate) {
     for (const extension of ["png", "webm"]) {
       try { await stat(resolve(assetsPath, `${key}.${extension}`)); }
       catch { failures.push(`${key}.${extension}`); }
@@ -569,10 +597,16 @@ try {
   if (failures.length) {
     trace(`done with failures: ${failures.join(", ")} -- existing tutorial assets were preserved`);
     process.exitCode = 1;
+  } else if (captureOnly) {
+    await mkdir(finalAssetsPath, { recursive: true });
+    for (const extension of ["png", "webm"]) {
+      await cp(resolve(assetsPath, `${captureMediaKey}.${extension}`), resolve(finalAssetsPath, `${captureMediaKey}.${extension}`));
+    }
+    trace(`done: ${captureMediaKey}.png and ${captureMediaKey}.webm were refreshed`);
   } else {
     await rm(finalAssetsPath, { recursive: true, force: true });
     await cp(assetsPath, finalAssetsPath, { recursive: true });
-    trace("done -- every tutorial screenshot/video was atomically replaced with the current blue-light capture");
+    trace("done: every tutorial screenshot and video was atomically replaced with the current blue light capture");
   }
 } finally {
   await context.close();

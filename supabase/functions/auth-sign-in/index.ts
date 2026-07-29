@@ -1,5 +1,5 @@
 import { z } from "npm:zod@4.4.3";
-import { enforceRateLimit, publicClient } from "../_shared/auth.ts";
+import { adminClient, enforceRateLimit, publicClient } from "../_shared/auth.ts";
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
 
@@ -16,6 +16,10 @@ serve(async (request) => {
   await enforceRateLimit(email, "auth-sign-in", 10, 900);
   const { data, error } = await publicClient().auth.signInWithPassword({ email, password: parsed.data.password });
   if (error || !data.session || !data.user) throw new ApiError(401, "authentication_failed");
+  const { error: trialError } = await adminClient().rpc("activate_free_trial", { target_user_id: data.user.id });
+  if (trialError && !["active_entitlement_exists", "free_trial_unavailable"].some((code) => trialError.message.includes(code))) {
+    console.error("auth-sign-in: free trial activation failed", trialError.message);
+  }
   return jsonResponse(request, {
     accessToken: data.session.access_token,
     refreshToken: data.session.refresh_token,
