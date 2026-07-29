@@ -782,6 +782,13 @@ function buildShadowHost() {
         transition: opacity 140ms ease, transform 140ms ease, visibility 140ms; color: #fff; z-index: 10;
       }
       #toolsMenu.isOpen { opacity: 1; visibility: visible; transform: translateY(0); }
+      :host([data-toolbar-position="bottom"]) #toolsMenu {
+        top:auto; bottom:30px; transform:translateY(6px);
+      }
+      :host([data-toolbar-position="bottom"]) #toolsMenu.isOpen { transform:translateY(0); }
+      :host([data-toolbar-position="bottom"]) :is(#notificationBellPanel,#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) {
+        top:auto; bottom:30px;
+      }
       #toolsMenu::-webkit-scrollbar { width: 9px; }
       #toolsMenu::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 64%,transparent); border:2px solid transparent; border-radius:99px; background-clip:padding-box; }
       #toolsMenu button {
@@ -3121,6 +3128,10 @@ function drawerStyles() {
       display: none; flex-direction: column; gap: 6px; position: absolute; top: 34px; left: 0; z-index: 100;
       width: max(220px, 100%); max-height: 260px; padding: 8px; border: 1px solid #333; border-radius: 8px;
       background: #101010; box-shadow: 0 12px 30px rgba(0,0,0,.5); overflow: auto;
+    }
+    .qts-drawer-backdrop[data-position="bottom"] .qts-combo-panel,
+    .qts-drawer-backdrop[data-position="bottom"] .qts-dropdown-panel {
+      top:auto; bottom:calc(100% + 6px);
     }
     .qts-combo-option { display: flex; align-items: center; gap: 8px; padding: 4px 2px; font-size: 11px; cursor: pointer; }
     .qts-combo-option img { width: 20px; height: 20px; border-radius: 4px; object-fit: cover; flex: 0 0 auto; }

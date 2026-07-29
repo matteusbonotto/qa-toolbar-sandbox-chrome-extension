@@ -17,8 +17,7 @@
         <button type="button" class="navItem protectedNav" data-tab="workspace" disabled>Workspace</button>
         <div class="navSubmenu" id="workspaceNavSubmenu" hidden aria-label="Seções do Workspace">
           <button type="button" data-workspace-nav="structure">Clientes e produtos</button>
-          <button type="button" data-workspace-nav="environments">Ambientes</button>
-          <button type="button" data-workspace-nav="urls">URLs e vínculos</button>
+          <button type="button" data-workspace-nav="urls">Ambientes e URLs</button>
           <button type="button" data-workspace-nav="accounts">Contas de teste</button>
           <button type="button" data-workspace-nav="payments">Pagamentos de teste</button>
           <button type="button" data-workspace-nav="devices">Dispositivos</button>
@@ -173,15 +172,14 @@
             <div class="workspaceTabGroup">
               <span class="workspaceTabGroupLabel">Organização</span>
               <button type="button" class="workspaceTab isActive" data-workspace-tab="structure" role="tab"><span>01</span>Clientes e produtos</button>
-              <button type="button" class="workspaceTab" data-workspace-tab="environments" role="tab"><span>02</span>Ambientes</button>
-              <button type="button" class="workspaceTab" data-workspace-tab="urls" role="tab"><span>03</span>URLs e vínculos</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="urls" role="tab"><span>02</span>Ambientes e URLs</button>
             </div>
             <div class="workspaceTabGroup workspaceTabGroupOperation">
               <span class="workspaceTabGroupLabel">Operação</span>
-              <button type="button" class="workspaceTab" data-workspace-tab="accounts" role="tab"><span>04</span>Contas</button>
-              <button type="button" class="workspaceTab" data-workspace-tab="payments" role="tab"><span>05</span>Pagamentos</button>
-              <button type="button" class="workspaceTab" data-workspace-tab="devices" role="tab"><span>06</span>Dispositivos</button>
-              <button type="button" class="workspaceTab" data-workspace-tab="integrations" role="tab"><span>07</span>Inspectors</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="accounts" role="tab"><span>03</span>Contas</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="payments" role="tab"><span>04</span>Pagamentos</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="devices" role="tab"><span>05</span>Dispositivos</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="integrations" role="tab"><span>06</span>Inspectors</button>
             </div>
           </div>
 
@@ -194,50 +192,24 @@
               <button type="button" data-structure-view="product" aria-pressed="false">Produto</button>
             </div>
             <div class="structureExplorer" data-structure-view-mode="client">
-              <details class="hierarchyRoot hierarchyAccordion" open>
-                <summary class="hierarchyNodeHead"><div><span class="hierarchyLevel">Cliente</span><strong>Clientes</strong><small>Organizações atendidas</small></div><span class="hierarchySummaryMeta"><span class="count" id="clientCount">0</span><button type="button" class="hierarchyAddButton" data-open-composer="clientComposer">+ Novo cliente</button><span class="hierarchyChevron" aria-hidden="true"></span></span></summary>
-                <div class="hierarchyAccordionBody">
-                  <div class="list structureClientList" id="clientList"></div>
-                </div>
-                <div class="hierarchyBranch hierarchyProjectBranch">
-                  <div class="hierarchyConnector" aria-hidden="true"></div>
-                  <details class="hierarchyNode hierarchyAccordion" open>
-                    <summary class="hierarchyNodeHead"><div><span class="hierarchyLevel">Projeto</span><strong>Projetos do cliente selecionado</strong><small>Frentes de trabalho</small></div><span class="hierarchySummaryMeta"><span class="count" id="projectCount">0</span><button type="button" class="hierarchyAddButton" data-open-composer="projectComposer">+ Novo projeto</button><span class="hierarchyChevron" aria-hidden="true"></span></span></summary>
-                    <div class="hierarchyAccordionBody">
-                      <div class="list hierarchyList" id="projectList"></div>
-                    </div>
-                    <div class="hierarchyBranch hierarchyProductBranch">
-                      <div class="hierarchyConnector" aria-hidden="true"></div>
-                      <details class="hierarchyNode hierarchyProductNode hierarchyAccordion" open>
-                        <summary class="hierarchyNodeHead"><div><span class="hierarchyLevel">Produto</span><strong>Produtos do projeto selecionado</strong><small>Sites, aplicativos e sistemas testados</small></div><span class="hierarchySummaryMeta"><span class="count" id="productCount">0</span><button type="button" class="hierarchyAddButton" data-open-composer="productComposer">+ Novo produto</button><span class="hierarchyChevron" aria-hidden="true"></span></span></summary>
-                        <div class="hierarchyAccordionBody">
-                          <div class="list hierarchyList" id="productList"></div>
-                        </div>
-                      </details>
-                    </div>
-                  </details>
-                </div>
-              </details>
+              <div class="relationshipTree" id="structureHierarchy"></div>
+              <button type="button" class="composerTrigger structureCreateRoot" data-open-composer="clientComposer">Adicionar cliente</button>
+              <div class="visuallyHidden" aria-hidden="true"><span id="clientCount">0</span><span id="projectCount">0</span><span id="productCount">0</span><div id="clientList"></div><div id="projectList"></div><div id="productList"></div></div>
             </div>
           </div>
 
-          <div class="workspacePane" data-workspace-pane="environments" role="tabpanel">
-            <div class="paneIntro"><div><h2>Ambientes</h2><p>Nomes e cores reutilizáveis (ex.: DEV, QA, Beta, Prod) - conecte-os a produtos/URLs específicas na aba URLs.</p></div><span class="count" id="environmentCount">0</span></div>
-            <article class="entityCard entityCardWide"><div class="list listComfortable" id="environmentList"></div>
-              <button type="button" class="composerTrigger" data-open-composer="environmentComposer">Adicionar ambiente</button>
-            </article>
-          </div>
-
           <div class="workspacePane" data-workspace-pane="urls" role="tabpanel">
-            <div class="paneIntro"><div><h2>URLs e relações</h2><p>Cada URL pertence a um produto e pode se relacionar com um ou vários ambientes - é aqui que "DEV" vira a URL de cada país/produto.</p></div><span class="count" id="urlRelationCount">0</span></div>
+            <div class="paneIntro"><div><h2>Ambientes e URLs</h2><p>Crie cada ambiente e expanda seu accordion para administrar as URLs e os produtos relacionados.</p></div><div class="paneCounts"><span class="count" id="environmentCount">0</span><span class="count" id="urlRelationCount">0</span></div></div>
             <div class="urlTreeFilters" role="group" aria-label="Níveis visíveis na árvore"><span>Organizar árvore por</span><button type="button" data-url-tree-dimension="environment" aria-pressed="true">Ambiente</button><button type="button" data-url-tree-dimension="client" aria-pressed="true">Cliente</button><button type="button" data-url-tree-dimension="project" aria-pressed="true">Projeto</button><button type="button" data-url-tree-dimension="product" aria-pressed="true">Produto</button></div>
             <article class="entityCard entityCardWide"><div class="list listComfortable" id="urlRelationList"></div>
-              <button type="button" class="composerTrigger" data-open-composer="urlRelationComposer">Adicionar URL</button>
+              <div class="composerActions"><button type="button" class="composerTrigger" data-open-composer="environmentComposer">Adicionar ambiente</button><button type="button" class="composerTrigger" data-open-composer="urlRelationComposer">Adicionar URL</button></div>
             </article>
+            <div class="visuallyHidden" aria-hidden="true"><div id="environmentList"></div></div>
           </div>
 
           <div class="workspacePane" data-workspace-pane="accounts" role="tabpanel">
             <div class="paneIntro"><div><h2>Contas de teste</h2><p>Credenciais sandbox organizadas por ambiente e protegidas na exportação.</p></div><span class="count" id="testAccountCount">0</span></div>
+            <div class="urlTreeFilters relationalViewFilters" role="group" aria-label="Organizar contas por"><span>Visualizar por</span><button type="button" data-relational-view="testAccounts" data-relational-dimension="environment" aria-pressed="true">Ambiente</button><button type="button" data-relational-view="testAccounts" data-relational-dimension="client" aria-pressed="false">Cliente</button><button type="button" data-relational-view="testAccounts" data-relational-dimension="project" aria-pressed="false">Projeto</button><button type="button" data-relational-view="testAccounts" data-relational-dimension="product" aria-pressed="false">Produto</button><button type="button" data-relational-view="testAccounts" data-relational-dimension="type" aria-pressed="false">Tipo</button></div>
             <article class="entityCard entityCardWide typeCatalogCard"><div class="cardHead"><h3>Tipos de conta</h3><span class="count" id="accountTypeCount">0</span></div><p class="cardLead">Cadastre uma vez e reutilize o tipo em qualquer conta.</p><div class="list typeCatalogList" id="accountTypeList"></div>
               <button type="button" class="composerTrigger" data-open-composer="accountTypeComposer">Adicionar tipo de conta</button>
             </article>
@@ -248,6 +220,7 @@
 
           <div class="workspacePane" data-workspace-pane="payments" role="tabpanel">
             <div class="paneIntro"><div><h2>Meios de pagamento</h2><p>Dados sandbox reutilizáveis, com valor e CVV sempre tratados como sensíveis.</p></div><span class="count" id="paymentMethodCount">0</span></div>
+            <div class="urlTreeFilters relationalViewFilters" role="group" aria-label="Organizar pagamentos por"><span>Visualizar por</span><button type="button" data-relational-view="paymentMethods" data-relational-dimension="environment" aria-pressed="true">Ambiente</button><button type="button" data-relational-view="paymentMethods" data-relational-dimension="client" aria-pressed="false">Cliente</button><button type="button" data-relational-view="paymentMethods" data-relational-dimension="project" aria-pressed="false">Projeto</button><button type="button" data-relational-view="paymentMethods" data-relational-dimension="product" aria-pressed="false">Produto</button><button type="button" data-relational-view="paymentMethods" data-relational-dimension="type" aria-pressed="false">Tipo</button></div>
             <article class="entityCard entityCardWide typeCatalogCard"><div class="cardHead"><h3>Tipos de pagamento</h3><span class="count" id="paymentMethodTypeCount">0</span></div><p class="cardLead">Cadastre uma vez e reutilize o tipo em qualquer meio de pagamento.</p><div class="list typeCatalogList" id="paymentMethodTypeList"></div>
               <button type="button" class="composerTrigger" data-open-composer="paymentMethodTypeComposer">Adicionar tipo de pagamento</button>
             </article>
@@ -258,6 +231,7 @@
 
           <div class="workspacePane" data-workspace-pane="devices" role="tabpanel">
             <div class="paneIntro"><div><h2>Dispositivos</h2><p>Cadastre um dispositivo com os sistemas e navegadores em que ele roda - útil para anexar ao reportar um bug.</p></div><span class="count" id="deviceCount">0</span></div>
+            <div class="urlTreeFilters relationalViewFilters" role="group" aria-label="Organizar dispositivos por"><span>Visualizar por</span><button type="button" data-relational-view="devices" data-relational-dimension="operatingSystem" aria-pressed="true">Sistema</button><button type="button" data-relational-view="devices" data-relational-dimension="browser" aria-pressed="false">Navegador</button></div>
             <div class="studioGrid">
               <article class="entityCard typeCatalogCard"><div class="cardHead"><h3>Sistemas operacionais</h3><span class="count" id="operatingSystemCount">0</span></div><div class="list typeCatalogList" id="operatingSystemList"></div>
                 <button type="button" class="composerTrigger" data-open-composer="operatingSystemComposer">Adicionar sistema</button>

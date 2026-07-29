@@ -178,6 +178,7 @@ function runtimeMessage(message) {
 const NAV_WORKSPACE_ROUTES = Object.freeze({ workspace: "structure", "test-data": "accounts", integrations: "integrations" });
 
 function activateWorkspaceTab(tabName, { syncNavigation = false } = {}) {
+  if (tabName === "environments") tabName = "urls";
   const target = document.querySelector(`[data-workspace-pane="${tabName}"]`) ? tabName : "structure";
   activeWorkspaceTab = target;
   document.querySelectorAll(".workspaceTab").forEach((item) => {
@@ -828,9 +829,113 @@ function rowActions(collection, item, { reveal = false } = {}) {
 
 function renderRows(collection, formatter, options = {}) {
   const element = document.getElementById(COLLECTION_UI[collection].listId);
-  const items = (workspace[collection] || []).filter((item) => matchesSearch(item) && (!options.filter || options.filter(item)));
+  const items = (workspace[collection] || []).filter((item) => !item.locked && matchesSearch(item) && (!options.filter || options.filter(item)));
   if (!items.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
   element.innerHTML = items.map((item) => `<div class="listRow${item.active === false ? " isInactive" : ""}${options.selectedId === item.id ? " isSelected" : ""}" data-id="${escapeHtml(item.id)}"><div>${formatter(item)}</div>${rowActions(collection, item, { reveal: options.reveal?.(item) })}</div>`).join("");
+}
+
+function visibleWorkspaceItems(collection) {
+  return (workspace[collection] || []).filter((item) => !item.locked && matchesSearch(item));
+}
+
+function relationshipEntityCard(collection, item, { context = "", children = "", childCollection = "", childLabel = "" } = {}) {
+  const type = { clients: "Cliente", projects: "Projeto", products: "Produto" }[collection];
+  const entityHtml = window.QTS_AVATAR.buildEntityHtml(item, { size: 26 });
+  const draggable = collection !== "clients";
+  return `<details class="relationshipNode relationshipNode-${collection}" open data-entity-collection="${collection}" data-entity-id="${escapeHtml(item.id)}" ${draggable ? 'draggable="true"' : ""}>
+    <summary class="relationshipNodeSummary">
+      <span class="relationshipType">${escapeHtml(t(type))}</span>
+      <span class="relationshipIdentity">${entityHtml}${context ? `<small>${escapeHtml(context)}</small>` : ""}</span>
+      <span class="relationshipNodeActions">${rowActions(collection, item)}<span class="hierarchyChevron" aria-hidden="true"></span></span>
+    </summary>
+    ${children ? `<div class="relationshipChildren">${children}</div>` : `<div class="relationshipEmpty">${escapeHtml(t("Nenhum item relacionado."))}</div>`}
+    ${childCollection ? `<button type="button" class="relationshipAdd" data-tree-create="${childCollection}" data-parent-id="${escapeHtml(item.id)}">+ ${escapeHtml(t(childLabel))}</button>` : ""}
+  </details>`;
+}
+
+function renderStructureHierarchy() {
+  const container = document.getElementById("structureHierarchy");
+  if (!container) return;
+  const clients = visibleWorkspaceItems("clients");
+  const projects = visibleWorkspaceItems("projects");
+  const products = visibleWorkspaceItems("products");
+  const productCard = (product) => {
+    const project = findById("projects", product.projectId);
+    const client = findById("clients", project?.clientId);
+    const context = structureViewMode === "product" ? [client?.name, project?.name].filter(Boolean).join(" · ") : "";
+    return relationshipEntityCard("products", product, { context });
+  };
+  const projectCard = (project) => {
+    const client = findById("clients", project.clientId);
+    const children = products.filter((product) => product.projectId === project.id).map(productCard).join("");
+    return relationshipEntityCard("projects", project, {
+      context: structureViewMode === "project" ? client?.name || "" : "",
+      children, childCollection: "product", childLabel: "Adicionar produto",
+    });
+  };
+  const clientCard = (client) => relationshipEntityCard("clients", client, {
+    children: projects.filter((project) => project.clientId === client.id).map(projectCard).join(""),
+    childCollection: "project", childLabel: "Adicionar projeto",
+  });
+  const html = structureViewMode === "product" ? products.map(productCard).join("")
+    : structureViewMode === "project" ? projects.map(projectCard).join("")
+      : clients.map(clientCard).join("");
+  container.innerHTML = html || `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`;
+  container.querySelectorAll(".rowActions").forEach((actions) => actions.addEventListener("click", (event) => event.preventDefault()));
+}
+
+const relationalViewDimension = { testAccounts: "environment", paymentMethods: "environment", devices: "operatingSystem" };
+
+function relationalEntities(item, dimension, collection) {
+  if (dimension === "environment") return (item.environmentIds || []).map((id) => findById("environments", id)).filter((entry) => entry && !entry.locked);
+  if (dimension === "product") return (item.productIds || []).map((id) => findById("products", id)).filter((entry) => entry && !entry.locked);
+  if (dimension === "project" || dimension === "client") {
+    const products = (item.productIds || []).map((id) => findById("products", id)).filter(Boolean);
+    const projects = [...new Map(products.map((product) => {
+      const project = findById("projects", product.projectId);
+      return [project?.id, project];
+    }).filter(([id, project]) => id && project && !project.locked)).values()];
+    if (dimension === "project") return projects;
+    return [...new Map(projects.map((project) => {
+      const client = findById("clients", project.clientId);
+      return [client?.id, client];
+    }).filter(([id, client]) => id && client && !client.locked)).values()];
+  }
+  if (dimension === "type") {
+    const catalog = collection === "testAccounts" ? "accountTypes" : "paymentMethodTypes";
+    const id = collection === "testAccounts" ? item.accountTypeId : item.typeId;
+    return [findById(catalog, id)].filter(Boolean);
+  }
+  if (dimension === "operatingSystem") return (item.operatingSystemIds || []).map((id) => findById("operatingSystems", id)).filter(Boolean);
+  if (dimension === "browser") return (item.browserIds || []).map((id) => findById("browsers", id)).filter(Boolean);
+  return [];
+}
+
+function renderRelationalRows(collection, formatter, { reveal } = {}) {
+  const element = document.getElementById(COLLECTION_UI[collection].listId);
+  const items = visibleWorkspaceItems(collection);
+  if (!items.length) {
+    element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`;
+    return;
+  }
+  const dimension = relationalViewDimension[collection];
+  const groups = new Map();
+  for (const item of items) {
+    const entities = relationalEntities(item, dimension, collection);
+    for (const entity of entities.length ? entities : [null]) {
+      const key = entity?.id || "__none";
+      if (!groups.has(key)) groups.set(key, { entity, items: [] });
+      groups.get(key).items.push(item);
+    }
+  }
+  const emptyLabel = { environment: "Sem ambiente", client: "Sem cliente", project: "Sem projeto", product: "Sem produto", type: "Sem tipo", operatingSystem: "Sem sistema", browser: "Sem navegador" }[dimension];
+  const dimensionLabel = { environment: "Ambiente", client: "Cliente", project: "Projeto", product: "Produto", type: "Tipo", operatingSystem: "Sistema", browser: "Navegador" }[dimension];
+  element.innerHTML = [...groups.values()].map(({ entity, items: groupedItems }) => {
+    const label = entity?.name || entity?.label || t(emptyLabel);
+    const identity = entity ? window.QTS_AVATAR.buildEntityHtml(entity, { size: 24 }) : `<b>${escapeHtml(t(emptyLabel))}</b>`;
+    const rows = groupedItems.map((item) => `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div>${formatter(item)}</div>${rowActions(collection, item, { reveal: reveal?.(item) })}</div>`).join("");
+    return `<details class="urlTreeNode relationalDataNode" open><summary><span class="urlTreeBranch" aria-hidden="true"></span><span class="relationshipType">${escapeHtml(t(dimensionLabel))}</span><span class="urlTreeIdentity">${identity}<small>${escapeHtml(label)}</small></span><span class="count">${groupedItems.length}</span></summary><div class="urlTreeChildren">${rows}</div></details>`;
+  }).join("");
 }
 
 function renderSelect(selectId, items, placeholder) {
@@ -872,7 +977,7 @@ function addUrlPatternDraft() {
 
 function renderUrlEnvironmentPicker() {
   const container = document.getElementById("urlEnvironmentPicker");
-  const environments = workspace.environments || [];
+  const environments = (workspace.environments || []).filter((item) => !item.locked);
   if (!environments.length) {
     container.innerHTML = `<div class="listEmpty">${escapeHtml(t("Crie um ambiente antes de associar URLs."))}</div>`;
     return;
@@ -880,7 +985,7 @@ function renderUrlEnvironmentPicker() {
   if (environments.length <= 4) {
     container.innerHTML = `<div class="environmentToggles">${environments.map((environment) => {
       const selected = urlSelectedEnvironmentIds.has(environment.id);
-      return `<button type="button" class="environmentToggle${selected ? " isSelected" : ""}" data-url-environment="${escapeHtml(environment.id)}" aria-pressed="${selected}"><span style="--environment-color:${escapeHtml(environment.color)}"></span>${escapeHtml(environmentDisplayName(environment))}</button>`;
+      return `<button type="button" class="environmentToggle${selected ? " isSelected" : ""}" data-url-environment="${escapeHtml(environment.id)}" aria-pressed="${selected}"><span class="environmentColorDot" style="--environment-color:${escapeHtml(environment.color)}"></span><span class="environmentToggleLabel">${escapeHtml(environmentDisplayName(environment))}</span></button>`;
     }).join("")}</div>`;
     container.querySelectorAll("[data-url-environment]").forEach((button) => button.addEventListener("click", () => {
       const id = button.dataset.urlEnvironment;
@@ -905,11 +1010,11 @@ function renderUrlEnvironmentPicker() {
 
 function renderUrlProductPicker() {
   const container = document.getElementById("urlProductPicker");
-  const products = workspace.products || [];
+  const products = (workspace.products || []).filter((item) => !item.locked);
   container.innerHTML = products.length
     ? `<div class="environmentToggles">${products.map((product) => {
       const selected = urlSelectedProductIds.has(product.id);
-      return `<button type="button" class="environmentToggle${selected ? " isSelected" : ""}" data-url-product="${escapeHtml(product.id)}" aria-pressed="${selected}">${window.QTS_AVATAR.buildBadgeHtml(product, { size: 18 })}<span>${escapeHtml(product.name)}</span></button>`;
+      return `<button type="button" class="environmentToggle${selected ? " isSelected" : ""}" data-url-product="${escapeHtml(product.id)}" aria-pressed="${selected}">${window.QTS_AVATAR.buildBadgeHtml(product, { size: 18 })}<span class="environmentToggleLabel">${escapeHtml(product.name)}</span></button>`;
     }).join("")}</div>`
     : `<div class="listEmpty">${escapeHtml(t("Crie um produto antes de associar URLs."))}</div>`;
   container.querySelectorAll("[data-url-product]").forEach((button) => button.addEventListener("click", () => {
@@ -929,7 +1034,7 @@ function renderUrlRelationRow(item) {
   const productBadge = product ? window.QTS_AVATAR.buildEntityHtml(product, { size: 18 }) : "";
   const badges = item.environmentIds.map((environmentId) => findById("environments", environmentId)).filter(Boolean)
     .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
-  return `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${productBadge}${escapeHtml(product?.name || "-")}</small><small class="relationBadges">${badges}</small></div>${rowActions("urlBindings", item)}</div>`;
+  return `<div class="listRow${item.active === false ? " isInactive" : ""}" draggable="true" data-drag-collection="urlBindings" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${productBadge}${escapeHtml(product?.name || "-")}</small><small class="relationBadges">${badges}</small></div>${rowActions("urlBindings", item)}</div>`;
 }
 
 // Remembers which environment accordions the founder has manually collapsed - renderWorkspace()
@@ -965,27 +1070,51 @@ function renderUrlTree(records, dimensions, depth = 0) {
     const preview = dimension === "environment"
       ? `<span class="environmentToolbarPreview" style="--environment-color:${escapeHtml(color)}"><i></i><i></i><i></i></span>`
       : "";
-    return `<details class="urlTreeNode urlTreeLevel-${dimension}" data-accordion-key="${escapeHtml(key)}" style="${color ? `--environment-color:${escapeHtml(color)}` : ""}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}><summary><span class="urlTreeBranch" aria-hidden="true"></span><b>${escapeHtml(label)}</b>${preview}<span class="count">${group.records.length}</span></summary><div class="urlTreeChildren">${renderUrlTree(group.records, rest, depth + 1)}</div></details>`;
+    return `<details class="urlTreeNode urlTreeLevel-${dimension}" data-accordion-key="${escapeHtml(key)}" data-tree-dimension="${dimension}" data-tree-entity-id="${escapeHtml(entity?.id || "")}" style="${color ? `--environment-color:${escapeHtml(color)}` : ""}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}><summary><span class="urlTreeBranch" aria-hidden="true"></span><b>${escapeHtml(label)}</b>${preview}<span class="count">${group.records.length}</span></summary><div class="urlTreeChildren">${renderUrlTree(group.records, rest, depth + 1)}</div></details>`;
+  }).join("");
+}
+
+function renderEnvironmentUrlTree(records, remainingDimensions) {
+  const environments = visibleWorkspaceItems("environments").filter(matchesSearch);
+  const groups = environments.map((environment) => ({ environment, records: records.filter((record) => record.environment?.id === environment.id) }));
+  const unassigned = records.filter((record) => !record.environment);
+  if (unassigned.length) groups.push({ environment: null, records: unassigned });
+  if (!groups.length) return `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`;
+  return groups.map(({ environment, records: environmentRecords }) => {
+    const key = environment?.id || "__none_environment";
+    const color = environment?.color || "#64748b";
+    const label = environment ? environmentDisplayName(environment) : t("Sem ambiente");
+    const preview = environment ? `<span class="environmentToolbarPreview" style="--environment-color:${escapeHtml(color)}"><span>${escapeHtml(label.slice(0, 22))}</span><i></i><i></i><i></i></span>` : "";
+    const actions = environment ? rowActions("environments", environment) : "";
+    const children = environmentRecords.length ? renderUrlTree(environmentRecords, remainingDimensions) : `<div class="relationshipEmpty">${escapeHtml(t("Nenhuma URL relacionada ainda"))}</div>`;
+    const add = environment ? `<button type="button" class="relationshipAdd" data-add-url-for-environment="${escapeHtml(environment.id)}">Adicionar URL neste ambiente</button>` : "";
+    return `<details class="urlTreeNode urlTreeLevel-environment" data-accordion-key="${escapeHtml(key)}" data-tree-dimension="environment" data-tree-entity-id="${escapeHtml(environment?.id || "")}" style="--environment-color:${escapeHtml(color)}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}><summary><span class="urlTreeBranch" aria-hidden="true"></span>${preview}<span class="urlTreeIdentity"><span class="relationshipType">${escapeHtml(t("Ambiente"))}</span><b>${escapeHtml(label)}</b></span><span class="count">${environmentRecords.length}</span>${actions}</summary><div class="urlTreeChildren">${children}${add}</div></details>`;
   }).join("");
 }
 
 function renderUrlRelationList() {
   const element = document.getElementById(COLLECTION_UI.urlBindings.listId);
   const bindings = (workspace.urlBindings || []).filter(matchesSearch);
-  if (!bindings.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
   const records = bindings.flatMap((binding) => (binding.environmentIds?.length ? binding.environmentIds : [null]).map((environmentId) => urlTreeContext(binding, environmentId)));
   const dimensions = ["environment", "client", "project", "product"].filter((dimension) => urlTreeDimensions.has(dimension));
-  element.innerHTML = renderUrlTree(records, dimensions);
+  element.innerHTML = dimensions[0] === "environment" ? renderEnvironmentUrlTree(records, dimensions.slice(1)) : (records.length ? renderUrlTree(records, dimensions) : `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`);
   element.querySelectorAll("details.urlTreeNode").forEach((details) => details.addEventListener("toggle", () => {
     const key = details.dataset.accordionKey;
     details.open ? collapsedUrlAccordionIds.delete(key) : collapsedUrlAccordionIds.add(key);
   }));
+  element.querySelectorAll(".rowActions").forEach((actions) => actions.addEventListener("click", (event) => event.preventDefault()));
 }
 document.querySelectorAll("[data-url-tree-dimension]").forEach((button) => button.addEventListener("click", () => {
   const dimension = button.dataset.urlTreeDimension;
   urlTreeDimensions.has(dimension) ? urlTreeDimensions.delete(dimension) : urlTreeDimensions.add(dimension);
   button.setAttribute("aria-pressed", String(urlTreeDimensions.has(dimension)));
   renderUrlRelationList();
+}));
+document.querySelectorAll("[data-relational-view]").forEach((button) => button.addEventListener("click", () => {
+  const collection = button.dataset.relationalView;
+  relationalViewDimension[collection] = button.dataset.relationalDimension;
+  document.querySelectorAll(`[data-relational-view="${collection}"]`).forEach((entry) => entry.setAttribute("aria-pressed", String(entry === button)));
+  renderWorkspace();
 }));
 
 document.querySelectorAll("[data-structure-view]").forEach((button) => button.addEventListener("click", () => {
@@ -1204,24 +1333,26 @@ function renderCheckboxGrid(containerId, catalog) {
 }
 
 function renderWorkspace() {
-  if (structureViewMode === "client" && !workspace.clients.some((item) => item.id === selectedStructureClientId)) selectedStructureClientId = workspace.clients[0]?.id || null;
-  const visibleProjects = workspace.projects.filter((item) => structureViewMode !== "client" || !selectedStructureClientId || item.clientId === selectedStructureClientId);
+  const visibleClients = workspace.clients.filter((item) => !item.locked);
+  const allVisibleProjects = workspace.projects.filter((item) => !item.locked);
+  if (structureViewMode === "client" && !visibleClients.some((item) => item.id === selectedStructureClientId)) selectedStructureClientId = visibleClients[0]?.id || null;
+  const visibleProjects = allVisibleProjects.filter((item) => structureViewMode !== "client" || !selectedStructureClientId || item.clientId === selectedStructureClientId);
   if (structureViewMode !== "product" && !visibleProjects.some((item) => item.id === selectedStructureProjectId)) selectedStructureProjectId = visibleProjects[0]?.id || null;
   if (structureViewMode === "product") selectedStructureProjectId = null;
   const structureExplorer = document.querySelector(".structureExplorer");
   if (structureExplorer) structureExplorer.dataset.structureViewMode = structureViewMode;
   document.querySelectorAll("[data-structure-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.structureView === structureViewMode)));
   for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount", operatingSystems: "operatingSystemCount", browsers: "browserCount", devices: "deviceCount", accountTypes: "accountTypeCount", paymentMethodTypes: "paymentMethodTypeCount" })) {
-    document.getElementById(countId).textContent = String((workspace[collection] || []).length);
+    document.getElementById(countId).textContent = String((workspace[collection] || []).filter((item) => !item.locked).length);
   }
-  document.getElementById("structureRelationHint").textContent = t("{clients} cliente(s) · {projects} projeto(s) · {products} produto(s)", { clients: workspace.clients.length, projects: workspace.projects.length, products: workspace.products.length });
+  document.getElementById("structureRelationHint").textContent = t("{clients} cliente(s) · {projects} projeto(s) · {products} produto(s)", { clients: visibleClients.length, projects: allVisibleProjects.length, products: workspace.products.filter((item) => !item.locked).length });
   const badge = (entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 22 });
   const typeRowFormatter = (item) => `<b class="catalogTypeName">${item.icon ? `<img src="${escapeHtml(item.icon)}" alt="" />` : ""}${escapeHtml(item.name)}</b>`;
   renderRows("operatingSystems", typeRowFormatter);
   renderRows("browsers", typeRowFormatter);
   renderRows("accountTypes", typeRowFormatter);
   renderRows("paymentMethodTypes", typeRowFormatter);
-  renderRows("devices", (item) => {
+  renderRelationalRows("devices", (item) => {
     const osNames = item.operatingSystemIds.map((entryId) => findById("operatingSystems", entryId)?.name).filter(Boolean);
     const browserNames = item.browserIds.map((entryId) => findById("browsers", entryId)?.name).filter(Boolean);
     return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml([...osNames, ...browserNames].join(", ") || t("Nenhum sistema/navegador selecionado"))}</small>${item.notes ? `<small>${escapeHtml(item.notes)}</small>` : ""}`;
@@ -1245,14 +1376,15 @@ function renderWorkspace() {
       ? item.projectId === selectedStructureProjectId
       : visibleProjects.some((project) => project.id === item.projectId),
   });
+  renderStructureHierarchy();
   renderRows("environments", (item) => {
     const products = environmentBoundProductNames(item.id);
-    return `<b style="color:${escapeHtml(item.color)}">${ICON("dot")} ${escapeHtml(item.name)}</b><span class="environmentToolbarPreview" style="--environment-color:${escapeHtml(item.color)}"><i></i><i></i><i></i></span><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
+    return `<b class="environmentToolbarPreview" style="--environment-color:${escapeHtml(item.color)}"><span>${escapeHtml(item.name.slice(0, 22))}</span><i></i><i></i><i></i></b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
   });
   renderUrlRelationList();
   renderUrlEnvironmentPicker();
   renderUrlPatternsPicker();
-  renderRows("testAccounts", (item) => {
+  renderRelationalRows("testAccounts", (item) => {
     const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "-";
     const accountType = findById("accountTypes", item.accountTypeId);
     const typeName = accountType?.name || item.accountType || "";
@@ -1279,7 +1411,7 @@ function renderWorkspace() {
       renderWorkspace();
     });
   });
-  renderRows("paymentMethods", (item) => {
+  renderRelationalRows("paymentMethods", (item) => {
     const typeName = findById("paymentMethodTypes", item.typeId)?.name || item.type || t("Outro");
     return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(typeName)} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
   });
@@ -1844,6 +1976,79 @@ document.querySelectorAll("[data-open-composer]").forEach((button) => button.add
 }));
 document.querySelectorAll("[data-close-composer]").forEach((button) => button.addEventListener("click", () => button.closest("dialog")?.close()));
 
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-tree-create]");
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const collection = button.dataset.treeCreate;
+  const composerId = collection === "project" ? "projectComposer" : "productComposer";
+  if (document.getElementById(`${collection}EditId`)?.value) clearEdit(collection);
+  const select = document.getElementById(collection === "project" ? "projectClient" : "productProject");
+  if (select) select.value = button.dataset.parentId || "";
+  document.getElementById(composerId)?.showModal();
+});
+document.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-add-url-for-environment]");
+  if (!button) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (document.getElementById("urlRelationEditId")?.value) clearEdit("urlRelation");
+  urlSelectedEnvironmentIds = new Set([button.dataset.addUrlForEnvironment]);
+  renderUrlEnvironmentPicker();
+  document.getElementById("urlRelationComposer")?.showModal();
+});
+
+let workspaceDragPayload = null;
+document.addEventListener("dragstart", (event) => {
+  const entity = event.target.closest("[data-entity-collection][data-entity-id]");
+  const url = event.target.closest('[data-drag-collection="urlBindings"][data-id]');
+  const source = entity ? { collection: entity.dataset.entityCollection, id: entity.dataset.entityId } : url ? { collection: "urlBindings", id: url.dataset.id } : null;
+  if (!source) return;
+  workspaceDragPayload = source;
+  event.dataTransfer.effectAllowed = "move";
+  event.dataTransfer.setData("application/x-qts-workspace-entity", JSON.stringify(source));
+});
+document.addEventListener("dragend", () => {
+  workspaceDragPayload = null;
+  document.querySelectorAll(".isDropTarget").forEach((element) => element.classList.remove("isDropTarget"));
+});
+document.addEventListener("dragover", (event) => {
+  if (!workspaceDragPayload) return;
+  const entityTarget = event.target.closest("[data-entity-collection][data-entity-id]");
+  const treeTarget = event.target.closest("[data-tree-dimension][data-tree-entity-id]");
+  const allowed = (workspaceDragPayload.collection === "projects" && entityTarget?.dataset.entityCollection === "clients")
+    || (workspaceDragPayload.collection === "products" && entityTarget?.dataset.entityCollection === "projects")
+    || (workspaceDragPayload.collection === "urlBindings" && ["environment", "product"].includes(treeTarget?.dataset.treeDimension));
+  if (!allowed) return;
+  event.preventDefault();
+  event.dataTransfer.dropEffect = "move";
+  (entityTarget || treeTarget).classList.add("isDropTarget");
+});
+document.addEventListener("dragleave", (event) => event.target.closest(".isDropTarget")?.classList.remove("isDropTarget"));
+document.addEventListener("drop", async (event) => {
+  if (!workspaceDragPayload) return;
+  const entityTarget = event.target.closest("[data-entity-collection][data-entity-id]");
+  const treeTarget = event.target.closest("[data-tree-dimension][data-tree-entity-id]");
+  let changed = false;
+  if (workspaceDragPayload.collection === "projects" && entityTarget?.dataset.entityCollection === "clients") {
+    const project = findById("projects", workspaceDragPayload.id);
+    if (project && project.clientId !== entityTarget.dataset.entityId) { project.clientId = entityTarget.dataset.entityId; changed = true; }
+  }
+  if (workspaceDragPayload.collection === "products" && entityTarget?.dataset.entityCollection === "projects") {
+    const product = findById("products", workspaceDragPayload.id);
+    if (product && product.projectId !== entityTarget.dataset.entityId) { product.projectId = entityTarget.dataset.entityId; changed = true; }
+  }
+  if (workspaceDragPayload.collection === "urlBindings" && treeTarget?.dataset.treeEntityId) {
+    const binding = findById("urlBindings", workspaceDragPayload.id);
+    if (binding && treeTarget.dataset.treeDimension === "environment") { binding.environmentIds = [treeTarget.dataset.treeEntityId]; changed = true; }
+    if (binding && treeTarget.dataset.treeDimension === "product") { binding.productId = treeTarget.dataset.treeEntityId; binding.productIds = [treeTarget.dataset.treeEntityId]; changed = true; }
+  }
+  workspaceDragPayload = null;
+  document.querySelectorAll(".isDropTarget").forEach((element) => element.classList.remove("isDropTarget"));
+  if (changed) { event.preventDefault(); await persistWorkspace(); }
+});
+
 // Promise-based replacement for window.confirm(...) so deletion confirmation is a themed modal
 // (consistent with every other dialog) instead of the browser's native alert box.
 function confirmDialog(message) {
@@ -2077,7 +2282,7 @@ function markSensitiveFieldSaved(elementId, hasExistingValue) {
 
 function editItem(collection, item) {
   const prefix = COLLECTION_UI[collection].prefix;
-  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations", operatingSystems: "devices", browsers: "devices", devices: "devices", accountTypes: "accounts", paymentMethodTypes: "payments" };
+  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "urls", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations", operatingSystems: "devices", browsers: "devices", devices: "devices", accountTypes: "accounts", paymentMethodTypes: "payments" };
   activateWorkspaceTab(workspaceTabs[collection] || "structure", { syncNavigation: true });
   const composer = document.getElementById(`${prefix}Composer`);
   if (composer && !composer.open) composer.showModal();

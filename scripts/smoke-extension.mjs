@@ -305,7 +305,7 @@ try {
   trace("options light/dark theme persistence and contrast verified");
 
   await options.getByRole("button", { name: "Workspace" }).click();
-  if (await options.locator(".workspaceTab").count() !== 7) throw new Error("Workspace Studio tabs are incomplete");
+  if (await options.locator(".workspaceTab").count() !== 6) throw new Error("Workspace Studio tabs are incomplete");
   await options.locator('[data-open-composer="clientComposer"]').click();
   await options.locator("#clientName").fill("Cliente Demo");
   await options.locator("#clientAbbreviation").fill("CD");
@@ -318,17 +318,17 @@ try {
   await options.locator("#imageEditorApply").click();
   if (!await options.locator("#clientLogoUrl").inputValue().then((value) => value.startsWith("data:image/webp"))) throw new Error("Image editor did not apply a safe local crop");
   await options.locator("#clientForm button[type=submit]").click();
-  await options.locator('[data-open-composer="projectComposer"]').click();
+  await options.locator('[data-tree-create="project"]').click();
   await options.locator("#projectClient").selectOption({ label: "Cliente Demo" });
   await options.locator("#projectName").fill("Webapp Demo");
   await options.locator("#projectAbbreviation").fill("WEB");
   await options.locator("#projectForm button[type=submit]").click();
-  await options.locator('[data-open-composer="productComposer"]').click();
+  await options.locator('[data-tree-create="product"]').click();
   await options.locator("#productProject").selectOption({ label: "Webapp Demo" });
   await options.locator("#productName").fill("Checkout");
   await options.locator("#productAbbreviation").fill("CHK");
   await options.locator("#productForm button[type=submit]").click();
-  await options.locator('[data-workspace-nav="environments"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#5b21b6");
@@ -344,7 +344,7 @@ try {
 
   // Environments are reusable tiers (no product of their own); the product association — and one
   // pattern belonging to multiple environments — lives entirely on the URL binding.
-  await options.locator('[data-workspace-nav="environments"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("Beta");
   await options.locator("#environmentColor").fill("#0f766e");
@@ -377,8 +377,8 @@ try {
   if (await options.locator(".structureExplorer").count() !== 1) throw new Error("Workspace structure is missing the hierarchical explorer");
   const workspaceNavigationFits = await options.locator(".workspaceTabs").evaluate((navigation) => navigation.scrollWidth <= navigation.clientWidth + 1);
   if (!workspaceNavigationFits) throw new Error("Workspace navigation introduced horizontal overflow");
-  const hierarchyAccordions = options.locator(".structureExplorer .hierarchyAccordion");
-  if (await hierarchyAccordions.count() !== 3) throw new Error("Workspace hierarchy must expose one accordion for clients, projects, and products");
+  const hierarchyAccordions = options.locator(".structureExplorer .relationshipNode");
+  if (await hierarchyAccordions.count() !== 3) throw new Error("Workspace hierarchy must expose the actual client, project and product entities");
   const structureViewButtons = options.locator("[data-structure-view]");
   if (await structureViewButtons.count() !== 3) throw new Error("Workspace hierarchy view filters are incomplete");
   await options.locator('[data-structure-view="project"]').click();
@@ -389,7 +389,7 @@ try {
   if (!await options.locator("#productList .listRow").first().innerText().then((text) => text.includes("Cliente Demo") && text.includes("Webapp Demo"))) throw new Error("Product-focused workspace view is missing its client and project context");
   await options.locator('[data-structure-view="client"]').click();
   if (await options.locator(".structureExplorer").getAttribute("data-structure-view-mode") !== "client") throw new Error("Client-focused workspace view did not restore the hierarchy");
-  const productAccordion = hierarchyAccordions.nth(2);
+  const productAccordion = options.locator('.relationshipNode[data-entity-collection="products"]').first();
   await productAccordion.locator(":scope > summary").click();
   if (await productAccordion.getAttribute("open") !== null) throw new Error("Product hierarchy accordion did not collapse");
   await productAccordion.locator(":scope > summary").click();
@@ -442,8 +442,8 @@ try {
 
   // Deletion now goes through a themed <dialog> instead of window.confirm() — verify both the
   // Cancelar (no-op) and Excluir (removes) paths against one of the injected preview environments.
-  await options.locator('[data-workspace-nav="environments"]').click();
-  const previewRow = options.locator("#environmentList .listRow", { hasText: "Preview 1" });
+  await options.locator('[data-workspace-nav="urls"]').click();
+  const previewRow = options.locator('#urlRelationList [data-tree-dimension="environment"][data-tree-entity-id="env_picker_0"]');
   await previewRow.locator('[data-action="remove"]').click();
   await options.locator("#deleteConfirmDialog[open]").waitFor();
   await options.locator("#deleteConfirmCancel").click();
