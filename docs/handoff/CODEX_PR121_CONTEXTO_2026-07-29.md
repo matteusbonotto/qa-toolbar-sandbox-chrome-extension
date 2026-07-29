@@ -116,6 +116,29 @@ Validação posterior:
 - Pacote preparado para upload manual:
   `artifacts/chrome-web-store-package-v1.4.23.zip`.
 
+## Versão 1.4.24
+
+- O dispositivo usado passou a ser selecionável no Gravador de Passos, no editor de roteiros, no
+  Report Builder e no resumo da sessão de teste.
+- Cópias, exportações, rascunhos, relatórios criados a partir da sessão e histórico local preservam
+  a referência do dispositivo selecionado.
+- Os formulários de criação rápida dos sidebars de contas, pagamentos e recursos foram alinhados
+  aos catálogos e relacionamentos dos Settings.
+- Imagens de tipos de conta e pagamento passaram a aparecer com 44 px e margem consistente nas
+  listas e filtros dos sidebars.
+- O botão de maximizar ou abrir em janela passou a ficar imediatamente ao lado do botão de fechar.
+- Foi criado um balloon de ajuda reutilizável com símbolo `?`, navegação por teclado e conteúdo em
+  PT-BR, EN e ES nos formulários afetados.
+- Por regra de release estabelecida pelo fundador, a extensão foi incrementada para `1.4.24`.
+- `npm run test:all:clean` foi aprovado com LP/Admin, 9 testes de backend, segurança e smoke
+  completo da extensão.
+- O smoke terminou com `consoleErrors: 0`, `workerErrors: 0` e fingerprint
+  `6363cce1cd50bdd6cab2efa84c8373ceadfa80cbfbddfb8f795f54da3f555fbd`.
+- Pacote preparado para upload manual:
+  `artifacts/chrome-web-store-package-v1.4.24.zip`.
+- SHA-256 do pacote:
+  `3d7e0f76893cc828c3ad7d8f6986d6b083363da564ca7f1a26ca4a4e6e8d4f31`.
+
 ## Correções visuais e de imagens concluídas em 29/07/2026
 
 - O modal de URL preserva os nomes completos de ambientes e produtos. Um seletor CSS amplo estava
