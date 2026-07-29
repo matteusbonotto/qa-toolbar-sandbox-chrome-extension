@@ -67,7 +67,13 @@ button,input,select,textarea { font:inherit; color:inherit; }
 .panel[data-panel="account"] > .paymentBanner,
 .panel[data-panel="account"] > .tutorialBanner { grid-column:1/-1; }
 .accountCard { max-width:none; min-height:100%; }
-.panel[data-panel="account"] .accountCard:first-of-type { grid-row:span 2; }
+.panel[data-panel="account"] #deleteAccountCard { grid-column:1/-1; min-height:0; }
+.panel[data-panel="account"] #signedInState { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:14px; }
+.panel[data-panel="account"] #signedInState[hidden] { display:none; }
+.panel[data-panel="account"] #signedInState .accountSummary { margin:0; }
+.panel[data-panel="account"] #signedInState > .actions { justify-content:flex-end; }
+.panel[data-panel="account"] #voucherForm { grid-column:1/-1; grid-template-columns:minmax(0,1fr) minmax(180px,.45fr); }
+.panel[data-panel="account"] #voucherMessage { grid-column:1/-1; }
 .paymentBanner { max-width:none; border-color:rgba(255,112,120,.4); background:rgba(255,112,120,.08); }
 .paymentBanner strong { color:var(--danger); font-size:14px; }
 .paymentBanner p { margin:6px 0 0; color:var(--muted); font-size:12px; line-height:1.5; }
@@ -133,7 +139,10 @@ legend { padding:0 6px; color:var(--muted); font-size:11px; font-weight:800; }
 .positionPickerBtn svg { pointer-events:none; }
 .positionSettingsGrid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
 .positionSettingsGrid fieldset { display:grid; align-content:start; gap:5px; }
+.surfacePreviewGrid { display:grid; grid-template-columns:minmax(0,1.45fr) minmax(150px,.75fr); gap:10px; align-items:start; }
+.surfacePreviewGrid > div { min-width:0; }
 .surfaceThumbnail { position:relative; height:92px; margin:2px 0 7px; border:1px solid var(--border); border-radius:12px; background:linear-gradient(135deg,var(--surface),var(--surface-2)); overflow:hidden; }
+.surfaceThumbnailMobile svg { width:100%; max-width:150px; margin:auto; }
 .surfaceThumbnail svg { display:block; width:100%; height:100%; }
 .surfaceThumbnail .previewBrowser { fill:var(--surface); stroke:color-mix(in srgb,var(--muted) 42%,transparent); stroke-width:1.5; }
 .surfaceThumbnail .previewContent { fill:none; stroke:color-mix(in srgb,var(--muted) 35%,transparent); stroke-width:5; stroke-linecap:round; }
