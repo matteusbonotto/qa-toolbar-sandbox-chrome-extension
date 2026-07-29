@@ -13,6 +13,8 @@ assert.match(manifest.version, /^\d+\.\d+\.\d+$/);
 assert.match(background, /details\.reason === "update"/);
 assert.match(background, /details\.previousVersion/);
 assert.match(background, /pendingReleaseNote/);
+assert.match(toolbar, /Nova identidade colorida na extensão, no site e no Admin/);
+assert.match(options, /Nova identidade colorida na extensão, no site e no Admin/);
 assert.match(toolbar, /openReleaseNotes/);
 assert.match(toolbar, /lastSeenReleaseVersion/);
 assert.match(options, /showPendingReleaseNotes/);

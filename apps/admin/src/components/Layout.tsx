@@ -20,7 +20,7 @@ export function Layout({ children, currentPath }: { children: ReactNode; current
     <div className="qa-shell">
       <aside className="qa-sidebar">
         <div className="qa-brand">
-          <img src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.png`} alt="" width={28} height={28} />
+          <img src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.svg`} alt="" width={28} height={28} />
           <div>
             <strong>QA Toolbar Sandbox</strong>
             <span>Admin</span>

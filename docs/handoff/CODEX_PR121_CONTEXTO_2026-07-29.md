@@ -56,6 +56,31 @@ Validação posterior:
 - Console: zero erros.
 - Service worker: zero erros.
 
+## Identidade colorida e versão 1.4.22
+
+- A fonte oficial escolhida pelo fundador é
+  `apps/landing/src/assets/logo-colorido.svg`.
+- Landing Page e Admin usam a logo colorida em SVG no cabeçalho, login, rodapé e favicon.
+- A página sandbox pública também usa o mesmo SVG.
+- As cópias públicas do SVG removem apenas uma imagem raster embutida que estava fora do
+  `viewBox`. O desenho vetorial visível foi preservado e revisado.
+- O manifest e o botão da extensão usam PNGs transparentes de 16, 32, 48 e 128 pixels,
+  renderizados diretamente do SVG oficial. Isso atende ao formato de ícones suportado pelo Chrome.
+- A verificação do bundle agora falha se o manifest deixar de apontar para os ícones oficiais ou
+  se algum PNG tiver formato ou dimensão incorretos.
+- O smoke de Landing Page e Admin comprova que o SVG correto é referenciado e carregado.
+- A versão da extensão foi atualizada para `1.4.22` e as notas PT-BR, EN e ES foram atualizadas.
+
+### Mídias de tutorial
+
+- As 30 imagens e os 30 vídeos existentes foram auditados. Parte deles contém a identidade antiga
+  dentro da página sandbox gravada.
+- Duas tentativas de recaptura completa não finalizaram os encoders do Playwright. A tentativa
+  seletiva também não conseguiu injetar a toolbar dentro do tempo limite.
+- Nenhuma mídia parcial ou antiga foi substituída silenciosamente. Os arquivos oficiais continuam
+  preservados até o capturador ser corrigido e a captura poder ser concluída de forma atômica.
+- Essa limitação deve permanecer explícita na PR. Não declarar os tutoriais visuais atualizados.
+
 ## Correções visuais e de imagens concluídas em 29/07/2026
 
 - O modal de URL preserva os nomes completos de ambientes e produtos. Um seletor CSS amplo estava
