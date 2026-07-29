@@ -139,3 +139,19 @@ seletiva e terminou com sucesso.
 - Teste visual com uma conta real de plano inferior.
 - Estado final de revisão e publicação na Chrome Web Store.
 - Merge, publicação da LP e qualquer nova alteração produtiva.
+
+## Ajustes finais solicitados em 29/07/2026
+
+- Em Ambientes e URLs, o cabeçalho do accordion não repete mais a tag Ambiente nem o nome do
+  ambiente abaixo da prévia. A prévia colorida da toolbar é a identificação única.
+- URLs sem ambiente continuam exibindo Sem ambiente, pois esse texto representa um estado real.
+- Barra e aparência agora oferece onze famílias de cor. Preto e Cinza foram adicionados com
+  variantes claras e escuras, sem gradientes.
+- Textos PT-BR, EN e ES, checklist e teste Chrome foram atualizados.
+- `npm run test:chrome:test-package` foi aprovado.
+- `npm run test:all:clean` também foi aprovado no estado final exato.
+- Landing Page e Admin: typecheck, testes, build e smoke aprovados.
+- Backend: 9 testes aprovados. Segurança do repositório e do bundle aprovada.
+- Fingerprint desta validação: `2625fdd307e2f188b97b92c1039b5d63a300000a3fa44d58faea580fd042927a`.
+- Console: zero erros.
+- Service worker: zero erros.

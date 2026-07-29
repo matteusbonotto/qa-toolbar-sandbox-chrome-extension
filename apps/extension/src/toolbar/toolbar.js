@@ -16,7 +16,7 @@ const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
 const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
 
-// Preset data (nine color families with light and dark variants) lives in lib/theme-presets-content.js, shared
+// Preset data (eleven color families with light and dark variants) lives in lib/theme-presets-content.js, shared
 // with options.js so both surfaces read the exact same source instead of two data sets drifting.
 const THEME_PRESETS = window.QTS_THEME_PRESETS.presets;
 const COLOR_THEME_SEMANTICS = window.QTS_THEME_PRESETS.semantics;

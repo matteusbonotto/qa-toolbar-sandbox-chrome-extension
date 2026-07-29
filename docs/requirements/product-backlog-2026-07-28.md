@@ -22,7 +22,7 @@ visual quando aplicável.
 ## Aparência e preferências
 
 - [x] 05. Restaurar tema padrão está separado por margem, divisor e área de ação própria.
-- [x] 06. A interface exibe nove famílias uma única vez. Claro ou Escuro escolhe a variante.
+- [x] 06. A interface exibe onze famílias uma única vez, incluindo Preto e Cinza. Claro ou Escuro escolhe a variante.
 - [x] 07. A opção de lista personalizada não existe na interface. Dados antigos continuam sendo
   normalizados somente para não quebrar instalações existentes.
 - [x] 08. Sidebar e toolbar aparecem lado a lado com thumbnails SVG vivas que acompanham a posição.

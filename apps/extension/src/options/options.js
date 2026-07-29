@@ -508,7 +508,7 @@ function shortcutFromEvent(event) {
 }
 document.getElementById("resetCustomShortcuts").addEventListener("click", () => { customShortcutsDraft = {}; renderToolsMenuOrderList(); });
 
-const COLOR_FAMILY_LABEL_SOURCE = { red: "Vermelho", gold: "Dourado", blue: "Azul", pink: "Rosa", green: "Verde", orange: "Laranja", purple: "Roxo", yellow: "Amarelo", lego: "Lego multicolorido" };
+const COLOR_FAMILY_LABEL_SOURCE = { red: "Vermelho", gold: "Dourado", blue: "Azul", pink: "Rosa", green: "Verde", orange: "Laranja", purple: "Roxo", yellow: "Amarelo", black: "Preto", gray: "Cinza", lego: "Lego multicolorido" };
 
 // The picker's own visual state (border highlight) is driven straight off `preferences.colorTheme`
 // here, separate from applyColorTheme() in toolbar.js which reads the same field to set the live
@@ -1097,7 +1097,8 @@ function renderEnvironmentUrlTree(records, remainingDimensions) {
     const actions = environment ? rowActions("environments", environment) : "";
     const children = environmentRecords.length ? renderUrlTree(environmentRecords, remainingDimensions) : `<div class="relationshipEmpty">${escapeHtml(t("Nenhuma URL relacionada ainda"))}</div>`;
     const add = environment ? `<button type="button" class="relationshipAdd" data-add-url-for-environment="${escapeHtml(environment.id)}">Adicionar URL neste ambiente</button>` : "";
-    return `<details class="urlTreeNode urlTreeLevel-environment" data-accordion-key="${escapeHtml(key)}" data-tree-dimension="environment" data-tree-entity-id="${escapeHtml(environment?.id || "")}" style="--environment-color:${escapeHtml(color)}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}><summary><span class="urlTreeBranch" aria-hidden="true"></span>${preview}<span class="urlTreeIdentity"><span class="relationshipType">${escapeHtml(t("Ambiente"))}</span><b>${escapeHtml(label)}</b></span><span class="count">${environmentRecords.length}</span>${actions}</summary><div class="urlTreeChildren">${children}${add}</div></details>`;
+    const identity = environment ? "" : `<span class="urlTreeIdentity"><b>${escapeHtml(label)}</b></span>`;
+    return `<details class="urlTreeNode urlTreeLevel-environment" data-accordion-key="${escapeHtml(key)}" data-tree-dimension="environment" data-tree-entity-id="${escapeHtml(environment?.id || "")}" style="--environment-color:${escapeHtml(color)}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}><summary><span class="urlTreeBranch" aria-hidden="true"></span>${preview}${identity}<span class="count">${environmentRecords.length}</span>${actions}</summary><div class="urlTreeChildren">${children}${add}</div></details>`;
   }).join("");
 }
 

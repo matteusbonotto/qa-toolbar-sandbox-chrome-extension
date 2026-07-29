@@ -24,6 +24,10 @@ window.QTS_THEME_PRESETS = (() => {
     { id: "purple-dark", family: "purple", mode: "dark", primary: "#a78bfa", primaryContrast: "#111" },
     { id: "yellow-light", family: "yellow", mode: "light", primary: "#ca8a04", primaryContrast: "#111" },
     { id: "yellow-dark", family: "yellow", mode: "dark", primary: "#facc15", primaryContrast: "#111" },
+    { id: "black-light", family: "black", mode: "light", primary: "#171717", primaryContrast: "#fff" },
+    { id: "black-dark", family: "black", mode: "dark", primary: "#262626", primaryContrast: "#fff" },
+    { id: "gray-light", family: "gray", mode: "light", primary: "#64748b", primaryContrast: "#fff" },
+    { id: "gray-dark", family: "gray", mode: "dark", primary: "#94a3b8", primaryContrast: "#111" },
     { id: "lego-light", family: "lego", mode: "light", primary: "#e11d48", primaryContrast: "#fff", secondary: "#7c3aed", success: "#16a34a", warning: "#facc15", danger: "#dc2626", info: "#2563eb" },
     { id: "lego-dark", family: "lego", mode: "dark", primary: "#f43f5e", primaryContrast: "#111", secondary: "#c084fc", success: "#4ade80", warning: "#fde047", danger: "#fb7185", info: "#60a5fa" },
   ]);
@@ -31,6 +35,6 @@ window.QTS_THEME_PRESETS = (() => {
     light: Object.freeze({ secondary: "#475569", success: "#15803d", warning: "#b45309", danger: "#b91c1c", info: "#1d4ed8" }),
     dark: Object.freeze({ secondary: "#94a3b8", success: "#4ade80", warning: "#fbbf24", danger: "#f87171", info: "#60a5fa" }),
   });
-  const families = Object.freeze(["blue", "red", "green", "orange", "pink", "gold", "purple", "yellow", "lego"]);
+  const families = Object.freeze(["blue", "red", "green", "orange", "pink", "gold", "purple", "yellow", "black", "gray", "lego"]);
   return { presets, semantics, families };
 })();

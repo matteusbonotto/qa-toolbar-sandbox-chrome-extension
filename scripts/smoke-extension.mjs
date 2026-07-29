@@ -460,6 +460,7 @@ try {
   // Cancelar (no-op) and Excluir (removes) paths against one of the injected preview environments.
   await options.locator('[data-workspace-nav="urls"]').click();
   const previewRow = options.locator('#urlRelationList [data-tree-dimension="environment"][data-tree-entity-id="env_picker_0"]');
+  if (await previewRow.locator(".relationshipType, .urlTreeIdentity").count()) throw new Error("URL environment accordion repeats its type or name outside the toolbar preview");
   await previewRow.locator('[data-action="remove"]').click();
   await options.locator("#deleteConfirmDialog[open]").waitFor();
   await options.locator("#deleteConfirmCancel").click();
@@ -519,10 +520,14 @@ try {
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
   trace("toolbar menu/drawer light/dark contrast verified");
 
-  // Nine color families follow the independently selected light/dark appearance mode. Picking one writes CSS custom properties on
+  // Eleven color families follow the independently selected light/dark appearance mode. Picking one writes CSS custom properties on
   // <html> (not the shadow host) so both the shadow-DOM toolbar/drawers/toasts and the light-DOM
   // Key View/mouse overlays -- which live directly in document.body -- read the same tokens.
-  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 9) throw new Error("Color theme grid does not expose the nine supported families");
+  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 11) throw new Error("Color theme grid does not expose the eleven supported families");
+  await options.locator('[data-color-family="black"]').click();
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#262626");
+  await options.locator('[data-color-family="gray"]').click();
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#94a3b8");
   await options.locator('[data-color-family="blue"]').click();
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
@@ -723,7 +728,7 @@ try {
   const resetDrawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
   if (resetDrawerCloseBg !== "rgb(199, 14, 14)") throw new Error(`Color theme reset did not preserve the red close-button exception: ${resetDrawerCloseBg}`);
   await host.locator("#drawerClose").click();
-  trace("nine color families verified in light and dark modes (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
+  trace("eleven color families verified in light and dark modes (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
   await host.locator("#toolsButton").click();
   await host.locator("#statusMenuItem").click();
