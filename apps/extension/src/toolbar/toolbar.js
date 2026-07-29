@@ -16,7 +16,7 @@ const HOST_ID = "qts-toolbar-host";
 const SPACER_ID = "qts-toolbar-spacer";
 const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
 
-// Preset data (24 = 12 color families x light/dark) lives in lib/theme-presets-content.js, shared
+// Preset data (nine color families with light and dark variants) lives in lib/theme-presets-content.js, shared
 // with options.js so both surfaces read the exact same source instead of two data sets drifting.
 const THEME_PRESETS = window.QTS_THEME_PRESETS.presets;
 const COLOR_THEME_SEMANTICS = window.QTS_THEME_PRESETS.semantics;
@@ -32,7 +32,16 @@ function applyColorTheme() {
   const preset = THEME_PRESETS.find((item) => item.id === state.workspace?.preferences?.colorTheme);
   const root = document.documentElement.style;
   const semantics = COLOR_THEME_SEMANTICS[preset?.mode || "dark"];
-  const tokens = preset ? { "--qts-ui-primary": preset.primary, "--qts-ui-primary-contrast": preset.primaryContrast, "--qts-ui-highlight": preset.primary, ...semantics } : null;
+  const tokens = preset ? {
+    "--qts-ui-primary": preset.primary,
+    "--qts-ui-primary-contrast": preset.primaryContrast,
+    "--qts-ui-highlight": preset.primary,
+    "--qts-ui-secondary": preset.secondary || semantics.secondary,
+    "--qts-ui-success": preset.success || semantics.success,
+    "--qts-ui-warning": preset.warning || semantics.warning,
+    "--qts-ui-danger": preset.danger || semantics.danger,
+    "--qts-ui-info": preset.info || semantics.info,
+  } : null;
   const keys = ["--qts-ui-primary", "--qts-ui-primary-contrast", "--qts-ui-highlight", "--qts-ui-secondary", "--qts-ui-success", "--qts-ui-warning", "--qts-ui-danger", "--qts-ui-info"];
   for (const key of keys) { if (tokens?.[key]) root.setProperty(key, tokens[key]); else root.removeProperty(key); }
 }
@@ -431,14 +440,14 @@ const TOOLS_MENU_LABELS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY
 const TOOLS_MENU_ITEM_KEY_BY_ID = Object.fromEntries(Object.entries(TOOLS_MENU_ITEM_IDS).map(([key, id]) => [id, key]));
 
 function customShortcutFromEvent(event) {
-  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
-  if (!/^(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(key)) return "";
+  const key = event.key.length === 1 ? event.key.toLocaleUpperCase() : event.key;
+  if (["Control", "Alt", "Shift", "Meta"].includes(key)) return "";
   const parts = [];
   if (event.ctrlKey) parts.push("Ctrl");
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
   if (event.metaKey) parts.push("Meta");
-  return parts.length ? [...parts, key].join("+") : "";
+  return [...parts, key].join("+");
 }
 
 function handleCustomToolShortcut(event) {
@@ -556,6 +565,11 @@ function render() {
   bar.style.setProperty("--qts-text", breadcrumb.text);
   bar.classList.toggle("isMinimized", state.minimized);
   bar.classList.toggle("isLoggedOut", !state.authorized);
+  const toolbarPosition = effectiveToolbarPosition();
+  const minimizeIcon = { top: "chevronUp", bottom: "chevronDown", left: "chevronLeft", right: "chevronRight" }[toolbarPosition];
+  const restoreIcon = { top: "chevronDown", bottom: "chevronUp", left: "chevronRight", right: "chevronLeft" }[toolbarPosition];
+  root.getElementById("minimizeButton").innerHTML = ICON(minimizeIcon);
+  root.getElementById("restoreButton").innerHTML = ICON(restoreIcon);
   root.getElementById("restoreButton").classList.toggle("isVisible", state.minimized);
   if (!state.authorized) { setSpacerHeight(); offsetSiteFixedHeaders(); return; }
 
@@ -632,9 +646,9 @@ function buildShadowHost() {
       :host([data-toolbar-position="left"]) #toolsButton,
       :host([data-toolbar-position="right"]) #toolsButton { font-size:0; justify-content:center; }
       :host([data-toolbar-position="left"]) #toolsButton svg,
-      :host([data-toolbar-position="right"]) #toolsButton svg { display:none; }
+      :host([data-toolbar-position="right"]) #toolsButton svg { display:block; margin:auto; }
       :host([data-toolbar-position="left"]) #toolsButton::before,
-      :host([data-toolbar-position="right"]) #toolsButton::before { content:"☷"; font-size:17px; line-height:1; }
+      :host([data-toolbar-position="right"]) #toolsButton::before { content:none; }
       :host([data-toolbar-position="left"]) #toolsMenu,
       :host([data-toolbar-position="right"]) #toolsMenu {
         position:fixed; top:8px; bottom:auto; width:min(278px,calc(100vw - 78px));
@@ -647,7 +661,7 @@ function buildShadowHost() {
       :host([data-toolbar-position="right"]) #urlToggleWrapper { display:block; }
       :host([data-toolbar-position="left"]) #urlToggleButton,
       :host([data-toolbar-position="right"]) #urlToggleButton {
-        width:38px; min-width:38px; height:38px; padding:0; border-radius:50%; justify-content:center;
+        width:38px; min-width:38px; max-width:38px; height:38px; min-height:38px; aspect-ratio:1; flex:0 0 38px; box-sizing:border-box; padding:0; border-radius:50%; justify-content:center;
         background:color-mix(in srgb,var(--qts-ui-primary,#2563eb) 24%,rgba(0,0,0,.22));
       }
       #verticalUrlPanel {
@@ -756,6 +770,9 @@ function buildShadowHost() {
         font: 900 13px sans-serif; cursor: pointer; box-shadow: 0 8px 18px rgba(0,0,0,.34);
       }
       #restoreButton.isVisible { display: inline-flex; }
+      :host([data-toolbar-position="bottom"]) #restoreButton { top:auto; bottom:6px; }
+      :host([data-toolbar-position="left"]) #restoreButton { top:8px; right:auto; left:6px; }
+      :host([data-toolbar-position="right"]) #restoreButton { top:8px; right:6px; }
       #toolsWrapper { position: relative; }
       #toolsMenu {
         position: absolute; top: 30px; right: 0; width: 260px; padding: 7px; display: grid; gap: 5px;
@@ -917,7 +934,7 @@ function buildShadowHost() {
             <button type="button" data-marker-pick="question" role="menuitem">${ICON("question")} ${escapeHtml(t.markerQuestion)}</button>
           </div>
         </div>
-        <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">T</button>
+        <button id="noteButton" class="iconOnly" type="button" title="${escapeHtml(t.note)}">${ICON("noteText")}</button>
         <div id="shapeWrapper">
           <button id="shapeButton" class="iconOnly" type="button" title="${escapeHtml(t.shape)}">${ICON("square")}</button>
           <div id="shapeTypeMenu" class="isHidden" role="menu">
@@ -992,7 +1009,7 @@ function buildShadowHost() {
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} Test Suite</button>
             <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(t.testSessionMenuLabel)}</button>
             <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(t.reportBuilderMenuLabel)}</button>
-            <button type="button" id="notesMenuItem" role="menuitem">T ${escapeHtml(t.note)}</button>
+            <button type="button" id="notesMenuItem" role="menuitem">${ICON("noteText")} ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(t.macroStudioMenuLabel)}</button>
             <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("stepsRecorder")} ${escapeHtml(t.stepsRecorderMenuLabel || "Gravador de Passos")}</button>
@@ -3005,10 +3022,13 @@ function drawerStyles() {
     .qts-drawer-title { min-width:0; flex:1 1 180px; display:grid; gap:2px; }
     .qts-drawer-head h2 { margin:0; font-size:15px; line-height:1.25; min-width:0; overflow-wrap:anywhere; }
     .qts-drawer-kicker { color:var(--qts-panel-muted); font-size:10px; font-weight:650; }
-    .qts-drawer-controls { min-width:0; display:flex; align-items:center; justify-content:flex-end; gap:6px; flex:0 1 auto; }
+    .qts-drawer-controls {
+      position:static; z-index:8; min-width:0; display:flex; flex:0 0 auto;
+      align-items:center; justify-content:flex-end; gap:6px; margin-left:auto;
+    }
     .qts-drawer-head button { width:34px; height:34px; border:0; border-radius:9px; background:var(--qts-ui-primary,#2563eb); color:var(--qts-ui-primary-contrast,#fff); font-size:18px; cursor:pointer; flex:none; }
     .qts-drawer-head button { display:inline-flex; align-items:center; justify-content:center; padding:0; }
-    .qts-drawer-head #drawerClose { background:var(--qts-ui-danger,#c70e0e); color:#fff; }
+    .qts-drawer-head #drawerClose { background:#c70e0e; color:#fff; }
     .qts-drawer-position { width:auto; display:flex; gap:3px; flex:none; }
     .qts-drawer-head .qts-drawer-position-btn {
       width:22px; height:22px; min-width:0; padding:0; border:1px solid var(--qts-panel-border,#262626);
@@ -3021,7 +3041,7 @@ function drawerStyles() {
     @container (max-width: 430px) {
       .qts-drawer-head { flex-wrap:wrap; align-items:center; }
       .qts-drawer-title { flex:1 1 calc(100% - 44px); }
-      .qts-drawer-controls { flex:1 0 100%; justify-content:flex-start; }
+      .qts-drawer-controls { justify-content:flex-end; }
       .qts-drawer-position { margin-right:auto; }
       .qts-drawer-head button { width:36px; height:36px; }
     }
@@ -3033,6 +3053,15 @@ function drawerStyles() {
     .qts-drawer-resize[data-edge="top"] { top:-4px; } .qts-drawer-resize[data-edge="bottom"] { bottom:-4px; }
     .qts-drawer-head #drawerBack { background: var(--qts-panel-surface-2,#171717); color: inherit; font-size: 15px; }
     .qts-drawer-body { flex:1; min-width:0; overflow:auto; padding:14px 16px; }
+    .qts-drawer-footer-actions {
+      position:sticky; bottom:-14px; z-index:7; display:grid; grid-template-columns:1fr; gap:8px;
+      margin:18px -16px -14px; padding:10px 12px;
+      border-top:1px solid var(--qts-panel-border); background:var(--qts-panel);
+    }
+    .qts-drawer-footer-actions:empty { display:none; }
+    .qts-drawer-footer-actions:has(> :nth-child(2):last-child) { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .qts-drawer-footer-actions:has(> :nth-child(3):last-child) { grid-template-columns:1fr; }
+    .qts-drawer-footer-actions > button { width:100%; min-height:40px; }
     .qts-drawer-body > *, .qts-card > *, .qts-list-row > * { min-width:0; max-width:100%; }
     .qts-drawer-body :is(h1,h2,h3,h4,p,small,b,label,span) { overflow-wrap:anywhere; }
     .qts-drawer input, .qts-drawer select, .qts-drawer textarea {
@@ -3443,13 +3472,34 @@ function renderMinimizedDrawerShortcut() {
   restore.className = "iconOnly isActive";
   restore.type = "button";
   restore.title = `Restaurar ${descriptor.title}`;
-  restore.innerHTML = ICON(descriptor.view === "jsonStudio" ? "braces" : "square");
+  restore.innerHTML = ICON("square");
   restore.addEventListener("click", () => {
     state.minimizedDrawer = null;
     restore.remove();
     openDrawer(descriptor);
   });
   tools.appendChild(restore);
+}
+
+function clearDrawerPageOffset() {
+  const snapshot = state.drawerPageOffset;
+  if (!snapshot || !document.body) return;
+  for (const [property, value] of Object.entries(snapshot)) document.body.style[property] = value;
+  state.drawerPageOffset = null;
+}
+
+function applyDrawerPageOffset(position, drawer, enabled) {
+  clearDrawerPageOffset();
+  if (!enabled || !document.body || !drawer) return;
+  state.drawerPageOffset = {
+    paddingLeft: document.body.style.paddingLeft,
+    paddingRight: document.body.style.paddingRight,
+    paddingTop: document.body.style.paddingTop,
+    paddingBottom: document.body.style.paddingBottom,
+  };
+  const size = drawer.getBoundingClientRect();
+  const property = { left: "paddingLeft", right: "paddingRight", top: "paddingTop", bottom: "paddingBottom" }[position];
+  document.body.style[property] = `${Math.ceil(["left", "right"].includes(position) ? size.width : size.height)}px`;
 }
 
 function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" }) {
@@ -3472,20 +3522,32 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
           <div class="qts-drawer-controls">${view && !detachedWindow ? `<button type="button" id="drawerDetach" title="Abrir em nova janela" aria-label="Abrir ${escapeHtml(title)} em nova janela">${ICON("resize")}</button>` : ""}
           ${sidebarControls ? `<div class="qts-drawer-position" id="drawerPosition" role="radiogroup" aria-label="Posição do sidebar">${["right", "left", "top", "bottom"].map((side) => `<button type="button" class="qts-drawer-position-btn" data-position="${side}" aria-pressed="${side === drawerPosition}" title="${escapeHtml({ right: "Direita", left: "Esquerda", top: "Cima", bottom: "Baixo" }[side])}">${drawerPositionIcon(side)}</button>`).join("")}</div>` : ""}
           ${sidebarControls ? `<button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
-          <button type="button" id="drawerMinimize" title="Minimizar sidebar">${ICON("collapse")}</button>` : ""}
+          <button type="button" id="drawerMinimize" title="Recolher sidebar">${ICON("collapse")}</button>` : ""}
           <button type="button" id="drawerClose" title="${detachedWindow ? "Fechar janela" : variant === "modal" ? "Fechar modal" : "Fechar sidebar"}">${ICON("fail")}</button></div></div>
         ${sidebarControls ? `<div class="qts-drawer-search"><input id="drawerSearch" type="search" placeholder="Buscar neste sidebar…" aria-label="Buscar neste sidebar" /></div>` : ""}
-        <div class="qts-drawer-body" id="drawerBody">${bodyHtml}</div>
+        <div class="qts-drawer-body" id="drawerBody">${bodyHtml}${sidebarControls ? `<div class="qts-drawer-footer-actions" id="drawerFooterActions"></div>` : ""}</div>
       </div>
     </div>`;
   const backdrop = drawerHost.querySelector("#drawerBackdrop");
   const drawer = drawerHost.querySelector(".qts-drawer");
+  const pushesSite = sidebarControls && state.workspace?.preferences?.pushSiteContentForDrawer === true;
+  const toolbarPosition = effectiveToolbarPosition();
+  const toolbarOffset = pushSiteContentEnabled() ? getCurrentHeight() : 0;
+  if (drawerPosition === "top" && toolbarPosition === "top") {
+    backdrop.style.top = `${toolbarOffset}px`;
+    backdrop.style.height = `calc(100% - ${toolbarOffset}px)`;
+  } else if (drawerPosition === "bottom" && toolbarPosition === "bottom") {
+    backdrop.style.bottom = `${toolbarOffset}px`;
+    backdrop.style.height = `calc(100% - ${toolbarOffset}px)`;
+  }
+  applyDrawerPageOffset(drawerPosition, drawer, pushesSite);
   const positionButtons = [...drawerHost.querySelectorAll(".qts-drawer-position-btn")];
   drawerHost.querySelector("#drawerDetach")?.addEventListener("click", () => openToolInNewTab(view));
   positionButtons.forEach((button) => {
     button.addEventListener("click", async () => {
       const value = button.dataset.position;
       backdrop.dataset.position = value;
+      applyDrawerPageOffset(value, drawer, pushesSite);
       positionButtons.forEach((candidate) => candidate.setAttribute("aria-pressed", String(candidate === button)));
       const preferenceKey = isMobileViewport() ? "mobileDrawerPosition" : "drawerPosition";
       state.workspace.preferences = { ...(state.workspace.preferences || {}), [preferenceKey]: value };
@@ -3497,7 +3559,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     event.currentTarget.setAttribute("aria-pressed", String(pinned));
   });
   drawerHost.querySelector("#drawerMinimize")?.addEventListener("click", () => {
-    state.minimizedDrawer = { title, bodyHtml, onReady, onBack, view, variant };
+    state.minimizedDrawer = { title, bodyHtml, onReady, onBack, view, variant, position: backdrop.dataset.position };
     renderMinimizedDrawerShortcut();
     closeDrawer();
   });
@@ -3546,12 +3608,21 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     });
   });
   localizeQaSurface(drawerHost);
-  onReady?.(drawerHost.querySelector("#drawerBody"));
+  const drawerBody = drawerHost.querySelector("#drawerBody");
+  onReady?.(drawerBody);
+  const footerActions = drawerHost.querySelector("#drawerFooterActions");
+  if (footerActions) {
+    const directButtons = [...drawerBody.children].filter((element) => element.matches("button.action"));
+    const groupedButtons = [...drawerBody.querySelectorAll(":scope > .qts-card-actions > button.action")];
+    [...directButtons, ...groupedButtons].forEach((button) => footerActions.appendChild(button));
+    drawerBody.querySelectorAll(":scope > .qts-card-actions:empty").forEach((group) => group.remove());
+  }
 }
 
 function closeDrawer() {
   const drawerHost = state.shadowRoot?.getElementById("drawerHost");
   if (drawerHost) drawerHost.innerHTML = "";
+  clearDrawerPageOffset();
 }
 
 function renderJsonTree(value, depth = 0) {

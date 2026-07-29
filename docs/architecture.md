@@ -47,7 +47,7 @@ Postgres ou Edge Functions.
 ### Versionamento de schema do workspace
 
 `storage.js`/`storage-content.js` normalizam o workspace salvo em `chrome.storage.local` através
-de um `schemaVersion` incremental (hoje 15). Cada nova ferramenta pinnable entra em
+de um `schemaVersion` incremental (hoje 17). Cada nova ferramenta pinnable entra em
 `FEATURE_REGISTRY` **nos dois arquivos**, ganha um `SCHEMA_N_TOOLS` e um bloco
 `if (schemaVersion < N) { ... }` que adiciona a ferramenta a workspaces antigos na migração —
 nunca remove dado do usuário, só preenche o que faltar. Veja `docs/migration-strategy.md`.

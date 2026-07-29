@@ -12,7 +12,7 @@ export const STORAGE_KEYS = Object.freeze({
 const COLLECTION_KEYS = [
   "clients", "projects", "products", "environments", "urlBindings", "testAccounts",
   "paymentMethods", "apis", "inspectors", "resources", "macros", "stepRecordings",
-  "operatingSystems", "browsers", "devices",
+  "operatingSystems", "browsers", "devices", "accountTypes", "paymentMethodTypes",
 ];
 
 // Fixed ids for the Cliente=Toolbar/Projeto=Sandbox/Produto=STAGE demo entities the onboarding
@@ -32,32 +32,32 @@ export const DEMO_TEST_ACCOUNT_ID = "qts-demo-test-account";
 export const DEMO_PAYMENT_METHOD_ID = "qts-demo-payment-method";
 
 export const FEATURE_REGISTRY = Object.freeze([
-  ["testStatus","Test Suite","statusMenuItem","checkSquare",""],
-  ["clickSpy","Click Spy","clickSpyMenuItem","mouse",""],
-  ["freezeClock","Freeze Clock","freezeClockMenuItem","freezeClock",""],
-  ["forceHttp","Force HTTP","forceHttpMenuItem","forceHttp",""],
-  ["errorMonitor","Error Monitor","errorMonitorMenuItem","errorMonitor",""],
-  ["inspectors","Inspectors","inspectorsMenuItem","inspectors",""],
-  ["jsonStudio","JSON Studio","jsonStudioMenuItem","braces",""],
-  ["breakpoints","Breakpoints","breakpointMenuItem","breakpointViewer",""],
+  ["testStatus","Definir status do teste","statusMenuItem","checkSquare",""],
+  ["clickSpy","Inspecionar cliques","clickSpyMenuItem","mouse",""],
+  ["freezeClock","Congelar data e hora","freezeClockMenuItem","freezeClock",""],
+  ["forceHttp","Simular respostas HTTP","forceHttpMenuItem","forceHttp",""],
+  ["errorMonitor","Monitorar erros","errorMonitorMenuItem","errorMonitor",""],
+  ["inspectors","Observar endpoints","inspectorsMenuItem","inspectors",""],
+  ["jsonStudio","Analisar e comparar JSON","jsonStudioMenuItem","braces",""],
+  ["breakpoints","Testar tamanhos de tela","breakpointMenuItem","breakpointViewer",""],
   ["testAccounts","Contas de teste","testAccountsMenuItem","key",""],
   ["paymentMethods","Meios de pagamento","paymentMethodsMenuItem","paymentMethods",""],
   ["resources","Recursos e links","resourcesMenuItem","resources",""],
   ["characterCounter","Contador de caracteres","characterCounterMenuItem","characterCounter","characterCounter.enabled"],
-  ["macroStudio","Macro Studio","macroStudioMenuItem","macroStudio","macroStudio.enabled"],
-  ["multiClick","Multiclick","multiClickMenuItem","multiClick","multiClick.enabled"],
-  ["inputLab","Input Lab","inputLabMenuItem","inputLab","inputLab.enabled"],
-  ["fakerFill","Faker Fill","fakerFillMenuItem","fakerFill","fakerFill.enabled"],
-  ["keyView","Key View","keyViewMenuItem","keyView","keyView.enabled"],
+  ["macroStudio","Criar automações","macroStudioMenuItem","macroStudio","macroStudio.enabled"],
+  ["multiClick","Repetir cliques","multiClickMenuItem","multiClick","multiClick.enabled"],
+  ["inputLab","Testar campos de entrada","inputLabMenuItem","inputLab","inputLab.enabled"],
+  ["fakerFill","Preencher dados fictícios","fakerFillMenuItem","fakerFill","fakerFill.enabled"],
+  ["keyView","Exibir teclas e mouse","keyViewMenuItem","keyView","keyView.enabled"],
   ["elementCapture","Capturar elementos","elementCaptureMenuItem","elementCapture","elementCapture.enabled"],
   ["blurElements","Borrar elementos","blurElementsMenuItem","eyeSlash",""],
-  ["holofote","Modo Holofote","holofoteMenuItem","lightbulb",""],
-  ["stepsRecorder","Gravador de Passos","stepsRecorderMenuItem","stepsRecorder","stepsRecorder.enabled"],
+  ["holofote","Destacar uma área","holofoteMenuItem","lightbulb",""],
+  ["stepsRecorder","Gravar passos do teste","stepsRecorderMenuItem","stepsRecorder","stepsRecorder.enabled"],
   ["languageValidator","Validador de textos","languageValidatorMenuItem","braces",""],
   ["qrCode","QR Code","qrCodeMenuItem","qrCode",""],
-  ["pixelPerfect","Pixel Perfect","pixelPerfectMenuItem","ruler",""],
-  ["testSession","Sessão de Teste","testSessionMenuItem","wait",""],
-  ["reportBuilder","Report Builder","reportBuilderMenuItem","edit",""],
+  ["pixelPerfect","Comparar layout visual","pixelPerfectMenuItem","ruler",""],
+  ["testSession","Iniciar sessão de teste","testSessionMenuItem","wait",""],
+  ["reportBuilder","Montar relatório","reportBuilderMenuItem","edit",""],
 ].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
 export const DEFAULT_ENABLED_TOOLS = Object.freeze(FEATURE_REGISTRY.map((feature) => feature.key));
 const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
@@ -159,19 +159,54 @@ function normalizeCatalogEntries(input, prefix) {
   }));
 }
 
+const platformIcon = (name) => globalThis.chrome?.runtime?.getURL?.(`src/assets/platforms/${name}.png`) || `/src/assets/platforms/${name}.png`;
+
 const DEFAULT_OPERATING_SYSTEMS = Object.freeze([
-  Object.freeze({ id: "operatingSystem_windows", name: "Windows", icon: "", active: true }),
-  Object.freeze({ id: "operatingSystem_macos", name: "macOS", icon: "", active: true }),
-  Object.freeze({ id: "operatingSystem_linux", name: "Linux", icon: "", active: true }),
-  Object.freeze({ id: "operatingSystem_android", name: "Android", icon: "", active: true }),
-  Object.freeze({ id: "operatingSystem_ios", name: "iOS", icon: "", active: true }),
+  Object.freeze({ id: "operatingSystem_windows", name: "Windows", icon: platformIcon("windows"), active: true }),
+  Object.freeze({ id: "operatingSystem_macos", name: "macOS", icon: platformIcon("macos"), active: true }),
+  Object.freeze({ id: "operatingSystem_linux", name: "Linux", icon: platformIcon("linux"), active: true }),
+  Object.freeze({ id: "operatingSystem_android", name: "Android", icon: platformIcon("android"), active: true }),
+  Object.freeze({ id: "operatingSystem_ios", name: "iOS", icon: platformIcon("ios"), active: true }),
 ]);
 const DEFAULT_BROWSERS = Object.freeze([
-  Object.freeze({ id: "browser_chrome", name: "Chrome", icon: "", active: true }),
-  Object.freeze({ id: "browser_firefox", name: "Firefox", icon: "", active: true }),
-  Object.freeze({ id: "browser_safari", name: "Safari", icon: "", active: true }),
-  Object.freeze({ id: "browser_edge", name: "Edge", icon: "", active: true }),
+  Object.freeze({ id: "browser_chrome", name: "Chrome", icon: platformIcon("chrome"), active: true }),
+  Object.freeze({ id: "browser_firefox", name: "Firefox", icon: platformIcon("firefox"), active: true }),
+  Object.freeze({ id: "browser_safari", name: "Safari", icon: platformIcon("safari"), active: true }),
+  Object.freeze({ id: "browser_edge", name: "Edge", icon: platformIcon("edge"), active: true }),
 ]);
+const DEFAULT_PAYMENT_METHOD_TYPES = Object.freeze([
+  Object.freeze({ id: "paymentMethodType_card", name: "Cartão", icon: "", active: true }),
+  Object.freeze({ id: "paymentMethodType_pix", name: "PIX", icon: "", active: true }),
+  Object.freeze({ id: "paymentMethodType_bank", name: "Conta bancária", icon: "", active: true }),
+  Object.freeze({ id: "paymentMethodType_other", name: "Outro", icon: "", active: true }),
+]);
+const LEGACY_PAYMENT_METHOD_TYPE_IDS = Object.freeze({
+  card: "paymentMethodType_card",
+  pix: "paymentMethodType_pix",
+  bank: "paymentMethodType_bank",
+  other: "paymentMethodType_other",
+});
+
+function resolveCatalogId(catalog, name) {
+  const needle = text(name, 60).toLowerCase();
+  if (!needle) return "";
+  return catalog.find((entry) => entry.name.toLowerCase() === needle)?.id || "";
+}
+
+function deriveAccountTypesFromLegacyTestAccounts(rawTestAccounts) {
+  const seen = new Map();
+  for (const item of Array.isArray(rawTestAccounts) ? rawTestAccounts : []) {
+    const name = text(item?.accountType, 60);
+    if (!name || seen.has(name.toLowerCase())) continue;
+    seen.set(name.toLowerCase(), {
+      id: id(null, "accountType", seen.size),
+      name,
+      icon: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
+      active: true,
+    });
+  }
+  return [...seen.values()];
+}
 
 function normalizeDevice(item, index, operatingSystems, browsers) {
   return {
@@ -184,9 +219,12 @@ function normalizeDevice(item, index, operatingSystems, browsers) {
   };
 }
 
-function normalizeTestAccount(item, index, environments, products) {
+function normalizeTestAccount(item, index, environments, products, accountTypes) {
   const environmentIds = normalizeIdArray(item?.environmentIds, item?.environmentId, environments);
   if (!environmentIds.length) return null;
+  const accountTypeId = accountTypes.some((entry) => entry.id === item?.accountTypeId)
+    ? item.accountTypeId
+    : resolveCatalogId(accountTypes, item?.accountType);
   return {
     id: id(item?.id, "testAccount", index),
     environmentIds,
@@ -194,6 +232,7 @@ function normalizeTestAccount(item, index, environments, products) {
     label: text(item?.label, 120) || `Conta ${index + 1}`,
     accountType: text(item?.accountType, 60),
     accountTypeImage: text(item?.accountTypeImage, IMAGE_VALUE_MAX_CHARS),
+    accountTypeId,
     username: text(item?.username, 200),
     password: text(item?.password, 200),
     notes: text(item?.notes, 1_000),
@@ -310,13 +349,15 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 17,
+    schemaVersion: 18,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], stepRecordings: [],
     operatingSystems: DEFAULT_OPERATING_SYSTEMS.map((entry) => ({ ...entry })),
     browsers: DEFAULT_BROWSERS.map((entry) => ({ ...entry })),
     devices: [],
+    accountTypes: [],
+    paymentMethodTypes: DEFAULT_PAYMENT_METHOD_TYPES.map((entry) => ({ ...entry })),
     preferences: {
       language: "pt-BR",
       appearanceTheme: "light",
@@ -326,6 +367,7 @@ export function createEmptyWorkspace() {
       mobileDrawerPosition: "bottom",
       mobileToolbarPosition: "top",
       pushSiteContent: true,
+      pushSiteContentForDrawer: false,
       compactMode: false,
       compactEntities: { client: false, project: false, product: false },
       avatarShape: "square",
@@ -529,6 +571,16 @@ export function normalizeWorkspace(rawWorkspace) {
     if (!operatingSystems.length) operatingSystems = DEFAULT_OPERATING_SYSTEMS.map((entry) => ({ ...entry }));
     if (!browsers.length) browsers = DEFAULT_BROWSERS.map((entry) => ({ ...entry }));
   }
+  operatingSystems = operatingSystems.map((item) => item.icon && !item.icon.startsWith("data:image/svg+xml") ? item : { ...item, icon: DEFAULT_OPERATING_SYSTEMS.find((value) => value.id === item.id)?.icon || item.icon || "" });
+  browsers = browsers.map((item) => item.icon && !item.icon.startsWith("data:image/svg+xml") ? item : { ...item, icon: DEFAULT_BROWSERS.find((value) => value.id === item.id)?.icon || item.icon || "" });
+  let accountTypes = normalizeCatalogEntries(source.accountTypes, "accountType");
+  let paymentMethodTypes = normalizeCatalogEntries(source.paymentMethodTypes, "paymentMethodType");
+  if (Number(source.schemaVersion || 0) < 17) {
+    for (const derived of deriveAccountTypesFromLegacyTestAccounts(source.testAccounts)) {
+      if (!accountTypes.some((entry) => entry.name.toLowerCase() === derived.name.toLowerCase())) accountTypes.push(derived);
+    }
+    if (!paymentMethodTypes.length) paymentMethodTypes = DEFAULT_PAYMENT_METHOD_TYPES.map((entry) => ({ ...entry }));
+  }
   const preferences = source.preferences && typeof source.preferences === "object" ? source.preferences : {};
   const normalizedEnabledTools = Array.isArray(preferences.enabledTools)
     ? preferences.enabledTools.map((value) => text(value, 40)).filter((value) => DEFAULT_ENABLED_TOOLS.includes(value))
@@ -572,21 +624,27 @@ export function normalizeWorkspace(rawWorkspace) {
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     operatingSystems, browsers,
+    accountTypes, paymentMethodTypes,
     devices: (Array.isArray(source.devices) ? source.devices : [])
       .map((item, index) => normalizeDevice(item, index, operatingSystems, browsers)),
     testAccounts: (Array.isArray(source.testAccounts) ? source.testAccounts : [])
-      .map((item, index) => normalizeTestAccount(item, index, environments, products)).filter(Boolean),
+      .map((item, index) => normalizeTestAccount(item, index, environments, products, accountTypes)).filter(Boolean),
     paymentMethods: copyCollection("paymentMethods").map((item) => {
       // "number" was never a real field in this schema (the composers always write "value") -
       // it only shows up in records created outside the composer UI (a hand-built seed/import
       // file, for instance). Without this alias those cards silently render with no "Número" row
       // and nothing to copy, with no error to explain why.
       const { environmentId, productId, product_id, number, ...rest } = item;
+      const legacyTypeId = LEGACY_PAYMENT_METHOD_TYPE_IDS[item?.type] || "";
+      const typeId = paymentMethodTypes.some((entry) => entry.id === item?.typeId)
+        ? item.typeId
+        : (paymentMethodTypes.some((entry) => entry.id === legacyTypeId) ? legacyTypeId : "");
       return {
         ...rest,
         value: text(item?.value, 240) || text(number, 240),
         environmentIds: normalizeIdArray(item?.environmentIds, environmentId, environments),
         productIds: normalizeIdArray(item?.productIds, productId ?? product_id, products),
+        typeId,
       };
     }),
     apis: copyCollection("apis"),
@@ -604,6 +662,7 @@ export function normalizeWorkspace(rawWorkspace) {
         product: preferences.compactEntities?.product === true || (!preferences.compactEntities && preferences.compactMode === true),
       },
       pushSiteContent: preferences.pushSiteContent !== false,
+      pushSiteContentForDrawer: preferences.pushSiteContentForDrawer === true,
       avatarShape: preferences.avatarShape === "round" ? "round" : "square",
       appearanceTheme: ["light", "dark"].includes(preferences.appearanceTheme) ? preferences.appearanceTheme : empty.preferences.appearanceTheme,
       colorTheme: text(preferences.colorTheme, 30) || empty.preferences.colorTheme,
@@ -619,7 +678,7 @@ export function normalizeWorkspace(rawWorkspace) {
       toolsMenuOrder: normalizeToolsMenuOrder(preferences.toolsMenuOrder),
       toolsSortMode: normalizeToolsSortMode(preferences.toolsSortMode),
       toolUsageCounts: normalizeToolUsageCounts(preferences.toolUsageCounts),
-      customShortcuts: Object.fromEntries(Object.entries(preferences.customShortcuts && typeof preferences.customShortcuts === "object" ? preferences.customShortcuts : {}).filter(([key, shortcut]) => DEFAULT_ENABLED_TOOLS.includes(key) && /^(?:(?:Ctrl|Alt|Shift|Meta)\+)+(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(String(shortcut))).slice(0, DEFAULT_ENABLED_TOOLS.length)),
+      customShortcuts: Object.fromEntries(Object.entries(preferences.customShortcuts && typeof preferences.customShortcuts === "object" ? preferences.customShortcuts : {}).filter(([key, shortcut]) => DEFAULT_ENABLED_TOOLS.includes(key) && /^(?:(?:Ctrl|Alt|Shift|Meta)\+)*[^+]{1,24}$/.test(String(shortcut))).slice(0, DEFAULT_ENABLED_TOOLS.length)),
       demoWorkspaceSeeded: preferences.demoWorkspaceSeeded === true,
       soundEffects: preferences.soundEffects !== false,
       remindTestStatusOnRecording: preferences.remindTestStatusOnRecording === true,

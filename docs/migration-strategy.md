@@ -4,7 +4,7 @@ Duas migrations completamente diferentes coexistem neste projeto — não confun
 
 ## 1. Workspace da extensão (`chrome.storage.local`, no navegador do usuário)
 
-Cada workspace salvo tem um `schemaVersion` (hoje **15**). Não existe "banco" aqui — é
+Cada workspace salvo tem um `schemaVersion` (hoje **17**). Não existe "banco" aqui: é
 JSON local, um por instalação, migrado silenciosamente na leitura, nunca destrutivamente.
 
 ### Como adicionar uma ferramenta nova ao schema (passo a passo real, feito 3× nesta sessão)

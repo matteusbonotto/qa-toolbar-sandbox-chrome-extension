@@ -15,8 +15,15 @@
         <button type="button" class="navItem isActive" data-tab="account">Minha conta</button>
         <button type="button" class="navItem protectedNav" data-tab="general" disabled>Barra e aparência</button>
         <button type="button" class="navItem protectedNav" data-tab="workspace" disabled>Workspace</button>
-        <button type="button" class="navItem protectedNav" data-tab="test-data" disabled>Dados de teste</button>
-        <button type="button" class="navItem protectedNav" data-tab="integrations" disabled>Inspectors e recursos</button>
+        <div class="navSubmenu" id="workspaceNavSubmenu" hidden aria-label="Seções do Workspace">
+          <button type="button" data-workspace-nav="structure">Clientes e produtos</button>
+          <button type="button" data-workspace-nav="environments">Ambientes</button>
+          <button type="button" data-workspace-nav="urls">URLs e vínculos</button>
+          <button type="button" data-workspace-nav="accounts">Contas de teste</button>
+          <button type="button" data-workspace-nav="payments">Pagamentos de teste</button>
+          <button type="button" data-workspace-nav="devices">Dispositivos</button>
+          <button type="button" data-workspace-nav="integrations">Inspectors</button>
+        </div>
         <button type="button" class="navItem protectedNav" data-tab="data" disabled>Importar / Exportar</button>
         <button type="button" class="navItem protectedNav" data-tab="tutorial" disabled>Tutorial</button>
         <button type="button" class="navItem protectedNav" data-tab="faq" disabled>FAQ</button>
@@ -87,9 +94,9 @@
                 <small class="cardLead">A alteração é aplicada e salva imediatamente na configuração e na toolbar.</small>
               </fieldset>
               <fieldset><legend>Tema de cores</legend>
-                <p class="cardLead">Escolha uma paleta para os botões, drawers, toasts e destaques do Key View/mouse. Cada paleta já define o modo claro ou escuro correspondente.</p>
+                <p class="cardLead">Escolha uma das seis cores. A opção Claro ou Escuro acima aplica automaticamente a variante correta.</p>
                 <div class="colorThemeGrid" id="colorThemeGrid" role="radiogroup" aria-label="Tema de cores"></div>
-                <div class="actions"><button type="button" class="button" id="colorThemeReset">Restaurar padrão</button></div>
+                <div class="actions themeResetActions"><button type="button" class="button" id="colorThemeReset">Restaurar tema padrão</button></div>
               </fieldset>
             </div>
           </details>
@@ -98,98 +105,41 @@
             <div class="settingsAccordionBody">
               <label class="radioRow"><input type="radio" name="scopeMode" value="all" /><div><b>Todos os sites</b><small>Exibe a toolbar em qualquer site permitido pelo navegador.</small></div></label>
               <label class="radioRow"><input type="radio" name="scopeMode" value="environments" /><div><b>URLs dos ambientes</b><small>Usa as URLs configuradas em cada ambiente do Workspace.</small></div></label>
-              <label class="radioRow"><input type="radio" name="scopeMode" value="custom" /><div><b>Restringir com lista personalizada</b><small>A URL também precisa pertencer a um ambiente. Use padrões como <code>https://*.exemplo.com/*</code>, um por linha.</small></div></label>
-              <textarea id="scopePatterns" rows="5" placeholder="https://app.exemplo.com/*" disabled></textarea>
             </div>
           </details>
           <details class="settingsAccordion">
             <summary><h2>Posição</h2></summary>
             <div class="settingsAccordionBody">
-              <fieldset><legend>Posição dos sidebars</legend><span class="fieldLabel">Desktop</span><div id="drawerPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileDrawerPosition"></div><small class="cardLead">Também pode ser alterada no cabeçalho de qualquer sidebar.</small></fieldset>
-              <fieldset><legend>Posição da toolbar</legend><span class="fieldLabel">Desktop</span><div id="toolbarPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileToolbarPosition"></div></fieldset>
-              <div class="barPreviewWrap"><div class="barPreview" id="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia da barra com as configurações atuais (atualiza antes de salvar).</small></div>
+              <div class="positionSettingsGrid">
+                <fieldset><legend>Sidebar de ferramentas</legend><div class="surfaceThumbnail surfaceThumbnailSidebar" aria-hidden="true"><span></span></div><p class="cardLead">Painel com detalhes, formulários e resultados.</p><span class="fieldLabel">Desktop</span><div id="drawerPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileDrawerPosition"></div><small class="cardLead">A posição também pode ser alterada dentro da sidebar.</small></fieldset>
+                <fieldset><legend>Toolbar de ações rápidas</legend><div class="surfaceThumbnail surfaceThumbnailToolbar" aria-hidden="true"><span></span></div><p class="cardLead">Barra compacta que permanece sobre o site testado.</p><span class="fieldLabel">Desktop</span><div id="toolbarPosition"></div><span class="fieldLabel">Mobile</span><div id="mobileToolbarPosition"></div></fieldset>
+              </div>
             </div>
           </details>
           <details class="settingsAccordion">
             <summary><h2>Preferências gerais</h2></summary>
             <div class="settingsAccordionBody">
               <input id="compactMode" type="checkbox" hidden />
-              <fieldset><legend>Modo compacto por item</legend><p class="cardLead">Oculte somente o nome escolhido; imagem e ambiente continuam visíveis.</p><div class="checkGrid compactEntityGrid"><label><input type="checkbox" data-compact-entity="client" /> Cliente</label><label><input type="checkbox" data-compact-entity="project" /> Projeto</label><label><input type="checkbox" data-compact-entity="product" /> Produto</label></div></fieldset>
               <label class="toggleRow"><input id="pushSiteContent" type="checkbox" /><span><b>Empurrar conteúdo do site</b><small>Reserva o espaço da barra no topo da página.</small></span></label>
+              <label class="toggleRow"><input id="pushSiteContentForDrawer" type="checkbox" /><span><b>Reservar espaço para a sidebar</b><small>Redimensiona o site enquanto a sidebar estiver aberta, em qualquer borda.</small></span></label>
               <label class="toggleRow"><input id="soundEffects" type="checkbox" /><span><b>Efeitos sonoros</b><small>Toca um som ao marcar status de teste, capturar erro HTTP ou iniciar uma macro.</small></span></label>
               <label class="toggleRow"><input id="remindTestStatusOnRecording" type="checkbox" /><span><b>Lembrar de atribuir status na gravação</b><small>Ao parar uma gravação de evidência, pede o Test Status antes de liberar o download - garante que toda gravação tenha um resultado marcado.</small></span></label>
               <label>Formato das imagens (cliente/projeto/produto)<select id="avatarShape"><option value="square">Quadrado</option><option value="round">Redondo</option></select></label>
             </div>
           </details>
           <details class="settingsAccordion">
-            <summary><h2>Breadcrumb</h2></summary>
+            <summary><h2>Contexto exibido na toolbar</h2></summary>
             <div class="settingsAccordionBody">
-              <fieldset><legend>Mostrar no breadcrumb</legend><div class="checkGrid">
-                <label><input type="checkbox" data-breadcrumb="client" /> Cliente</label>
-                <label><input type="checkbox" data-breadcrumb="project" /> Projeto</label>
-                <label><input type="checkbox" data-breadcrumb="product" /> Produto</label>
-                <label><input type="checkbox" data-breadcrumb="environment" /> Ambiente</label>
-              </div></fieldset>
-              <fieldset><legend>Ordem no breadcrumb</legend><p class="cardLead">Arraste ou use as setas para definir a prioridade de cliente, projeto e produto.</p><ol class="breadcrumbOrderList" id="breadcrumbOrderList"></ol></fieldset>
+              <p class="cardLead">Breadcrumb é o caminho Cliente, Projeto, Produto e Ambiente mostrado na toolbar. Ative, compacte e ordene tudo na mesma lista.</p>
+              <ol class="breadcrumbOrderList unifiedPreferenceList" id="breadcrumbOrderList"></ol>
+              <div class="barPreviewWrap"><div class="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia atualizada imediatamente.</small></div>
             </div>
           </details>
           <details class="settingsAccordion">
-            <summary><h2>Atalhos fixados</h2></summary>
+            <summary><h2>Ferramentas e atalhos</h2></summary>
             <div class="settingsAccordionBody">
-              <p class="cardLead">Pass, Fail, Screenshot e Gravação ficam sempre visíveis. Escolha de 0 a 4 ferramentas adicionais do menu Tools.</p>
-              <p class="formMessage isError" id="pinnedToolsLimitHint" role="alert" hidden>Você só pode ter 4 atalhos adicionais por vez. Desmarque um atalho para escolher outro.</p>
-              <div class="checkGrid">
-                <label><input type="checkbox" data-pinned="testStatus" /> Test Suite</label>
-                <label><input type="checkbox" data-pinned="clickSpy" /> Click Spy</label>
-                <label><input type="checkbox" data-pinned="freezeClock" /> Freeze Clock</label>
-                <label><input type="checkbox" data-pinned="forceHttp" /> Force HTTP</label>
-                <label><input type="checkbox" data-pinned="errorMonitor" /> Error Monitor</label>
-                <label><input type="checkbox" data-pinned="inspectors" /> Inspectors</label>
-                <label><input type="checkbox" data-pinned="jsonStudio" /> JSON Studio</label>
-                <label><input type="checkbox" data-pinned="breakpoints" /> Breakpoints</label>
-                <label><input type="checkbox" data-pinned="testAccounts" /> Contas de teste</label>
-                <label><input type="checkbox" data-pinned="paymentMethods" /> Meios de pagamento</label>
-                <label><input type="checkbox" data-pinned="resources" /> Recursos e links</label>
-                <label><input type="checkbox" data-pinned="characterCounter" /> Contador de caracteres</label>
-                <label><input type="checkbox" data-pinned="macroStudio" /> Macro Studio</label>
-                <label><input type="checkbox" data-pinned="stepsRecorder" /> Gravador de Passos</label>
-                <label><input type="checkbox" data-pinned="multiClick" /> Multiclick</label>
-                <label><input type="checkbox" data-pinned="inputLab" /> Input Lab</label>
-                <label><input type="checkbox" data-pinned="fakerFill" /> Faker Fill</label>
-                <label><input type="checkbox" data-pinned="keyView" /> Key View</label>
-                <label><input type="checkbox" data-pinned="elementCapture" /> Capturar elementos</label>
-                <label><input type="checkbox" data-pinned="blurElements" /> Borrar elementos</label>
-                <label><input type="checkbox" data-pinned="holofote" /> Modo Holofote</label>
-              </div>
-            </div>
-          </details>
-          <details class="settingsAccordion">
-            <summary><h2>Menu Tools</h2></summary>
-            <div class="settingsAccordionBody">
-              <fieldset><legend>Ferramentas no menu</legend><div class="checkGrid">
-                <label><input type="checkbox" data-tool="testStatus" /> Test Suite</label>
-                <label><input type="checkbox" data-tool="clickSpy" /> Click Spy</label>
-                <label><input type="checkbox" data-tool="freezeClock" /> Freeze Clock</label>
-                <label><input type="checkbox" data-tool="forceHttp" /> Force HTTP</label>
-                <label><input type="checkbox" data-tool="errorMonitor" /> Error Monitor</label>
-                <label><input type="checkbox" data-tool="inspectors" /> Inspectors</label>
-                <label><input type="checkbox" data-tool="jsonStudio" /> JSON Studio</label>
-                <label><input type="checkbox" data-tool="breakpoints" /> Breakpoints</label>
-                <label><input type="checkbox" data-tool="testAccounts" /> Contas de teste</label>
-                <label><input type="checkbox" data-tool="paymentMethods" /> Meios de pagamento</label>
-                <label><input type="checkbox" data-tool="resources" /> Recursos e links</label>
-                <label><input type="checkbox" data-tool="characterCounter" /> Contador de caracteres</label>
-                <label><input type="checkbox" data-tool="macroStudio" /> Macro Studio</label>
-                <label><input type="checkbox" data-tool="stepsRecorder" /> Gravador de Passos</label>
-                <label><input type="checkbox" data-tool="multiClick" /> Multiclick</label>
-                <label><input type="checkbox" data-tool="inputLab" /> Input Lab</label>
-                <label><input type="checkbox" data-tool="fakerFill" /> Faker Fill</label>
-                <label><input type="checkbox" data-tool="keyView" /> Key View</label>
-                <label><input type="checkbox" data-tool="elementCapture" /> Capturar elementos</label>
-                <label><input type="checkbox" data-tool="blurElements" /> Borrar elementos</label>
-                <label><input type="checkbox" data-tool="holofote" /> Modo Holofote</label>
-                <label><input type="checkbox" data-tool="pixelPerfect" /> Pixel Perfect</label>
-              </div></fieldset>
+              <p class="cardLead">Ative no menu, fixe na toolbar, ordene e defina o atalho de cada ferramenta na mesma linha.</p>
+              <p class="formMessage isError" id="pinnedToolsLimitHint" role="alert" hidden>Você pode fixar até 4 ferramentas adicionais.</p>
               <fieldset><legend>Ordem no menu Tools</legend>
                 <label>Ordenar por<select id="toolsSortMode">
                   <option value="custom">Personalizado (a ordem definida abaixo)</option>
@@ -198,15 +148,8 @@
                   <option value="mostUsed">Mais usados primeiro</option>
                 </select></label>
                 <p class="cardLead" id="toolsMenuOrderHint">Arraste ou use as setas para definir a ordem das ferramentas no menu.</p>
-                <ol class="breadcrumbOrderList toolsMenuOrderList" id="toolsMenuOrderList"></ol>
+                <ol class="breadcrumbOrderList toolsMenuOrderList unifiedPreferenceList" id="toolsMenuOrderList"></ol>
               </fieldset>
-            </div>
-          </details>
-          <details class="settingsAccordion">
-            <summary><h2>Atalhos de teclado personalizados</h2></summary>
-            <div class="settingsAccordionBody">
-              <p class="cardLead">Clique em um campo e pressione uma combinação com Ctrl, Alt, Shift ou Meta. Conflitos e atalhos reservados são recusados.</p>
-              <div id="customShortcutsList" class="shortcutSettingsList"></div>
               <div class="actions"><button type="button" class="button" id="resetCustomShortcuts">Restaurar todos</button></div>
               <p class="formMessage isError" id="customShortcutError" role="alert" hidden></p>
             </div>
@@ -217,11 +160,9 @@
 
       <section data-panel="workspace" class="panel protectedPanel workspacePanel">
         <header class="panelHead studioHero">
-          <div><span class="eyebrow">Workspace Studio</span><h1>Organize tudo em um só lugar</h1><p>Clientes, projetos, produtos, ambientes, URLs e dados de teste conectados. Toda alteração reflete na barra imediatamente.</p></div>
-          <div class="studioHeroActions">
-            <button type="button" class="button primary" id="openOnboardingWizard"><span data-qts-icon="compass" aria-hidden="true"></span> Criar novo workspace?</button>
-            <label class="searchBox">Buscar no workspace<input id="workspaceSearch" type="search" placeholder="Nome, URL ou ambiente" /></label>
-          </div>
+          <div><span class="eyebrow">Workspace Studio</span><h1>Seu ecossistema de QA, organizado</h1><p>Configure a estrutura uma vez. Encontre ambientes, acessos e recursos no momento do teste.</p></div>
+          <button type="button" class="button primary workspaceCreateButton" id="openOnboardingWizard"><span data-qts-icon="compass" aria-hidden="true"></span><span><small>Configuração guiada</small>Criar workspace</span></button>
+          <label class="searchBox workspaceGlobalSearch"><span>Buscar no workspace</span><input id="workspaceSearch" type="search" placeholder="Nome, URL, ambiente ou dispositivo" /></label>
         </header>
         <div class="wizardNudge" id="workspaceWizard" hidden>
           <div><strong id="workspaceWizardNudgeTitle">Configure seu primeiro ambiente</strong><p>Um passo a passo guiado por cliente, projeto, produto e ambiente - leva menos de 2 minutos.</p></div>
@@ -229,27 +170,48 @@
         </div>
         <div class="workspaceStudio">
           <div class="workspaceTabs" role="tablist" aria-label="Seções do workspace">
-            <button type="button" class="workspaceTab isActive" data-workspace-tab="structure" role="tab">Clientes e Produtos</button>
-            <button type="button" class="workspaceTab" data-workspace-tab="environments" role="tab">Ambientes</button>
-            <button type="button" class="workspaceTab" data-workspace-tab="urls" role="tab">URLs</button>
-            <button type="button" class="workspaceTab" data-workspace-tab="accounts" role="tab">Contas</button>
-            <button type="button" class="workspaceTab" data-workspace-tab="payments" role="tab">Pagamentos</button>
-            <button type="button" class="workspaceTab" data-workspace-tab="devices" role="tab">Dispositivos</button>
-            <button type="button" class="workspaceTab" data-workspace-tab="integrations" role="tab">Integrações</button>
+            <div class="workspaceTabGroup">
+              <span class="workspaceTabGroupLabel">Organização</span>
+              <button type="button" class="workspaceTab isActive" data-workspace-tab="structure" role="tab"><span>01</span>Clientes e produtos</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="environments" role="tab"><span>02</span>Ambientes</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="urls" role="tab"><span>03</span>URLs e vínculos</button>
+            </div>
+            <div class="workspaceTabGroup workspaceTabGroupOperation">
+              <span class="workspaceTabGroupLabel">Operação</span>
+              <button type="button" class="workspaceTab" data-workspace-tab="accounts" role="tab"><span>04</span>Contas</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="payments" role="tab"><span>05</span>Pagamentos</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="devices" role="tab"><span>06</span>Dispositivos</button>
+              <button type="button" class="workspaceTab" data-workspace-tab="integrations" role="tab"><span>07</span>Inspectors</button>
+            </div>
           </div>
 
           <div class="workspacePane isActive" data-workspace-pane="structure" role="tabpanel">
-            <div class="paneIntro"><div><h2>Clientes, projetos e produtos</h2><p>Cliente é a empresa (a sua ou a de quem você atende); projeto é uma frente de trabalho dela; produto é o app/sistema testado. Monte na ordem cliente → projeto → produto.</p></div><span class="relationHint" id="structureRelationHint"></span></div>
-            <div class="studioGrid studioGrid3">
-              <article class="entityCard"><div class="cardHead"><div><span class="stepBadge">01</span><h2>Clientes</h2></div><span class="count" id="clientCount">0</span></div><div class="list" id="clientList"></div>
-                <button type="button" class="composerTrigger" data-open-composer="clientComposer">Adicionar cliente</button>
-              </article>
-              <article class="entityCard"><div class="cardHead"><div><span class="stepBadge">02</span><h2>Projetos</h2></div><span class="count" id="projectCount">0</span></div><div class="list" id="projectList"></div>
-                <button type="button" class="composerTrigger" data-open-composer="projectComposer">Adicionar projeto</button>
-              </article>
-              <article class="entityCard"><div class="cardHead"><div><span class="stepBadge">03</span><h2>Produtos</h2></div><span class="count" id="productCount">0</span></div><div class="list" id="productList"></div>
-                <button type="button" class="composerTrigger" data-open-composer="productComposer">Adicionar produto</button>
-              </article>
+            <div class="paneIntro structureIntro"><div><span class="sectionKicker">Organização do workspace</span><h2>Clientes, projetos e produtos</h2><p>Visualize a hierarquia completa. Selecione um cliente para ver seus projetos e um projeto para ver seus produtos.</p></div><span class="relationHint" id="structureRelationHint"></span></div>
+            <div class="structureExplorer">
+              <details class="hierarchyRoot hierarchyAccordion" open>
+                <summary class="hierarchyNodeHead"><div><span class="hierarchyLevel">Cliente</span><strong>Clientes</strong><small>Organizações atendidas</small></div><span class="hierarchySummaryMeta"><span class="count" id="clientCount">0</span><button type="button" class="hierarchyAddButton" data-open-composer="clientComposer">+ Novo cliente</button><span class="hierarchyChevron" aria-hidden="true"></span></span></summary>
+                <div class="hierarchyAccordionBody">
+                  <div class="list structureClientList" id="clientList"></div>
+                </div>
+                <div class="hierarchyBranch hierarchyProjectBranch">
+                  <div class="hierarchyConnector" aria-hidden="true"></div>
+                  <details class="hierarchyNode hierarchyAccordion" open>
+                    <summary class="hierarchyNodeHead"><div><span class="hierarchyLevel">Projeto</span><strong>Projetos do cliente selecionado</strong><small>Frentes de trabalho</small></div><span class="hierarchySummaryMeta"><span class="count" id="projectCount">0</span><button type="button" class="hierarchyAddButton" data-open-composer="projectComposer">+ Novo projeto</button><span class="hierarchyChevron" aria-hidden="true"></span></span></summary>
+                    <div class="hierarchyAccordionBody">
+                      <div class="list hierarchyList" id="projectList"></div>
+                    </div>
+                    <div class="hierarchyBranch hierarchyProductBranch">
+                      <div class="hierarchyConnector" aria-hidden="true"></div>
+                      <details class="hierarchyNode hierarchyProductNode hierarchyAccordion" open>
+                        <summary class="hierarchyNodeHead"><div><span class="hierarchyLevel">Produto</span><strong>Produtos do projeto selecionado</strong><small>Sites, aplicativos e sistemas testados</small></div><span class="hierarchySummaryMeta"><span class="count" id="productCount">0</span><button type="button" class="hierarchyAddButton" data-open-composer="productComposer">+ Novo produto</button><span class="hierarchyChevron" aria-hidden="true"></span></span></summary>
+                        <div class="hierarchyAccordionBody">
+                          <div class="list hierarchyList" id="productList"></div>
+                        </div>
+                      </details>
+                    </div>
+                  </details>
+                </div>
+              </details>
             </div>
           </div>
 
@@ -262,6 +224,7 @@
 
           <div class="workspacePane" data-workspace-pane="urls" role="tabpanel">
             <div class="paneIntro"><div><h2>URLs e relações</h2><p>Cada URL pertence a um produto e pode se relacionar com um ou vários ambientes - é aqui que "DEV" vira a URL de cada país/produto.</p></div><span class="count" id="urlRelationCount">0</span></div>
+            <div class="urlTreeFilters" role="group" aria-label="Níveis visíveis na árvore"><span>Organizar árvore por</span><button type="button" data-url-tree-dimension="environment" aria-pressed="true">Ambiente</button><button type="button" data-url-tree-dimension="client" aria-pressed="true">Cliente</button><button type="button" data-url-tree-dimension="project" aria-pressed="true">Projeto</button><button type="button" data-url-tree-dimension="product" aria-pressed="true">Produto</button></div>
             <article class="entityCard entityCardWide"><div class="list listComfortable" id="urlRelationList"></div>
               <button type="button" class="composerTrigger" data-open-composer="urlRelationComposer">Adicionar URL</button>
             </article>
@@ -269,6 +232,9 @@
 
           <div class="workspacePane" data-workspace-pane="accounts" role="tabpanel">
             <div class="paneIntro"><div><h2>Contas de teste</h2><p>Credenciais sandbox organizadas por ambiente e protegidas na exportação.</p></div><span class="count" id="testAccountCount">0</span></div>
+            <article class="entityCard entityCardWide typeCatalogCard"><div class="cardHead"><h3>Tipos de conta</h3><span class="count" id="accountTypeCount">0</span></div><p class="cardLead">Cadastre uma vez e reutilize o tipo em qualquer conta.</p><div class="list typeCatalogList" id="accountTypeList"></div>
+              <button type="button" class="composerTrigger" data-open-composer="accountTypeComposer">Adicionar tipo de conta</button>
+            </article>
             <article class="entityCard entityCardWide"><p class="sandboxWarning">Uso exclusivamente sandbox - nunca cadastre credenciais reais.</p><div class="list listComfortable" id="testAccountList"></div>
               <button type="button" class="composerTrigger" data-open-composer="testAccountComposer">Adicionar conta</button>
             </article>
@@ -276,6 +242,9 @@
 
           <div class="workspacePane" data-workspace-pane="payments" role="tabpanel">
             <div class="paneIntro"><div><h2>Meios de pagamento</h2><p>Dados sandbox reutilizáveis, com valor e CVV sempre tratados como sensíveis.</p></div><span class="count" id="paymentMethodCount">0</span></div>
+            <article class="entityCard entityCardWide typeCatalogCard"><div class="cardHead"><h3>Tipos de pagamento</h3><span class="count" id="paymentMethodTypeCount">0</span></div><p class="cardLead">Cadastre uma vez e reutilize o tipo em qualquer meio de pagamento.</p><div class="list typeCatalogList" id="paymentMethodTypeList"></div>
+              <button type="button" class="composerTrigger" data-open-composer="paymentMethodTypeComposer">Adicionar tipo de pagamento</button>
+            </article>
             <article class="entityCard entityCardWide"><p class="sandboxWarning">Somente dados sandbox. O valor sensível nunca entra na exportação.</p><div class="list listComfortable" id="paymentMethodList"></div>
               <button type="button" class="composerTrigger" data-open-composer="paymentMethodComposer">Adicionar pagamento</button>
             </article>
@@ -297,11 +266,23 @@
           </div>
 
           <div class="workspacePane" data-workspace-pane="integrations" role="tabpanel">
-            <div class="paneIntro"><div><h2>Integrações e recursos</h2><p>Configuração declarativa: nenhum JavaScript inserido pelo usuário é executado.</p></div><span class="relationHint">Local e seguro</span></div>
-            <div class="studioGrid">
-              <article class="entityCard"><div class="cardHead"><h2>Inspectors</h2><span class="count" id="inspectorCount">0</span></div><div class="list" id="inspectorList"></div><button type="button" class="composerTrigger" data-open-composer="inspectorComposer">Adicionar Inspector</button></article>
-              <article class="entityCard"><div class="cardHead"><h2>APIs</h2><span class="count" id="apiCount">0</span></div><div class="list" id="apiList"></div><button type="button" class="composerTrigger" data-open-composer="apiComposer">Adicionar API</button></article>
-              <article class="entityCard entityCardWide"><div class="cardHead"><h2>Recursos e links</h2><span class="count" id="resourceCount">0</span></div><div class="list" id="resourceList"></div><button type="button" class="composerTrigger" data-open-composer="resourceComposer">Adicionar recurso</button></article>
+            <div class="paneIntro"><div><span class="sectionKicker">Observabilidade local</span><h2>Inspectors e recursos</h2><p>Observe respostas de endpoints relevantes e mantenha APIs, documentação e links de apoio no mesmo contexto.</p></div><span class="relationHint">Declarativo e seguro</span></div>
+            <article class="inspectorWorkspace">
+              <div class="inspectorWorkspaceIntro">
+                <div><span class="sectionKicker">Inspectors</span><h3>Observe somente o que importa</h3><p>Cada Inspector acompanha respostas cuja URL corresponde aos padrões cadastrados. Nada de código injetado ou captura sem regra explícita.</p></div>
+                <div class="inspectorFacts">
+                  <span><strong>1</strong>Padrões por linha</span>
+                  <span><strong>2</strong>Respostas agrupadas</span>
+                  <span><strong>3</strong>Execução local</span>
+                </div>
+              </div>
+              <div class="inspectorListHead"><div><strong>Inspectors configurados</strong><small>Edite, duplique, pause ou exclua quando precisar.</small></div><span class="count" id="inspectorCount">0</span></div>
+              <div class="list inspectorList" id="inspectorList"></div>
+              <button type="button" class="composerTrigger inspectorCreate" data-open-composer="inspectorComposer">Criar Inspector</button>
+            </article>
+            <div class="integrationSupportGrid">
+              <article class="entityCard"><div class="cardHead"><div><h2>APIs de referência</h2><p class="cardLead">Endereços e tokens locais para consulta rápida.</p></div><span class="count" id="apiCount">0</span></div><div class="list" id="apiList"></div><button type="button" class="composerTrigger" data-open-composer="apiComposer">Adicionar API</button></article>
+              <article class="entityCard"><div class="cardHead"><div><h2>Recursos e links</h2><p class="cardLead">Documentação, dashboards e runbooks da equipe.</p></div><span class="count" id="resourceCount">0</span></div><div class="list" id="resourceList"></div><button type="button" class="composerTrigger" data-open-composer="resourceComposer">Adicionar recurso</button></article>
             </div>
           </div>
         </div>
@@ -364,38 +345,46 @@
   </dialog>
   <dialog class="formDialog formDialogWide" id="urlRelationComposer" aria-labelledby="urlRelationComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">URL</span><h2 id="urlRelationComposerTitle">Adicionar URL</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
-    <form class="inlineForm formWide" id="urlRelationForm"><input type="hidden" id="urlRelationEditId" /><fieldset class="environmentPicker fullRow"><legend class="legendWithAction">Ambiente<button type="button" class="button linkButton" id="urlRelationAddEnvironment" data-open-composer="environmentComposer">+ Novo ambiente</button></legend><div id="urlEnvironmentPicker"></div></fieldset><fieldset class="environmentPicker fullRow"><legend>URLs deste ambiente</legend><div id="urlPatternsPicker" class="environmentToggles"></div><div class="patternAddRow"><input id="urlPatternInput" type="text" placeholder="*.com.br ou https://app.exemplo.com/*" /><button type="button" class="button" id="urlPatternAdd">+ Adicionar URL</button></div><p class="fieldHint">A primeira URL adicionada vira a URL principal (aberta ao clicar no breadcrumb).</p></fieldset><label class="field fullRow">Produto<select id="urlRelationProduct" required></select></label><div class="formActions"><button type="submit" class="button primary">Salvar relação</button><button type="button" class="button cancelEdit" data-cancel="urlRelation" hidden>Cancelar</button></div></form>
+    <form class="inlineForm formWide" id="urlRelationForm"><input type="hidden" id="urlRelationEditId" /><fieldset class="environmentPicker fullRow"><legend class="legendWithAction">Ambientes<button type="button" class="button linkButton" id="urlRelationAddEnvironment" data-open-composer="environmentComposer">+ Novo ambiente</button></legend><div id="urlEnvironmentPicker"></div></fieldset><fieldset class="environmentPicker fullRow"><legend>Produtos</legend><div id="urlProductPicker"></div></fieldset><fieldset class="environmentPicker fullRow"><legend>URLs desta relação</legend><div id="urlPatternsPicker" class="environmentToggles"></div><div class="patternAddRow"><input id="urlPatternInput" type="text" placeholder="*.com.br ou https://app.exemplo.com/*" /><button type="button" class="button" id="urlPatternAdd">+ Adicionar URL</button></div><p class="fieldHint">A primeira URL adicionada vira a URL principal aberta pelo breadcrumb.</p></fieldset><div class="formActions"><button type="submit" class="button primary">Salvar relações</button><button type="button" class="button cancelEdit" data-cancel="urlRelation" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog formDialogWide" id="testAccountComposer" aria-labelledby="testAccountComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">Conta de teste</span><h2 id="testAccountComposerTitle">Adicionar conta</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
-    <form class="inlineForm formWide" id="testAccountForm"><input type="hidden" id="testAccountEditId" /><div class="scopePicker fullRow" id="testAccountScopePicker"></div><p class="hint isError fullRow" id="testAccountScopeError" hidden>Selecione ao menos um ambiente.</p><label class="field">Nome da conta<input type="text" placeholder="Ex.: Cliente Gold" required id="testAccountLabel" /></label><label class="field">Tipo de conta<input type="text" placeholder="Ex.: VIP, Gold" id="testAccountType" /></label><label class="field imageField">Ícone do tipo<span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone (opcional)" id="testAccountTypeImage" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span></label><label class="field">Usuário / e-mail<input type="text" placeholder="qa@exemplo.com" id="testAccountUsername" /></label><label class="field">Senha<input type="password" placeholder="Senha sandbox" id="testAccountPassword" autocomplete="new-password" /></label><label class="field fullRow">Observações<input type="text" placeholder="Notas internas (opcional)" id="testAccountNotes" /></label><div class="fieldSuggestions fullRow" id="testAccountFieldSuggestions"></div><div class="customFieldsEditor" id="testAccountCustomFields"></div><div class="actions fullRow"><button type="button" class="button" id="testAccountAddField">+ Campo personalizado</button></div><div class="formActions"><button type="submit" class="button primary">Salvar conta</button><button type="button" class="button cancelEdit" data-cancel="testAccount" hidden>Cancelar</button></div></form>
+    <form class="inlineForm formWide" id="testAccountForm"><input type="hidden" id="testAccountEditId" /><div class="scopePicker fullRow" id="testAccountScopePicker"></div><p class="hint isError fullRow" id="testAccountScopeError" hidden>Selecione ao menos um ambiente.</p><label class="field">Nome da conta<input type="text" placeholder="Ex.: Cliente Gold" required id="testAccountLabel" /></label><label class="field">Tipo de conta<span class="typePickerGroup"><select id="testAccountTypeId"><option value="">Sem tipo</option></select><button type="button" class="button" data-quick-add-type="accountType" title="Novo tipo de conta">+</button></span></label><label class="field">Usuário / e-mail<input type="text" placeholder="qa@exemplo.com" id="testAccountUsername" /></label><label class="field">Senha<input type="password" placeholder="Senha sandbox" id="testAccountPassword" autocomplete="new-password" /></label><label class="field fullRow">Observações<input type="text" placeholder="Notas internas (opcional)" id="testAccountNotes" /></label><div class="fieldSuggestions fullRow" id="testAccountFieldSuggestions"></div><div class="customFieldsEditor" id="testAccountCustomFields"></div><div class="actions fullRow"><button type="button" class="button" id="testAccountAddField">+ Campo personalizado</button></div><div class="formActions"><button type="submit" class="button primary">Salvar conta</button><button type="button" class="button cancelEdit" data-cancel="testAccount" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog formDialogWide" id="paymentMethodComposer" aria-labelledby="paymentMethodComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">Pagamento</span><h2 id="paymentMethodComposerTitle">Adicionar pagamento</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
-    <form class="inlineForm formWide" id="paymentMethodForm"><input type="hidden" id="paymentMethodEditId" /><div class="scopePicker fullRow" id="paymentMethodScopePicker"></div><label class="field">Nome<input type="text" id="paymentMethodLabel" placeholder="Ex.: Visa aprovado" required /></label><label class="field">Tipo<select id="paymentMethodType"><option value="card">Cartão</option><option value="pix">PIX</option><option value="bank">Conta bancária</option><option value="other">Outro</option></select></label><label class="field imageField">Ícone/bandeira<span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone/bandeira (opcional)" id="paymentMethodIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span></label><label class="field">Número/token sandbox<input type="text" id="paymentMethodValue" placeholder="Somente dados sandbox" /></label><label class="field">Titular<input type="text" id="paymentMethodHolder" placeholder="Opcional" /></label><label class="field fieldNarrow">Validade<input type="text" id="paymentMethodExpiry" placeholder="MM/AA" /></label><label class="field fieldNarrow">CVV sandbox<input type="text" id="paymentMethodCvv" placeholder="Opcional" /></label><label class="field fullRow">Observações<input type="text" id="paymentMethodNotes" placeholder="Notas internas (opcional)" /></label><div class="formActions"><button type="submit" class="button primary">Salvar pagamento</button><button type="button" class="button cancelEdit" data-cancel="paymentMethod" hidden>Cancelar</button></div></form>
+    <form class="inlineForm formWide" id="paymentMethodForm"><input type="hidden" id="paymentMethodEditId" /><div class="scopePicker fullRow" id="paymentMethodScopePicker"></div><label class="field">Nome<input type="text" id="paymentMethodLabel" placeholder="Ex.: Visa aprovado" required /></label><label class="field">Tipo de pagamento<span class="typePickerGroup"><select id="paymentMethodTypeId"><option value="">Sem tipo</option></select><button type="button" class="button" data-quick-add-type="paymentMethodType" title="Novo tipo de pagamento">+</button></span></label><label class="field imageField">Ícone/bandeira<span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone/bandeira (opcional)" id="paymentMethodIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span></label><label class="field">Número/token sandbox<input type="text" id="paymentMethodValue" placeholder="Somente dados sandbox" /></label><label class="field">Titular<input type="text" id="paymentMethodHolder" placeholder="Opcional" /></label><label class="field fieldNarrow">Validade<input type="text" id="paymentMethodExpiry" placeholder="MM/AA" /></label><label class="field fieldNarrow">CVV sandbox<input type="text" id="paymentMethodCvv" placeholder="Opcional" /></label><label class="field fullRow">Observações<input type="text" id="paymentMethodNotes" placeholder="Notas internas (opcional)" /></label><div class="formActions"><button type="submit" class="button primary">Salvar pagamento</button><button type="button" class="button cancelEdit" data-cancel="paymentMethod" hidden>Cancelar</button></div></form>
   </dialog>
-  <dialog class="formDialog" id="operatingSystemComposer" aria-labelledby="operatingSystemComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Sistema operacional</span><h2 id="operatingSystemComposerTitle">Adicionar sistema</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
-    <form class="inlineForm" id="operatingSystemForm"><input type="hidden" id="operatingSystemEditId" /><input type="text" id="operatingSystemName" placeholder="Nome (ex.: Windows, macOS)" required /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone (opcional)" id="operatingSystemIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><div class="formActions"><button type="submit" class="button primary">Salvar sistema</button><button type="button" class="button cancelEdit" data-cancel="operatingSystem" hidden>Cancelar</button></div></form>
+  <dialog class="formDialog catalogDialog" id="accountTypeComposer" aria-labelledby="accountTypeComposerTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Catálogo reutilizável</span><h2 id="accountTypeComposerTitle">Adicionar tipo de conta</h2><p>Crie uma opção para reutilizar em várias contas.</p></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
+    <form class="inlineForm" id="accountTypeForm"><input type="hidden" id="accountTypeEditId" /><label class="field fullRow">Nome do tipo<input type="text" id="accountTypeName" placeholder="Ex.: VIP, Gold, Admin" required /></label><label class="field imageField fullRow">Ícone<span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone opcional" id="accountTypeIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span></label><div class="formActions"><button type="submit" class="button primary">Salvar tipo</button><button type="button" class="button cancelEdit" data-cancel="accountType" hidden>Cancelar</button></div></form>
   </dialog>
-  <dialog class="formDialog" id="browserComposer" aria-labelledby="browserComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Navegador</span><h2 id="browserComposerTitle">Adicionar navegador</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
-    <form class="inlineForm" id="browserForm"><input type="hidden" id="browserEditId" /><input type="text" id="browserName" placeholder="Nome (ex.: Chrome, Firefox)" required /><span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone (opcional)" id="browserIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span><div class="formActions"><button type="submit" class="button primary">Salvar navegador</button><button type="button" class="button cancelEdit" data-cancel="browser" hidden>Cancelar</button></div></form>
+  <dialog class="formDialog catalogDialog" id="paymentMethodTypeComposer" aria-labelledby="paymentMethodTypeComposerTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Catálogo reutilizável</span><h2 id="paymentMethodTypeComposerTitle">Adicionar tipo de pagamento</h2><p>Crie uma opção para reutilizar em vários meios de pagamento.</p></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
+    <form class="inlineForm" id="paymentMethodTypeForm"><input type="hidden" id="paymentMethodTypeEditId" /><label class="field fullRow">Nome do tipo<input type="text" id="paymentMethodTypeName" placeholder="Ex.: Cartão, PIX, Voucher" required /></label><label class="field imageField fullRow">Ícone<span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone opcional" id="paymentMethodTypeIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span></label><div class="formActions"><button type="submit" class="button primary">Salvar tipo</button><button type="button" class="button cancelEdit" data-cancel="paymentMethodType" hidden>Cancelar</button></div></form>
+  </dialog>
+  <dialog class="formDialog catalogDialog" id="operatingSystemComposer" aria-labelledby="operatingSystemComposerTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Catálogo de dispositivos</span><h2 id="operatingSystemComposerTitle">Adicionar sistema operacional</h2><p>Crie uma opção reutilizável para relacionar a quantos dispositivos precisar.</p></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
+    <form class="inlineForm" id="operatingSystemForm"><input type="hidden" id="operatingSystemEditId" /><label class="field fullRow">Nome do sistema<input type="text" id="operatingSystemName" placeholder="Ex.: Windows 11, macOS 15, Android 16" required /></label><label class="field imageField fullRow">Ícone<span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone opcional" id="operatingSystemIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span></label><div class="formActions"><button type="submit" class="button primary">Salvar sistema</button><button type="button" class="button cancelEdit" data-cancel="operatingSystem" hidden>Cancelar</button></div></form>
+  </dialog>
+  <dialog class="formDialog catalogDialog" id="browserComposer" aria-labelledby="browserComposerTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Catálogo de dispositivos</span><h2 id="browserComposerTitle">Adicionar navegador</h2><p>Crie uma opção reutilizável para relacionar a quantos dispositivos precisar.</p></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
+    <form class="inlineForm" id="browserForm"><input type="hidden" id="browserEditId" /><label class="field fullRow">Nome do navegador<input type="text" id="browserName" placeholder="Ex.: Chrome, Firefox, Safari" required /></label><label class="field imageField fullRow">Ícone<span class="imageInputGroup" data-image-group><span class="imageModeToggle" role="group"><button type="button" class="isActive" data-image-mode="url">URL</button><button type="button" data-image-mode="file">Upload</button></span><input type="url" placeholder="Ícone opcional" id="browserIcon" data-image-url /><input type="file" accept="image/*" hidden data-image-file /></span></label><div class="formActions"><button type="submit" class="button primary">Salvar navegador</button><button type="button" class="button cancelEdit" data-cancel="browser" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog" id="deviceComposer" aria-labelledby="deviceComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">Dispositivo</span><h2 id="deviceComposerTitle">Adicionar dispositivo</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
     <form class="inlineForm" id="deviceForm">
       <input type="hidden" id="deviceEditId" />
-      <input type="text" id="deviceLabel" placeholder="Nome do dispositivo (ex.: Notebook QA, iPhone 13)" required class="fullRow" />
-      <div class="fullRow"><div class="fieldLabelRow"><span class="fieldLabel">Sistemas operacionais</span><button type="button" class="button linkButton" data-quick-add-type="operatingSystem">+ novo</button></div><div class="checkboxGrid" id="deviceOperatingSystems"></div></div>
-      <div class="fullRow"><div class="fieldLabelRow"><span class="fieldLabel">Navegadores</span><button type="button" class="button linkButton" data-quick-add-type="browser">+ novo</button></div><div class="checkboxGrid" id="deviceBrowsers"></div></div>
-      <input type="text" id="deviceNotes" placeholder="Observações (opcional)" class="fullRow" />
+      <label class="field fullRow">Nome do dispositivo<input type="text" id="deviceLabel" placeholder="Ex.: Notebook QA, iPhone 15" required /></label>
+      <fieldset class="catalogRelationField fullRow"><legend>Sistemas operacionais <button type="button" class="button linkButton" data-quick-add-type="operatingSystem">Adicionar sistema</button></legend><p>Selecione uma ou várias opções.</p><div class="checkboxGrid" id="deviceOperatingSystems"></div></fieldset>
+      <fieldset class="catalogRelationField fullRow"><legend>Navegadores <button type="button" class="button linkButton" data-quick-add-type="browser">Adicionar navegador</button></legend><p>Selecione uma ou várias opções.</p><div class="checkboxGrid" id="deviceBrowsers"></div></fieldset>
+      <label class="field fullRow">Observações<textarea id="deviceNotes" rows="3" placeholder="Contexto útil, versão, resolução ou responsável (opcional)"></textarea></label>
       <div class="formActions"><button type="submit" class="button primary">Salvar dispositivo</button><button type="button" class="button cancelEdit" data-cancel="device" hidden>Cancelar</button></div>
     </form>
   </dialog>
-  <dialog class="formDialog" id="inspectorComposer" aria-labelledby="inspectorComposerTitle">
-    <div class="formDialogHead"><div><span class="eyebrow">Inspector</span><h2 id="inspectorComposerTitle">Adicionar Inspector</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
-    <form class="inlineForm" id="inspectorForm"><input type="hidden" id="inspectorEditId" /><label class="field fullRow">Nome<input id="inspectorLabel" placeholder="Ex.: Checkout API" required /></label><label class="field fullRow">Rotas/endpoints<textarea id="inspectorPatterns" rows="3" placeholder="Um por linha, ex.: */api/checkout/*" required></textarea></label><div class="formActions"><button class="button primary" type="submit">Salvar</button><button type="button" class="button cancelEdit" data-cancel="inspector" hidden>Cancelar</button></div></form>
+  <dialog class="formDialog inspectorDialog" id="inspectorComposer" aria-labelledby="inspectorComposerTitle">
+    <div class="formDialogHead"><div><span class="eyebrow">Observabilidade local</span><h2 id="inspectorComposerTitle">Criar Inspector</h2><p>Defina um nome fácil de reconhecer e informe quais endpoints devem ser observados.</p></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
+    <form class="inlineForm" id="inspectorForm"><input type="hidden" id="inspectorEditId" /><label class="field fullRow">Nome do Inspector<input id="inspectorLabel" placeholder="Ex.: Checkout, Autenticação, Pedidos" required /></label><label class="field fullRow">Padrões de URL<textarea id="inspectorPatterns" rows="5" placeholder="Um padrão por linha&#10;Ex.: */api/checkout/*&#10;Ex.: */graphql" required></textarea><small>Use * para trechos variáveis. Uma resposta será exibida quando sua URL corresponder a qualquer linha.</small></label><div class="inspectorPatternExamples fullRow"><span>Exemplos rápidos</span><button type="button" data-inspector-pattern="*/api/*">API REST</button><button type="button" data-inspector-pattern="*/graphql">GraphQL</button><button type="button" data-inspector-pattern="*/checkout/*">Checkout</button></div><div class="inspectorPrivacy fullRow"><span data-qts-icon="shield" aria-hidden="true"></span><p><strong>Seguro por padrão</strong>O Inspector trabalha localmente e não executa JavaScript informado pelo usuário.</p></div><div class="formActions"><button class="button primary" type="submit">Salvar Inspector</button><button type="button" class="button cancelEdit" data-cancel="inspector" hidden>Cancelar</button></div></form>
   </dialog>
   <dialog class="formDialog" id="apiComposer" aria-labelledby="apiComposerTitle">
     <div class="formDialogHead"><div><span class="eyebrow">API</span><h2 id="apiComposerTitle">Adicionar API</h2></div><button type="button" class="dialogClose" data-close-composer aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button></div>
@@ -423,20 +412,32 @@
 
   <dialog class="formDialog wizardDialog" id="onboardingWizard" aria-labelledby="onboardingWizardTitle">
     <button type="button" class="dialogClose" id="onboardingWizardClose" aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button>
-    <div class="wizardStepDots" id="onboardingWizardDots" role="tablist" aria-label="Etapas da configuração guiada"></div>
-    <div class="wizardStage">
-      <span class="eyebrow" id="onboardingWizardEyebrow"></span>
-      <h2 id="onboardingWizardTitle"></h2>
-      <p class="wizardLead" id="onboardingWizardLead"></p>
-      <div class="wizardStageBody" id="onboardingWizardBody"></div>
+    <aside class="wizardRail">
+      <div class="wizardBrand"><span class="eyebrow">Workspace Studio</span><strong>Configuração guiada</strong><p>Monte uma base consistente para toda a equipe.</p></div>
+      <div class="wizardStepDots" id="onboardingWizardDots" role="tablist" aria-label="Etapas da configuração guiada"></div>
+      <div class="wizardPrivacy"><span aria-hidden="true">⌁</span><p><strong>Dados locais</strong>Credenciais e tokens não saem deste navegador.</p></div>
+    </aside>
+    <div class="wizardMain">
+      <div class="wizardStage">
+        <span class="eyebrow" id="onboardingWizardEyebrow"></span>
+        <h2 id="onboardingWizardTitle"></h2>
+        <p class="wizardLead" id="onboardingWizardLead"></p>
+        <div class="wizardStageBody" id="onboardingWizardBody"></div>
+      </div>
+      <div class="wizardActions">
+        <button type="button" class="button" id="onboardingWizardBack">Voltar</button>
+        <button type="button" class="button linkButton" id="onboardingWizardTemplate">Usar template completo</button>
+        <span class="wizardActionsSpacer"></span>
+        <button type="button" class="button linkButton" id="onboardingWizardSkip">Pular etapa</button>
+        <button type="button" class="button primary" id="onboardingWizardNext">Continuar</button>
+      </div>
     </div>
-    <div class="wizardActions">
-      <button type="button" class="button" id="onboardingWizardBack">Voltar</button>
-      <button type="button" class="button linkButton" id="onboardingWizardTemplate">Usar template completo</button>
-      <span class="wizardActionsSpacer"></span>
-      <button type="button" class="button linkButton" id="onboardingWizardSkip">Pular esta etapa</button>
-      <button type="button" class="button primary" id="onboardingWizardNext">Continuar</button>
-    </div>
+  </dialog>
+
+  <dialog class="formDialog wizardSuccessDialog" id="wizardSuccessDialog" aria-labelledby="wizardSuccessTitle">
+    <div class="wizardSuccessIcon" aria-hidden="true"><span data-qts-icon="pass"></span></div>
+    <div><span class="eyebrow">Cadastro concluído</span><h2 id="wizardSuccessTitle">Item adicionado</h2><p class="cardLead">Você quer cadastrar outro item nesta etapa ou seguir em frente?</p></div>
+    <div class="formActions"><button type="button" class="button" id="wizardSuccessAnother">Cadastrar outro</button><button type="button" class="button primary" id="wizardSuccessContinue">Continuar</button></div>
   </dialog>
 
   <dialog class="formDialog tutorialVideoDialog" id="tutorialVideoDialog" aria-labelledby="tutorialVideoTitle">

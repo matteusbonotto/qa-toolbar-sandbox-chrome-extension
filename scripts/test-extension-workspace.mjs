@@ -23,7 +23,7 @@ const workspace = normalizeWorkspace({
   preferences: { compactMode: true },
 });
 
-assert.equal(workspace.schemaVersion, 15);
+assert.equal(workspace.schemaVersion, 17);
 assert.equal(workspace.environments[0].name, "QA");
 assert.equal(workspace.environments[0].productId, undefined);
 assert.equal(workspace.urlBindings.length, 1);
@@ -92,7 +92,7 @@ assert.equal(cappedSteps.stepRecordings[0].steps.length, 200);
 
 const filteredTools = normalizeWorkspace({ schemaVersion: 12, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
 assert.deepEqual(filteredTools.preferences.enabledTools, ["inspectors", "testStatus", "testSession", "reportBuilder"]);
-assert.deepEqual(normalizeWorkspace({ preferences: { customShortcuts: { inspectors: "Ctrl+Shift+I", bogus: "Ctrl+B", keyView: "F1", pixelPerfect: "Alt+P" } } }).preferences.customShortcuts, { inspectors: "Ctrl+Shift+I", pixelPerfect: "Alt+P" });
+assert.deepEqual(normalizeWorkspace({ preferences: { customShortcuts: { inspectors: "Ctrl+Shift+I", bogus: "Ctrl+B", keyView: "F1", pixelPerfect: "Alt+P" } } }).preferences.customShortcuts, { inspectors: "Ctrl+Shift+I", keyView: "F1", pixelPerfect: "Alt+P" });
 
 assert.deepEqual(normalizeWorkspace({}).preferences.pinnedTools, [], "additional shortcuts are optional");
 assert.deepEqual(
@@ -329,5 +329,24 @@ const demoBinding = importDroppedEnvAndBinding.urlBindings.find((binding) => bin
 assert.deepEqual(demoBinding?.patterns, [DEMO_SITE_URL_PATTERN], "the demo site URL binding is re-created if an import dropped it");
 assert.equal(demoBinding?.productId, DEMO_PRODUCT_ID);
 assert.deepEqual(demoBinding?.environmentIds, [DEMO_ENVIRONMENT_ID]);
+
+const catalogWorkspace = normalizeWorkspace({
+  schemaVersion: 16,
+  environments: [{ id: "env-catalog", name: "QA" }],
+  testAccounts: [{ id: "account-admin", label: "Admin", accountType: "Administrador", environmentIds: ["env-catalog"] }],
+  paymentMethods: [{ id: "payment-card", label: "Cartão QA", type: "card" }],
+  devices: [{
+    id: "device-qa",
+    label: "Notebook QA",
+    operatingSystemIds: ["operatingSystem_windows", "missing-os"],
+    browserIds: ["browser_chrome", "missing-browser"],
+  }],
+});
+assert.ok(catalogWorkspace.operatingSystems.some((item) => item.id === "operatingSystem_windows"));
+assert.ok(catalogWorkspace.browsers.some((item) => item.id === "browser_chrome"));
+assert.deepEqual(catalogWorkspace.devices[0].operatingSystemIds, ["operatingSystem_windows"]);
+assert.deepEqual(catalogWorkspace.devices[0].browserIds, ["browser_chrome"]);
+assert.equal(catalogWorkspace.accountTypes.find((item) => item.name === "Administrador")?.id, catalogWorkspace.testAccounts[0].accountTypeId);
+assert.equal(catalogWorkspace.paymentMethodTypes.find((item) => item.id === "paymentMethodType_card")?.id, catalogWorkspace.paymentMethods[0].typeId);
 
 console.log("Extension workspace normalization tests passed.");

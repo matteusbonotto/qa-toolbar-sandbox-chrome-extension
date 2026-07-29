@@ -138,7 +138,7 @@ try {
   if (new URL(options.url()).searchParams.get("tab") !== "account") throw new Error(`Logged-out login action did not target Minha conta: ${options.url()}`);
   if (!(await options.locator('.panel[data-panel="account"].isActive').count())) throw new Error("Minha conta panel was not active after clicking Entrar");
   if (await options.locator("html").getAttribute("data-theme") !== "light") throw new Error("Fresh workspace did not default to light appearance");
-  if (await options.locator('[data-color-theme="blue-light"]').getAttribute("aria-checked") !== "true") throw new Error("Fresh workspace did not default to blue-light");
+  if (await options.locator('[data-color-family="blue"]').getAttribute("aria-checked") !== "true") throw new Error("Fresh workspace did not default to the blue family");
   await installDemoTabs[0].close();
   trace("fresh-install logged-out toolbar and Minha conta login handoff verified");
 
@@ -207,7 +207,8 @@ try {
   await options.getByRole("button", { name: "Mi cuenta" }).waitFor();
   if (await options.locator("#environmentName").getAttribute("placeholder") !== "Nombre del entorno (ej.: QA, Staging)") throw new Error("Options placeholders were not translated to Spanish");
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Duplicated Key View settings card returned after locale change");
-  await options.locator('#langSwitch [data-locale="pt-BR"]').click();
+  await options.locator('#langSwitch [data-locale="pt-BR"]').evaluate((button) => button.click());
+  await options.waitForFunction(() => document.documentElement.lang === "pt-BR");
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signedInState").waitFor({ state: "visible" });
   await options.screenshot({ path: resolve(evidencePath, "extension-authenticated-account.png"), fullPage: true });
@@ -263,14 +264,14 @@ try {
   await options.locator("#productName").fill("Checkout");
   await options.locator("#productAbbreviation").fill("CHK");
   await options.locator("#productForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator('[data-workspace-nav="environments"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#5b21b6");
   await options.locator("#environmentForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('[data-open-composer="urlRelationComposer"]').click();
-  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
+  await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("http://127.0.0.1:43117/*");
   await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
   await options.locator("#urlRelationForm button[type=submit]").click();
@@ -279,19 +280,19 @@ try {
 
   // Environments are reusable tiers (no product of their own); the product association — and one
   // pattern belonging to multiple environments — lives entirely on the URL binding.
-  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator('[data-workspace-nav="environments"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("Beta");
   await options.locator("#environmentColor").fill("#0f766e");
   await options.locator("#environmentForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('[data-open-composer="urlRelationComposer"]').click();
-  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
+  await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("http://beta.example.invalid/*");
   await options.locator(".environmentToggle", { hasText: "Beta" }).click();
   await options.locator("#urlRelationForm button[type=submit]").click();
   await options.locator('[data-open-composer="urlRelationComposer"]').click();
-  await options.locator("#urlRelationProduct").selectOption({ label: "Checkout" });
+  await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("https://shared.example.com/*");
   await options.locator("[data-url-environment]").nth(0).click();
   await options.locator("[data-url-environment]").nth(1).click();
@@ -308,7 +309,19 @@ try {
   const sharedBindingRows = options.locator('#urlRelationList .listRow').filter({ hasText: "https://shared.example.com/*" });
   if (await sharedBindingRows.count() !== 2) throw new Error("Shared URL binding did not render once per linked environment accordion");
   if (await sharedBindingRows.first().locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
+  await options.locator('[data-workspace-nav="structure"]').click();
+  if (await options.locator(".structureExplorer").count() !== 1) throw new Error("Workspace structure is missing the hierarchical explorer");
+  const workspaceNavigationFits = await options.locator(".workspaceTabs").evaluate((navigation) => navigation.scrollWidth <= navigation.clientWidth + 1);
+  if (!workspaceNavigationFits) throw new Error("Workspace navigation introduced horizontal overflow");
+  const hierarchyAccordions = options.locator(".structureExplorer .hierarchyAccordion");
+  if (await hierarchyAccordions.count() !== 3) throw new Error("Workspace hierarchy must expose one accordion for clients, projects, and products");
+  const productAccordion = hierarchyAccordions.nth(2);
+  await productAccordion.locator(":scope > summary").click();
+  if (await productAccordion.getAttribute("open") !== null) throw new Error("Product hierarchy accordion did not collapse");
+  await productAccordion.locator(":scope > summary").click();
+  if (await productAccordion.getAttribute("open") === null) throw new Error("Product hierarchy accordion did not expand");
   await options.screenshot({ path: resolve(evidencePath, "extension-options-workspace-studio.png"), fullPage: true });
+  await options.locator('[data-workspace-nav="urls"]').click();
   const environmentCountBeforePreviews = Number(await options.locator("#environmentCount").textContent());
   await options.evaluate(async () => {
     const next = await window.QTS_STORAGE.getWorkspace();
@@ -355,7 +368,7 @@ try {
 
   // Deletion now goes through a themed <dialog> instead of window.confirm() — verify both the
   // Cancelar (no-op) and Excluir (removes) paths against one of the injected preview environments.
-  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator('[data-workspace-nav="environments"]').click();
   const previewRow = options.locator("#environmentList .listRow", { hasText: "Preview 1" });
   await previewRow.locator('[data-action="remove"]').click();
   await options.locator("#deleteConfirmDialog[open]").waitFor();
@@ -407,17 +420,20 @@ try {
   };
   await verifyToolbarTheme("dark");
   await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('.settingsAccordion:has([data-theme-choice="light"])').evaluate((accordion) => { accordion.open = true; });
   await options.locator('[data-theme-choice="light"]').click();
   await verifyToolbarTheme("light");
+  await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('.settingsAccordion:has([data-theme-choice="dark"])').evaluate((accordion) => { accordion.open = true; });
   await options.locator('[data-theme-choice="dark"]').click();
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
   trace("toolbar menu/drawer light/dark contrast verified");
 
-  // 24 color-theme presets (12 families x light/dark): picking one writes CSS custom properties on
+  // Nine color families follow the independently selected light/dark appearance mode. Picking one writes CSS custom properties on
   // <html> (not the shadow host) so both the shadow-DOM toolbar/drawers/toasts and the light-DOM
   // Key View/mouse overlays -- which live directly in document.body -- read the same tokens.
-  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 24) throw new Error("Color theme grid does not expose all 24 presets");
-  await options.locator('[data-color-theme="blue-dark"]').click();
+  if (await options.locator("#colorThemeGrid .colorThemeSwatch").count() !== 9) throw new Error("Color theme grid does not expose the nine supported families");
+  await options.locator('[data-color-family="blue"]').click();
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
   // The Settings page is the extension's own chrome.runtime page (not a content script), so it has
@@ -606,7 +622,9 @@ try {
   await host.locator("#keyViewMenuItem").click();
   await host.locator("#keyViewToggle").click();
   await host.locator("#drawerClose").click();
-  if (await options.locator('[data-color-theme="blue-dark"]').getAttribute("aria-checked") !== "true") throw new Error("Selected color theme swatch did not stay marked as checked");
+  await options.locator('.protectedNav[data-tab="general"]').click();
+  await options.locator('.settingsAccordion:has(#colorThemeReset)').evaluate((accordion) => { accordion.open = true; });
+  if (await options.locator('[data-color-family="blue"]').getAttribute("aria-checked") !== "true") throw new Error("Selected color family did not stay marked as checked");
   await options.locator("#colorThemeReset").click();
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#2563eb");
   await host.locator("#toolsButton").click();
@@ -615,7 +633,7 @@ try {
   const resetDrawerCloseBg = await host.locator("#drawerClose").evaluate((node) => getComputedStyle(node).backgroundColor);
   if (resetDrawerCloseBg !== "rgb(199, 14, 14)") throw new Error(`Color theme reset did not preserve the red close-button exception: ${resetDrawerCloseBg}`);
   await host.locator("#drawerClose").click();
-  trace("24 color theme presets verified (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
+  trace("nine color families verified in light and dark modes (selection reaches drawer chrome + Key View's mouse overlay, reset restores default)");
   const passSoundRequestPromise = host.waitForRequest((request) => request.url().endsWith("/src/assets/sounds/test-pass.mp3"));
   await host.locator("#toolsButton").click();
   await host.locator("#statusMenuItem").click();
@@ -713,6 +731,7 @@ try {
   const shortcutInput = options.locator('[data-shortcut-key="inspectors"]');
   await shortcutInput.dispatchEvent("keydown", { key: "I", code: "KeyI", altKey: true, shiftKey: true, bubbles: true, cancelable: true });
   if (await shortcutInput.inputValue() !== "Alt+Shift+I") throw new Error("Custom shortcut capture did not format the key combination");
+  await options.locator('.protectedNav[data-tab="general"]').click();
   await options.locator("#saveGeneralSettings").click();
   await host.locator("h1").press("Alt+Shift+I");
   await host.locator(".qts-drawer").waitFor();
@@ -1368,17 +1387,17 @@ try {
   // "Barra e aparência" is a list of collapsible accordions now (all closed by default except
   // "Tema") - a checkbox inside a closed <details> isn't visible/interactable, same as a real
   // user would need to expand the section first. Open the two this block needs.
-  await options.locator(".settingsAccordion:has(#toolsMenuOrderHint) summary").click();
-  await options.locator(".settingsAccordion:has(.compactEntityGrid) summary").click();
-  await options.locator('.settingsAccordion:has([data-pinned="testStatus"]) summary').click();
+  await options.locator(".settingsAccordion:has(#toolsMenuOrderHint)").evaluate((accordion) => { accordion.open = true; });
+  await options.locator(".settingsAccordion:has(#breadcrumbOrderList)").evaluate((accordion) => { accordion.open = true; });
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Key View configuration should remain in its own sidebar");
   if (await options.locator('[data-tool="keyView"]').count() !== 1 || await options.locator('[data-tool="keyView"]').isChecked() !== true) throw new Error("Key View menu preference did not persist in options");
-  if (await options.locator('[data-tool="testStatus"]').count() !== 1 || await options.locator('[data-pinned="testStatus"]').count() !== 1) throw new Error("Test Suite is missing from menu/pinned preferences");
+  if (await options.locator('[data-tool="testStatus"]').count() !== 1 || await options.locator('[data-pin-tool="testStatus"]').count() !== 1) throw new Error("Definir status do teste is missing from menu/pinned preferences");
   await options.locator('[data-tool="testStatus"]').uncheck();
   await options.locator("#saveGeneralSettings").click();
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("statusMenuItem")?.classList.contains("isPreferenceHidden"));
   await options.locator('[data-tool="testStatus"]').check();
-  await options.locator('[data-pinned="testStatus"]').check();
+  const testStatusPin = options.locator('[data-pin-tool="testStatus"]');
+  if (await testStatusPin.getAttribute("aria-pressed") !== "true") await testStatusPin.click();
   await options.locator("#saveGeneralSettings").click();
   await host.waitForFunction(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
@@ -1400,7 +1419,7 @@ try {
 
   // Editing a URL binding's pattern uses the same canonical workspace and immediately changes registration.
   await options.getByRole("button", { name: "Workspace" }).click();
-  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator("#urlRelationList .listRow", { hasText: "http://127.0.0.1:43117/*" }).locator('[data-action="edit"]').click();
   // Editing now prefills every existing pattern as a removable pill (not just one) — remove the
   // old one before adding the new one, to actually replace it rather than adding a second pattern.
@@ -1425,7 +1444,11 @@ try {
   trace("environment and SPA reactivity verified");
 
   // Extra settings categories persist and secure export strips local secrets.
-  await options.getByRole("button", { name: "Dados de teste" }).click();
+  await options.locator('[data-tab="workspace"]').click();
+  await options.locator('[data-workspace-nav="accounts"]').click();
+  await options.locator('[data-open-composer="accountTypeComposer"]').click();
+  await options.locator("#accountTypeName").fill("Administrador");
+  await options.locator("#accountTypeForm button[type=submit]").click();
   await options.locator('[data-open-composer="testAccountComposer"]').click();
   // Environment/product are now a floating multi-select combobox (four independent facets,
   // see options.js's renderScopePicker) instead of a plain <select> — open the Ambientes facet,
@@ -1434,22 +1457,38 @@ try {
   await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#testAccountLabel").fill("Conta sandbox");
+  await options.locator("#testAccountTypeId").selectOption({ label: "Administrador" });
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="payments"]').click();
+  await options.locator('[data-workspace-nav="payments"]').click();
+  await options.locator('[data-open-composer="paymentMethodTypeComposer"]').click();
+  await options.locator("#paymentMethodTypeName").fill("Voucher");
+  await options.locator("#paymentMethodTypeForm button[type=submit]").click();
   await options.locator('[data-open-composer="paymentMethodComposer"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
+  await options.locator("#paymentMethodTypeId").selectOption({ label: "Voucher" });
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();
+  const reusableCatalogResult = await options.evaluate(async () => {
+    const ws = await window.QTS_STORAGE.getWorkspace();
+    const accountType = ws.accountTypes.find((item) => item.name === "Administrador");
+    const paymentType = ws.paymentMethodTypes.find((item) => item.name === "Voucher");
+    return {
+      accountLinked: Boolean(accountType) && ws.testAccounts.some((item) => item.label === "Conta sandbox" && item.accountTypeId === accountType.id),
+      paymentLinked: Boolean(paymentType) && ws.paymentMethods.some((item) => item.label === "Visa sandbox" && item.typeId === paymentType.id),
+    };
+  });
+  if (!reusableCatalogResult.accountLinked || !reusableCatalogResult.paymentLinked) throw new Error(`Reusable account/payment catalogs were not persisted and linked: ${JSON.stringify(reusableCatalogResult)}`);
+  trace("account and payment type catalogs verified (CRUD, reusable relation, persisted)");
 
   // Dispositivo catalog: a device can pick freely from several operating systems AND several
   // browsers (checkboxes, not a single select) - exercise a quick-add mid-form plus a
   // pre-seeded default to confirm both paths land in the persisted record.
-  await options.locator('[data-workspace-tab="devices"]').click();
+  await options.locator('[data-workspace-nav="devices"]').click();
   await options.locator('[data-open-composer="deviceComposer"]').click();
   await options.locator("#deviceLabel").fill("Notebook QA");
   await options.locator('[data-quick-add-type="operatingSystem"]').click();
@@ -1460,6 +1499,7 @@ try {
   if (!(await options.locator('#deviceOperatingSystems input[value^="operatingSystem_"]').evaluateAll((inputs) => inputs.some((input) => input.checked)))) throw new Error("Quick-added operating system was not checked back into the device form");
   await options.locator('#deviceBrowsers label', { hasText: "Chrome" }).locator("input").check();
   await options.locator("#deviceForm button[type=submit]").click();
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-device-catalog.png"), fullPage: true });
   const deviceResult = await options.evaluate(async () => {
     const ws = await window.QTS_STORAGE.getWorkspace();
     const device = ws.devices.find((item) => item.label === "Notebook QA");
@@ -1471,7 +1511,14 @@ try {
   if (!deviceResult.hasChromeOs || !deviceResult.hasChromeBrowser) throw new Error(`Device did not persist its N:N system/browser picks: ${JSON.stringify(deviceResult)}`);
   trace("device catalog verified (N:N operating systems + browsers, quick-add, persisted)");
 
-  await options.getByRole("button", { name: "Inspectors e recursos" }).click();
+  await options.locator('[data-workspace-nav="integrations"]').click();
+  await options.locator('[data-open-composer="inspectorComposer"]').click();
+  await options.locator("#inspectorLabel").fill("Checkout Inspector");
+  await options.locator('[data-inspector-pattern="*/api/*"]').click();
+  await options.locator('[data-inspector-pattern="*/checkout/*"]').click();
+  if ((await options.locator("#inspectorPatterns").inputValue()).split("\n").filter(Boolean).length !== 2) throw new Error("Inspector quick patterns did not populate one pattern per line");
+  await options.locator("#inspectorForm button[type=submit]").click();
+  if (await options.locator("#inspectorList .inspectorPatternPill").count() !== 2) throw new Error("Inspector list did not render its endpoint patterns");
   await options.locator('[data-open-composer="apiComposer"]').click();
   await options.locator("#apiLabel").fill("API Demo");
   await options.locator("#apiBaseUrl").fill("https://api.example.com");
@@ -1481,6 +1528,7 @@ try {
   await options.locator("#resourceLabel").fill("Runbook QA");
   await options.locator("#resourceUrl").fill("https://example.com/runbook");
   await options.locator("#resourceForm button[type=submit]").click();
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-inspectors.png"), fullPage: true });
 
   const paymentDrawer = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
@@ -1576,7 +1624,7 @@ try {
   for (const expected of ["Workspace", "aparência", "Inspectors", "APIs", "recursos", "importar", "exportar"]) {
     if (!faqText.toLocaleLowerCase("pt-BR").includes(expected.toLocaleLowerCase("pt-BR"))) throw new Error(`FAQ is missing onboarding guidance for ${expected}`);
   }
-  await options.locator(".faqAnswer img").first().click();
+  await options.locator(".faqGroupAccordion[open] .faqAccordion[open] .faqAnswer img").first().dispatchEvent("click");
   await options.locator("#imageLightbox:not([hidden])").waitFor();
   if (!(await options.locator("#imageLightboxImg").getAttribute("src"))) throw new Error("Image lightbox did not load the clicked screenshot");
   await options.locator("#imageLightboxClose").click();
@@ -1704,7 +1752,7 @@ try {
   }
   if (await options.locator(".settingsTourBalloon").count()) throw new Error("Settings tour did not finish");
   const settingsCoverage = settingsTourTitles.join(" | ");
-  for (const expected of ["Aparência", "cliente", "projeto", "produto", "ambiente", "URL", "Contas", "pagamento", "Inspectors", "APIs", "recursos", "Exportar", "Importar", "Tutorial", "FAQ"]) {
+  for (const expected of ["Tema", "cliente", "projeto", "produto", "ambiente", "URL", "Contas", "pagamento", "Dispositivos", "Inspectors", "APIs", "recursos", "Exportar", "Importar", "Tutorial", "FAQ"]) {
     if (!settingsCoverage.toLocaleLowerCase("pt-BR").includes(expected.toLocaleLowerCase("pt-BR"))) throw new Error(`Settings tour is missing ${expected}: ${settingsCoverage}`);
   }
   if (settingsTourTitles.length < 18) throw new Error(`Settings tour is too short: ${settingsTourTitles.length}`);
@@ -1714,35 +1762,34 @@ try {
   // skippable optional steps) that writes through the exact same workspace.X.push() +
   // persistWorkspace() path as every flat CRUD tab - verify it actually reaches storage, not just
   // that the dialog opens.
-  await options.getByRole("button", { name: "Workspace" }).click();
+  await options.getByRole("button", { name: "Workspace", exact: true }).click();
   await options.locator("#openOnboardingWizard").click();
   await options.locator("#onboardingWizard[open]").waitFor();
+  if (await options.locator("#onboardingWizard .wizardRail").count() !== 1) throw new Error("Onboarding wizard is missing its persistent navigation rail");
   await options.locator("#wizardEntityInput").fill("Cliente Smoke Wizard");
   await options.locator("#wizardEntityAdd").click();
-  await options.locator("#wizardChipList .wizardChip.isSelected").waitFor();
-  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardSuccessContinue").click();
   await options.locator("#wizardEntityInput").fill("Projeto Smoke Wizard");
   await options.locator("#wizardEntityAdd").click();
-  await options.locator("#wizardChipList .wizardChip.isSelected").waitFor();
-  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardSuccessContinue").click();
   await options.locator("#wizardEntityInput").fill("Produto Smoke Wizard");
   await options.locator("#wizardEntityAdd").click();
-  await options.locator("#wizardChipList .wizardChip.isSelected").waitFor();
-  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardSuccessContinue").click();
   await options.locator("#wizardEnvName").fill("QA Smoke Wizard");
   await options.locator("#wizardEnvColor").fill("#33d6b0");
   await options.locator("#wizardEnvAdd").click();
-  await options.locator("#wizardChipList .wizardChip.isSelected").waitFor();
-  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardSuccessContinue").click();
   await options.locator("#wizardUrlPattern").fill("https://app.smoke-wizard-teste.com/*");
   await options.locator("#wizardUrlAdd").click();
-  await options.waitForTimeout(200);
-  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#wizardSuccessContinue").click();
+  if (await options.locator(".wizardOptionalFact").count() !== 3) throw new Error("Accounts step is missing its field and relation guidance");
+  if (await options.locator('[data-wizard-open-composer="testAccountComposer"]').innerText() !== "Preencher formulário") throw new Error("Accounts step has no explicit form action");
   // Optional step: exercise the CSV import path, not just "Adicionar agora"/Pular.
   await options.locator('[data-wizard-csv="testAccounts"]').click();
   await options.locator("#wizardCsvInput-testAccounts").fill("label,username,password,notes\nConta Smoke CSV,csv-smoke@exemplo.com,SenhaCsv1,Importada via smoke test");
   await options.locator('[data-wizard-csv-submit="testAccounts"]').click();
   if (!(await options.locator("#wizardCsvMessage-testAccounts").innerText()).includes("1")) throw new Error("Wizard CSV import did not report 1 imported row");
+  await options.locator("#onboardingWizardSkip").click();
   await options.locator("#onboardingWizardSkip").click();
   await options.locator("#onboardingWizardSkip").click();
   await options.locator("#onboardingWizardNext").click();

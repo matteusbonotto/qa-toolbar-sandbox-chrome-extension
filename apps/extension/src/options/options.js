@@ -25,8 +25,13 @@ document.getElementById("appearanceThemeToggle")?.addEventListener("click", asyn
   const theme = button.dataset.themeChoice;
   applyAppearanceTheme(theme);
   if (!workspace) return;
-  workspace.preferences = { ...(workspace.preferences || {}), appearanceTheme: theme };
+  const currentFamily = String(workspace.preferences?.colorTheme || "blue-light").replace(/-(?:light|dark)$/, "");
+  const family = window.QTS_THEME_PRESETS.families.includes(currentFamily) ? currentFamily : "blue";
+  const colorTheme = `${family}-${theme}`;
+  applyColorThemeToPage(colorTheme);
+  workspace.preferences = { ...(workspace.preferences || {}), appearanceTheme: theme, colorTheme };
   await saveWorkspace(workspace);
+  renderColorThemeGrid(colorTheme);
   document.getElementById("generalSavedHint").textContent = t("Salvo - a barra já foi atualizada.");
 });
 
@@ -119,10 +124,13 @@ document.getElementById("imageEditorApply").addEventListener("click", () => {
 });
 
 let workspace = null;
+let selectedStructureClientId = null;
+let selectedStructureProjectId = null;
 let accessState = null;
 let currentLocale = "pt-BR";
 let searchQuery = "";
 let activeWorkspaceTab = "structure";
+let wizardOptionalComposerKey = null;
 const revealedAccountIds = new Set();
 
 function t(message, replacements) {
@@ -137,6 +145,8 @@ const COLLECTION_UI = {
   urlBindings: { listId: "urlRelationList", prefix: "urlRelation" },
   testAccounts: { listId: "testAccountList", prefix: "testAccount" },
   paymentMethods: { listId: "paymentMethodList", prefix: "paymentMethod" },
+  accountTypes: { listId: "accountTypeList", prefix: "accountType" },
+  paymentMethodTypes: { listId: "paymentMethodTypeList", prefix: "paymentMethodType" },
   inspectors: { listId: "inspectorList", prefix: "inspector" },
   apis: { listId: "apiList", prefix: "api" },
   resources: { listId: "resourceList", prefix: "resource" },
@@ -175,6 +185,11 @@ function activateWorkspaceTab(tabName, { syncNavigation = false } = {}) {
     item.setAttribute("aria-selected", String(active));
   });
   document.querySelectorAll(".workspacePane").forEach((pane) => pane.classList.toggle("isActive", pane.dataset.workspacePane === target));
+  document.querySelectorAll("[data-workspace-nav]").forEach((item) => {
+    const active = item.dataset.workspaceNav === target;
+    item.classList.toggle("isActive", active);
+    item.setAttribute("aria-current", active ? "page" : "false");
+  });
   if (syncNavigation) document.querySelectorAll(".navItem").forEach((item) => item.classList.toggle("isActive", item.dataset.tab === "workspace"));
 }
 
@@ -184,6 +199,7 @@ function switchTab(tabName, { allowInactive = false } = {}) {
   const workspaceRoute = NAV_WORKSPACE_ROUTES[tabName];
   const panelName = workspaceRoute ? "workspace" : tabName;
   document.querySelectorAll(".panel").forEach((panel) => panel.classList.toggle("isActive", panel.dataset.panel === panelName));
+  document.getElementById("workspaceNavSubmenu").hidden = panelName !== "workspace";
   if (workspaceRoute) activateWorkspaceTab(workspaceRoute);
 }
 
@@ -228,6 +244,14 @@ async function loadAccess(force = false) {
 
 document.querySelectorAll(".navItem").forEach((item) => item.addEventListener("click", () => switchTab(item.dataset.tab)));
 document.querySelectorAll(".workspaceTab").forEach((item) => item.addEventListener("click", () => activateWorkspaceTab(item.dataset.workspaceTab, { syncNavigation: true })));
+document.querySelectorAll("[data-workspace-nav]").forEach((item) => item.addEventListener("click", () => {
+  switchTab("workspace");
+  activateWorkspaceTab(item.dataset.workspaceNav, { syncNavigation: true });
+}));
+document.querySelectorAll("[data-workspace-shortcut]").forEach((item) => item.addEventListener("click", () => {
+  activateWorkspaceTab(item.dataset.workspaceShortcut, { syncNavigation: true });
+  document.querySelector(".workspaceStudio")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}));
 document.querySelectorAll("#langSwitch button").forEach((button) => button.addEventListener("click", async () => {
   await window.QTS_I18N.setLocale(button.dataset.locale); await loadLocale(); renderWorkspace();
 }));
@@ -349,13 +373,9 @@ document.getElementById("deleteAccountForm").addEventListener("submit", async (e
 // Scope and toolbar preferences
 async function loadScopeUi() {
   const scope = await getSiteScope();
-  document.querySelectorAll('input[name="scopeMode"]').forEach((input) => { input.checked = input.value === scope.mode; });
-  document.getElementById("scopePatterns").value = (scope.patterns || []).join("\n");
-  document.getElementById("scopePatterns").disabled = scope.mode !== "custom";
+  const supportedMode = scope.mode === "all" ? "all" : "environments";
+  document.querySelectorAll('input[name="scopeMode"]').forEach((input) => { input.checked = input.value === supportedMode; });
 }
-document.querySelectorAll('input[name="scopeMode"]').forEach((input) => input.addEventListener("change", () => {
-  document.getElementById("scopePatterns").disabled = input.value !== "custom";
-}));
 
 // The Settings page has its own separate CSS token system (--accent/--on-accent in options.css,
 // not the --qts-ui-* tokens toolbar.js sets on the page it's injected into) since this page is
@@ -370,7 +390,8 @@ function applyColorThemeToPage(colorTheme) {
   if (preset) {
     root.setProperty("--accent", preset.primary);
     root.setProperty("--on-accent", preset.primaryContrast);
-    root.setProperty("--danger", semantics.danger);
+    root.setProperty("--danger", preset.danger || semantics.danger);
+    root.setProperty("--accent-2", preset.secondary || semantics.secondary);
   } else {
     root.removeProperty("--accent");
     root.removeProperty("--on-accent");
@@ -426,14 +447,13 @@ const TOOLBAR_POSITION_OPTIONS = [
 
 function loadPreferenceUi() {
   const preferences = workspace.preferences || {};
-  ensureFeatureRegistryControls();
   applyColorThemeToPage(preferences.colorTheme || null);
   document.getElementById("appearanceTheme").value = preferences.appearanceTheme === "light" ? "light" : "dark";
   applyAppearanceTheme(document.getElementById("appearanceTheme").value);
   document.getElementById("compactMode").checked = preferences.compactMode === true;
-  const compactEntities = preferences.compactEntities || { project: preferences.compactMode === true, product: preferences.compactMode === true };
-  document.querySelectorAll("[data-compact-entity]").forEach((checkbox) => { checkbox.checked = compactEntities[checkbox.dataset.compactEntity] === true; });
+  compactEntitiesDraft = { ...(preferences.compactEntities || { project: preferences.compactMode === true, product: preferences.compactMode === true }) };
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
+  document.getElementById("pushSiteContentForDrawer").checked = preferences.pushSiteContentForDrawer === true;
   document.getElementById("soundEffects").checked = preferences.soundEffects !== false;
   document.getElementById("remindTestStatusOnRecording").checked = preferences.remindTestStatusOnRecording === true;
   renderPositionPicker("drawerPosition", {
@@ -449,81 +469,35 @@ function loadPreferenceUi() {
   });
   renderPositionPicker("mobileToolbarPosition", { kind: "bar", label: "Posição da toolbar (mobile)", current: ["top", "bottom", "left", "right"].includes(preferences.mobileToolbarPosition) ? preferences.mobileToolbarPosition : "top", options: TOOLBAR_POSITION_OPTIONS });
   document.getElementById("avatarShape").value = preferences.avatarShape === "round" ? "round" : "square";
-  const pinned = new Set(preferences.pinnedTools || []);
-  document.querySelectorAll("[data-pinned]").forEach((checkbox) => { checkbox.checked = pinned.has(checkbox.dataset.pinned); });
-  const enabledTools = new Set(preferences.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
-  document.querySelectorAll("[data-tool]").forEach((checkbox) => { checkbox.checked = enabledTools.has(checkbox.dataset.tool); });
+  pinnedToolsDraft = new Set(preferences.pinnedTools || []);
+  enabledToolsDraft = new Set(preferences.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
   toolsMenuOrderDraft = normalizeToolsMenuOrderDraft(preferences.toolsMenuOrder);
-  renderToolsMenuOrderList();
   document.getElementById("toolsSortMode").value = ["custom", "az", "za", "mostUsed"].includes(preferences.toolsSortMode) ? preferences.toolsSortMode : "custom";
-  updateToolsMenuOrderVisibility();
   customShortcutsDraft = { ...(preferences.customShortcuts || {}) };
-  renderCustomShortcuts();
-  const breadcrumbVisibility = preferences.breadcrumbVisibility || {};
-  document.querySelectorAll("[data-breadcrumb]").forEach((checkbox) => { checkbox.checked = breadcrumbVisibility[checkbox.dataset.breadcrumb] !== false; });
+  renderToolsMenuOrderList();
+  updateToolsMenuOrderVisibility();
+  breadcrumbVisibilityDraft = { client: true, project: true, product: true, environment: true, ...(preferences.breadcrumbVisibility || {}) };
   breadcrumbOrderDraft = normalizeBreadcrumbOrderDraft(preferences.breadcrumbOrder);
   renderBreadcrumbOrderList();
   renderColorThemeGrid(preferences.colorTheme || null);
 }
 
-function ensureFeatureRegistryControls() {
-  const pinnedGrid = document.querySelector("[data-pinned]")?.closest(".checkGrid");
-  const toolsGrid = document.querySelector("[data-tool]")?.closest(".checkGrid");
-  for (const feature of window.QTS_STORAGE.FEATURE_REGISTRY) {
-    if (pinnedGrid && feature.pinnable && !pinnedGrid.querySelector(`[data-pinned="${CSS.escape(feature.key)}"]`)) {
-      const label = document.createElement("label");
-      label.innerHTML = `<input type="checkbox" data-pinned="${escapeHtml(feature.key)}" /> ${escapeHtml(feature.label)}`;
-      pinnedGrid.appendChild(label);
-    }
-    if (toolsGrid && !toolsGrid.querySelector(`[data-tool="${CSS.escape(feature.key)}"]`)) {
-      const label = document.createElement("label");
-      label.innerHTML = `<input type="checkbox" data-tool="${escapeHtml(feature.key)}" /> ${escapeHtml(feature.label)}`;
-      toolsGrid.appendChild(label);
-    }
-  }
-}
-
 let customShortcutsDraft = {};
+let enabledToolsDraft = new Set(window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
+let pinnedToolsDraft = new Set();
 function shortcutFromEvent(event) {
-  const key = event.key.length === 1 ? event.key.toUpperCase() : event.key;
+  const key = event.key.length === 1 ? event.key.toLocaleUpperCase() : event.key;
   if (["Control", "Alt", "Shift", "Meta"].includes(key)) return "";
   const parts = [];
   if (event.ctrlKey) parts.push("Ctrl");
   if (event.altKey) parts.push("Alt");
   if (event.shiftKey) parts.push("Shift");
   if (event.metaKey) parts.push("Meta");
-  if (!parts.length || !/^(?:[A-Z0-9]|F(?:[1-9]|1[0-2]))$/.test(key)) return "";
   return [...parts, key].join("+");
 }
-const RESERVED_SHORTCUTS = new Set(["Ctrl+L","Ctrl+T","Ctrl+W","Ctrl+N","Ctrl+R","Ctrl+F","Ctrl+Shift+T","Ctrl+Shift+N"]);
-function renderCustomShortcuts() {
-  const list = document.getElementById("customShortcutsList");
-  if (!list) return;
-  list.innerHTML = window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => `<label class="shortcutSetting"><span>${escapeHtml(feature.label)}</span><input type="text" readonly inputmode="none" data-shortcut-key="${escapeHtml(feature.key)}" value="${escapeHtml(customShortcutsDraft[feature.key] || "")}" placeholder="Não definido" /><button type="button" class="button" data-shortcut-reset="${escapeHtml(feature.key)}">Limpar</button></label>`).join("");
-  list.querySelectorAll("[data-shortcut-key]").forEach((input) => input.addEventListener("keydown", (event) => {
-    event.preventDefault();
-    const shortcut = shortcutFromEvent(event);
-    if (!shortcut) return;
-    const conflict = Object.entries(customShortcutsDraft).find(([key, value]) => key !== input.dataset.shortcutKey && value === shortcut);
-    const error = document.getElementById("customShortcutError");
-    if (RESERVED_SHORTCUTS.has(shortcut) || conflict) {
-      error.hidden = false;
-      error.textContent = RESERVED_SHORTCUTS.has(shortcut) ? `${shortcut} é reservado pelo navegador.` : `${shortcut} já está usado por ${window.QTS_STORAGE.FEATURE_REGISTRY.find((feature) => feature.key === conflict[0])?.label || conflict[0]}.`;
-      return;
-    }
-    error.hidden = true;
-    customShortcutsDraft[input.dataset.shortcutKey] = shortcut;
-    input.value = shortcut;
-  }));
-  list.querySelectorAll("[data-shortcut-reset]").forEach((button) => button.addEventListener("click", () => {
-    delete customShortcutsDraft[button.dataset.shortcutReset];
-    list.querySelector(`[data-shortcut-key="${CSS.escape(button.dataset.shortcutReset)}"]`).value = "";
-  }));
-}
-document.getElementById("resetCustomShortcuts").addEventListener("click", () => { customShortcutsDraft = {}; renderCustomShortcuts(); });
+document.getElementById("resetCustomShortcuts").addEventListener("click", () => { customShortcutsDraft = {}; renderToolsMenuOrderList(); });
 
-const COLOR_FAMILY_LABEL_SOURCE = { white: "Branco", black: "Preto", gray: "Cinza", red: "Vermelho", gold: "Dourado", blue: "Azul", cyan: "Ciano", pink: "Rosa", green: "Verde", orange: "Laranja", beige: "Bege", brown: "Marrom" };
-const COLOR_MODE_LABEL_SOURCE = { light: "Claro", dark: "Escuro" };
+const COLOR_FAMILY_LABEL_SOURCE = { red: "Vermelho", gold: "Dourado", blue: "Azul", pink: "Rosa", green: "Verde", orange: "Laranja", purple: "Roxo", yellow: "Amarelo", lego: "Lego multicolorido" };
 
 // The picker's own visual state (border highlight) is driven straight off `preferences.colorTheme`
 // here, separate from applyColorTheme() in toolbar.js which reads the same field to set the live
@@ -531,21 +505,22 @@ const COLOR_MODE_LABEL_SOURCE = { light: "Claro", dark: "Escuro" };
 function renderColorThemeGrid(selectedId) {
   const grid = document.getElementById("colorThemeGrid");
   if (!grid) return;
-  grid.innerHTML = window.QTS_THEME_PRESETS.presets.map((preset) => {
-    const label = `${t(COLOR_FAMILY_LABEL_SOURCE[preset.family])} · ${t(COLOR_MODE_LABEL_SOURCE[preset.mode])}`;
-    const selected = preset.id === selectedId;
-    return `<button type="button" class="colorThemeSwatch${selected ? " isSelected" : ""}" role="radio" aria-checked="${selected}" data-color-theme="${preset.id}" data-color-theme-mode="${preset.mode}"><span class="colorThemeDot" style="background:${preset.primary}"></span>${label}</button>`;
+  const mode = document.getElementById("appearanceTheme")?.value === "dark" ? "dark" : "light";
+  const selectedFamily = String(selectedId || "blue-light").replace(/-(?:light|dark)$/, "");
+  grid.innerHTML = window.QTS_THEME_PRESETS.families.map((family) => {
+    const preset = window.QTS_THEME_PRESETS.presets.find((item) => item.family === family && item.mode === mode);
+    const selected = family === selectedFamily;
+    return `<button type="button" class="colorThemeSwatch${selected ? " isSelected" : ""}" role="radio" aria-checked="${selected}" data-color-family="${family}"><span class="colorThemeDot" style="background:${preset.primary}"></span>${escapeHtml(t(COLOR_FAMILY_LABEL_SOURCE[family]))}</button>`;
   }).join("");
 }
 
 document.getElementById("colorThemeGrid")?.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-color-theme]");
+  const button = event.target.closest("[data-color-family]");
   if (!button || !workspace) return;
-  const colorTheme = button.dataset.colorTheme;
-  const mode = button.dataset.colorThemeMode;
-  applyAppearanceTheme(mode);
+  const mode = document.getElementById("appearanceTheme").value === "dark" ? "dark" : "light";
+  const colorTheme = `${button.dataset.colorFamily}-${mode}`;
   applyColorThemeToPage(colorTheme);
-  workspace.preferences = { ...(workspace.preferences || {}), colorTheme, appearanceTheme: mode };
+  workspace.preferences = { ...(workspace.preferences || {}), colorTheme };
   await saveWorkspace(workspace);
   renderColorThemeGrid(colorTheme);
   document.getElementById("generalSavedHint").textContent = t("Salvo - a barra já foi atualizada.");
@@ -562,18 +537,6 @@ document.getElementById("colorThemeReset")?.addEventListener("click", async () =
 });
 
 const PINNED_TOOLS_LIMIT = 4;
-document.querySelectorAll("[data-pinned]").forEach((checkbox) => checkbox.addEventListener("change", () => {
-  const checked = [...document.querySelectorAll("[data-pinned]:checked")];
-  const hint = document.getElementById("pinnedToolsLimitHint");
-  if (checked.length > PINNED_TOOLS_LIMIT) {
-    checkbox.checked = false;
-    hint.hidden = false;
-    hint.scrollIntoView({ block: "nearest", behavior: "smooth" });
-    window.setTimeout(() => { hint.hidden = true; }, 6_000);
-    return;
-  }
-  hint.hidden = true;
-}));
 
 // Cliente/Projeto/Produto priority in the breadcrumb - a local draft array (not saved until
 // "Salvar", the sticky bottom button) so drag/arrow reordering and the live preview stay instant without writing
@@ -581,6 +544,8 @@ document.querySelectorAll("[data-pinned]").forEach((checkbox) => checkbox.addEve
 // the last, "current tier" segment (see buildBreadcrumb in toolbar.js).
 let breadcrumbOrderDraft = ["client", "project", "product"];
 let breadcrumbOrderDragKey = null;
+let breadcrumbVisibilityDraft = { client: true, project: true, product: true, environment: true };
+let compactEntitiesDraft = { client: false, project: false, product: false };
 
 function normalizeBreadcrumbOrderDraft(value) {
   const known = ["client", "project", "product"];
@@ -594,12 +559,22 @@ function renderBreadcrumbOrderList() {
   const list = document.getElementById("breadcrumbOrderList");
   list.innerHTML = breadcrumbOrderDraft.map((key, index) => `
     <li class="breadcrumbOrderItem" draggable="true" data-order-key="${key}">
-      <span class="dragHandle">⠿</span><span>${escapeHtml(labels[key])}</span>
+      <span class="dragHandle">⠿</span><strong>${escapeHtml(labels[key])}</strong>
+      <label class="inlinePreference"><input type="checkbox" data-breadcrumb="${key}" ${breadcrumbVisibilityDraft[key] !== false ? "checked" : ""} /> Exibir</label>
+      <label class="inlinePreference"><input type="checkbox" data-compact-entity="${key}" ${compactEntitiesDraft[key] === true ? "checked" : ""} /> Compacto</label>
       <span class="orderArrows">
         <button type="button" data-order-move="up" data-order-key="${key}" ${index === 0 ? "disabled" : ""} title="${escapeHtml(t("Mover para cima"))}">↑</button>
         <button type="button" data-order-move="down" data-order-key="${key}" ${index === breadcrumbOrderDraft.length - 1 ? "disabled" : ""} title="${escapeHtml(t("Mover para baixo"))}">↓</button>
       </span>
-    </li>`).join("");
+    </li>`).join("") + `<li class="breadcrumbOrderItem isFixed"><span class="dragHandle">•</span><strong>${escapeHtml(t("Ambiente"))}</strong><label class="inlinePreference"><input type="checkbox" data-breadcrumb="environment" ${breadcrumbVisibilityDraft.environment !== false ? "checked" : ""} /> Exibir</label><span class="fixedOrderHint">${escapeHtml(t("Sempre por último"))}</span></li>`;
+  list.querySelectorAll("[data-breadcrumb]").forEach((input) => input.addEventListener("change", () => {
+    breadcrumbVisibilityDraft[input.dataset.breadcrumb] = input.checked;
+    renderBarPreview();
+  }));
+  list.querySelectorAll("[data-compact-entity]").forEach((input) => input.addEventListener("change", () => {
+    compactEntitiesDraft[input.dataset.compactEntity] = input.checked;
+    renderBarPreview();
+  }));
   list.querySelectorAll("[data-order-move]").forEach((button) => button.addEventListener("click", () => {
     const key = button.dataset.orderKey;
     const from = breadcrumbOrderDraft.indexOf(key);
@@ -660,8 +635,7 @@ function normalizeToolsMenuOrderDraft(value) {
 }
 
 function toolsMenuItemLabel(key) {
-  const checkbox = document.querySelector(`[data-tool="${key}"]`);
-  return checkbox?.parentElement?.textContent?.trim() || key;
+  return window.QTS_STORAGE.FEATURE_REGISTRY.find((feature) => feature.key === key)?.label || key;
 }
 
 // The manual drag/arrow order only has any visible effect in "Personalizado" mode -- A-Z/Z-A/mais
@@ -670,7 +644,7 @@ function toolsMenuItemLabel(key) {
 function updateToolsMenuOrderVisibility() {
   const isCustom = document.getElementById("toolsSortMode").value === "custom";
   document.getElementById("toolsMenuOrderHint").toggleAttribute("hidden", !isCustom);
-  document.getElementById("toolsMenuOrderList").toggleAttribute("hidden", !isCustom);
+  document.getElementById("toolsMenuOrderList").classList.toggle("isAutoSorted", !isCustom);
 }
 document.getElementById("toolsSortMode").addEventListener("change", updateToolsMenuOrderVisibility);
 
@@ -678,12 +652,58 @@ function renderToolsMenuOrderList() {
   const list = document.getElementById("toolsMenuOrderList");
   list.innerHTML = toolsMenuOrderDraft.map((key, index) => `
     <li class="breadcrumbOrderItem" draggable="true" data-order-key="${key}">
-      <span class="dragHandle">⠿</span><span>${escapeHtml(toolsMenuItemLabel(key))}</span>
+      <span class="dragHandle">⠿</span><strong>${escapeHtml(toolsMenuItemLabel(key))}</strong>
+      <label class="inlinePreference"><input type="checkbox" data-tool="${key}" ${enabledToolsDraft.has(key) ? "checked" : ""} /> Menu</label>
+      <button type="button" class="pinToggle${pinnedToolsDraft.has(key) ? " isPinned" : ""}" data-pin-tool="${key}" aria-pressed="${pinnedToolsDraft.has(key)}" title="${pinnedToolsDraft.has(key) ? "Remover da toolbar" : "Fixar na toolbar"}">${ICON("pin")}</button>
+      <input class="inlineShortcutInput" type="text" readonly inputmode="none" data-shortcut-key="${key}" value="${escapeHtml(customShortcutsDraft[key] || "")}" placeholder="Tecla ou combinação" aria-label="Atalho de ${escapeHtml(toolsMenuItemLabel(key))}" />
       <span class="orderArrows">
         <button type="button" data-order-move="up" data-order-key="${key}" ${index === 0 ? "disabled" : ""} title="${escapeHtml(t("Mover para cima"))}">↑</button>
         <button type="button" data-order-move="down" data-order-key="${key}" ${index === toolsMenuOrderDraft.length - 1 ? "disabled" : ""} title="${escapeHtml(t("Mover para baixo"))}">↓</button>
       </span>
     </li>`).join("");
+  list.querySelectorAll("[data-tool]").forEach((input) => input.addEventListener("change", () => {
+    if (input.checked) enabledToolsDraft.add(input.dataset.tool);
+    else {
+      enabledToolsDraft.delete(input.dataset.tool);
+      pinnedToolsDraft.delete(input.dataset.tool);
+      renderToolsMenuOrderList();
+    }
+  }));
+  list.querySelectorAll("[data-pin-tool]").forEach((button) => button.addEventListener("click", () => {
+    const key = button.dataset.pinTool;
+    if (pinnedToolsDraft.has(key)) pinnedToolsDraft.delete(key);
+    else {
+      if (pinnedToolsDraft.size >= PINNED_TOOLS_LIMIT) {
+        const hint = document.getElementById("pinnedToolsLimitHint");
+        hint.hidden = false;
+        window.setTimeout(() => { hint.hidden = true; }, 6_000);
+        return;
+      }
+      pinnedToolsDraft.add(key);
+      enabledToolsDraft.add(key);
+    }
+    renderToolsMenuOrderList();
+  }));
+  list.querySelectorAll("[data-shortcut-key]").forEach((input) => input.addEventListener("keydown", (event) => {
+    event.preventDefault();
+    if (event.key === "Backspace" || event.key === "Delete") {
+      delete customShortcutsDraft[input.dataset.shortcutKey];
+      input.value = "";
+      return;
+    }
+    const shortcut = shortcutFromEvent(event);
+    if (!shortcut) return;
+    const conflict = Object.entries(customShortcutsDraft).find(([key, value]) => key !== input.dataset.shortcutKey && value === shortcut);
+    const error = document.getElementById("customShortcutError");
+    if (conflict) {
+      error.hidden = false;
+      error.textContent = `${shortcut} já está usado por ${toolsMenuItemLabel(conflict[0])}.`;
+      return;
+    }
+    error.hidden = true;
+    customShortcutsDraft[input.dataset.shortcutKey] = shortcut;
+    input.value = shortcut;
+  }));
   list.querySelectorAll("[data-order-move]").forEach((button) => button.addEventListener("click", () => {
     const key = button.dataset.orderKey;
     const from = toolsMenuOrderDraft.indexOf(key);
@@ -714,9 +734,7 @@ function renderToolsMenuOrderList() {
 // and, say, a pinned tool no longer has to remember to click twice.
 document.getElementById("saveGeneralSettings").addEventListener("click", async () => {
   const scopeMode = document.querySelector('input[name="scopeMode"]:checked')?.value || "environments";
-  const scopePatterns = normalizeUrlPatterns(document.getElementById("scopePatterns").value);
-  if (scopeMode === "custom" && !scopePatterns.length) return showMessage("generalSavedHint", "Adicione ao menos uma URL.", "Error");
-  await saveSiteScope({ mode: scopeMode, patterns: scopePatterns });
+  await saveSiteScope({ mode: scopeMode, patterns: [] });
 
   const compactEntities = Object.fromEntries([...document.querySelectorAll("[data-compact-entity]")].map((checkbox) => [checkbox.dataset.compactEntity, checkbox.checked]));
   workspace.preferences = {
@@ -725,6 +743,7 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
     appearanceTheme: document.getElementById("appearanceTheme").value,
     compactEntities,
     pushSiteContent: document.getElementById("pushSiteContent").checked,
+    pushSiteContentForDrawer: document.getElementById("pushSiteContentForDrawer").checked,
     soundEffects: document.getElementById("soundEffects").checked,
     remindTestStatusOnRecording: document.getElementById("remindTestStatusOnRecording").checked,
     drawerPosition: pickerValue("drawerPosition"),
@@ -732,8 +751,8 @@ document.getElementById("saveGeneralSettings").addEventListener("click", async (
     mobileDrawerPosition: pickerValue("mobileDrawerPosition"),
     mobileToolbarPosition: pickerValue("mobileToolbarPosition"),
     avatarShape: document.getElementById("avatarShape").value === "round" ? "round" : "square",
-    pinnedTools: [...document.querySelectorAll("[data-pinned]:checked")].map((checkbox) => checkbox.dataset.pinned),
-    enabledTools: [...document.querySelectorAll("[data-tool]:checked")].map((checkbox) => checkbox.dataset.tool),
+    pinnedTools: [...pinnedToolsDraft],
+    enabledTools: [...enabledToolsDraft],
     breadcrumbVisibility: Object.fromEntries([...document.querySelectorAll("[data-breadcrumb]")].map((checkbox) => [checkbox.dataset.breadcrumb, checkbox.checked])),
     breadcrumbOrder: [...breadcrumbOrderDraft],
     toolsMenuOrder: [...toolsMenuOrderDraft],
@@ -805,9 +824,9 @@ function rowActions(collection, item, { reveal = false } = {}) {
 
 function renderRows(collection, formatter, options = {}) {
   const element = document.getElementById(COLLECTION_UI[collection].listId);
-  const items = (workspace[collection] || []).filter(matchesSearch);
+  const items = (workspace[collection] || []).filter((item) => matchesSearch(item) && (!options.filter || options.filter(item)));
   if (!items.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
-  element.innerHTML = items.map((item) => `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div>${formatter(item)}</div>${rowActions(collection, item, { reveal: options.reveal?.(item) })}</div>`).join("");
+  element.innerHTML = items.map((item) => `<div class="listRow${item.active === false ? " isInactive" : ""}${options.selectedId === item.id ? " isSelected" : ""}" data-id="${escapeHtml(item.id)}"><div>${formatter(item)}</div>${rowActions(collection, item, { reveal: options.reveal?.(item) })}</div>`).join("");
 }
 
 function renderSelect(selectId, items, placeholder) {
@@ -818,6 +837,7 @@ function renderSelect(selectId, items, placeholder) {
 }
 
 let urlSelectedEnvironmentIds = new Set();
+let urlSelectedProductIds = new Set();
 let urlPatternsDraft = [];
 
 // Founder feedback: the old single-value "URL ou padrão" field only ever showed (and saved) one
@@ -879,6 +899,22 @@ function renderUrlEnvironmentPicker() {
   });
 }
 
+function renderUrlProductPicker() {
+  const container = document.getElementById("urlProductPicker");
+  const products = workspace.products || [];
+  container.innerHTML = products.length
+    ? `<div class="environmentToggles">${products.map((product) => {
+      const selected = urlSelectedProductIds.has(product.id);
+      return `<button type="button" class="environmentToggle${selected ? " isSelected" : ""}" data-url-product="${escapeHtml(product.id)}" aria-pressed="${selected}">${window.QTS_AVATAR.buildBadgeHtml(product, { size: 18 })}<span>${escapeHtml(product.name)}</span></button>`;
+    }).join("")}</div>`
+    : `<div class="listEmpty">${escapeHtml(t("Crie um produto antes de associar URLs."))}</div>`;
+  container.querySelectorAll("[data-url-product]").forEach((button) => button.addEventListener("click", () => {
+    const id = button.dataset.urlProduct;
+    urlSelectedProductIds.has(id) ? urlSelectedProductIds.delete(id) : urlSelectedProductIds.add(id);
+    renderUrlProductPicker();
+  }));
+}
+
 // URLs are grouped by environment into collapsible accordions (rather than one flat list) so a
 // workspace with many countries/products per environment stays scannable - each section shows its
 // own URL count and can be collapsed once reviewed. A binding can belong to several environments
@@ -897,32 +933,56 @@ function renderUrlRelationRow(item) {
 // language switch, etc.), so without this every collapse would silently snap back open the next
 // time anything else changed.
 const collapsedUrlAccordionIds = new Set();
+const urlTreeDimensions = new Set(["environment", "client", "project", "product"]);
+
+function urlTreeContext(binding, environmentId) {
+  const product = findById("products", binding.productId);
+  const project = findById("projects", product?.projectId);
+  const client = findById("clients", project?.clientId);
+  const environment = findById("environments", environmentId);
+  return { binding, environment, client, project, product };
+}
+
+function renderUrlTree(records, dimensions, depth = 0) {
+  if (!dimensions.length) return records.map((record) => renderUrlRelationRow(record.binding)).join("");
+  const [dimension, ...rest] = dimensions;
+  const groups = new Map();
+  for (const record of records) {
+    const entity = record[dimension];
+    const key = entity?.id || `__none_${dimension}`;
+    if (!groups.has(key)) groups.set(key, { entity, records: [] });
+    groups.get(key).records.push(record);
+  }
+  return [...groups.entries()].map(([key, group]) => {
+    const entity = group.entity;
+    const emptyLabel = { environment: "Sem ambiente", client: "Sem cliente", project: "Sem projeto", product: "Sem produto" }[dimension];
+    const label = entity ? (entity.name || entity.label) : t(emptyLabel);
+    const color = dimension === "environment" ? entity?.color || "#64748b" : "";
+    const preview = dimension === "environment"
+      ? `<span class="environmentToolbarPreview" style="--environment-color:${escapeHtml(color)}"><i></i><i></i><i></i></span>`
+      : "";
+    return `<details class="urlTreeNode urlTreeLevel-${dimension}" data-accordion-key="${escapeHtml(key)}" style="${color ? `--environment-color:${escapeHtml(color)}` : ""}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}><summary><span class="urlTreeBranch" aria-hidden="true"></span><b>${escapeHtml(label)}</b>${preview}<span class="count">${group.records.length}</span></summary><div class="urlTreeChildren">${renderUrlTree(group.records, rest, depth + 1)}</div></details>`;
+  }).join("");
+}
 
 function renderUrlRelationList() {
   const element = document.getElementById(COLLECTION_UI.urlBindings.listId);
-  const environments = workspace.environments || [];
   const bindings = (workspace.urlBindings || []).filter(matchesSearch);
   if (!bindings.length) { element.innerHTML = `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`; return; }
-  if (!environments.length) { element.innerHTML = bindings.map(renderUrlRelationRow).join(""); return; }
-  const orphans = bindings.filter((item) => !(item.environmentIds || []).length);
-  const sections = [
-    ...environments.map((environment) => ({ environment, items: bindings.filter((item) => (item.environmentIds || []).includes(environment.id)) })),
-    ...(orphans.length ? [{ environment: null, items: orphans }] : []),
-  ];
-  element.innerHTML = sections.map(({ environment, items }) => {
-    const key = environment ? environment.id : "__none__";
-    const name = environment ? environmentDisplayName(environment) : t("Sem ambiente");
-    const color = environment ? environment.color : "#5b6172";
-    return `<details class="environmentAccordion${environment ? " isColorTinted" : ""}" data-accordion-key="${escapeHtml(key)}" style="--environment-color:${escapeHtml(color)}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}>
-      <summary><span class="environmentDot" style="--environment-color:${escapeHtml(color)}"></span><b>${escapeHtml(name)}</b><span class="count">${items.length}</span></summary>
-      <div class="list listComfortable">${items.length ? items.map(renderUrlRelationRow).join("") : `<div class="listEmpty">${escapeHtml(t("Nenhuma URL cadastrada neste ambiente."))}</div>`}</div>
-    </details>`;
-  }).join("");
-  element.querySelectorAll("details.environmentAccordion").forEach((details) => details.addEventListener("toggle", () => {
+  const records = bindings.flatMap((binding) => (binding.environmentIds?.length ? binding.environmentIds : [null]).map((environmentId) => urlTreeContext(binding, environmentId)));
+  const dimensions = ["environment", "client", "project", "product"].filter((dimension) => urlTreeDimensions.has(dimension));
+  element.innerHTML = renderUrlTree(records, dimensions);
+  element.querySelectorAll("details.urlTreeNode").forEach((details) => details.addEventListener("toggle", () => {
     const key = details.dataset.accordionKey;
     details.open ? collapsedUrlAccordionIds.delete(key) : collapsedUrlAccordionIds.add(key);
   }));
 }
+document.querySelectorAll("[data-url-tree-dimension]").forEach((button) => button.addEventListener("click", () => {
+  const dimension = button.dataset.urlTreeDimension;
+  urlTreeDimensions.has(dimension) ? urlTreeDimensions.delete(dimension) : urlTreeDimensions.add(dimension);
+  button.setAttribute("aria-pressed", String(urlTreeDimensions.has(dimension)));
+  renderUrlRelationList();
+}));
 
 // Shared badge summary for anything with environmentIds[]/productIds[] (test accounts, payment
 // methods) - empty productIds means "all products", empty environmentIds only happens for
@@ -1133,14 +1193,19 @@ function renderCheckboxGrid(containerId, catalog) {
 }
 
 function renderWorkspace() {
-  for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount", operatingSystems: "operatingSystemCount", browsers: "browserCount", devices: "deviceCount" })) {
+  if (!workspace.clients.some((item) => item.id === selectedStructureClientId)) selectedStructureClientId = workspace.clients[0]?.id || null;
+  const visibleProjects = workspace.projects.filter((item) => !selectedStructureClientId || item.clientId === selectedStructureClientId);
+  if (!visibleProjects.some((item) => item.id === selectedStructureProjectId)) selectedStructureProjectId = visibleProjects[0]?.id || null;
+  for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount", operatingSystems: "operatingSystemCount", browsers: "browserCount", devices: "deviceCount", accountTypes: "accountTypeCount", paymentMethodTypes: "paymentMethodTypeCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
   }
   document.getElementById("structureRelationHint").textContent = t("{clients} cliente(s) · {projects} projeto(s) · {products} produto(s)", { clients: workspace.clients.length, projects: workspace.projects.length, products: workspace.products.length });
   const badge = (entity) => window.QTS_AVATAR.buildEntityHtml(entity, { size: 22 });
-  const typeRowFormatter = (item) => `<b>${item.icon ? `<img src="${escapeHtml(item.icon)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : ""}${escapeHtml(item.name)}</b>`;
+  const typeRowFormatter = (item) => `<b class="catalogTypeName">${item.icon ? `<img src="${escapeHtml(item.icon)}" alt="" />` : ""}${escapeHtml(item.name)}</b>`;
   renderRows("operatingSystems", typeRowFormatter);
   renderRows("browsers", typeRowFormatter);
+  renderRows("accountTypes", typeRowFormatter);
+  renderRows("paymentMethodTypes", typeRowFormatter);
   renderRows("devices", (item) => {
     const osNames = item.operatingSystemIds.map((entryId) => findById("operatingSystems", entryId)?.name).filter(Boolean);
     const browserNames = item.browserIds.map((entryId) => findById("browsers", entryId)?.name).filter(Boolean);
@@ -1148,34 +1213,65 @@ function renderWorkspace() {
   });
   renderCheckboxGrid("deviceOperatingSystems", workspace.operatingSystems);
   renderCheckboxGrid("deviceBrowsers", workspace.browsers);
-  renderRows("clients", (item) => `<b>${badge(item)}</b>`);
-  renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "-")}</small>`);
-  renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "-")}</small>`);
+  renderRows("clients", (item) => `<b>${badge(item)}</b>`, { selectedId: selectedStructureClientId });
+  renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "-")}</small>`, {
+    selectedId: selectedStructureProjectId,
+    filter: (item) => !selectedStructureClientId || item.clientId === selectedStructureClientId,
+  });
+  renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "-")}</small>`, {
+    filter: (item) => selectedStructureProjectId
+      ? item.projectId === selectedStructureProjectId
+      : visibleProjects.some((project) => project.id === item.projectId),
+  });
   renderRows("environments", (item) => {
     const products = environmentBoundProductNames(item.id);
-    return `<b style="color:${escapeHtml(item.color)}">${ICON("dot")} ${escapeHtml(item.name)}</b><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
+    return `<b style="color:${escapeHtml(item.color)}">${ICON("dot")} ${escapeHtml(item.name)}</b><span class="environmentToolbarPreview" style="--environment-color:${escapeHtml(item.color)}"><i></i><i></i><i></i></span><small>${escapeHtml(products.length ? products.join(", ") : t("Nenhuma URL relacionada ainda"))}</small>`;
   });
   renderUrlRelationList();
   renderUrlEnvironmentPicker();
   renderUrlPatternsPicker();
   renderRows("testAccounts", (item) => {
     const password = item.password ? (revealedAccountIds.has(item.id) ? escapeHtml(item.password) : "••••••••") : "-";
+    const accountType = findById("accountTypes", item.accountTypeId);
+    const typeName = accountType?.name || item.accountType || "";
     // The toolbar's own read-only drawer already renders this image (renderTestAccountsList in
     // toolbar.js) - this options-page list never did, so the same uploaded/URL icon that shows
     // up later was invisible here while managing the account.
-    const typeImage = item.accountTypeImage ? `<img src="${escapeHtml(item.accountTypeImage)}" alt="" style="width:16px;height:16px;border-radius:4px;object-fit:cover;vertical-align:middle;margin-right:4px" />` : "";
-    return `<b>${typeImage}${escapeHtml(item.label)}${item.accountType ? ` <span class="accountType">${escapeHtml(item.accountType)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
+    const typeImageSrc = accountType?.icon || item.accountTypeImage || "";
+    const typeImage = typeImageSrc ? `<img class="catalogTypeIcon" src="${escapeHtml(typeImageSrc)}" alt="" />` : "";
+    return `<b>${typeImage}${escapeHtml(item.label)}${typeName ? ` <span class="accountType">${escapeHtml(typeName)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
   }, { reveal: (item) => Boolean(item.password) });
   renderCustomFieldSuggestions();
-  renderRows("paymentMethods", (item) => {
-    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t(item.type || "other"))} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
+  document.querySelectorAll("#clientList .listRow").forEach((row) => {
+    row.addEventListener("click", (event) => {
+      if (event.target.closest(".rowActions")) return;
+      selectedStructureClientId = row.dataset.id;
+      selectedStructureProjectId = null;
+      renderWorkspace();
+    });
   });
-  renderRows("inspectors", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml((item.patterns || []).join(", "))}</small>`);
+  document.querySelectorAll("#projectList .listRow").forEach((row) => {
+    row.addEventListener("click", (event) => {
+      if (event.target.closest(".rowActions")) return;
+      selectedStructureProjectId = row.dataset.id;
+      renderWorkspace();
+    });
+  });
+  renderRows("paymentMethods", (item) => {
+    const typeName = findById("paymentMethodTypes", item.typeId)?.name || item.type || t("Outro");
+    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(typeName)} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
+  });
+  renderRows("inspectors", (item) => {
+    const patterns = (item.patterns || []).map((pattern) => `<span class="inspectorPatternPill" title="${escapeHtml(pattern)}">${escapeHtml(pattern)}</span>`).join("");
+    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(t("{count} padrão(ões) monitorado(s)", { count: (item.patterns || []).length }))}</small><span class="inspectorPatternList">${patterns}</span>`;
+  });
   renderRows("apis", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.baseUrl || "-")} · ${escapeHtml(t(item.token ? "token local configurado" : "sem token"))}</small>`);
   renderRows("resources", (item) => `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(item.url || "-")}</small>`);
   renderSelect("projectClient", workspace.clients, t("Selecione o cliente"));
   renderSelect("productProject", workspace.projects, t("Selecione o projeto"));
-  renderSelect("urlRelationProduct", workspace.products, t("Selecione o produto"));
+  renderUrlProductPicker();
+  renderSelect("testAccountTypeId", workspace.accountTypes, t("Sem tipo"));
+  renderSelect("paymentMethodTypeId", workspace.paymentMethodTypes, t("Sem tipo"));
   renderScopePicker("testAccount", { requireEnvironment: true });
   renderScopePicker("paymentMethod", { requireEnvironment: false });
   loadPreferenceUi();
@@ -1195,8 +1291,7 @@ function renderWorkspaceWizard() {
 }
 
 // ---------------------------------------------------------------------
-// Onboarding wizard: Cliente -> Projeto -> Produto -> Ambiente -> URLs, then three optional steps
-// (contas de teste, meios de pagamento, inspectors). Every "Adicionar" writes through the exact
+// Onboarding wizard: Cliente -> Projeto -> Produto -> Ambiente -> URLs, then optional operation data.
 // same workspace.X.push(...) + persistWorkspace() every other CRUD action in this file uses - this
 // is a guided front door onto that one path, not a second way to create data.
 // ---------------------------------------------------------------------
@@ -1208,12 +1303,15 @@ const WIZARD_STEPS = [
   { key: "urls", label: () => t("URLs"), title: () => t("Onde esse produto roda?"), lead: () => t("Associe uma ou mais URLs ao ambiente que você acabou de criar. Pode pular e cadastrar depois.") },
   { key: "testAccounts", collection: "testAccounts", label: () => t("Contas"), title: () => t("Quer cadastrar contas de teste?"), lead: () => t("Credenciais sandbox por ambiente, mascaradas na barra. Totalmente opcional.") },
   { key: "paymentMethods", collection: "paymentMethods", label: () => t("Pagamentos"), title: () => t("Quer cadastrar meios de pagamento?"), lead: () => t("Cartões de teste sandbox, filtrados pelo ambiente. Totalmente opcional.") },
+  { key: "devices", collection: "devices", label: () => t("Dispositivos"), title: () => t("Quer cadastrar dispositivos?"), lead: () => t("Relacione aparelhos, sistemas operacionais e navegadores usados nos testes. Totalmente opcional.") },
   { key: "inspectors", collection: "inspectors", label: () => t("Inspectors"), title: () => t("Quer observar endpoints?"), lead: () => t("Inspectors capturam respostas de API que batem com um padrão de URL. Totalmente opcional.") },
 ];
-const WIZARD_OPTIONAL_COMPOSER = { testAccounts: "testAccountComposer", paymentMethods: "paymentMethodComposer", inspectors: "inspectorComposer" };
+const WIZARD_OPTIONAL_COMPOSER = { testAccounts: "testAccountComposer", paymentMethods: "paymentMethodComposer", devices: "deviceComposer", inspectors: "inspectorComposer" };
 const WIZARD_CSV_SCHEMA = {
   testAccounts: { columns: ["label", "username", "password", "notes"], example: "label,username,password,notes\nConta QA,qa@exemplo.com,Senha123,Uso interno" },
   paymentMethods: { columns: ["label", "holder", "value", "expiry", "cvv", "notes"], example: "label,holder,value,expiry,cvv,notes\nCartão Visa,QA Sandbox,4242424242424242,12/2030,123,Somente teste" },
+  devices: { columns: ["label", "systems", "browsers", "notes"], example: "label,systems,browsers,notes\nNotebook QA,Windows|Linux,Chrome|Firefox,Estação compartilhada" },
+  inspectors: { columns: ["label", "patterns"], example: "label,patterns\nCheckout API,*/api/checkout/*|*/payments/*" },
 };
 
 let wizardStepIndex = 0;
@@ -1231,11 +1329,28 @@ function wizardStep() {
   return WIZARD_STEPS[wizardStepIndex];
 }
 
+function showWizardSuccess(label) {
+  return new Promise((resolve) => {
+    const dialog = document.getElementById("wizardSuccessDialog");
+    document.getElementById("wizardSuccessTitle").textContent = t("{item} adicionado com sucesso", { item: label });
+    const finish = (choice) => { dialog.close(); resolve(choice); };
+    document.getElementById("wizardSuccessAnother").onclick = () => finish("another");
+    document.getElementById("wizardSuccessContinue").onclick = () => finish("continue");
+    dialog.showModal();
+  });
+}
+
+async function continueWizardAfterSuccess(label) {
+  const choice = await showWizardSuccess(label);
+  if (choice === "continue" && wizardStepIndex < WIZARD_STEPS.length - 1) wizardStepIndex += 1;
+  renderWizardStep();
+}
+
 // Required for the core hierarchy (client/project/product/environment) - optional for URLs and
 // the three trailing steps, which all have their own explicit "Pular" action anyway.
 function wizardStepCanAdvance() {
   const step = wizardStep();
-  if (["testAccounts", "paymentMethods", "inspectors", "urls"].includes(step.key)) return true;
+  if (["testAccounts", "paymentMethods", "devices", "inspectors", "urls"].includes(step.key)) return true;
   return wizardSelection[step.key]?.size > 0;
 }
 
@@ -1263,7 +1378,7 @@ function renderWizardEntityStep(step) {
       <button type="button" class="button primary" id="wizardEntityAdd">${escapeHtml(t("Adicionar"))}</button>
     </div>
     <div>
-      <p class="cardLead" style="margin:0 0 8px">${escapeHtml(t("Já cadastrados:"))}</p>
+      <p class="cardLead wizardExistingLabel">${escapeHtml(t("Já cadastrados:"))}</p>
       <div class="wizardChipList" id="wizardChipList">${visibleItems.length ? visibleItems.map((item) => wizardEntityChip(item, step.key)).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhum ainda - adicione o primeiro acima."))}</span>`}</div>
     </div>`;
 }
@@ -1277,7 +1392,7 @@ function renderWizardEnvironmentStep() {
     </div>
     <div class="wizardEnvPreview" id="wizardEnvPreview" style="--wizard-preview-color:#7c5cff"><span class="dot"></span><strong id="wizardEnvPreviewName">${escapeHtml(t("Prévia"))}</strong></div>
     <div>
-      <p class="cardLead" style="margin:0 0 8px">${escapeHtml(t("Já cadastrados:"))}</p>
+      <p class="cardLead wizardExistingLabel">${escapeHtml(t("Já cadastrados:"))}</p>
       <div class="wizardChipList" id="wizardChipList">${existing.length ? existing.map((env) => wizardEntityChip(env, "environment")).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhum ainda - adicione o primeiro acima."))}</span>`}</div>
     </div>`;
 }
@@ -1295,7 +1410,7 @@ function renderWizardUrlsStep() {
       <select id="wizardUrlProduct" aria-label="${escapeHtml(t("Produto"))}">${products.length ? products.map((product) => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>`).join("") : `<option value="">${escapeHtml(t("Nenhum produto selecionado"))}</option>`}</select>
       <button type="button" class="button primary" id="wizardUrlAdd">${escapeHtml(t("Adicionar"))}</button>
     </div>
-    <p class="cardLead" style="margin:0">${escapeHtml(t("Será associada ao ambiente: {env}", { env: environments.map((environment) => environment.name).join(", ") }))}</p>
+    <p class="cardLead wizardRelationSummary">${escapeHtml(t("Será associada ao ambiente: {env}", { env: environments.map((environment) => environment.name).join(", ") }))}</p>
     <div class="wizardChipList" id="wizardChipList">${relevantBindings.length ? relevantBindings.map((binding) => `<span class="wizardChip">${escapeHtml((binding.patterns || []).join(", "))}</span>`).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhuma URL ainda."))}</span>`}</div>`;
 }
 
@@ -1314,12 +1429,35 @@ function wizardCsvPanelHtml(key) {
 function renderWizardOptionalStep(step) {
   const composerId = WIZARD_OPTIONAL_COMPOSER[step.key];
   const count = (workspace[step.collection] || []).length;
+  const details = {
+    testAccounts: [
+      ["Escopo N:N", "Relacione uma conta a vários ambientes e produtos."],
+      ["Credenciais", "Nome, tipo, usuário, senha e observações."],
+      ["Campos flexíveis", "Crie campos de texto, número ou sim e não."],
+    ],
+    paymentMethods: [
+      ["Escopo N:N", "Reutilize um meio em vários ambientes e produtos."],
+      ["Tipos", "Cartão, PIX, conta bancária ou outro."],
+      ["Dados sandbox", "Token, titular, validade, CVV e observações."],
+    ],
+    inspectors: [
+      ["Identificação", "Dê um nome claro para o grupo de chamadas."],
+      ["Várias rotas", "Informe um ou mais padrões de endpoint."],
+      ["Execução segura", "A configuração é declarativa e não executa scripts."],
+    ],
+    devices: [
+      ["Relação N:N", "Um dispositivo pode usar vários sistemas e navegadores."],
+      ["Catálogos prontos", "Ícones e opções conhecidas já vêm cadastrados."],
+      ["Contexto de teste", "Use o dispositivo nos relatos e evidências."],
+    ],
+  }[step.key];
   return `
+    <div class="wizardOptionalIntro">${details.map(([title, text]) => `<div class="wizardOptionalFact"><strong>${escapeHtml(t(title))}</strong><span>${escapeHtml(t(text))}</span></div>`).join("")}</div>
     <div class="wizardOptionalCard">
-      <p>${count ? escapeHtml(t("{count} já cadastrado(s).", { count })) : escapeHtml(t("Nada cadastrado ainda - totalmente opcional."))}</p>
+      <p>${count ? escapeHtml(t("{count} já cadastrado(s). Você pode adicionar mais ou continuar.", { count })) : escapeHtml(t("Nenhum item cadastrado. Esta etapa é opcional e pode ser concluída depois."))}</p>
       <div class="wizardOptionalActions">
-        <button type="button" class="button primary" data-wizard-open-composer="${composerId}">${escapeHtml(t("Adicionar agora"))}</button>
-        ${WIZARD_CSV_SCHEMA[step.key] ? `<button type="button" class="button" data-wizard-csv="${step.key}">${escapeHtml(t("Importar CSV"))}</button>` : ""}
+        <button type="button" class="button primary" data-wizard-open-composer="${composerId}" data-wizard-optional-key="${step.key}">${escapeHtml(t("Preencher formulário"))}</button>
+        ${WIZARD_CSV_SCHEMA[step.key] ? `<button type="button" class="button" data-wizard-template="${step.key}">${escapeHtml(t("Baixar template CSV"))}</button><button type="button" class="button" data-wizard-csv="${step.key}">${escapeHtml(t("Importar CSV"))}</button>` : ""}
       </div>
     </div>
     ${wizardCsvPanelHtml(step.key)}`;
@@ -1366,6 +1504,7 @@ function bindWizardStepEvents(step) {
       wizardSelection[step.key].add(record.id);
       renderWizardStep();
       await persistWorkspace();
+      await continueWizardAfterSuccess(step.label());
     };
     document.getElementById("wizardEntityAdd").addEventListener("click", () => void addEntity());
     document.getElementById("wizardEntityInput").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void addEntity(); } });
@@ -1390,6 +1529,7 @@ function bindWizardStepEvents(step) {
       wizardSelection.environment.add(record.id);
       renderWizardStep();
       await persistWorkspace();
+      await continueWizardAfterSuccess(t("Ambiente"));
     });
   }
 
@@ -1404,16 +1544,30 @@ function bindWizardStepEvents(step) {
       patternInput.value = "";
       renderWizardStep();
       await persistWorkspace();
+      await continueWizardAfterSuccess(t("URL"));
     });
   }
 
-  if (["testAccounts", "paymentMethods", "inspectors"].includes(step.key)) {
+  if (["testAccounts", "paymentMethods", "devices", "inspectors"].includes(step.key)) {
     document.querySelectorAll("[data-wizard-open-composer]").forEach((button) => button.addEventListener("click", () => {
+      const key = button.dataset.wizardOptionalKey;
+      wizardOptionalComposerKey = key;
+      if (key === "testAccounts" || key === "paymentMethods") {
+        const state = scopePickerStates[key === "testAccounts" ? "testAccount" : "paymentMethod"];
+        state.environmentIds = new Set(wizardSelection.environment);
+        state.productIds = new Set(wizardSelection.product);
+        renderScopePicker(key === "testAccounts" ? "testAccount" : "paymentMethod", { requireEnvironment: key === "testAccounts" });
+      }
       document.getElementById(button.dataset.wizardOpenComposer)?.showModal();
     }));
     document.querySelectorAll("[data-wizard-csv]").forEach((button) => button.addEventListener("click", () => {
       const panel = document.getElementById(`wizardCsvPanel-${button.dataset.wizardCsv}`);
       if (panel) panel.hidden = !panel.hidden;
+    }));
+    document.querySelectorAll("[data-wizard-template]").forEach((button) => button.addEventListener("click", () => {
+      const schema = WIZARD_CSV_SCHEMA[button.dataset.wizardTemplate];
+      const blob = new Blob([`\uFEFF${schema.example}`], { type: "text/csv;charset=utf-8" });
+      downloadBlob(blob, `template-${button.dataset.wizardTemplate}.csv`);
     }));
     document.querySelectorAll("[data-wizard-csv-submit]").forEach((button) => button.addEventListener("click", async () => {
       const key = button.dataset.wizardCsvSubmit;
@@ -1427,8 +1581,22 @@ function bindWizardStepEvents(step) {
       for (const record of records) {
         if (key === "testAccounts") {
           workspace.testAccounts.push({ id: uid("testAccount"), environmentIds, productIds, label: record.label, username: record.username || "", password: record.password || "", notes: record.notes || "" });
-        } else {
+        } else if (key === "paymentMethods") {
           workspace.paymentMethods.push({ id: uid("paymentMethod"), environmentIds, productIds, label: record.label, holder: record.holder || "", value: record.value || "", expiry: record.expiry || "", cvv: record.cvv || "", notes: record.notes || "" });
+        } else if (key === "inspectors") {
+          workspace.inspectors.push({ id: uid("inspector"), label: record.label, patterns: String(record.patterns || "").split("|").map((value) => value.trim()).filter(Boolean), active: true });
+        } else if (key === "devices") {
+          const names = (value) => String(value || "").split("|").map((item) => item.trim().toLowerCase()).filter(Boolean);
+          const systemNames = new Set(names(record.systems));
+          const browserNames = new Set(names(record.browsers));
+          workspace.devices.push({
+            id: uid("device"),
+            label: record.label,
+            operatingSystemIds: workspace.operatingSystems.filter((item) => systemNames.has(item.name.toLowerCase())).map((item) => item.id),
+            browserIds: workspace.browsers.filter((item) => browserNames.has(item.name.toLowerCase())).map((item) => item.id),
+            notes: record.notes || "",
+            active: true,
+          });
         }
       }
       await persistWorkspace();
@@ -1539,7 +1707,7 @@ function clearEdit(prefix) {
   form.querySelectorAll("[data-default-placeholder]").forEach((element) => { element.placeholder = element.dataset.defaultPlaceholder; });
   const showLabel = document.getElementById(`${prefix}ShowLabel`); if (showLabel) showLabel.checked = true;
   if (prefix === "environment") { document.getElementById("environmentColor").value = "#3a3a3a"; }
-  if (prefix === "urlRelation") { urlSelectedEnvironmentIds = new Set(); renderUrlEnvironmentPicker(); urlPatternsDraft = []; renderUrlPatternsPicker(); }
+  if (prefix === "urlRelation") { urlSelectedEnvironmentIds = new Set(); urlSelectedProductIds = new Set(); renderUrlEnvironmentPicker(); renderUrlProductPicker(); urlPatternsDraft = []; renderUrlPatternsPicker(); }
   form.querySelectorAll("[data-image-group]").forEach((group) => {
     group.dataset.mode = "url";
     group.querySelectorAll("[data-image-mode]").forEach((button) => button.classList.toggle("isActive", button.dataset.imageMode === "url"));
@@ -1640,7 +1808,9 @@ document.querySelectorAll(".cancelEdit").forEach((button) => button.addEventList
 // Every create/edit form lives in a <dialog> now (centered modal) instead of an inline
 // <details> below its list - "+ Adicionar X" triggers open it, the × in the header (or Esc,
 // native to <dialog>) closes it without saving.
-document.querySelectorAll("[data-open-composer]").forEach((button) => button.addEventListener("click", () => {
+document.querySelectorAll("[data-open-composer]").forEach((button) => button.addEventListener("click", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
   const dialog = document.getElementById(button.dataset.openComposer);
   if (!dialog || dialog.open) return;
   // Closing a previous edit via the × (instead of "Cancelar") never cleared its editId - opening
@@ -1706,18 +1876,28 @@ document.getElementById("testAccountForm").addEventListener("submit", async (eve
   const editId = document.getElementById("testAccountEditId").value;
   const existing = findById("testAccounts", editId);
   const password = document.getElementById("testAccountPassword").value;
-  upsert("testAccounts", { id: editId || uid("account"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("testAccountLabel").value.trim(), accountType: document.getElementById("testAccountType").value.trim(), accountTypeImage: document.getElementById("testAccountTypeImage").value.trim(), username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId);
+  const accountType = findById("accountTypes", document.getElementById("testAccountTypeId").value);
+  upsert("testAccounts", { id: editId || uid("account"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("testAccountLabel").value.trim(), accountTypeId: accountType?.id || "", accountType: accountType?.name || "", accountTypeImage: accountType?.icon || "", username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId);
   clearEdit("testAccount");
   await persistWorkspace();
+  if (onboardingWizard.open && wizardOptionalComposerKey === "testAccounts") {
+    wizardOptionalComposerKey = null;
+    await continueWizardAfterSuccess(t("Conta de teste"));
+  }
 });
 document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const scope = scopePickerStates.paymentMethod;
   const editId = document.getElementById("paymentMethodEditId").value;
   const existing = findById("paymentMethods", editId);
-  upsert("paymentMethods", { id: editId || uid("payment"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("paymentMethodLabel").value.trim(), type: document.getElementById("paymentMethodType").value, icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId);
+  const paymentMethodType = findById("paymentMethodTypes", document.getElementById("paymentMethodTypeId").value);
+  upsert("paymentMethods", { id: editId || uid("payment"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("paymentMethodLabel").value.trim(), typeId: paymentMethodType?.id || "", type: paymentMethodType?.name || "", icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId);
   clearEdit("paymentMethod");
   await persistWorkspace();
+  if (onboardingWizard.open && wizardOptionalComposerKey === "paymentMethods") {
+    wizardOptionalComposerKey = null;
+    await continueWizardAfterSuccess(t("Meio de pagamento"));
+  }
 });
 // After a quick-add ("+ novo") from inside the device composer, the newly created system/browser
 // is checked back into the pill it came from, instead of leaving the user to find and tick it.
@@ -1726,6 +1906,24 @@ document.querySelectorAll("[data-quick-add-type]").forEach((button) => button.ad
   quickAddTypeTarget = button.dataset.quickAddType;
   document.getElementById(`${quickAddTypeTarget}Composer`).showModal();
 }));
+document.getElementById("accountTypeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("accountTypeEditId").value;
+  const newId = editId || uid("accountType");
+  upsert("accountTypes", { id: newId, name: document.getElementById("accountTypeName").value.trim(), icon: document.getElementById("accountTypeIcon").value.trim(), active: true }, editId);
+  clearEdit("accountType");
+  await persistWorkspace();
+  if (quickAddTypeTarget === "accountType") { document.getElementById("testAccountTypeId").value = newId; quickAddTypeTarget = null; }
+});
+document.getElementById("paymentMethodTypeForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("paymentMethodTypeEditId").value;
+  const newId = editId || uid("paymentMethodType");
+  upsert("paymentMethodTypes", { id: newId, name: document.getElementById("paymentMethodTypeName").value.trim(), icon: document.getElementById("paymentMethodTypeIcon").value.trim(), active: true }, editId);
+  clearEdit("paymentMethodType");
+  await persistWorkspace();
+  if (quickAddTypeTarget === "paymentMethodType") { document.getElementById("paymentMethodTypeId").value = newId; quickAddTypeTarget = null; }
+});
 document.getElementById("operatingSystemForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const editId = document.getElementById("operatingSystemEditId").value;
@@ -1744,6 +1942,14 @@ document.getElementById("browserForm").addEventListener("submit", async (event) 
   await persistWorkspace();
   if (quickAddTypeTarget === "browser") { const input = document.querySelector(`#deviceBrowsers input[value="${newId}"]`); if (input) input.checked = true; quickAddTypeTarget = null; }
 });
+document.querySelectorAll("[data-inspector-pattern]").forEach((button) => button.addEventListener("click", () => {
+  const input = document.getElementById("inspectorPatterns");
+  const pattern = button.dataset.inspectorPattern;
+  const patterns = input.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
+  if (!patterns.includes(pattern)) patterns.push(pattern);
+  input.value = patterns.join("\n");
+  input.focus();
+}));
 document.getElementById("deviceForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const editId = document.getElementById("deviceEditId").value;
@@ -1752,8 +1958,22 @@ document.getElementById("deviceForm").addEventListener("submit", async (event) =
   upsert("devices", { id: editId || uid("device"), label: document.getElementById("deviceLabel").value.trim(), operatingSystemIds, browserIds, notes: document.getElementById("deviceNotes").value.trim(), active: true }, editId);
   clearEdit("device");
   await persistWorkspace();
+  if (onboardingWizard.open && wizardOptionalComposerKey === "devices") {
+    wizardOptionalComposerKey = null;
+    await continueWizardAfterSuccess(t("Dispositivo"));
+  }
 });
-document.getElementById("inspectorForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("inspectorEditId").value; upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId); clearEdit("inspector"); await persistWorkspace(); });
+document.getElementById("inspectorForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const editId = document.getElementById("inspectorEditId").value;
+  upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId);
+  clearEdit("inspector");
+  await persistWorkspace();
+  if (onboardingWizard.open && wizardOptionalComposerKey === "inspectors") {
+    wizardOptionalComposerKey = null;
+    await continueWizardAfterSuccess(t("Inspector"));
+  }
+});
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
 document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), icon: document.getElementById("resourceIcon").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
 
@@ -1782,17 +2002,16 @@ document.getElementById("urlRelationForm").addEventListener("submit", async (eve
   // trap this rework is meant to fix.
   if (patternInput.value.trim()) addUrlPatternDraft();
   if (!urlSelectedEnvironmentIds.size) { patternInput.setCustomValidity(t("Selecione pelo menos um ambiente.")); patternInput.reportValidity(); return; }
+  if (!urlSelectedProductIds.size) { patternInput.setCustomValidity(t("Selecione pelo menos um produto.")); patternInput.reportValidity(); return; }
   if (!urlPatternsDraft.length) { patternInput.setCustomValidity(t("Informe ao menos uma URL ou padrão válido.")); patternInput.reportValidity(); return; }
   patternInput.setCustomValidity("");
   const editId = document.getElementById("urlRelationEditId").value;
-  upsert("urlBindings", {
-    id: editId || uid("binding"),
-    patterns: [...urlPatternsDraft],
-    productId: document.getElementById("urlRelationProduct").value,
-    environmentIds: [...urlSelectedEnvironmentIds],
-    primaryUrl: derivePrimaryUrl(urlPatternsDraft[0]),
-    active: true,
-  }, editId);
+  const selectedProducts = [...urlSelectedProductIds];
+  const firstProductId = selectedProducts.shift();
+  upsert("urlBindings", { id: editId || uid("binding"), patterns: [...urlPatternsDraft], productId: firstProductId, environmentIds: [...urlSelectedEnvironmentIds], primaryUrl: derivePrimaryUrl(urlPatternsDraft[0]), active: true }, editId);
+  for (const productId of selectedProducts) {
+    workspace.urlBindings.push({ id: uid("binding"), patterns: [...urlPatternsDraft], productId, environmentIds: [...urlSelectedEnvironmentIds], primaryUrl: derivePrimaryUrl(urlPatternsDraft[0]), active: true });
+  }
   clearEdit("urlRelation");
   await persistWorkspace();
 });
@@ -1836,7 +2055,7 @@ function markSensitiveFieldSaved(elementId, hasExistingValue) {
 
 function editItem(collection, item) {
   const prefix = COLLECTION_UI[collection].prefix;
-  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations", operatingSystems: "devices", browsers: "devices", devices: "devices" };
+  const workspaceTabs = { clients: "structure", projects: "structure", products: "structure", environments: "environments", urlBindings: "urls", testAccounts: "accounts", paymentMethods: "payments", inspectors: "integrations", apis: "integrations", resources: "integrations", operatingSystems: "devices", browsers: "devices", devices: "devices", accountTypes: "accounts", paymentMethodTypes: "payments" };
   activateWorkspaceTab(workspaceTabs[collection] || "structure", { syncNavigation: true });
   const composer = document.getElementById(`${prefix}Composer`);
   if (composer && !composer.open) composer.showModal();
@@ -1851,15 +2070,17 @@ function editItem(collection, item) {
     projects: { projectClient: item.clientId, projectName: item.name, projectLogoUrl: item.logoUrl, projectAbbreviation: item.abbreviation, projectShowLabel: item.showLabel !== false },
     products: { productProject: item.projectId, productName: item.name, productLogoUrl: item.logoUrl, productAbbreviation: item.abbreviation, productShowLabel: item.showLabel !== false },
     environments: { environmentName: item.name, environmentColor: item.color },
-    urlBindings: { urlRelationProduct: item.productId, urlPatternInput: "" },
-    testAccounts: { testAccountLabel: item.label, testAccountType: item.accountType, testAccountTypeImage: item.accountTypeImage, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
-    paymentMethods: { paymentMethodLabel: item.label, paymentMethodType: item.type, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
+    urlBindings: { urlPatternInput: "" },
+    testAccounts: { testAccountLabel: item.label, testAccountTypeId: item.accountTypeId, testAccountUsername: item.username, testAccountPassword: "", testAccountNotes: item.notes },
+    paymentMethods: { paymentMethodLabel: item.label, paymentMethodTypeId: item.typeId, paymentMethodIcon: item.icon, paymentMethodValue: "", paymentMethodHolder: item.holder, paymentMethodExpiry: item.expiry, paymentMethodCvv: "", paymentMethodNotes: item.notes },
     inspectors: { inspectorLabel: item.label, inspectorPatterns: (item.patterns || []).join("\n") },
     apis: { apiLabel: item.label, apiBaseUrl: item.baseUrl, apiToken: "" },
     resources: { resourceLabel: item.label, resourceUrl: item.url, resourceCategory: item.category, resourceIcon: item.icon },
     operatingSystems: { operatingSystemName: item.name, operatingSystemIcon: item.icon },
     browsers: { browserName: item.name, browserIcon: item.icon },
     devices: { deviceLabel: item.label, deviceNotes: item.notes },
+    accountTypes: { accountTypeName: item.name, accountTypeIcon: item.icon },
+    paymentMethodTypes: { paymentMethodTypeName: item.name, paymentMethodTypeIcon: item.icon },
   }[collection];
   for (const [elementId, value] of Object.entries(values || {})) {
     const element = document.getElementById(elementId);
@@ -1878,7 +2099,9 @@ function editItem(collection, item) {
   }
   if (collection === "urlBindings") {
     urlSelectedEnvironmentIds = new Set(item.environmentIds || []);
+    urlSelectedProductIds = new Set([item.productId]);
     renderUrlEnvironmentPicker();
+    renderUrlProductPicker();
     urlPatternsDraft = [...(item.patterns || [])];
     renderUrlPatternsPicker();
   }
@@ -1944,6 +2167,12 @@ function cascadeRemove(collection, removeId) {
   }
   if (collection === "browsers") {
     workspace.devices = workspace.devices.map((item) => ({ ...item, browserIds: item.browserIds.filter((entryId) => entryId !== removeId) }));
+  }
+  if (collection === "accountTypes") {
+    workspace.testAccounts = workspace.testAccounts.map((item) => (item.accountTypeId === removeId ? { ...item, accountTypeId: "", accountType: "", accountTypeImage: "" } : item));
+  }
+  if (collection === "paymentMethodTypes") {
+    workspace.paymentMethods = workspace.paymentMethods.map((item) => (item.typeId === removeId ? { ...item, typeId: "", type: "" } : item));
   }
   removeSet(collection, (item) => item.id === removeId);
 }
@@ -2070,7 +2299,7 @@ document.getElementById("aiPromptButton").addEventListener("click", async () => 
 // silently turning `"a string"` or `null` into a fake "Cliente 2" with zero indication is exactly
 // the "imported with errors" the founder ran into. So the import path validates the raw shape
 // first and refuses the whole file rather than normalizing garbage into phantom records.
-const IMPORTABLE_COLLECTIONS = ["clients", "projects", "products", "environments", "urlBindings", "testAccounts", "paymentMethods", "apis", "inspectors", "resources", "macros", "operatingSystems", "browsers", "devices"];
+const IMPORTABLE_COLLECTIONS = ["clients", "projects", "products", "environments", "urlBindings", "testAccounts", "paymentMethods", "apis", "inspectors", "resources", "macros", "operatingSystems", "browsers", "devices", "accountTypes", "paymentMethodTypes"];
 function validateImportShape(candidate) {
   for (const key of IMPORTABLE_COLLECTIONS) {
     const value = candidate[key];

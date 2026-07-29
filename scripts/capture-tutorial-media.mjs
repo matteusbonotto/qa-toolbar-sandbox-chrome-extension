@@ -216,7 +216,7 @@ try {
   await options.locator("#settingsTourSkip").click({ force: true }).catch(() => {});
   trace("authenticated");
 
-  await options.getByRole("button", { name: "Workspace" }).click();
+  await options.getByRole("button", { name: "Workspace", exact: true }).click();
   await options.locator('[data-open-composer="clientComposer"]').click();
   await options.locator("#clientName").fill("Cliente Demo");
   await options.locator("#clientAbbreviation").fill("CD");
@@ -229,15 +229,15 @@ try {
   await options.locator("#productProject").selectOption({ label: "Projeto Demo" });
   await options.locator("#productName").fill("Produto Demo");
   await options.locator("#productForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="environments"]').click();
+  await options.locator('[data-workspace-nav="environments"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#2563eb");
   await options.locator("#environmentForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="urls"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   for (const pattern of [`http://127.0.0.1:${capturePort}/sandbox/*`]) {
     await options.locator('[data-open-composer="urlRelationComposer"]').click();
-    await options.locator("#urlRelationProduct").selectOption({ label: "Produto Demo" });
+    await options.locator('#urlProductPicker [data-url-product]', { hasText: "Produto Demo" }).click();
     await options.locator("#urlPatternInput").fill(pattern);
     await options.locator("#urlPatternAdd").click();
     await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
@@ -247,7 +247,7 @@ try {
   // Seed a test account, a payment method and a resource too, so the corresponding tools have
   // something real to display instead of an empty drawer.
   if (!captureOnly) {
-  await options.locator('[data-workspace-tab="accounts"]').click();
+  await options.locator('[data-workspace-nav="accounts"]').click();
   await options.locator('[data-open-composer="testAccountComposer"]').click();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator('#testAccountScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
@@ -256,7 +256,7 @@ try {
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="payments"]').click();
+  await options.locator('[data-workspace-nav="payments"]').click();
   await options.locator('[data-open-composer="paymentMethodComposer"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-trigger="environmentIds"]').click();
   await options.locator('#paymentMethodScopePicker [data-facet-panel="environmentIds"] label', { hasText: "QA" }).last().locator("input").check();
@@ -264,7 +264,7 @@ try {
   await options.locator("#paymentMethodLabel").fill("Visa sandbox");
   await options.locator("#paymentMethodValue").fill("4242424242424242");
   await options.locator("#paymentMethodForm button[type=submit]").click();
-  await options.locator('[data-workspace-tab="integrations"]').click();
+  await options.locator('[data-workspace-nav="integrations"]').click();
   await options.locator('[data-open-composer="resourceComposer"]').click();
   await options.locator("#resourceLabel").fill("Runbook QA");
   await options.locator("#resourceUrl").fill("https://example.com/runbook");
@@ -273,7 +273,7 @@ try {
   trace("workspace ready (client/project/product/environment/URLs/account/payment/resource)");
 
   if (!captureOnly) {
-  await options.locator('[data-workspace-tab="structure"]').click();
+  await options.locator('[data-workspace-nav="structure"]').click();
   await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
   trace("captured workspace-setup.png");
 
@@ -290,7 +290,7 @@ try {
   await walkthrough.locator('[data-theme-choice="dark"]').click();
   // Every shipped tutorial asset must end in the product default, never in the temporary dark
   // demonstration state used one action earlier.
-  await walkthrough.locator('[data-color-theme="blue-light"]').click();
+  await walkthrough.locator('[data-color-family="blue"]').click();
   await walkthrough.locator('.navItem[data-tab="workspace"]').click();
   const demos = [
     ["structure", "clientComposer"], ["structure", "projectComposer"], ["structure", "productComposer"],
@@ -299,7 +299,7 @@ try {
     ["integrations", "resourceComposer"],
   ];
   for (const [tab, composer] of demos) {
-    await walkthrough.locator(`[data-workspace-tab="${tab}"]`).click();
+    await walkthrough.locator(`[data-workspace-nav="${tab}"]`).click();
     await walkthrough.locator(`[data-open-composer="${composer}"]`).first().click();
     await walkthrough.waitForTimeout(500);
     await walkthrough.locator(`#${composer} [data-close-composer]`).first().click();
@@ -573,7 +573,7 @@ try {
   } else {
     await rm(finalAssetsPath, { recursive: true, force: true });
     await cp(assetsPath, finalAssetsPath, { recursive: true });
-    trace("done -- every tutorial screenshot/video was atomically replaced with the current blue-light capture");
+    trace("done: every tutorial screenshot and video was atomically replaced with the current blue light capture");
   }
 } finally {
   await context.close();
