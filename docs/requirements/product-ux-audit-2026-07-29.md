@@ -25,7 +25,7 @@
 - `toolbar.js`: menus e dropdowns abrem para cima nas posições inferiores.
 - Assets: Windows 11 flat, Tux e Android flat em PNG.
 - FAQ, tutorial textual e traduções PT-BR, espanhol e inglês atualizados. A mídia não foi alterada.
-- Manifesto preparado como `1.4.20`.
+- Manifesto preparado como `1.4.21`.
 
 ## Validação
 
@@ -37,4 +37,3 @@
 - A captura visual do Workspace foi revisada. O alinhamento de avatar e nome e o estado vazio
   desnecessário do produto foram corrigidos depois dessa revisão.
 - Nenhum merge, deploy, upload na Chrome Web Store ou alteração produtiva foi executado.
-
