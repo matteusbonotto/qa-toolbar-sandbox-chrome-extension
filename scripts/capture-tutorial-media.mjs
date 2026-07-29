@@ -301,7 +301,7 @@ try {
     ["structure", '[data-tree-create="project"]', "projectComposer"],
     ["structure", '[data-tree-create="product"]', "productComposer"],
     ["urls", '[data-open-composer="environmentComposer"]', "environmentComposer"],
-    ["urls", '[data-open-composer="urlRelationComposer"]', "urlRelationComposer"],
+    ["urls", "[data-add-url-for-environment]", "urlRelationComposer"],
     ["accounts", '[data-open-composer="testAccountComposer"]', "testAccountComposer"],
     ["payments", '[data-open-composer="paymentMethodComposer"]', "paymentMethodComposer"],
     ["integrations", '[data-open-composer="inspectorComposer"]', "inspectorComposer"],

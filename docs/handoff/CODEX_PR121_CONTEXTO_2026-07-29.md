@@ -56,6 +56,21 @@ Validação posterior:
 - Console: zero erros.
 - Service worker: zero erros.
 
+## Deduplicação visual solicitada em 29/07/2026
+
+- Tags de Cliente, Projeto, Produto e agrupamentos relacionais foram alinhadas ao topo.
+- Ambientes e URLs não repete mais Ambiente, QA ou Produto dentro da linha já agrupada pelos
+  respectivos accordions.
+- Contas e pagamentos omitem o badge da dimensão que já está representada pelo accordion pai.
+- Sem ambiente é exibido uma única vez.
+- Os dois contadores sem rótulo do cabeçalho de Ambientes e URLs foram removidos.
+- O botão genérico Adicionar URL foi removido. A criação acontece em Adicionar URL neste ambiente.
+- Tour, capturador seletivo e smoke foram atualizados para a ação contextual.
+- O fingerprint do smoke agora cobre todo o pacote carregado, inclusive Options, imagens e estilos.
+- Smoke Chrome aprovado com fingerprint completo
+  `8693fb2856c5c63d38fd7e6662a082cdd045473ba94560e6e97acee82da956f1`.
+- Console: zero erros. Service worker: zero erros.
+
 ## Evidência mobile adicionada
 
 Alteração local ainda não commitada em `scripts/smoke-extension.mjs`:

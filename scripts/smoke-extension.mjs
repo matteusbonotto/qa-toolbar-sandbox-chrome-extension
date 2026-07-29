@@ -1,7 +1,7 @@
 import { createHash, webcrypto } from "node:crypto";
 import { createServer } from "node:http";
 import { existsSync } from "node:fs";
-import { mkdir, readFile, rm } from "node:fs/promises";
+import { mkdir, readFile, readdir, rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { chromium } from "playwright";
 
@@ -39,11 +39,19 @@ const extensionPathArgument = process.argv.find((argument) => argument.startsWit
 const extensionPath = resolve(root, extensionPathArgument || "apps/extension");
 const profilePath = resolve(root, "artifacts/chrome-smoke-profile");
 const evidencePath = resolve(root, "artifacts/runtime-evidence");
-const sourceFingerprint = createHash("sha256")
-  .update(await readFile(resolve(extensionPath, "manifest.json")))
-  .update(await readFile(resolve(extensionPath, "src/background/background.js")))
-  .update(await readFile(resolve(extensionPath, "src/toolbar/toolbar.js")))
-  .digest("hex");
+async function fingerprintDirectory(directory, base = directory, hash = createHash("sha256")) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  for (const entry of entries.sort((left, right) => left.name.localeCompare(right.name))) {
+    const path = resolve(directory, entry.name);
+    if (entry.isDirectory()) await fingerprintDirectory(path, base, hash);
+    else {
+      hash.update(path.slice(base.length).replaceAll("\\", "/"));
+      hash.update(await readFile(path));
+    }
+  }
+  return hash;
+}
+const sourceFingerprint = (await fingerprintDirectory(extensionPath)).digest("hex");
 console.log(`[chrome-smoke] source fingerprint ${sourceFingerprint}`);
 console.log(`[chrome-smoke] extension path ${extensionPath}`);
 let lastTrace = "startup";
@@ -334,10 +342,9 @@ try {
   await options.locator("#environmentColor").fill("#5b21b6");
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-nav="urls"]').click();
-  await options.locator('[data-open-composer="urlRelationComposer"]').click();
+  await options.locator('[data-add-url-for-environment]').first().click();
   await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("http://127.0.0.1:43117/*");
-  await options.locator(".environmentToggle", { hasText: "QA" }).last().click();
   await options.locator("#urlRelationForm button[type=submit]").click();
   await options.waitForTimeout(600);
   trace("primary workspace created");
@@ -350,15 +357,13 @@ try {
   await options.locator("#environmentColor").fill("#0f766e");
   await options.locator("#environmentForm button[type=submit]").click();
   await options.locator('[data-workspace-nav="urls"]').click();
-  await options.locator('[data-open-composer="urlRelationComposer"]').click();
+  await options.locator('[data-add-url-for-environment]').last().click();
   await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("http://beta.example.invalid/*");
-  await options.locator(".environmentToggle", { hasText: "Beta" }).click();
   await options.locator("#urlRelationForm button[type=submit]").click();
-  await options.locator('[data-open-composer="urlRelationComposer"]').click();
+  await options.locator('[data-add-url-for-environment]').first().click();
   await options.locator('[data-url-product]', { hasText: "Checkout" }).click();
   await options.locator("#urlPatternInput").fill("https://shared.example.com/*");
-  await options.locator("[data-url-environment]").nth(0).click();
   await options.locator("[data-url-environment]").nth(1).click();
   await options.locator("#urlRelationForm button[type=submit]").click();
   const urlBindings = await options.evaluate(async () => {
@@ -369,10 +374,12 @@ try {
   if (!sharedBinding || sharedBinding.environmentIds.length !== 2) throw new Error(`Relational URL association failed: ${JSON.stringify(urlBindings)}`);
   // The URLs tab now groups bindings into one accordion per environment (see
   // renderUrlRelationList), so a binding shared across two environments (like this one) renders
-  // once under EACH — two .listRow matches, not one — each still showing both environment badges.
+  // once under EACH. The environment is already conveyed by the parent accordion, so each URL row
+  // must not repeat those same badges.
   const sharedBindingRows = options.locator('#urlRelationList .listRow').filter({ hasText: "https://shared.example.com/*" });
   if (await sharedBindingRows.count() !== 2) throw new Error("Shared URL binding did not render once per linked environment accordion");
-  if (await sharedBindingRows.first().locator(".relationBadge").count() !== 2) throw new Error("Relational URL UI did not show both linked environments");
+  if (await sharedBindingRows.first().locator(".relationBadge").count()) throw new Error("URL row repeated context already shown by its environment and product parents");
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-environments-urls-deduplicated.png"), fullPage: true });
   await options.locator('[data-workspace-nav="structure"]').click();
   if (await options.locator(".structureExplorer").count() !== 1) throw new Error("Workspace structure is missing the hierarchical explorer");
   const workspaceNavigationFits = await options.locator(".workspaceTabs").evaluate((navigation) => navigation.scrollWidth <= navigation.clientWidth + 1);
@@ -419,7 +426,7 @@ try {
     await window.QTS_STORAGE.saveWorkspace(next);
   });
   await options.waitForFunction((expected) => Number(document.querySelector("#environmentCount")?.textContent) === expected, environmentCountBeforePreviews + 3);
-  await options.locator('[data-open-composer="urlRelationComposer"]').click();
+  await options.locator('[data-add-url-for-environment]').first().click();
   await options.locator("#urlEnvironmentPicker .environmentMultiSelect > summary").click();
   await options.locator("[data-environment-search]").waitFor();
   if (await options.locator("[data-url-environment]").count()) throw new Error("URL environment picker did not switch to searchable multiselect above four environments");
@@ -1605,6 +1612,14 @@ try {
   await options.locator("#testAccountUsername").fill("sandbox@example.com");
   await options.locator("#testAccountPassword").fill("local-password-value");
   await options.locator("#testAccountForm button[type=submit]").click();
+  const accountEnvironmentGroup = options.locator("#testAccountList .relationalDataNode", { hasText: "Conta sandbox" });
+  if (await accountEnvironmentGroup.locator(":scope > summary .environmentToolbarPreview > span").allTextContents().then((labels) => labels.filter((label) => label.trim() === "QA").length) !== 1) {
+    throw new Error("Test account environment heading does not identify QA exactly once");
+  }
+  if (await accountEnvironmentGroup.locator(":scope > summary .urlTreeIdentity small, :scope > .urlTreeChildren .relationBadge", { hasText: "QA" }).count()) {
+    throw new Error("Test account card repeats the environment already shown by its parent heading");
+  }
+  await options.screenshot({ path: resolve(evidencePath, "extension-options-test-accounts-deduplicated.png"), fullPage: true });
   await options.locator('[data-workspace-nav="payments"]').click();
   await options.locator('[data-open-composer="paymentMethodTypeComposer"]').click();
   await options.locator("#paymentMethodTypeName").fill("Voucher");

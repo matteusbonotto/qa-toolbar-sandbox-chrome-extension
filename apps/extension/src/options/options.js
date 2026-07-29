@@ -940,10 +940,11 @@ function renderRelationalRows(collection, formatter, { reveal } = {}) {
   const emptyLabel = { environment: "Sem ambiente", client: "Sem cliente", project: "Sem projeto", product: "Sem produto", type: "Sem tipo", operatingSystem: "Sem sistema", browser: "Sem navegador" }[dimension];
   const dimensionLabel = { environment: "Ambiente", client: "Cliente", project: "Projeto", product: "Produto", type: "Tipo", operatingSystem: "Sistema", browser: "Navegador" }[dimension];
   element.innerHTML = [...groups.values()].map(({ entity, items: groupedItems }) => {
-    const label = entity?.name || entity?.label || t(emptyLabel);
-    const identity = entity ? window.QTS_AVATAR.buildEntityHtml(entity, { size: 24 }) : `<b>${escapeHtml(t(emptyLabel))}</b>`;
+    const identity = entity && dimension === "environment"
+      ? `<span class="environmentToolbarPreview relationalEnvironmentPreview" style="--environment-color:${escapeHtml(entity.color || "#64748b")}"><span>${escapeHtml(environmentDisplayName(entity).slice(0, 22))}</span><i></i><i></i><i></i></span>`
+      : entity ? window.QTS_AVATAR.buildEntityHtml(entity, { size: 24 }) : `<b>${escapeHtml(t(emptyLabel))}</b>`;
     const rows = groupedItems.map((item) => `<div class="listRow${item.active === false ? " isInactive" : ""}" data-id="${escapeHtml(item.id)}"><div>${formatter(item)}</div>${rowActions(collection, item, { reveal: reveal?.(item) })}</div>`).join("");
-    return `<details class="urlTreeNode relationalDataNode" open><summary><span class="urlTreeBranch" aria-hidden="true"></span><span class="relationshipType">${escapeHtml(t(dimensionLabel))}</span><span class="urlTreeIdentity">${identity}<small>${escapeHtml(label)}</small></span><span class="count">${groupedItems.length}</span></summary><div class="urlTreeChildren">${rows}</div></details>`;
+    return `<details class="urlTreeNode relationalDataNode" open><summary><span class="urlTreeBranch" aria-hidden="true"></span><span class="relationshipType">${escapeHtml(t(dimensionLabel))}</span><span class="urlTreeIdentity">${identity}</span><span class="count">${groupedItems.length}</span></summary><div class="urlTreeChildren">${rows}</div></details>`;
   }).join("");
 }
 
@@ -1040,10 +1041,14 @@ function renderUrlProductPicker() {
 // bindings with no environment yet land in a trailing "Sem ambiente" group instead of vanishing.
 function renderUrlRelationRow(item) {
   const product = findById("products", item.productId);
-  const productBadge = product ? window.QTS_AVATAR.buildEntityHtml(product, { size: 18 }) : "";
-  const badges = item.environmentIds.map((environmentId) => findById("environments", environmentId)).filter(Boolean)
+  const productIdentity = product && !urlTreeDimensions.has("product")
+    ? `<span class="relationBadge">${window.QTS_AVATAR.buildBadgeHtml(product, { size: 18 })}<span>${escapeHtml(product.name)}</span></span>`
+    : "";
+  const environmentBadges = urlTreeDimensions.has("environment") ? "" : item.environmentIds
+    .map((environmentId) => findById("environments", environmentId)).filter(Boolean)
     .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
-  return `<div class="listRow${item.active === false ? " isInactive" : ""}" draggable="true" data-drag-collection="urlBindings" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b><small>${productBadge}${escapeHtml(product?.name || "-")}</small><small class="relationBadges">${badges}</small></div>${rowActions("urlBindings", item)}</div>`;
+  const metadata = [productIdentity, environmentBadges].filter(Boolean).join("");
+  return `<div class="listRow${item.active === false ? " isInactive" : ""}" draggable="true" data-drag-collection="urlBindings" data-id="${escapeHtml(item.id)}"><div><b class="urlPattern">${escapeHtml((item.patterns || []).join(", "))}</b>${metadata ? `<small class="relationBadges">${metadata}</small>` : ""}</div>${rowActions("urlBindings", item)}</div>`;
 }
 
 // Remembers which environment accordions the founder has manually collapsed - renderWorkspace()
@@ -1137,12 +1142,13 @@ document.querySelectorAll("[data-structure-view]").forEach((button) => button.ad
 // Shared badge summary for anything with environmentIds[]/productIds[] (test accounts, payment
 // methods) - empty productIds means "all products", empty environmentIds only happens for
 // payment methods (test accounts always require at least one).
-function scopeBadgesHtml(item) {
-  const environmentBadges = (item.environmentIds || []).map((environmentId) => findById("environments", environmentId)).filter(Boolean)
+function scopeBadgesHtml(item, { excludeDimension = "" } = {}) {
+  const environmentBadges = excludeDimension === "environment" ? "" : (item.environmentIds || []).map((environmentId) => findById("environments", environmentId)).filter(Boolean)
     .map((environment) => `<span class="relationBadge"><i style="--environment-color:${escapeHtml(environment.color)}"></i>${escapeHtml(environmentDisplayName(environment))}</span>`).join("");
   const productNames = (item.productIds || []).map((productId) => findById("products", productId)?.name).filter(Boolean);
-  const productBadge = `<span class="relationBadge">${escapeHtml(productNames.length ? productNames.join(", ") : t("Todos os produtos"))}</span>`;
-  return `${environmentBadges || `<span class="relationBadge">${escapeHtml(t("Todos os ambientes"))}</span>`}${productBadge}`;
+  const productBadge = excludeDimension === "product" ? "" : `<span class="relationBadge">${escapeHtml(productNames.length ? productNames.join(", ") : t("Todos os produtos"))}</span>`;
+  const environmentFallback = excludeDimension === "environment" ? "" : environmentBadges || `<span class="relationBadge">${escapeHtml(t("Todos os ambientes"))}</span>`;
+  return `${environmentFallback}${productBadge}`;
 }
 
 // Every product bound to `environmentId` via any urlBinding - the reverse of
@@ -1403,7 +1409,8 @@ function renderWorkspace() {
     // up later was invisible here while managing the account.
     const typeImageSrc = accountType?.icon || item.accountTypeImage || "";
     const typeImage = typeImageSrc ? `<img class="catalogTypeIcon" src="${escapeHtml(typeImageSrc)}" alt="" />` : "";
-    return `<b>${typeImage}${escapeHtml(item.label)}${typeName ? ` <span class="accountType">${escapeHtml(typeName)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
+    const scopeBadges = scopeBadgesHtml(item, { excludeDimension: relationalViewDimension.testAccounts });
+    return `<b>${typeImage}${escapeHtml(item.label)}${typeName ? ` <span class="accountType">${escapeHtml(typeName)}</span>` : ""}</b><small>${escapeHtml(item.username || "-")} · ${password}</small>${scopeBadges ? `<small class="relationBadges">${scopeBadges}</small>` : ""}`;
   }, { reveal: (item) => Boolean(item.password) });
   renderCustomFieldSuggestions();
   document.querySelectorAll("#clientList .listRow").forEach((row) => {
@@ -1423,7 +1430,8 @@ function renderWorkspace() {
   });
   renderRelationalRows("paymentMethods", (item) => {
     const typeName = findById("paymentMethodTypes", item.typeId)?.name || item.type || t("Outro");
-    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(typeName)} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small><small class="relationBadges">${scopeBadgesHtml(item)}</small>`;
+    const scopeBadges = scopeBadgesHtml(item, { excludeDimension: relationalViewDimension.paymentMethods });
+    return `<b>${escapeHtml(item.label)}</b><small>${escapeHtml(typeName)} · ${escapeHtml(t(item.value ? "valor protegido" : "sem valor"))} · ${escapeHtml(item.notes || "")}</small>${scopeBadges ? `<small class="relationBadges">${scopeBadges}</small>` : ""}`;
   });
   renderRows("inspectors", (item) => {
     const patterns = (item.patterns || []).map((pattern) => `<span class="inspectorPatternPill" title="${escapeHtml(pattern)}">${escapeHtml(pattern)}</span>`).join("");
@@ -2774,7 +2782,7 @@ const SETTINGS_TOUR_STEPS = [
   { tab: "workspace", workspaceTab: "structure", selector: '[data-structure-view="project"]', title: "2. Criar projeto", text: "Expanda o cliente pai e clique em Adicionar projeto dentro dele. O cliente já fica selecionado no formulário." },
   { tab: "workspace", workspaceTab: "structure", selector: '[data-structure-view="product"]', title: "3. Criar produto", text: "Expanda o projeto pai e clique em Adicionar produto dentro dele. A hierarquia preserva o contexto correto." },
   { tab: "workspace", workspaceTab: "environments", selector: '[data-open-composer="environmentComposer"]', title: "4. Criar ambiente", text: "Cadastre DEV, QA, Beta ou Produção com nome e cor. Um ambiente pode ser reutilizado nas URLs." },
-  { tab: "workspace", workspaceTab: "urls", selector: '[data-open-composer="urlRelationComposer"]', title: "5. Vincular URL", text: "Adicione a URL, escolha o produto e seus ambientes. Essa associação determina em quais páginas a toolbar aparece." },
+  { tab: "workspace", workspaceTab: "urls", selector: "[data-add-url-for-environment]", title: "5. Vincular URL", text: "Expanda o ambiente e adicione a URL no próprio contexto. Depois escolha o produto. Essa associação determina em quais páginas a toolbar aparece." },
   { tab: "workspace", workspaceTab: "accounts", selector: '[data-open-composer="testAccountComposer"]', title: "Contas de teste", text: "Adicione apenas credenciais sandbox, defina o escopo e salve. Valores sensíveis são mascarados e não entram na exportação." },
   { tab: "workspace", workspaceTab: "payments", selector: '[data-open-composer="paymentMethodComposer"]', title: "Meios de pagamento", text: "Cadastre cartões e métodos exclusivamente sandbox. Número, valor sensível e CVV recebem proteção especial." },
   { tab: "workspace", workspaceTab: "devices", selector: '[data-open-composer="deviceComposer"]', title: "Dispositivos", text: "Cadastre um dispositivo e marque quantos sistemas e navegadores quiser - útil para anexar ao reportar um bug." },
