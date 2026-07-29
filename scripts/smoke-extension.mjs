@@ -379,6 +379,16 @@ try {
   if (!workspaceNavigationFits) throw new Error("Workspace navigation introduced horizontal overflow");
   const hierarchyAccordions = options.locator(".structureExplorer .hierarchyAccordion");
   if (await hierarchyAccordions.count() !== 3) throw new Error("Workspace hierarchy must expose one accordion for clients, projects, and products");
+  const structureViewButtons = options.locator("[data-structure-view]");
+  if (await structureViewButtons.count() !== 3) throw new Error("Workspace hierarchy view filters are incomplete");
+  await options.locator('[data-structure-view="project"]').click();
+  if (await options.locator(".structureExplorer").getAttribute("data-structure-view-mode") !== "project") throw new Error("Project-focused workspace view did not activate");
+  if (await options.locator("#projectList .listRow").count() !== 1) throw new Error("Project-focused workspace view did not render projects independently");
+  await options.locator('[data-structure-view="product"]').click();
+  if (await options.locator(".structureExplorer").getAttribute("data-structure-view-mode") !== "product") throw new Error("Product-focused workspace view did not activate");
+  if (!await options.locator("#productList .listRow").first().innerText().then((text) => text.includes("Cliente Demo") && text.includes("Webapp Demo"))) throw new Error("Product-focused workspace view is missing its client and project context");
+  await options.locator('[data-structure-view="client"]').click();
+  if (await options.locator(".structureExplorer").getAttribute("data-structure-view-mode") !== "client") throw new Error("Client-focused workspace view did not restore the hierarchy");
   const productAccordion = hierarchyAccordions.nth(2);
   await productAccordion.locator(":scope > summary").click();
   if (await productAccordion.getAttribute("open") !== null) throw new Error("Product hierarchy accordion did not collapse");

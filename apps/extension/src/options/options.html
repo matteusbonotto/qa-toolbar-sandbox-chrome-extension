@@ -187,7 +187,13 @@
 
           <div class="workspacePane isActive" data-workspace-pane="structure" role="tabpanel">
             <div class="paneIntro structureIntro"><div><span class="sectionKicker">Organização do workspace</span><h2>Clientes, projetos e produtos</h2><p>Visualize a hierarquia completa. Selecione um cliente para ver seus projetos e um projeto para ver seus produtos.</p></div><span class="relationHint" id="structureRelationHint"></span></div>
-            <div class="structureExplorer">
+            <div class="structureViewFilters" role="group" aria-label="Visualizar organização por">
+              <span>Visualizar por</span>
+              <button type="button" data-structure-view="client" aria-pressed="true">Cliente</button>
+              <button type="button" data-structure-view="project" aria-pressed="false">Projeto</button>
+              <button type="button" data-structure-view="product" aria-pressed="false">Produto</button>
+            </div>
+            <div class="structureExplorer" data-structure-view-mode="client">
               <details class="hierarchyRoot hierarchyAccordion" open>
                 <summary class="hierarchyNodeHead"><div><span class="hierarchyLevel">Cliente</span><strong>Clientes</strong><small>Organizações atendidas</small></div><span class="hierarchySummaryMeta"><span class="count" id="clientCount">0</span><button type="button" class="hierarchyAddButton" data-open-composer="clientComposer">+ Novo cliente</button><span class="hierarchyChevron" aria-hidden="true"></span></span></summary>
                 <div class="hierarchyAccordionBody">

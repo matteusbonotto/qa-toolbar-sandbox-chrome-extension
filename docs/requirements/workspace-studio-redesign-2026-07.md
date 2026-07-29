@@ -6,6 +6,8 @@ O Workspace deve ser claro, objetivo, completo, organizado, minimalista e modern
 novo workspace acontece por um wizard. As listagens devem ser separadas e agrupadas por contexto.
 Formulários relacionais precisam comunicar e suportar relações N:N. As etapas de Contas,
 Pagamentos e Inspectors fazem parte do wizard com opções visíveis e acionáveis.
+Na organização principal, a pessoa pode alternar a visualização entre cliente, projeto e produto.
+Cada visão mantém o contexto dos relacionamentos sem duplicar ou ocultar os dados cadastrados.
 
 O Workspace também deve apresentar, fora do wizard, listagem e CRUD completos para os catálogos
 reutilizáveis de tipos de conta, tipos de pagamento, sistemas operacionais e navegadores. Deve
@@ -22,6 +24,8 @@ navegadores. Esses cadastros não podem ficar ocultos nem existir apenas como um
   projeto é seu filho e produto é filho do projeto selecionado.
 - [x] Cada nível da árvore é um accordion independente, inicialmente aberto, que pode ser
   minimizado e expandido sem perder seleção ou contexto.
+- [x] Filtros de visualização permitem navegar por cliente, projeto ou produto. As visões de
+  projeto e produto exibem o contexto do nível pai sem exigir uma seleção anterior.
 - [x] Painéis paralelos e agrupamentos que competiam visualmente foram removidos.
 - [x] Formulários em modal não repetem a divisória entre cabeçalho e campos.
 - [x] Wizard com oito etapas e orientação persistente em desktop.

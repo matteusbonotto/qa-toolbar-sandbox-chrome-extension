@@ -378,6 +378,11 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .entityCard .rowActions { flex-wrap:wrap; }
 .sectionKicker { display:block; margin-bottom:5px; color:var(--accent-2); font-size:9px; font-weight:900; letter-spacing:.11em; text-transform:uppercase; }
 .structureIntro { align-items:flex-end; padding-bottom:4px; }
+.structureViewFilters { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--subtle-bg); }
+.structureViewFilters > span { margin-right:4px; color:var(--muted); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
+.structureViewFilters button { min-height:32px; padding:0 12px; border:1px solid var(--border); border-radius:999px; background:var(--control-bg); color:var(--muted); font-size:10px; font-weight:800; cursor:pointer; }
+.structureViewFilters button:hover { border-color:color-mix(in srgb,var(--accent) 45%,var(--border)); color:var(--text); }
+.structureViewFilters button[aria-pressed="true"] { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 12%,transparent); color:var(--text); box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 9%,transparent); }
 .structureExplorer {
   min-height:520px; padding:18px; overflow:hidden; border:1px solid var(--border);
   border-radius:18px; background:var(--subtle-bg);
@@ -419,6 +424,20 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .hierarchyConnector::after { content:""; position:absolute; top:22px; left:0; width:20px; border-top:2px solid var(--hierarchy-color); }
 .hierarchyProductBranch { margin-top:14px; }
 .hierarchyProductNode { background:color-mix(in srgb,var(--card-bg) 94%,var(--accent-2) 6%); }
+.structureExplorer[data-structure-view-mode="project"] .hierarchyRoot > .hierarchyNodeHead,
+.structureExplorer[data-structure-view-mode="project"] .hierarchyRoot > .hierarchyAccordionBody,
+.structureExplorer[data-structure-view-mode="product"] .hierarchyRoot > .hierarchyNodeHead,
+.structureExplorer[data-structure-view-mode="product"] .hierarchyRoot > .hierarchyAccordionBody,
+.structureExplorer[data-structure-view-mode="product"] .hierarchyProjectBranch > .hierarchyNode > .hierarchyNodeHead,
+.structureExplorer[data-structure-view-mode="product"] .hierarchyProjectBranch > .hierarchyNode > .hierarchyAccordionBody { display:none; }
+.structureExplorer[data-structure-view-mode="project"] .hierarchyProjectBranch,
+.structureExplorer[data-structure-view-mode="product"] .hierarchyProjectBranch,
+.structureExplorer[data-structure-view-mode="product"] .hierarchyProductBranch { margin-top:0; padding-left:0; }
+.structureExplorer[data-structure-view-mode="project"] .hierarchyProjectBranch > .hierarchyConnector,
+.structureExplorer[data-structure-view-mode="product"] .hierarchyProjectBranch > .hierarchyConnector,
+.structureExplorer[data-structure-view-mode="product"] .hierarchyProductBranch > .hierarchyConnector { display:none; }
+.structureExplorer[data-structure-view-mode="project"] .hierarchyRoot { --hierarchy-color:#8b5cf6; }
+.structureExplorer[data-structure-view-mode="product"] .hierarchyRoot { --hierarchy-color:#0d9488; }
 
 .inspectorWorkspace { display:grid; gap:16px; padding:20px; border:1px solid var(--border); border-radius:17px; background:var(--card-bg); }
 .inspectorWorkspaceIntro { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }

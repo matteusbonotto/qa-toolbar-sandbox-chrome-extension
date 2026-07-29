@@ -40,7 +40,7 @@
       group: "fundamentals",
       title: "Configure a plataforma e seu workspace",
       short: "Personalize a barra e cadastre estrutura, ambientes, URLs, dados sandbox e integrações.",
-      instructions: "Comece em Barra e aparência: escolha Sol ou Lua, uma família de cor, o breadcrumb e a lista unificada de ferramentas, fixação, ordem e atalhos. Depois abra Workspace no menu esquerdo e use seu submenu. Cadastre a hierarquia Cliente, Projeto e Produto, crie ambientes e relacione uma ou mais URLs a vários ambientes e produtos. Complete com Contas de teste, Pagamentos de teste, Dispositivos e Inspectors.",
+      instructions: "Comece em Barra e aparência: escolha Sol ou Lua, uma família de cor, o breadcrumb e a lista unificada de ferramentas, fixação, ordem e atalhos. Depois abra Workspace no menu esquerdo e use seu submenu. Cadastre a hierarquia Cliente, Projeto e Produto e alterne a visualização por qualquer um desses níveis. Crie ambientes e relacione uma ou mais URLs a vários ambientes e produtos. Complete com Contas de teste, Pagamentos de teste, Dispositivos e Inspectors.",
       tip: "A URL vinculada ao produto e ao ambiente é o que faz a barra aparecer automaticamente na página certa. Exporte um backup depois de concluir a configuração.",
       example: "Ex.: workspace \"Loja X\", cliente \"Loja X\", projeto \"App Mobile\", produto \"iOS\", ambiente \"Homolog\" com a URL do build de homologação - assim que você abre essa URL, a barra já aparece configurada, sem escolher nada manualmente.",
       screenshot: "tutorial-assets/workspace-setup.png",

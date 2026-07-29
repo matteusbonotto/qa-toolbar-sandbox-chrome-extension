@@ -126,6 +126,7 @@ document.getElementById("imageEditorApply").addEventListener("click", () => {
 let workspace = null;
 let selectedStructureClientId = null;
 let selectedStructureProjectId = null;
+let structureViewMode = "client";
 let accessState = null;
 let currentLocale = "pt-BR";
 let searchQuery = "";
@@ -987,6 +988,13 @@ document.querySelectorAll("[data-url-tree-dimension]").forEach((button) => butto
   renderUrlRelationList();
 }));
 
+document.querySelectorAll("[data-structure-view]").forEach((button) => button.addEventListener("click", () => {
+  structureViewMode = ["client", "project", "product"].includes(button.dataset.structureView) ? button.dataset.structureView : "client";
+  if (structureViewMode !== "client") selectedStructureClientId = null;
+  if (structureViewMode === "product") selectedStructureProjectId = null;
+  renderWorkspace();
+}));
+
 // Shared badge summary for anything with environmentIds[]/productIds[] (test accounts, payment
 // methods) - empty productIds means "all products", empty environmentIds only happens for
 // payment methods (test accounts always require at least one).
@@ -1196,9 +1204,13 @@ function renderCheckboxGrid(containerId, catalog) {
 }
 
 function renderWorkspace() {
-  if (!workspace.clients.some((item) => item.id === selectedStructureClientId)) selectedStructureClientId = workspace.clients[0]?.id || null;
-  const visibleProjects = workspace.projects.filter((item) => !selectedStructureClientId || item.clientId === selectedStructureClientId);
-  if (!visibleProjects.some((item) => item.id === selectedStructureProjectId)) selectedStructureProjectId = visibleProjects[0]?.id || null;
+  if (structureViewMode === "client" && !workspace.clients.some((item) => item.id === selectedStructureClientId)) selectedStructureClientId = workspace.clients[0]?.id || null;
+  const visibleProjects = workspace.projects.filter((item) => structureViewMode !== "client" || !selectedStructureClientId || item.clientId === selectedStructureClientId);
+  if (structureViewMode !== "product" && !visibleProjects.some((item) => item.id === selectedStructureProjectId)) selectedStructureProjectId = visibleProjects[0]?.id || null;
+  if (structureViewMode === "product") selectedStructureProjectId = null;
+  const structureExplorer = document.querySelector(".structureExplorer");
+  if (structureExplorer) structureExplorer.dataset.structureViewMode = structureViewMode;
+  document.querySelectorAll("[data-structure-view]").forEach((button) => button.setAttribute("aria-pressed", String(button.dataset.structureView === structureViewMode)));
   for (const [collection, countId] of Object.entries({ clients: "clientCount", projects: "projectCount", products: "productCount", environments: "environmentCount", urlBindings: "urlRelationCount", testAccounts: "testAccountCount", paymentMethods: "paymentMethodCount", inspectors: "inspectorCount", apis: "apiCount", resources: "resourceCount", operatingSystems: "operatingSystemCount", browsers: "browserCount", devices: "deviceCount", accountTypes: "accountTypeCount", paymentMethodTypes: "paymentMethodTypeCount" })) {
     document.getElementById(countId).textContent = String((workspace[collection] || []).length);
   }
@@ -1219,10 +1231,17 @@ function renderWorkspace() {
   renderRows("clients", (item) => `<b>${badge(item)}</b>`, { selectedId: selectedStructureClientId });
   renderRows("projects", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("clients", item.clientId)?.name || "-")}</small>`, {
     selectedId: selectedStructureProjectId,
-    filter: (item) => !selectedStructureClientId || item.clientId === selectedStructureClientId,
+    filter: (item) => structureViewMode !== "client" || !selectedStructureClientId || item.clientId === selectedStructureClientId,
   });
-  renderRows("products", (item) => `<b>${badge(item)}</b><small>${escapeHtml(findById("projects", item.projectId)?.name || "-")}</small>`, {
-    filter: (item) => selectedStructureProjectId
+  renderRows("products", (item) => {
+    const project = findById("projects", item.projectId);
+    const client = findById("clients", project?.clientId);
+    const context = structureViewMode === "product" ? [client?.name, project?.name].filter(Boolean).join(" · ") : project?.name || "-";
+    return `<b>${badge(item)}</b><small>${escapeHtml(context)}</small>`;
+  }, {
+    filter: (item) => structureViewMode === "product"
+      ? true
+      : selectedStructureProjectId
       ? item.projectId === selectedStructureProjectId
       : visibleProjects.some((project) => project.id === item.projectId),
   });

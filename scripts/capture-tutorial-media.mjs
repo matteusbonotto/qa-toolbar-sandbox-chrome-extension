@@ -90,6 +90,7 @@ async function signMockAccessToken(payload) {
 }
 const extensionPath = resolve(root, "apps/extension");
 const captureOnly = String(process.env.QTS_TUTORIAL_CAPTURE_ONLY || "").trim();
+const captureMediaKey = captureOnly === "workspace" ? "workspace-setup" : captureOnly;
 const captureSuffix = captureOnly ? `-${captureOnly.replace(/[^a-z0-9_-]/gi, "-")}` : "";
 const profilePath = resolve(root, `artifacts/chrome-tutorial-capture-profile${captureSuffix}`);
 const videoTmpPath = resolve(root, `artifacts/tutorial-video-tmp${captureSuffix}`);
@@ -271,7 +272,7 @@ try {
 
   // Seed a test account, a payment method and a resource too, so the corresponding tools have
   // something real to display instead of an empty drawer.
-  if (!captureOnly) {
+  if (!captureOnly || captureOnly === "workspace") {
   await options.locator('[data-workspace-nav="accounts"]').click();
   await options.locator('[data-open-composer="testAccountComposer"]').click();
   await options.locator('#testAccountScopePicker [data-facet-trigger="environmentIds"]').click();
@@ -297,7 +298,7 @@ try {
   }
   trace("workspace ready (client/project/product/environment/URLs/account/payment/resource)");
 
-  if (!captureOnly) {
+  if (!captureOnly || captureOnly === "workspace") {
   await options.locator('[data-workspace-nav="structure"]').click();
   await options.screenshot({ path: resolve(assetsPath, "workspace-setup.png"), fullPage: true });
   trace("captured workspace-setup.png");
@@ -586,7 +587,7 @@ try {
     "inspectors", "jsonStudio", "breakpoints", "characterCounter", "multiClick", "inputLab", "fakerFill",
     "macroStudio", "stepsRecorder", "keyView", "elementCapture", "languageValidator", "qrCode", "testAccounts", "paymentMethods", "resources",
   ];
-  const mediaKeysToValidate = captureOnly ? [captureOnly] : expectedMediaKeys;
+  const mediaKeysToValidate = captureOnly ? [captureMediaKey] : expectedMediaKeys;
   for (const key of mediaKeysToValidate) {
     for (const extension of ["png", "webm"]) {
       try { await stat(resolve(assetsPath, `${key}.${extension}`)); }
@@ -599,9 +600,9 @@ try {
   } else if (captureOnly) {
     await mkdir(finalAssetsPath, { recursive: true });
     for (const extension of ["png", "webm"]) {
-      await cp(resolve(assetsPath, `${captureOnly}.${extension}`), resolve(finalAssetsPath, `${captureOnly}.${extension}`));
+      await cp(resolve(assetsPath, `${captureMediaKey}.${extension}`), resolve(finalAssetsPath, `${captureMediaKey}.${extension}`));
     }
-    trace(`done: ${captureOnly}.png and ${captureOnly}.webm were refreshed`);
+    trace(`done: ${captureMediaKey}.png and ${captureMediaKey}.webm were refreshed`);
   } else {
     await rm(finalAssetsPath, { recursive: true, force: true });
     await cp(assetsPath, finalAssetsPath, { recursive: true });
