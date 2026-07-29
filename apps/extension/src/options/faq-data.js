@@ -56,7 +56,7 @@
     {
       key: "workspaceOrder",
       question: "Qual é a ordem correta para configurar o Workspace?",
-      answer: "Abra Workspace no menu esquerdo e siga o submenu: Clientes e produtos, Ambientes e URLs e vínculos. A hierarquia é Cliente, Projeto e Produto. Uma relação de URL pode selecionar vários produtos e ambientes. Depois organize Contas de teste, Pagamentos de teste, Dispositivos e Inspectors.",
+      answer: "Abra Workspace no menu esquerdo. Em Clientes e produtos, cada cliente contém seus projetos e cada projeto contém seus produtos. Use os filtros para mudar o ponto de vista e arraste Projeto ou Produto para trocar seu pai. Em Ambientes e URLs, expanda um ambiente para cadastrar ou mover URLs no próprio contexto. Contas, pagamentos e dispositivos também podem ser agrupados pelas relações relevantes.",
     },
     {
       key: "toolbarAppearance",

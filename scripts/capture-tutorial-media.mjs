@@ -247,15 +247,15 @@ try {
   await options.locator("#clientName").fill("Cliente Demo");
   await options.locator("#clientAbbreviation").fill("CD");
   await options.locator("#clientForm button[type=submit]").click();
-  await options.locator('[data-open-composer="projectComposer"]').click();
+  await options.locator('[data-tree-create="project"]').click();
   await options.locator("#projectClient").selectOption({ label: "Cliente Demo" });
   await options.locator("#projectName").fill("Projeto Demo");
   await options.locator("#projectForm button[type=submit]").click();
-  await options.locator('[data-open-composer="productComposer"]').click();
+  await options.locator('[data-tree-create="product"]').click();
   await options.locator("#productProject").selectOption({ label: "Projeto Demo" });
   await options.locator("#productName").fill("Produto Demo");
   await options.locator("#productForm button[type=submit]").click();
-  await options.locator('[data-workspace-nav="environments"]').click();
+  await options.locator('[data-workspace-nav="urls"]').click();
   await options.locator('.composerTrigger[data-open-composer="environmentComposer"]').click();
   await options.locator("#environmentName").fill("QA");
   await options.locator("#environmentColor").fill("#2563eb");
@@ -320,7 +320,7 @@ try {
   await walkthrough.locator('.navItem[data-tab="workspace"]').click();
   const demos = [
     ["structure", "clientComposer"], ["structure", "projectComposer"], ["structure", "productComposer"],
-    ["environments", "environmentComposer"], ["urls", "urlRelationComposer"], ["accounts", "testAccountComposer"],
+    ["urls", "environmentComposer"], ["urls", "urlRelationComposer"], ["accounts", "testAccountComposer"],
     ["payments", "paymentMethodComposer"], ["integrations", "inspectorComposer"], ["integrations", "apiComposer"],
     ["integrations", "resourceComposer"],
   ];

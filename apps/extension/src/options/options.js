@@ -854,7 +854,7 @@ function relationshipEntityCard(collection, item, { context = "", children = "",
       <span class="relationshipIdentity">${entityHtml}${context ? `<small>${escapeHtml(context)}</small>` : ""}</span>
       <span class="relationshipNodeActions">${rowActions(collection, item)}<span class="hierarchyChevron" aria-hidden="true"></span></span>
     </summary>
-    ${children ? `<div class="relationshipChildren">${children}</div>` : `<div class="relationshipEmpty">${escapeHtml(t("Nenhum item relacionado."))}</div>`}
+    ${children ? `<div class="relationshipChildren">${children}</div>` : childCollection ? `<div class="relationshipEmpty">${escapeHtml(t("Nenhum item relacionado."))}</div>` : ""}
     ${childCollection ? `<button type="button" class="relationshipAdd" data-tree-create="${childCollection}" data-parent-id="${escapeHtml(item.id)}">+ ${escapeHtml(t(childLabel))}</button>` : ""}
   </details>`;
 }
@@ -2767,8 +2767,8 @@ const SETTINGS_TOUR_STEPS = [
   { tab: "general", selector: "#barPreview", title: "Aparência da barra", text: "Use a prévia para conferir breadcrumb, imagens, modo compacto, formato e itens visíveis antes de salvar." },
   { tab: "general", selector: "#toolsMenuOrderList", title: "Ferramentas e ordem", text: "Escolha as ferramentas disponíveis e organize a ordem do menu Tools. Termine usando Salvar, no rodapé fixo." },
   { tab: "workspace", workspaceTab: "structure", selector: '[data-open-composer="clientComposer"]', title: "1. Criar cliente", text: "Clique em Adicionar cliente, informe nome e imagem opcional e salve. O cliente é o primeiro nível da estrutura." },
-  { tab: "workspace", workspaceTab: "structure", selector: '[data-open-composer="projectComposer"]', title: "2. Criar projeto", text: "Clique em Adicionar projeto, selecione o cliente responsável, preencha os dados e salve." },
-  { tab: "workspace", workspaceTab: "structure", selector: '[data-open-composer="productComposer"]', title: "3. Criar produto", text: "Clique em Adicionar produto e vincule-o ao projeto. A sequência cliente → projeto → produto mantém o contexto correto." },
+  { tab: "workspace", workspaceTab: "structure", selector: '[data-structure-view="project"]', title: "2. Criar projeto", text: "Expanda o cliente pai e clique em Adicionar projeto dentro dele. O cliente já fica selecionado no formulário." },
+  { tab: "workspace", workspaceTab: "structure", selector: '[data-structure-view="product"]', title: "3. Criar produto", text: "Expanda o projeto pai e clique em Adicionar produto dentro dele. A hierarquia preserva o contexto correto." },
   { tab: "workspace", workspaceTab: "environments", selector: '[data-open-composer="environmentComposer"]', title: "4. Criar ambiente", text: "Cadastre DEV, QA, Beta ou Produção com nome e cor. Um ambiente pode ser reutilizado nas URLs." },
   { tab: "workspace", workspaceTab: "urls", selector: '[data-open-composer="urlRelationComposer"]', title: "5. Vincular URL", text: "Adicione a URL, escolha o produto e seus ambientes. Essa associação determina em quais páginas a toolbar aparece." },
   { tab: "workspace", workspaceTab: "accounts", selector: '[data-open-composer="testAccountComposer"]', title: "Contas de teste", text: "Adicione apenas credenciais sandbox, defina o escopo e salve. Valores sensíveis são mascarados e não entram na exportação." },

@@ -716,9 +716,10 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .relationshipNodeSummary { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; gap:10px; list-style:none; cursor:pointer; }
 .relationshipNodeSummary::-webkit-details-marker { display:none; }
 .relationshipType { display:inline-flex; align-items:center; min-height:25px; padding:0 8px; border-radius:7px; background:color-mix(in srgb,var(--relationship-color,var(--accent)) 13%,var(--control-bg)); color:var(--relationship-color,var(--accent)); font-size:9px; font-weight:900; letter-spacing:.05em; text-transform:uppercase; }
-.relationshipIdentity { min-width:0; }
-.relationshipIdentity > span,.relationshipIdentity > b { display:flex; align-items:center; min-width:0; gap:8px; font-size:13px; }
-.relationshipIdentity small { display:block; margin-top:2px; color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.relationshipIdentity { display:grid; grid-template-columns:auto minmax(0,1fr); align-items:center; gap:2px 8px; min-width:0; }
+.relationshipIdentity > .qts-badge-avatar { grid-column:1; grid-row:1; }
+.relationshipIdentity > .qts-badge-name,.relationshipIdentity > b { grid-column:2; grid-row:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:13px; font-weight:800; }
+.relationshipIdentity small { grid-column:1/-1; display:block; color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
 .relationshipNodeActions { display:flex; align-items:center; gap:8px; }
 .relationshipNodeActions .rowActions { flex-wrap:nowrap; }
 .relationshipChildren { display:grid; gap:10px; margin:12px 0 0 22px; padding:0 0 0 16px; border-left:2px solid color-mix(in srgb,var(--relationship-color) 46%,var(--border)); }
