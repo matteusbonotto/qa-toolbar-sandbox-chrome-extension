@@ -467,6 +467,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // page URL directly instead; every other caller keeps using the plain openOptionsPage() path.
     if (message.tab) {
       const query = new URLSearchParams({ tab: String(message.tab) });
+      if (message.workspaceTab) query.set("workspaceTab", String(message.workspaceTab));
+      if (message.composer) query.set("composer", String(message.composer));
       if (message.settingsTour) {
         query.set("settingsTour", "1");
         query.set("trustedHandoff", "toolbar");

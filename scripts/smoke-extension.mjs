@@ -921,6 +921,14 @@ try {
   const prefilledKind = await reportDrawer.locator("[data-report-kind]").inputValue();
   if (prefilledKind !== "bug") throw new Error(`Report Builder did not map a Fail session to kind "bug": "${prefilledKind}"`);
   if (!(await reportDrawer.locator("[data-report-device]").count())) throw new Error("Report Builder is missing the tested device selector");
+  await reportDrawer.locator(".qts-help-balloon").first().hover();
+  const helpPopoverStyle = await host.locator(".qts-help-popover").evaluate((element) => {
+    const style = getComputedStyle(element);
+    return { position: style.position, zIndex: Number(style.zIndex), visible: element.getBoundingClientRect().width > 0 };
+  });
+  if (helpPopoverStyle.position !== "fixed" || helpPopoverStyle.zIndex !== 2147483647 || !helpPopoverStyle.visible) {
+    throw new Error(`Help balloon is clipped or below the drawer stack: ${JSON.stringify(helpPopoverStyle)}`);
+  }
   await reportDrawer.locator("[data-report-steps]").fill("1. Aplicar cupom expirado\n2. Finalizar compra");
   await reportDrawer.locator("[data-report-expected]").fill("Sistema recusa o cupom com mensagem clara.");
   host.once("dialog", (dialog) => dialog.accept("Bug de checkout"));
@@ -1859,6 +1867,19 @@ try {
     };
   });
   if (!deviceResult.hasChromeOs || !deviceResult.hasChromeBrowser) throw new Error(`Device did not persist its N:N system/browser picks: ${JSON.stringify(deviceResult)}`);
+  await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    root?.getElementById("drawerClose")?.click();
+    root?.getElementById("toolsButton")?.click();
+    root?.getElementById("reportBuilderMenuItem")?.click();
+  });
+  const deviceReportOption = host.locator('[data-report-device] option', { hasText: "Notebook QA" });
+  await deviceReportOption.waitFor({ state: "attached" });
+  const deviceReportOptionText = await deviceReportOption.textContent();
+  if (!deviceReportOptionText.includes("ChromeOS") || !deviceReportOptionText.includes("Chrome")) {
+    throw new Error(`Report device option omitted its system/browser configuration: ${deviceReportOptionText}`);
+  }
+  await host.locator("#drawerClose").click();
   trace("device catalog verified (N:N operating systems + browsers, quick-add, persisted)");
 
   await options.locator('[data-workspace-nav="integrations"]').click();
@@ -1887,6 +1908,18 @@ try {
     return root?.getElementById("drawerBody")?.textContent || "";
   });
   if (!paymentDrawer.includes("Visa sandbox") || !paymentDrawer.includes("4242") || paymentDrawer.includes("4242424242424242")) throw new Error(`Payment method drawer did not stay masked: ${paymentDrawer}`);
+  const [paymentSettingsComposerPage] = await Promise.all([
+    context.waitForEvent("page"),
+    host.locator('[data-add-workspace-item="paymentMethod"]').click(),
+  ]);
+  await paymentSettingsComposerPage.waitForLoadState("domcontentloaded");
+  await paymentSettingsComposerPage.locator('[data-panel="workspace"].isActive').waitFor({ timeout: 10_000 });
+  await paymentSettingsComposerPage.locator('[data-workspace-pane="payments"].isActive').waitFor();
+  await paymentSettingsComposerPage.locator("#paymentMethodComposer[open]").waitFor();
+  if (!(await paymentSettingsComposerPage.locator("#paymentMethodScopePicker, #paymentMethodTypeId, #paymentMethodIcon").count() >= 3)) {
+    throw new Error("Sidebar Add did not open the original complete payment form from Settings");
+  }
+  await paymentSettingsComposerPage.close();
   const resourcesDrawer = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
     root?.getElementById("drawerClose")?.click();
@@ -1917,9 +1950,11 @@ try {
     setFirst("browsers", "icon", uploadedImage);
     setFirst("paymentMethods", "icon", remoteImage);
     setFirst("resources", "icon", uploadedImage);
+    for (const type of ws.accountTypes || []) type.icon = remoteImage;
+    for (const type of ws.paymentMethodTypes || []) type.icon = uploadedImage;
     const accountType = ws.accountTypes?.[0];
     for (const account of ws.testAccounts || []) {
-      if (account.accountTypeId === accountType?.id) account.accountTypeImage = accountType.icon;
+      account.accountTypeImage = remoteImage;
     }
     await window.QTS_STORAGE.saveWorkspace(ws);
     return { uploadedImage, remoteImage, accountTypeId: accountType?.id };
@@ -1929,6 +1964,43 @@ try {
   await options.locator('[data-relational-view="testAccounts"][data-relational-dimension="type"]').click();
   const accountTypeGroupImage = options.locator(`#testAccountList .relationalDataNode .urlTreeIdentity img[src="${imageRoundTripFixture.remoteImage}"]`);
   if (!await accountTypeGroupImage.count()) throw new Error("Test account grouping by type did not reuse the registered type image");
+  const accountCatalogImageMetrics = await options.locator("#accountTypeList .catalogTypeName img").first().evaluate((image) => {
+    const rect = image.getBoundingClientRect();
+    const style = getComputedStyle(image);
+    return { width: Math.round(rect.width), height: Math.round(rect.height), marginRight: Number.parseFloat(style.marginRight) };
+  });
+  if (accountCatalogImageMetrics.width !== 44 || accountCatalogImageMetrics.height !== 44 || accountCatalogImageMetrics.marginRight < 8) {
+    throw new Error(`Account type image is not 44px with comfortable spacing: ${JSON.stringify(accountCatalogImageMetrics)}`);
+  }
+  await options.locator('[data-workspace-nav="payments"]').click();
+  const paymentSettingsImages = options.locator("#paymentMethodTypeList .catalogTypeName img, #paymentMethodList .catalogTypeIcon");
+  if (await paymentSettingsImages.count() < 2) throw new Error("Payment type images are missing from the Settings catalog or payment list");
+  const paymentSettingsImageSize = await paymentSettingsImages.first().evaluate((image) => Math.round(image.getBoundingClientRect().width));
+  if (paymentSettingsImageSize !== 44) throw new Error(`Payment type image in Settings is not 44px: ${paymentSettingsImageSize}`);
+  await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    root?.getElementById("drawerClose")?.click();
+    root?.getElementById("toolsButton")?.click();
+    root?.getElementById("testAccountsMenuItem")?.click();
+  });
+  await host.locator("#testAccountsListBody .qts-catalog-image").first().waitFor();
+  const sidebarAccountImageMetrics = await host.locator("#testAccountsListBody .qts-catalog-image").first().evaluate((image) => {
+    const rect = image.getBoundingClientRect();
+    return { width: Math.round(rect.width), height: Math.round(rect.height) };
+  });
+  if (sidebarAccountImageMetrics.width !== 44 || sidebarAccountImageMetrics.height !== 44) {
+    throw new Error(`Account type image is missing or incorrectly sized in the sidebar: ${JSON.stringify(sidebarAccountImageMetrics)}`);
+  }
+  await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    root?.getElementById("drawerClose")?.click();
+    root?.getElementById("toolsButton")?.click();
+    root?.getElementById("paymentMethodsMenuItem")?.click();
+  });
+  await host.locator("#drawerBody .qts-net-item .qts-catalog-image").first().waitFor();
+  if (await host.locator("#drawerBody .qts-net-item .qts-catalog-image").first().evaluate((image) => Math.round(image.getBoundingClientRect().width)) !== 44) {
+    throw new Error("Payment type image is missing or incorrectly sized in the sidebar");
+  }
   await options.getByRole("button", { name: "Importar / Exportar" }).click();
   const downloadPromise = options.waitForEvent("download");
   await options.locator("#exportButton").click();
