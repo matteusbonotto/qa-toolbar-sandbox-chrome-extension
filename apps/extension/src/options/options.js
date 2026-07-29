@@ -1082,10 +1082,13 @@ function renderUrlTree(records, dimensions, depth = 0) {
     const emptyLabel = { environment: "Sem ambiente", client: "Sem cliente", project: "Sem projeto", product: "Sem produto" }[dimension];
     const label = entity ? (entity.name || entity.label) : t(emptyLabel);
     const color = dimension === "environment" ? entity?.color || "#64748b" : "";
+    const identity = entity && dimension !== "environment"
+      ? window.QTS_AVATAR.buildEntityHtml(entity, { size: 20 })
+      : `<b>${escapeHtml(label)}</b>`;
     const preview = dimension === "environment"
       ? `<span class="environmentToolbarPreview" style="--environment-color:${escapeHtml(color)}"><i></i><i></i><i></i></span>`
       : "";
-    return `<details class="urlTreeNode urlTreeLevel-${dimension}" data-accordion-key="${escapeHtml(key)}" data-tree-dimension="${dimension}" data-tree-entity-id="${escapeHtml(entity?.id || "")}" style="${color ? `--environment-color:${escapeHtml(color)}` : ""}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}><summary><span class="urlTreeBranch" aria-hidden="true"></span><b>${escapeHtml(label)}</b>${preview}<span class="count">${group.records.length}</span></summary><div class="urlTreeChildren">${renderUrlTree(group.records, rest, depth + 1)}</div></details>`;
+    return `<details class="urlTreeNode urlTreeLevel-${dimension}" data-accordion-key="${escapeHtml(key)}" data-tree-dimension="${dimension}" data-tree-entity-id="${escapeHtml(entity?.id || "")}" style="${color ? `--environment-color:${escapeHtml(color)}` : ""}" ${collapsedUrlAccordionIds.has(key) ? "" : "open"}><summary><span class="urlTreeBranch" aria-hidden="true"></span><span class="urlTreeIdentity">${identity}</span>${preview}<span class="count">${group.records.length}</span></summary><div class="urlTreeChildren">${renderUrlTree(group.records, rest, depth + 1)}</div></details>`;
   }).join("");
 }
 

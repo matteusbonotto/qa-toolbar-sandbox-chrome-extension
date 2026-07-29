@@ -155,6 +155,14 @@ legend { padding:0 6px; color:var(--muted); font-size:11px; font-weight:800; }
 .surfaceThumbnailToolbar[data-position="right"] .previewDock { x:212px; y:10px; width:16px; height:76px; }
 .surfaceThumbnailToolbar[data-position="top"] .previewDock { x:12px; y:10px; width:216px; height:16px; }
 .surfaceThumbnailToolbar[data-position="bottom"] .previewDock { x:12px; y:70px; width:216px; height:16px; }
+.surfaceThumbnailMobile.surfaceThumbnailSidebar[data-position="left"] .previewDock { x:27px; y:5px; width:22px; height:86px; }
+.surfaceThumbnailMobile.surfaceThumbnailSidebar[data-position="right"] .previewDock { x:71px; y:5px; width:22px; height:86px; }
+.surfaceThumbnailMobile.surfaceThumbnailSidebar[data-position="top"] .previewDock { x:27px; y:5px; width:66px; height:30px; }
+.surfaceThumbnailMobile.surfaceThumbnailSidebar[data-position="bottom"] .previewDock { x:27px; y:61px; width:66px; height:30px; }
+.surfaceThumbnailMobile.surfaceThumbnailToolbar[data-position="left"] .previewDock { x:27px; y:5px; width:14px; height:86px; }
+.surfaceThumbnailMobile.surfaceThumbnailToolbar[data-position="right"] .previewDock { x:79px; y:5px; width:14px; height:86px; }
+.surfaceThumbnailMobile.surfaceThumbnailToolbar[data-position="top"] .previewDock { x:27px; y:5px; width:66px; height:14px; }
+.surfaceThumbnailMobile.surfaceThumbnailToolbar[data-position="bottom"] .previewDock { x:27px; y:77px; width:66px; height:14px; }
 .checkGrid { display:grid; grid-template-columns:1fr 1fr; gap:8px; font-size:12px; }
 .checkGrid label { display:flex; align-items:center; gap:8px; }
 .compactEntityGrid { grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -590,7 +598,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .environmentPicker { flex-basis:100%; }
 .environmentToggles { display:flex; flex-wrap:wrap; gap:8px; }
 .environmentToggle { display:inline-flex; align-items:center; gap:7px; min-height:36px; padding:0 12px; border:1px solid var(--border); border-radius:999px; background:var(--control-bg); color:var(--muted); cursor:pointer; font-size:11px; font-weight:750; transition:.16s ease; }
-.environmentToggle > span,.multiSelectOptions label > span,.relationBadge i { width:8px; height:8px; border-radius:50%; background:var(--environment-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--environment-color) 20%,transparent); }
+.environmentToggle > .environmentColorDot,.multiSelectOptions label > span,.relationBadge i { width:8px; height:8px; border-radius:50%; background:var(--environment-color); box-shadow:0 0 0 3px color-mix(in srgb,var(--environment-color) 20%,transparent); }
 .environmentToggle:hover { border-color:color-mix(in srgb,var(--accent) 45%,var(--border)); color:var(--hover-text); }
 .environmentToggle.isSelected { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 18%,transparent); color:var(--text); }
 .legendWithAction { display:flex; align-items:center; justify-content:space-between; gap:8px; width:100%; }
@@ -683,6 +691,9 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
    scrollbar (found live: every group rendered as if it only had one URL). The outer wrapper now
    grows with its content; the page itself scrolls, same as every other tab. */
 #urlRelationList.listComfortable { max-height:none; overflow:visible; }
+#testAccountList.listComfortable,
+#paymentMethodList.listComfortable,
+#deviceList.listComfortable { max-height:none; overflow:visible; }
 .urlTreeFilters { display:flex; align-items:center; flex-wrap:wrap; gap:7px; margin:0 0 12px; padding:10px 12px; border:1px solid var(--border); border-radius:12px; background:var(--subtle-bg); }
 .urlTreeFilters > span { margin-right:4px; color:var(--muted); font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
 .urlTreeFilters button { min-height:30px; padding:0 10px; border:1px solid var(--border); border-radius:999px; background:var(--control-bg); color:var(--muted); font-size:10px; font-weight:800; cursor:pointer; }
@@ -702,6 +713,11 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .urlTreeNode > summary b { flex:1; font-size:11px; }
 .urlTreeChildren { padding:0 10px 10px 24px; }
 .urlTreeChildren > .listRow { margin-top:7px; }
+.relationalDataNode > .urlTreeChildren {
+  max-height:420px;
+  overflow:auto;
+  scrollbar-gutter:stable;
+}
 .environmentToolbarPreview { display:inline-flex; align-items:center; gap:4px; width:190px; max-width:190px; height:30px; padding:0 10px; border-radius:7px; background:var(--environment-color); color:#fff; overflow:hidden; }
 .environmentToolbarPreview span { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; font-size:11px; font-weight:850; }
 .environmentToolbarPreview i { display:block; flex:0 0 7px; width:7px; height:7px; border-radius:2px; background:rgba(255,255,255,.86); }
@@ -709,6 +725,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .environmentToggle { min-width:0; max-width:100%; overflow:hidden; }
 .environmentToggle > .environmentColorDot { flex:0 0 10px; width:10px; height:10px; border-radius:50%; background:var(--environment-color); }
 .environmentToggleLabel { min-width:0; max-width:240px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.environmentToggle .qts-badge-avatar { flex:0 0 auto; width:18px; height:18px; }
 .relationshipTree { display:grid; gap:12px; max-width:960px; margin:0 auto; }
 .relationshipNode { --relationship-color:var(--accent); min-width:0; padding:12px; border:1px solid var(--border); border-radius:14px; background:var(--card-bg); }
 .relationshipNode-projects { --relationship-color:#7657ff; }

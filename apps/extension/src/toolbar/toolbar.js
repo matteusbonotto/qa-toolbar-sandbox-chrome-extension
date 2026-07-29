@@ -1,3 +1,7 @@
+(() => {
+if (window.__QTS_TOOLBAR_SCRIPT_ACTIVE__) return;
+window.__QTS_TOOLBAR_SCRIPT_ACTIVE__ = true;
+
 const { getWorkspace, getSiteScope, saveWorkspace, onStorageChanged, STORAGE_KEYS } = window.QTS_STORAGE;
 const ICON = window.QTS_ICONS.svg;
 
@@ -8231,3 +8235,4 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
 });
 
 void boot();
+})();
