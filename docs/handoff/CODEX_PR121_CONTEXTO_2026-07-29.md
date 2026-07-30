@@ -177,6 +177,28 @@ Validação posterior:
 - No mobile, Pass e Fail saíram de Tools e passaram a aparecer no mesmo menu compacto de
   marcadores que Warning e Question.
 - A extensão foi incrementada para `1.4.26`.
+
+## Continuação 1.4.27
+
+- A nomenclatura foi unificada na toolbar desktop/mobile, Configurações, Workspace, Landing Page,
+  tutorial, tour e FAQ. Os nomes aprovados pelo fundador incluem Clique espião, Parar tempo,
+  Simular HTTP, Monitor de erros, Monitor de endpoint, Simulador de dispositivos, Usuários e
+  contas, Borrar elementos, Validador de campos, Auto preenchimento e Validador de textos/i18n.
+- Macros agora abre um submenu com os fluxos salvos e uma ação explícita para gerenciar macros.
+- O Validador de campos agora identifica regras HTML, distingue rejeição esperada de possível
+  quebra, sinaliza campos sem regra como diagnóstico e mantém até 100 execuções em histórico
+  local. Valores testados não são persistidos.
+- O histórico do Validador recebeu textos PT-BR, EN e ES e pode ser limpo pelo usuário.
+- O capturador de tutorial foi corrigido em quatro pontos: token isolado com duração suficiente,
+  padrão de URL do sandbox correto, liberação do mouse após o Holofote e abertura do accordion de
+  histórico antes da evidência.
+- Os 30 screenshots e os 30 vídeos de tutorial foram recriados e substituídos atomicamente.
+- A versão da extensão foi incrementada para `1.4.27`.
+- Validações concluídas antes da última revisão de i18n: typecheck, unitários, backend, segurança,
+  bundle, smoke LP/Admin e smoke Chrome real. O smoke Chrome confirmou console e worker sem erros.
+  A suíte final deve ser repetida após qualquer alteração posterior de código, inclusive tradução.
+- Publicação na Chrome Web Store continua dependendo da renovação do secret
+  `CHROME_WEBSTORE_REFRESH_TOKEN`, que estava expirado ou revogado na tentativa anterior.
 - SHA-256 do pacote:
   `00728d7e93c0749802e016d9ba0a0e8f6123a218d4dee66a7f7e8e6111ecc2ac`.
 
