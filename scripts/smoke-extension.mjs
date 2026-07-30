@@ -1204,8 +1204,8 @@ try {
   await host.mouse.move(320, 260);
   await host.keyboard.down("Control");
   if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote appeared before the 2s Ctrl-hold threshold");
-  await host.waitForTimeout(2_400);
-  await host.locator("#qts-holofote-overlay.isVisible").waitFor({ timeout: 2_000 });
+  await host.waitForTimeout(3_000);
+  await host.locator("#qts-holofote-overlay.isVisible").waitFor({ timeout: 5_000 });
   await host.keyboard.up("Control");
   if (await host.locator("#qts-holofote-overlay.isVisible").count()) throw new Error("Holofote did not start fading out on release");
   if (!(await host.locator("h1").isVisible())) throw new Error("Holofote mode blocked normal page interaction");

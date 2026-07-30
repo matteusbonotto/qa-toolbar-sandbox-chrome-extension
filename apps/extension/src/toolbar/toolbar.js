@@ -3579,6 +3579,30 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar.": "Pixel Perfect: scroll to switch elements, click to release.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
+  "Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.": "Valida las reglas HTML sin enviar el formulario. El campo original se restaura y cada ejecución queda registrada en el historial local.",
+  "Selecionar input na página": "Seleccionar campo en la página", "Regras encontradas": "Reglas encontradas",
+  "Nenhuma regra HTML declarada. Os casos serão registrados como diagnóstico.": "No hay reglas HTML declaradas. Los casos se registrarán como diagnóstico.",
+  "Validar campo": "Validar campo", "Histórico": "Historial", "Limpar histórico": "Limpiar historial",
+  "Nenhuma validação executada ainda.": "Todavía no se ejecutó ninguna validación.", "Regras:": "Reglas:",
+  "nenhuma regra HTML declarada": "ninguna regla HTML declarada", "sem regra específica": "sin regla específica",
+  "esperado": "esperado", "revisar": "revisar", "aceito": "aceptado", "rejeitado": "rechazado",
+  "Diagnóstico concluído sem regras declaradas": "Diagnóstico concluido sin reglas declaradas",
+  "Campo compatível com as regras declaradas": "Campo compatible con las reglas declaradas",
+  "Adicione required, limites, pattern ou um tipo específico para validar uma regra.": "Agrega required, límites, pattern o un tipo específico para validar una regla.",
+});
+Object.assign(QA_SURFACE_TRANSLATIONS.en, {
+  "Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.": "Validate HTML rules without submitting the form. The original field is restored and each run is saved to local history.",
+  "Selecionar input na página": "Select field on page", "Regras encontradas": "Rules found",
+  "Nenhuma regra HTML declarada. Os casos serão registrados como diagnóstico.": "No HTML rules are declared. Cases will be recorded as diagnostics.",
+  "Validar campo": "Validate field", "Histórico": "History", "Limpar histórico": "Clear history",
+  "Nenhuma validação executada ainda.": "No validation has been run yet.", "Regras:": "Rules:",
+  "nenhuma regra HTML declarada": "no HTML rules declared", "sem regra específica": "no specific rule",
+  "esperado": "expected", "revisar": "review", "aceito": "accepted", "rejeitado": "rejected",
+  "Diagnóstico concluído sem regras declaradas": "Diagnostics completed without declared rules",
+  "Campo compatível com as regras declaradas": "Field matches the declared rules",
+  "Adicione required, limites, pattern ou um tipo específico para validar uma regra.": "Add required, limits, pattern, or a specific type to validate a rule.",
+});
+Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Desativar ferramentas ativas": "Desactivar herramientas activas",
   "Validador de textos": "Validador de textos",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Genera el QR localmente para la URL actual o una URL concreta guardada. No se envía ningún dato a servicios externos.",
@@ -3624,6 +3648,8 @@ function translateQaSurfaceText(value) {
   if (state.t.locale === "es") translated = translated.replace(/^Executando /, "Ejecutando ").replace(/^Macro concluída:/, "Macro completada:").replace(/^Macro interrompida:/, "Macro interrumpida:").replace(/^Não foi possível iniciar a macro com segurança\.$/, "No se pudo iniciar la macro de forma segura.");
   if (state.t.locale === "en") translated = translated.replace(/^Não foi possível gerar:/, "Could not generate:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 texts found on the current page.").replace(/^(\d+) textos carregados\.$/, "$1 texts loaded.").replace(/^JSON inválido:/, "Invalid JSON:");
   if (state.t.locale === "es") translated = translated.replace(/^Não foi possível gerar:/, "No se pudo generar:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 textos encontrados en la página actual.").replace(/^(\d+) textos carregados\.$/, "$1 textos cargados.").replace(/^JSON inválido:/, "JSON no válido:");
+  if (state.t.locale === "en") translated = translated.replace(/^(\d+) possível\(is\) quebra\(s\) encontrada\(s\)$/, "$1 possible issue(s) found").replace(/^(\d+) possível\(is\) quebra\(s\)$/, "$1 possible issue(s)").replace(/^Foram verificadas: /, "Checked: ");
+  if (state.t.locale === "es") translated = translated.replace(/^(\d+) possível\(is\) quebra\(s\) encontrada\(s\)$/, "$1 posible(s) problema(s) encontrado(s)").replace(/^(\d+) possível\(is\) quebra\(s\)$/, "$1 posible(s) problema(s)").replace(/^Foram verificadas: /, "Se verificaron: ");
   if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors - confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns - check the routes/endpoints you registered.");
   if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors - confira as rotas\/endpoints cadastrados\.$/, "$1 solicitud(es) capturada(s) no coincidieron con ningún patrón configurado en Inspectors - revisa las rutas/endpoints registrados.");
   return `${leading}${translated}${trailing}`;
@@ -7184,6 +7210,7 @@ function renderFieldValidatorHistory(output, history) {
       <table class="qts-result-table"><thead><tr><th>Caso</th><th>Regra</th><th>Resultado</th></tr></thead><tbody>${entry.results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${escapeHtml(result.matchedRule || "sem regra específica")}</td><td>${result.outcome ? `${ICON("pass")} esperado` : `${ICON("fail")} revisar`} (${result.accepted ? "aceito" : "rejeitado"})</td></tr>`).join("")}</tbody></table>
     </details>`;
   }).join("") : `<div class="qts-mini-empty">Nenhuma validação executada ainda.</div>`;
+  localizeQaSurface(output);
 }
 
 function openInputLab(selectedElement = null) {
@@ -7214,6 +7241,7 @@ function openInputLab(selectedElement = null) {
           const results = await window.QTS_QA_TOOLS.runInputValidation(selectedElement);
           const failed = results.filter((result) => !result.outcome).length;
           output.innerHTML = `<div class="qts-card"><b>${!rules.length ? "Diagnóstico concluído sem regras declaradas" : failed ? `${failed} possível(is) quebra(s) encontrada(s)` : "Campo compatível com as regras declaradas"}</b><p>${rules.length ? `Foram verificadas: ${escapeHtml(rules.join(", "))}.` : "Adicione required, limites, pattern ou um tipo específico para validar uma regra."}</p></div>`;
+          localizeQaSurface(output);
           await saveFieldValidatorHistory({ id: crypto.randomUUID(), timestamp: new Date().toISOString(), page: location.origin + location.pathname, field: info.selector, rules, hadRules: rules.length > 0, results });
           await refreshHistory();
         } catch (error) { output.textContent = error.message; }
