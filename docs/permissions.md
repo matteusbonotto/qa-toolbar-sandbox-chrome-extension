@@ -15,7 +15,7 @@
 
 Não há `optional_permissions` nem `optional_host_permissions` declarados — tudo acima é
 obrigatório na instalação. Isso é uma decisão consciente, não uma omissão: várias ferramentas
-(Network Inspector, Faker Fill, captura de elementos) dependem de rodar em qualquer site que o
+(Network Inspector, Auto preenchimento, captura de elementos) dependem de rodar em qualquer site que o
 QA esteja testando, e o Chrome não permite pedir host permission sob demanda por aba sem
 interromper o fluxo de teste com um prompt a cada navegação.
 

@@ -112,12 +112,12 @@
       `icons-content.js` (path real do Bootstrap Icons, mesmo padrão dos demais).
 - [x] **Macro Studio — seletor sem digitar**: no editor (Vibe Code), toda etapa com campo de
       seletor ganhou um botão "Selecionar elemento na página" (reaproveita o mesmo
-      `selectPageElement()` já usado por Multiclick/Faker Fill) — clica no elemento real da
+      `selectPageElement()` já usado por Multiclick/Auto preenchimento) — clica no elemento real da
       página em vez de digitar CSS à mão; um toast confirma o que foi selecionado (tag + texto/
       aria-label/placeholder). Como `selectPageElement` fecha o drawer para o clique na página,
       o editor tira um "snapshot" do estado atual (nome, descrição, todas as etapas) antes de
       abrir a seleção e reabre o editor inteiro já com o novo seletor mesclado — mesmo padrão que
-      Multiclick/Faker Fill já usavam para o próprio caso deles.
+      Multiclick/Auto preenchimento já usavam para o próprio caso deles.
 - [x] Verificado ao vivo (Playwright real, 7 cenários numa única sessão de gravação): iniciar
       mostra a barra; clique+preenchimento na página geram passos; pausar não grava novas ações e
       retomar volta a gravar; desfazer remove exatamente 1 passo; painel de histórico lista todos
@@ -162,7 +162,7 @@
       simuladas; marcar uma como inspector e trocar para "Meus Inspectors" mostra só ela; o chip
       de filtro por inspector específico também isola a mesma entrada.
 - [x] **Contador de caracteres**: novo botão "Acompanhar campo da página" no drawer (reaproveita
-      `selectPageElement`, mesmo padrão de clique-para-selecionar do Multiclick/Faker Fill/Macro
+      `selectPageElement`, mesmo padrão de clique-para-selecionar do Multiclick/Auto preenchimento/Macro
       Studio) — clica num input/textarea real da página e um badge flutuante (`.qts-char-counter-
       badge`, reaproveitando `.qts-floating-item`/`.qts-remove-btn` já existentes) aparece
       ancorado logo acima do campo, com a contagem ao vivo (atualiza a cada 200ms, mesmo padrão de

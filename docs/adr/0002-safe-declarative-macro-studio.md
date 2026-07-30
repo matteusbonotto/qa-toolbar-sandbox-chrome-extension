@@ -15,14 +15,14 @@ O modo Vibe Code edita esses blocos por drag and drop em um fluxo linear. O modo
 
 Uma execução que atravessa navegação completa guarda somente `{ macroId, index, expiresAt }` em `chrome.storage.session`, isolada pelo ID da aba no service worker e limitada a dez minutos. Nenhum valor da macro é duplicado nesse estado efêmero.
 
-Faker Fill usa um gerador sintético local e previsível o suficiente para QA, sem rede, dependência remota ou identidades reais. Input Lab testa a validação nativa sem submeter o formulário e restaura o valor original.
+Auto preenchimento usa um gerador sintético local e previsível o suficiente para QA, sem rede, dependência remota ou identidades reais. Validador de campos testa a validação nativa sem submeter o formulário e restaura o valor original.
 
 ## Controles de segurança
 
 - Não existem `eval`, `new Function`, scripts remotos ou execução de código importado.
 - Ações desconhecidas e propriedades excedentes são descartadas.
 - Seletor, nome, descrição, valor, quantidade, intervalo e duração têm limites rígidos.
-- Campos e seletores associados a senha, token, autorização, chave de API, cartão, CVV/CVC e código de segurança são bloqueados na gravação, Faker Fill e reprodução.
+- Campos e seletores associados a senha, token, autorização, chave de API, cartão, CVV/CVC e código de segurança são bloqueados na gravação, Auto preenchimento e reprodução.
 - A importação aceita somente `format: qts-macros`, `version: 1`, arquivo de até 1 MB e no máximo 100 macros.
 - Multiclick limita a 100 cliques e intervalo máximo de 5 segundos.
 - A execução continua sujeita a autenticação, entitlement e URL de ambiente autorizada.
@@ -34,4 +34,4 @@ O usuário ganha um fluxo simples e exportável, e o código Playwright serve co
 
 ## Evidência
 
-`scripts/test-extension-workspace.mjs` cobre normalização, limites e descarte de ações/dados sensíveis. `scripts/smoke-extension.mjs` cobre no Chrome real contador, Faker protegido, Input Lab, multiclick, gravação/reprodução, Vibe Code/Coder, importação/exportação, macro fixada e retomada após navegação, além de zero erros de console/worker.
+`scripts/test-extension-workspace.mjs` cobre normalização, limites e descarte de ações/dados sensíveis. `scripts/smoke-extension.mjs` cobre no Chrome real contador, Faker protegido, Validador de campos, multiclick, gravação/reprodução, Vibe Code/Coder, importação/exportação, macro fixada e retomada após navegação, além de zero erros de console/worker.

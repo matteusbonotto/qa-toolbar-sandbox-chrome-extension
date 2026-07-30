@@ -138,7 +138,7 @@ const CONTEXT_MENU_ACTIONS = [
   { id: "qts-char-counter", action: "char-counter", title: "Contar caracteres" },
   { id: "qts-reveal-locators", action: "reveal-locators", title: "Revelar test-id, seletor e XPath" },
   { id: "qts-fill-fake-data", action: "fill-fake-data", title: "Preencher com dado fake" },
-  { id: "qts-check-limits", action: "check-limits", title: "Abrir Input Lab neste campo" },
+  { id: "qts-check-limits", action: "check-limits", title: "Abrir Validador de campos neste campo" },
   { id: "qts-multi-click", action: "multi-click", title: "Configurar Multiclick neste elemento" },
   { id: "qts-toggle-blur", action: "toggle-blur", title: "Borrar / desborrar este elemento" },
   { id: "qts-pixel-perfect-inspect", action: "pixel-perfect-inspect", title: "Inspecionar com Pixel Perfect (tamanho em pixels)" },

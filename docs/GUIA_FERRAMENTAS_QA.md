@@ -11,8 +11,8 @@ menu **Tools** quando o plano ativo não inclui aquela ferramenta.
 |---|---|---|---|---|
 | Contador de caracteres | ✓ | ✓ | ✓ | ✓ |
 | Multiclick | ✓ | ✓ | ✓ | ✓ |
-| Input Lab | Não | ✓ | ✓ | ✓ |
-| Faker Fill | Não | ✓ | ✓ | ✓ |
+| Validador de campos | Não | ✓ | ✓ | ✓ |
+| Auto preenchimento | Não | ✓ | ✓ | ✓ |
 | Macros | Não | Não | ✓ | ✓ |
 | Key View | Não | Não | Não | ✓ |
 | Capturar Elementos | Não | Não | ✓ | ✓ |
@@ -26,8 +26,8 @@ deploy. A tabela acima reflete a configuração padrão de fábrica
 
 - **Contador de caracteres**: mede com/sem espaços, palavras, linhas e bytes UTF-8. Pode começar com o texto selecionado na página.
 - **Multiclick**: escolha visualmente um elemento, defina de 2 a 100 cliques e o intervalo.
-- **Input Lab**: selecione um input para ler suas regras e testar vazio, texto, número, caracteres especiais, Unicode e excesso de caracteres. O formulário não é enviado e o valor original volta ao final.
-- **Faker Fill**: preenche a página ou um formulário escolhido com dados sintéticos. Campos sensíveis são ignorados.
+- **Validador de campos**: selecione um input para ler suas regras e testar vazio, texto, número, caracteres especiais, Unicode e excesso de caracteres. O formulário não é enviado e o valor original volta ao final.
+- **Auto preenchimento**: preenche a página ou um formulário escolhido com dados sintéticos. Campos sensíveis são ignorados.
 
 ## Key View
 
@@ -55,7 +55,7 @@ Na lista de macros é possível executar, editar, fixar/desafixar no menu, expor
 
 ### Blocos disponíveis
 
-Clique, Escrever, Selecionar, Checkbox, Tecla, Esperar, Scroll, Multiclick e Faker Fill. Os blocos podem ser adicionados pela paleta e reordenados por drag and drop.
+Clique, Escrever, Selecionar, Checkbox, Tecla, Esperar, Scroll, Multiclick e Auto preenchimento. Os blocos podem ser adicionados pela paleta e reordenados por drag and drop.
 
 ## Sessão de Teste
 
@@ -120,7 +120,7 @@ de automação.
 - A extensão não executa código colado. O modo Coder é uma saída Playwright para revisão/cópia.
 - Macros retomam na mesma aba após navegação, desde que a nova URL continue pertencendo a um ambiente autorizado.
 - Sites com CAPTCHA, iframe de outra origem ou Shadow DOM fechado podem exigir automação Playwright dedicada.
-## Observador de endpoints
+## Monitor de endpoint
 
 O histórico local registra data, hora, método, status e URL das requisições capturadas. Em
 **Meus Inspectors**, cada regra mostra a quantidade e os registros mais recentes. Use

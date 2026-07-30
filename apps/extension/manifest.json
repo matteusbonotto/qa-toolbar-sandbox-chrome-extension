@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "QA Toolbar Sandbox",
-  "version": "1.4.26",
+  "version": "1.4.27",
   "description": "Toolbar local-first com contexto, evidências, Macros, Roteiros, Relatórios e ferramentas rápidas de QA.",
   "icons": {
     "16": "icons/icon-16.png",

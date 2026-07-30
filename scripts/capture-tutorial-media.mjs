@@ -83,7 +83,7 @@ const accessTokenPrivateKeyJwk = await readEnvValue(resolve(root, ".env"), "ACCE
 if (!accessTokenPrivateKeyJwk) throw new Error("Missing ACCESS_TOKEN_PRIVATE_KEY_JWK in .env.");
 const accessTokenSigningKey = await webcrypto.subtle.importKey("jwk", JSON.parse(accessTokenPrivateKeyJwk), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
 async function signMockAccessToken(payload) {
-  const body = { ...payload, exp: Math.floor(Date.now() / 1_000) + 600 };
+  const body = { ...payload, exp: Math.floor(Date.now() / 1_000) + 7_200 };
   const encodedPayload = Buffer.from(new TextEncoder().encode(JSON.stringify(body))).toString("base64url");
   const signature = await webcrypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, accessTokenSigningKey, new TextEncoder().encode(encodedPayload));
   return `${encodedPayload}.${Buffer.from(signature).toString("base64url")}`;
@@ -229,6 +229,7 @@ try {
   let worker = context.serviceWorkers()[0];
   if (!worker) worker = await context.waitForEvent("serviceworker", { timeout: 15_000 });
   const extensionId = new URL(worker.url()).host;
+  for (const initialPage of context.pages()) await initialPage.close();
 
   const options = await context.newPage();
   await options.goto(`chrome-extension://${extensionId}/src/options/options.html`);
@@ -253,7 +254,7 @@ try {
     workspace.environments.push({ id: "tutorial-environment", name: "QA", color: "#2563eb", active: true });
     workspace.urlBindings.push({
       id: "tutorial-url", productId: "tutorial-product", productIds: ["tutorial-product"],
-      environmentIds: ["tutorial-environment"], patterns: [`${demoUrl.replace(/\/$/, "")}/*`],
+      environmentIds: ["tutorial-environment"], patterns: [new URL("*", demoUrl).href],
       primaryUrl: demoUrl, active: true,
     });
     workspace.testAccounts.push({
@@ -406,6 +407,9 @@ try {
     await page.mouse.move(420, 380);
     await page.mouse.down();
     await page.waitForTimeout(3_400);
+    await page.screenshot({ path: resolve(assetsPath, "holofote.png"), fullPage: false });
+    await page.mouse.up();
+    return { skipFinalScreenshot: true };
   });
 
   await captureTool("pixelPerfect", async (page) => {
@@ -487,7 +491,9 @@ try {
     await page.locator("#inputSelect").click();
     await page.locator("#contactName").click();
     await page.locator("#inputRun").click();
-    await page.locator("#inputResults tbody tr").first().waitFor();
+    await page.locator("#inputHistory details").first().waitFor();
+    await page.locator("#inputHistory details summary").first().click();
+    await page.locator("#inputHistory tbody tr").first().waitFor();
   });
 
   await captureTool("fakerFill", async (page) => {
@@ -498,6 +504,7 @@ try {
   await captureTool("macroStudio", async (page) => {
     await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "macroStudioMenuItem");
+    await page.locator("[data-manage-macros]").click();
     await page.locator("#startMacroRecording").click();
     await page.locator("#contactName").click();
     await page.keyboard.type("QA Toolbar Sandbox");

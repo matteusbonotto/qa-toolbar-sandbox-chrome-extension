@@ -202,7 +202,8 @@
   }
 
   async function runInputValidation(element) {
-    if (!inspectInput(element) || isSensitiveElement(element)) throw new Error("sensitive_or_invalid_input");
+    const inspected = inspectInput(element);
+    if (!inspected || isSensitiveElement(element)) throw new Error("sensitive_or_invalid_input");
     const original = { value: element.value, checked: element.checked };
     const results = [];
     for (const [name, value] of validationCases(element)) {
@@ -212,7 +213,22 @@
       const valueWasAccepted = value === "" || element.value !== "";
       const accepted = element.checkValidity() && valueWasAccepted && !tooLong && !tooShort;
       const message = element.validationMessage || (tooLong ? `excede maxlength=${element.maxLength}` : tooShort ? `abaixo de minlength=${element.minLength}` : !valueWasAccepted ? "tipo de valor rejeitado" : "");
-      results.push({ name, attemptedLength: [...value].length, actualLength: [...element.value].length, accepted, message });
+      const expectedRejection = (name === "vazio" && inspected.required)
+        || (name === "acima do limite" && inspected.maxLength != null)
+        || element.validity.typeMismatch
+        || element.validity.patternMismatch
+        || element.validity.rangeOverflow
+        || element.validity.rangeUnderflow
+        || element.validity.stepMismatch;
+      const outcome = expectedRejection ? !accepted : accepted;
+      const matchedRule = name === "vazio" && inspected.required ? "required"
+        : name === "acima do limite" && inspected.maxLength != null ? `maxlength=${inspected.maxLength}`
+          : element.validity.typeMismatch ? `type=${inspected.type}`
+            : element.validity.patternMismatch ? `pattern=${inspected.pattern}`
+              : element.validity.rangeOverflow ? `max=${inspected.max}`
+                : element.validity.rangeUnderflow ? `min=${inspected.min}`
+                  : element.validity.stepMismatch ? `step=${inspected.step}` : "";
+      results.push({ name, attemptedLength: [...value].length, actualLength: [...element.value].length, accepted, expectedRejection, outcome, matchedRule, message });
       await delay(25);
     }
     setNativeValue(element, original.value);
@@ -268,7 +284,7 @@
       else if (step.action === "scroll") lines.push(`  await page.evaluate((y) => window.scrollTo(0, y), ${Number(step.y) || 0});`);
       else if (step.action === "multiClick") lines.push(`  for (let i = 0; i < ${Number(step.count) || 2}; i++) { await ${locator}.click(); await page.waitForTimeout(${Number(step.interval) || 100}); }`);
       else if (step.action === "fakerFill") {
-        lines.push("  // Faker Fill equivalente, local e sem campos sensíveis.");
+        lines.push("  // Auto preenchimento equivalente, local e sem campos sensíveis.");
         lines.push("  for (const field of await page.locator('input:not([type=hidden]):not([type=password]):not([type=file]):visible, textarea:visible').all()) {");
         lines.push("    const hint = `${await field.getAttribute('name') || ''} ${await field.getAttribute('type') || ''}`.toLowerCase();");
         lines.push("    if (/card|token|secret|cvv|cvc/.test(hint)) continue;");

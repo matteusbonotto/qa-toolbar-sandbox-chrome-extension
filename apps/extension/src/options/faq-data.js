@@ -26,7 +26,7 @@
     {
       key: "sensitiveData",
       question: "Senhas, cartões e tokens ficam seguros?",
-      answer: "Campos sensíveis (senha, cartão, CVV, token) nunca são exportados em Capturar Elementos, nunca são preenchidos pelo Faker Fill, e ficam mascarados na barra quando exibidos a partir de Contas de teste ou Meios de pagamento.",
+      answer: "Campos sensíveis (senha, cartão, CVV, token) nunca são exportados em Capturar Elementos, nunca são preenchidos pelo Auto preenchimento, e ficam mascarados na barra quando exibidos a partir de Usuários e contas ou Meios de pagamento.",
     },
     {
       key: "revisitTutorial",
@@ -52,6 +52,11 @@
       key: "contextMenu",
       question: "Existe algum atalho fora da barra?",
       answer: "Sim. Clique com o botão direito em qualquer página autorizada e abra \"QA Sandbox\" no menu de contexto: dá pra contar caracteres da seleção, revelar test-id/seletor/XPath do elemento clicado, preencher com dado fake e conferir limites do campo, sem precisar abrir a barra.",
+    },
+    {
+      key: "fieldValidatorHistory",
+      question: "Como saber se um campo passou ou quebrou no Validador de campos?",
+      answer: "O resumo compara cada caso com as regras HTML declaradas no campo. Required, tipo, pattern e limites aparecem com o resultado esperado ou a indicação de revisão. Se não houver regra, o registro fica como diagnóstico. O histórico é local, não guarda valores digitados e pode ser limpo a qualquer momento.",
     },
     {
       key: "workspaceOrder",

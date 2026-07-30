@@ -166,9 +166,9 @@ Validação posterior:
 
 - O catálogo comum de ferramentas passou a usar nomes de módulos e coleções. Exemplos:
   `Macros`, `Roteiros de teste`, `Sessões de teste`, `Relatórios` e
-  `Observador de endpoints`.
+  `Monitor de endpoint`.
 - O submenu de Macros lista todas as macros salvas e identifica as fixadas.
-- O Observador de endpoints persiste até 500 registros locais com data, hora, método, status,
+- O Monitor de endpoint persiste até 500 registros locais com data, hora, método, status,
   URL e relação com os Inspectors configurados.
 - O histórico pode ser exportado em CSV ou limpo pelo usuário.
 - Relatórios mantém a exportação Markdown e adiciona uma composição visual A4, minimalista e

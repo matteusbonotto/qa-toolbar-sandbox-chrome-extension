@@ -33,8 +33,8 @@ barra **não** é gated — está disponível em todo plano; só as listadas aba
 |---|---|---|---|---|
 | Contador de caracteres | ✓ | ✓ | ✓ | ✓ |
 | Multiclick | ✓ | ✓ | ✓ | ✓ |
-| Input Lab | — | ✓ | ✓ | ✓ |
-| Faker Fill | — | ✓ | ✓ | ✓ |
+| Validador de campos | — | ✓ | ✓ | ✓ |
+| Auto preenchimento | — | ✓ | ✓ | ✓ |
 | Macro Studio | — | — | ✓ | ✓ |
 | Gravador de Passos | — | — | ✓ | ✓ |
 | Key View | — | — | — | ✓ |
