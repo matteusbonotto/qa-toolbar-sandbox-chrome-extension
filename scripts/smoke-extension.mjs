@@ -23,7 +23,8 @@ async function readEnvValue(path, key) {
   }
   return undefined;
 }
-const accessTokenPrivateKeyJwk = await readEnvValue(resolve(root, ".env"), "ACCESS_TOKEN_PRIVATE_KEY_JWK");
+const accessTokenPrivateKeyJwk = process.env.ACCESS_TOKEN_PRIVATE_KEY_JWK
+  || await readEnvValue(resolve(root, ".env"), "ACCESS_TOKEN_PRIVATE_KEY_JWK");
 if (!accessTokenPrivateKeyJwk) throw new Error("Missing ACCESS_TOKEN_PRIVATE_KEY_JWK in .env - required to mint a mock access-status token the extension will accept.");
 const accessTokenSigningKey = await webcrypto.subtle.importKey("jwk", JSON.parse(accessTokenPrivateKeyJwk), { name: "ECDSA", namedCurve: "P-256" }, false, ["sign"]);
 function base64UrlEncode(bytes) {
