@@ -1,6 +1,12 @@
 (function initOptionsI18n() {
   const translations = {
     es: {
+      "Status do teste": "Estado de la prueba", "Cliques": "Clics", "Data e hora": "Fecha y hora", "Respostas HTTP": "Respuestas HTTP",
+      "Erros HTTP": "Errores HTTP", "Observador de endpoints": "Observador de endpoints", "Tamanhos de tela": "Tamaños de pantalla",
+      "Macros": "Macros", "Multiclick": "Multiclic", "Laboratório de campos": "Laboratorio de campos", "Dados fictícios": "Datos ficticios",
+      "Teclas e mouse": "Teclas y ratón", "Elementos da página": "Elementos de la página", "Privacidade visual": "Privacidad visual",
+      "Holofote": "Foco", "Roteiros de teste": "Guiones de prueba", "Textos e idiomas": "Textos e idiomas",
+      "Pixel Perfect": "Pixel Perfect", "Sessões de teste": "Sesiones de prueba", "Relatórios": "Informes",
       "Seu ecossistema de QA, organizado": "Tu ecosistema de QA, organizado",
       "Configure a estrutura uma vez. Encontre ambientes, acessos e recursos no momento do teste.": "Configura la estructura una vez. Encuentra entornos, accesos y recursos durante la prueba.",
       "Configuração guiada": "Configuración guiada",
@@ -657,6 +663,12 @@
       "Ex.: cadastre o link do board do Jira e da documentação da API do projeto - eles ficam fixos no menu da barra, então não é preciso manter uma aba extra aberta só pra isso.": "Ej.: registra el enlace del board de Jira y de la documentación de la API del proyecto - quedan fijos en el menú de la barra, así no necesitas mantener una pestaña extra abierta solo para eso."
     },
     en: {
+      "Status do teste": "Test Status", "Cliques": "Clicks", "Data e hora": "Date and Time", "Respostas HTTP": "HTTP Responses",
+      "Erros HTTP": "HTTP Errors", "Observador de endpoints": "Endpoint Observer", "Tamanhos de tela": "Screen Sizes",
+      "Macros": "Macros", "Multiclick": "Multiclick", "Laboratório de campos": "Field Lab", "Dados fictícios": "Mock Data",
+      "Teclas e mouse": "Keys and Mouse", "Elementos da página": "Page Elements", "Privacidade visual": "Visual Privacy",
+      "Holofote": "Spotlight", "Roteiros de teste": "Test Scenarios", "Textos e idiomas": "Text and Languages",
+      "Pixel Perfect": "Pixel Perfect", "Sessões de teste": "Test Sessions", "Relatórios": "Reports",
       "Seu ecossistema de QA, organizado": "Your QA ecosystem, organized",
       "Configure a estrutura uma vez. Encontre ambientes, acessos e recursos no momento do teste.": "Set up the structure once. Find environments, credentials and resources while testing.",
       "Configuração guiada": "Guided setup",

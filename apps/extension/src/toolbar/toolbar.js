@@ -919,6 +919,7 @@ function buildShadowHost() {
       #pinnedMacrosMenu:empty { display: none; }
       #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
       #mobileActionsMenu { display: none; }
+      .markerMobileOnly { display: none !important; }
       /* Theme bridge for every toolbar popup.  These surfaces predate the platform theme and
          used literal dark colours, which made the "Claro" toggle appear to do nothing. */
       #toolsMenu, #shapeTypeMenu, #recordTypeMenu, #macroRecHistoryPanel, #notificationBellPanel {
@@ -967,6 +968,7 @@ function buildShadowHost() {
         #screenshotButton, #recordWrapper, #recordStopButton, #recordTimer, #blurQuickButton,
         #holofoteQuickButton { display: none !important; }
         #mobileActionsMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
+        #markerTypeMenu .markerMobileOnly { display: flex !important; }
       }
     </style>
     <div id="bar" role="toolbar" aria-label="Ferramentas de QA">
@@ -993,6 +995,8 @@ function buildShadowHost() {
         <div id="markerWrapper">
           <button id="markerMoreButton" class="iconOnly" type="button" title="${escapeHtml(t.markerMore)}">${ICON("chevronDown")}</button>
           <div id="markerTypeMenu" class="isHidden" role="menu">
+            <button class="markerMobileOnly" type="button" data-marker-pick="pass" role="menuitem">${ICON("pass")} ${escapeHtml(t.pass)}</button>
+            <button class="markerMobileOnly" type="button" data-marker-pick="fail" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
             <button type="button" data-marker-pick="warning" role="menuitem">${ICON("warning")} ${escapeHtml(t.markerWarning)}</button>
             <button type="button" data-marker-pick="question" role="menuitem">${ICON("question")} ${escapeHtml(t.markerQuestion)}</button>
           </div>
@@ -1057,8 +1061,6 @@ function buildShadowHost() {
           <div id="toolsMenu" role="menu">
             <div id="mobileActionsMenu">
               <button type="button" id="mobileTestStatusItem" role="menuitem">${escapeHtml(t.testStatus)}</button>
-              <button type="button" id="mobilePassItem" role="menuitem">${ICON("pass")} ${escapeHtml(t.pass)}</button>
-              <button type="button" id="mobileFailItem" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
               <button type="button" id="mobileNoteItem" role="menuitem">${escapeHtml(t.note)}</button>
               <button type="button" id="mobileShapeRectangleItem" role="menuitem">${ICON("rectangle")} ${escapeHtml(t.shapeTypeRectangle)}</button>
               <button type="button" id="mobileShapeSquareItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shapeTypeSquare)}</button>
@@ -1229,8 +1231,6 @@ function buildShadowHost() {
   });
   shadow.getElementById("testSessionFinishButton").addEventListener("click", finishTestSession);
   shadow.getElementById("reportBuilderMenuItem").addEventListener("click", () => { openReportBuilder(); closeToolsMenu(); });
-  shadow.getElementById("mobilePassItem").addEventListener("click", (event) => { enablePlacementMode("pass", shadow.getElementById("passButton")); closeToolsMenu(); });
-  shadow.getElementById("mobileFailItem").addEventListener("click", () => { enablePlacementMode("fail", shadow.getElementById("failButton")); closeToolsMenu(); });
   shadow.getElementById("mobileNoteItem").addEventListener("click", () => { addFloatingTextNote(); closeToolsMenu(); });
   shadow.getElementById("mobileShapeRectangleItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton"), "rectangle"); closeToolsMenu(); });
   shadow.getElementById("mobileShapeSquareItem").addEventListener("click", () => { enablePlacementMode("shape", shadow.getElementById("shapeButton"), "square"); closeToolsMenu(); });
@@ -1823,9 +1823,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los dispositivos muestran nombre, sistemas y navegadores en informes y selectores.", "Agregar desde un panel lateral abre el formulario original de Settings.", "Las imágenes de tipos aparecen en Settings, tarjetas y filtros con 44 px y separación cómoda.", "Las ayudas se muestran por encima de cualquier formulario sin recortes.", "Maximizar permanece al lado de cerrar en los paneles laterales."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Devices show their name, systems, and browsers in reports and selectors.", "Adding from a sidebar opens the original Settings form.", "Type images appear in Settings, cards, and filters at 44 px with comfortable spacing.", "Help balloons render above every form without clipping.", "Maximize remains next to close in sidebar headers."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Dispositivos exibem nome, sistemas e navegadores nos relatórios e seletores.", "Adicionar pelo sidebar abre o formulário original dos Settings.", "Imagens dos tipos aparecem nos Settings, cards e filtros com 44 px e espaçamento confortável.", "Balloons de ajuda aparecem acima de qualquer formulário sem recortes.", "Maximizar permanece ao lado de fechar nos sidebars."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los nombres del menú ahora describen claramente cada módulo.", "Macros guardadas aparecen en su submenú.", "El Observador de endpoints conserva historial, exporta CSV y permite limpiarlo.", "Informes genera una vista A4 lista para guardar como PDF.", "En móvil, Pass y Fail están junto a Warning y Question."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Menu names now clearly describe each module.", "Saved macros appear in their submenu.", "Endpoint Observer keeps history, exports CSV, and supports clearing it.", "Reports generates an A4 view ready to save as PDF.", "On mobile, Pass and Fail are grouped with Warning and Question."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Os nomes do menu agora descrevem claramente cada módulo.", "Macros salvas aparecem em seu submenu.", "O Observador de endpoints mantém histórico, exporta CSV e permite limpar os registros.", "Relatórios gera uma visualização A4 pronta para salvar como PDF.", "No mobile, Pass e Fail ficam junto de Warning e Question."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -2211,6 +2211,7 @@ function finishTestSession() {
 
 const REPORT_DRAFTS_KEY = "qtsReportBuilderDraftsV1";
 const REPORT_TEMPLATES_KEY = "qtsReportBuilderTemplatesV1";
+const INSPECTOR_HISTORY_KEY = "qtsInspectorHistoryV1";
 const REPORT_FIELD_SELECTORS = {
   kind: "[data-report-kind]", title: "[data-report-title]", description: "[data-report-description]",
   preconditions: "[data-report-preconditions]", steps: "[data-report-steps]", expected: "[data-report-expected]",
@@ -2268,6 +2269,33 @@ function deviceSummary(device) {
 
 function selectedDeviceLabel(deviceId) {
   return deviceSummary((state.workspace.devices || []).find((device) => device.id === deviceId));
+}
+
+function printableReportHtml(values, context, labels) {
+  const sections = [
+    [labels.description, values.description],
+    [labels.preconditions, values.preconditions],
+    [labels.steps, values.steps],
+    [labels.expected, values.expected],
+    [labels.actual, values.actual],
+  ].filter(([, value]) => value);
+  const safe = (value) => escapeHtml(value).replaceAll("\n", "<br>");
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${safe(values.title || labels.fallbackTitle)}</title>
+  <style>
+    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#172033;background:#fff;font:14px/1.5 Inter,Arial,sans-serif}
+    header{padding:26px;border-radius:18px;background:#111827;color:#fff}header small{letter-spacing:.16em;text-transform:uppercase;color:#67e8f9}
+    h1{margin:8px 0 4px;font-size:27px;line-height:1.15}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
+    .metric,section{border:1px solid #dbe2ec;border-radius:14px;padding:14px}.metric span,section h2{display:block;margin:0 0 5px;color:#64748b;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+    section{margin-top:10px;break-inside:avoid}section p{margin:0}.url{word-break:break-all;color:#2563eb}
+    footer{margin-top:18px;padding-top:10px;border-top:1px solid #dbe2ec;color:#64748b;font-size:11px}
+    @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+  </style></head><body>
+  <header><small>${safe(labels.kind)}</small><h1>${safe(values.title || labels.fallbackTitle)}</h1><div>${safe(context.line)}</div></header>
+  <div class="meta"><div class="metric"><span>${safe(labels.severity)}</span><b>${safe(labels.severityValue)}</b></div><div class="metric"><span>${safe(labels.priority)}</span><b>${safe(labels.priorityValue)}</b></div><div class="metric"><span>${safe(labels.device)}</span><b>${safe(labels.deviceValue || "-")}</b></div></div>
+  <section><h2>URL</h2><p class="url">${safe(context.url)}</p></section>
+  ${values.tags ? `<section><h2>${safe(labels.tags)}</h2><p>${safe(values.tags)}</p></section>` : ""}
+  ${sections.map(([title, value]) => `<section><h2>${safe(title)}</h2><p>${safe(value)}</p></section>`).join("")}
+  <footer>${safe(labels.generatedAt)} ${safe(new Date().toLocaleString())} · QA Sandbox</footer></body></html>`;
 }
 
 function reportKindOptions() {
@@ -2336,6 +2364,7 @@ function renderReportBuilder(container, context, prefill) {
         <button type="button" class="action" data-report-copy>${escapeHtml(t.reportCopy)}</button>
         <button type="button" class="action" data-report-copy-slack title="${escapeHtml(t.reportCopySlackHint)}">${escapeHtml(t.reportCopySlack)}</button>
         <button type="button" class="action" data-report-export>${escapeHtml(t.reportExport)}</button>
+        <button type="button" class="action primary" data-report-export-pdf>${escapeHtml(t.reportExportPdf || "Exportar PDF")}</button>
       </div>
     </div>
   `;
@@ -2413,6 +2442,37 @@ function renderReportBuilder(container, context, prefill) {
   container.querySelector("[data-report-export]").addEventListener("click", () => {
     const blob = new Blob([buildReportText()], { type: "text/markdown" });
     triggerBlobDownload(blob, `${buildEvidenceFileBaseName(null)}_relatorio.md`);
+  });
+  container.querySelector("[data-report-export-pdf]").addEventListener("click", () => {
+    const values = readFields();
+    const kindLabel = kinds.find((item) => item.key === values.kind)?.label || values.kind;
+    const reportWindow = window.open("", "_blank");
+    if (!reportWindow) {
+      showQaToast(t.reportPdfBlocked || "Permita pop-ups para exportar o PDF.", "error");
+      return;
+    }
+    reportWindow.document.write(printableReportHtml(values, {
+      line: `${contextLine} · ${detectBrowserLabel()} · ${window.innerWidth}×${window.innerHeight}`,
+      url: context.url,
+    }, {
+      kind: kindLabel,
+      fallbackTitle: t.reportTitlePlaceholder,
+      severity: t.reportSeverity,
+      severityValue: severityLabel[values.severity],
+      priority: t.reportPriority,
+      priorityValue: priorityLabel[values.priority],
+      device: t.testedDevice,
+      deviceValue: selectedDeviceLabel(values.deviceId),
+      tags: t.reportTags,
+      description: t.reportDescription,
+      preconditions: t.reportPreconditions,
+      steps: t.reportSteps,
+      expected: t.reportExpected,
+      actual: t.reportActual,
+      generatedAt: t.reportGeneratedAt || "Gerado em",
+    }));
+    reportWindow.document.close();
+    window.setTimeout(() => reportWindow.print(), 300);
   });
   container.querySelector("[data-report-save-draft]").addEventListener("click", async () => {
     const stored = await chrome.storage.local.get(REPORT_DRAFTS_KEY);
@@ -3435,6 +3495,23 @@ const QA_SURFACE_TRANSLATIONS = {
 };
 
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
+  "Status do teste": "Estado de la prueba", "Cliques": "Clics", "Data e hora": "Fecha y hora",
+  "Respostas HTTP": "Respuestas HTTP", "Erros HTTP": "Errores HTTP", "Observador de endpoints": "Observador de endpoints",
+  "Tamanhos de tela": "Tamaños de pantalla", "Laboratório de campos": "Laboratorio de campos",
+  "Dados fictícios": "Datos ficticios", "Teclas e mouse": "Teclas y ratón", "Elementos da página": "Elementos de la página",
+  "Privacidade visual": "Privacidad visual", "Roteiros de teste": "Guiones de prueba", "Textos e idiomas": "Textos e idiomas",
+  "Sessões de teste": "Sesiones de prueba", "Relatórios": "Informes",
+});
+Object.assign(QA_SURFACE_TRANSLATIONS.en, {
+  "Status do teste": "Test Status", "Cliques": "Clicks", "Data e hora": "Date and Time",
+  "Respostas HTTP": "HTTP Responses", "Erros HTTP": "HTTP Errors", "Observador de endpoints": "Endpoint Observer",
+  "Tamanhos de tela": "Screen Sizes", "Laboratório de campos": "Field Lab",
+  "Dados fictícios": "Mock Data", "Teclas e mouse": "Keys and Mouse", "Elementos da página": "Page Elements",
+  "Privacidade visual": "Visual Privacy", "Roteiros de teste": "Test Scenarios", "Textos e idiomas": "Text and Languages",
+  "Sessões de teste": "Test Sessions", "Relatórios": "Reports",
+});
+
+Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Muestra atajos y acciones del ratón durante demostraciones, pruebas y grabaciones.",
   "Ativo nesta página": "Activo en esta página", "Desativado": "Desactivado", "Desativar": "Desactivar", "Ativar": "Activar",
   "Modo Typing": "Modo escritura", "Mantém o texto digitado na tela até você clicar em Limpar.": "Mantiene el texto escrito en pantalla hasta que hagas clic en Limpiar.",
@@ -4212,6 +4289,48 @@ function configuredInspectors() {
   return (state.workspace.inspectors || []).filter((inspector) => inspector.active !== false && Array.isArray(inspector.patterns) && inspector.patterns.length);
 }
 
+function inspectorHistoryEntry(entry) {
+  return {
+    id: String(entry.id || crypto.randomUUID()),
+    url: String(entry.url || "").slice(0, 4000),
+    method: String(entry.method || "GET").slice(0, 16),
+    status: Number(entry.status) || 0,
+    source: String(entry.source || "").slice(0, 120),
+    capturedAt: entry.capturedAt || new Date().toISOString(),
+    matchedInspectorIds: Array.isArray(entry.matchedInspectorIds) ? entry.matchedInspectorIds.slice(0, 30) : [],
+  };
+}
+
+async function loadInspectorHistory() {
+  try {
+    const stored = await chrome.storage.local.get(INSPECTOR_HISTORY_KEY);
+    const history = Array.isArray(stored[INSPECTOR_HISTORY_KEY]) ? stored[INSPECTOR_HISTORY_KEY] : [];
+    state.networkHistory = history.slice(0, 500);
+  } catch {
+    state.networkHistory = [];
+  }
+}
+
+function persistInspectorHistory() {
+  const history = state.networkHistory.slice(0, 500).map(inspectorHistoryEntry);
+  void chrome.storage.local.set({ [INSPECTOR_HISTORY_KEY]: history });
+}
+
+function downloadInspectorHistoryCsv(entries) {
+  const escapeCsv = (value) => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const rows = [["data", "hora", "inspector", "metodo", "status", "url"]];
+  for (const entry of entries) {
+    const date = new Date(entry.capturedAt);
+    const names = configuredInspectors()
+      .filter((item) => (entry.matchedInspectorIds || []).includes(item.id))
+      .map((item) => item.label)
+      .join(" | ");
+    rows.push([date.toLocaleDateString(), date.toLocaleTimeString(), names, entry.method, entry.status || "", entry.url]);
+  }
+  const csv = rows.map((row) => row.map(escapeCsv).join(",")).join("\r\n");
+  triggerBlobDownload(new Blob(["\uFEFF", csv], { type: "text/csv;charset=utf-8" }), `historico-endpoints-${new Date().toISOString().slice(0, 10)}.csv`);
+}
+
 // Everything captured is always kept now (previously a non-matching entry was dropped before it
 // ever reached state.networkHistory, which made "see everything" impossible even for founders who
 // just wanted a quick look - the "Todos"/"Meus Inspectors" toggle in renderInspectorsList() is a
@@ -4219,7 +4338,8 @@ function configuredInspectors() {
 function handleNetworkCaptured(entry) {
   entry.matchedInspectorIds = configuredInspectors().filter((inspector) => inspectorMatchesUrl(inspector, entry?.url)).map((inspector) => inspector.id);
   state.networkHistory.unshift(entry);
-  if (state.networkHistory.length > 150) state.networkHistory.length = 150;
+  if (state.networkHistory.length > 500) state.networkHistory.length = 500;
+  persistInspectorHistory();
   if (Number(entry?.status) >= 400) playSound("httpError");
   const badge = state.shadowRoot?.getElementById("inspectorsBadge");
   if (badge) {
@@ -4315,14 +4435,22 @@ function renderInspectorDashboard(listBody) {
     return;
   }
   listBody.innerHTML = configured.map((inspector) => {
-    const entry = state.networkHistory.find((item) => (item.matchedInspectorIds || []).includes(inspector.id));
+    const history = state.networkHistory.filter((item) => (item.matchedInspectorIds || []).includes(inspector.id));
+    const entry = history[0];
     return `
       <div class="qts-net-item" data-inspector-id="${escapeHtml(inspector.id)}" style="cursor:${entry ? "pointer" : "default"}">
-        <b>${escapeHtml(inspector.label || inspector.id)}</b>
+        <div style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(inspector.label || inspector.id)}</b><span class="qts-badge">${history.length}</span></div>
         <small>${escapeHtml((inspector.patterns || []).join(", "))}</small>
         ${entry
           ? `<small style="display:block;margin-top:3px;color:#42d5c2">${ICON("pass")} ${escapeHtml(entry.method)} ${entry.status || "-"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
-             <small style="display:block;margin-top:2px;word-break:break-all">${escapeHtml(entry.url)}</small>`
+             <small style="display:block;margin-top:2px;word-break:break-all">${escapeHtml(entry.url)}</small>
+             <div style="display:grid;gap:5px;margin-top:8px">${history.slice(0, 10).map((item) => {
+               const captured = new Date(item.capturedAt);
+               return `<div style="padding:7px 9px;border:1px solid var(--qts-ui-border);border-radius:8px">
+                 <small style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(`${item.method} ${item.status || "-"}`)}</b><span>${escapeHtml(captured.toLocaleTimeString())} ${escapeHtml(captured.toLocaleDateString())}</span></small>
+                 <small style="display:block;margin-top:2px;word-break:break-all">${escapeHtml(item.url)}</small>
+               </div>`;
+             }).join("")}</div>`
           : `<div style="display:flex;align-items:center;justify-content:space-between;margin-top:4px">
               <small style="color:#ffb020">Aguardando resposta...</small>
               <button type="button" class="qts-icon-btn" data-retry-inspector="${escapeHtml(inspector.id)}" title="Tentar novamente">${ICON("undo")}</button>
@@ -4361,6 +4489,10 @@ function renderInspectorsList() {
       <button type="button" class="${scope === "all" ? "isSelected" : ""}" data-inspector-scope="all">Todos</button>
       <button type="button" class="${scope === "mine" ? "isSelected" : ""}" data-inspector-scope="mine">Meus Inspectors</button>
     </div>
+    <div class="qts-card-actions">
+      <button type="button" class="action" id="inspectorsExportHistory" ${state.networkHistory.length ? "" : "disabled"}>${escapeHtml(t.inspectorsExportHistory || "Exportar histórico CSV")}</button>
+      <button type="button" class="action" id="inspectorsClearHistory" ${state.networkHistory.length ? "" : "disabled"}>${escapeHtml(t.inspectorsClearHistory || "Limpar histórico")}</button>
+    </div>
     ${scope === "mine" ? "" : `
     <div class="qts-toolbar-row">
       <input type="search" placeholder="${escapeHtml(t.inspectorsSearchPlaceholder)}" id="inspectorsSearch" value="${escapeHtml(inspectorsFilterState.query)}" class="qts-toolbar-search" />
@@ -4374,6 +4506,13 @@ function renderInspectorsList() {
   `;
 
   const listBody = body.querySelector("#inspectorsListBody");
+  body.querySelector("#inspectorsExportHistory").addEventListener("click", () => downloadInspectorHistoryCsv(state.networkHistory));
+  body.querySelector("#inspectorsClearHistory").addEventListener("click", async () => {
+    if (!confirm(t.inspectorsClearHistoryConfirm || "Limpar todo o histórico de endpoints?")) return;
+    state.networkHistory = [];
+    await chrome.storage.local.remove(INSPECTOR_HISTORY_KEY);
+    renderInspectorsList();
+  });
   if (scope === "mine") {
     renderInspectorDashboard(listBody);
     body.querySelectorAll("[data-inspector-scope]").forEach((button) => button.addEventListener("click", () => {
@@ -6706,8 +6845,10 @@ function renderPinnedMacros() {
   if (!container) return;
   if (!hasPlanFeature("macroStudio")) { container.innerHTML = ""; return; }
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
-  const macros = (state.workspace?.macros || []).filter((macro) => pinned.has(macro.id));
-  container.innerHTML = macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">${ICON("play")} ${escapeHtml(macro.name)}</button>`).join("");
+  const macros = state.workspace?.macros || [];
+  container.innerHTML = macros.length
+    ? `<small style="display:block;padding:3px 8px;color:var(--qts-ui-muted)">Macros salvas</small>${macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">${ICON("play")} ${escapeHtml(macro.name)} ${pinned.has(macro.id) ? ICON("pin") : ""}</button>`).join("")}`
+    : "";
   container.querySelectorAll("[data-pinned-macro]").forEach((button) => button.addEventListener("click", () => {
     const macro = (state.workspace.macros || []).find((item) => item.id === button.dataset.pinnedMacro);
     closeToolsMenu();
@@ -7412,7 +7553,7 @@ function openMacroEditor(macro) {
   const visibleElements = visibleMacroElementOptions();
   const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
   openDrawer({
-    title: "Macro Studio",
+    title: translateQaSurfaceText("Macros"),
     variant: "modal",
     view: "macroStudio",
     bodyHtml: `<datalist id="macroVisibleElements">${visibleElements.map(({ selector, label }) => `<option value="${escapeHtml(selector)}">${escapeHtml(label)}</option>`).join("")}</datalist>
@@ -8294,6 +8435,7 @@ async function boot() {
   state.workspace = await getWorkspace();
   state.siteScope = await getSiteScope();
   state.httpErrors = loadHttpErrorsFromSession();
+  await loadInspectorHistory();
   // Runs regardless of the result now: an unauthorized session still needs the location/storage
   // listeners below wired up, so the stripped "logged out" bar (see render()) keeps tracking
   // SPA navigation and reacts the moment the user signs back in via options.js.

@@ -1,4 +1,4 @@
-# Guia rápido — ferramentas de QA e Macro Studio
+# Guia rápido: ferramentas de QA e Macros
 
 As ferramentas aparecem em **Tools** na barra e podem ser ativadas ou ocultadas em **Configurações → Barra e aparência**.
 
@@ -11,14 +11,14 @@ menu **Tools** quando o plano ativo não inclui aquela ferramenta.
 |---|---|---|---|---|
 | Contador de caracteres | ✓ | ✓ | ✓ | ✓ |
 | Multiclick | ✓ | ✓ | ✓ | ✓ |
-| Input Lab | — | ✓ | ✓ | ✓ |
-| Faker Fill | — | ✓ | ✓ | ✓ |
-| Macro Studio | — | — | ✓ | ✓ |
-| Key View | — | — | — | ✓ |
-| Capturar Elementos | — | — | ✓ | ✓ |
+| Input Lab | Não | ✓ | ✓ | ✓ |
+| Faker Fill | Não | ✓ | ✓ | ✓ |
+| Macros | Não | Não | ✓ | ✓ |
+| Key View | Não | Não | Não | ✓ |
+| Capturar Elementos | Não | Não | ✓ | ✓ |
 
 A distribuição é configurável pelo founder em `/admin/` → aba **Feature flags**, sem precisar de
-deploy — a tabela acima reflete a configuração padrão de fábrica
+deploy. A tabela acima reflete a configuração padrão de fábrica
 (`supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql` e
 `supabase/migrations/20260720020000_element_capture_feature_flag.sql`).
 
@@ -42,13 +42,14 @@ Abra **Tools → Key View** para ativar e personalizar o visualizador usado em d
 
 As mesmas preferências ficam disponíveis em **Configurações → Barra e aparência → Key View**.
 
-## Macro Studio
+## Macros
 
-1. Abra **Tools → Macro Studio → Gravar macro**.
-2. Clique, escreva, selecione opções ou marque checkboxes na página.
-3. Clique no indicador vermelho **Macro · parar** na barra.
-4. Revise o fluxo no modo **Vibe Code**, dê um nome e salve.
-5. Use **Coder** para copiar o teste Playwright equivalente.
+1. Abra **Tools → Macros → Gravar macro**.
+2. As macros salvas ficam listadas no submenu de Macros para execução rápida.
+3. Clique, escreva, selecione opções ou marque checkboxes na página.
+4. Clique no indicador vermelho **Macro · parar** na barra.
+5. Revise o fluxo no modo **Vibe Code**, dê um nome e salve.
+6. Use **Coder** para copiar o teste Playwright equivalente.
 
 Na lista de macros é possível executar, editar, fixar/desafixar no menu, exportar e excluir. **Importar** aceita o JSON gerado pelo próprio Studio; conteúdo executável ou ação desconhecida é descartado.
 
@@ -74,9 +75,9 @@ A sessão é local (`chrome.storage.local`), não faz parte do workspace export�
 "Desativar ferramentas ativas" descarta uma sessão em andamento sem abrir o resumo (mesmo
 comportamento de cancelar uma gravação de macro/passos em andamento).
 
-## Report Builder
+## Relatórios
 
-Abra **Tools → Report Builder** para montar um relatório estruturado (bug, aprovação,
+Abra **Tools → Relatórios** para montar um relatório estruturado (bug, aprovação,
 limitação, impedimento, reteste, melhoria ou risco) sem reescrever título, passos e contexto do
 zero toda vez. Disponível em todos os planos.
 
@@ -89,7 +90,9 @@ zero toda vez. Disponível em todos os planos.
   menos um salvo.
 - **Salvar rascunho**, **Copiar** (Markdown) e **Exportar** (arquivo `.md`) funcionam como nas
   outras ferramentas de evidência.
-- O botão **Criar relatório** no resumo da Sessão de Teste abre o Report Builder já preenchido
+- **Exportar PDF** abre uma composição A4 minimalista com contexto, dispositivo, severidade,
+  prioridade, passos e resultados. Use a caixa de impressão do Chrome para salvar o PDF.
+- O botão **Criar relatório** no resumo da Sessão de Teste abre Relatórios já preenchido
   com o cenário como título e o tipo mapeado a partir do último status marcado na sessão (Pass →
   Aprovação, Fail → Bug, Blocked → Impedimento, Limitation → Limitação).
 
@@ -99,12 +102,13 @@ exportável/importável.
 ## Capturar Elementos
 
 Abra **Tools → Capturar elementos** para escanear a página atual e exportar um CSV com todos os
-elementos interativos (links, botões, inputs, selects) — pensado para acelerar a criação de testes
+elementos interativos (links, botões, inputs, selects), pensado para acelerar a criação de testes
 de automação.
 
 - Cada linha traz: tag, tipo, `name`, `id`, seletor CSS único, XPath, texto/label visível,
   placeholder e um marcador `sensitive` para campos identificados como senha/cartão/token.
-- **Nenhum valor digitado é exportado** — só dados estruturais/localizadores, nunca o conteúdo de um campo.
+- **Nenhum valor digitado é exportado**. Apenas dados estruturais e localizadores são incluídos,
+  nunca o conteúdo de um campo.
 - **Recapturar** refaz a varredura (útil após a página mudar); **Exportar CSV** baixa o arquivo com a data do dia no nome.
 
 ## Privacidade e limites
@@ -116,3 +120,8 @@ de automação.
 - A extensão não executa código colado. O modo Coder é uma saída Playwright para revisão/cópia.
 - Macros retomam na mesma aba após navegação, desde que a nova URL continue pertencendo a um ambiente autorizado.
 - Sites com CAPTCHA, iframe de outra origem ou Shadow DOM fechado podem exigir automação Playwright dedicada.
+## Observador de endpoints
+
+O histórico local registra data, hora, método, status e URL das requisições capturadas. Em
+**Meus Inspectors**, cada regra mostra a quantidade e os registros mais recentes. Use
+**Exportar histórico CSV** para baixar os registros ou **Limpar histórico** para removê-los.

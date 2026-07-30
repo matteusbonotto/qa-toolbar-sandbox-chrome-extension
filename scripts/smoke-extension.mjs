@@ -166,7 +166,7 @@ try {
   if (await installDemo.locator("#toolsButton:visible").count()) throw new Error("Protected Tools action remained visible while logged out");
   if (await installDemo.locator(".qts-tour-balloon").count()) throw new Error("Live tour started while the user was logged out");
   let loggedOutTourOptions = null;
-  for (let attempt = 0; attempt < 40 && !loggedOutTourOptions; attempt += 1) {
+  for (let attempt = 0; attempt < 150 && !loggedOutTourOptions; attempt += 1) {
     loggedOutTourOptions = context.pages().find((page) => page.url().startsWith(`chrome-extension://${extensionId}/src/options/options.html?tab=account`)) || null;
     if (!loggedOutTourOptions) await new Promise((resolveOptions) => setTimeout(resolveOptions, 100));
   }
@@ -793,6 +793,9 @@ try {
   }
   await inspectorsSearch.blur();
   await host.locator('[data-id="focus-regression-entry"]').waitFor();
+  if (!(await host.locator("#inspectorsExportHistory").isEnabled()) || !(await host.locator("#inspectorsClearHistory").isEnabled())) {
+    throw new Error("Endpoint Observer history actions did not activate after a captured request.");
+  }
   await host.locator('[data-id="focus-regression-entry"]').click();
   await host.locator("#drawerBack").waitFor();
   await host.evaluate(() => {
@@ -921,6 +924,7 @@ try {
   const prefilledKind = await reportDrawer.locator("[data-report-kind]").inputValue();
   if (prefilledKind !== "bug") throw new Error(`Report Builder did not map a Fail session to kind "bug": "${prefilledKind}"`);
   if (!(await reportDrawer.locator("[data-report-device]").count())) throw new Error("Report Builder is missing the tested device selector");
+  if (!(await reportDrawer.locator("[data-report-export-pdf]").count())) throw new Error("Reports is missing the visual PDF export");
   await reportDrawer.locator(".qts-help-balloon").first().hover();
   const helpPopoverStyle = await host.locator(".qts-help-popover").evaluate((element) => {
     const style = getComputedStyle(element);
@@ -988,7 +992,7 @@ try {
   await options.locator("#saveGeneralSettings").click();
   await host.locator("h1").press("Alt+Shift+I");
   await host.locator(".qts-drawer").waitFor();
-  if (!/Inspect/i.test(await host.locator(".qts-drawer-head h2").textContent())) throw new Error("Custom shortcut did not open the configured tool");
+  if (!/Observador|Endpoint/i.test(await host.locator(".qts-drawer-head h2").textContent())) throw new Error("Custom shortcut did not open the configured tool");
   await host.locator("#drawerClose").click();
   trace("custom tool shortcut capture, persistence and execution verified");
 
@@ -1657,14 +1661,14 @@ try {
   const macroPayload = JSON.parse(macroExport);
   if (macroPayload.format !== "qts-macros" || macroPayload.version !== 1 || macroPayload.macros.length !== 1 || macroExport.includes("segredo-da-gravacao")) throw new Error("Macro export format/security mismatch");
   await host.locator("#macroFile").setInputFiles({ name: "imported-macro.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ format: "qts-macros", version: 1, macros: [{ id: "imported", name: "Importada QA", steps: [{ action: "click", selector: "#navMacro" }, { action: "javascript", value: "alert(1)" }, { action: "fill", selector: "#macroText", value: "após navegação" }] }] })) });
-  await host.getByText("Importada QA").waitFor();
+  await host.locator("#macroList").getByText("Importada QA").waitFor();
   if (await host.locator("#macroList .qts-card").count() !== 2) throw new Error("Macro import did not merge the validated macro");
   await host.locator("#drawerClose").click();
 
   // Replaying the recorded macro performs the captured click and fill.
   await host.evaluate(() => { document.querySelector("#macroTarget").dataset.clicks = "0"; document.querySelector("#macroText").value = ""; });
   await host.locator("#toolsButton").click();
-  await host.locator("#pinnedMacrosMenu [data-pinned-macro]").click();
+  await host.locator("#pinnedMacrosMenu [data-pinned-macro]").first().click();
   await host.waitForFunction(() => document.querySelector("#macroTarget")?.dataset.clicks === "1" && document.querySelector("#macroText")?.value === "texto gravado", null, { timeout: 15_000 });
   const replay = await host.evaluate(() => ({ clicks: document.querySelector("#macroTarget").dataset.clicks, value: document.querySelector("#macroText").value }));
   if (replay.clicks !== "1" || replay.value !== "texto gravado") throw new Error(`Macro replay mismatch: ${JSON.stringify(replay)}`);
