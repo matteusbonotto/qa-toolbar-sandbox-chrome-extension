@@ -103,6 +103,7 @@ function getTestStatusOptions() {
   ];
 }
 const TEST_STATUS_HISTORY_KEY = "qtsTestStatusHistoryV1";
+const FIELD_VALIDATOR_HISTORY_KEY = "qtsFieldValidatorHistoryV1";
 
 function escapeHtml(value) {
   return String(value ?? "")
@@ -1069,7 +1070,7 @@ function buildShadowHost() {
               <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
-            <div id="pinnedMacrosMenu"></div>
+            <div id="pinnedMacrosMenu" class="isHidden"></div>
             <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testStatus))}</button>
             <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testSession))}</button>
@@ -1322,7 +1323,12 @@ function buildShadowHost() {
     closeToolsMenu();
   });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
-  shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
+  shadow.getElementById("macroStudioMenuItem").addEventListener("click", (event) => {
+    event.stopPropagation();
+    const submenu = shadow.getElementById("pinnedMacrosMenu");
+    submenu.classList.toggle("isHidden");
+    renderPinnedMacros();
+  });
   shadow.getElementById("stepsRecorderMenuItem").addEventListener("click", () => { openStepsRecorder(); closeToolsMenu(); });
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
   shadow.getElementById("inputLabMenuItem").addEventListener("click", () => { openInputLab(); closeToolsMenu(); });
@@ -1334,6 +1340,7 @@ function buildShadowHost() {
 
 function closeToolsMenu() {
   state.shadowRoot?.getElementById("toolsMenu")?.classList.remove("isOpen");
+  state.shadowRoot?.getElementById("pinnedMacrosMenu")?.classList.add("isHidden");
 }
 
 function setMinimized(value) {
@@ -1823,9 +1830,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los nombres del menú ahora describen claramente cada módulo.", "Macros guardadas aparecen en su submenú.", "El Observador de endpoints conserva historial, exporta CSV y permite limpiarlo.", "Informes genera una vista A4 lista para guardar como PDF.", "En móvil, Pass y Fail están junto a Warning y Question."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Menu names now clearly describe each module.", "Saved macros appear in their submenu.", "Endpoint Observer keeps history, exports CSV, and supports clearing it.", "Reports generates an A4 view ready to save as PDF.", "On mobile, Pass and Fail are grouped with Warning and Question."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Os nomes do menu agora descrevem claramente cada módulo.", "Macros salvas aparecem em seu submenu.", "O Observador de endpoints mantém histórico, exporta CSV e permite limpar os registros.", "Relatórios gera uma visualização A4 pronta para salvar como PDF.", "No mobile, Pass e Fail ficam junto de Warning e Question."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los nombres son consistentes en Tools, Configuración, Workspace y Landing Page.", "Macros abre un submenú con los flujos guardados.", "El Validador de campos muestra reglas, resultado e historial local seguro."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Names are consistent across Tools, Settings, Workspace, and the Landing Page.", "Macros opens a submenu with saved flows.", "Field Validator shows rules, outcomes, and safe local history."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Os nomes estão consistentes em Tools, Configurações, Workspace e Landing Page.", "Macros abre um submenu com os fluxos salvos.", "O Validador de campos mostra regras, resultado e histórico local seguro."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {
@@ -3385,6 +3392,10 @@ function drawerStyles() {
     .qts-list-row button { all: unset; cursor: pointer; color: #ff7078; font-weight: 800; padding: 0 4px; flex: none; }
     .qts-result-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
     .qts-result-table th, .qts-result-table td { padding: 7px; border-bottom: 1px solid #292929; text-align: left; }
+    .qts-validator-history summary { display:flex; align-items:center; justify-content:space-between; gap:10px; cursor:pointer; }
+    .qts-validator-history summary span { display:flex; align-items:center; gap:7px; min-width:0; }
+    .qts-validator-history summary span:first-child { flex-direction:column; align-items:flex-start; }
+    .qts-validator-history summary b, .qts-validator-history summary small { max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
     .qts-key-view-status { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
     .qts-key-view-status div { display: grid; gap: 2px; }
     .qts-key-view-status small, .qts-switch-row small { display: block; color: #999; font-weight: 500; }
@@ -3487,27 +3498,27 @@ function drawerStyles() {
 
 const QA_SURFACE_TRANSLATIONS = {
   es: {
-    "Contador de caracteres": "Contador de caracteres", "Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.": "Pega o selecciona un texto para medir caracteres, palabras, líneas y bytes.", "Digite ou cole seu texto...": "Escribe o pega tu texto...", "Usar seleção da página": "Usar selección de la página", "Limpar": "Limpiar", "Com espaços": "Con espacios", "Sem espaços": "Sin espacios", "Palavras": "Palabras", "Linhas": "Líneas", "Elemento": "Elemento", "Selecionar na página": "Seleccionar en la página", "Quantidade": "Cantidad", "Intervalo (ms)": "Intervalo (ms)", "Executar multiclick": "Ejecutar multiclic", "Repita cliques em um elemento, com limite e intervalo controlados.": "Repite clics en un elemento con cantidad e intervalo controlados.", "Input Lab": "Laboratorio de inputs", "Selecionar input na página": "Seleccionar input en la página", "Rodar kit de validação": "Ejecutar kit de validación", "Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.": "Inspecciona las reglas HTML y prueba texto, números, caracteres especiales, Unicode, vacío y límites sin enviar el formulario. El valor original se restaura.", "Caso": "Caso", "Enviado": "Enviado", "Recebido": "Recibido", "Validade": "Validez", "Tipo": "Tipo", "Obrigatório": "Obligatorio", "Mínimo": "Mínimo", "Máximo": "Máximo", "Não": "No", "Sim": "Sí", "Faker Fill": "Relleno con datos ficticios", "Escopo": "Alcance", "Página atual": "Página actual", "Formulário selecionado": "Formulario seleccionado", "Selecionar formulário": "Seleccionar formulario", "Preencher agora": "Rellenar ahora", "Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.": "Rellena formularios con datos sintéticos locales en un clic. Las contraseñas, tarjetas, CVV, tokens y campos ocultos siempre se ignoran.", "Macro Studio": "Estudio de macros", "Gravar macro": "Grabar macro", "+ Nova no Vibe Code": "+ Nueva en Vibe Code", "Importar": "Importar", "Exportar todas": "Exportar todas", "Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.": "Graba acciones o crea un flujo visual. Todo permanece local y solo se ejecutan acciones declarativas validadas.", "Monte o fluxo arrastando blocos. As setas representam a ordem de execução.": "Crea el flujo arrastrando bloques. Las flechas muestran el orden de ejecución.", "Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.": "Código Playwright real generado desde el mismo flujo. La extensión no ejecuta código pegado.", "Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.": "No hay macros guardadas. Graba tus acciones o empieza en Vibe Code.", "Executar": "Ejecutar", "Editar": "Editar", "Fixar no menu": "Fijar en el menú", "Desafixar": "Desfijar", "Exportar": "Exportar", "Excluir": "Eliminar", "Salvar macro": "Guardar macro", "Nome da macro": "Nombre de la macro", "Descrição opcional": "Descripción opcional", "Copiar código": "Copiar código", "Clique": "Clic", "Escrever": "Escribir", "Selecionar": "Seleccionar", "Tecla": "Tecla", "Esperar": "Esperar", "Primeiro formulário": "Primer formulario", "Página": "Página", "Marcar": "Marcar", "Desmarcar": "Desmarcar", "Valor": "Valor", "Seletor CSS": "Selector CSS", "Remover": "Eliminar", "Arraste uma função para cá ou clique em uma opção da paleta.": "Arrastra una función aquí o elige una opción de la paleta.", "Macros": "Macros"
+    "Contador de caracteres": "Contador de caracteres", "Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.": "Pega o selecciona un texto para medir caracteres, palabras, líneas y bytes.", "Digite ou cole seu texto...": "Escribe o pega tu texto...", "Usar seleção da página": "Usar selección de la página", "Limpar": "Limpiar", "Com espaços": "Con espacios", "Sem espaços": "Sin espacios", "Palavras": "Palabras", "Linhas": "Líneas", "Elemento": "Elemento", "Selecionar na página": "Seleccionar en la página", "Quantidade": "Cantidad", "Intervalo (ms)": "Intervalo (ms)", "Executar multiclick": "Ejecutar multiclic", "Repita cliques em um elemento, com limite e intervalo controlados.": "Repite clics en un elemento con cantidad e intervalo controlados.", "Validador de campos": "Laboratorio de inputs", "Selecionar input na página": "Seleccionar input en la página", "Rodar kit de validação": "Ejecutar kit de validación", "Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.": "Inspecciona las reglas HTML y prueba texto, números, caracteres especiales, Unicode, vacío y límites sin enviar el formulario. El valor original se restaura.", "Caso": "Caso", "Enviado": "Enviado", "Recebido": "Recibido", "Validade": "Validez", "Tipo": "Tipo", "Obrigatório": "Obligatorio", "Mínimo": "Mínimo", "Máximo": "Máximo", "Não": "No", "Sim": "Sí", "Auto preenchimento": "Relleno con datos ficticios", "Escopo": "Alcance", "Página atual": "Página actual", "Formulário selecionado": "Formulario seleccionado", "Selecionar formulário": "Seleccionar formulario", "Preencher agora": "Rellenar ahora", "Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.": "Rellena formularios con datos sintéticos locales en un clic. Las contraseñas, tarjetas, CVV, tokens y campos ocultos siempre se ignoran.", "Macro Studio": "Estudio de macros", "Gravar macro": "Grabar macro", "+ Nova no Vibe Code": "+ Nueva en Vibe Code", "Importar": "Importar", "Exportar todas": "Exportar todas", "Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.": "Graba acciones o crea un flujo visual. Todo permanece local y solo se ejecutan acciones declarativas validadas.", "Monte o fluxo arrastando blocos. As setas representam a ordem de execução.": "Crea el flujo arrastrando bloques. Las flechas muestran el orden de ejecución.", "Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.": "Código Playwright real generado desde el mismo flujo. La extensión no ejecuta código pegado.", "Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.": "No hay macros guardadas. Graba tus acciones o empieza en Vibe Code.", "Executar": "Ejecutar", "Editar": "Editar", "Fixar no menu": "Fijar en el menú", "Desafixar": "Desfijar", "Exportar": "Exportar", "Excluir": "Eliminar", "Salvar macro": "Guardar macro", "Nome da macro": "Nombre de la macro", "Descrição opcional": "Descripción opcional", "Copiar código": "Copiar código", "Clique": "Clic", "Escrever": "Escribir", "Selecionar": "Seleccionar", "Tecla": "Tecla", "Esperar": "Esperar", "Primeiro formulário": "Primer formulario", "Página": "Página", "Marcar": "Marcar", "Desmarcar": "Desmarcar", "Valor": "Valor", "Seletor CSS": "Selector CSS", "Remover": "Eliminar", "Arraste uma função para cá ou clique em uma opção da paleta.": "Arrastra una función aquí o elige una opción de la paleta.", "Macros": "Macros"
   },
   en: {
-    "Contador de caracteres": "Character Counter", "Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.": "Paste or select text to measure characters, words, lines, and bytes.", "Digite ou cole seu texto...": "Type or paste your text...", "Usar seleção da página": "Use page selection", "Limpar": "Clear", "Com espaços": "With spaces", "Sem espaços": "Without spaces", "Palavras": "Words", "Linhas": "Lines", "Elemento": "Element", "Selecionar na página": "Select on page", "Quantidade": "Count", "Intervalo (ms)": "Interval (ms)", "Executar multiclick": "Run multiclick", "Repita cliques em um elemento, com limite e intervalo controlados.": "Repeat clicks on an element with controlled count and interval.", "Input Lab": "Input Lab", "Selecionar input na página": "Select input on page", "Rodar kit de validação": "Run validation kit", "Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.": "Inspect HTML constraints and test text, numbers, special characters, Unicode, empty values, and limits without submitting the form. The original value is restored.", "Caso": "Case", "Enviado": "Attempted", "Recebido": "Received", "Validade": "Validity", "Tipo": "Type", "Obrigatório": "Required", "Mínimo": "Minimum", "Máximo": "Maximum", "Não": "No", "Sim": "Yes", "Faker Fill": "Faker Fill", "Escopo": "Scope", "Página atual": "Current page", "Formulário selecionado": "Selected form", "Selecionar formulário": "Select form", "Preencher agora": "Fill now", "Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.": "Fill forms with local synthetic data in one click. Passwords, cards, CVV, tokens, and hidden fields are always skipped.", "Macro Studio": "Macro Studio", "Gravar macro": "Record macro", "+ Nova no Vibe Code": "+ New in Vibe Code", "Importar": "Import", "Exportar todas": "Export all", "Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.": "Record actions or build a visual flow. Everything stays local and only validated declarative actions run.", "Monte o fluxo arrastando blocos. As setas representam a ordem de execução.": "Build the flow by dragging blocks. Arrows show the execution order.", "Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.": "Real Playwright code generated from the same flow. The extension does not execute pasted code.", "Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.": "No saved macros. Record your actions or start in Vibe Code.", "Executar": "Run", "Editar": "Edit", "Fixar no menu": "Pin to menu", "Desafixar": "Unpin", "Exportar": "Export", "Excluir": "Delete", "Salvar macro": "Save macro", "Nome da macro": "Macro name", "Descrição opcional": "Optional description", "Copiar código": "Copy code", "Clique": "Click", "Escrever": "Fill", "Selecionar": "Select", "Tecla": "Key", "Esperar": "Wait", "Primeiro formulário": "First form", "Página": "Page", "Marcar": "Check", "Desmarcar": "Uncheck", "Valor": "Value", "Seletor CSS": "CSS selector", "Remover": "Remove", "Arraste uma função para cá ou clique em uma opção da paleta.": "Drag a function here or choose one from the palette.", "Macros": "Macros"
+    "Contador de caracteres": "Character Counter", "Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.": "Paste or select text to measure characters, words, lines, and bytes.", "Digite ou cole seu texto...": "Type or paste your text...", "Usar seleção da página": "Use page selection", "Limpar": "Clear", "Com espaços": "With spaces", "Sem espaços": "Without spaces", "Palavras": "Words", "Linhas": "Lines", "Elemento": "Element", "Selecionar na página": "Select on page", "Quantidade": "Count", "Intervalo (ms)": "Interval (ms)", "Executar multiclick": "Run multiclick", "Repita cliques em um elemento, com limite e intervalo controlados.": "Repeat clicks on an element with controlled count and interval.", "Validador de campos": "Validador de campos", "Selecionar input na página": "Select input on page", "Rodar kit de validação": "Run validation kit", "Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.": "Inspect HTML constraints and test text, numbers, special characters, Unicode, empty values, and limits without submitting the form. The original value is restored.", "Caso": "Case", "Enviado": "Attempted", "Recebido": "Received", "Validade": "Validity", "Tipo": "Type", "Obrigatório": "Required", "Mínimo": "Minimum", "Máximo": "Maximum", "Não": "No", "Sim": "Yes", "Auto preenchimento": "Auto preenchimento", "Escopo": "Scope", "Página atual": "Current page", "Formulário selecionado": "Selected form", "Selecionar formulário": "Select form", "Preencher agora": "Fill now", "Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.": "Fill forms with local synthetic data in one click. Passwords, cards, CVV, tokens, and hidden fields are always skipped.", "Macro Studio": "Macro Studio", "Gravar macro": "Record macro", "+ Nova no Vibe Code": "+ New in Vibe Code", "Importar": "Import", "Exportar todas": "Export all", "Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.": "Record actions or build a visual flow. Everything stays local and only validated declarative actions run.", "Monte o fluxo arrastando blocos. As setas representam a ordem de execução.": "Build the flow by dragging blocks. Arrows show the execution order.", "Código Playwright real, gerado do mesmo fluxo. A extensão não executa código colado.": "Real Playwright code generated from the same flow. The extension does not execute pasted code.", "Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.": "No saved macros. Record your actions or start in Vibe Code.", "Executar": "Run", "Editar": "Edit", "Fixar no menu": "Pin to menu", "Desafixar": "Unpin", "Exportar": "Export", "Excluir": "Delete", "Salvar macro": "Save macro", "Nome da macro": "Macro name", "Descrição opcional": "Optional description", "Copiar código": "Copy code", "Clique": "Click", "Escrever": "Fill", "Selecionar": "Select", "Tecla": "Key", "Esperar": "Wait", "Primeiro formulário": "First form", "Página": "Page", "Marcar": "Check", "Desmarcar": "Uncheck", "Valor": "Value", "Seletor CSS": "CSS selector", "Remover": "Remove", "Arraste uma função para cá ou clique em uma opção da paleta.": "Drag a function here or choose one from the palette.", "Macros": "Macros"
   },
 };
 
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
-  "Status do teste": "Estado de la prueba", "Cliques": "Clics", "Data e hora": "Fecha y hora",
-  "Respostas HTTP": "Respuestas HTTP", "Erros HTTP": "Errores HTTP", "Observador de endpoints": "Observador de endpoints",
-  "Tamanhos de tela": "Tamaños de pantalla", "Laboratório de campos": "Laboratorio de campos",
-  "Dados fictícios": "Datos ficticios", "Teclas e mouse": "Teclas y ratón", "Elementos da página": "Elementos de la página",
-  "Privacidade visual": "Privacidad visual", "Roteiros de teste": "Guiones de prueba", "Textos e idiomas": "Textos e idiomas",
+  "Status do teste": "Estado de la prueba", "Clique espião": "Clic espía", "Parar tempo": "Detener tiempo",
+  "Simular HTTP": "Simular HTTP", "Monitor de erros": "Monitor de errores", "Monitor de endpoint": "Monitor de endpoint",
+  "Simulador de dispositivos": "Simulador de dispositivos", "Validador de campos": "Validador de campos",
+  "Auto preenchimento": "Autorrelleno", "Teclas e mouse": "Teclas y ratón", "Elementos da página": "Elementos de la página",
+  "Borrar elementos": "Desenfocar elementos", "Roteiros de teste": "Guiones de prueba", "Validador de textos/i18n": "Validador de textos/i18n",
   "Sessões de teste": "Sesiones de prueba", "Relatórios": "Informes",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
-  "Status do teste": "Test Status", "Cliques": "Clicks", "Data e hora": "Date and Time",
-  "Respostas HTTP": "HTTP Responses", "Erros HTTP": "HTTP Errors", "Observador de endpoints": "Endpoint Observer",
-  "Tamanhos de tela": "Screen Sizes", "Laboratório de campos": "Field Lab",
-  "Dados fictícios": "Mock Data", "Teclas e mouse": "Keys and Mouse", "Elementos da página": "Page Elements",
-  "Privacidade visual": "Visual Privacy", "Roteiros de teste": "Test Scenarios", "Textos e idiomas": "Text and Languages",
+  "Status do teste": "Test Status", "Clique espião": "Click Spy", "Parar tempo": "Freeze Time",
+  "Simular HTTP": "Simulate HTTP", "Monitor de erros": "Error Monitor", "Monitor de endpoint": "Endpoint Monitor",
+  "Simulador de dispositivos": "Device Simulator", "Validador de campos": "Field Validator",
+  "Auto preenchimento": "Auto Fill", "Teclas e mouse": "Keys and Mouse", "Elementos da página": "Page Elements",
+  "Borrar elementos": "Blur Elements", "Roteiros de teste": "Test Scenarios", "Validador de textos/i18n": "Text/i18n Validator",
   "Sessões de teste": "Test Sessions", "Relatórios": "Reports",
 });
 
@@ -5505,7 +5516,7 @@ function openBreakpointViewer() {
 }
 
 // ---------------------------------------------------------------------------
-// QA productivity kit: counters, Faker Fill, Input Lab, Multiclick and macros.
+// QA productivity kit: counters, Auto preenchimento, Validador de campos, Multiclick and macros.
 // ---------------------------------------------------------------------------
 
 const KEY_VIEW_POSITIONS = [
@@ -6846,14 +6857,18 @@ function renderPinnedMacros() {
   if (!hasPlanFeature("macroStudio")) { container.innerHTML = ""; return; }
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
   const macros = state.workspace?.macros || [];
-  container.innerHTML = macros.length
-    ? `<small style="display:block;padding:3px 8px;color:var(--qts-ui-muted)">Macros salvas</small>${macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">${ICON("play")} ${escapeHtml(macro.name)} ${pinned.has(macro.id) ? ICON("pin") : ""}</button>`).join("")}`
-    : "";
+  container.innerHTML = `<small style="display:block;padding:3px 8px;color:var(--qts-ui-muted)">Macros salvas</small>
+    ${macros.length ? macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">${ICON("play")} ${escapeHtml(macro.name)} ${pinned.has(macro.id) ? ICON("pin") : ""}</button>`).join("") : `<small class="qts-mini-empty">Nenhuma macro salva.</small>`}
+    <button type="button" data-manage-macros>${ICON("settings")} Gerenciar macros</button>`;
   container.querySelectorAll("[data-pinned-macro]").forEach((button) => button.addEventListener("click", () => {
     const macro = (state.workspace.macros || []).find((item) => item.id === button.dataset.pinnedMacro);
     closeToolsMenu();
     if (macro) void playMacro(macro);
   }));
+  container.querySelector("[data-manage-macros]")?.addEventListener("click", () => {
+    closeToolsMenu();
+    openMacroStudio();
+  });
 }
 
 // Live badge anchored to a real page input/textarea, so a founder can watch a character limit
@@ -7034,10 +7049,10 @@ function cancelElementSelection() {
 }
 
 // `resolve` maps the literal click target to the element the caller actually cares about, before
-// `accepts` even runs - e.g. Input Lab wants clicking anywhere on a floating-label wrapper (a
+// `accepts` even runs - e.g. Validador de campos wants clicking anywhere on a floating-label wrapper (a
 // common real-world pattern where the visible "input box" is a padded container around a
 // smaller <input>) to still resolve to the real <input>, not reject it outright. Defaults to
-// identity so callers that already accept the raw target (Multiclick, Faker Fill's own
+// identity so callers that already accept the raw target (Multiclick, Auto preenchimento's own
 // `.closest("form")` check) are unaffected.
 function selectPageElement({ accepts = () => true, resolve = (target) => target, onSelected, onCleanup, instruction }) {
   closeDrawer();
@@ -7136,17 +7151,60 @@ function openMultiClick(selectedElement = null) {
   });
 }
 
+async function readFieldValidatorHistory() {
+  const stored = await chrome.storage.local.get(FIELD_VALIDATOR_HISTORY_KEY);
+  return Array.isArray(stored[FIELD_VALIDATOR_HISTORY_KEY]) ? stored[FIELD_VALIDATOR_HISTORY_KEY] : [];
+}
+
+async function saveFieldValidatorHistory(entry) {
+  const history = await readFieldValidatorHistory();
+  await chrome.storage.local.set({ [FIELD_VALIDATOR_HISTORY_KEY]: [entry, ...history].slice(0, 100) });
+}
+
+function fieldValidatorRules(info) {
+  return [
+    info.required && "required",
+    info.minLength != null && `minlength=${info.minLength}`,
+    info.maxLength != null && `maxlength=${info.maxLength}`,
+    info.min != null && `min=${info.min}`,
+    info.max != null && `max=${info.max}`,
+    info.step != null && `step=${info.step}`,
+    info.pattern && `pattern=${info.pattern}`,
+    info.type && !["text", "textarea", "select"].includes(info.type) && `type=${info.type}`,
+  ].filter(Boolean);
+}
+
+function renderFieldValidatorHistory(output, history) {
+  if (!output) return;
+  output.innerHTML = history.length ? history.map((entry) => {
+    const failed = entry.results.filter((result) => !result.outcome).length;
+    const status = !entry.hadRules ? "Sem regras declaradas" : failed ? `${failed} possível(is) quebra(s)` : "Validação compatível";
+    return `<details class="qts-card qts-validator-history"><summary><span><b>${escapeHtml(entry.field)}</b><small>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</small></span><span>${failed ? ICON("fail") : ICON("pass")} ${escapeHtml(status)}</span></summary>
+      <p><b>Regras:</b> ${entry.rules.length ? escapeHtml(entry.rules.join(", ")) : "nenhuma regra HTML declarada"}</p>
+      <table class="qts-result-table"><thead><tr><th>Caso</th><th>Regra</th><th>Resultado</th></tr></thead><tbody>${entry.results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${escapeHtml(result.matchedRule || "sem regra específica")}</td><td>${result.outcome ? `${ICON("pass")} esperado` : `${ICON("fail")} revisar`} (${result.accepted ? "aceito" : "rejeitado"})</td></tr>`).join("")}</tbody></table>
+    </details>`;
+  }).join("") : `<div class="qts-mini-empty">Nenhuma validação executada ainda.</div>`;
+}
+
 function openInputLab(selectedElement = null) {
   if (!requirePlanFeature("inputLab")) return;
   const info = selectedElement ? window.QTS_QA_TOOLS.inspectInput(selectedElement) : null;
+  const rules = info ? fieldValidatorRules(info) : [];
   const infoHtml = info ? `<div class="qts-card"><b>${escapeHtml(info.selector)}</b><div class="qts-tool-grid">${[["Tipo", info.type], ["Obrigatório", info.required ? "Sim" : "Não"], ["Mínimo", info.min ?? info.minLength ?? "-"], ["Máximo", info.max ?? info.maxLength ?? "-"], ["Pattern", info.pattern || "-"]].map(([label, value]) => `<div><small>${label}</small><br><b>${escapeHtml(value)}</b></div>`).join("")}</div></div>` : "";
   openDrawer({
-    title: "Input Lab",
+    title: "Validador de campos",
     view: "inputLab",
-    bodyHtml: `<p class="qts-tool-lead">Inspecione as regras HTML e teste texto, números, caracteres especiais, Unicode, vazio e limite sem enviar o formulário. O valor original é restaurado.</p>
+    bodyHtml: `<p class="qts-tool-lead">Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.</p>
       <button class="action" id="inputSelect" type="button">Selecionar input na página</button>${infoHtml}
-      ${info ? `<button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Rodar kit de validação</button><div id="inputResults"></div>` : ""}`,
+      ${info ? `<div class="qts-card"><b>Regras encontradas</b><p>${rules.length ? escapeHtml(rules.join(", ")) : "Nenhuma regra HTML declarada. Os casos serão registrados como diagnóstico."}</p></div><button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Validar campo</button><div id="inputResults"></div>` : ""}
+      <div class="qts-card-actions"><b>Histórico</b><button class="action" id="inputHistoryClear" type="button">Limpar histórico</button></div><div id="inputHistory"></div>`,
     onReady(body) {
+      const refreshHistory = async () => renderFieldValidatorHistory(body.querySelector("#inputHistory"), await readFieldValidatorHistory());
+      void refreshHistory();
+      body.querySelector("#inputHistoryClear").addEventListener("click", async () => {
+        await chrome.storage.local.remove(FIELD_VALIDATOR_HISTORY_KEY);
+        await refreshHistory();
+      });
       body.querySelector("#inputSelect").addEventListener("click", () => selectPageElement({ resolve: resolveFormControlTarget, accepts: (element) => Boolean(element), onSelected: (element) => openInputLab(element), instruction: "Clique no input que deseja validar." }));
       body.querySelector("#inputRun")?.addEventListener("click", async (event) => {
         const runButton = event.currentTarget;
@@ -7154,7 +7212,10 @@ function openInputLab(selectedElement = null) {
         const output = body.querySelector("#inputResults"); output.textContent = "Testando...";
         try {
           const results = await window.QTS_QA_TOOLS.runInputValidation(selectedElement);
-          output.innerHTML = `<table class="qts-result-table"><thead><tr><th>Caso</th><th>Enviado</th><th>Recebido</th><th>Validade</th></tr></thead><tbody>${results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${result.attemptedLength}</td><td>${result.actualLength}</td><td>${result.accepted ? `${ICON("pass")} aceito` : `${ICON("fail")} ${escapeHtml(result.message || "rejeitado")}`}</td></tr>`).join("")}</tbody></table>`;
+          const failed = results.filter((result) => !result.outcome).length;
+          output.innerHTML = `<div class="qts-card"><b>${!rules.length ? "Diagnóstico concluído sem regras declaradas" : failed ? `${failed} possível(is) quebra(s) encontrada(s)` : "Campo compatível com as regras declaradas"}</b><p>${rules.length ? `Foram verificadas: ${escapeHtml(rules.join(", "))}.` : "Adicione required, limites, pattern ou um tipo específico para validar uma regra."}</p></div>`;
+          await saveFieldValidatorHistory({ id: crypto.randomUUID(), timestamp: new Date().toISOString(), page: location.origin + location.pathname, field: info.selector, rules, hadRules: rules.length > 0, results });
+          await refreshHistory();
         } catch (error) { output.textContent = error.message; }
         runButton.disabled = false;
       });
@@ -7165,7 +7226,7 @@ function openInputLab(selectedElement = null) {
 function openFakerFill(selectedRoot = null) {
   if (!requirePlanFeature("fakerFill")) return;
   openDrawer({
-    title: "Faker Fill",
+    title: "Auto preenchimento",
     view: "fakerFill",
     bodyHtml: `<p class="qts-tool-lead">Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.</p>
       <div class="qts-card"><b>Escopo</b><p>${selectedRoot ? "Formulário selecionado" : "Página atual"}</p></div>
@@ -7515,7 +7576,7 @@ function macroStepFields(step) {
 }
 
 function renderMacroFlow(container, steps, refreshCode) {
-  const actions = [["click", "Clique"], ["fill", "Escrever"], ["select", "Selecionar"], ["check", "Checkbox"], ["press", "Tecla"], ["wait", "Esperar"], ["scroll", "Scroll"], ["multiClick", "Multiclick"], ["fakerFill", "Faker Fill"]];
+  const actions = [["click", "Clique"], ["fill", "Escrever"], ["select", "Selecionar"], ["check", "Checkbox"], ["press", "Tecla"], ["wait", "Esperar"], ["scroll", "Scroll"], ["multiClick", "Multiclick"], ["fakerFill", "Auto preenchimento"]];
   container.innerHTML = steps.length ? steps.map((step, index) => `<div class="qts-step" draggable="true" data-step-index="${index}"><span class="qts-step-index">${index + 1}</span><select data-field="action">${actions.map(([value, label]) => `<option value="${value}" ${step.action === value ? "selected" : ""}>${label}</option>`).join("")}</select><div data-step-fields>${macroStepFields(step)}</div><button class="qts-icon-btn" type="button" data-remove-step title="Remover">${ICON("fail")}</button></div>`).join("") : `<div class="qts-empty">Arraste uma função para cá ou clique em uma opção da paleta.</div>`;
   container.querySelectorAll("[data-step-index]").forEach((row) => {
     const index = Number(row.dataset.stepIndex);
@@ -7551,7 +7612,7 @@ function openMacroEditor(macro) {
   const original = structuredClone(macro);
   const steps = structuredClone(macro.steps || []);
   const visibleElements = visibleMacroElementOptions();
-  const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Faker Fill`]];
+  const palette = [["click", `${ICON("cursor")} Clique`], ["fill", `${ICON("keyView")} Escrever`], ["select", `${ICON("chevronDown")} Selecionar`], ["check", `${ICON("checkSquare")} Checkbox`], ["press", `${ICON("key")} Tecla`], ["wait", `${ICON("wait")} Esperar`], ["scroll", `${ICON("scroll")} Scroll`], ["multiClick", `${ICON("multiClick")} Multiclick`], ["fakerFill", `${ICON("fakerFill")} Auto preenchimento`]];
   openDrawer({
     title: translateQaSurfaceText("Macros"),
     variant: "modal",

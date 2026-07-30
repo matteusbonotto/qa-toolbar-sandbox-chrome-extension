@@ -184,8 +184,8 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       senhas, dados de pagamento e tokens locais, inclui checksum SHA-256; falha de importação preserva
       o workspace anterior.
 - [x] Kit de produtividade integrado à barra: Contador de caracteres (com/sem espaços, palavras,
-      linhas e bytes UTF-8), Multiclick com seleção visual/limites, Input Lab que testa seis classes
-      de entrada sem submeter o formulário e restaura o valor original, e Faker Fill local que
+      linhas e bytes UTF-8), Multiclick com seleção visual/limites, Validador de campos que testa seis classes
+      de entrada sem submeter o formulário e restaura o valor original, e Auto preenchimento local que
       preenche página/formulário com dados sintéticos sem tocar senha, cartão, CVV, token ou segredo.
 - [x] Macro Studio declarativo: grava clique/escrita/select/checkbox/tecla; Vibe Code com paleta,
       drag and drop e fluxo conectado; Coder gera Playwright real somente leitura; CRUD, execução,
@@ -205,7 +205,7 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
       Preferências normalizadas no workspace schema 4 e disponíveis tanto no drawer quanto na tela
       completa de configurações, com i18n pt-BR/es/en.
 - [x] Smoke em Chrome real cobre bloqueio sem autenticação, login/acesso, hierarquia/URL, contador,
-      Key View/Typing/mouse e proteção de senha, Faker protegido, Input Lab, Multiclick,
+      Key View/Typing/mouse e proteção de senha, Faker protegido, Validador de campos, Multiclick,
       gravação/reprodução, Vibe Code/Coder, import/export,
       macro fixada, retomada após navegação, modo compacto, edição de ambiente, SPA, exportação
       segura e logout, com 0 erros de console/worker.
@@ -310,7 +310,7 @@ commerce, webhook, vouchers, referrals e admin/RLS sem imprimir chaves e limpa o
 - [x] Extensão vanilla MV3 reconstruída do zero (sem dados hardcoded); roda somente em URLs de
       ambientes autorizados e após autenticação com entitlement ativo.
 - [x] Badges white-label (logo/sigla/iniciais) para Cliente/Projeto/Produto + toggle mostrar nome.
-- [x] Contas de teste sandbox-only (mascaradas, nunca exportadas com senha).
+- [x] Usuários e contas sandbox-only (mascaradas, nunca exportadas com senha).
 - [x] i18n pt-BR/es/en completo na barra, LP e tela reconstruída de configurações: navegação, títulos,
       descrições, formulários, placeholders, ações dinâmicas, estados vazios, confirmações e feedbacks.
       O smoke Chrome alterna EN → ES → PT e valida textos/atributos antes de continuar o CRUD.

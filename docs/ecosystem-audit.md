@@ -105,8 +105,8 @@ condicionada a `is_founder()`.
   `background.js` (`registerContentScripts`/`unregisterContentScripts`), não é só texto de
   marketing.
 - **Ferramentas reais** (não aspiracionais — todas existem no código): workspaces (clientes/
-  projetos/produtos/ambientes/URLs N:N), contas de teste, meios de pagamento sandbox, Faker Fill,
-  Input Lab, Macro Studio (record/replay + export Playwright), Key View, Network Inspector
+  projetos/produtos/ambientes/URLs N:N), contas de teste, meios de pagamento sandbox, Auto preenchimento,
+  Validador de campos, Macro Studio (record/replay + export Playwright), Key View, Network Inspector
   (agora com cURL completo: ver/copiar/executar, adicionado nesta sessão), captura de elementos
   (CSV com seletor/XPath), screenshots, gravação (vídeo e GIF), anotações (formas, setas, notas,
   borrão), Test Status (Pass/Fail/Limitation), Command History/Error Monitor, Breakpoint Viewer,

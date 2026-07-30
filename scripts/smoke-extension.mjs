@@ -708,6 +708,7 @@ try {
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();
   await host.locator("#macroStudioMenuItem").click();
+  await host.locator("[data-manage-macros]").click();
   await host.locator(".qts-drawer-backdrop.isModal .qts-drawer").waitFor();
   const detachedModalPromise = context.waitForEvent("page");
   await host.locator("#drawerDetach").click();
@@ -1551,25 +1552,25 @@ try {
   for (const expected of ["11\nCom espaços", "9\nSem espaços", "3\nPalavras", "2\nLinhas"]) if (!counterText.includes(expected)) throw new Error(`Character Counter mismatch: ${counterText}`);
   await host.locator("#drawerClose").click();
 
-  // Faker Fill populates visible form fields locally and always protects passwords.
+  // Auto preenchimento populates visible form fields locally and always protects passwords.
   await host.locator("#toolsButton").click();
   await host.locator("#fakerFillMenuItem").click();
   await host.locator("#fakerRun").click();
   const fakerResult = await host.evaluate(() => ({ name: document.querySelector("#qaName").value, email: document.querySelector("#qaEmail").value, password: document.querySelector("#qaPassword").value }));
-  if (!fakerResult.name || !fakerResult.email.endsWith("@example.com") || fakerResult.password) throw new Error(`Faker Fill security mismatch: ${JSON.stringify(fakerResult)}`);
+  if (!fakerResult.name || !fakerResult.email.endsWith("@example.com") || fakerResult.password) throw new Error(`Auto preenchimento security mismatch: ${JSON.stringify(fakerResult)}`);
   const fakerReport = await host.locator("#fakerReport").innerText();
-  if (!fakerReport.includes("Campos preenchidos") || !fakerReport.includes("Nome") || !fakerReport.includes(fakerResult.name) || fakerReport.toLowerCase().includes("senha")) throw new Error(`Faker Fill field report mismatch: ${fakerReport}`);
+  if (!fakerReport.includes("Campos preenchidos") || !fakerReport.includes("Nome") || !fakerReport.includes(fakerResult.name) || fakerReport.toLowerCase().includes("senha")) throw new Error(`Auto preenchimento field report mismatch: ${fakerReport}`);
   await host.locator("#drawerClose").click();
 
-  // Input Lab inspects constraints, tests six data classes and restores the original value.
+  // Validador de campos inspects constraints, tests six data classes and restores the original value.
   await host.locator("#qaName").fill("Original");
   await host.locator("#toolsButton").click();
   await host.locator("#inputLabMenuItem").click();
   await host.locator("#inputSelect").click();
   await host.locator("#qaName").click();
   await host.locator("#inputRun").click();
-  await host.locator("#inputResults tbody tr").nth(5).waitFor();
-  if (await host.locator("#inputResults tbody tr").count() !== 6 || await host.locator("#qaName").inputValue() !== "Original") throw new Error("Input Lab did not complete or restore the input");
+  await host.locator("#inputHistory tbody tr").first().waitFor({ state: "attached" });
+  if (await host.locator("#inputHistory tbody tr").count() !== 6 || !await host.locator("#inputResults").innerText().then((text) => text.includes("regras declaradas")) || await host.locator("#qaName").inputValue() !== "Original") throw new Error("Validador de campos did not explain the result, persist six cases, or restore the input");
   await host.locator("#drawerClose").click();
 
   // Multiclick uses the visual selector and respects the requested count.
@@ -1627,6 +1628,7 @@ try {
   // Macro recording captures normal interactions but ignores password content.
   await host.locator("#toolsButton").click();
   await host.locator("#macroStudioMenuItem").click();
+  await host.locator("[data-manage-macros]").click();
   await host.locator("#startMacroRecording").click();
   await host.locator("#macroTarget").click();
   await host.locator("#macroText").fill("texto gravado");
@@ -1669,6 +1671,7 @@ try {
   // Replaying the recorded macro performs the captured click and fill.
   await host.evaluate(() => { document.querySelector("#macroTarget").dataset.clicks = "0"; document.querySelector("#macroText").value = ""; });
   await host.locator("#toolsButton").click();
+  await host.locator("#macroStudioMenuItem").click();
   await host.locator("#pinnedMacrosMenu [data-pinned-macro]").first().click();
   await host.waitForFunction(() => document.querySelector("#macroTarget")?.dataset.clicks === "1" && document.querySelector("#macroText")?.value === "texto gravado", null, { timeout: 15_000 });
   const replay = await host.evaluate(() => ({ clicks: document.querySelector("#macroTarget").dataset.clicks, value: document.querySelector("#macroText").value }));
@@ -1678,6 +1681,7 @@ try {
   // A pending run is scoped to the current tab and resumes after full document navigation.
   await host.locator("#toolsButton").click();
   await host.locator("#macroStudioMenuItem").click();
+  await host.locator("[data-manage-macros]").click();
   await host.locator('#macroList .qts-card').filter({ hasText: "Importada QA" }).locator('[data-macro-action="play"]').click();
   await host.waitForURL("**/app/next");
   await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
@@ -1709,6 +1713,7 @@ try {
 
   await host.locator("#toolsButton").click();
   await host.locator("#macroStudioMenuItem").click();
+  await host.locator("[data-manage-macros]").click();
   await host.locator("#startMacroRecording").click();
   await host.locator("#macroTarget").click();
   await host.reload();

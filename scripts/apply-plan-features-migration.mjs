@@ -32,8 +32,8 @@ const supabase = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, {
 const FEATURES = [
   { key: "characterCounter.enabled", value_type: "boolean", description: "Character/word/line/byte counter tool" },
   { key: "multiClick.enabled", value_type: "boolean", description: "Multiclick tool with visual selection and limits" },
-  { key: "inputLab.enabled", value_type: "boolean", description: "Input Lab: tests input classes without submitting the form" },
-  { key: "fakerFill.enabled", value_type: "boolean", description: "Faker Fill: local synthetic data autofill" },
+  { key: "inputLab.enabled", value_type: "boolean", description: "Validador de campos: tests input classes without submitting the form" },
+  { key: "fakerFill.enabled", value_type: "boolean", description: "Auto preenchimento: local synthetic data autofill" },
   { key: "macroStudio.enabled", value_type: "boolean", description: "Macro Studio: record/replay, Vibe Code, Playwright export" },
   { key: "keyView.enabled", value_type: "boolean", description: "Key View: on-screen keystroke/typing/mouse visualizer" },
   { key: "elementCapture.enabled", value_type: "boolean", description: "Capturar Elementos: exports a CSV of interactive elements with CSS selector/XPath for automation" },

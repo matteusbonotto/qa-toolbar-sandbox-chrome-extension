@@ -18,7 +18,7 @@
         <div class="navSubmenu" id="workspaceNavSubmenu" hidden aria-label="Seções do Workspace">
           <button type="button" data-workspace-nav="structure">Clientes e produtos</button>
           <button type="button" data-workspace-nav="urls">Ambientes e URLs</button>
-          <button type="button" data-workspace-nav="accounts">Contas de teste</button>
+          <button type="button" data-workspace-nav="accounts">Usuários e contas</button>
           <button type="button" data-workspace-nav="payments">Pagamentos de teste</button>
           <button type="button" data-workspace-nav="devices">Dispositivos</button>
           <button type="button" data-workspace-nav="integrations">Inspectors</button>
@@ -207,7 +207,7 @@
           </div>
 
           <div class="workspacePane" data-workspace-pane="accounts" role="tabpanel">
-            <div class="paneIntro"><div><h2>Contas de teste</h2><p>Credenciais sandbox organizadas por ambiente e protegidas na exportação.</p></div><span class="count" id="testAccountCount">0</span></div>
+            <div class="paneIntro"><div><h2>Usuários e contas</h2><p>Credenciais sandbox organizadas por ambiente e protegidas na exportação.</p></div><span class="count" id="testAccountCount">0</span></div>
             <div class="urlTreeFilters relationalViewFilters" role="group" aria-label="Organizar contas por"><span>Visualizar por</span><button type="button" data-relational-view="testAccounts" data-relational-dimension="environment" aria-pressed="true">Ambiente</button><button type="button" data-relational-view="testAccounts" data-relational-dimension="client" aria-pressed="false">Cliente</button><button type="button" data-relational-view="testAccounts" data-relational-dimension="project" aria-pressed="false">Projeto</button><button type="button" data-relational-view="testAccounts" data-relational-dimension="product" aria-pressed="false">Produto</button><button type="button" data-relational-view="testAccounts" data-relational-dimension="type" aria-pressed="false">Tipo</button></div>
             <article class="entityCard entityCardWide typeCatalogCard"><div class="cardHead"><h3>Tipos de conta</h3><span class="count" id="accountTypeCount">0</span></div><p class="cardLead">Cadastre uma vez e reutilize o tipo em qualquer conta.</p><div class="list typeCatalogList" id="accountTypeList"></div>
               <button type="button" class="composerTrigger" data-open-composer="accountTypeComposer">Adicionar tipo de conta</button>

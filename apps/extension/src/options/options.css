@@ -565,7 +565,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .inlineForm.formWide > .fullRow { grid-column:1/-1; }
 .inlineForm.formWide > .formActions { grid-column:1/-1; }
 /* Sticky, not just "at the end of the form": .formDialog scrolls as one unit (see its own
-   max-height/overflow above), so on a tall composer (Contas de teste, Meios de pagamento) the
+   max-height/overflow above), so on a tall composer (Usuários e contas, Meios de pagamento) the
    Salvar button used to scroll off with the rest of the fields - stuck to the bottom of the
    dialog's own scroll area, it stays reachable no matter how far down you've scrolled. */
 .formActions {

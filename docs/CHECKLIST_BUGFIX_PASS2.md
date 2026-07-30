@@ -36,9 +36,9 @@
       medidas: texto secundário dos editores 6,73:1, texto de inputs 17,84:1, texto secundário
       das configurações 7,45:1 e destaque amarelo 13,46:1 (todos acima de WCAG AA).
 
-## Fase 2 — Input Lab, Breakpoint Viewer, busca/filtros, largura dos sidebars
+## Fase 2 — Validador de campos, Breakpoint Viewer, busca/filtros, largura dos sidebars
 
-- [x] 7. Input Lab: clicar num wrapper/label agora resolve pro input real dentro dele; dica de
+- [x] 7. Validador de campos: clicar num wrapper/label agora resolve pro input real dentro dele; dica de
       Esc fica visível o tempo todo (não só no primeiro toast). Verificado ao vivo clicando fora
       do input literal.
 - [x] 8. Breakpoint Viewer: slider de zoom + botões −/+ (50%-200%), aplicado igual nos dois
@@ -46,7 +46,7 @@
 - [x] 9. Botão de recolher busca agora só esconde os filtros — campo de busca nunca mais some.
       Verificado ao vivo nos 4 drawers que usam o padrão (Inspectors/Error Monitor/Contas/Recursos).
 - [x] 10. Sidebars: praticamente já estava certo — só as chamadas sem `wide` explícito (Contas de
-      teste, Meios de pagamento, Recursos, Key View, Contador, Multiclick, Input Lab, Faker Fill)
+      teste, Meios de pagamento, Recursos, Key View, Contador, Multiclick, Validador de campos, Auto preenchimento)
       precisavam do default mudar; Inspectors/Error Monitor/JSON Studio/Macro Studio já tinham
       `wide:true` explícito desde antes.
 
