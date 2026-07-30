@@ -161,6 +161,22 @@ Validação posterior:
   `4f4db78682ffe74fd66a97a07f1d7d8d3291f834da3ce5d98dce297edf7cd652`.
 - Pacote preparado para upload manual:
   `artifacts/chrome-web-store-package-v1.4.25.zip`.
+
+## Continuação 1.4.26
+
+- O catálogo comum de ferramentas passou a usar nomes de módulos e coleções. Exemplos:
+  `Macros`, `Roteiros de teste`, `Sessões de teste`, `Relatórios` e
+  `Observador de endpoints`.
+- O submenu de Macros lista todas as macros salvas e identifica as fixadas.
+- O Observador de endpoints persiste até 500 registros locais com data, hora, método, status,
+  URL e relação com os Inspectors configurados.
+- O histórico pode ser exportado em CSV ou limpo pelo usuário.
+- Relatórios mantém a exportação Markdown e adiciona uma composição visual A4, minimalista e
+  organizada, pronta para salvar como PDF pela caixa de impressão do Chrome.
+- Os novos textos foram adicionados em PT-BR, EN e ES.
+- No mobile, Pass e Fail saíram de Tools e passaram a aparecer no mesmo menu compacto de
+  marcadores que Warning e Question.
+- A extensão foi incrementada para `1.4.26`.
 - SHA-256 do pacote:
   `00728d7e93c0749802e016d9ba0a0e8f6123a218d4dee66a7f7e8e6111ecc2ac`.
 
