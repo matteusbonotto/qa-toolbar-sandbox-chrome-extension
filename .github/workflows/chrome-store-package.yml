@@ -55,6 +55,7 @@ jobs:
       CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
       CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
       CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+      ACCESS_TOKEN_PRIVATE_KEY_JWK: ${{ secrets.ACCESS_TOKEN_PRIVATE_KEY_JWK }}
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -64,8 +65,8 @@ jobs:
       - run: npm ci
       - name: Verify Chrome Web Store secrets are configured
         run: |
-          if [ -z "$CHROME_WEBSTORE_CLIENT_ID" ] || [ -z "$CHROME_WEBSTORE_CLIENT_SECRET" ] || [ -z "$CHROME_WEBSTORE_REFRESH_TOKEN" ]; then
-            echo "::error::CHROME_WEBSTORE_CLIENT_ID/CLIENT_SECRET/REFRESH_TOKEN não estão configurados como repository secrets. Veja docs/DEPLOY_CHROME_WEBSTORE.md."
+          if [ -z "$CHROME_WEBSTORE_CLIENT_ID" ] || [ -z "$CHROME_WEBSTORE_CLIENT_SECRET" ] || [ -z "$CHROME_WEBSTORE_REFRESH_TOKEN" ] || [ -z "$ACCESS_TOKEN_PRIVATE_KEY_JWK" ]; then
+            echo "::error::Os segredos da Chrome Web Store e ACCESS_TOKEN_PRIVATE_KEY_JWK precisam estar configurados. Veja docs/DEPLOY_CHROME_WEBSTORE.md."
             exit 1
           fi
       - name: Repository security scan
