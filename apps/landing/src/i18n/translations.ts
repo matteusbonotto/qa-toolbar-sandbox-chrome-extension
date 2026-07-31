@@ -112,7 +112,6 @@ export interface Dictionary {
     titleLine1: string;
     titleGradient: string;
     body: string;
-    gifAlt: string;
   };
   features: {
     eyebrow: string;
@@ -416,7 +415,6 @@ const pt: Dictionary = {
     titleLine1: "Testes manuais com",
     titleGradient: "sabooor automático",
     body: "A gente não tira o humano da jogada, só acelera ele. O QA Toolbar Sandbox cuida do trabalho repetitivo (contexto, evidências, captura de rede, timers) enquanto você mantém o olhar crítico que nenhuma automação substitui. É teste manual, com sabooor automático.",
-    gifAlt: "Sabor energético, sabooor automático",
   },
   features: {
     eyebrow: "Ferramentas",
@@ -984,7 +982,6 @@ const es: Dictionary = {
     titleLine1: "Pruebas manuales con",
     titleGradient: "sabor automático",
     body: "No sacamos al humano de la jugada, solo lo aceleramos. QA Toolbar Sandbox se encarga del trabajo repetitivo (contexto, evidencias, captura de red, temporizadores) mientras tú mantienes la mirada crítica que ninguna automatización sustituye. Es prueba manual, con sabor automático.",
-    gifAlt: "Sabor energético, sabor automático",
   },
   features: {
     eyebrow: "Herramientas",
@@ -1126,7 +1123,7 @@ const es: Dictionary = {
         details: "Ejecuta un kit de validación (vacío, texto, número, caracteres especiales, Unicode, límite excedido) en un input seleccionado, sin enviar el formulario, y restaura el valor original al final.",
       },
       fakerFill: {
-        title: "Auto preenchimento",
+        title: "Autorrelleno",
         short: "Rellena la página o un formulario con datos sintéticos realistas.",
         details: "Rellena automáticamente nombre, correo, dirección y otros campos comunes con datos ficticios plausibles, siempre saltando contraseña, tarjeta, CVV, token y secreto.",
       },
@@ -1552,7 +1549,6 @@ const en: Dictionary = {
     titleLine1: "Manual testing with an",
     titleGradient: "automated flavor",
     body: "We don't take the human out of the loop, we just speed them up. QA Toolbar Sandbox handles the repetitive work (context, evidence, network capture, timers) while you keep the critical eye no automation can replace. It's manual testing, with an automated flavor.",
-    gifAlt: "Energetic flavor, automated flavor",
   },
   features: {
     eyebrow: "Tools",
@@ -1689,12 +1685,12 @@ const en: Dictionary = {
         details: "Visually select an element, choose 2 to 100 clicks and the interval between them, useful for testing debounce, double-submit and behavior under repeated clicks without clicking manually yourself.",
       },
       inputLab: {
-        title: "Validador de campos",
+        title: "Field Validator",
         short: "Tests a field with text, numbers, Unicode and overflow.",
         details: "Runs a validation kit (empty, text, number, special characters, Unicode, overflow) against a selected input without submitting the form, and restores the original value afterward.",
       },
       fakerFill: {
-        title: "Auto preenchimento",
+        title: "Auto Fill",
         short: "Fills the page or a form with realistic synthetic data.",
         details: "Automatically fills name, email, address and other common fields with plausible fake data, always skipping password, card, CVV, token and secret fields.",
       },
