@@ -7442,7 +7442,7 @@ function fieldValidatorRules(info) {
 // "what happened before" always look identical - no separate summary-only vs. detailed-table paths.
 function fieldValidatorResultTable(rules, results) {
   const failed = results.filter((result) => !result.outcome).length;
-  const status = !rules.length ? "Sem regras declaradas" : failed ? `${failed} possível(is) quebra(s)` : "Validação compatível";
+  const status = !rules.length ? "Sem regras declaradas" : failed ? `${failed} possível(is) quebra(s) encontrada(s)` : "Campo compatível com as regras declaradas";
   return `<p><b>Regras:</b> ${rules.length ? escapeHtml(rules.join(", ")) : "nenhuma regra HTML declarada"}</p>
     <p>${failed ? ICON("fail") : ICON("pass")} <b>${escapeHtml(status)}</b></p>
     <table class="qts-result-table"><thead><tr><th>Caso</th><th>Regra</th><th>Resultado</th></tr></thead><tbody>${results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${escapeHtml(result.matchedRule || "sem regra específica")}</td><td>${result.outcome ? `${ICON("pass")} esperado` : `${ICON("fail")} revisar`} (${result.accepted ? "aceito" : "rejeitado"})</td></tr>`).join("")}</tbody></table>`;
