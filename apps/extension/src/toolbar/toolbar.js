@@ -2190,6 +2190,7 @@ function renderTestSessionSummary(container, session) {
       actual: notes,
       steps: recordedSteps,
       deviceId: container.querySelector("[data-session-device]").value,
+      evidenceCount: session.evidenceCount,
     }, session.context);
   });
 }
@@ -2411,6 +2412,14 @@ function renderReportBuilder(container, context, prefill) {
       values.steps ? `\n${t.reportSteps}\n${values.steps}` : "",
       values.expected ? `\n${t.reportExpected}\n${values.expected}` : "",
       values.actual ? `\n${t.reportActual}\n${values.actual}` : "",
+      // The extension never retains evidence/recording binaries in memory (they're downloaded to
+      // disk the moment they're captured, by design - see the local-first/security notes
+      // elsewhere in this file) so a literal in-app "attachment" isn't possible; this at least
+      // makes the report say explicitly that evidence exists and needs to be attached by hand,
+      // instead of silently saying nothing about it.
+      // TODO(i18n): PT-only for now - these two lines aren't in the structured t.* dictionary yet.
+      prefill.evidenceCount ? `\nEvidências: ${prefill.evidenceCount} capturada(s) nesta sessão - anexe os arquivos baixados (prefixo "evidencia_") manualmente.` : "",
+      prefill.mediaMode ? `\nGravação: um ${prefill.mediaMode === "gif" ? "GIF" : "vídeo"} deste roteiro foi baixado - anexe o arquivo manualmente.` : "",
     ];
     return lines.filter(Boolean).join("\n");
   };
@@ -3390,6 +3399,9 @@ function drawerStyles() {
     }
     .qts-catalog-image { width:44px; height:44px; flex:0 0 44px; margin:4px 8px 4px 2px; border-radius:9px; object-fit:cover; background:var(--qts-panel-2); }
     .qts-filter-chip-image { width:24px; height:24px; flex:0 0 24px; border-radius:6px; object-fit:cover; background:var(--qts-panel-2); }
+    .qts-holofote-preview { display:grid; gap:6px; margin-bottom:4px; }
+    .qts-holofote-preview svg { border-radius:10px; border:1px solid var(--qts-panel-border,#333); }
+    .qts-holofote-preview small { color:var(--qts-panel-muted,#999); text-align:center; }
     .qts-drawer-position { width:auto; display:flex; gap:3px; flex:none; }
     .qts-drawer-head .qts-drawer-position-btn {
       width:22px; height:22px; min-width:0; padding:0; border:1px solid var(--qts-panel-border,#262626);
@@ -3766,7 +3778,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Adicione required, limites, pattern ou um tipo específico para validar uma regra.": "Add required, limits, pattern, or a specific type to validate a rule.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
-  "Limpar ferramentas ativas": "Limpiar herramientas activas", "Ferramentas ativas": "Herramientas activas", "Ferramentas ligadas": "Herramientas encendidas", "Desativar todas": "Desactivar todas", "Nenhuma ferramenta ativa no momento.": "Ninguna herramienta activa en este momento.", "Marcadores na página": "Marcadores en la página", "Limpar todos": "Limpiar todos", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Arrastra para reordenar la pila visual (el primero de la lista queda debajo).", "Marcador": "Marcador", "Nota": "Nota", "Forma": "Forma", "Linha": "Línea", "Posicionando marcador/forma/linha": "Posicionando marcador/forma/línea", "Corpo da resposta (JSON opcional)": "Cuerpo de la respuesta (JSON opcional)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Déjalo vacío para usar un cuerpo genérico. Si lo completas, la página recibe exactamente ese JSON en el status elegido - útil para simular el mensaje de error real que la app espera.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "JSON inválido en el cuerpo de la respuesta - corrígelo o déjalo vacío.", "Negrito": "Negrita", "Itálico": "Cursiva", "Tachado": "Tachado", "Sublinhado": "Subrayado", "Tamanho": "Tamaño", "Borrado": "Difuminado", "Borda": "Borde", "Sombra": "Sombra", "Cantos arredondados": "Esquinas redondeadas",
+  "Limpar ferramentas ativas": "Limpiar herramientas activas", "Ferramentas ativas": "Herramientas activas", "Ferramentas ligadas": "Herramientas encendidas", "Desativar todas": "Desactivar todas", "Nenhuma ferramenta ativa no momento.": "Ninguna herramienta activa en este momento.", "Marcadores na página": "Marcadores en la página", "Limpar todos": "Limpiar todos", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Arrastra para reordenar la pila visual (el primero de la lista queda debajo).", "Marcador": "Marcador", "Nota": "Nota", "Forma": "Forma", "Linha": "Línea", "Posicionando marcador/forma/linha": "Posicionando marcador/forma/línea", "Corpo da resposta (JSON opcional)": "Cuerpo de la respuesta (JSON opcional)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Déjalo vacío para usar un cuerpo genérico. Si lo completas, la página recibe exactamente ese JSON en el status elegido - útil para simular el mensaje de error real que la app espera.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "JSON inválido en el cuerpo de la respuesta - corrígelo o déjalo vacío.", "Negrito": "Negrita", "Itálico": "Cursiva", "Tachado": "Tachado", "Sublinhado": "Subrayado", "Tamanho": "Tamaño", "Borrado": "Difuminado", "Borda": "Borde", "Sombra": "Sombra", "Cantos arredondados": "Esquinas redondeadas", "Prévia: como o holofote aparece ao redor do mouse": "Vista previa: cómo se ve el foco alrededor del mouse",
   "Validador de textos": "Validador de textos",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Genera el QR localmente para la URL actual o una URL concreta guardada. No se envía ningún dato a servicios externos.",
   "Query/hash removidos por segurança": "Query/hash eliminados por seguridad",
@@ -3780,7 +3792,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "O arquivo deve ter no máximo 2 MB.": "El archivo debe tener como máximo 2 MB.", "Nenhum texto encontrado": "No se encontró ningún texto",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
-  "Limpar ferramentas ativas": "Clear active tools", "Ferramentas ativas": "Active tools", "Ferramentas ligadas": "Tools turned on", "Desativar todas": "Turn all off", "Nenhuma ferramenta ativa no momento.": "No tool is active right now.", "Marcadores na página": "Markers on the page", "Limpar todos": "Clear all", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Drag to reorder the visual stack (the first in the list stays at the bottom).", "Marcador": "Marker", "Nota": "Note", "Forma": "Shape", "Linha": "Line", "Posicionando marcador/forma/linha": "Placing marker/shape/line", "Corpo da resposta (JSON opcional)": "Response body (optional JSON)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Leave empty to use a generic body. Filled in, the page receives exactly that JSON at the chosen status - useful for simulating the real error message the app expects.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "Invalid JSON in the response body - fix it or leave it empty.", "Negrito": "Bold", "Itálico": "Italic", "Tachado": "Strikethrough", "Sublinhado": "Underline", "Tamanho": "Size", "Borrado": "Blurred", "Borda": "Border", "Sombra": "Shadow", "Cantos arredondados": "Rounded corners",
+  "Limpar ferramentas ativas": "Clear active tools", "Ferramentas ativas": "Active tools", "Ferramentas ligadas": "Tools turned on", "Desativar todas": "Turn all off", "Nenhuma ferramenta ativa no momento.": "No tool is active right now.", "Marcadores na página": "Markers on the page", "Limpar todos": "Clear all", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Drag to reorder the visual stack (the first in the list stays at the bottom).", "Marcador": "Marker", "Nota": "Note", "Forma": "Shape", "Linha": "Line", "Posicionando marcador/forma/linha": "Placing marker/shape/line", "Corpo da resposta (JSON opcional)": "Response body (optional JSON)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Leave empty to use a generic body. Filled in, the page receives exactly that JSON at the chosen status - useful for simulating the real error message the app expects.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "Invalid JSON in the response body - fix it or leave it empty.", "Negrito": "Bold", "Itálico": "Italic", "Tachado": "Strikethrough", "Sublinhado": "Underline", "Tamanho": "Size", "Borrado": "Blurred", "Borda": "Border", "Sombra": "Shadow", "Cantos arredondados": "Rounded corners", "Prévia: como o holofote aparece ao redor do mouse": "Preview: how the spotlight looks around the mouse",
   "Validador de textos": "Text Validator",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Generate the QR locally for the current URL or a saved concrete URL. No data is sent to external services.",
   "Query/hash removidos por segurança": "Query/hash removed for safety",
@@ -6576,26 +6588,44 @@ function openHolofoteTool() {
     title: "Modo Holofote",
     view: "holofote",
     toggle: { checked: state.holofoteActive, label: "Ativar Holofote", onChange: (checked) => { if (checked) enableHolofoteMode(); else disableHolofoteMode(); } },
-    bodyHtml: `<label>Efeito<select id="holofoteEffect">
+    bodyHtml: `<div class="qts-holofote-preview"><svg id="holofotePreviewSvg" viewBox="0 0 200 120" width="100%" height="120" preserveAspectRatio="xMidYMid slice">
+        <defs><mask id="holofotePreviewMask"><rect width="200" height="120" fill="#fff" /><circle id="holofotePreviewHole" cx="100" cy="60" r="30" fill="#000" /></mask></defs>
+        <rect width="200" height="120" fill="#2a2a2a" />
+        <rect x="14" y="14" width="60" height="8" rx="2" fill="#555" /><rect x="14" y="30" width="90" height="8" rx="2" fill="#555" /><rect x="126" y="80" width="60" height="8" rx="2" fill="#555" /><rect x="14" y="96" width="40" height="8" rx="2" fill="#555" />
+        <rect id="holofotePreviewOverlay" width="200" height="120" fill="#000" mask="url(#holofotePreviewMask)" />
+        <circle id="holofotePreviewRing" cx="100" cy="60" r="30" fill="none" stroke="var(--qts-ui-primary,#ffd700)" stroke-width="2" stroke-dasharray="4 3" />
+      </svg><small>${escapeHtml(translateQaSurfaceText("Prévia: como o holofote aparece ao redor do mouse"))}</small></div>
+      <label class="qts-field-label">Efeito<select id="holofoteEffect">
         <option value="darken">Escurecer</option>
         <option value="blur">Borrar</option>
       </select></label>
-      <label>Opacidade (efeito Escurecer)<input type="range" min="20" max="95" id="holofoteOpacity" /></label>
-      <label>Intensidade do borrão (efeito Borrar)<input type="range" min="2" max="24" id="holofoteBlur" /></label>
-      <label>Tamanho do holofote<input type="range" min="60" max="320" id="holofoteSize" /></label>`,
+      <label class="qts-field-label">Opacidade (efeito Escurecer)<input type="range" min="20" max="95" id="holofoteOpacity" /></label>
+      <label class="qts-field-label">Intensidade do borrão (efeito Borrar)<input type="range" min="2" max="24" id="holofoteBlur" /></label>
+      <label class="qts-field-label">Tamanho do holofote<input type="range" min="60" max="320" id="holofoteSize" /></label>`,
     onReady(body) {
       const effectInput = body.querySelector("#holofoteEffect");
       const opacityInput = body.querySelector("#holofoteOpacity");
       const blurInput = body.querySelector("#holofoteBlur");
       const sizeInput = body.querySelector("#holofoteSize");
+      const previewOverlay = body.querySelector("#holofotePreviewOverlay");
+      const previewHole = body.querySelector("#holofotePreviewHole");
       effectInput.value = holofoteSettings.effect;
       opacityInput.value = holofoteSettings.opacity;
       blurInput.value = holofoteSettings.blur;
       sizeInput.value = holofoteSettings.size;
+      const renderPreview = () => {
+        const isBlur = effectInput.value === "blur";
+        previewOverlay.setAttribute("fill-opacity", isBlur ? "0.35" : String(Number(opacityInput.value) / 100));
+        previewOverlay.setAttribute("filter", isBlur ? `blur(${Math.min(6, Number(blurInput.value) / 4)}px)` : "none");
+        previewHole.setAttribute("r", String(Math.min(55, Math.max(10, Number(sizeInput.value) / 6))));
+        body.querySelector("#holofotePreviewRing").setAttribute("r", previewHole.getAttribute("r"));
+      };
       const applyFromInputs = () => {
         holofoteSettings = { effect: effectInput.value, opacity: Number(opacityInput.value), blur: Number(blurInput.value), size: Number(sizeInput.value) };
+        renderPreview();
       };
       [effectInput, opacityInput, blurInput, sizeInput].forEach((input) => input.addEventListener("input", applyFromInputs));
+      renderPreview();
     },
   });
 }
@@ -7348,8 +7378,11 @@ function openMultiClick(selectedElement = null) {
   openDrawer({
     title: "Multiclick",
     view: "multiClick",
-    bodyHtml: `<label>Elemento</label><input id="multiSelector" value="${escapeHtml(selector)}" readonly placeholder="Nenhum elemento selecionado" />
-      <div class="qts-card-actions"><button class="action" id="multiSelect" type="button">Selecionar na página</button></div>
+    // Flow order matches what the tester actually does: pick the element first, see what got
+    // picked, then configure and only then run - instead of showing an empty "Elemento" field
+    // above the button that's supposed to fill it.
+    bodyHtml: `<div class="qts-card-actions"><button class="action primary" id="multiSelect" type="button">Selecionar na página</button></div>
+      <label class="qts-field-label">Elemento<input id="multiSelector" value="${escapeHtml(selector)}" readonly placeholder="Nenhum elemento selecionado" /></label>
       <div class="qts-tool-grid"><label>Quantidade<input id="multiCount" type="number" min="2" max="100" value="5" /></label><label>Intervalo (ms)<input id="multiInterval" type="number" min="0" max="5000" value="150" /></label></div>
       <button class="action primary" id="multiRun" type="button" ${selector ? "" : "disabled"}>Executar multiclick</button><div class="qts-status" id="multiStatus"></div>`,
     onReady(body) {
@@ -7391,14 +7424,22 @@ function fieldValidatorRules(info) {
   ].filter(Boolean);
 }
 
+// Shared by the current-run result card and every history entry, so "what happened just now" and
+// "what happened before" always look identical - no separate summary-only vs. detailed-table paths.
+function fieldValidatorResultTable(rules, results) {
+  const failed = results.filter((result) => !result.outcome).length;
+  const status = !rules.length ? "Sem regras declaradas" : failed ? `${failed} possível(is) quebra(s)` : "Validação compatível";
+  return `<p><b>Regras:</b> ${rules.length ? escapeHtml(rules.join(", ")) : "nenhuma regra HTML declarada"}</p>
+    <p>${failed ? ICON("fail") : ICON("pass")} <b>${escapeHtml(status)}</b></p>
+    <table class="qts-result-table"><thead><tr><th>Caso</th><th>Regra</th><th>Resultado</th></tr></thead><tbody>${results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${escapeHtml(result.matchedRule || "sem regra específica")}</td><td>${result.outcome ? `${ICON("pass")} esperado` : `${ICON("fail")} revisar`} (${result.accepted ? "aceito" : "rejeitado"})</td></tr>`).join("")}</tbody></table>`;
+}
+
 function renderFieldValidatorHistory(output, history) {
   if (!output) return;
   output.innerHTML = history.length ? history.map((entry) => {
     const failed = entry.results.filter((result) => !result.outcome).length;
-    const status = !entry.hadRules ? "Sem regras declaradas" : failed ? `${failed} possível(is) quebra(s)` : "Validação compatível";
-    return `<details class="qts-card qts-validator-history"><summary><span><b>${escapeHtml(entry.field)}</b><small>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</small></span><span>${failed ? ICON("fail") : ICON("pass")} ${escapeHtml(status)}</span></summary>
-      <p><b>Regras:</b> ${entry.rules.length ? escapeHtml(entry.rules.join(", ")) : "nenhuma regra HTML declarada"}</p>
-      <table class="qts-result-table"><thead><tr><th>Caso</th><th>Regra</th><th>Resultado</th></tr></thead><tbody>${entry.results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${escapeHtml(result.matchedRule || "sem regra específica")}</td><td>${result.outcome ? `${ICON("pass")} esperado` : `${ICON("fail")} revisar`} (${result.accepted ? "aceito" : "rejeitado"})</td></tr>`).join("")}</tbody></table>
+    return `<details class="qts-card qts-validator-history"><summary><span><b>${escapeHtml(entry.field)}</b><small>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</small></span><span>${failed ? ICON("fail") : ICON("pass")}</span></summary>
+      ${fieldValidatorResultTable(entry.rules, entry.results)}
     </details>`;
   }).join("") : `<div class="qts-mini-empty">Nenhuma validação executada ainda.</div>`;
   localizeQaSurface(output);
@@ -7412,9 +7453,16 @@ function openInputLab(selectedElement = null) {
   openDrawer({
     title: "Validador de campos",
     view: "inputLab",
-    bodyHtml: `<p class="qts-tool-lead">Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.</p>
-      <button class="action" id="inputSelect" type="button">Selecionar input na página</button>${infoHtml}
-      ${info ? `<div class="qts-card"><b>Regras encontradas</b><p>${rules.length ? escapeHtml(rules.join(", ")) : "Nenhuma regra HTML declarada. Os casos serão registrados como diagnóstico."}</p></div><button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Validar campo</button><div id="inputResults"></div>` : ""}
+    // Order mirrors how a QA reads this top to bottom: which field, what rules apply to it, what
+    // just happened when tested, then the audit trail. The rules card used to only show up after
+    // a field was picked but the summary card that used to sit where "Resultado atual" is now
+    // only ever showed one line ("2 possíveis quebras") - the actual per-case table was buried
+    // inside the (collapsed) history entry, so seeing what was actually applied to the field
+    // meant opening a history row instead of just looking at the run you just did.
+    bodyHtml: `<button class="action" id="inputSelect" type="button">Selecionar input na página</button>
+      ${info ? `${infoHtml}<div class="qts-card"><b>Regras</b><p>${rules.length ? escapeHtml(rules.join(", ")) : "Nenhuma regra HTML declarada. Os casos serão registrados como diagnóstico."}</p></div>
+      <button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Validar campo</button>
+      <div class="qts-card-actions"><b>Resultado atual</b></div><div id="inputResults"><div class="qts-mini-empty">Ainda não validado nesta seleção.</div></div>` : ""}
       <div class="qts-card-actions"><b>Histórico</b><button class="action" id="inputHistoryClear" type="button">Limpar histórico</button></div><div id="inputHistory"></div>`,
     onReady(body) {
       const refreshHistory = async () => renderFieldValidatorHistory(body.querySelector("#inputHistory"), await readFieldValidatorHistory());
@@ -7430,8 +7478,7 @@ function openInputLab(selectedElement = null) {
         const output = body.querySelector("#inputResults"); output.textContent = "Testando...";
         try {
           const results = await window.QTS_QA_TOOLS.runInputValidation(selectedElement);
-          const failed = results.filter((result) => !result.outcome).length;
-          output.innerHTML = `<div class="qts-card"><b>${!rules.length ? "Diagnóstico concluído sem regras declaradas" : failed ? `${failed} possível(is) quebra(s) encontrada(s)` : "Campo compatível com as regras declaradas"}</b><p>${rules.length ? `Foram verificadas: ${escapeHtml(rules.join(", "))}.` : "Adicione required, limites, pattern ou um tipo específico para validar uma regra."}</p></div>`;
+          output.innerHTML = `<div class="qts-card">${fieldValidatorResultTable(rules, results)}</div>`;
           localizeQaSurface(output);
           await saveFieldValidatorHistory({ id: crypto.randomUUID(), timestamp: new Date().toISOString(), page: location.origin + location.pathname, field: info.selector, rules, hadRules: rules.length > 0, results });
           await refreshHistory();
@@ -8262,6 +8309,7 @@ function reportDocumentedSteps(recording) {
     steps,
     description: device ? `${stepsExtraCopy().device}: ${device.label}` : "",
     deviceId: recording.deviceId || "",
+    mediaMode: recording.mediaMode || "",
   }, recording.context || sessionContextSnapshot());
 }
 
