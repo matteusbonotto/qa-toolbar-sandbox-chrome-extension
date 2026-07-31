@@ -334,7 +334,7 @@
       elementCaptureMenuLabel: "Capturar elementos",
       blurElementsMenuLabel: "Borrar elementos",
       holofoteMenuLabel: "Modo Holofote",
-      pixelPerfectMenuLabel: "Pixel Perfect",
+      pixelPerfectMenuLabel: "Régua",
     },
     es: {
       locale: "es",
@@ -660,7 +660,7 @@
       elementCaptureMenuLabel: "Capturar elementos",
       blurElementsMenuLabel: "Borrar elementos",
       holofoteMenuLabel: "Modo Holofote",
-      pixelPerfectMenuLabel: "Pixel Perfect",
+      pixelPerfectMenuLabel: "Regla",
     },
     en: {
       locale: "en",
@@ -986,7 +986,7 @@
       elementCaptureMenuLabel: "Capture elements",
       blurElementsMenuLabel: "Blur elements",
       holofoteMenuLabel: "Spotlight Mode",
-      pixelPerfectMenuLabel: "Pixel Perfect",
+      pixelPerfectMenuLabel: "Ruler",
     },
   };
 

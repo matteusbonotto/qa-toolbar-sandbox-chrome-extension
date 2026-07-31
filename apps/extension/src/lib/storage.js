@@ -55,7 +55,7 @@ export const FEATURE_REGISTRY = Object.freeze([
   ["stepsRecorder","Roteiros de teste","stepsRecorderMenuItem","stepsRecorder","stepsRecorder.enabled"],
   ["languageValidator","Validador de textos/i18n","languageValidatorMenuItem","braces",""],
   ["qrCode","QR Code","qrCodeMenuItem","qrCode",""],
-  ["pixelPerfect","Pixel Perfect","pixelPerfectMenuItem","ruler",""],
+  ["pixelPerfect","Régua","pixelPerfectMenuItem","ruler",""],
   ["testSession","Sessões de teste","testSessionMenuItem","wait",""],
   ["reportBuilder","Relatórios","reportBuilderMenuItem","edit",""],
 ].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
