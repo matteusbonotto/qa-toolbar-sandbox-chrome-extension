@@ -708,7 +708,6 @@ try {
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();
   await host.locator("#macroStudioMenuItem").click();
-  await host.locator("[data-manage-macros]").click();
   await host.locator(".qts-drawer-backdrop.isModal .qts-drawer").waitFor();
   const detachedModalPromise = context.waitForEvent("page");
   await host.locator("#drawerDetach").click();
@@ -851,7 +850,7 @@ try {
   });
   if (persistedMouseSwitch !== !mouseSwitchBefore) throw new Error("Key View mouse switch did not persist immediately");
   await host.locator("#keyViewMouse").click();
-  await host.locator("#keyViewToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   await host.locator("#toolsButton").click();
   await host.locator("#toolsMenu.isOpen").waitFor();
@@ -867,7 +866,7 @@ try {
   if (scrollFill !== "rgb(59, 130, 246)") throw new Error(`Color theme preset did not reach the Key View scroll indicator: ${scrollFill}`);
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
-  await host.locator("#keyViewToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   await options.locator('.protectedNav[data-tab="general"]').click();
   await options.locator('.settingsAccordion:has(#colorThemeReset)').evaluate((accordion) => { accordion.open = true; });
@@ -983,6 +982,7 @@ try {
   await host.locator("#toolsButton").click();
   if (!await host.locator("#disableAllToolsMenuItem:not(.isHidden)").count()) throw new Error("Global tool shutdown did not appear while a tool was active");
   await host.locator("#disableAllToolsMenuItem").click();
+  await host.locator("#activeToolsDisableAll").click();
   if (await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Global tool shutdown left placement mode active");
   if (await host.locator("button.isActive").count()) throw new Error("Global tool shutdown left an active toolbar control");
   trace("global active-tool shutdown verified");
@@ -1199,7 +1199,7 @@ try {
   // out on release.
   await host.locator("#toolsButton").click();
   await host.locator("#holofoteMenuItem").click();
-  await host.locator("#holofoteToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   await host.mouse.move(320, 260);
   await host.keyboard.down("Control");
@@ -1223,7 +1223,7 @@ try {
   // and a second click releases it. Never preventDefault's real clicks, so the page stays usable.
   await host.locator("#toolsButton").click();
   await host.locator("#pixelPerfectMenuItem").click();
-  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   await host.mouse.move(300, 260);
   const ppPos1 = await host.locator("#qts-pixelperfect-overlay").evaluate((el) => [el.style.getPropertyValue("--qts-pp-x"), el.style.getPropertyValue("--qts-pp-y")]);
@@ -1250,7 +1250,7 @@ try {
     throw new Error(`Pixel Perfect did not inherit the default primary theme color: ${defaultPixelPerfectColor}`);
   }
   await host.locator("#pixelPerfectMode").selectOption("horizontal");
-  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   await host.mouse.move(320, 280);
   if (!(await host.locator(".qts-pp-line-h").isVisible())) throw new Error("Pixel Perfect horizontal-only mode did not show the horizontal line");
@@ -1260,7 +1260,7 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#pixelPerfectMenuItem").click();
   await host.locator("#pixelPerfectMode").selectOption("vertical");
-  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   await host.mouse.move(320, 280);
   if (!(await host.locator(".qts-pp-line-v").isVisible())) throw new Error("Pixel Perfect vertical-only mode did not show the vertical line");
@@ -1270,7 +1270,7 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#pixelPerfectMenuItem").click();
   await host.locator("#pixelPerfectMode").selectOption("cross");
-  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   trace("pixel perfect horizontal/vertical-only guide line modes verified");
   await host.mouse.click(300, 260);
@@ -1295,7 +1295,7 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#pixelPerfectMenuItem").click();
   await host.locator("#pixelPerfectMode").selectOption("bounds");
-  await host.locator("#pixelPerfectToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   await host.locator("#qaName").hover();
   await host.locator(".qts-pp-bounds-box:not(.isHidden)").waitFor({ timeout: 2_000 });
@@ -1472,7 +1472,7 @@ try {
   await host.locator('[data-key-view-position="top-right"]').click();
   await host.locator("#keyViewSave").click();
   await host.getByText("Configurações salvas.").waitFor();
-  await host.locator("#keyViewToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   trace("qa tools verified");
   await host.locator("#macroText").click();
@@ -1539,7 +1539,7 @@ try {
   if (await host.locator("#qts-key-view-overlay").count()) throw new Error("Key View typing was not cleared on demand");
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
-  await host.locator("#keyViewToggle").click();
+  await host.locator("#drawerHeaderToggle").click();
   await host.locator("#drawerClose").click();
   await host.locator("h1").press("Control+C");
   if (await host.locator("#qts-key-view-overlay").count()) throw new Error("Key View kept listening after being disabled");
@@ -1628,7 +1628,6 @@ try {
   // Macro recording captures normal interactions but ignores password content.
   await host.locator("#toolsButton").click();
   await host.locator("#macroStudioMenuItem").click();
-  await host.locator("[data-manage-macros]").click();
   await host.locator("#startMacroRecording").click();
   await host.locator("#macroTarget").click();
   await host.locator("#macroText").fill("texto gravado");
@@ -1671,7 +1670,6 @@ try {
   // Replaying the recorded macro performs the captured click and fill.
   await host.evaluate(() => { document.querySelector("#macroTarget").dataset.clicks = "0"; document.querySelector("#macroText").value = ""; });
   await host.locator("#toolsButton").click();
-  await host.locator("#macroStudioMenuItem").click();
   await host.locator("#pinnedMacrosMenu [data-pinned-macro]").first().click();
   await host.waitForFunction(() => document.querySelector("#macroTarget")?.dataset.clicks === "1" && document.querySelector("#macroText")?.value === "texto gravado", null, { timeout: 15_000 });
   const replay = await host.evaluate(() => ({ clicks: document.querySelector("#macroTarget").dataset.clicks, value: document.querySelector("#macroText").value }));
@@ -1681,7 +1679,6 @@ try {
   // A pending run is scoped to the current tab and resumes after full document navigation.
   await host.locator("#toolsButton").click();
   await host.locator("#macroStudioMenuItem").click();
-  await host.locator("[data-manage-macros]").click();
   await host.locator('#macroList .qts-card').filter({ hasText: "Importada QA" }).locator('[data-macro-action="play"]').click();
   await host.waitForURL("**/app/next");
   await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
@@ -1713,7 +1710,6 @@ try {
 
   await host.locator("#toolsButton").click();
   await host.locator("#macroStudioMenuItem").click();
-  await host.locator("[data-manage-macros]").click();
   await host.locator("#startMacroRecording").click();
   await host.locator("#macroTarget").click();
   await host.reload();

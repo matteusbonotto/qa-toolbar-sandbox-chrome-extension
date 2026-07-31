@@ -227,6 +227,16 @@ body.qts-placement-mode, body.qts-placement-mode * {
 .qts-editor-body textarea {
   width: 100% !important; min-height: 80px !important; padding: 8px !important; border: 1px solid #333 !important;
   border-radius: 8px !important; background: #000 !important; color: #fff !important; resize: vertical !important; font: 14px inherit !important;
+  /* Live WYSIWYG-ish preview while editing: the textarea itself picks up the same custom
+     properties .qts-note-content renders with below, so toggling Bold/cor/tamanho/etc. changes
+     what's actually being typed immediately, instead of only showing up after Salvar. */
+  color: var(--qts-note-color, #fff) !important;
+  font-size: var(--qts-note-font-size, 14px) !important;
+  font-weight: var(--qts-note-weight, 400) !important;
+  font-style: var(--qts-note-italic, normal) !important;
+  text-decoration: var(--qts-note-decoration, none) !important;
+  background: var(--qts-note-bg, rgba(0,0,0,.6)) !important;
+  border-radius: var(--qts-note-radius, 8px) !important;
 }
 .qts-editor-actions { display: flex !important; justify-content: flex-end !important; }
 .qts-editor-actions button {
@@ -235,21 +245,37 @@ body.qts-placement-mode, body.qts-placement-mode * {
 }
 .qts-note-content {
   position: relative !important; width: 100% !important; height: 100% !important; min-width: 80px !important; padding: 10px 36px 10px 12px !important;
-  border-radius: 10px !important; cursor: grab !important;
-  line-height: 1.4 !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: break-word !important; overflow: auto !important; box-shadow: 0 10px 22px rgba(0,0,0,.3) !important;
+  cursor: grab !important;
+  line-height: 1.4 !important; white-space: pre-wrap !important; overflow-wrap: anywhere !important; word-break: break-word !important; overflow: auto !important;
   /* Custom-property indirection (same reason as .qts-shape-box): the earlier
      `.qts-floating-item * { all: revert !important }` rule resets plain inline color/font-size/
      background right back off, since author !important always beats non-important inline styles
      in the cascade - but it can't touch custom properties, so those are the only lever left. */
   color: var(--qts-note-color, #fff) !important;
   font-size: var(--qts-note-font-size, 14px) !important;
+  font-weight: var(--qts-note-weight, 400) !important;
+  font-style: var(--qts-note-italic, normal) !important;
+  text-decoration: var(--qts-note-decoration, none) !important;
   background: var(--qts-note-bg, rgba(0,0,0,.6)) !important;
+  border: var(--qts-note-border, none) !important;
+  box-shadow: var(--qts-note-shadow, none) !important;
+  border-radius: var(--qts-note-radius, 10px) !important;
+  backdrop-filter: var(--qts-note-blur, none) !important;
+  -webkit-backdrop-filter: var(--qts-note-blur, none) !important;
 }
 .qts-note-style-row { display: grid !important; grid-template-columns: repeat(3, 1fr) !important; gap: 6px !important; }
 .qts-note-style-row label { display: grid !important; gap: 3px !important; font-size: 10px !important; color: #999 !important; }
 .qts-note-style-row input[type="color"] { width: 100% !important; height: 26px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; padding: 2px !important; }
 .qts-note-style-row select { height: 26px !important; border: 1px solid #333 !important; border-radius: 6px !important; background: #000 !important; color: #fff !important; font-size: 11px !important; }
 .qts-note-style-row select option { background: #000 !important; color: #fff !important; }
+.qts-note-format-row { display: flex !important; gap: 4px !important; }
+.qts-note-format-row button {
+  flex: 1 !important; height: 28px !important; border: 1px solid #333 !important; border-radius: 6px !important;
+  background: #000 !important; color: #ccc !important; cursor: pointer !important; font-size: 13px !important; line-height: 1 !important;
+}
+.qts-note-format-row button.isActive { background: var(--qts-ui-primary, #b20808) !important; color: var(--qts-ui-primary-contrast, #fff) !important; border-color: var(--qts-ui-primary, #b20808) !important; }
+.qts-note-toggle-row { display: flex !important; flex-wrap: wrap !important; gap: 8px 14px !important; font-size: 10px !important; color: #999 !important; }
+.qts-note-toggle-row label { display: flex !important; align-items: center !important; gap: 5px !important; cursor: pointer !important; }
 
 .qts-clickspy-tooltip {
   all: initial;
@@ -637,6 +663,7 @@ html:has(#qts-toolbar-host[data-theme="light"]) .qts-locator-head { border-color
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-modal header h2 { color:#171a24 !important; }
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-editor-body textarea,
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-note-style-row select,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-note-format-row button,
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor select,
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor input[type="color"] {
   background:#f4f6fb !important; color:#171a24 !important; border-color:#b8c2d3 !important;
@@ -646,6 +673,7 @@ html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor select option 
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-clickspy-label,
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-locator-row small,
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-shape-editor label,
+html:has(#qts-toolbar-host[data-theme="light"]) .qts-note-toggle-row,
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-note-style-row label { color:#536078 !important; }
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-clickspy-event,
 html:has(#qts-toolbar-host[data-theme="light"]) .qts-locator-value code,

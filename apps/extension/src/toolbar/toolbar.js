@@ -353,7 +353,7 @@ function offsetSiteFixedHeaders() {
   document.body?.querySelectorAll("*").forEach((element) => {
     if (element === host || host?.contains(element)) return;
     if (element.id === SPACER_ID || element.hasAttribute(HEADER_OFFSET_ATTR)) return;
-    // Our own light-DOM overlays (Pixel Perfect's crosshair/measure line, Holofote's spotlight,
+    // Our own light-DOM overlays (Régua's crosshair/measure line, Holofote's spotlight,
     // markers/notes/shapes/lines...) are also position:fixed and can sit close to the top of the
     // viewport, which made this scanner mistake them for a site header fighting for the same
     // space and start rewriting their top/z-index -- fighting with these tools' own positioning
@@ -593,15 +593,20 @@ function applyPinnedTools() {
   }
   // Re-append each menu item in the effective order -- appendChild on an already-attached node
   // *moves* it, so iterating in order and re-appending sequentially reorders the whole menu
-  // without rebuilding it. #pinnedMacrosMenu (a separate, dynamically rendered list of pinned
-  // macros) is intentionally left alone at the top. The base order is always the founder's
-  // manually dragged preferences.toolsMenuOrder; A-Z/Z-A/"mais usados" (preferences.toolsSortMode)
-  // are a display-time re-sort of that same list, so switching back to "Personalizado" instantly
+  // without rebuilding it. The base order is always the founder's manually dragged
+  // preferences.toolsMenuOrder; A-Z/Z-A/"mais usados" (preferences.toolsSortMode) are a
+  // display-time re-sort of that same list, so switching back to "Personalizado" instantly
   // restores the exact manual order without losing it.
   const menu = root.getElementById("toolsMenu");
   const toolsMenuOrder = state.workspace?.preferences?.toolsMenuOrder || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS;
   const effectiveOrder = sortedToolsMenuOrder(toolsMenuOrder);
   if (menu) for (const key of effectiveOrder) { const item = menuItems[key] && root.getElementById(menuItems[key]); if (item) menu.appendChild(item); }
+  // #pinnedMacrosMenu isn't itself a reorderable entry (it has no feature key), so the loop above
+  // never touches it -- pin it back right under the Macros button regardless of where founder
+  // customization put that button, instead of leaving it stranded wherever it last sat in the DOM.
+  const macroMenuItem = root.getElementById("macroStudioMenuItem");
+  const pinnedMacrosMenu = root.getElementById("pinnedMacrosMenu");
+  if (macroMenuItem && pinnedMacrosMenu) macroMenuItem.after(pinnedMacrosMenu);
   renderPinnedMacros();
 }
 
@@ -918,7 +923,8 @@ function buildShadowHost() {
       #recordTypeMenu button.isComingSoon:hover { background: #171717; border-color: #2c2c2c; }
       .qts-coming-soon-badge { margin-left: 6px; padding: 1px 6px; border-radius: 999px; background: #3a3a3a; color: var(--qts-ui-primary, #ffd700); font-size: 9px; font-weight: 800; vertical-align: middle; }
       #pinnedMacrosMenu:empty { display: none; }
-      #pinnedMacrosMenu { display: grid; gap: 4px; padding-bottom: 5px; margin-bottom: 2px; border-bottom: 1px solid #292929; }
+      #pinnedMacrosMenu { display: grid; gap: 3px; padding: 2px 0 6px 20px; }
+      #pinnedMacrosMenu button { padding: 6px 10px; font-size: 12px; }
       #mobileActionsMenu { display: none; }
       .markerMobileOnly { display: none !important; }
       /* Theme bridge for every toolbar popup.  These surfaces predate the platform theme and
@@ -936,7 +942,7 @@ function buildShadowHost() {
       #recordTypeMenuTitle, #recordTypeMenu button span, .qts-mini-empty,
       .qts-bell-row small { color: var(--qts-ui-muted); }
       .qts-bell-row span { color: var(--qts-ui-text); }
-      .qts-bell-head, #pinnedMacrosMenu { border-color: var(--qts-ui-border); }
+      .qts-bell-head { border-color: var(--qts-ui-border); }
       :host([data-theme="light"]) .qts-bell-head button { color:#9f1d29; }
       :host([data-theme="light"]) .qts-coming-soon-badge { background:#e4e8f1; color:#5637bf; }
       /* Theme every toolbar-owned popup, not just the right drawer. These surfaces used to
@@ -1070,14 +1076,14 @@ function buildShadowHost() {
               <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
-            <div id="pinnedMacrosMenu" class="isHidden"></div>
-            <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
+            <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Limpar ferramentas ativas"))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testStatus))}</button>
             <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testSession))}</button>
             <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.reportBuilder))}</button>
             <button type="button" id="notesMenuItem" role="menuitem">${ICON("noteText")} ${escapeHtml(t.note)}</button>
             <button type="button" id="shapesMenuItem" role="menuitem">${ICON("square")} ${escapeHtml(t.shape)}</button>
             <button type="button" id="macroStudioMenuItem" role="menuitem">${ICON("macroStudio")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.macroStudio))}</button>
+            <div id="pinnedMacrosMenu"></div>
             <button type="button" id="stepsRecorderMenuItem" role="menuitem">${ICON("stepsRecorder")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.stepsRecorder))}</button>
             <button type="button" id="characterCounterMenuItem" role="menuitem">${ICON("characterCounter")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.characterCounter))}</button>
             <button type="button" id="multiClickMenuItem" role="menuitem">${ICON("multiClick")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.multiClick))}</button>
@@ -1248,7 +1254,7 @@ function buildShadowHost() {
     event.stopPropagation();
     const menu = shadow.getElementById("toolsMenu");
     const willOpen = !menu.classList.contains("isOpen");
-    shadow.getElementById("disableAllToolsMenuItem").classList.toggle("isHidden", !hasAnyActiveTool());
+    shadow.getElementById("disableAllToolsMenuItem").classList.toggle("isHidden", !hasAnyActiveTool() && !activeMarkerElements().length);
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
     toggleRecordTypeMenu(false);
     toggleShapeTypeMenu(false);
@@ -1263,7 +1269,7 @@ function buildShadowHost() {
     const key = button && TOOLS_MENU_ITEM_KEY_BY_ID[button.id];
     if (key) void recordToolMenuUsage(key);
   }, true);
-  shadow.getElementById("disableAllToolsMenuItem").addEventListener("click", () => void disableAllActiveTools());
+  shadow.getElementById("disableAllToolsMenuItem").addEventListener("click", () => { openActiveToolsModal(); closeToolsMenu(); });
   shadow.getElementById("notificationBellButton").addEventListener("click", (event) => {
     event.stopPropagation();
     closeToolsMenu();
@@ -1323,12 +1329,7 @@ function buildShadowHost() {
     closeToolsMenu();
   });
   shadow.getElementById("characterCounterMenuItem").addEventListener("click", () => { openCharacterCounter(); closeToolsMenu(); });
-  shadow.getElementById("macroStudioMenuItem").addEventListener("click", (event) => {
-    event.stopPropagation();
-    const submenu = shadow.getElementById("pinnedMacrosMenu");
-    submenu.classList.toggle("isHidden");
-    renderPinnedMacros();
-  });
+  shadow.getElementById("macroStudioMenuItem").addEventListener("click", () => { openMacroStudio(); closeToolsMenu(); });
   shadow.getElementById("stepsRecorderMenuItem").addEventListener("click", () => { openStepsRecorder(); closeToolsMenu(); });
   shadow.getElementById("multiClickMenuItem").addEventListener("click", () => { openMultiClick(); closeToolsMenu(); });
   shadow.getElementById("inputLabMenuItem").addEventListener("click", () => { openInputLab(); closeToolsMenu(); });
@@ -1340,7 +1341,6 @@ function buildShadowHost() {
 
 function closeToolsMenu() {
   state.shadowRoot?.getElementById("toolsMenu")?.classList.remove("isOpen");
-  state.shadowRoot?.getElementById("pinnedMacrosMenu")?.classList.add("isHidden");
 }
 
 function setMinimized(value) {
@@ -2190,6 +2190,7 @@ function renderTestSessionSummary(container, session) {
       actual: notes,
       steps: recordedSteps,
       deviceId: container.querySelector("[data-session-device]").value,
+      evidenceCount: session.evidenceCount,
     }, session.context);
   });
 }
@@ -2278,6 +2279,9 @@ function selectedDeviceLabel(deviceId) {
   return deviceSummary((state.workspace.devices || []).find((device) => device.id === deviceId));
 }
 
+const REPORT_KIND_ACCENT = { bug: "#ef4444", blocker: "#dc2626", approval: "#22c55e", limitation: "#f59e0b", retest: "#8b5cf6", improvement: "#0ea5e9", risk: "#f97316" };
+const REPORT_SEVERITY_ACCENT = { critical: "#dc2626", high: "#ef4444", medium: "#f59e0b", low: "#22c55e" };
+
 function printableReportHtml(values, context, labels) {
   const sections = [
     [labels.description, values.description],
@@ -2287,22 +2291,33 @@ function printableReportHtml(values, context, labels) {
     [labels.actual, values.actual],
   ].filter(([, value]) => value);
   const safe = (value) => escapeHtml(value).replaceAll("\n", "<br>");
+  const accent = REPORT_KIND_ACCENT[values.kind] || "#67e8f9";
+  const severityAccent = REPORT_SEVERITY_ACCENT[values.severity] || accent;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${safe(values.title || labels.fallbackTitle)}</title>
   <style>
-    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#172033;background:#fff;font:14px/1.5 Inter,Arial,sans-serif}
-    header{padding:26px;border-radius:18px;background:#111827;color:#fff}header small{letter-spacing:.16em;text-transform:uppercase;color:#67e8f9}
-    h1{margin:8px 0 4px;font-size:27px;line-height:1.15}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
-    .metric,section{border:1px solid #dbe2ec;border-radius:14px;padding:14px}.metric span,section h2{display:block;margin:0 0 5px;color:#64748b;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-    section{margin-top:10px;break-inside:avoid}section p{margin:0}.url{word-break:break-all;color:#2563eb}
-    footer{margin-top:18px;padding-top:10px;border-top:1px solid #dbe2ec;color:#64748b;font-size:11px}
+    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#172033;background:#fff;font:14px/1.55 Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+    header{padding:26px 28px;border-radius:18px;background:linear-gradient(135deg,#111827,#1f2937);color:#fff;border-top:5px solid ${accent};position:relative}
+    header small{letter-spacing:.16em;text-transform:uppercase;color:${accent};font-weight:700}
+    h1{margin:8px 0 6px;font-size:26px;line-height:1.2;letter-spacing:-.01em}
+    header div{color:#cbd5e1;font-size:12.5px}
+    .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+    .metric,section{border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;background:#fff}
+    .metric{box-shadow:0 1px 2px rgba(15,23,42,.04)}
+    .metric span,section h2{display:block;margin:0 0 6px;color:#64748b;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:700}
+    .metric b{font-size:15px}
+    .metric.severity{border-left:4px solid ${severityAccent}}
+    section{margin-top:12px;break-inside:avoid}
+    section p{margin:0;white-space:pre-wrap}
+    .url{word-break:break-all;color:#2563eb;font-size:12.5px}
+    footer{margin-top:22px;padding-top:12px;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:10.5px;display:flex;justify-content:space-between}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style></head><body>
   <header><small>${safe(labels.kind)}</small><h1>${safe(values.title || labels.fallbackTitle)}</h1><div>${safe(context.line)}</div></header>
-  <div class="meta"><div class="metric"><span>${safe(labels.severity)}</span><b>${safe(labels.severityValue)}</b></div><div class="metric"><span>${safe(labels.priority)}</span><b>${safe(labels.priorityValue)}</b></div><div class="metric"><span>${safe(labels.device)}</span><b>${safe(labels.deviceValue || "-")}</b></div></div>
+  <div class="meta"><div class="metric severity"><span>${safe(labels.severity)}</span><b>${safe(labels.severityValue)}</b></div><div class="metric"><span>${safe(labels.priority)}</span><b>${safe(labels.priorityValue)}</b></div><div class="metric"><span>${safe(labels.device)}</span><b>${safe(labels.deviceValue || "-")}</b></div></div>
   <section><h2>URL</h2><p class="url">${safe(context.url)}</p></section>
   ${values.tags ? `<section><h2>${safe(labels.tags)}</h2><p>${safe(values.tags)}</p></section>` : ""}
   ${sections.map(([title, value]) => `<section><h2>${safe(title)}</h2><p>${safe(value)}</p></section>`).join("")}
-  <footer>${safe(labels.generatedAt)} ${safe(new Date().toLocaleString())} · QA Sandbox</footer></body></html>`;
+  <footer><span>${safe(labels.generatedAt)} ${safe(new Date().toLocaleString())}</span><span>QA Toolbar Sandbox</span></footer></body></html>`;
 }
 
 function reportKindOptions() {
@@ -2411,6 +2426,14 @@ function renderReportBuilder(container, context, prefill) {
       values.steps ? `\n${t.reportSteps}\n${values.steps}` : "",
       values.expected ? `\n${t.reportExpected}\n${values.expected}` : "",
       values.actual ? `\n${t.reportActual}\n${values.actual}` : "",
+      // The extension never retains evidence/recording binaries in memory (they're downloaded to
+      // disk the moment they're captured, by design - see the local-first/security notes
+      // elsewhere in this file) so a literal in-app "attachment" isn't possible; this at least
+      // makes the report say explicitly that evidence exists and needs to be attached by hand,
+      // instead of silently saying nothing about it.
+      // TODO(i18n): PT-only for now - these two lines aren't in the structured t.* dictionary yet.
+      prefill.evidenceCount ? `\nEvidências: ${prefill.evidenceCount} capturada(s) nesta sessão - anexe os arquivos baixados (prefixo "evidencia_") manualmente.` : "",
+      prefill.mediaMode ? `\nGravação: um ${prefill.mediaMode === "gif" ? "GIF" : "vídeo"} deste roteiro foi baixado - anexe o arquivo manualmente.` : "",
     ];
     return lines.filter(Boolean).join("\n");
   };
@@ -2549,6 +2572,103 @@ async function disableAllActiveTools() {
   showQaToast("Todas as ferramentas ativas foram desativadas.");
 }
 
+// Mirrors hasAnyActiveTool()'s own condition list (minus the transient placementMode, which isn't
+// something a founder would consciously think of as "a tool running") so this modal never drifts
+// out of sync with what the menu badge itself considers active.
+function activeToolEntries() {
+  const keyView = getKeyViewPreferences();
+  return [
+    ["placement", translateQaSurfaceText("Posicionando marcador/forma/linha"), Boolean(state.placementMode), cancelPlacementMode],
+    ["clickSpy", translateQaSurfaceText(TOOLS_MENU_LABELS.clickSpy), state.clickSpyActive, deactivateClickSpy],
+    ["blurElements", translateQaSurfaceText(TOOLS_MENU_LABELS.blurElements), state.blurSelectionActive, toggleBlurSelectionMode],
+    ["holofote", translateQaSurfaceText(TOOLS_MENU_LABELS.holofote), state.holofoteActive, disableHolofoteMode],
+    ["pixelPerfect", translateQaSurfaceText(TOOLS_MENU_LABELS.pixelPerfect), state.pixelPerfectActive, disablePixelPerfectMode],
+    ["freezeClock", translateQaSurfaceText(TOOLS_MENU_LABELS.freezeClock), state.clockFrozen, () => document.dispatchEvent(new CustomEvent("qts:freeze-clock-command", { detail: { freeze: false } }))],
+    ["forceHttp", translateQaSurfaceText(TOOLS_MENU_LABELS.forceHttp), state.forceHttpActive, () => document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: null } }))],
+    ["macroStudio", translateQaSurfaceText(TOOLS_MENU_LABELS.macroStudio), Boolean(state.macroRecording), cancelMacroRecording],
+    ["stepsRecorder", translateQaSurfaceText(TOOLS_MENU_LABELS.stepsRecorder), Boolean(state.stepsRecording), () => { state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); }],
+    ["testSession", translateQaSurfaceText(TOOLS_MENU_LABELS.testSession), Boolean(state.testSession), () => { window.clearInterval(testSessionTimer); state.testSession = null; state.shadowRoot.getElementById("testSessionBar")?.classList.add("isHidden"); }],
+    ["keyView", translateQaSurfaceText(TOOLS_MENU_LABELS.keyView), keyView.enabled, async () => { state.workspace.preferences = { ...(state.workspace.preferences || {}), keyView: { ...keyView, enabled: false } }; stopKeyView(); state.workspace = await saveWorkspace(state.workspace); }],
+  ];
+}
+
+function activeMarkerElements() {
+  return [...document.querySelectorAll(".qts-marker,.qts-note,.qts-shape,.qts-line")];
+}
+
+const MARKER_KIND_LABEL = { isPass: "Pass", isFail: "Fail", isWarning: "Warning", isQuestion: "Question" };
+
+function markerRowLabel(element) {
+  if (element.classList.contains("qts-marker")) {
+    const kindClass = [...(element.querySelector(".qts-marker-body")?.classList || [])].find((cls) => MARKER_KIND_LABEL[cls]);
+    return `${translateQaSurfaceText("Marcador")} · ${MARKER_KIND_LABEL[kindClass] || "?"}`;
+  }
+  if (element.classList.contains("qts-note")) {
+    const text = element.textContent?.trim().slice(0, 30);
+    return `${translateQaSurfaceText("Nota")}${text ? ` · ${text}` : ""}`;
+  }
+  if (element.classList.contains("qts-shape")) return translateQaSurfaceText("Forma");
+  return translateQaSurfaceText("Linha");
+}
+
+// Scoped on purpose: unlike clearAllFloatingItems() (the toolbar eraser icon, which sweeps every
+// .qts-floating-item including tool-chrome overlays like Holofote/Régua/Key View), this only
+// touches the actual visual annotations a tester places on the page.
+function clearAllMarkers() {
+  activeMarkerElements().forEach((element) => element.remove());
+  updateClearAllVisibility();
+}
+
+function openActiveToolsModal() {
+  const tools = activeToolEntries().filter(([, , active]) => active);
+  const markers = activeMarkerElements();
+  openDrawer({
+    title: translateQaSurfaceText("Ferramentas ativas"),
+    view: "activeTools",
+    variant: "modal",
+    bodyHtml: `${tools.length ? `<div class="qts-card"><div class="qts-card-head"><b>${escapeHtml(translateQaSurfaceText("Ferramentas ligadas"))}</b><button class="action" id="activeToolsDisableAll" type="button">${escapeHtml(translateQaSurfaceText("Desativar todas"))}</button></div>
+        <div id="activeToolsList">${tools.map(([key, label]) => `<div class="qts-list-row" data-tool-key="${escapeHtml(key)}"><span>${escapeHtml(label)}</span><button type="button" class="qts-remove-btn" data-tool-off title="${escapeHtml(translateQaSurfaceText("Desativar todas"))}">${ICON("fail")}</button></div>`).join("")}</div></div>`
+      : `<div class="qts-empty">${escapeHtml(translateQaSurfaceText("Nenhuma ferramenta ativa no momento."))}</div>`}
+      ${markers.length ? `<div class="qts-card"><div class="qts-card-head"><b>${escapeHtml(translateQaSurfaceText("Marcadores na página"))}</b><button class="action" id="activeToolsClearMarkers" type="button">${escapeHtml(translateQaSurfaceText("Limpar todos"))}</button></div>
+        <div id="activeToolsMarkerList">${markers.map((element, index) => `<div class="qts-list-row" draggable="true" data-marker-index="${index}"><span data-drag-handle style="cursor:grab">${ICON("resize")}</span><span>${escapeHtml(markerRowLabel(element))}</span><button type="button" class="qts-remove-btn" data-marker-off title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button></div>`).join("")}</div>
+        <small class="qts-mini-empty">${escapeHtml(translateQaSurfaceText("Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo)."))}</small></div>` : ""}`,
+    onReady(body) {
+      body.querySelector("#activeToolsDisableAll")?.addEventListener("click", async () => { await disableAllActiveTools(); openActiveToolsModal(); });
+      body.querySelector("#activeToolsClearMarkers")?.addEventListener("click", () => { clearAllMarkers(); openActiveToolsModal(); });
+      body.querySelectorAll("[data-tool-off]").forEach((button) => button.addEventListener("click", async () => {
+        const key = button.closest("[data-tool-key]")?.dataset.toolKey;
+        const entry = activeToolEntries().find(([entryKey]) => entryKey === key);
+        if (entry) await entry[3]();
+        openActiveToolsModal();
+      }));
+      body.querySelectorAll("[data-marker-off]").forEach((button) => button.addEventListener("click", () => {
+        const index = Number(button.closest("[data-marker-index]")?.dataset.markerIndex);
+        markers[index]?.remove();
+        updateClearAllVisibility();
+        openActiveToolsModal();
+      }));
+      const list = body.querySelector("#activeToolsMarkerList");
+      let dragIndex = null;
+      list?.querySelectorAll("[data-marker-index]").forEach((row) => {
+        row.addEventListener("dragstart", () => { dragIndex = Number(row.dataset.markerIndex); row.classList.add("isDragging"); });
+        row.addEventListener("dragend", () => row.classList.remove("isDragging"));
+        row.addEventListener("dragover", (event) => event.preventDefault());
+        row.addEventListener("drop", (event) => {
+          event.preventDefault();
+          const dropIndex = Number(row.dataset.markerIndex);
+          if (dragIndex === null || dragIndex === dropIndex) return;
+          const reordered = [...markers];
+          const [moved] = reordered.splice(dragIndex, 1);
+          reordered.splice(dropIndex, 0, moved);
+          reordered.forEach((element) => document.body.appendChild(element));
+          dragIndex = null;
+          openActiveToolsModal();
+        });
+      });
+    },
+  });
+}
+
 function handlePlacementEscape(event) {
   if (event.key === "Escape") cancelPlacementMode();
 }
@@ -2680,12 +2800,31 @@ function placeMarker(kind, clientX, clientY) {
   updateClearAllVisibility();
 }
 
-const DEFAULT_NOTE_STYLE = { color: "#ffffff", fontSize: 14, background: "translucent" };
+const DEFAULT_NOTE_STYLE = { color: "#ffffff", fontSize: 14, background: "translucent", border: false, shadow: true, rounded: true, bold: false, italic: false, strike: false, underline: false };
+const NOTE_FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32];
 
 function noteBackgroundValue(background) {
   if (background === "solid") return "#000000";
+  if (background === "blurred") return "rgba(0,0,0,.28)";
   if (background === "none") return "transparent";
   return "rgba(0,0,0,.6)";
+}
+
+// Every visual choice funnels into a handful of CSS custom properties consumed by both the
+// textarea (live, while editing) and .qts-note-content (once saved) - see toolbar.css for why:
+// `.qts-floating-item * { all: revert }` strips plain inline styles on arbitrary third-party
+// pages, but can't touch custom properties, so those are the only lever that survives.
+function applyNoteStyleVars(element, style) {
+  element.style.setProperty("--qts-note-color", style.color);
+  element.style.setProperty("--qts-note-font-size", `${style.fontSize}px`);
+  element.style.setProperty("--qts-note-weight", style.bold ? "800" : "400");
+  element.style.setProperty("--qts-note-italic", style.italic ? "italic" : "normal");
+  element.style.setProperty("--qts-note-decoration", [style.underline && "underline", style.strike && "line-through"].filter(Boolean).join(" ") || "none");
+  element.style.setProperty("--qts-note-bg", noteBackgroundValue(style.background));
+  element.style.setProperty("--qts-note-border", style.border ? "1px solid rgba(255,255,255,.28)" : "none");
+  element.style.setProperty("--qts-note-shadow", style.shadow ? "0 10px 22px rgba(0,0,0,.3)" : "none");
+  element.style.setProperty("--qts-note-radius", style.rounded ? "10px" : "2px");
+  element.style.setProperty("--qts-note-blur", style.background === "blurred" ? "blur(10px)" : "none");
 }
 
 function renderSavedNote(note, text, style) {
@@ -2698,10 +2837,7 @@ function renderSavedNote(note, text, style) {
     <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">${ICON("fail")}</button>
     <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(t.resize)}">${ICON("resize")}</div>
   `;
-  const content = note.querySelector(".qts-note-content");
-  content.style.setProperty("--qts-note-color", style.color);
-  content.style.setProperty("--qts-note-font-size", `${style.fontSize}px`);
-  content.style.setProperty("--qts-note-bg", noteBackgroundValue(style.background));
+  applyNoteStyleVars(note.querySelector(".qts-note-content"), style);
   wireVisibilityControls(note);
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   makeResizable(note, note.querySelector("[data-resize-handle]"), { minWidth: 100, minHeight: 40 });
@@ -2715,44 +2851,74 @@ function renderEditingNote(note, currentText, currentStyle) {
     ? String(currentStyle.color).trim()
     : DEFAULT_NOTE_STYLE.color;
   const parsedFontSize = Number(currentStyle.fontSize);
-  const safeFontSize = Number.isFinite(parsedFontSize)
-    ? Math.min(28, Math.max(11, parsedFontSize))
-    : DEFAULT_NOTE_STYLE.fontSize;
-  const safeBackground = ["translucent", "solid", "none"].includes(currentStyle.background)
+  const safeFontSize = NOTE_FONT_SIZES.includes(parsedFontSize) ? parsedFontSize : DEFAULT_NOTE_STYLE.fontSize;
+  const safeBackground = ["translucent", "solid", "blurred", "none"].includes(currentStyle.background)
     ? currentStyle.background
     : DEFAULT_NOTE_STYLE.background;
+  const style = { ...DEFAULT_NOTE_STYLE, ...currentStyle, color: safeColor, fontSize: safeFontSize, background: safeBackground };
   note.className = "qts-floating-item qts-note isEditing";
   note.style.height = "";
   note.innerHTML = `
     <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">${ICON("fail")}</button></div>
     <div class="qts-editor-body">
       <textarea placeholder="${escapeHtml(t.notePlaceholder)}"></textarea>
+      <div class="qts-note-format-row">
+        <button type="button" data-note-fmt="bold" title="${escapeHtml(translateQaSurfaceText("Negrito"))}" style="font-weight:800">B</button>
+        <button type="button" data-note-fmt="italic" title="${escapeHtml(translateQaSurfaceText("Itálico"))}" style="font-style:italic">I</button>
+        <button type="button" data-note-fmt="strike" title="${escapeHtml(translateQaSurfaceText("Tachado"))}" style="text-decoration:line-through">S</button>
+        <button type="button" data-note-fmt="underline" title="${escapeHtml(translateQaSurfaceText("Sublinhado"))}" style="text-decoration:underline">U</button>
+      </div>
       <div class="qts-note-style-row">
         <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color /></label>
-        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" data-note-size /></label>
+        <label>${escapeHtml(translateQaSurfaceText("Tamanho"))}<select data-note-size>${NOTE_FONT_SIZES.map((size) => `<option value="${size}">${size}px</option>`).join("")}</select></label>
         <label>${escapeHtml(t.noteBackground)}<select data-note-bg>
-          <option value="translucent" ${safeBackground === "translucent" ? "selected" : ""}>${escapeHtml(t.noteBackgroundTranslucent)}</option>
-          <option value="solid" ${safeBackground === "solid" ? "selected" : ""}>${escapeHtml(t.noteBackgroundSolid)}</option>
-          <option value="none" ${safeBackground === "none" ? "selected" : ""}>${escapeHtml(t.noteBackgroundNone)}</option>
+          <option value="solid">${escapeHtml(t.noteBackgroundSolid)}</option>
+          <option value="translucent">${escapeHtml(t.noteBackgroundTranslucent)}</option>
+          <option value="blurred">${escapeHtml(translateQaSurfaceText("Borrado"))}</option>
+          <option value="none">${escapeHtml(t.noteBackgroundNone)}</option>
         </select></label>
+      </div>
+      <div class="qts-note-toggle-row">
+        <label><input type="checkbox" data-note-border />${escapeHtml(translateQaSurfaceText("Borda"))}</label>
+        <label><input type="checkbox" data-note-shadow />${escapeHtml(translateQaSurfaceText("Sombra"))}</label>
+        <label><input type="checkbox" data-note-rounded />${escapeHtml(translateQaSurfaceText("Cantos arredondados"))}</label>
       </div>
       <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
     </div>
   `;
+  const textarea = note.querySelector("textarea");
   // Page-derived text must remain text, never markup.
-  note.querySelector("textarea").value = String(currentText || "");
-  note.querySelector("[data-note-color]").value = safeColor;
-  note.querySelector("[data-note-size]").value = String(safeFontSize);
+  textarea.value = String(currentText || "");
+  note.querySelector("[data-note-color]").value = style.color;
+  note.querySelector("[data-note-size]").value = String(style.fontSize);
+  note.querySelector("[data-note-bg]").value = style.background;
+  note.querySelector("[data-note-border]").checked = style.border;
+  note.querySelector("[data-note-shadow]").checked = style.shadow;
+  note.querySelector("[data-note-rounded]").checked = style.rounded;
+  note.querySelectorAll("[data-note-fmt]").forEach((button) => button.classList.toggle("isActive", Boolean(style[button.dataset.noteFmt])));
+  // Reacts on every keystroke/toggle, same as a real text editor, instead of only after Salvar.
+  const readStyleFromForm = () => ({
+    color: note.querySelector("[data-note-color]").value,
+    fontSize: Number(note.querySelector("[data-note-size]").value),
+    background: note.querySelector("[data-note-bg]").value,
+    border: note.querySelector("[data-note-border]").checked,
+    shadow: note.querySelector("[data-note-shadow]").checked,
+    rounded: note.querySelector("[data-note-rounded]").checked,
+    bold: style.bold, italic: style.italic, strike: style.strike, underline: style.underline,
+  });
+  const livePreview = () => applyNoteStyleVars(textarea, readStyleFromForm());
+  note.querySelectorAll("[data-note-color],[data-note-size],[data-note-bg],[data-note-border],[data-note-shadow],[data-note-rounded]").forEach((input) => input.addEventListener("input", livePreview));
+  note.querySelectorAll("[data-note-fmt]").forEach((button) => button.addEventListener("click", () => {
+    style[button.dataset.noteFmt] = !style[button.dataset.noteFmt];
+    button.classList.toggle("isActive", style[button.dataset.noteFmt]);
+    livePreview();
+  }));
+  livePreview();
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {
-    const text = note.querySelector("textarea").value.trim() || t.noteDefault;
-    const style = {
-      color: note.querySelector("[data-note-color]").value,
-      fontSize: Number(note.querySelector("[data-note-size]").value),
-      background: note.querySelector("[data-note-bg]").value,
-    };
-    renderSavedNote(note, text, style);
+    const text = textarea.value.trim() || t.noteDefault;
+    renderSavedNote(note, text, readStyleFromForm());
   });
 }
 
@@ -3237,7 +3403,7 @@ function drawerStyles() {
       position:relative; display:inline-grid !important; place-items:center; width:18px !important; min-width:18px !important;
       height:18px !important; min-height:18px !important; margin-left:5px; padding:0 !important; border:1px solid var(--qts-panel-border) !important;
       border-radius:50% !important; background:transparent !important; color:var(--qts-panel-muted) !important;
-      font-size:11px !important; font-weight:900 !important; vertical-align:middle; cursor:help !important;
+      font-size:11px !important; font-weight:900 !important; vertical-align:middle; cursor:pointer !important;
     }
     .qts-help-popover {
       position:fixed; z-index:2147483647; width:max-content; max-width:240px;
@@ -3246,6 +3412,10 @@ function drawerStyles() {
       pointer-events:none; white-space:normal; overflow-wrap:anywhere;
     }
     .qts-catalog-image { width:44px; height:44px; flex:0 0 44px; margin:4px 8px 4px 2px; border-radius:9px; object-fit:cover; background:var(--qts-panel-2); }
+    .qts-filter-chip-image { width:24px; height:24px; flex:0 0 24px; border-radius:6px; object-fit:cover; background:var(--qts-panel-2); }
+    .qts-holofote-preview { display:grid; gap:6px; margin-bottom:4px; }
+    .qts-holofote-preview svg { border-radius:10px; border:1px solid var(--qts-panel-border,#333); }
+    .qts-holofote-preview small { color:var(--qts-panel-muted,#999); text-align:center; }
     .qts-drawer-position { width:auto; display:flex; gap:3px; flex:none; }
     .qts-drawer-head .qts-drawer-position-btn {
       width:22px; height:22px; min-width:0; padding:0; border:1px solid var(--qts-panel-border,#262626);
@@ -3300,6 +3470,10 @@ function drawerStyles() {
     }
     .qts-drawer input[type="checkbox"]:checked { background:var(--qts-ui-primary,#2563eb); }
     .qts-drawer input[type="checkbox"]:checked::after { transform:translateX(16px); }
+    /* Header on/off switch for tools that have a single global active state (Holofote, Régua,
+       Key View, ...) - sits left of the title, top-aligned to the title's cap-height rather than
+       vertically centered against the whole (taller) head row. */
+    .qts-drawer-toggle { align-self:flex-start; margin-top:3px; }
     .qts-drawer button.action { min-height: 40px; padding: 0 14px; border: 1px solid var(--qts-panel-border,#333); border-radius: 8px; background: var(--qts-panel-2,#1c1c1c); color: var(--qts-panel-text,#fff); cursor: pointer; font-weight: 800; }
     .qts-drawer button.action.primary { background: var(--qts-ui-primary, #b20808); border-color: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
     .qts-empty { padding: 24px; text-align: center; color: var(--qts-panel-muted); border: 1px dashed var(--qts-panel-border); border-radius: 10px; }
@@ -3307,6 +3481,12 @@ function drawerStyles() {
     .qts-net-item b { color: var(--qts-panel-accent); }
     .qts-net-item small { display: block; color: var(--qts-panel-muted); word-break: break-all; }
     .qts-json-tree { font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
+    .qts-json-node { display: inline; }
+    .qts-json-node > summary { display: inline-block; cursor: pointer; list-style: revert; }
+    .qts-json-node > summary::marker { color: #888; }
+    .qts-json-meta { color: #888; font-style: italic; }
+    .qts-json-node > .qts-json-body { display: block; }
+    .qts-json-node:not([open]) > .qts-json-body { display: none; }
     .qts-chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--qts-panel-2); border: 1px solid var(--qts-panel-border); font-size: 10px; color: var(--qts-panel-text); }
     .qts-chip b { color: var(--qts-panel-accent); font-weight: 800; }
 
@@ -3317,9 +3497,9 @@ function drawerStyles() {
     .qts-icon-btn:hover { border-color: var(--qts-panel-accent, #ffd700); }
     .qts-filter-bar { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
     .qts-filter-bar.isCollapsed { display: none; }
-    .qts-toggle-group { display: inline-flex; gap: 4px; padding: 3px; border: 1px solid #262626; border-radius: 8px; background: #131313; }
-    .qts-toggle-group button { min-height:52px; padding:4px 10px; border:0; border-radius:6px; background:transparent; color:#ccc; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:10px; }
-    .qts-toggle-group button.isSelected { background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); }
+    .qts-toggle-group { display: flex; flex-wrap: wrap; gap: 6px; }
+    .qts-toggle-group button { min-height:28px; padding:5px 12px; border:1px solid #292929; border-radius:999px; background:#171717; color:#ccc; font-size:11px; font-weight:700; cursor:pointer; display:inline-flex; align-items:center; gap:6px; white-space:nowrap; }
+    .qts-toggle-group button.isSelected { background: var(--qts-ui-primary, #b20808); color: var(--qts-ui-primary-contrast, #fff); border-color: var(--qts-ui-primary, #b20808); }
     .qts-combo { position: relative; border: 1px solid #262626; border-radius: 8px; background: #131313; }
     .qts-combo summary { list-style: none; padding: 5px 10px; font-size: 11px; font-weight: 700; cursor: pointer; color: #ddd; }
     .qts-combo summary::-webkit-details-marker { display: none; }
@@ -3386,8 +3566,17 @@ function drawerStyles() {
     .qts-faker-report-row span, .qts-faker-report-row code { min-width:0; overflow-wrap:anywhere; white-space:normal; }
     .qts-faker-report-row small { display:block; color:#999; margin-top:2px; }
     .qts-faker-report-row code { color:#74e7a5; }
-    .qts-list { display: grid; gap: 6px; margin-top: 8px; max-height: 220px; overflow: auto; }
+    .qts-list { display: grid; gap: 6px; margin-top: 8px; max-height: min(60vh, 520px); overflow: auto; }
     .qts-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border: 1px solid #292929; border-radius: 8px; background: #141414; font-size: 12px; }
+    .qts-list-row > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+    .qts-list-row > span:last-child { flex: none; }
+    .qts-language-badge { z-index: 2147483000; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.4); pointer-events: none; }
+    .qts-language-badge.isPass { background: #1f9d55; color: #fff; }
+    .qts-language-badge.isWarning { background: #e0a800; color: #1a1a1a; }
+    #activeToolsMarkerList .qts-list-row { justify-content: flex-start; margin-bottom: 4px; }
+    #activeToolsMarkerList .qts-list-row > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #activeToolsMarkerList .qts-list-row[draggable] { cursor: grab; }
+    #activeToolsMarkerList .qts-list-row.isDragging { opacity: .4; }
     .qts-list-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .qts-list-row button { all: unset; cursor: pointer; color: #ff7078; font-weight: 800; padding: 0 4px; flex: none; }
     .qts-result-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -3445,7 +3634,7 @@ function drawerStyles() {
        so older feature-specific literal colors cannot break the selected platform theme. */
     .qts-drawer-backdrop.isModal .qts-drawer,
     .qts-toolbar-row input, .qts-toolbar-row select, .qts-toolbar-row textarea,
-    .qts-icon-btn, .qts-toggle-group, .qts-combo, .qts-combo-panel,
+    .qts-icon-btn, .qts-toggle-group button, .qts-combo, .qts-combo-panel,
     .qts-view-switch, .qts-view-switch button, .qts-locate-btn,
     .qts-friendly-section, .qts-friendly-section > summary, .qts-metric,
     .qts-card, .qts-tabs, .qts-palette button, .qts-flow, .qts-step,
@@ -3461,7 +3650,7 @@ function drawerStyles() {
     .qts-result-table td, .qts-faker-report-row { border-color:var(--qts-panel-border); }
     .qts-toggle-group button.isSelected, .qts-view-switch button.isSelected,
     .qts-tabs button.isSelected { background:var(--qts-ui-primary, #b20808); color:var(--qts-ui-primary-contrast, #fff); }
-    .qts-icon-btn, .qts-toggle-group, .qts-combo, .qts-combo-panel,
+    .qts-icon-btn, .qts-toggle-group button, .qts-combo, .qts-combo-panel,
     .qts-view-switch, .qts-view-switch button, .qts-locate-btn,
     .qts-friendly-section > summary, .qts-palette button, .qts-position-grid button {
       color:var(--qts-panel-text); background-color:var(--qts-panel-2); border-color:var(--qts-panel-border);
@@ -3548,7 +3737,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Inspecionar elemento (tamanho em pixels)": "Inspeccionar elemento (tamaño en píxeles)",
   "Cor": "Color", "Espessura da linha": "Grosor de la línea",
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Usa el scroll para ir al elemento padre/hijo · Haz clic para fijarlo",
-  "Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar.": "Pixel Perfect: usa el scroll para cambiar de elemento, haz clic para soltarlo.",
+  "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: usa el scroll para cambiar de elemento, haz clic para soltarlo.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -3576,7 +3765,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Inspecionar elemento (tamanho em pixels)": "Inspect element (pixel size)",
   "Cor": "Color", "Espessura da linha": "Line thickness",
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Scroll to go to the parent/child element · Click to pin it",
-  "Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar.": "Pixel Perfect: scroll to switch elements, click to release.",
+  "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: scroll to switch elements, click to release.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.": "Valida las reglas HTML sin enviar el formulario. El campo original se restaura y cada ejecución queda registrada en el historial local.",
@@ -3603,7 +3792,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Adicione required, limites, pattern ou um tipo específico para validar uma regra.": "Add required, limits, pattern, or a specific type to validate a rule.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
-  "Desativar ferramentas ativas": "Desactivar herramientas activas",
+  "Limpar ferramentas ativas": "Limpiar herramientas activas", "Ferramentas ativas": "Herramientas activas", "Ferramentas ligadas": "Herramientas encendidas", "Desativar todas": "Desactivar todas", "Nenhuma ferramenta ativa no momento.": "Ninguna herramienta activa en este momento.", "Marcadores na página": "Marcadores en la página", "Limpar todos": "Limpiar todos", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Arrastra para reordenar la pila visual (el primero de la lista queda debajo).", "Marcador": "Marcador", "Nota": "Nota", "Forma": "Forma", "Linha": "Línea", "Posicionando marcador/forma/linha": "Posicionando marcador/forma/línea", "Corpo da resposta (JSON opcional)": "Cuerpo de la respuesta (JSON opcional)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Déjalo vacío para usar un cuerpo genérico. Si lo completas, la página recibe exactamente ese JSON en el status elegido - útil para simular el mensaje de error real que la app espera.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "JSON inválido en el cuerpo de la respuesta - corrígelo o déjalo vacío.", "Negrito": "Negrita", "Itálico": "Cursiva", "Tachado": "Tachado", "Sublinhado": "Subrayado", "Tamanho": "Tamaño", "Borrado": "Difuminado", "Borda": "Borde", "Sombra": "Sombra", "Cantos arredondados": "Esquinas redondeadas", "Prévia: como o holofote aparece ao redor do mouse": "Vista previa: cómo se ve el foco alrededor del mouse",
   "Validador de textos": "Validador de textos",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Genera el QR localmente para la URL actual o una URL concreta guardada. No se envía ningún dato a servicios externos.",
   "Query/hash removidos por segurança": "Query/hash eliminados por seguridad",
@@ -3617,7 +3806,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "O arquivo deve ter no máximo 2 MB.": "El archivo debe tener como máximo 2 MB.", "Nenhum texto encontrado": "No se encontró ningún texto",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
-  "Desativar ferramentas ativas": "Disable active tools",
+  "Limpar ferramentas ativas": "Clear active tools", "Ferramentas ativas": "Active tools", "Ferramentas ligadas": "Tools turned on", "Desativar todas": "Turn all off", "Nenhuma ferramenta ativa no momento.": "No tool is active right now.", "Marcadores na página": "Markers on the page", "Limpar todos": "Clear all", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Drag to reorder the visual stack (the first in the list stays at the bottom).", "Marcador": "Marker", "Nota": "Note", "Forma": "Shape", "Linha": "Line", "Posicionando marcador/forma/linha": "Placing marker/shape/line", "Corpo da resposta (JSON opcional)": "Response body (optional JSON)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Leave empty to use a generic body. Filled in, the page receives exactly that JSON at the chosen status - useful for simulating the real error message the app expects.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "Invalid JSON in the response body - fix it or leave it empty.", "Negrito": "Bold", "Itálico": "Italic", "Tachado": "Strikethrough", "Sublinhado": "Underline", "Tamanho": "Size", "Borrado": "Blurred", "Borda": "Border", "Sombra": "Shadow", "Cantos arredondados": "Rounded corners", "Prévia: como o holofote aparece ao redor do mouse": "Preview: how the spotlight looks around the mouse",
   "Validador de textos": "Text Validator",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Generate the QR locally for the current URL or a saved concrete URL. No data is sent to external services.",
   "Query/hash removidos por segurança": "Query/hash removed for safety",
@@ -3680,7 +3869,7 @@ function renderSmartFilter({ key, label, options }, selected, onChange) {
   if (!options.length) return "";
   if (options.length <= 4) {
     return `<div class="qts-toggle-group" data-filter-key="${escapeHtml(key)}">
-      ${options.map((option) => `<button type="button" data-value="${escapeHtml(option.value)}" class="${selected.has(option.value) ? "isSelected" : ""}">${option.image ? `<img class="qts-catalog-image" src="${escapeHtml(option.image)}" alt="" />` : ""}<span>${escapeHtml(option.label)}</span></button>`).join("")}
+      ${options.map((option) => `<button type="button" data-value="${escapeHtml(option.value)}" class="${selected.has(option.value) ? "isSelected" : ""}">${option.image ? `<img class="qts-filter-chip-image" src="${escapeHtml(option.image)}" alt="" />` : ""}<span>${escapeHtml(option.label)}</span></button>`).join("")}
     </div>`;
   }
   return `<details class="qts-combo" data-filter-key="${escapeHtml(key)}">
@@ -3692,7 +3881,7 @@ function renderSmartFilter({ key, label, options }, selected, onChange) {
         ${options.map((option) => `
           <label class="qts-combo-option" data-combo-option data-search="${escapeHtml(option.label.toLowerCase())}">
             <input type="checkbox" data-value="${escapeHtml(option.value)}" ${selected.has(option.value) ? "checked" : ""} />
-            ${option.image ? `<img class="qts-catalog-image" src="${escapeHtml(option.image)}" alt="" />` : ""}
+            ${option.image ? `<img class="qts-filter-chip-image" src="${escapeHtml(option.image)}" alt="" />` : ""}
             <span>${escapeHtml(option.label)}</span>
           </label>
         `).join("")}
@@ -3772,7 +3961,7 @@ function applyDrawerPageOffset(position, drawer, enabled) {
   document.body.style[property] = `${Math.ceil(["left", "right"].includes(position) ? size.width : size.height)}px`;
 }
 
-function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" }) {
+function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "", toggle = null }) {
   if (!view && title === stepsCopy().title) view = "stepsRecorder";
   cleanupBreakpointViewer();
   const drawerHost = ensureDrawerHost();
@@ -3797,7 +3986,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
     <div class="qts-drawer-backdrop${variant === "modal" ? " isModal" : ""}${detachedWindow ? " isDetached" : ""}" id="drawerBackdrop" data-position="${drawerPosition}">
       <div class="qts-drawer">
         ${sidebarControls ? `<span class="qts-drawer-resize" data-edge="left"></span><span class="qts-drawer-resize" data-edge="right"></span><span class="qts-drawer-resize" data-edge="top"></span><span class="qts-drawer-resize" data-edge="bottom"></span>` : ""}
-        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}<div class="qts-drawer-title"><h2>${escapeHtml(title)}</h2><span class="qts-drawer-kicker">${variant === "modal" ? "Janela de trabalho" : detachedWindow ? "Ferramenta em janela separada" : "Ferramenta lateral"}</span></div>
+        <div class="qts-drawer-head${onBack ? " hasBack" : ""}">${onBack ? `<button type="button" id="drawerBack" class="qts-icon-btn" title="Voltar">${ICON("arrowLeft")}</button>` : ""}${toggle ? `<input type="checkbox" id="drawerHeaderToggle" class="qts-drawer-toggle" title="${escapeHtml(toggle.label || "Ativar")}" aria-label="${escapeHtml(toggle.label || "Ativar")} ${escapeHtml(title)}" ${toggle.checked ? "checked" : ""} />` : ""}<div class="qts-drawer-title"><h2>${escapeHtml(title)}</h2><span class="qts-drawer-kicker">${variant === "modal" ? "Janela de trabalho" : detachedWindow ? "Ferramenta em janela separada" : "Ferramenta lateral"}</span></div>
           <div class="qts-drawer-controls">${sidebarControls ? `<div class="qts-drawer-position" id="drawerPosition" role="radiogroup" aria-label="Posição do sidebar">${["right", "left", "top", "bottom"].map((side) => `<button type="button" class="qts-drawer-position-btn" data-position="${side}" aria-pressed="${side === drawerPosition}" title="${escapeHtml({ right: "Direita", left: "Esquerda", top: "Cima", bottom: "Baixo" }[side])}">${drawerPositionIcon(side)}</button>`).join("")}</div>` : ""}
           ${sidebarControls ? `<button type="button" id="drawerPin" title="Fixar sidebar" aria-pressed="false">${ICON("pin")}</button>
           <button type="button" id="drawerMinimize" title="Recolher sidebar">${ICON("collapse")}</button>` : ""}
@@ -3822,6 +4011,7 @@ function openDrawer({ title, bodyHtml, onReady, onBack, view = "", variant = "" 
   applyDrawerPageOffset(drawerPosition, drawer, pushesSite);
   const positionButtons = [...drawerHost.querySelectorAll(".qts-drawer-position-btn")];
   drawerHost.querySelector("#drawerDetach")?.addEventListener("click", () => openToolInNewTab(view));
+  if (toggle) drawerHost.querySelector("#drawerHeaderToggle")?.addEventListener("change", (event) => toggle.onChange(event.currentTarget.checked));
   positionButtons.forEach((button) => {
     button.addEventListener("click", async () => {
       const value = button.dataset.position;
@@ -3905,16 +4095,21 @@ function closeDrawer() {
   clearDrawerPageOffset();
 }
 
+// Every object/array key renders as a native <details>, open by default so the tree looks exactly
+// like the old always-expanded dump - but now each key can be collapsed/expanded individually
+// (and nested ones independently of their parent) with zero extra JS wiring.
 function renderJsonTree(value, depth = 0) {
   if (value === null) return `<span style="color:#888">null</span>`;
   if (Array.isArray(value)) {
     if (!value.length) return "[]";
-    return `[<br>${value.map((item) => `${"&nbsp;".repeat((depth + 1) * 2)}${renderJsonTree(item, depth + 1)}`).join(",<br>")}<br>${"&nbsp;".repeat(depth * 2)}]`;
+    const items = value.map((item) => `${"&nbsp;".repeat((depth + 1) * 2)}${renderJsonTree(item, depth + 1)}`).join(",<br>");
+    return `<details class="qts-json-node" open><summary>[ <span class="qts-json-meta">${value.length} ${value.length === 1 ? "item" : "itens"}</span> ]</summary><div class="qts-json-body">${items}<br>${"&nbsp;".repeat(depth * 2)}]</div></details>`;
   }
   if (typeof value === "object") {
     const keys = Object.keys(value);
     if (!keys.length) return "{}";
-    return `{<br>${keys.map((key) => `${"&nbsp;".repeat((depth + 1) * 2)}<span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(key)}</span>: ${renderJsonTree(value[key], depth + 1)}`).join(",<br>")}<br>${"&nbsp;".repeat(depth * 2)}}`;
+    const entries = keys.map((key) => `${"&nbsp;".repeat((depth + 1) * 2)}<span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(key)}</span>: ${renderJsonTree(value[key], depth + 1)}`).join(",<br>");
+    return `<details class="qts-json-node" open><summary>{ <span class="qts-json-meta">${keys.length} ${keys.length === 1 ? "chave" : "chaves"}</span> }</summary><div class="qts-json-body">${entries}<br>${"&nbsp;".repeat(depth * 2)}}</div></details>`;
   }
   if (typeof value === "string") return `<span style="color:#8ad1ff">${escapeHtml(JSON.stringify(value))}</span>`;
   return `<span style="color:#9bffb0">${escapeHtml(String(value))}</span>`;
@@ -4262,7 +4457,17 @@ function executeAndObserveClickSpy(target, tooltip, button) {
   const renderTrace = () => { traceLog.innerHTML = seen.map(([label, detail]) => `<div class="qts-clickspy-event"><b>${escapeHtml(label)}</b><span>${escapeHtml(detail)}</span></div>`).join(""); };
   const restore = installTemporaryActionTrace((label, detail) => { seen.push([label, detail]); renderTrace(); });
 
-  if (typeof target.click === "function") target.click();
+  // A same-tab link would navigate this very tab away, reloading the page and wiping the trace
+  // we're about to show - open it in a new tab instead so the observed effects stay readable here.
+  const anchor = target.closest?.("a[href]");
+  const anchorHref = anchor?.getAttribute("href") || "";
+  const navigatesCurrentTab = anchor && anchor.target !== "_blank" && !/^(#|javascript:)/i.test(anchorHref);
+  if (navigatesCurrentTab) {
+    const destination = new URL(anchorHref, window.location.href).href;
+    window.open(destination, "_blank", "noopener");
+    seen.push([t.clickSpyEventNavigation, destination]);
+    renderTrace();
+  } else if (typeof target.click === "function") target.click();
   else target.dispatchEvent?.(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
   window.setTimeout(() => {
@@ -4294,11 +4499,16 @@ function openForceHttpDialog() {
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${FORCE_HTTP_STATUSES.map((status) => `<button type="button" class="action" data-status="${status}">HTTP ${status}</button>`).join("")}
       </div>
+      <label class="qts-field-label" style="margin-top:14px">${escapeHtml(translateQaSurfaceText("Corpo da resposta (JSON opcional)"))}<textarea id="forceHttpBody" rows="4" placeholder='{"message":"Cartão recusado","code":"payment_declined"}' style="font:12px ui-monospace,Consolas,monospace"></textarea></label>
+      <small class="qts-mini-empty">${escapeHtml(translateQaSurfaceText("Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera."))}</small>
       <div style="margin-top:14px"><button type="button" class="action" id="forceHttpClear">${escapeHtml(t.forceHttpCancel)}</button></div>
     `,
     onReady: (body) => {
+      const bodyInput = body.querySelector("#forceHttpBody");
       body.querySelectorAll("[data-status]").forEach((button) => button.addEventListener("click", () => {
-        document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: Number(button.dataset.status) } }));
+        const raw = bodyInput.value.trim();
+        if (raw) { try { JSON.parse(raw); } catch { bodyInput.setCustomValidity?.(""); showQaToast(translateQaSurfaceText("JSON inválido no corpo da resposta - corrija ou deixe vazio."), "error"); return; } }
+        document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: Number(button.dataset.status), body: raw || null } }));
         closeDrawer();
       }));
       body.querySelector("#forceHttpClear").addEventListener("click", () => {
@@ -4846,7 +5056,7 @@ function renderTestAccountsList() {
     return;
   }
 
-  const allAccounts = (state.workspace.testAccounts || []).filter((account) => (account.environmentIds || []).includes(state.environment.id) && (!account.productIds?.length || account.productIds.includes(state.environment.productId)));
+  const allAccounts = (state.workspace.testAccounts || []).filter((account) => account.active !== false && (account.environmentIds || []).includes(state.environment.id) && (!account.productIds?.length || account.productIds.includes(state.environment.productId)));
   if (!allAccounts.length) {
     body.innerHTML = `<div class="qts-toolbar-row" style="justify-content:flex-end">${drawerAddButton("testAccount", "Adicionar conta")}</div><div class="qts-empty">${escapeHtml(t.testAccountsEmptyForEnv)}</div>`;
     wireDrawerAddButton(body, "testAccount");
@@ -5919,9 +6129,8 @@ function openKeyView() {
   openDrawer({
     title: "Key View",
     view: "keyView",
-    bodyHtml: `<p class="qts-tool-lead">Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.</p>
-      <div class="qts-card qts-key-view-status"><div><b>Key View</b><small>${preferences.enabled ? "Ativo nesta página" : "Desativado"}</small></div><button class="action ${preferences.enabled ? "" : "primary"}" id="keyViewToggle" type="button">${preferences.enabled ? "Desativar" : "Ativar"}</button></div>
-      <label class="qts-switch-row"><input id="keyViewTyping" type="checkbox" ${preferences.typingMode ? "checked" : ""} /><span><b>Modo Typing</b><small>Mantém o texto digitado na tela até você clicar em Limpar.</small></span></label>
+    toggle: { checked: preferences.enabled, label: "Ativar Key View", onChange: async (checked) => { await saveKeyViewPreferences({ enabled: checked }); openKeyView(); } },
+    bodyHtml: `<label class="qts-switch-row"><input id="keyViewTyping" type="checkbox" ${preferences.typingMode ? "checked" : ""} /><span><b>Modo Typing</b><small>Mantém o texto digitado na tela até você clicar em Limpar.</small></span></label>
       <label class="qts-switch-row"><input id="keyViewMouse" type="checkbox" ${preferences.mouseEffects ? "checked" : ""} /><span><b>Visualizar mouse</b><small>Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.</small></span></label>
       <label class="qts-field-label">Aparência das teclas<select id="keyViewTheme"><option value="dark" ${preferences.theme === "dark" ? "selected" : ""}>Tecla preta · texto branco</option><option value="light" ${preferences.theme === "light" ? "selected" : ""}>Tecla branca · texto preto</option></select></label>
       <div class="qts-key-view-size-grid">
@@ -5948,10 +6157,6 @@ function openKeyView() {
         selectedPosition = button.dataset.keyViewPosition;
         body.querySelectorAll("[data-key-view-position]").forEach((candidate) => candidate.classList.toggle("isSelected", candidate === button));
       }));
-      body.querySelector("#keyViewToggle").addEventListener("click", async () => {
-        await saveKeyViewPreferences({ enabled: !getKeyViewPreferences().enabled });
-        openKeyView();
-      });
       const persistSwitch = async (input, preference) => {
         input.disabled = true;
         await saveKeyViewPreferences({ [preference]: input.checked });
@@ -6246,8 +6451,7 @@ function openBlurElementsTool() {
   openDrawer({
     title: "Borrar elementos",
     view: "blurElements",
-    bodyHtml: `<p class="qts-tool-lead">Clique em elementos da página para borrar informações sensíveis antes de um screenshot ou gravação, ou clique com o botão direito num elemento e escolha "Borrar / desborrar este elemento" no menu QA Sandbox.</p>
-      <div class="qts-card-actions"><button class="action primary" id="blurSelectElement" type="button">Selecionar elemento</button><button class="action" id="blurClearAll" type="button">Limpar todos os borrados</button></div>
+    bodyHtml: `<div class="qts-card-actions"><button class="action primary" id="blurSelectElement" type="button">Selecionar elemento</button><button class="action" id="blurClearAll" type="button">Limpar todos os borrados</button></div>
       <div class="qts-status" id="blurStatus"></div>
       <div class="qts-list" id="blurList"></div>`,
     onReady(body) {
@@ -6397,35 +6601,45 @@ function openHolofoteTool() {
   openDrawer({
     title: "Modo Holofote",
     view: "holofote",
-    bodyHtml: `<p class="qts-tool-lead">Ative e segure Ctrl por 2 segundos em qualquer momento para acender um holofote ao redor do mouse, útil pra guiar a atenção em demonstrações e gravações. Soltar Ctrl apaga o holofote suavemente.</p>
-      <div class="qts-card-actions"><button class="action ${state.holofoteActive ? "" : "primary"}" id="holofoteToggle" type="button">${state.holofoteActive ? "Desativar" : "Ativar"}</button></div>
-      <label>Efeito<select id="holofoteEffect">
+    toggle: { checked: state.holofoteActive, label: "Ativar Holofote", onChange: (checked) => { if (checked) enableHolofoteMode(); else disableHolofoteMode(); } },
+    bodyHtml: `<div class="qts-holofote-preview"><svg id="holofotePreviewSvg" viewBox="0 0 200 120" width="100%" height="120" preserveAspectRatio="xMidYMid slice">
+        <defs><mask id="holofotePreviewMask"><rect width="200" height="120" fill="#fff" /><circle id="holofotePreviewHole" cx="100" cy="60" r="30" fill="#000" /></mask></defs>
+        <rect width="200" height="120" fill="#2a2a2a" />
+        <rect x="14" y="14" width="60" height="8" rx="2" fill="#555" /><rect x="14" y="30" width="90" height="8" rx="2" fill="#555" /><rect x="126" y="80" width="60" height="8" rx="2" fill="#555" /><rect x="14" y="96" width="40" height="8" rx="2" fill="#555" />
+        <rect id="holofotePreviewOverlay" width="200" height="120" fill="#000" mask="url(#holofotePreviewMask)" />
+        <circle id="holofotePreviewRing" cx="100" cy="60" r="30" fill="none" stroke="var(--qts-ui-primary,#ffd700)" stroke-width="2" stroke-dasharray="4 3" />
+      </svg><small>${escapeHtml(translateQaSurfaceText("Prévia: como o holofote aparece ao redor do mouse"))}</small></div>
+      <label class="qts-field-label">Efeito<select id="holofoteEffect">
         <option value="darken">Escurecer</option>
         <option value="blur">Borrar</option>
       </select></label>
-      <label>Opacidade (efeito Escurecer)<input type="range" min="20" max="95" id="holofoteOpacity" /></label>
-      <label>Intensidade do borrão (efeito Borrar)<input type="range" min="2" max="24" id="holofoteBlur" /></label>
-      <label>Tamanho do holofote<input type="range" min="60" max="320" id="holofoteSize" /></label>`,
+      <label class="qts-field-label">Opacidade (efeito Escurecer)<input type="range" min="20" max="95" id="holofoteOpacity" /></label>
+      <label class="qts-field-label">Intensidade do borrão (efeito Borrar)<input type="range" min="2" max="24" id="holofoteBlur" /></label>
+      <label class="qts-field-label">Tamanho do holofote<input type="range" min="60" max="320" id="holofoteSize" /></label>`,
     onReady(body) {
-      const toggle = body.querySelector("#holofoteToggle");
       const effectInput = body.querySelector("#holofoteEffect");
       const opacityInput = body.querySelector("#holofoteOpacity");
       const blurInput = body.querySelector("#holofoteBlur");
       const sizeInput = body.querySelector("#holofoteSize");
+      const previewOverlay = body.querySelector("#holofotePreviewOverlay");
+      const previewHole = body.querySelector("#holofotePreviewHole");
       effectInput.value = holofoteSettings.effect;
       opacityInput.value = holofoteSettings.opacity;
       blurInput.value = holofoteSettings.blur;
       sizeInput.value = holofoteSettings.size;
+      const renderPreview = () => {
+        const isBlur = effectInput.value === "blur";
+        previewOverlay.setAttribute("fill-opacity", isBlur ? "0.35" : String(Number(opacityInput.value) / 100));
+        previewOverlay.setAttribute("filter", isBlur ? `blur(${Math.min(6, Number(blurInput.value) / 4)}px)` : "none");
+        previewHole.setAttribute("r", String(Math.min(55, Math.max(10, Number(sizeInput.value) / 6))));
+        body.querySelector("#holofotePreviewRing").setAttribute("r", previewHole.getAttribute("r"));
+      };
       const applyFromInputs = () => {
         holofoteSettings = { effect: effectInput.value, opacity: Number(opacityInput.value), blur: Number(blurInput.value), size: Number(sizeInput.value) };
+        renderPreview();
       };
       [effectInput, opacityInput, blurInput, sizeInput].forEach((input) => input.addEventListener("input", applyFromInputs));
-      toggle.addEventListener("click", () => {
-        if (state.holofoteActive) disableHolofoteMode();
-        else enableHolofoteMode();
-        toggle.textContent = translateQaSurfaceText(state.holofoteActive ? "Desativar" : "Ativar");
-        toggle.classList.toggle("primary", !state.holofoteActive);
-      });
+      renderPreview();
     },
   });
 }
@@ -6687,16 +6901,15 @@ function inspectElementWithPixelPerfect(element) {
   if (!element) { showQaToast(translateQaSurfaceText("Nenhum elemento selecionado."), "error"); return; }
   if (!state.pixelPerfectActive) enablePixelPerfectMode();
   pinPixelPerfectBounds(element);
-  showQaToast(translateQaSurfaceText("Pixel Perfect: role o scroll pra trocar de elemento, clique pra soltar."));
+  showQaToast(translateQaSurfaceText("Régua: role o scroll pra trocar de elemento, clique pra soltar."));
 }
 
 function openPixelPerfectTool() {
   openDrawer({
-    title: "Pixel Perfect",
+    title: "Régua",
     view: "pixelPerfect",
-    bodyHtml: `<p class="qts-tool-lead">Use guias precisas para alinhar a interface ou inspecione o tamanho real de qualquer elemento. Clique para medir e fixar; no modo elemento, use o scroll para navegar entre pai e filho.</p>
-      <div class="qts-tool-state"><div class="qts-tool-state-copy"><b>Pixel Perfect</b><small id="pixelPerfectStatus">${state.pixelPerfectActive ? "Ativo na página" : "Pronto para usar"}</small></div><button class="action ${state.pixelPerfectActive ? "" : "primary"}" id="pixelPerfectToggle" type="button">${state.pixelPerfectActive ? "Desativar" : "Ativar"}</button></div>
-      <fieldset class="qts-mode-fieldset"><legend>Modo de inspeção</legend><div class="qts-mode-grid" role="radiogroup" aria-label="Modo do Pixel Perfect">
+    toggle: { checked: state.pixelPerfectActive, label: "Ativar Régua", onChange: (checked) => { if (checked) enablePixelPerfectMode(); else disablePixelPerfectMode(); } },
+    bodyHtml: `<fieldset class="qts-mode-fieldset"><legend>Modo de inspeção</legend><div class="qts-mode-grid" role="radiogroup" aria-label="Modo da Régua">
         <button class="qts-mode-option" type="button" role="radio" data-pp-mode="cross"><span class="qts-mode-icon">+</span><span class="qts-mode-copy"><b>Cruz</b><small>Horizontal + vertical</small></span></button>
         <button class="qts-mode-option" type="button" role="radio" data-pp-mode="horizontal"><span class="qts-mode-icon">−</span><span class="qts-mode-copy"><b>Horizontal</b><small>Linha de largura total</small></span></button>
         <button class="qts-mode-option" type="button" role="radio" data-pp-mode="vertical"><span class="qts-mode-icon">|</span><span class="qts-mode-copy"><b>Vertical</b><small>Linha de altura total</small></span></button>
@@ -6717,12 +6930,10 @@ function openPixelPerfectTool() {
       </label>
       <label data-pp-thickness-row>Espessura da linha<input type="range" min="1" max="5" id="pixelPerfectThickness" /></label>`,
     onReady(body) {
-      const toggle = body.querySelector("#pixelPerfectToggle");
       const modeInput = body.querySelector("#pixelPerfectMode");
       const colorInput = body.querySelector("#pixelPerfectColor");
       const colorHex = body.querySelector("#pixelPerfectColorHex");
       const themeColorButton = body.querySelector("#pixelPerfectThemeColor");
-      const status = body.querySelector("#pixelPerfectStatus");
       const thicknessInput = body.querySelector("#pixelPerfectThickness");
       const thicknessRow = body.querySelector("[data-pp-thickness-row]");
       modeInput.value = pixelPerfectSettings.mode;
@@ -6752,13 +6963,6 @@ function openPixelPerfectTool() {
         if (overlay) applyPixelPerfectSettings(overlay);
       });
       syncModes();
-      toggle.addEventListener("click", () => {
-        if (state.pixelPerfectActive) disablePixelPerfectMode();
-        else enablePixelPerfectMode();
-        toggle.textContent = translateQaSurfaceText(state.pixelPerfectActive ? "Desativar" : "Ativar");
-        toggle.classList.toggle("primary", !state.pixelPerfectActive);
-        status.textContent = state.pixelPerfectActive ? "Ativo na página" : "Pronto para usar";
-      });
     },
   });
 }
@@ -6774,8 +6978,7 @@ function openElementCapture() {
   openDrawer({
     title: "Capturar elementos",
     view: "elementCapture",
-    bodyHtml: `<p class="qts-tool-lead">Captura todos os elementos interativos da página atual (links, botões, inputs, selects) com seletor CSS e XPath prontos para automação. Nenhum valor digitado é exportado.</p>
-      <div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action" id="elementViewToggle" type="button">Ver elementos</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
+    bodyHtml: `<div class="qts-card-actions"><button class="action" id="elementCaptureRescan" type="button">Recapturar</button><button class="action" id="elementViewToggle" type="button">Ver elementos</button><button class="action primary" id="elementCaptureExport" type="button">Exportar CSV</button></div>
       <div class="qts-toolbar-row" id="elementViewFilters" hidden>
         <label style="display:flex;align-items:center;gap:4px;font-size:11px"><input type="checkbox" data-view-field="id" checked /> #id</label>
         <label style="display:flex;align-items:center;gap:4px;font-size:11px"><input type="checkbox" data-view-field="testId" checked /> data-test-id</label>
@@ -6882,19 +7085,13 @@ function renderPinnedMacros() {
   if (!container) return;
   if (!hasPlanFeature("macroStudio")) { container.innerHTML = ""; return; }
   const pinned = new Set(state.workspace?.preferences?.pinnedMacroIds || []);
-  const macros = state.workspace?.macros || [];
-  container.innerHTML = `<small style="display:block;padding:3px 8px;color:var(--qts-ui-muted)">Macros salvas</small>
-    ${macros.length ? macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">${ICON("play")} ${escapeHtml(macro.name)} ${pinned.has(macro.id) ? ICON("pin") : ""}</button>`).join("") : `<small class="qts-mini-empty">Nenhuma macro salva.</small>`}
-    <button type="button" data-manage-macros>${ICON("settings")} Gerenciar macros</button>`;
+  const macros = (state.workspace?.macros || []).filter((macro) => pinned.has(macro.id));
+  container.innerHTML = macros.map((macro) => `<button type="button" data-pinned-macro="${escapeHtml(macro.id)}" title="Executar macro">${ICON("play")} ${escapeHtml(macro.name)} ${ICON("pin")}</button>`).join("");
   container.querySelectorAll("[data-pinned-macro]").forEach((button) => button.addEventListener("click", () => {
     const macro = (state.workspace.macros || []).find((item) => item.id === button.dataset.pinnedMacro);
     closeToolsMenu();
     if (macro) void playMacro(macro);
   }));
-  container.querySelector("[data-manage-macros]")?.addEventListener("click", () => {
-    closeToolsMenu();
-    openMacroStudio();
-  });
 }
 
 // Live badge anchored to a real page input/textarea, so a founder can watch a character limit
@@ -6951,8 +7148,7 @@ function openQrCodeTool() {
     title: "QR Code",
     view: "qrCode",
     variant: "modal",
-    bodyHtml: `<p class="qts-tool-lead">Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.</p>
-      ${hasSensitiveParts ? `<div class="qts-card"><b>Query/hash removidos por segurança</b><p class="qts-tool-lead">A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.</p><label class="qts-switch-row"><input id="qrKeepSensitive" type="checkbox" /><span><b>Incluir query e hash</b></span></label></div>` : ""}
+    bodyHtml: `${hasSensitiveParts ? `<div class="qts-card"><b>Query/hash removidos por segurança</b><p class="qts-tool-lead">A URL atual contém parâmetros. Ative a opção abaixo somente se tiver certeza de que não há token ou segredo.</p><label class="qts-switch-row"><input id="qrKeepSensitive" type="checkbox" /><span><b>Incluir query e hash</b></span></label></div>` : ""}
       <label class="qts-field-label">URL<select id="qrUrl"><option value="${escapeHtml(current.href)}">Aba atual - ${escapeHtml(current.href)}</option>${savedUrls.map((item) => `<option value="${escapeHtml(item.url)}">${escapeHtml(item.label)}</option>`).join("")}</select></label>
       <div class="qts-card" style="display:grid;place-items:center"><canvas id="qrCanvas" width="280" height="280" aria-label="QR Code gerado"></canvas></div>
       <div class="qts-card-actions"><button class="action primary" id="qrDownload" type="button">Baixar PNG</button><button class="action" id="qrCopy" type="button">Copiar imagem</button></div><div class="qts-status" id="qrStatus"></div>`,
@@ -6995,12 +7191,52 @@ function visiblePageText() {
   return (clone.innerText || clone.textContent || "").replace(/\s+/g, " ").trim();
 }
 
+// Best-effort element lookup for a validator entry's expected text: exact-match leaf elements
+// first (an element whose OWN direct text, not counting nested children, equals the value) so a
+// badge lands on the actual label/paragraph instead of some giant ancestor wrapping half the page.
+// Capped - this walks the live DOM per entry, and a 5,000-entry import validating against a huge
+// page would otherwise be a real perf cliff.
+function findLanguageValidatorElement(normalizedValue) {
+  if (!normalizedValue) return null;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) => (node.closest("#qts-toolbar-host, .qts-floating-item") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
+  let node = walker.nextNode();
+  while (node) {
+    const ownText = [...node.childNodes].filter((child) => child.nodeType === Node.TEXT_NODE).map((child) => child.textContent).join(" ").replace(/\s+/g, " ").trim();
+    if (ownText === normalizedValue) return node;
+    node = walker.nextNode();
+  }
+  return null;
+}
+
+function clearLanguageValidatorBadges() {
+  document.querySelectorAll(".qts-language-badge").forEach((badge) => badge.remove());
+}
+
+function renderLanguageValidatorBadges(results) {
+  clearLanguageValidatorBadges();
+  results.slice(0, 80).forEach((entry) => {
+    const target = findLanguageValidatorElement(entry.value.replace(/\s+/g, " ").trim());
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    if (!rect.width && !rect.height) return;
+    const badge = document.createElement("span");
+    badge.className = `qts-floating-item qts-language-badge ${entry.found ? "isPass" : "isWarning"}`;
+    badge.style.position = "absolute";
+    badge.style.left = `${window.scrollX + rect.left - 10}px`;
+    badge.style.top = `${window.scrollY + rect.top - 10}px`;
+    badge.title = `${entry.key}: ${entry.found ? "OK" : translateQaSurfaceText("Ausente/diferente")}`;
+    badge.innerHTML = ICON(entry.found ? "pass" : "fail");
+    document.body.appendChild(badge);
+  });
+}
+
 function openLanguageValidator() {
   openDrawer({
     title: "Validador de textos",
     view: "languageValidator",
-    bodyHtml: `<p class="qts-tool-lead">Importe um JSON de idioma. Cada texto esperado é comparado com o conteúdo visível da página atual; o arquivo nunca é executado nem enviado.</p>
-      <label class="qts-field-label">Arquivo JSON<input id="languageFile" type="file" accept="application/json,.json" /></label>
+    bodyHtml: `<label class="qts-field-label">Arquivo JSON<input id="languageFile" type="file" accept="application/json,.json" /></label>
       <div class="qts-card-actions"><button class="action primary" id="languageValidate" type="button" disabled>Validar página</button><button class="action" id="languageRevalidate" type="button" disabled>Revalidar após navegação</button></div>
       <div class="qts-status" id="languageStatus"></div><div class="qts-list" id="languageResults"></div>`,
     onReady(body) {
@@ -7011,6 +7247,7 @@ function openLanguageValidator() {
         const found = results.filter((entry) => entry.found).length;
         body.querySelector("#languageStatus").textContent = translateQaSurfaceText(`${found}/${results.length} textos encontrados na página atual.`);
         body.querySelector("#languageResults").innerHTML = results.map((entry) => `<div class="qts-list-row"><span><b>${entry.found ? "✓" : "⚠"} ${escapeHtml(entry.key)}</b><small>${escapeHtml(entry.value)}</small></span><span class="qts-chip">${escapeHtml(translateQaSurfaceText(entry.found ? "Igual" : "Ausente/diferente"))}</span></div>`).join("") || `<div class="qts-empty">${escapeHtml(translateQaSurfaceText("Importe um arquivo JSON válido."))}</div>`;
+        renderLanguageValidatorBadges(results);
       };
       body.querySelector("#languageFile").addEventListener("change", async (event) => {
         const file = event.currentTarget.files?.[0];
@@ -7041,8 +7278,7 @@ function openCharacterCounter(initialText = null) {
   openDrawer({
     title: "Contador de caracteres",
     view: "characterCounter",
-    bodyHtml: `<p class="qts-tool-lead">Cole ou selecione um texto para medir caracteres, palavras, linhas e bytes.</p>
-      <textarea id="characterCounterInput" rows="9" placeholder="Digite ou cole seu texto...">${escapeHtml(selected)}</textarea>
+    bodyHtml: `<textarea id="characterCounterInput" rows="9" placeholder="Digite ou cole seu texto...">${escapeHtml(selected)}</textarea>
       <div class="qts-card-actions"><button class="action" id="useSelection" type="button">Usar seleção da página</button><button class="action" id="clearCounter" type="button">Limpar</button><button class="action" id="pickCounterField" type="button">Acompanhar campo da página</button></div>
       <div class="qts-tool-grid" id="characterMetrics"></div>`,
     onReady(body) {
@@ -7156,9 +7392,11 @@ function openMultiClick(selectedElement = null) {
   openDrawer({
     title: "Multiclick",
     view: "multiClick",
-    bodyHtml: `<p class="qts-tool-lead">Repita cliques em um elemento, com limite e intervalo controlados.</p>
-      <label>Elemento</label><input id="multiSelector" value="${escapeHtml(selector)}" readonly placeholder="Nenhum elemento selecionado" />
-      <div class="qts-card-actions"><button class="action" id="multiSelect" type="button">Selecionar na página</button></div>
+    // Flow order matches what the tester actually does: pick the element first, see what got
+    // picked, then configure and only then run - instead of showing an empty "Elemento" field
+    // above the button that's supposed to fill it.
+    bodyHtml: `<div class="qts-card-actions"><button class="action primary" id="multiSelect" type="button">Selecionar na página</button></div>
+      <label class="qts-field-label">Elemento<input id="multiSelector" value="${escapeHtml(selector)}" readonly placeholder="Nenhum elemento selecionado" /></label>
       <div class="qts-tool-grid"><label>Quantidade<input id="multiCount" type="number" min="2" max="100" value="5" /></label><label>Intervalo (ms)<input id="multiInterval" type="number" min="0" max="5000" value="150" /></label></div>
       <button class="action primary" id="multiRun" type="button" ${selector ? "" : "disabled"}>Executar multiclick</button><div class="qts-status" id="multiStatus"></div>`,
     onReady(body) {
@@ -7200,14 +7438,22 @@ function fieldValidatorRules(info) {
   ].filter(Boolean);
 }
 
+// Shared by the current-run result card and every history entry, so "what happened just now" and
+// "what happened before" always look identical - no separate summary-only vs. detailed-table paths.
+function fieldValidatorResultTable(rules, results) {
+  const failed = results.filter((result) => !result.outcome).length;
+  const status = !rules.length ? "Sem regras declaradas" : failed ? `${failed} possível(is) quebra(s) encontrada(s)` : "Campo compatível com as regras declaradas";
+  return `<p><b>Regras:</b> ${rules.length ? escapeHtml(rules.join(", ")) : "nenhuma regra HTML declarada"}</p>
+    <p>${failed ? ICON("fail") : ICON("pass")} <b>${escapeHtml(status)}</b></p>
+    <table class="qts-result-table"><thead><tr><th>Caso</th><th>Regra</th><th>Resultado</th></tr></thead><tbody>${results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${escapeHtml(result.matchedRule || "sem regra específica")}</td><td>${result.outcome ? `${ICON("pass")} esperado` : `${ICON("fail")} revisar`} (${result.accepted ? "aceito" : "rejeitado"})</td></tr>`).join("")}</tbody></table>`;
+}
+
 function renderFieldValidatorHistory(output, history) {
   if (!output) return;
   output.innerHTML = history.length ? history.map((entry) => {
     const failed = entry.results.filter((result) => !result.outcome).length;
-    const status = !entry.hadRules ? "Sem regras declaradas" : failed ? `${failed} possível(is) quebra(s)` : "Validação compatível";
-    return `<details class="qts-card qts-validator-history"><summary><span><b>${escapeHtml(entry.field)}</b><small>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</small></span><span>${failed ? ICON("fail") : ICON("pass")} ${escapeHtml(status)}</span></summary>
-      <p><b>Regras:</b> ${entry.rules.length ? escapeHtml(entry.rules.join(", ")) : "nenhuma regra HTML declarada"}</p>
-      <table class="qts-result-table"><thead><tr><th>Caso</th><th>Regra</th><th>Resultado</th></tr></thead><tbody>${entry.results.map((result) => `<tr><td>${escapeHtml(result.name)}</td><td>${escapeHtml(result.matchedRule || "sem regra específica")}</td><td>${result.outcome ? `${ICON("pass")} esperado` : `${ICON("fail")} revisar`} (${result.accepted ? "aceito" : "rejeitado"})</td></tr>`).join("")}</tbody></table>
+    return `<details class="qts-card qts-validator-history"><summary><span><b>${escapeHtml(entry.field)}</b><small>${escapeHtml(new Date(entry.timestamp).toLocaleString())}</small></span><span>${failed ? ICON("fail") : ICON("pass")}</span></summary>
+      ${fieldValidatorResultTable(entry.rules, entry.results)}
     </details>`;
   }).join("") : `<div class="qts-mini-empty">Nenhuma validação executada ainda.</div>`;
   localizeQaSurface(output);
@@ -7221,9 +7467,16 @@ function openInputLab(selectedElement = null) {
   openDrawer({
     title: "Validador de campos",
     view: "inputLab",
-    bodyHtml: `<p class="qts-tool-lead">Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.</p>
-      <button class="action" id="inputSelect" type="button">Selecionar input na página</button>${infoHtml}
-      ${info ? `<div class="qts-card"><b>Regras encontradas</b><p>${rules.length ? escapeHtml(rules.join(", ")) : "Nenhuma regra HTML declarada. Os casos serão registrados como diagnóstico."}</p></div><button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Validar campo</button><div id="inputResults"></div>` : ""}
+    // Order mirrors how a QA reads this top to bottom: which field, what rules apply to it, what
+    // just happened when tested, then the audit trail. The rules card used to only show up after
+    // a field was picked but the summary card that used to sit where "Resultado atual" is now
+    // only ever showed one line ("2 possíveis quebras") - the actual per-case table was buried
+    // inside the (collapsed) history entry, so seeing what was actually applied to the field
+    // meant opening a history row instead of just looking at the run you just did.
+    bodyHtml: `<button class="action" id="inputSelect" type="button">Selecionar input na página</button>
+      ${info ? `${infoHtml}<div class="qts-card"><b>Regras</b><p>${rules.length ? escapeHtml(rules.join(", ")) : "Nenhuma regra HTML declarada. Os casos serão registrados como diagnóstico."}</p></div>
+      <button class="action primary" id="inputRun" type="button" ${info.sensitive ? "disabled" : ""}>Validar campo</button>
+      <div class="qts-card-actions"><b>Resultado atual</b></div><div id="inputResults"><div class="qts-mini-empty">Ainda não validado nesta seleção.</div></div>` : ""}
       <div class="qts-card-actions"><b>Histórico</b><button class="action" id="inputHistoryClear" type="button">Limpar histórico</button></div><div id="inputHistory"></div>`,
     onReady(body) {
       const refreshHistory = async () => renderFieldValidatorHistory(body.querySelector("#inputHistory"), await readFieldValidatorHistory());
@@ -7239,8 +7492,7 @@ function openInputLab(selectedElement = null) {
         const output = body.querySelector("#inputResults"); output.textContent = "Testando...";
         try {
           const results = await window.QTS_QA_TOOLS.runInputValidation(selectedElement);
-          const failed = results.filter((result) => !result.outcome).length;
-          output.innerHTML = `<div class="qts-card"><b>${!rules.length ? "Diagnóstico concluído sem regras declaradas" : failed ? `${failed} possível(is) quebra(s) encontrada(s)` : "Campo compatível com as regras declaradas"}</b><p>${rules.length ? `Foram verificadas: ${escapeHtml(rules.join(", "))}.` : "Adicione required, limites, pattern ou um tipo específico para validar uma regra."}</p></div>`;
+          output.innerHTML = `<div class="qts-card">${fieldValidatorResultTable(rules, results)}</div>`;
           localizeQaSurface(output);
           await saveFieldValidatorHistory({ id: crypto.randomUUID(), timestamp: new Date().toISOString(), page: location.origin + location.pathname, field: info.selector, rules, hadRules: rules.length > 0, results });
           await refreshHistory();
@@ -7256,8 +7508,7 @@ function openFakerFill(selectedRoot = null) {
   openDrawer({
     title: "Auto preenchimento",
     view: "fakerFill",
-    bodyHtml: `<p class="qts-tool-lead">Preencha formulários com dados sintéticos locais em um clique. Senhas, cartões, CVV, tokens e campos ocultos são sempre ignorados.</p>
-      <div class="qts-card"><b>Escopo</b><p>${selectedRoot ? "Formulário selecionado" : "Página atual"}</p></div>
+    bodyHtml: `<div class="qts-card"><b>Escopo</b><p>${selectedRoot ? "Formulário selecionado" : "Página atual"}</p></div>
       <div class="qts-card-actions"><button class="action" id="fakerSelectForm" type="button">Selecionar formulário</button><button class="action primary" id="fakerRun" type="button">Preencher agora</button></div><div class="qts-status" id="fakerStatus"></div><div id="fakerReport"></div>`,
     onReady(body) {
       body.querySelector("#fakerSelectForm").addEventListener("click", () => selectPageElement({ accepts: (element) => Boolean(element.closest("form")), onSelected: (element) => openFakerFill(element.closest("form")), instruction: "Clique dentro do formulário que deseja preencher." }));
@@ -7717,8 +7968,7 @@ function openMacroStudio() {
     title: "Macro Studio",
     variant: "modal",
     view: "macroStudio",
-    bodyHtml: `<p class="qts-tool-lead">Grave ações ou monte um fluxo visual. Tudo fica local e só ações declarativas validadas são executadas.</p>
-      <div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
+    bodyHtml: `<div class="qts-toolbar-row"><button class="action primary" id="startMacroRecording" type="button">${ICON("recordStart")} Gravar macro</button><button class="action" id="newMacro" type="button">+ Nova no Vibe Code</button><button class="action" id="importMacros" type="button">Importar</button><button class="action" id="exportAllMacros" type="button" ${macros.length ? "" : "disabled"}>Exportar todas</button><input id="macroFile" type="file" accept="application/json,.json" hidden /></div>
       <div id="macroList">${macros.length ? macros.map((macro) => `<article class="qts-card" data-macro-id="${escapeHtml(macro.id)}"><div class="qts-card-head"><div><b>${escapeHtml(macro.name)}</b><br><small>${macro.steps.length} etapa(s)${macro.description ? ` · ${escapeHtml(macro.description)}` : ""}</small></div><span>${pinned.has(macro.id) ? ICON("pin") : ""}</span></div><div class="qts-card-actions"><button class="action primary" data-macro-action="play" type="button">${ICON("play")} Executar</button><button class="action" data-macro-action="edit" type="button">Editar</button><button class="action" data-macro-action="pin" type="button">${pinned.has(macro.id) ? "Desafixar" : "Fixar no menu"}</button><button class="action" data-macro-action="export" type="button">Exportar</button><button class="action" data-macro-action="delete" type="button">Excluir</button></div></article>`).join("") : `<div class="qts-empty">Nenhuma macro salva. Grave suas ações ou comece no Vibe Code.</div>`}</div><div class="qts-status" id="macroStatus"></div>`,
     onReady(body) {
       body.querySelector("#startMacroRecording").addEventListener("click", () => startMacroRecording());
@@ -7733,8 +7983,8 @@ function openMacroStudio() {
         if (action === "play") { closeDrawer(); await playMacro(macro); }
         if (action === "edit") openMacroEditor(macro);
         if (action === "export") downloadMacroJson([macro]);
-        if (action === "pin") { const ids = new Set(state.workspace.preferences.pinnedMacroIds || []); if (ids.has(macro.id)) ids.delete(macro.id); else ids.add(macro.id); state.workspace.preferences.pinnedMacroIds = [...ids].slice(0, 20); await persistWorkspaceState(); openMacroStudio(); }
-        if (action === "delete" && confirm(`Excluir a macro “${macro.name}”?`)) { state.workspace.macros = state.workspace.macros.filter((item) => item.id !== macro.id); state.workspace.preferences.pinnedMacroIds = (state.workspace.preferences.pinnedMacroIds || []).filter((id) => id !== macro.id); await persistWorkspaceState(); openMacroStudio(); }
+        if (action === "pin") { const ids = new Set(state.workspace.preferences.pinnedMacroIds || []); if (ids.has(macro.id)) ids.delete(macro.id); else ids.add(macro.id); state.workspace.preferences.pinnedMacroIds = [...ids].slice(0, 20); await persistWorkspaceState(); renderPinnedMacros(); openMacroStudio(); }
+        if (action === "delete" && confirm(`Excluir a macro “${macro.name}”?`)) { state.workspace.macros = state.workspace.macros.filter((item) => item.id !== macro.id); state.workspace.preferences.pinnedMacroIds = (state.workspace.preferences.pinnedMacroIds || []).filter((id) => id !== macro.id); await persistWorkspaceState(); renderPinnedMacros(); openMacroStudio(); }
       }));
     },
   });
@@ -8073,6 +8323,7 @@ function reportDocumentedSteps(recording) {
     steps,
     description: device ? `${stepsExtraCopy().device}: ${device.label}` : "",
     deviceId: recording.deviceId || "",
+    mediaMode: recording.mediaMode || "",
   }, recording.context || sessionContextSnapshot());
 }
 
@@ -8097,8 +8348,7 @@ function openStepsRecorder() {
   openDrawer({
     title: copy.title,
     variant: "modal",
-    bodyHtml: `<p class="qts-tool-lead">${escapeHtml(copy.intro)}</p>
-      <div class="qts-card">
+    bodyHtml: `<div class="qts-card">
         <label class="qts-field-label">${escapeHtml(copy.name)}<input id="newStepsName" placeholder="${escapeHtml(copy.name)}"/></label>
         <label class="qts-field-label">${escapeHtml(extra.device)} ${helpBalloon(state.t.testedDeviceHelp)}<select id="newStepsDevice">${workspaceDeviceOptions()}</select></label>
         <div class="qts-card-actions">

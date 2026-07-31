@@ -402,7 +402,7 @@ try {
 
   await captureTool("holofote", async (page) => {
     await openToolByMenu(page, "holofoteMenuItem");
-    await page.locator("#holofoteToggle").click();
+    await page.locator("#drawerHeaderToggle").click();
     await closeDrawer(page);
     await page.mouse.move(420, 380);
     await page.mouse.down();
@@ -414,7 +414,7 @@ try {
 
   await captureTool("pixelPerfect", async (page) => {
     await openToolByMenu(page, "pixelPerfectMenuItem");
-    await page.locator("#pixelPerfectToggle").click();
+    await page.locator("#drawerHeaderToggle").click();
     await closeDrawer(page);
     await page.mouse.move(280, 260);
     await page.mouse.click(280, 260);
@@ -504,7 +504,6 @@ try {
   await captureTool("macroStudio", async (page) => {
     await showSandboxPage(page, "practice-form");
     await openToolByMenu(page, "macroStudioMenuItem");
-    await page.locator("[data-manage-macros]").click();
     await page.locator("#startMacroRecording").click();
     await page.locator("#contactName").click();
     await page.keyboard.type("QA Toolbar Sandbox");
@@ -537,7 +536,7 @@ try {
   await captureTool("keyView", async (page) => {
     await openToolByMenu(page, "keyViewMenuItem");
     await page.locator("#keyViewTyping").check();
-    await page.locator("#keyViewToggle").click();
+    await page.locator("#drawerHeaderToggle").click();
     // Keep the configured drawer visible in the final frame: the transient typing overlay fades
     // during the mandatory 3s pacing and previously produced a nearly blank screenshot.
     await page.locator(".qts-key-view-preview").waitFor();

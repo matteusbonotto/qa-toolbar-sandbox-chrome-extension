@@ -141,7 +141,7 @@ const CONTEXT_MENU_ACTIONS = [
   { id: "qts-check-limits", action: "check-limits", title: "Abrir Validador de campos neste campo" },
   { id: "qts-multi-click", action: "multi-click", title: "Configurar Multiclick neste elemento" },
   { id: "qts-toggle-blur", action: "toggle-blur", title: "Borrar / desborrar este elemento" },
-  { id: "qts-pixel-perfect-inspect", action: "pixel-perfect-inspect", title: "Inspecionar com Pixel Perfect (tamanho em pixels)" },
+  { id: "qts-pixel-perfect-inspect", action: "pixel-perfect-inspect", title: "Inspecionar com Régua (tamanho em pixels)" },
 ];
 
 function setupContextMenus() {
