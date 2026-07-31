@@ -2279,6 +2279,9 @@ function selectedDeviceLabel(deviceId) {
   return deviceSummary((state.workspace.devices || []).find((device) => device.id === deviceId));
 }
 
+const REPORT_KIND_ACCENT = { bug: "#ef4444", blocker: "#dc2626", approval: "#22c55e", limitation: "#f59e0b", retest: "#8b5cf6", improvement: "#0ea5e9", risk: "#f97316" };
+const REPORT_SEVERITY_ACCENT = { critical: "#dc2626", high: "#ef4444", medium: "#f59e0b", low: "#22c55e" };
+
 function printableReportHtml(values, context, labels) {
   const sections = [
     [labels.description, values.description],
@@ -2288,22 +2291,33 @@ function printableReportHtml(values, context, labels) {
     [labels.actual, values.actual],
   ].filter(([, value]) => value);
   const safe = (value) => escapeHtml(value).replaceAll("\n", "<br>");
+  const accent = REPORT_KIND_ACCENT[values.kind] || "#67e8f9";
+  const severityAccent = REPORT_SEVERITY_ACCENT[values.severity] || accent;
   return `<!doctype html><html><head><meta charset="utf-8"><title>${safe(values.title || labels.fallbackTitle)}</title>
   <style>
-    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#172033;background:#fff;font:14px/1.5 Inter,Arial,sans-serif}
-    header{padding:26px;border-radius:18px;background:#111827;color:#fff}header small{letter-spacing:.16em;text-transform:uppercase;color:#67e8f9}
-    h1{margin:8px 0 4px;font-size:27px;line-height:1.15}.meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}
-    .metric,section{border:1px solid #dbe2ec;border-radius:14px;padding:14px}.metric span,section h2{display:block;margin:0 0 5px;color:#64748b;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
-    section{margin-top:10px;break-inside:avoid}section p{margin:0}.url{word-break:break-all;color:#2563eb}
-    footer{margin-top:18px;padding-top:10px;border-top:1px solid #dbe2ec;color:#64748b;font-size:11px}
+    @page{size:A4;margin:14mm}*{box-sizing:border-box}body{margin:0;color:#172033;background:#fff;font:14px/1.55 Inter,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+    header{padding:26px 28px;border-radius:18px;background:linear-gradient(135deg,#111827,#1f2937);color:#fff;border-top:5px solid ${accent};position:relative}
+    header small{letter-spacing:.16em;text-transform:uppercase;color:${accent};font-weight:700}
+    h1{margin:8px 0 6px;font-size:26px;line-height:1.2;letter-spacing:-.01em}
+    header div{color:#cbd5e1;font-size:12.5px}
+    .meta{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:18px 0}
+    .metric,section{border:1px solid #e2e8f0;border-radius:14px;padding:14px 16px;background:#fff}
+    .metric{box-shadow:0 1px 2px rgba(15,23,42,.04)}
+    .metric span,section h2{display:block;margin:0 0 6px;color:#64748b;font-size:10.5px;letter-spacing:.09em;text-transform:uppercase;font-weight:700}
+    .metric b{font-size:15px}
+    .metric.severity{border-left:4px solid ${severityAccent}}
+    section{margin-top:12px;break-inside:avoid}
+    section p{margin:0;white-space:pre-wrap}
+    .url{word-break:break-all;color:#2563eb;font-size:12.5px}
+    footer{margin-top:22px;padding-top:12px;border-top:1px solid #e2e8f0;color:#94a3b8;font-size:10.5px;display:flex;justify-content:space-between}
     @media print{body{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
   </style></head><body>
   <header><small>${safe(labels.kind)}</small><h1>${safe(values.title || labels.fallbackTitle)}</h1><div>${safe(context.line)}</div></header>
-  <div class="meta"><div class="metric"><span>${safe(labels.severity)}</span><b>${safe(labels.severityValue)}</b></div><div class="metric"><span>${safe(labels.priority)}</span><b>${safe(labels.priorityValue)}</b></div><div class="metric"><span>${safe(labels.device)}</span><b>${safe(labels.deviceValue || "-")}</b></div></div>
+  <div class="meta"><div class="metric severity"><span>${safe(labels.severity)}</span><b>${safe(labels.severityValue)}</b></div><div class="metric"><span>${safe(labels.priority)}</span><b>${safe(labels.priorityValue)}</b></div><div class="metric"><span>${safe(labels.device)}</span><b>${safe(labels.deviceValue || "-")}</b></div></div>
   <section><h2>URL</h2><p class="url">${safe(context.url)}</p></section>
   ${values.tags ? `<section><h2>${safe(labels.tags)}</h2><p>${safe(values.tags)}</p></section>` : ""}
   ${sections.map(([title, value]) => `<section><h2>${safe(title)}</h2><p>${safe(value)}</p></section>`).join("")}
-  <footer>${safe(labels.generatedAt)} ${safe(new Date().toLocaleString())} · QA Sandbox</footer></body></html>`;
+  <footer><span>${safe(labels.generatedAt)} ${safe(new Date().toLocaleString())}</span><span>QA Toolbar Sandbox</span></footer></body></html>`;
 }
 
 function reportKindOptions() {

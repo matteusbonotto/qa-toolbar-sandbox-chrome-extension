@@ -292,7 +292,7 @@
       group: "productivity",
       title: "Macros",
       short: "Grava uma sequência de ações e reproduz depois, quando quiser.",
-      instructions: "Clique em Macros no menu Tools para abrir o submenu. Execute uma macro salva ali ou escolha Gerenciar macros para gravar, revisar, importar, exportar e organizar seus fluxos.",
+      instructions: "Clique em Macros no menu Tools para abrir a janela de gerenciamento: grave, revise, importe, exporte e organize seus fluxos. Dentro dela, fixe uma macro no menu para que ela apareça direto como um atalho de um clique logo abaixo do item Macros, sem precisar reabrir a janela toda vez.",
       tip: "Grave uma vez, fixe no menu e reexecute em um clique sempre que precisar repetir aquele fluxo - inclusive depois de um deploy novo.",
       example: "Ex.: grave uma vez o fluxo de login + navegação até o carrinho, salve como macro fixada no menu - depois de cada deploy, reexecute em um clique pra conferir se o caminho continua funcionando.",
       screenshot: "tutorial-assets/macroStudio.png",
