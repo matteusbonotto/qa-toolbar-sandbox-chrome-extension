@@ -2777,12 +2777,31 @@ function placeMarker(kind, clientX, clientY) {
   updateClearAllVisibility();
 }
 
-const DEFAULT_NOTE_STYLE = { color: "#ffffff", fontSize: 14, background: "translucent" };
+const DEFAULT_NOTE_STYLE = { color: "#ffffff", fontSize: 14, background: "translucent", border: false, shadow: true, rounded: true, bold: false, italic: false, strike: false, underline: false };
+const NOTE_FONT_SIZES = [12, 14, 16, 18, 20, 24, 28, 32];
 
 function noteBackgroundValue(background) {
   if (background === "solid") return "#000000";
+  if (background === "blurred") return "rgba(0,0,0,.28)";
   if (background === "none") return "transparent";
   return "rgba(0,0,0,.6)";
+}
+
+// Every visual choice funnels into a handful of CSS custom properties consumed by both the
+// textarea (live, while editing) and .qts-note-content (once saved) - see toolbar.css for why:
+// `.qts-floating-item * { all: revert }` strips plain inline styles on arbitrary third-party
+// pages, but can't touch custom properties, so those are the only lever that survives.
+function applyNoteStyleVars(element, style) {
+  element.style.setProperty("--qts-note-color", style.color);
+  element.style.setProperty("--qts-note-font-size", `${style.fontSize}px`);
+  element.style.setProperty("--qts-note-weight", style.bold ? "800" : "400");
+  element.style.setProperty("--qts-note-italic", style.italic ? "italic" : "normal");
+  element.style.setProperty("--qts-note-decoration", [style.underline && "underline", style.strike && "line-through"].filter(Boolean).join(" ") || "none");
+  element.style.setProperty("--qts-note-bg", noteBackgroundValue(style.background));
+  element.style.setProperty("--qts-note-border", style.border ? "1px solid rgba(255,255,255,.28)" : "none");
+  element.style.setProperty("--qts-note-shadow", style.shadow ? "0 10px 22px rgba(0,0,0,.3)" : "none");
+  element.style.setProperty("--qts-note-radius", style.rounded ? "10px" : "2px");
+  element.style.setProperty("--qts-note-blur", style.background === "blurred" ? "blur(10px)" : "none");
 }
 
 function renderSavedNote(note, text, style) {
@@ -2795,10 +2814,7 @@ function renderSavedNote(note, text, style) {
     <button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">${ICON("fail")}</button>
     <div class="qts-resize-handle hasEditButton" data-resize-handle title="${escapeHtml(t.resize)}">${ICON("resize")}</div>
   `;
-  const content = note.querySelector(".qts-note-content");
-  content.style.setProperty("--qts-note-color", style.color);
-  content.style.setProperty("--qts-note-font-size", `${style.fontSize}px`);
-  content.style.setProperty("--qts-note-bg", noteBackgroundValue(style.background));
+  applyNoteStyleVars(note.querySelector(".qts-note-content"), style);
   wireVisibilityControls(note);
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   makeResizable(note, note.querySelector("[data-resize-handle]"), { minWidth: 100, minHeight: 40 });
@@ -2812,44 +2828,74 @@ function renderEditingNote(note, currentText, currentStyle) {
     ? String(currentStyle.color).trim()
     : DEFAULT_NOTE_STYLE.color;
   const parsedFontSize = Number(currentStyle.fontSize);
-  const safeFontSize = Number.isFinite(parsedFontSize)
-    ? Math.min(28, Math.max(11, parsedFontSize))
-    : DEFAULT_NOTE_STYLE.fontSize;
-  const safeBackground = ["translucent", "solid", "none"].includes(currentStyle.background)
+  const safeFontSize = NOTE_FONT_SIZES.includes(parsedFontSize) ? parsedFontSize : DEFAULT_NOTE_STYLE.fontSize;
+  const safeBackground = ["translucent", "solid", "blurred", "none"].includes(currentStyle.background)
     ? currentStyle.background
     : DEFAULT_NOTE_STYLE.background;
+  const style = { ...DEFAULT_NOTE_STYLE, ...currentStyle, color: safeColor, fontSize: safeFontSize, background: safeBackground };
   note.className = "qts-floating-item qts-note isEditing";
   note.style.height = "";
   note.innerHTML = `
     <div class="qts-editor-head" data-drag-handle><span>${escapeHtml(t.noteHeader)}</span><button type="button" class="qts-remove-btn" title="${escapeHtml(t.remove)}">${ICON("fail")}</button></div>
     <div class="qts-editor-body">
       <textarea placeholder="${escapeHtml(t.notePlaceholder)}"></textarea>
+      <div class="qts-note-format-row">
+        <button type="button" data-note-fmt="bold" title="${escapeHtml(translateQaSurfaceText("Negrito"))}" style="font-weight:800">B</button>
+        <button type="button" data-note-fmt="italic" title="${escapeHtml(translateQaSurfaceText("Itálico"))}" style="font-style:italic">I</button>
+        <button type="button" data-note-fmt="strike" title="${escapeHtml(translateQaSurfaceText("Tachado"))}" style="text-decoration:line-through">S</button>
+        <button type="button" data-note-fmt="underline" title="${escapeHtml(translateQaSurfaceText("Sublinhado"))}" style="text-decoration:underline">U</button>
+      </div>
       <div class="qts-note-style-row">
         <label>${escapeHtml(t.noteColor)}<input type="color" data-note-color /></label>
-        <label>${escapeHtml(t.noteFontSize)}<input type="range" min="11" max="28" data-note-size /></label>
+        <label>${escapeHtml(translateQaSurfaceText("Tamanho"))}<select data-note-size>${NOTE_FONT_SIZES.map((size) => `<option value="${size}">${size}px</option>`).join("")}</select></label>
         <label>${escapeHtml(t.noteBackground)}<select data-note-bg>
-          <option value="translucent" ${safeBackground === "translucent" ? "selected" : ""}>${escapeHtml(t.noteBackgroundTranslucent)}</option>
-          <option value="solid" ${safeBackground === "solid" ? "selected" : ""}>${escapeHtml(t.noteBackgroundSolid)}</option>
-          <option value="none" ${safeBackground === "none" ? "selected" : ""}>${escapeHtml(t.noteBackgroundNone)}</option>
+          <option value="solid">${escapeHtml(t.noteBackgroundSolid)}</option>
+          <option value="translucent">${escapeHtml(t.noteBackgroundTranslucent)}</option>
+          <option value="blurred">${escapeHtml(translateQaSurfaceText("Borrado"))}</option>
+          <option value="none">${escapeHtml(t.noteBackgroundNone)}</option>
         </select></label>
+      </div>
+      <div class="qts-note-toggle-row">
+        <label><input type="checkbox" data-note-border />${escapeHtml(translateQaSurfaceText("Borda"))}</label>
+        <label><input type="checkbox" data-note-shadow />${escapeHtml(translateQaSurfaceText("Sombra"))}</label>
+        <label><input type="checkbox" data-note-rounded />${escapeHtml(translateQaSurfaceText("Cantos arredondados"))}</label>
       </div>
       <div class="qts-editor-actions"><button type="button" data-save>${escapeHtml(t.save)}</button></div>
     </div>
   `;
+  const textarea = note.querySelector("textarea");
   // Page-derived text must remain text, never markup.
-  note.querySelector("textarea").value = String(currentText || "");
-  note.querySelector("[data-note-color]").value = safeColor;
-  note.querySelector("[data-note-size]").value = String(safeFontSize);
+  textarea.value = String(currentText || "");
+  note.querySelector("[data-note-color]").value = style.color;
+  note.querySelector("[data-note-size]").value = String(style.fontSize);
+  note.querySelector("[data-note-bg]").value = style.background;
+  note.querySelector("[data-note-border]").checked = style.border;
+  note.querySelector("[data-note-shadow]").checked = style.shadow;
+  note.querySelector("[data-note-rounded]").checked = style.rounded;
+  note.querySelectorAll("[data-note-fmt]").forEach((button) => button.classList.toggle("isActive", Boolean(style[button.dataset.noteFmt])));
+  // Reacts on every keystroke/toggle, same as a real text editor, instead of only after Salvar.
+  const readStyleFromForm = () => ({
+    color: note.querySelector("[data-note-color]").value,
+    fontSize: Number(note.querySelector("[data-note-size]").value),
+    background: note.querySelector("[data-note-bg]").value,
+    border: note.querySelector("[data-note-border]").checked,
+    shadow: note.querySelector("[data-note-shadow]").checked,
+    rounded: note.querySelector("[data-note-rounded]").checked,
+    bold: style.bold, italic: style.italic, strike: style.strike, underline: style.underline,
+  });
+  const livePreview = () => applyNoteStyleVars(textarea, readStyleFromForm());
+  note.querySelectorAll("[data-note-color],[data-note-size],[data-note-bg],[data-note-border],[data-note-shadow],[data-note-rounded]").forEach((input) => input.addEventListener("input", livePreview));
+  note.querySelectorAll("[data-note-fmt]").forEach((button) => button.addEventListener("click", () => {
+    style[button.dataset.noteFmt] = !style[button.dataset.noteFmt];
+    button.classList.toggle("isActive", style[button.dataset.noteFmt]);
+    livePreview();
+  }));
+  livePreview();
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {
-    const text = note.querySelector("textarea").value.trim() || t.noteDefault;
-    const style = {
-      color: note.querySelector("[data-note-color]").value,
-      fontSize: Number(note.querySelector("[data-note-size]").value),
-      background: note.querySelector("[data-note-bg]").value,
-    };
-    renderSavedNote(note, text, style);
+    const text = textarea.value.trim() || t.noteDefault;
+    renderSavedNote(note, text, readStyleFromForm());
   });
 }
 
@@ -3494,8 +3540,13 @@ function drawerStyles() {
     .qts-faker-report-row span, .qts-faker-report-row code { min-width:0; overflow-wrap:anywhere; white-space:normal; }
     .qts-faker-report-row small { display:block; color:#999; margin-top:2px; }
     .qts-faker-report-row code { color:#74e7a5; }
-    .qts-list { display: grid; gap: 6px; margin-top: 8px; max-height: 220px; overflow: auto; }
+    .qts-list { display: grid; gap: 6px; margin-top: 8px; max-height: min(60vh, 520px); overflow: auto; }
     .qts-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border: 1px solid #292929; border-radius: 8px; background: #141414; font-size: 12px; }
+    .qts-list-row > span:first-child { min-width: 0; overflow-wrap: anywhere; }
+    .qts-list-row > span:last-child { flex: none; }
+    .qts-language-badge { z-index: 2147483000; width: 20px; height: 20px; display: grid; place-items: center; border-radius: 50%; box-shadow: 0 2px 8px rgba(0,0,0,.4); pointer-events: none; }
+    .qts-language-badge.isPass { background: #1f9d55; color: #fff; }
+    .qts-language-badge.isWarning { background: #e0a800; color: #1a1a1a; }
     #activeToolsMarkerList .qts-list-row { justify-content: flex-start; margin-bottom: 4px; }
     #activeToolsMarkerList .qts-list-row > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #activeToolsMarkerList .qts-list-row[draggable] { cursor: grab; }
@@ -3715,7 +3766,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Adicione required, limites, pattern ou um tipo específico para validar uma regra.": "Add required, limits, pattern, or a specific type to validate a rule.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
-  "Limpar ferramentas ativas": "Limpiar herramientas activas", "Ferramentas ativas": "Herramientas activas", "Ferramentas ligadas": "Herramientas encendidas", "Desativar todas": "Desactivar todas", "Nenhuma ferramenta ativa no momento.": "Ninguna herramienta activa en este momento.", "Marcadores na página": "Marcadores en la página", "Limpar todos": "Limpiar todos", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Arrastra para reordenar la pila visual (el primero de la lista queda debajo).", "Marcador": "Marcador", "Nota": "Nota", "Forma": "Forma", "Linha": "Línea", "Posicionando marcador/forma/linha": "Posicionando marcador/forma/línea", "Corpo da resposta (JSON opcional)": "Cuerpo de la respuesta (JSON opcional)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Déjalo vacío para usar un cuerpo genérico. Si lo completas, la página recibe exactamente ese JSON en el status elegido - útil para simular el mensaje de error real que la app espera.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "JSON inválido en el cuerpo de la respuesta - corrígelo o déjalo vacío.",
+  "Limpar ferramentas ativas": "Limpiar herramientas activas", "Ferramentas ativas": "Herramientas activas", "Ferramentas ligadas": "Herramientas encendidas", "Desativar todas": "Desactivar todas", "Nenhuma ferramenta ativa no momento.": "Ninguna herramienta activa en este momento.", "Marcadores na página": "Marcadores en la página", "Limpar todos": "Limpiar todos", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Arrastra para reordenar la pila visual (el primero de la lista queda debajo).", "Marcador": "Marcador", "Nota": "Nota", "Forma": "Forma", "Linha": "Línea", "Posicionando marcador/forma/linha": "Posicionando marcador/forma/línea", "Corpo da resposta (JSON opcional)": "Cuerpo de la respuesta (JSON opcional)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Déjalo vacío para usar un cuerpo genérico. Si lo completas, la página recibe exactamente ese JSON en el status elegido - útil para simular el mensaje de error real que la app espera.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "JSON inválido en el cuerpo de la respuesta - corrígelo o déjalo vacío.", "Negrito": "Negrita", "Itálico": "Cursiva", "Tachado": "Tachado", "Sublinhado": "Subrayado", "Tamanho": "Tamaño", "Borrado": "Difuminado", "Borda": "Borde", "Sombra": "Sombra", "Cantos arredondados": "Esquinas redondeadas",
   "Validador de textos": "Validador de textos",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Genera el QR localmente para la URL actual o una URL concreta guardada. No se envía ningún dato a servicios externos.",
   "Query/hash removidos por segurança": "Query/hash eliminados por seguridad",
@@ -3729,7 +3780,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "O arquivo deve ter no máximo 2 MB.": "El archivo debe tener como máximo 2 MB.", "Nenhum texto encontrado": "No se encontró ningún texto",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
-  "Limpar ferramentas ativas": "Clear active tools", "Ferramentas ativas": "Active tools", "Ferramentas ligadas": "Tools turned on", "Desativar todas": "Turn all off", "Nenhuma ferramenta ativa no momento.": "No tool is active right now.", "Marcadores na página": "Markers on the page", "Limpar todos": "Clear all", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Drag to reorder the visual stack (the first in the list stays at the bottom).", "Marcador": "Marker", "Nota": "Note", "Forma": "Shape", "Linha": "Line", "Posicionando marcador/forma/linha": "Placing marker/shape/line", "Corpo da resposta (JSON opcional)": "Response body (optional JSON)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Leave empty to use a generic body. Filled in, the page receives exactly that JSON at the chosen status - useful for simulating the real error message the app expects.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "Invalid JSON in the response body - fix it or leave it empty.",
+  "Limpar ferramentas ativas": "Clear active tools", "Ferramentas ativas": "Active tools", "Ferramentas ligadas": "Tools turned on", "Desativar todas": "Turn all off", "Nenhuma ferramenta ativa no momento.": "No tool is active right now.", "Marcadores na página": "Markers on the page", "Limpar todos": "Clear all", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Drag to reorder the visual stack (the first in the list stays at the bottom).", "Marcador": "Marker", "Nota": "Note", "Forma": "Shape", "Linha": "Line", "Posicionando marcador/forma/linha": "Placing marker/shape/line", "Corpo da resposta (JSON opcional)": "Response body (optional JSON)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Leave empty to use a generic body. Filled in, the page receives exactly that JSON at the chosen status - useful for simulating the real error message the app expects.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "Invalid JSON in the response body - fix it or leave it empty.", "Negrito": "Bold", "Itálico": "Italic", "Tachado": "Strikethrough", "Sublinhado": "Underline", "Tamanho": "Size", "Borrado": "Blurred", "Borda": "Border", "Sombra": "Shadow", "Cantos arredondados": "Rounded corners",
   "Validador de textos": "Text Validator",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Generate the QR locally for the current URL or a saved concrete URL. No data is sent to external services.",
   "Query/hash removidos por segurança": "Query/hash removed for safety",
@@ -7096,6 +7147,47 @@ function visiblePageText() {
   return (clone.innerText || clone.textContent || "").replace(/\s+/g, " ").trim();
 }
 
+// Best-effort element lookup for a validator entry's expected text: exact-match leaf elements
+// first (an element whose OWN direct text, not counting nested children, equals the value) so a
+// badge lands on the actual label/paragraph instead of some giant ancestor wrapping half the page.
+// Capped - this walks the live DOM per entry, and a 5,000-entry import validating against a huge
+// page would otherwise be a real perf cliff.
+function findLanguageValidatorElement(normalizedValue) {
+  if (!normalizedValue) return null;
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_ELEMENT, {
+    acceptNode: (node) => (node.closest("#qts-toolbar-host, .qts-floating-item") ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT),
+  });
+  let node = walker.nextNode();
+  while (node) {
+    const ownText = [...node.childNodes].filter((child) => child.nodeType === Node.TEXT_NODE).map((child) => child.textContent).join(" ").replace(/\s+/g, " ").trim();
+    if (ownText === normalizedValue) return node;
+    node = walker.nextNode();
+  }
+  return null;
+}
+
+function clearLanguageValidatorBadges() {
+  document.querySelectorAll(".qts-language-badge").forEach((badge) => badge.remove());
+}
+
+function renderLanguageValidatorBadges(results) {
+  clearLanguageValidatorBadges();
+  results.slice(0, 80).forEach((entry) => {
+    const target = findLanguageValidatorElement(entry.value.replace(/\s+/g, " ").trim());
+    if (!target) return;
+    const rect = target.getBoundingClientRect();
+    if (!rect.width && !rect.height) return;
+    const badge = document.createElement("span");
+    badge.className = `qts-floating-item qts-language-badge ${entry.found ? "isPass" : "isWarning"}`;
+    badge.style.position = "absolute";
+    badge.style.left = `${window.scrollX + rect.left - 10}px`;
+    badge.style.top = `${window.scrollY + rect.top - 10}px`;
+    badge.title = `${entry.key}: ${entry.found ? "OK" : translateQaSurfaceText("Ausente/diferente")}`;
+    badge.innerHTML = ICON(entry.found ? "pass" : "fail");
+    document.body.appendChild(badge);
+  });
+}
+
 function openLanguageValidator() {
   openDrawer({
     title: "Validador de textos",
@@ -7111,6 +7203,7 @@ function openLanguageValidator() {
         const found = results.filter((entry) => entry.found).length;
         body.querySelector("#languageStatus").textContent = translateQaSurfaceText(`${found}/${results.length} textos encontrados na página atual.`);
         body.querySelector("#languageResults").innerHTML = results.map((entry) => `<div class="qts-list-row"><span><b>${entry.found ? "✓" : "⚠"} ${escapeHtml(entry.key)}</b><small>${escapeHtml(entry.value)}</small></span><span class="qts-chip">${escapeHtml(translateQaSurfaceText(entry.found ? "Igual" : "Ausente/diferente"))}</span></div>`).join("") || `<div class="qts-empty">${escapeHtml(translateQaSurfaceText("Importe um arquivo JSON válido."))}</div>`;
+        renderLanguageValidatorBadges(results);
       };
       body.querySelector("#languageFile").addEventListener("change", async (event) => {
         const file = event.currentTarget.files?.[0];
