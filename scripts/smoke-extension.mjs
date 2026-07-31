@@ -982,6 +982,7 @@ try {
   await host.locator("#toolsButton").click();
   if (!await host.locator("#disableAllToolsMenuItem:not(.isHidden)").count()) throw new Error("Global tool shutdown did not appear while a tool was active");
   await host.locator("#disableAllToolsMenuItem").click();
+  await host.locator("#activeToolsDisableAll").click();
   if (await host.locator("body").evaluate((body) => body.classList.contains("qts-placement-mode"))) throw new Error("Global tool shutdown left placement mode active");
   if (await host.locator("button.isActive").count()) throw new Error("Global tool shutdown left an active toolbar control");
   trace("global active-tool shutdown verified");

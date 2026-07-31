@@ -135,8 +135,11 @@
 
       if (window.__qtsForcedStatus) {
         const forcedStatus = Number(window.__qtsForcedStatus);
+        const forcedBodyRaw = window.__qtsForcedBody;
         window.__qtsForcedStatus = null;
-        const forcedPayload = { forced: true, status: forcedStatus, requestUrl: String(requestUrl || "") };
+        window.__qtsForcedBody = null;
+        let forcedPayload = { forced: true, status: forcedStatus, requestUrl: String(requestUrl || "") };
+        if (forcedBodyRaw) { try { forcedPayload = JSON.parse(forcedBodyRaw); } catch { /* falls back to the generic payload above */ } }
         captureJsonPayload({ url: requestUrl, method, status: forcedStatus, source: "forced", payload: forcedPayload, requestHeaders, requestBody });
         document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: false } }));
         return Promise.resolve(new Response(JSON.stringify(forcedPayload), {
@@ -186,9 +189,12 @@
       // status, never call the real send(), and simulate the XHR completion lifecycle instead.
       if (window.__qtsForcedStatus) {
         const forcedStatus = Number(window.__qtsForcedStatus);
+        const forcedBodyRaw = window.__qtsForcedBody;
         window.__qtsForcedStatus = null;
+        window.__qtsForcedBody = null;
         document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: false } }));
-        const forcedPayload = { forced: true, status: forcedStatus, requestUrl: String(this.__qtsUrl || "") };
+        let forcedPayload = { forced: true, status: forcedStatus, requestUrl: String(this.__qtsUrl || "") };
+        if (forcedBodyRaw) { try { forcedPayload = JSON.parse(forcedBodyRaw); } catch { /* falls back to the generic payload above */ } }
         const forcedBody = JSON.stringify(forcedPayload);
         const defineOwn = (name, value) => Object.defineProperty(this, name, { value, configurable: true });
         defineOwn("readyState", 4);
@@ -286,6 +292,39 @@
     return originalClearInterval(timerId);
   };
 
+  // Countdown/progress UI on modern checkout pages is often driven by requestAnimationFrame
+  // instead of setInterval (smoother updates) - same "skip the tick while frozen, let it resume
+  // on the next real frame" treatment as setInterval above, so those don't silently keep ticking.
+  // Returns our own id (not the native one), since the underlying native frame gets re-armed on
+  // every skipped tick while frozen and callers must still be able to cancel the *current* one.
+  const originalRAF = window.requestAnimationFrame?.bind(window);
+  const originalCAF = window.cancelAnimationFrame?.bind(window);
+  if (originalRAF && originalCAF) {
+    let rafSeq = 0;
+    const rafState = new Map();
+    window.requestAnimationFrame = function (callback) {
+      if (typeof callback !== "function") return originalRAF(callback);
+      const ourId = ++rafSeq;
+      const entry = { cancelled: false, nativeId: null };
+      rafState.set(ourId, entry);
+      const wrapped = (time) => {
+        if (entry.cancelled) return;
+        if (frozen) { entry.nativeId = originalRAF(wrapped); return; }
+        rafState.delete(ourId);
+        callback(time);
+      };
+      entry.nativeId = originalRAF(wrapped);
+      return ourId;
+    };
+    window.cancelAnimationFrame = function (ourId) {
+      const entry = rafState.get(ourId);
+      if (!entry) return;
+      entry.cancelled = true;
+      if (entry.nativeId != null) originalCAF(entry.nativeId);
+      rafState.delete(ourId);
+    };
+  }
+
   document.addEventListener(FREEZE_COMMAND_EVENT, (event) => {
     if (!enabled) return;
     const shouldFreeze = Boolean(event.detail?.freeze);
@@ -308,6 +347,9 @@
     if (!enabled) return;
     const status = Number(event.detail?.status || 0);
     window.__qtsForcedStatus = status > 0 ? status : null;
+    // Optional custom JSON so the forced response can match the real shape the page's own error
+    // handling expects (a message/code the app actually reads), not just a generic placeholder.
+    window.__qtsForcedBody = window.__qtsForcedStatus && event.detail?.body ? String(event.detail.body) : null;
     document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: Boolean(window.__qtsForcedStatus) } }));
   });
 
@@ -353,6 +395,7 @@
     enabled = event.detail?.active === true;
     if (!enabled) {
       window.__qtsForcedStatus = null;
+      window.__qtsForcedBody = null;
       if (originalWindowOpen) { window.open = originalWindowOpen; originalWindowOpen = null; }
       if (frozen) {
         frozen = false;
@@ -365,5 +408,6 @@
   document.addEventListener("qts:pagebridge-disable", () => {
     enabled = false;
     window.__qtsForcedStatus = null;
+    window.__qtsForcedBody = null;
   });
 })();

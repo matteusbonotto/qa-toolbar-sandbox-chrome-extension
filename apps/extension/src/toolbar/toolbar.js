@@ -1076,7 +1076,7 @@ function buildShadowHost() {
               <button type="button" id="mobileScreenshotItem" role="menuitem">${ICON("camera")} ${escapeHtml(t.screenshot)}</button>
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
-            <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Desativar ferramentas ativas"))}</button>
+            <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Limpar ferramentas ativas"))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testStatus))}</button>
             <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testSession))}</button>
             <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.reportBuilder))}</button>
@@ -1254,7 +1254,7 @@ function buildShadowHost() {
     event.stopPropagation();
     const menu = shadow.getElementById("toolsMenu");
     const willOpen = !menu.classList.contains("isOpen");
-    shadow.getElementById("disableAllToolsMenuItem").classList.toggle("isHidden", !hasAnyActiveTool());
+    shadow.getElementById("disableAllToolsMenuItem").classList.toggle("isHidden", !hasAnyActiveTool() && !activeMarkerElements().length);
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
     toggleRecordTypeMenu(false);
     toggleShapeTypeMenu(false);
@@ -1269,7 +1269,7 @@ function buildShadowHost() {
     const key = button && TOOLS_MENU_ITEM_KEY_BY_ID[button.id];
     if (key) void recordToolMenuUsage(key);
   }, true);
-  shadow.getElementById("disableAllToolsMenuItem").addEventListener("click", () => void disableAllActiveTools());
+  shadow.getElementById("disableAllToolsMenuItem").addEventListener("click", () => { openActiveToolsModal(); closeToolsMenu(); });
   shadow.getElementById("notificationBellButton").addEventListener("click", (event) => {
     event.stopPropagation();
     closeToolsMenu();
@@ -2549,6 +2549,103 @@ async function disableAllActiveTools() {
   showQaToast("Todas as ferramentas ativas foram desativadas.");
 }
 
+// Mirrors hasAnyActiveTool()'s own condition list (minus the transient placementMode, which isn't
+// something a founder would consciously think of as "a tool running") so this modal never drifts
+// out of sync with what the menu badge itself considers active.
+function activeToolEntries() {
+  const keyView = getKeyViewPreferences();
+  return [
+    ["placement", translateQaSurfaceText("Posicionando marcador/forma/linha"), Boolean(state.placementMode), cancelPlacementMode],
+    ["clickSpy", translateQaSurfaceText(TOOLS_MENU_LABELS.clickSpy), state.clickSpyActive, deactivateClickSpy],
+    ["blurElements", translateQaSurfaceText(TOOLS_MENU_LABELS.blurElements), state.blurSelectionActive, toggleBlurSelectionMode],
+    ["holofote", translateQaSurfaceText(TOOLS_MENU_LABELS.holofote), state.holofoteActive, disableHolofoteMode],
+    ["pixelPerfect", translateQaSurfaceText(TOOLS_MENU_LABELS.pixelPerfect), state.pixelPerfectActive, disablePixelPerfectMode],
+    ["freezeClock", translateQaSurfaceText(TOOLS_MENU_LABELS.freezeClock), state.clockFrozen, () => document.dispatchEvent(new CustomEvent("qts:freeze-clock-command", { detail: { freeze: false } }))],
+    ["forceHttp", translateQaSurfaceText(TOOLS_MENU_LABELS.forceHttp), state.forceHttpActive, () => document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: null } }))],
+    ["macroStudio", translateQaSurfaceText(TOOLS_MENU_LABELS.macroStudio), Boolean(state.macroRecording), cancelMacroRecording],
+    ["stepsRecorder", translateQaSurfaceText(TOOLS_MENU_LABELS.stepsRecorder), Boolean(state.stepsRecording), () => { state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); }],
+    ["testSession", translateQaSurfaceText(TOOLS_MENU_LABELS.testSession), Boolean(state.testSession), () => { window.clearInterval(testSessionTimer); state.testSession = null; state.shadowRoot.getElementById("testSessionBar")?.classList.add("isHidden"); }],
+    ["keyView", translateQaSurfaceText(TOOLS_MENU_LABELS.keyView), keyView.enabled, async () => { state.workspace.preferences = { ...(state.workspace.preferences || {}), keyView: { ...keyView, enabled: false } }; stopKeyView(); state.workspace = await saveWorkspace(state.workspace); }],
+  ];
+}
+
+function activeMarkerElements() {
+  return [...document.querySelectorAll(".qts-marker,.qts-note,.qts-shape,.qts-line")];
+}
+
+const MARKER_KIND_LABEL = { isPass: "Pass", isFail: "Fail", isWarning: "Warning", isQuestion: "Question" };
+
+function markerRowLabel(element) {
+  if (element.classList.contains("qts-marker")) {
+    const kindClass = [...(element.querySelector(".qts-marker-body")?.classList || [])].find((cls) => MARKER_KIND_LABEL[cls]);
+    return `${translateQaSurfaceText("Marcador")} · ${MARKER_KIND_LABEL[kindClass] || "?"}`;
+  }
+  if (element.classList.contains("qts-note")) {
+    const text = element.textContent?.trim().slice(0, 30);
+    return `${translateQaSurfaceText("Nota")}${text ? ` · ${text}` : ""}`;
+  }
+  if (element.classList.contains("qts-shape")) return translateQaSurfaceText("Forma");
+  return translateQaSurfaceText("Linha");
+}
+
+// Scoped on purpose: unlike clearAllFloatingItems() (the toolbar eraser icon, which sweeps every
+// .qts-floating-item including tool-chrome overlays like Holofote/Régua/Key View), this only
+// touches the actual visual annotations a tester places on the page.
+function clearAllMarkers() {
+  activeMarkerElements().forEach((element) => element.remove());
+  updateClearAllVisibility();
+}
+
+function openActiveToolsModal() {
+  const tools = activeToolEntries().filter(([, , active]) => active);
+  const markers = activeMarkerElements();
+  openDrawer({
+    title: translateQaSurfaceText("Ferramentas ativas"),
+    view: "activeTools",
+    variant: "modal",
+    bodyHtml: `${tools.length ? `<div class="qts-card"><div class="qts-card-head"><b>${escapeHtml(translateQaSurfaceText("Ferramentas ligadas"))}</b><button class="action" id="activeToolsDisableAll" type="button">${escapeHtml(translateQaSurfaceText("Desativar todas"))}</button></div>
+        <div id="activeToolsList">${tools.map(([key, label]) => `<div class="qts-list-row" data-tool-key="${escapeHtml(key)}"><span>${escapeHtml(label)}</span><button type="button" class="qts-remove-btn" data-tool-off title="${escapeHtml(translateQaSurfaceText("Desativar todas"))}">${ICON("fail")}</button></div>`).join("")}</div></div>`
+      : `<div class="qts-empty">${escapeHtml(translateQaSurfaceText("Nenhuma ferramenta ativa no momento."))}</div>`}
+      ${markers.length ? `<div class="qts-card"><div class="qts-card-head"><b>${escapeHtml(translateQaSurfaceText("Marcadores na página"))}</b><button class="action" id="activeToolsClearMarkers" type="button">${escapeHtml(translateQaSurfaceText("Limpar todos"))}</button></div>
+        <div id="activeToolsMarkerList">${markers.map((element, index) => `<div class="qts-list-row" draggable="true" data-marker-index="${index}"><span data-drag-handle style="cursor:grab">${ICON("resize")}</span><span>${escapeHtml(markerRowLabel(element))}</span><button type="button" class="qts-remove-btn" data-marker-off title="${escapeHtml(state.t.remove)}">${ICON("fail")}</button></div>`).join("")}</div>
+        <small class="qts-mini-empty">${escapeHtml(translateQaSurfaceText("Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo)."))}</small></div>` : ""}`,
+    onReady(body) {
+      body.querySelector("#activeToolsDisableAll")?.addEventListener("click", async () => { await disableAllActiveTools(); openActiveToolsModal(); });
+      body.querySelector("#activeToolsClearMarkers")?.addEventListener("click", () => { clearAllMarkers(); openActiveToolsModal(); });
+      body.querySelectorAll("[data-tool-off]").forEach((button) => button.addEventListener("click", async () => {
+        const key = button.closest("[data-tool-key]")?.dataset.toolKey;
+        const entry = activeToolEntries().find(([entryKey]) => entryKey === key);
+        if (entry) await entry[3]();
+        openActiveToolsModal();
+      }));
+      body.querySelectorAll("[data-marker-off]").forEach((button) => button.addEventListener("click", () => {
+        const index = Number(button.closest("[data-marker-index]")?.dataset.markerIndex);
+        markers[index]?.remove();
+        updateClearAllVisibility();
+        openActiveToolsModal();
+      }));
+      const list = body.querySelector("#activeToolsMarkerList");
+      let dragIndex = null;
+      list?.querySelectorAll("[data-marker-index]").forEach((row) => {
+        row.addEventListener("dragstart", () => { dragIndex = Number(row.dataset.markerIndex); row.classList.add("isDragging"); });
+        row.addEventListener("dragend", () => row.classList.remove("isDragging"));
+        row.addEventListener("dragover", (event) => event.preventDefault());
+        row.addEventListener("drop", (event) => {
+          event.preventDefault();
+          const dropIndex = Number(row.dataset.markerIndex);
+          if (dragIndex === null || dragIndex === dropIndex) return;
+          const reordered = [...markers];
+          const [moved] = reordered.splice(dragIndex, 1);
+          reordered.splice(dropIndex, 0, moved);
+          reordered.forEach((element) => document.body.appendChild(element));
+          dragIndex = null;
+          openActiveToolsModal();
+        });
+      });
+    },
+  });
+}
+
 function handlePlacementEscape(event) {
   if (event.key === "Escape") cancelPlacementMode();
 }
@@ -3237,7 +3334,7 @@ function drawerStyles() {
       position:relative; display:inline-grid !important; place-items:center; width:18px !important; min-width:18px !important;
       height:18px !important; min-height:18px !important; margin-left:5px; padding:0 !important; border:1px solid var(--qts-panel-border) !important;
       border-radius:50% !important; background:transparent !important; color:var(--qts-panel-muted) !important;
-      font-size:11px !important; font-weight:900 !important; vertical-align:middle; cursor:help !important;
+      font-size:11px !important; font-weight:900 !important; vertical-align:middle; cursor:pointer !important;
     }
     .qts-help-popover {
       position:fixed; z-index:2147483647; width:max-content; max-width:240px;
@@ -3399,6 +3496,10 @@ function drawerStyles() {
     .qts-faker-report-row code { color:#74e7a5; }
     .qts-list { display: grid; gap: 6px; margin-top: 8px; max-height: 220px; overflow: auto; }
     .qts-list-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 7px 9px; border: 1px solid #292929; border-radius: 8px; background: #141414; font-size: 12px; }
+    #activeToolsMarkerList .qts-list-row { justify-content: flex-start; margin-bottom: 4px; }
+    #activeToolsMarkerList .qts-list-row > span:nth-child(2) { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #activeToolsMarkerList .qts-list-row[draggable] { cursor: grab; }
+    #activeToolsMarkerList .qts-list-row.isDragging { opacity: .4; }
     .qts-list-row span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     .qts-list-row button { all: unset; cursor: pointer; color: #ff7078; font-weight: 800; padding: 0 4px; flex: none; }
     .qts-result-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
@@ -3614,7 +3715,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Adicione required, limites, pattern ou um tipo específico para validar uma regra.": "Add required, limits, pattern, or a specific type to validate a rule.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
-  "Desativar ferramentas ativas": "Desactivar herramientas activas",
+  "Limpar ferramentas ativas": "Limpiar herramientas activas", "Ferramentas ativas": "Herramientas activas", "Ferramentas ligadas": "Herramientas encendidas", "Desativar todas": "Desactivar todas", "Nenhuma ferramenta ativa no momento.": "Ninguna herramienta activa en este momento.", "Marcadores na página": "Marcadores en la página", "Limpar todos": "Limpiar todos", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Arrastra para reordenar la pila visual (el primero de la lista queda debajo).", "Marcador": "Marcador", "Nota": "Nota", "Forma": "Forma", "Linha": "Línea", "Posicionando marcador/forma/linha": "Posicionando marcador/forma/línea", "Corpo da resposta (JSON opcional)": "Cuerpo de la respuesta (JSON opcional)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Déjalo vacío para usar un cuerpo genérico. Si lo completas, la página recibe exactamente ese JSON en el status elegido - útil para simular el mensaje de error real que la app espera.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "JSON inválido en el cuerpo de la respuesta - corrígelo o déjalo vacío.",
   "Validador de textos": "Validador de textos",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Genera el QR localmente para la URL actual o una URL concreta guardada. No se envía ningún dato a servicios externos.",
   "Query/hash removidos por segurança": "Query/hash eliminados por seguridad",
@@ -3628,7 +3729,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "O arquivo deve ter no máximo 2 MB.": "El archivo debe tener como máximo 2 MB.", "Nenhum texto encontrado": "No se encontró ningún texto",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
-  "Desativar ferramentas ativas": "Disable active tools",
+  "Limpar ferramentas ativas": "Clear active tools", "Ferramentas ativas": "Active tools", "Ferramentas ligadas": "Tools turned on", "Desativar todas": "Turn all off", "Nenhuma ferramenta ativa no momento.": "No tool is active right now.", "Marcadores na página": "Markers on the page", "Limpar todos": "Clear all", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Drag to reorder the visual stack (the first in the list stays at the bottom).", "Marcador": "Marker", "Nota": "Note", "Forma": "Shape", "Linha": "Line", "Posicionando marcador/forma/linha": "Placing marker/shape/line", "Corpo da resposta (JSON opcional)": "Response body (optional JSON)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Leave empty to use a generic body. Filled in, the page receives exactly that JSON at the chosen status - useful for simulating the real error message the app expects.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "Invalid JSON in the response body - fix it or leave it empty.",
   "Validador de textos": "Text Validator",
   "Gere o QR localmente para a URL atual ou uma URL concreta salva. Nenhum dado é enviado para serviços externos.": "Generate the QR locally for the current URL or a saved concrete URL. No data is sent to external services.",
   "Query/hash removidos por segurança": "Query/hash removed for safety",
@@ -4321,11 +4422,16 @@ function openForceHttpDialog() {
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px">
         ${FORCE_HTTP_STATUSES.map((status) => `<button type="button" class="action" data-status="${status}">HTTP ${status}</button>`).join("")}
       </div>
+      <label class="qts-field-label" style="margin-top:14px">${escapeHtml(translateQaSurfaceText("Corpo da resposta (JSON opcional)"))}<textarea id="forceHttpBody" rows="4" placeholder='{"message":"Cartão recusado","code":"payment_declined"}' style="font:12px ui-monospace,Consolas,monospace"></textarea></label>
+      <small class="qts-mini-empty">${escapeHtml(translateQaSurfaceText("Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera."))}</small>
       <div style="margin-top:14px"><button type="button" class="action" id="forceHttpClear">${escapeHtml(t.forceHttpCancel)}</button></div>
     `,
     onReady: (body) => {
+      const bodyInput = body.querySelector("#forceHttpBody");
       body.querySelectorAll("[data-status]").forEach((button) => button.addEventListener("click", () => {
-        document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: Number(button.dataset.status) } }));
+        const raw = bodyInput.value.trim();
+        if (raw) { try { JSON.parse(raw); } catch { bodyInput.setCustomValidity?.(""); showQaToast(translateQaSurfaceText("JSON inválido no corpo da resposta - corrija ou deixe vazio."), "error"); return; } }
+        document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: Number(button.dataset.status), body: raw || null } }));
         closeDrawer();
       }));
       body.querySelector("#forceHttpClear").addEventListener("click", () => {
