@@ -52,6 +52,20 @@ a {
   color: inherit;
 }
 
+/* Brand logo: colored artwork by default, swapped for the white variant when the visitor's
+   OS/browser reports a dark color scheme preference. */
+.qts-logo-dark {
+  display: none;
+}
+@media (prefers-color-scheme: dark) {
+  .qts-logo-light {
+    display: none;
+  }
+  .qts-logo-dark {
+    display: block;
+  }
+}
+
 .qa-shell {
   display: grid;
   grid-template-columns: 240px 1fr;

@@ -98,7 +98,8 @@ export function LoginScreen() {
   return (
     <div className="qa-login-screen">
       <div className="qa-brand" style={{ paddingBottom: 0 }}>
-        <img src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.svg`} alt="" width={28} height={28} />
+        <img className="qts-logo-light" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.svg`} alt="" width={28} height={28} />
+        <img className="qts-logo-dark" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo-dark.svg`} alt="" width={28} height={28} />
         <div>
           <strong>QA Toolbar Sandbox</strong>
           <span>Admin</span>
