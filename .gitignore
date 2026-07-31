@@ -33,3 +33,11 @@ docs/internal/
 /desktop.ini
 /.win-folder-custom.desktop.ini.backup
 /*.ico
+
+# Raw Inkscape brand-logo masters (multi-MB, embed a raster outside the viewBox) - the lean
+# derivatives actually served live in apps/*/public/qa-toolbar-sandbox-logo*.svg instead.
+apps/landing/src/assets/logo-branco.svg
+apps/landing/src/assets/logo-branco.png
+apps/landing/src/assets/logo-colorido.svg
+apps/landing/src/assets/logo-colorido.png
+apps/landing/src/assets/qaSBTB.svg
