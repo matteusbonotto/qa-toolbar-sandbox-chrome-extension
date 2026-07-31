@@ -112,7 +112,6 @@ export interface Dictionary {
     titleLine1: string;
     titleGradient: string;
     body: string;
-    gifAlt: string;
   };
   features: {
     eyebrow: string;
@@ -416,7 +415,6 @@ const pt: Dictionary = {
     titleLine1: "Testes manuais com",
     titleGradient: "sabooor automático",
     body: "A gente não tira o humano da jogada, só acelera ele. O QA Toolbar Sandbox cuida do trabalho repetitivo (contexto, evidências, captura de rede, timers) enquanto você mantém o olhar crítico que nenhuma automação substitui. É teste manual, com sabooor automático.",
-    gifAlt: "Sabor energético, sabooor automático",
   },
   features: {
     eyebrow: "Ferramentas",
@@ -984,7 +982,6 @@ const es: Dictionary = {
     titleLine1: "Pruebas manuales con",
     titleGradient: "sabor automático",
     body: "No sacamos al humano de la jugada, solo lo aceleramos. QA Toolbar Sandbox se encarga del trabajo repetitivo (contexto, evidencias, captura de red, temporizadores) mientras tú mantienes la mirada crítica que ninguna automatización sustituye. Es prueba manual, con sabor automático.",
-    gifAlt: "Sabor energético, sabor automático",
   },
   features: {
     eyebrow: "Herramientas",
@@ -1552,7 +1549,6 @@ const en: Dictionary = {
     titleLine1: "Manual testing with an",
     titleGradient: "automated flavor",
     body: "We don't take the human out of the loop, we just speed them up. QA Toolbar Sandbox handles the repetitive work (context, evidence, network capture, timers) while you keep the critical eye no automation can replace. It's manual testing, with an automated flavor.",
-    gifAlt: "Energetic flavor, automated flavor",
   },
   features: {
     eyebrow: "Tools",
