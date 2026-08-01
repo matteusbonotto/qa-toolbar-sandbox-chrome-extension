@@ -365,7 +365,14 @@ try {
 
   await captureTool("notesShapes", async (page) => {
     await openToolByMenu(page, "notesMenuItem");
+    // Pause on the empty editor first so the video actually shows off the redesigned toolbar
+    // (format buttons, size/background selects, border/shadow/rounded toggles) instead of cutting
+    // straight to typed text - the whole point of recapturing this after the item 5 redesign.
+    await page.waitForTimeout(500);
     await page.locator(".qts-note textarea").fill("Confirmar mensagem de erro com o time de produto");
+    await page.locator('.qts-note [data-note-fmt="bold"]').click();
+    await page.locator('.qts-note [data-note-bg]').selectOption("blurred");
+    await page.waitForTimeout(500);
     await page.locator(".qts-note [data-save]").click();
     await page.waitForTimeout(400);
     await openToolByMenu(page, "shapesMenuItem");
