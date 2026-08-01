@@ -1047,10 +1047,23 @@
 
 .qts-semiauto-inner {
   display: grid;
-  place-items: center;
-  text-align: center;
-  max-width: 62ch;
-  margin: 0 auto;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: var(--qts-space-7);
+  align-items: center;
+}
+
+.qts-semiauto-gif {
+  margin: 0;
+  border-radius: var(--qts-radius-lg);
+  overflow: hidden;
+  border: 1px solid var(--qts-border);
+  box-shadow: var(--qts-shadow-md);
+}
+
+.qts-semiauto-gif img {
+  width: 100%;
+  height: auto;
+  display: block;
 }
 
 /* Pricing */
@@ -1979,6 +1992,10 @@
 }
 
 @media (max-width: 900px) {
+  .qts-semiauto-inner {
+    grid-template-columns: 1fr;
+  }
+
   .qts-pillars {
     grid-template-columns: 1fr;
   }
