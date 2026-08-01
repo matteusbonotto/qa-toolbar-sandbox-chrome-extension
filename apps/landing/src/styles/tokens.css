@@ -86,15 +86,20 @@ svg {
 
 /* Brand logo: colored artwork by default, swapped for the white variant when the visitor's
    OS/browser reports a dark color scheme preference (independent of this site's own fixed-dark
-   background, which the colored logo already renders fine against). */
-.qts-logo-dark {
+   background, which the colored logo already renders fine against). The doubled class selector
+   (.qts-logo-dark.qts-logo-dark) is a deliberate specificity bump: app.css loads after this file
+   and declares its own unconditional `display: block` on the shared .qts-site-toolbar-logo/
+   .qts-footer-logo classes at equal specificity to a plain `.qts-logo-dark`, which - being later
+   in source order - would otherwise always win and show both logos stacked at once regardless of
+   color scheme. */
+.qts-logo-dark.qts-logo-dark {
   display: none;
 }
 @media (prefers-color-scheme: dark) {
-  .qts-logo-light {
+  .qts-logo-light.qts-logo-light {
     display: none;
   }
-  .qts-logo-dark {
+  .qts-logo-dark.qts-logo-dark {
     display: block;
   }
 }
