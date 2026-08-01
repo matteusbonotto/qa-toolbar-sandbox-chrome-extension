@@ -53,15 +53,17 @@ a {
 }
 
 /* Brand logo: colored artwork by default, swapped for the white variant when the visitor's
-   OS/browser reports a dark color scheme preference. */
-.qts-logo-dark {
+   OS/browser reports a dark color scheme preference. Doubled class selector is a deliberate
+   specificity bump - see the identical comment in apps/landing/src/styles/tokens.css for why
+   a plain single-class selector isn't safe against a later, equal-specificity `display` rule. */
+.qts-logo-dark.qts-logo-dark {
   display: none;
 }
 @media (prefers-color-scheme: dark) {
-  .qts-logo-light {
+  .qts-logo-light.qts-logo-light {
     display: none;
   }
-  .qts-logo-dark {
+  .qts-logo-dark.qts-logo-dark {
     display: block;
   }
 }
