@@ -18,6 +18,10 @@ jobs:
           fetch-depth: 0
       - name: Reject secrets and private artifacts before installing dependencies
         run: node scripts/check-repository.mjs && node scripts/check-extension-bundle.mjs
+      - name: Require a version bump whenever apps/extension/ changes
+        run: node scripts/check-extension-version-bump.mjs
+        env:
+          BASE_SHA: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
       - uses: actions/setup-node@v7
         with:
           node-version: 22
