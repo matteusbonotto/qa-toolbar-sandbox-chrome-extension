@@ -23,7 +23,16 @@ const SIDELOAD_MANIFEST_KEY = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAqEIIM
 const root = resolve(import.meta.dirname, "..");
 const extensionDir = resolve(root, "apps/extension");
 const manifest = JSON.parse(await readFile(resolve(extensionDir, "manifest.json"), "utf8"));
-const sideloadManifest = { ...manifest, key: SIDELOAD_MANIFEST_KEY };
+
+// manifest.json on disk keeps a localhost origin in externally_connectable so the Vite dev
+// landing page (npm run dev:landing) can exercise the session-handoff flow during local
+// development. It has no place in a package handed to real users - strip it here, the same
+// way package-extension.mjs strips it for the Web Store build.
+const DEV_ORIGIN_PATTERN = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::|\/)/i;
+const externallyConnectable = Array.isArray(manifest.externally_connectable?.matches)
+  ? { ...manifest.externally_connectable, matches: manifest.externally_connectable.matches.filter((pattern) => !DEV_ORIGIN_PATTERN.test(pattern)) }
+  : manifest.externally_connectable;
+const sideloadManifest = { ...manifest, externally_connectable: externallyConnectable, key: SIDELOAD_MANIFEST_KEY };
 
 const outputArg = process.argv.find((argument) => argument.startsWith("--output="))?.slice("--output=".length);
 if (!outputArg) throw new Error("Usage: package-extension-sideload.mjs --output=<path>.zip");

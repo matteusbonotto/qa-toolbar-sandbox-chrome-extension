@@ -38,8 +38,8 @@ export const FEATURE_REGISTRY = Object.freeze([
   ["forceHttp","Simular HTTP","forceHttpMenuItem","forceHttp",""],
   ["errorMonitor","Monitor de erros","errorMonitorMenuItem","errorMonitor",""],
   ["inspectors","Monitor de endpoint","inspectorsMenuItem","inspectors",""],
-  ["jsonStudio","JSON Studio","jsonStudioMenuItem","braces",""],
-  ["breakpoints","Simulador de dispositivos","breakpointMenuItem","breakpointViewer",""],
+  ["jsonStudio","JSON Studio","jsonStudioMenuItem","braces","jsonStudio.enabled"],
+  ["breakpoints","Simulador de dispositivos","breakpointMenuItem","breakpointViewer","breakpointViewer.enabled"],
   ["testAccounts","Usuários e contas","testAccountsMenuItem","key",""],
   ["paymentMethods","Meios de pagamento","paymentMethodsMenuItem","paymentMethods",""],
   ["resources","Recursos e links","resourcesMenuItem","resources",""],
@@ -58,6 +58,7 @@ export const FEATURE_REGISTRY = Object.freeze([
   ["pixelPerfect","Régua","pixelPerfectMenuItem","ruler",""],
   ["testSession","Sessões de teste","testSessionMenuItem","wait",""],
   ["reportBuilder","Relatórios","reportBuilderMenuItem","edit",""],
+  ["clearSiteData","Limpar cache e cookies do site","clearSiteDataMenuItem","eraser","clearSiteData.enabled"],
 ].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
 export const DEFAULT_ENABLED_TOOLS = Object.freeze(FEATURE_REGISTRY.map((feature) => feature.key));
 const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
@@ -72,6 +73,7 @@ const SCHEMA_12_TOOLS = ["pixelPerfect"];
 const SCHEMA_13_TOOLS = ["testStatus"];
 const SCHEMA_14_TOOLS = ["testSession"];
 const SCHEMA_15_TOOLS = ["reportBuilder"];
+const SCHEMA_18_TOOLS = ["clearSiteData"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -632,9 +634,12 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 15) {
     for (const tool of SCHEMA_15_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 18) {
+    for (const tool of SCHEMA_18_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 17,
+    schemaVersion: 18,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     operatingSystems, browsers,

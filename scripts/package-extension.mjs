@@ -22,6 +22,20 @@ const extensionDir = resolve(root, "apps/extension");
 const manifest = JSON.parse(await readFile(resolve(extensionDir, "manifest.json"), "utf8"));
 await verifyExtensionSource(extensionDir);
 
+// manifest.json on disk keeps a localhost origin in externally_connectable so the Vite dev
+// landing page (npm run dev:landing) can exercise the session-handoff flow during local
+// development. That origin has no place in a package meant for real users - any page serving
+// from that port on the user's machine could otherwise call chrome.runtime.sendMessage and
+// overwrite the stored auth session - so it's stripped here, at packaging time, the same way
+// package-extension-test.mjs already rewrites its own manifest before zipping.
+const DEV_ORIGIN_PATTERN = /^https?:\/\/(?:localhost|127\.0\.0\.1)(?::|\/)/i;
+const productionManifest = JSON.parse(JSON.stringify(manifest));
+if (Array.isArray(productionManifest.externally_connectable?.matches)) {
+  productionManifest.externally_connectable.matches = productionManifest.externally_connectable.matches
+    .filter((pattern) => !DEV_ORIGIN_PATTERN.test(pattern));
+}
+const manifestJson = `${JSON.stringify(productionManifest, null, 2)}\n`;
+
 const timestamp = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
 const outputArg = process.argv.find((argument) => argument.startsWith("--output="))?.slice("--output=".length);
 const outputPath = outputArg
@@ -38,7 +52,7 @@ const done = new Promise((resolvePromise, rejectPromise) => {
 });
 
 archive.pipe(output);
-archive.file(resolve(extensionDir, "manifest.json"), { name: "manifest.json" });
+archive.append(manifestJson, { name: "manifest.json" });
 archive.directory(resolve(extensionDir, "icons"), "icons");
 archive.directory(resolve(extensionDir, "src"), "src");
 await archive.finalize();

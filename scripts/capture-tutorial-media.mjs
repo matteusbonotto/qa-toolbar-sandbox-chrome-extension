@@ -156,7 +156,7 @@ await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", 
   // action, not about exercising the lock/upgrade UI (that's covered by the real smoke test).
   if (name === "access-status") {
     const plan = { key: "release-manager", name: "Release Manager" };
-    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true };
+    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true, "clearSiteData.enabled": true, "jsonStudio.enabled": true, "breakpointViewer.enabled": true, "recording.mp4": true, "recording.gif": true };
     const token = await signMockAccessToken({ active: true, plan, features });
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
   }
@@ -566,6 +566,15 @@ try {
     await page.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("#qrStatus")?.textContent?.startsWith("http"));
   });
 
+  await captureTool("clearSiteData", async (page) => {
+    // Hover rather than click: clicking triggers a native confirm() dialog and, once confirmed,
+    // clears real site data and reloads the tab - none of which makes a useful still/clip. Hovering
+    // shows the open menu with the item highlighted, same idea as the clickSpy capture above.
+    await page.locator("#toolsButton").click();
+    await page.locator("#clearSiteDataMenuItem").hover();
+    await page.waitForTimeout(400);
+  });
+
   await captureTool("testAccounts", async (page) => {
     await openToolByMenu(page, "testAccountsMenuItem");
   });
@@ -582,7 +591,7 @@ try {
     "workspace-setup", "testStatus", "passFail", "notesShapes", "line", "blurElements", "holofote",
     "pixelPerfect", "screenshot", "recording", "clickSpy", "freezeClock", "forceHttp", "errorMonitor",
     "inspectors", "jsonStudio", "breakpoints", "characterCounter", "multiClick", "inputLab", "fakerFill",
-    "macroStudio", "stepsRecorder", "keyView", "elementCapture", "languageValidator", "qrCode", "testAccounts", "paymentMethods", "resources",
+    "macroStudio", "stepsRecorder", "keyView", "elementCapture", "languageValidator", "qrCode", "clearSiteData", "testAccounts", "paymentMethods", "resources",
   ];
   const mediaKeysToValidate = captureOnly ? [captureMediaKey] : expectedMediaKeys;
   for (const key of mediaKeysToValidate) {

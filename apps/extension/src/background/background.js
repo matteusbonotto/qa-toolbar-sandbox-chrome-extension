@@ -415,6 +415,30 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     });
     return true;
   }
+  if (message.type === "qts:clear-site-data") {
+    Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(async ([access, authorizedSender]) => {
+      if (!access.active || !authorizedSender || !sender.tab?.id || !sender.tab?.url) {
+        return sendResponse({ ok: false, error: "authentication_required" });
+      }
+      let url;
+      try { url = new URL(sender.tab.url); } catch { return sendResponse({ ok: false, error: "invalid_url" }); }
+      if (!["http:", "https:"].includes(url.protocol)) return sendResponse({ ok: false, error: "invalid_url" });
+      try {
+        // `origins` scopes this to the tested site's exact origin only - it never touches
+        // chrome.storage.local, a separate API where the extension keeps its own accounts, macros
+        // and settings, and never touches any other open tab/origin.
+        await chrome.browsingData.remove(
+          { origins: [url.origin], since: 0 },
+          { cache: true, cookies: true, cacheStorage: true, indexedDB: true, localStorage: true, serviceWorkers: true },
+        );
+        await chrome.tabs.reload(sender.tab.id);
+        sendResponse({ ok: true });
+      } catch (error) {
+        sendResponse({ ok: false, error: String(error?.message || error) });
+      }
+    });
+    return true;
+  }
   if (message.type === "qts:close-detached-window") {
     Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(async ([access, authorizedSender]) => {
       if (!access.active || !authorizedSender || !sender.tab?.id || !sender.tab?.windowId) {
