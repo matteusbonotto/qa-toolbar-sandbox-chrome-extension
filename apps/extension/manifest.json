@@ -29,7 +29,8 @@
     "activeTab",
     "tabs",
     "contextMenus",
-    "alarms"
+    "alarms",
+    "browsingData"
   ],
   "host_permissions": [
     "<all_urls>"

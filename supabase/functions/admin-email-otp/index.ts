@@ -106,6 +106,10 @@ async function verifyOtp(request: Request, body: RequestBody) {
     throw new ApiError(403, "otp_verification_required");
   }
   await requireFounder(user.id);
+  // Unlike requestOtp, a wrong guess here doesn't consume the challenge - without this, a party
+  // holding a live founder JWT (stolen token, XSS) could brute-force the 8-digit OTP unthrottled
+  // for the full 10-minute challenge window. Matches OTP_CHALLENGE_MINUTES as the window.
+  await enforceRateLimit(user.id, "admin-email-otp-verify", 5, OTP_CHALLENGE_MINUTES * 60);
   const challengeId = asUuid(body.challengeId);
   const otp = typeof body.otp === "string"
     ? body.otp.trim()

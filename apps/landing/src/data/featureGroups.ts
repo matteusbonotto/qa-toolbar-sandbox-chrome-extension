@@ -52,6 +52,7 @@ export const featureGroups: FeatureGroup[] = [
       { key: "inputLab", icon: "checkSquare" },
       { key: "fakerFill", icon: "stars" },
       { key: "qrCode", icon: "qrCode" },
+      { key: "clearSiteData", icon: "eraser" },
     ],
   },
   {

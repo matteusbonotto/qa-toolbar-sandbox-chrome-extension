@@ -23,7 +23,7 @@ const workspace = normalizeWorkspace({
   preferences: { compactMode: true },
 });
 
-assert.equal(workspace.schemaVersion, 17);
+assert.equal(workspace.schemaVersion, 18);
 assert.equal(workspace.environments[0].name, "QA");
 assert.equal(workspace.environments[0].productId, undefined);
 assert.equal(workspace.urlBindings.length, 1);
@@ -41,6 +41,7 @@ assert.equal(workspace.preferences.enabledTools.includes("holofote"), true);
 assert.equal(workspace.preferences.enabledTools.includes("stepsRecorder"), true);
 assert.equal(workspace.preferences.enabledTools.includes("pixelPerfect"), true);
 assert.equal(workspace.preferences.enabledTools.includes("languageValidator"), true);
+assert.equal(workspace.preferences.enabledTools.includes("clearSiteData"), true);
 assert.equal(workspace.preferences.mobileDrawerPosition, "bottom");
 assert.equal(workspace.preferences.mobileToolbarPosition, "top");
 assert.deepEqual(workspace.preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" });
@@ -91,7 +92,7 @@ const cappedSteps = normalizeWorkspace({ stepRecordings: [{ steps: Array.from({ 
 assert.equal(cappedSteps.stepRecordings[0].steps.length, 200);
 
 const filteredTools = normalizeWorkspace({ schemaVersion: 12, preferences: { enabledTools: ["inspectors", "unknown-tool"] } });
-assert.deepEqual(filteredTools.preferences.enabledTools, ["inspectors", "testStatus", "testSession", "reportBuilder"]);
+assert.deepEqual(filteredTools.preferences.enabledTools, ["inspectors", "testStatus", "testSession", "reportBuilder", "clearSiteData"]);
 assert.deepEqual(normalizeWorkspace({ preferences: { customShortcuts: { inspectors: "Ctrl+Shift+I", bogus: "Ctrl+B", keyView: "F1", pixelPerfect: "Alt+P" } } }).preferences.customShortcuts, { inspectors: "Ctrl+Shift+I", keyView: "F1", pixelPerfect: "Alt+P" });
 
 assert.deepEqual(normalizeWorkspace({}).preferences.pinnedTools, [], "additional shortcuts are optional");
@@ -107,10 +108,10 @@ assert.deepEqual(
 );
 
 const upgradedTools = normalizeWorkspace({ schemaVersion: 2, preferences: { enabledTools: ["inspectors"] } });
-assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder", "pixelPerfect", "testStatus", "testSession", "reportBuilder"]);
+assert.deepEqual(upgradedTools.preferences.enabledTools, ["inspectors", "characterCounter", "macroStudio", "multiClick", "inputLab", "fakerFill", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder", "pixelPerfect", "testStatus", "testSession", "reportBuilder", "clearSiteData"]);
 
 const schemaThreeUpgrade = normalizeWorkspace({ schemaVersion: 3, preferences: { enabledTools: ["inspectors"], keyView: { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false } } });
-assert.deepEqual(schemaThreeUpgrade.preferences.enabledTools, ["inspectors", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder", "pixelPerfect", "testStatus", "testSession", "reportBuilder"]);
+assert.deepEqual(schemaThreeUpgrade.preferences.enabledTools, ["inspectors", "keyView", "errorMonitor", "elementCapture", "blurElements", "holofote", "stepsRecorder", "pixelPerfect", "testStatus", "testSession", "reportBuilder", "clearSiteData"]);
 assert.deepEqual(schemaThreeUpgrade.preferences.keyView, { enabled: true, typingMode: true, theme: "light", position: "middle-right", mouseEffects: false, keySize: "medium", mouseSize: "medium" });
 assert.equal(normalizeWorkspace({ schemaVersion: 4, preferences: { keyView: { position: "outside", theme: "pink" } } }).preferences.keyView.position, "bottom-center");
 assert.deepEqual(normalizeWorkspace({ preferences: { keyView: { keySize: "large", mouseSize: "small" } } }).preferences.keyView, { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "large", mouseSize: "small" });

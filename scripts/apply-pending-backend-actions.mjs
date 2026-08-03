@@ -128,7 +128,12 @@ async function main() {
   if (doMigrations) {
     const dryRun = runSupabase(["db", "push", "--dry-run", "--linked"], { label: "Migration dry run" });
     if (!dryRun.ok) process.exit(1);
-    const upToDate = dryRun.output.includes('"upToDate":false') === false;
+    // The CLI's plain-text dry-run output lists pending files under this exact heading — there is
+    // no machine-readable flag (no `--output json` support for this subcommand). A prior version of
+    // this check looked for a `"upToDate":false` JSON substring that this CLI has never actually
+    // printed, which always fell through to "up to date" regardless of the real state: it silently
+    // reported "nothing pending" while migrations sat unapplied in production for weeks.
+    const upToDate = !dryRun.output.includes("Would push these migrations:");
     if (upToDate) {
       console.log("Migrations: nothing pending.");
     } else if (apply) {

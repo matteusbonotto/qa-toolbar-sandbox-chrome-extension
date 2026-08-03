@@ -567,6 +567,11 @@ const pt: Dictionary = {
         short: "Gera e baixa um QR offline para a URL atual ou uma URL salva.",
         details: "Gere o QR Code da aba atual ou de uma URL do workspace e baixe o PNG na hora - útil pra abrir rapidamente o mesmo ambiente no celular sem digitar o endereço à mão. Query e hash são removidos por segurança, salvo confirmação explícita.",
       },
+      clearSiteData: {
+        title: "Limpar cache e cookies do site",
+        short: "Limpa cache, cookies e storage só do site testado, sem mexer na extensão.",
+        details: "Um clique limpa cache, cookies, localStorage e afins apenas da origem da aba atual e recarrega a página, útil pra testar fluxo de primeiro acesso ou expiração de sessão sem abrir uma aba anônima. Suas contas, macros e configurações salvas na extensão não são afetadas.",
+      },
       macroStudio: {
         title: "Macros",
         short: "Grava uma sequência de ações e reproduz depois, quando quiser.",
@@ -1135,6 +1140,11 @@ const es: Dictionary = {
         short: "Genera y descarga un QR offline para la URL actual o una URL guardada.",
         details: "Genera el código QR de la pestaña actual o de una URL del workspace y descarga el PNG al instante - útil para abrir rápidamente el mismo entorno en el celular sin escribir la dirección a mano. Query y hash se eliminan por seguridad, salvo confirmación explícita.",
       },
+      clearSiteData: {
+        title: "Limpiar caché y cookies del sitio",
+        short: "Limpia caché, cookies y almacenamiento solo del sitio probado, sin afectar la extensión.",
+        details: "Un clic limpia caché, cookies, localStorage y similares solo del origen de la pestaña actual y recarga la página, útil para probar el flujo de primer acceso o expiración de sesión sin abrir una pestaña de incógnito. Tus cuentas, macros y configuraciones guardadas en la extensión no se ven afectadas.",
+      },
       macroStudio: {
         title: "Macros",
         short: "Graba una secuencia de acciones y repítela cuando quieras.",
@@ -1702,6 +1712,11 @@ const en: Dictionary = {
         title: "QR Code",
         short: "Generates and downloads an offline QR for the current URL or a saved one.",
         details: "Generate a QR code for the current tab or a workspace URL and download the PNG instantly - handy for quickly opening the same environment on your phone without typing the address by hand. Query string and hash are stripped for safety unless you confirm otherwise.",
+      },
+      clearSiteData: {
+        title: "Clear site cache and cookies",
+        short: "Clears cache, cookies, and storage for the tested site only, without touching the extension.",
+        details: "One click clears cache, cookies, localStorage, and the like for the current tab's origin only and reloads the page - handy for testing first-access flows or session expiration without opening an incognito tab. Your accounts, macros, and settings saved in the extension are never affected.",
       },
       macroStudio: {
         title: "Macros",

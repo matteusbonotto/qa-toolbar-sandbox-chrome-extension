@@ -7,22 +7,77 @@
 // tools they're entitled to (characterCounter/multiClick/inputLab/fakerFill/macroStudio/keyView)
 // even though the code, the schema.sql source of truth, and the migration file were all correct.
 //
-// This script must be run by YOU, locally, with your own Supabase service-role key — Claude
-// never receives or uses that key. It only reads; it changes nothing.
+// This script must be run by YOU, locally — Claude never receives or uses your Supabase key.
+// It only reads; it changes nothing. Credentials: SUPABASE_URL/SUPABASE_PROJECT_REF come from the
+// gitignored .env.edge.local file every other backend script here already reads; the service-role
+// key itself is fetched fresh from the authenticated Supabase CLI session (same
+// `supabase projects api-keys` call scripts/run-live-backend-smokes.ps1 already relies on) instead
+// of trusting a static env var, since a stale/rotated key would otherwise fail with a confusing
+// "Invalid API key" error. Nothing to type by hand.
 //
 // Usage:
-//   SUPABASE_URL=https://xxxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=eyJ... node scripts/verify-plan-features.mjs
+//   npm run backend:verify-plan-features
 
 import { createClient } from "@supabase/supabase-js";
+import { readFileSync, existsSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
 
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const ROOT = resolve(new URL("..", import.meta.url).pathname.replace(/^\/([A-Za-z]):/, "$1:"));
 
-if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
-  console.error(
-    "Missing env vars. Run as:\n" +
-      "  SUPABASE_URL=https://xxxx.supabase.co SUPABASE_SERVICE_ROLE_KEY=... node scripts/verify-plan-features.mjs",
+function readEnvFile(path) {
+  if (!existsSync(path)) return {};
+  return Object.fromEntries(
+    readFileSync(path, "utf8")
+      .split(/\r?\n/)
+      .map((line) => line.trim())
+      .filter((line) => line && !line.startsWith("#") && line.includes("="))
+      .map((line) => {
+        const at = line.indexOf("=");
+        const key = line.slice(0, at).trim();
+        const rawValue = line.slice(at + 1).trim();
+        const value = /^(['"]).*\1$/.test(rawValue) ? rawValue.slice(1, -1) : rawValue;
+        return [key, value];
+      }),
   );
+}
+
+const edgeLocalEnv = readEnvFile(resolve(ROOT, ".env.edge.local"));
+const SUPABASE_URL = process.env.SUPABASE_URL ?? edgeLocalEnv.SUPABASE_URL;
+
+// Same allowlist-regex-before-execFileSync proof as apply-pending-backend-actions.mjs.
+const PROJECT_REF_PATTERN = /^[a-z0-9]{20}$/;
+const rawProjectRef = process.env.SUPABASE_PROJECT_REF
+  ?? edgeLocalEnv.SUPABASE_PROJECT_REF
+  ?? SUPABASE_URL?.match(/^https:\/\/([a-z0-9]+)\.supabase\.co/)?.[1];
+const projectRef = rawProjectRef && PROJECT_REF_PATTERN.test(rawProjectRef) ? rawProjectRef : undefined;
+
+if (!SUPABASE_URL || !projectRef) {
+  console.error("Missing SUPABASE_URL / SUPABASE_PROJECT_REF in .env.edge.local.");
+  process.exit(1);
+}
+
+let SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!SERVICE_ROLE_KEY) {
+  const isWindows = process.platform === "win32";
+  const command = isWindows ? "cmd.exe" : "npx";
+  const args = isWindows
+    ? ["/d", "/s", "/c", "npx", "--yes", "supabase", "projects", "api-keys", "--project-ref", projectRef, "-o", "json"]
+    : ["--yes", "supabase", "projects", "api-keys", "--project-ref", projectRef, "-o", "json"];
+  let apiKeysJson;
+  try {
+    apiKeysJson = execFileSync(command, args, { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
+  } catch (err) {
+    console.error("Could not fetch API keys through the Supabase CLI:");
+    console.error((err.stdout || "").trim() || (err.stderr || err.message || "").trim());
+    process.exit(1);
+  }
+  const apiKeys = JSON.parse(apiKeysJson);
+  SERVICE_ROLE_KEY = apiKeys.find((key) => key.name === "service_role" && key.type === "legacy")?.api_key;
+}
+
+if (!SERVICE_ROLE_KEY) {
+  console.error("Could not obtain a service-role key for this project (CLI returned none).");
   process.exit(1);
 }
 
@@ -41,6 +96,15 @@ const EXPECTED = {
   "keyView.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": false, "release-manager": true },
   "elementCapture.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
   "stepsRecorder.enabled": { "smoke-test": true, "regression-runner": true, "root-cause-analyst": true, "release-manager": true },
+  "clearSiteData.enabled": { "smoke-test": true, "regression-runner": true, "root-cause-analyst": true, "release-manager": true },
+  // These four were only just wired up in the extension's code (jsonStudio/breakpoints tools now
+  // call requirePlanFeature; recording checks recording.mp4/recording.gif before starting) — until
+  // this run confirms they're correct in the live database too, publishing that extension version
+  // would silently take these away from every plan, including paying Release Manager users.
+  "jsonStudio.enabled": { "smoke-test": false, "regression-runner": true, "root-cause-analyst": true, "release-manager": true },
+  "breakpointViewer.enabled": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
+  "recording.mp4": { "smoke-test": false, "regression-runner": true, "root-cause-analyst": true, "release-manager": true },
+  "recording.gif": { "smoke-test": false, "regression-runner": false, "root-cause-analyst": true, "release-manager": true },
 };
 
 async function main() {
@@ -84,9 +148,10 @@ async function main() {
     console.error(`\n${problems.length} mismatch(es) found between the intended matrix and the live database:\n`);
     for (const problem of problems) console.error(`  - ${problem}`);
     console.error(
-      "\nFix: open supabase/migrations/20260717080000_new_qa_tools_feature_flags.sql, copy its\n" +
-        "contents into the Supabase dashboard's SQL Editor for this project, and run it (it's\n" +
-        "idempotent — safe to run even if partially applied). Or fix individual cells by hand in\n" +
+      "\nFix: run\n" +
+        "  npm run backend:apply-pending -- --apply\n" +
+        "(pushes every pending migration using the same .env.edge.local credentials, idempotent —\n" +
+        "safe to run even if some of it was already applied). Or fix individual cells by hand in\n" +
         "/admin/ → Feature flags. Re-run this script afterward to confirm.",
     );
     process.exit(1);

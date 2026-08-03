@@ -492,6 +492,15 @@ function requirePlanFeature(toolKey) {
   return false;
 }
 
+// Same idea as hasPlanFeature/requirePlanFeature, but for a raw Supabase `features.key` that
+// isn't tied to a whole FEATURE_REGISTRY tool - MP4/GIF are two output modes of the single
+// "recording" button, not separate tools with their own menu entry.
+function requireRawFeature(featureKey) {
+  if (state.features?.[featureKey] === true) return true;
+  showQaToast("Este recurso não está disponível no seu plano atual.", "error");
+  return false;
+}
+
 const TOOLS_MENU_ITEM_IDS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.menuItemId]));
 const TOOLS_MENU_LABELS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.label]));
 const TOOLS_MENU_ITEM_KEY_BY_ID = Object.fromEntries(Object.entries(TOOLS_MENU_ITEM_IDS).map(([key, id]) => [id, key]));
@@ -1077,6 +1086,7 @@ function buildShadowHost() {
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
             <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Limpar ferramentas ativas"))}</button>
+            <button type="button" id="clearSiteDataMenuItem" role="menuitem">${ICON("eraser")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.clearSiteData))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testStatus))}</button>
             <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testSession))}</button>
             <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.reportBuilder))}</button>
@@ -1270,6 +1280,7 @@ function buildShadowHost() {
     if (key) void recordToolMenuUsage(key);
   }, true);
   shadow.getElementById("disableAllToolsMenuItem").addEventListener("click", () => { openActiveToolsModal(); closeToolsMenu(); });
+  shadow.getElementById("clearSiteDataMenuItem").addEventListener("click", () => { void clearCurrentSiteData(); closeToolsMenu(); });
   shadow.getElementById("notificationBellButton").addEventListener("click", (event) => {
     event.stopPropagation();
     closeToolsMenu();
@@ -1371,6 +1382,23 @@ function mountToolbar() {
   void maybeOpenDetachedTool();
 }
 
+// Clears cache/cookies/site storage for THIS tab's origin only (background.js scopes the
+// browsingData.remove call to sender.tab.url's origin) - it never touches chrome.storage.local,
+// where the extension keeps its own accounts, macros and settings, and never touches any other
+// open site.
+async function clearCurrentSiteData() {
+  if (!requirePlanFeature("clearSiteData")) return;
+  const confirmed = confirm(translateQaSurfaceText("Limpar cache e cookies deste site e recarregar a página? Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos)."));
+  if (!confirmed) return;
+  const response = await new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "qts:clear-site-data" }, (result) => resolve(chrome.runtime.lastError ? null : result));
+  });
+  showQaToast(
+    response?.ok ? "Cache e cookies do site limpos." : "Não foi possível limpar os dados do site.",
+    response?.ok ? "info" : "error",
+  );
+}
+
 function openToolInNewTab(toolKey) {
   const url = new URL(window.location.href);
   url.searchParams.set("qtsDetachedTool", toolKey);
@@ -1468,6 +1496,7 @@ const TOUR_TARGETS = {
   elementCapture: { selector: "#elementCaptureMenuItem", menu: true },
   languageValidator: { selector: "#languageValidatorMenuItem", menu: true },
   qrCode: { selector: "#qrCodeMenuItem", menu: true },
+  clearSiteData: { selector: "#clearSiteDataMenuItem", menu: true },
   testAccounts: { selector: "#testAccountsMenuItem", menu: true },
   paymentMethods: { selector: "#paymentMethodsMenuItem", menu: true },
   resources: { selector: "#resourcesMenuItem", menu: true },
@@ -3700,6 +3729,10 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Auto preenchimento": "Autorrelleno", "Teclas e mouse": "Teclas y ratón", "Elementos da página": "Elementos de la página",
   "Borrar elementos": "Desenfocar elementos", "Roteiros de teste": "Guiones de prueba", "Validador de textos/i18n": "Validador de textos/i18n",
   "Sessões de teste": "Sesiones de prueba", "Relatórios": "Informes",
+  "Limpar cache e cookies do site": "Limpiar caché y cookies del sitio",
+  "Limpar cache e cookies deste site e recarregar a página? Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos).": "¿Limpiar la caché y las cookies de este sitio y recargar la página? Esto no afecta los datos guardados en la extensión (las cuentas, macros y configuraciones permanecen intactas).",
+  "Cache e cookies do site limpos.": "Caché y cookies del sitio borrados.",
+  "Não foi possível limpar os dados do site.": "No se pudieron borrar los datos del sitio.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Status do teste": "Test Status", "Clique espião": "Click Spy", "Parar tempo": "Freeze Time",
@@ -3708,6 +3741,10 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Auto preenchimento": "Auto Fill", "Teclas e mouse": "Keys and Mouse", "Elementos da página": "Page Elements",
   "Borrar elementos": "Blur Elements", "Roteiros de teste": "Test Scenarios", "Validador de textos/i18n": "Text/i18n Validator",
   "Sessões de teste": "Test Sessions", "Relatórios": "Reports",
+  "Limpar cache e cookies do site": "Clear site cache and cookies",
+  "Limpar cache e cookies deste site e recarregar a página? Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos).": "Clear this site's cache and cookies and reload the page? This does not affect data saved in the extension (accounts, macros, and settings remain intact).",
+  "Cache e cookies do site limpos.": "Site cache and cookies cleared.",
+  "Não foi possível limpar os dados do site.": "Couldn't clear the site's data.",
 });
 
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
@@ -5370,6 +5407,7 @@ function renderJsonDiff(diffs) {
 }
 
 function openJsonStudio() {
+  if (!requirePlanFeature("jsonStudio")) return;
   const t = state.t;
   openDrawer({
     title: t.jsonStudioTitle,
@@ -5527,6 +5565,7 @@ function cleanupBreakpointViewer() {
 }
 
 function openBreakpointViewer() {
+  if (!requirePlanFeature("breakpoints")) return;
   const t = state.t;
   cleanupBreakpointViewer();
   breakpointViewerState.zoomMultiplier = 1;
@@ -8518,6 +8557,7 @@ async function initializeGifCapture(stream) {
 }
 
 async function startEvidenceRecording(mode = "video") {
+  if (!requireRawFeature(mode === "gif" ? "recording.gif" : "recording.mp4")) return;
   if (!navigator.mediaDevices?.getDisplayMedia || (mode !== "gif" && typeof MediaRecorder === "undefined")) {
     openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
     return;

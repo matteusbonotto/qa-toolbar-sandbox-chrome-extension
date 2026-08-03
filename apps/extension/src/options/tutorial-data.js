@@ -153,7 +153,7 @@
       example: "Ex.: um bug só aparece depois de 3 cliques em sequência - grave em GIF pra anexar direto no chamado (sem áudio, leve) ou em MP4 se precisar narrar o que está acontecendo.",
       screenshot: "tutorial-assets/recording.png",
       video: "tutorial-assets/recording.webm",
-      planFeature: null,
+      planFeature: "recording.mp4",
     },
     {
       key: "clickSpy",
@@ -225,7 +225,7 @@
       example: "Ex.: a resposta da API de checkout veio com um valor errado no meio de um JSON de 200 linhas - abra direto dos Inspectors e o JSON Studio formata e deixa o campo fácil de achar, sem colar em outra ferramenta.",
       screenshot: "tutorial-assets/jsonStudio.png",
       video: "tutorial-assets/jsonStudio.webm",
-      planFeature: null,
+      planFeature: "jsonStudio.enabled",
     },
     {
       key: "breakpoints",
@@ -237,7 +237,7 @@
       example: "Ex.: o menu sobrepõe o card no mobile mas não no desktop - abra o Breakpoint Viewer com um preset de celular e um de desktop lado a lado e veja exatamente em qual largura o problema começa.",
       screenshot: "tutorial-assets/breakpoints.png",
       video: "tutorial-assets/breakpoints.webm",
-      planFeature: null,
+      planFeature: "breakpointViewer.enabled",
     },
     {
       key: "characterCounter",
@@ -358,6 +358,18 @@
       screenshot: "tutorial-assets/qrCode.png",
       video: "tutorial-assets/qrCode.webm",
       planFeature: null,
+    },
+    {
+      key: "clearSiteData",
+      group: "productivity",
+      title: "Limpar cache e cookies do site",
+      short: "Limpa cache, cookies e storage só do site testado, sem mexer na extensão.",
+      instructions: "Abra o menu Tools e clique em \"Limpar cache e cookies do site\". Confirme a ação: cache, cookies, localStorage e afins da aba atual são limpos e a página recarrega sozinha.",
+      tip: "Use para testar fluxo de primeiro acesso, cadastro ou expiração de sessão sem precisar abrir uma aba anônima nem apagar suas contas e macros salvas na extensão.",
+      example: "Ex.: você quer conferir a tela de boas-vindas de um usuário novo, mas o site já lembra seu login - clique em \"Limpar cache e cookies do site\", a página recarrega deslogada e pronta pra simular o primeiro acesso, sem afetar as demais abas nem os dados salvos na extensão.",
+      screenshot: "tutorial-assets/clearSiteData.png",
+      video: "tutorial-assets/clearSiteData.webm",
+      planFeature: "clearSiteData.enabled",
     },
     {
       key: "testAccounts",

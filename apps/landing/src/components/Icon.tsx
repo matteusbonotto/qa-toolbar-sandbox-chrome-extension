@@ -16,6 +16,7 @@ import iconDashLg from "bootstrap-icons/icons/dash-lg.svg?raw";
 import iconDatabase from "bootstrap-icons/icons/database.svg?raw";
 import iconDropletHalf from "bootstrap-icons/icons/droplet-half.svg?raw";
 import iconEnvelope from "bootstrap-icons/icons/envelope.svg?raw";
+import iconEraser from "bootstrap-icons/icons/eraser.svg?raw";
 import iconExclamationTriangle from "bootstrap-icons/icons/exclamation-triangle.svg?raw";
 import iconFileEarmarkText from "bootstrap-icons/icons/file-earmark-text.svg?raw";
 import iconFonts from "bootstrap-icons/icons/fonts.svg?raw";
@@ -65,6 +66,7 @@ const ICONS = {
   database: iconDatabase,
   dropletHalf: iconDropletHalf,
   envelope: iconEnvelope,
+  eraser: iconEraser,
   exclamationTriangle: iconExclamationTriangle,
   fileEarmarkText: iconFileEarmarkText,
   fonts: iconFonts,
