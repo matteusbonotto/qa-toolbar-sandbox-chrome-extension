@@ -9,12 +9,21 @@
 // commit on a push to main/master. If it's missing/unusable (shallow history, first commit on a
 // branch, etc.) this skips rather than false-failing - it's a safety net, not a blocker for cases
 // it can't reason about.
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
-const baseSha = (process.env.BASE_SHA || "").trim();
+const rawBaseSha = (process.env.BASE_SHA || "").trim();
+// Full match against the only shape a git commit SHA can have - same proof-by-allowlist CodeQL's
+// js/indirect-command-line-injection query wants elsewhere in this repo (see
+// apply-pending-backend-actions.mjs). Belt-and-suspenders on top of execFileSync below, which
+// already passes each argument straight to the child process with no shell involved, so an
+// env-sourced value can't inject extra flags or shell metacharacters either way.
+const SHA_PATTERN = /^[0-9a-f]{7,40}$/i;
+const baseSha = SHA_PATTERN.test(rawBaseSha) ? rawBaseSha : undefined;
 
+// No template-string shell command: each argument is its own argv entry, so nothing in `args`
+// (including baseSha) is ever interpreted by a shell.
 function git(args) {
-  return execSync(`git ${args}`, { encoding: "utf8" }).trim();
+  return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
 
 if (!baseSha || /^0+$/.test(baseSha)) {
@@ -24,7 +33,7 @@ if (!baseSha || /^0+$/.test(baseSha)) {
 
 let changedFiles;
 try {
-  changedFiles = git(`diff --name-only ${baseSha} HEAD`).split("\n").filter(Boolean);
+  changedFiles = git(["diff", "--name-only", baseSha, "HEAD"]).split("\n").filter(Boolean);
 } catch {
   console.log(`Could not diff against ${baseSha} (shallow history?) - skipping extension version-bump check.`);
   process.exit(0);
@@ -38,7 +47,7 @@ if (!extensionChanged) {
 
 function versionAt(ref) {
   try {
-    return JSON.parse(git(`show ${ref}:apps/extension/manifest.json`)).version;
+    return JSON.parse(git(["show", `${ref}:apps/extension/manifest.json`])).version;
   } catch {
     return null;
   }
