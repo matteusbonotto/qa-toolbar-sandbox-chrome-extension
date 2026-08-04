@@ -4,7 +4,7 @@ import { useI18n } from "../i18n/I18nProvider";
 import { LOCALES } from "../i18n/translations";
 import { openAccountModal } from "../lib/accountModal";
 import { supabase } from "../lib/supabaseClient";
-import { signOut } from "../services/checkout";
+import { loadAccessStatus, signOut } from "../services/checkout";
 import { Icon } from "./Icon";
 
 export function SiteNavToolbar() {
@@ -25,6 +25,7 @@ export function SiteNavToolbar() {
   const [activeId, setActiveId] = useState(navItems[0]!.id);
   const [signedIn, setSignedIn] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [activePlanName, setActivePlanName] = useState<string | null>(null);
 
   useEffect(() => {
     if (!mobileOpen) return;
@@ -39,6 +40,17 @@ export function SiteNavToolbar() {
     const { data } = supabase.auth.onAuthStateChange((_event, session) => setSignedIn(Boolean(session)));
     return () => data.subscription.unsubscribe();
   }, []);
+
+  // Surfaces the visitor's active plan right on the nav so it reads as confirmation the moment
+  // they look up, instead of only inside the pricing page's own state.
+  useEffect(() => {
+    if (!signedIn) { setActivePlanName(null); return; }
+    let cancelled = false;
+    void loadAccessStatus()
+      .then((status) => { if (!cancelled) setActivePlanName(status.active ? status.plan?.name ?? null : null); })
+      .catch(() => { if (!cancelled) setActivePlanName(null); });
+    return () => { cancelled = true; };
+  }, [signedIn]);
 
   useEffect(() => {
     const sections = navItems.map((item) => document.getElementById(item.id)).filter(
@@ -115,6 +127,7 @@ export function SiteNavToolbar() {
         {signedIn ? (
           <button type="button" className="qts-site-toolbar-account" onClick={() => openAccountModal()}>
             {t.nav.myAccount}
+            {activePlanName ? <span className="qts-account-plan-badge">{activePlanName}</span> : null}
           </button>
         ) : null}
         <button type="button" className="qts-site-toolbar-cta" onClick={() => {

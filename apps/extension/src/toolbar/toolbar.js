@@ -1859,9 +1859,9 @@ async function maybeShowFirstRunIntro() {
 
 function releaseNotesCopy() {
   const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["Los nombres son consistentes en Tools, Configuración, Workspace y Landing Page.", "Macros abre un submenú con los flujos guardados.", "El Validador de campos muestra reglas, resultado e historial local seguro."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Names are consistent across Tools, Settings, Workspace, and the Landing Page.", "Macros opens a submenu with saved flows.", "Field Validator shows rules, outcomes, and safe local history."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["Os nomes estão consistentes em Tools, Configurações, Workspace e Landing Page.", "Macros abre um submenu com os fluxos salvos.", "O Validador de campos mostra regras, resultado e histórico local seguro."], action: "Entendi" };
+  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["La cuenta activa ahora muestra el plan en la Landing Page.", "El botón Instalar muestra la versión del paquete.", "Cuando Chrome Web Store está pendiente, hay una descarga directa."], action: "Entendido" };
+  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Active accounts now show their plan on the Landing Page.", "The Install button shows the package version.", "A direct download is available while the Chrome Web Store is pending."], action: "Got it" };
+  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["A conta ativa agora mostra o plano na Landing Page.", "O botão Instalar mostra a versão do pacote.", "Quando a Chrome Web Store estiver pendente, há download direto."], action: "Entendi" };
 }
 
 async function dismissReleaseNote() {

@@ -193,6 +193,9 @@
 }
 
 .qts-site-toolbar-account {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   flex-shrink: 0;
   padding: 6px 14px;
   border-radius: var(--qts-radius-pill);
@@ -210,6 +213,15 @@
 .qts-site-toolbar-account:hover {
   background: var(--qts-bg-card-hover);
   border-color: var(--qts-accent);
+}
+
+.qts-account-plan-badge {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--qts-accent);
+  font-size: 0.68rem;
+  font-weight: 700;
 }
 
 @media (max-width: 720px) {
@@ -241,6 +253,10 @@
   .qts-site-toolbar-account {
     padding: 6px 10px;
     font-size: 0.72rem;
+  }
+
+  .qts-account-plan-badge {
+    display: none;
   }
 }
 
@@ -1365,56 +1381,25 @@
   margin: 0;
 }
 
-.qts-access-line {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin: 0 0 var(--qts-space-2);
-  color: var(--qts-teal);
-  font-size: 0.9rem;
-}
-
-.qts-access-line svg {
-  width: 18px;
-  height: 18px;
-  flex-shrink: 0;
-}
-
-.qts-access-line strong {
-  color: var(--qts-text);
-}
-
-.qts-manual-install-hint {
-  margin: 0 0 var(--qts-space-5);
-  color: var(--qts-text-muted);
-  font-size: 0.82rem;
-}
-
-.qts-version-line {
-  margin: 0 0 var(--qts-space-5);
-  color: var(--qts-text-dim);
-  font-size: 0.76rem;
-  font-variant-numeric: tabular-nums;
-}
-.qts-version-pending {
-  color: var(--qts-accent, #ffb020);
-  font-weight: 600;
-}
-
-.qts-install-fab {
+.qts-install-fab-stack {
   position: fixed;
   right: var(--qts-space-5);
   bottom: var(--qts-space-5);
   z-index: 60;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--qts-space-3);
+}
+
+.qts-install-fab {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  padding: 13px 20px;
+  padding: 11px 18px;
   border-radius: var(--qts-radius-pill);
   background: var(--qts-accent);
   color: #0a0a0f;
-  font-weight: 700;
-  font-size: 0.92rem;
   text-decoration: none;
   box-shadow: var(--qts-shadow-lg);
   transition: transform 0.15s ease, box-shadow 0.15s ease;
@@ -1423,10 +1408,89 @@
 .qts-install-fab svg {
   width: 20px;
   height: 20px;
+  flex-shrink: 0;
+}
+
+.qts-install-fab-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.25;
+}
+
+.qts-install-fab-text strong {
+  font-weight: 700;
+  font-size: 0.92rem;
+}
+
+.qts-install-fab-text small {
+  font-weight: 600;
+  font-size: 0.7rem;
+  opacity: 0.7;
+  font-variant-numeric: tabular-nums;
 }
 
 .qts-install-fab:hover {
   transform: translateY(-2px);
+}
+
+.qts-outdated-toast {
+  position: relative;
+  width: min(340px, calc(100vw - 32px));
+  padding: var(--qts-space-4) var(--qts-space-5) var(--qts-space-4) var(--qts-space-4);
+  border: 1px solid var(--qts-border);
+  border-radius: var(--qts-radius-md);
+  background: var(--qts-bg-card);
+  box-shadow: var(--qts-shadow-lg);
+  color: var(--qts-text);
+}
+
+.qts-outdated-toast strong {
+  display: block;
+  margin: 0 20px 6px 0;
+  font-size: 0.95rem;
+}
+
+.qts-outdated-toast p {
+  margin: 0 0 var(--qts-space-3);
+  color: var(--qts-text-muted);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+
+.qts-outdated-toast .qts-btn {
+  width: 100%;
+  justify-content: center;
+  gap: 8px;
+}
+
+.qts-outdated-toast .qts-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.qts-outdated-toast-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  border: none;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--qts-text-dim);
+  cursor: pointer;
+}
+
+.qts-outdated-toast-close svg {
+  width: 13px;
+  height: 13px;
+}
+
+.qts-outdated-toast-close:hover {
+  background: var(--qts-bg-card-hover);
+  color: var(--qts-text);
 }
 
 .qts-install-fab-tour {
@@ -1452,11 +1516,13 @@
 }
 
 @media (max-width: 640px) {
-  .qts-install-fab {
+  .qts-install-fab-stack {
     right: var(--qts-space-4);
     bottom: var(--qts-space-4);
+  }
+
+  .qts-install-fab {
     padding: 11px 16px;
-    font-size: 0.85rem;
   }
 }
 
