@@ -139,18 +139,9 @@ try {
   if (await page.locator("html").getAttribute("lang") !== "en") throw new Error("English locale did not update html.lang");
   if (!(await page.title()).includes("Manual testing")) throw new Error("English locale did not update document metadata");
   if (!(await page.locator('meta[name="description"]').getAttribute("content"))?.includes("Manual testing")) throw new Error("English locale did not update meta description");
-  if ((await page.locator(".qts-site-toolbar-cta").innerText()).trim() !== "Create account and install") throw new Error("Logged-out install CTA is not transparent in English");
+  if ((await page.locator(".qts-site-toolbar-cta").innerText()).trim() !== "Sign in") throw new Error("Logged-out navbar CTA is not translated in English");
   if (!(await page.getByRole("navigation", { name: "Page navigation" }).count())) throw new Error("Navigation accessible name was not translated");
   await page.getByRole("button", { name: "Switch language to PT" }).click();
-
-  const desktopWidth = await page.locator('[data-viewport="desktop"]').evaluate((element) => element.getBoundingClientRect().width);
-  await page.locator(".qts-simulator-controls .qts-sim-field").nth(2).getByRole("radio", { name: "Mobile" }).click();
-  const mobileFrame = page.locator('[data-viewport="mobile"]');
-  await mobileFrame.waitFor();
-  const mobileWidth = await mobileFrame.evaluate((element) => element.getBoundingClientRect().width);
-  if (mobileWidth >= desktopWidth || mobileWidth > 410) {
-    throw new Error(`Mobile simulator did not switch to a phone viewport. desktop=${desktopWidth} mobile=${mobileWidth}`);
-  }
 
   await page.locator(".qts-site-toolbar-cta").click();
   const accountDialog = page.getByRole("dialog");

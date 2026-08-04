@@ -1,25 +1,56 @@
 :root {
   color-scheme: dark;
-  --bg: #06070c;
-  --surface: #12141f;
-  --surface-2: #171a29;
-  --border: rgba(255, 255, 255, 0.08);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --text: #f4f5f9;
-  --muted: #a6acc2;
-  --dim: #6d7390;
-  --accent: #7c5cff;
-  --accent-strong: #9d84ff;
-  --accent-2: #33d6b0;
-  --danger: #ff6b6b;
-  --warn: #ffb454;
-  --gradient-brand: linear-gradient(135deg, #7c5cff 0%, #33d6b0 100%);
-  --gradient-radial: radial-gradient(60% 60% at 15% 0%, rgba(124, 92, 255, 0.16) 0%, rgba(6, 7, 12, 0) 70%);
-  --shadow-glow: 0 0 0 1px rgba(124, 92, 255, 0.3), 0 16px 40px rgba(124, 92, 255, 0.2);
-  --radius-md: 14px;
-  --radius-lg: 18px;
-  --radius-pill: 999px;
+  --qts-bg: #06070c;
+  --qts-bg-card: #12141f;
+  --qts-bg-card-hover: #171a29;
+  --qts-border: rgba(255, 255, 255, 0.08);
+  --qts-border-strong: rgba(255, 255, 255, 0.16);
+  --qts-text: #f4f5f9;
+  --qts-text-muted: #a6acc2;
+  --qts-text-dim: #6d7390;
+  --qts-accent: #7c5cff;
+  --qts-accent-strong: #9d84ff;
+  --qts-teal: #33d6b0;
+  --qts-red: #ff6b6b;
+  --qts-amber: #ffb454;
+  --qts-shadow-glow: 0 0 0 1px rgba(124, 92, 255, 0.3), 0 16px 40px rgba(124, 92, 255, 0.2);
+  --qts-font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --qts-font-mono: "SFMono-Regular", "JetBrains Mono", Consolas, monospace;
+  --qts-radius-sm: 8px;
+  --qts-radius-md: 14px;
+  --qts-radius-lg: 18px;
+  --qts-radius-pill: 999px;
+
+  /* Same 8px-based scale as apps/landing/src/styles/tokens.css - admin had no spacing scale at
+     all before (every value below was previously a hardcoded, inconsistent px number). */
+  --qts-space-1: 4px;
+  --qts-space-2: 8px;
+  --qts-space-3: 12px;
+  --qts-space-4: 16px;
+  --qts-space-5: 24px;
+  --qts-space-6: 32px;
+  --qts-space-7: 48px;
+  --qts-space-8: 64px;
+  --qts-space-9: 96px;
+
+  /* Same type scale as apps/landing/src/styles/tokens.css - new tokens, not yet adopted by every
+     existing rule (that migration is a separate, lower-risk-in-isolation pass). */
+  --qts-text-xs: 0.75rem;
+  --qts-text-sm: 0.85rem;
+  --qts-text-base: 0.95rem;
+  --qts-text-md: 1.05rem;
+  --qts-text-lg: 1.25rem;
+  --qts-text-xl: 1.5rem;
+  --qts-text-2xl: clamp(1.8rem, 3.5vw, 2.6rem);
+  --qts-text-3xl: clamp(2.2rem, 5vw, 3.6rem);
 }
+
+/* Breakpoint reference (see apps/landing/src/styles/tokens.css for the same values/rationale) -
+   admin currently has zero @media queries at all; use these exact values for the first ones:
+     --qts-bp-sm: 400px   (smallest phones)
+     --qts-bp-md: 720px   (phone -> tablet)
+     --qts-bp-lg: 960px   (tablet -> small desktop)
+     --qts-bp-xl: 1280px  (small desktop -> wide) */
 
 * {
   box-sizing: border-box;
@@ -32,10 +63,9 @@ body {
 }
 
 body {
-  background: var(--bg) var(--gradient-radial);
-  background-attachment: fixed;
-  color: var(--text);
-  font-family: "Inter", "Segoe UI", system-ui, sans-serif;
+  background: var(--qts-bg);
+  color: var(--qts-text);
+  font-family: var(--qts-font-sans);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
@@ -79,8 +109,8 @@ a {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  background: var(--surface);
-  border-right: 1px solid var(--border);
+  background: var(--qts-bg-card);
+  border-right: 1px solid var(--qts-border);
 }
 
 .qa-brand {
@@ -92,7 +122,7 @@ a {
 
 .qa-brand img {
   border-radius: 8px;
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--qts-shadow-glow);
   flex: none;
 }
 
@@ -115,7 +145,7 @@ a {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--accent-strong);
+  color: var(--qts-accent-strong);
 }
 
 .qa-nav {
@@ -134,7 +164,7 @@ a {
   border: 1px solid transparent;
   border-radius: 9px;
   background: transparent;
-  color: var(--muted);
+  color: var(--qts-text-muted);
   font-weight: 700;
   font-size: 0.88rem;
   cursor: pointer;
@@ -143,13 +173,13 @@ a {
 }
 
 .qa-nav-item:hover {
-  background: var(--surface-2);
-  color: var(--text);
+  background: var(--qts-bg-card-hover);
+  color: var(--qts-text);
 }
 
 .qa-nav-item.isActive {
   border-color: transparent;
-  background: var(--gradient-brand);
+  background: var(--qts-accent);
   color: #06070c;
   font-weight: 800;
 }
@@ -157,25 +187,25 @@ a {
 .qa-sidebar-footer {
   margin-top: auto;
   padding: 14px 8px 0;
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--qts-border);
   font-size: 0.78rem;
-  color: var(--dim);
+  color: var(--qts-text-dim);
 }
 
 .qa-sidebar-footer button {
   margin-top: 8px;
   width: 100%;
   padding: 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--qts-border);
   border-radius: 8px;
-  background: var(--surface-2);
-  color: var(--muted);
+  background: var(--qts-bg-card-hover);
+  color: var(--qts-text-muted);
   cursor: pointer;
 }
 
 .qa-sidebar-footer button:hover {
-  color: var(--text);
-  border-color: var(--danger);
+  color: var(--qts-text);
+  border-color: var(--qts-red);
 }
 
 .qa-content {
@@ -195,7 +225,7 @@ a {
 
 .qa-page-head p {
   margin: 0;
-  color: var(--muted);
+  color: var(--qts-text-muted);
   font-size: 0.9rem;
   max-width: 70ch;
 }
@@ -210,9 +240,9 @@ a {
 .qa-metric-card {
   position: relative;
   padding: 18px 16px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
+  border: 1px solid var(--qts-border);
+  border-radius: var(--qts-radius-lg);
+  background: var(--qts-bg-card);
   overflow: hidden;
 }
 
@@ -221,7 +251,7 @@ a {
   position: absolute;
   inset: 0 0 auto 0;
   height: 3px;
-  background: var(--gradient-brand);
+  background: var(--qts-accent);
 }
 
 .qa-metric-card .value {
@@ -231,7 +261,7 @@ a {
 }
 
 .qa-metric-card .label {
-  color: var(--muted);
+  color: var(--qts-text-muted);
   font-size: 0.78rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -239,9 +269,9 @@ a {
 
 .qa-card {
   padding: 20px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-lg);
-  background: var(--surface);
+  border: 1px solid var(--qts-border);
+  border-radius: var(--qts-radius-lg);
+  background: var(--qts-bg-card);
   margin-bottom: 20px;
 }
 
@@ -265,10 +295,10 @@ a {
   min-width: 0;
   min-height: 38px;
   padding: 8px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--qts-border);
   border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--qts-bg);
+  color: var(--qts-text);
 }
 
 /* Used by long vertical forms (one field per row, e.g. Registro de software/INPI) instead of
@@ -280,7 +310,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--muted);
+  color: var(--qts-text-muted);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -290,10 +320,10 @@ a {
 .qa-form-col textarea {
   min-height: 38px;
   padding: 8px 10px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--qts-border);
   border-radius: 8px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--qts-bg);
+  color: var(--qts-text);
   font-weight: 400;
 }
 
@@ -305,7 +335,7 @@ a {
 .qa-form-col input:focus,
 .qa-form-col select:focus,
 .qa-form-col textarea:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--qts-accent);
   outline-offset: 1px;
 }
 
@@ -317,7 +347,7 @@ a {
 }
 
 .qa-form-col .savedHint {
-  color: var(--accent-strong);
+  color: var(--qts-accent-strong);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -325,34 +355,34 @@ a {
 .qa-btn {
   min-height: 38px;
   padding: 0 18px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-pill);
-  background: var(--surface-2);
-  color: var(--text);
+  border: 1px solid var(--qts-border);
+  border-radius: var(--qts-radius-pill);
+  background: var(--qts-bg-card-hover);
+  color: var(--qts-text);
   font-weight: 700;
   cursor: pointer;
   transition: border-color 120ms ease, transform 120ms ease, box-shadow 120ms ease;
 }
 
 .qa-btn:hover {
-  border-color: var(--accent);
+  border-color: var(--qts-accent);
 }
 
 .qa-btn.primary {
-  background: var(--gradient-brand);
+  background: var(--qts-accent);
   color: #06070c;
   border: none;
 }
 
 .qa-btn.primary:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--qts-shadow-glow);
 }
 
 .qa-btn.danger {
   background: rgba(255, 107, 107, 0.12);
   border-color: rgba(255, 107, 107, 0.4);
-  color: var(--danger);
+  color: var(--qts-red);
 }
 
 .qa-table {
@@ -363,17 +393,17 @@ a {
 
 .qa-table th {
   text-align: left;
-  color: var(--dim);
+  color: var(--qts-text-dim);
   font-size: 0.72rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   padding: 8px 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--qts-border);
 }
 
 .qa-table td {
   padding: 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--qts-border);
   vertical-align: middle;
 }
 
@@ -386,17 +416,17 @@ a {
 }
 
 .qa-table tbody tr:hover {
-  background: var(--surface-2);
+  background: var(--qts-bg-card-hover);
 }
 
 .qa-cell-input {
   width: 90px;
   min-height: 32px;
   padding: 4px 8px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--qts-border);
   border-radius: 6px;
-  background: var(--bg);
-  color: var(--text);
+  background: var(--qts-bg);
+  color: var(--qts-text);
 }
 
 .qa-badge {
@@ -410,53 +440,53 @@ a {
 .qa-badge.available,
 .qa-badge.active {
   background: rgba(51, 214, 176, 0.15);
-  color: var(--accent-2);
+  color: var(--qts-teal);
 }
 
 .qa-badge.used,
 .qa-badge.revoked,
 .qa-badge.disabled {
   background: rgba(255, 107, 107, 0.15);
-  color: var(--danger);
+  color: var(--qts-red);
 }
 
 .qa-badge.trialing,
 .qa-badge.pending {
   background: rgba(255, 180, 84, 0.15);
-  color: var(--warn);
+  color: var(--qts-amber);
 }
 
 .qa-empty {
   padding: 20px;
   text-align: center;
-  color: var(--dim);
-  border: 1px dashed var(--border);
+  color: var(--qts-text-dim);
+  border: 1px dashed var(--qts-border);
   border-radius: 10px;
 }
 
 .qa-card-header { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin-bottom:14px; }
-.qa-dim { margin-top:4px; color:var(--dim); font-size:.8rem; }
+.qa-dim { margin-top:4px; color:var(--qts-text-dim); font-size:.8rem; }
 .qa-table-wrap { max-width:100%; overflow-x:auto; }
-.qa-review-feedback { padding:14px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); }
+.qa-review-feedback { padding:14px; border:1px solid var(--qts-border); border-radius:10px; background:var(--qts-bg-card-hover); }
 .qa-review-feedback p { margin:8px 0 0; white-space:pre-wrap; overflow-wrap:anywhere; }
-.qa-review-checklist { display:grid; gap:9px; margin:18px 0; padding:16px; border:1px solid var(--border); border-radius:12px; }
+.qa-review-checklist { display:grid; gap:9px; margin:18px 0; padding:16px; border:1px solid var(--qts-border); border-radius:12px; }
 .qa-review-checklist legend { padding:0 7px; font-weight:800; }
-.qa-review-checklist label { display:flex; align-items:flex-start; gap:9px; color:var(--muted); }
-.qa-review-checklist input { margin-top:3px; accent-color:var(--accent); }
+.qa-review-checklist label { display:flex; align-items:flex-start; gap:9px; color:var(--qts-text-muted); }
+.qa-review-checklist input { margin-top:3px; accent-color:var(--qts-accent); }
 .qa-review-notes { display:grid; gap:7px; margin:16px 0; font-weight:700; }
-.qa-review-notes textarea { width:100%; box-sizing:border-box; resize:vertical; padding:10px 12px; border:1px solid var(--border); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+.qa-review-notes textarea { width:100%; box-sizing:border-box; resize:vertical; padding:10px 12px; border:1px solid var(--qts-border); border-radius:8px; background:var(--qts-bg); color:var(--qts-text); font:inherit; }
 .qa-actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:14px; }
-.qa-alert { margin:14px 0; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--surface-2); overflow-wrap:anywhere; }
-.qa-alert.is-error { border-color:rgba(255,107,107,.5); color:var(--danger); }
-.qa-badge.approved, .qa-badge.rewarded, .qa-badge.qualified { background:rgba(51,214,176,.15); color:var(--accent-2); }
-.qa-badge.rejected { background:rgba(255,107,107,.15); color:var(--danger); }
+.qa-alert { margin:14px 0; padding:12px 14px; border:1px solid var(--qts-border); border-radius:10px; background:var(--qts-bg-card-hover); overflow-wrap:anywhere; }
+.qa-alert.is-error { border-color:rgba(255,107,107,.5); color:var(--qts-red); }
+.qa-badge.approved, .qa-badge.rewarded, .qa-badge.qualified { background:rgba(51,214,176,.15); color:var(--qts-teal); }
+.qa-badge.rejected { background:rgba(255,107,107,.15); color:var(--qts-red); }
 
 .qa-error {
   padding: 12px 14px;
   border: 1px solid rgba(255, 107, 107, 0.4);
   border-radius: 10px;
   background: rgba(255, 107, 107, 0.08);
-  color: var(--danger);
+  color: var(--qts-red);
   font-size: 0.85rem;
   margin-bottom: 16px;
 }
@@ -478,7 +508,7 @@ a {
 }
 
 .qa-login-screen p {
-  color: var(--muted);
+  color: var(--qts-text-muted);
   max-width: 50ch;
 }
 
@@ -492,7 +522,7 @@ a {
   display: flex;
   align-items: center;
   gap: 8px;
-  color: var(--dim);
+  color: var(--qts-text-dim);
   font-size: 0.78rem;
   font-weight: 700;
 }
@@ -502,31 +532,31 @@ a {
   place-items: center;
   width: 28px;
   height: 28px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--qts-border);
   border-radius: 50%;
 }
 
 .qa-login-steps > div.is-active,
 .qa-login-steps > div.is-complete {
-  color: var(--text);
+  color: var(--qts-text);
 }
 
 .qa-login-steps > div.is-active strong {
-  border-color: var(--accent);
-  background: var(--accent);
+  border-color: var(--qts-accent);
+  background: var(--qts-accent);
   color: #07070a;
 }
 
 .qa-login-steps > div.is-complete strong {
-  border-color: var(--accent-2);
-  color: var(--accent-2);
+  border-color: var(--qts-teal);
+  color: var(--qts-teal);
 }
 
 .qa-login-step-line {
   flex: 1;
   height: 1px;
   margin: 0 10px;
-  background: var(--border);
+  background: var(--qts-border);
 }
 
 .qa-google-btn {
@@ -535,9 +565,9 @@ a {
   justify-content: center;
   gap: 10px;
   padding: 12px 22px;
-  border-radius: var(--radius-pill);
+  border-radius: var(--qts-radius-pill);
   border: none;
-  background: var(--gradient-brand);
+  background: var(--qts-accent);
   color: #06070c;
   font-weight: 800;
   cursor: pointer;
@@ -546,7 +576,7 @@ a {
 
 .qa-google-btn:hover {
   transform: translateY(-1px);
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--qts-shadow-glow);
 }
 
 .qa-google-btn:disabled {
@@ -566,7 +596,7 @@ a {
   display: flex;
   flex-direction: column;
   gap: 6px;
-  color: var(--muted);
+  color: var(--qts-text-muted);
   font-size: 0.85rem;
   font-weight: 700;
 }
@@ -574,13 +604,13 @@ a {
 .qa-login-form input {
   width: 100%;
   padding: 10px 12px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--qts-border);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--qts-bg-card);
 }
 
 .qa-login-form input:focus {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--qts-accent);
   outline-offset: 1px;
 }
 
@@ -589,13 +619,13 @@ a {
   flex-direction: column;
   gap: 4px;
   padding: 12px 14px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--qts-border);
   border-radius: 8px;
-  background: var(--surface);
+  background: var(--qts-bg-card);
 }
 
 .qa-admin-identity span {
-  color: var(--dim);
+  color: var(--qts-text-dim);
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -622,14 +652,14 @@ a {
 
 .qa-login-secondary {
   padding: 10px 16px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--qts-border);
   border-radius: 8px;
   background: transparent;
   cursor: pointer;
 }
 
 .qa-login-form small {
-  color: var(--dim);
+  color: var(--qts-text-dim);
   text-align: center;
 }
 
@@ -645,7 +675,7 @@ a {
 }
 
 .qa-terms-check a {
-  color: var(--accent);
+  color: var(--qts-accent);
 }
 
 .qa-notice {
@@ -653,7 +683,7 @@ a {
   border: 1px solid rgba(51, 214, 176, 0.4);
   border-radius: 10px;
   background: rgba(51, 214, 176, 0.08);
-  color: var(--accent-2);
+  color: var(--qts-teal);
   font-size: 0.85rem;
 }
 
@@ -663,7 +693,7 @@ a {
   border: 1px solid rgba(255, 180, 84, 0.4);
   border-radius: 10px;
   background: rgba(255, 180, 84, 0.08);
-  color: var(--warn);
+  color: var(--qts-amber);
   font-size: 0.85rem;
   text-align: left;
 }

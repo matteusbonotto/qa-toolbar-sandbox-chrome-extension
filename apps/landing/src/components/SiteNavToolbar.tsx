@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import { AnimatePresence, motion } from "framer-motion";
 import { useI18n } from "../i18n/I18nProvider";
 import { LOCALES } from "../i18n/translations";
 import { openAccountModal } from "../lib/accountModal";
 import { supabase } from "../lib/supabaseClient";
+import { signOut } from "../services/checkout";
+import { Icon } from "./Icon";
 
 export function SiteNavToolbar() {
   const { t, locale, setLocale } = useI18n();
@@ -11,9 +14,9 @@ export function SiteNavToolbar() {
     () => [
       { id: "hero", label: t.nav.home },
       { id: "sobre", label: t.nav.about },
-      { id: "simulador", label: t.nav.simulator },
       { id: "semi-automatico", label: t.nav.semiauto },
       { id: "ferramentas", label: t.nav.features },
+      { id: "tutoriais", label: t.nav.tutorials },
       { id: "planos", label: t.nav.pricing },
       { id: "suporte", label: t.nav.support },
     ],
@@ -22,6 +25,14 @@ export function SiteNavToolbar() {
 
   const [activeId, setActiveId] = useState(navItems[0]!.id);
   const [signedIn, setSignedIn] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => { if (event.key === "Escape") setMobileOpen(false); };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [mobileOpen]);
 
   useEffect(() => {
     if (!supabase) return;
@@ -65,11 +76,29 @@ export function SiteNavToolbar() {
               key={item.id}
               href={`${import.meta.env.BASE_URL}#${item.id}`}
               className={`qts-site-toolbar-link${item.id === activeId ? " is-active" : ""}`}
+              aria-current={item.id === activeId ? "true" : undefined}
             >
-              {item.label}
+              {item.id === activeId ? (
+                <motion.span
+                  layoutId="qts-nav-pill"
+                  className="qts-site-toolbar-pill"
+                  transition={{ type: "spring", stiffness: 420, damping: 34 }}
+                />
+              ) : null}
+              <span className="qts-site-toolbar-link-label">{item.label}</span>
             </a>
           ))}
         </nav>
+        <button
+          type="button"
+          className="qts-site-toolbar-menu-btn"
+          aria-expanded={mobileOpen}
+          aria-controls="qts-mobile-nav"
+          aria-label={mobileOpen ? t.meta.closeMenu : t.meta.openMenu}
+          onClick={() => setMobileOpen((value) => !value)}
+        >
+          <Icon name={mobileOpen ? "xLg" : "list"} />
+        </button>
         <div className="qts-site-toolbar-locales" role="group" aria-label={t.meta.languageSelector}>
           {LOCALES.map((option) => (
             <button
@@ -90,16 +119,37 @@ export function SiteNavToolbar() {
           </button>
         ) : null}
         <button type="button" className="qts-site-toolbar-cta" onClick={() => {
-          if (signedIn) {
-            const pricing = document.getElementById("planos");
-            if (pricing) pricing.scrollIntoView({ behavior: "smooth" });
-            else window.location.assign(`${import.meta.env.BASE_URL}#planos`);
-          }
+          if (signedIn) void signOut();
           else openAccountModal();
         }}>
-          {signedIn ? t.nav.installAuthenticated : t.nav.installGuest}
+          {signedIn ? t.nav.navSignOut : t.nav.install}
         </button>
       </div>
+      <AnimatePresence initial={false}>
+        {mobileOpen ? (
+          <motion.nav
+            id="qts-mobile-nav"
+            className="qts-site-toolbar-mobile-nav"
+            aria-label={t.meta.pageNavigation}
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.2, ease: "easeOut" }}
+          >
+            {navItems.map((item) => (
+              <a
+                key={item.id}
+                href={`${import.meta.env.BASE_URL}#${item.id}`}
+                className={`qts-site-toolbar-mobile-link${item.id === activeId ? " is-active" : ""}`}
+                aria-current={item.id === activeId ? "true" : undefined}
+                onClick={() => setMobileOpen(false)}
+              >
+                {item.label}
+              </a>
+            ))}
+          </motion.nav>
+        ) : null}
+      </AnimatePresence>
     </div>
   );
 }

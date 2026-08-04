@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Icon } from "../components/Icon";
+import { Reveal } from "../components/Reveal";
 import { useI18n } from "../i18n/I18nProvider";
 import { loadLegalRegistration, resolveLegalStatusCopy, type LegalRegistrationRecord } from "../legal/legalRegistration";
 
@@ -25,9 +26,11 @@ export function IntellectualPropertyPage() {
         <a className="qts-back-link" href={import.meta.env.BASE_URL}>
           {t.privacy.back}
         </a>
-        <span className="qts-eyebrow">{t.legal.eyebrow}</span>
-        <h1>{t.legal.title}</h1>
-        <p className="qts-section-lead">{t.legal.lead}</p>
+        <Reveal>
+          <span className="qts-eyebrow">{t.legal.eyebrow}</span>
+          <h1>{t.legal.title}</h1>
+          <p className="qts-section-lead">{t.legal.lead}</p>
+        </Reveal>
 
         <div className="qts-legal-sections">
           <section className="qts-legal-section">

@@ -21,19 +21,21 @@ export interface Dictionary {
     pageNavigation: string;
     languageSelector: string;
     languageOption: (language: string) => string;
+    openMenu: string;
+    closeMenu: string;
   };
   nav: {
     home: string;
     about: string;
-    simulator: string;
     semiauto: string;
     features: string;
+    tutorials: string;
     pricing: string;
     support: string;
     install: string;
     installGuest: string;
-    installAuthenticated: string;
     myAccount: string;
+    navSignOut: string;
   };
   hero: {
     eyebrow: string;
@@ -41,7 +43,6 @@ export interface Dictionary {
     titleGradient: string;
     lead: string;
     ctaPricing: string;
-    ctaSimulate: string;
     ctaPermissions: string;
   };
   simulator: {
@@ -120,6 +121,12 @@ export interface Dictionary {
     lead: string;
     groups: Record<string, { title: string; description: string }>;
     items: Record<string, { title: string; short: string; details: string }>;
+  };
+  tutorials: {
+    eyebrow: string;
+    title: string;
+    lead: string;
+    watchLabel: string;
   };
   pricing: {
     eyebrow: string;
@@ -212,6 +219,8 @@ export interface Dictionary {
     cta2: string;
   };
   footer: {
+    colProduct: string;
+    colTrust: string;
     navAbout: string;
     navPricing: string;
     navSupport: string;
@@ -315,20 +324,22 @@ const pt: Dictionary = {
     description: "Teste manual sem se perder entre ambientes e projetos. Uma barra de QA que roda direto na página que você já está testando.",
     pageNavigation: "Navegação da página",
     languageSelector: "Idioma",
+    openMenu: "Abrir menu",
+    closeMenu: "Fechar menu",
     languageOption: (language) => `Alterar idioma para ${language}`,
   },
   nav: {
     home: "Início",
     about: "Sobre",
-    simulator: "Simulador",
     semiauto: "Sabooor automático",
     features: "Ferramentas",
+    tutorials: "Tutoriais",
     pricing: "Planos",
     support: "Suporte",
     install: "Entrar",
     installGuest: "Criar conta e instalar",
-    installAuthenticated: "Instalar extensão",
     myAccount: "Minha conta",
+    navSignOut: "Sair",
   },
   hero: {
     eyebrow: "De QA para QA, ou melhor: para qualquer um",
@@ -336,7 +347,6 @@ const pt: Dictionary = {
     titleGradient: "sem se perder entre ambientes e projetos",
     lead: "O QA Toolbar Sandbox roda direto na página que você já está testando: mostra sempre onde você está, registra evidências num clique e cuida do trabalho repetitivo, pra sua atenção sobrar pro que só um humano faz bem, que é pensar como testador.",
     ctaPricing: "Ver planos",
-    ctaSimulate: "Simular agora",
     ctaPermissions: "Entender permissões",
   },
   simulator: {
@@ -609,6 +619,12 @@ const pt: Dictionary = {
       },
     },
   },
+  tutorials: {
+    eyebrow: "Na prática",
+    title: "As mesmas ferramentas, gravadas em uso real",
+    lead: "Sem mockup, sem slide: cada vídeo abaixo é uma gravação real da extensão fazendo exatamente o que você acabou de ler ali em cima.",
+    watchLabel: "Assistir",
+  },
   pricing: {
     eyebrow: "Planos",
     title: "Comece grátis, cresça no seu ritmo",
@@ -747,6 +763,8 @@ const pt: Dictionary = {
     cta2: "Falar sobre meu projeto",
   },
   footer: {
+    colProduct: "Produto",
+    colTrust: "Confiança",
     navAbout: "Sobre",
     navPricing: "Planos",
     navSupport: "Suporte",
@@ -887,21 +905,23 @@ const es: Dictionary = {
     title: "QA Toolbar Sandbox - Pruebas manuales con sabor automático",
     description: "Pruebas manuales sin perderte entre entornos y proyectos. Una barra de QA que funciona en la página que ya estás probando.",
     pageNavigation: "Navegación de la página",
+    openMenu: "Abrir menú",
+    closeMenu: "Cerrar menú",
     languageSelector: "Idioma",
     languageOption: (language) => `Cambiar idioma a ${language}`,
   },
   nav: {
     home: "Inicio",
     about: "Acerca de",
-    simulator: "Simulador",
     semiauto: "Sabor automático",
     features: "Herramientas",
+    tutorials: "Tutoriales",
     pricing: "Planes",
     support: "Soporte",
     install: "Entrar",
     installGuest: "Crear cuenta e instalar",
-    installAuthenticated: "Instalar extensión",
     myAccount: "Mi cuenta",
+    navSignOut: "Salir",
   },
   hero: {
     eyebrow: "De QA para QA, o mejor dicho: para cualquier persona",
@@ -909,7 +929,6 @@ const es: Dictionary = {
     titleGradient: "sin perderte entre entornos y proyectos",
     lead: "QA Toolbar Sandbox corre directo en la página que ya estás probando: siempre muestra dónde estás, registra evidencias con un clic y se encarga del trabajo repetitivo, para que tu atención quede libre para lo que solo un humano hace bien: pensar como tester.",
     ctaPricing: "Ver planes",
-    ctaSimulate: "Simular ahora",
     ctaPermissions: "Entender permisos",
   },
   simulator: {
@@ -1182,6 +1201,12 @@ const es: Dictionary = {
       },
     },
   },
+  tutorials: {
+    eyebrow: "En la práctica",
+    title: "Las mismas herramientas, grabadas en uso real",
+    lead: "Sin mockup, sin diapositiva: cada video de abajo es una grabación real de la extensión haciendo exactamente lo que acabas de leer arriba.",
+    watchLabel: "Ver",
+  },
   pricing: {
     eyebrow: "Planes",
     title: "Empieza gratis, crece a tu ritmo",
@@ -1320,6 +1345,8 @@ const es: Dictionary = {
     cta2: "Hablar sobre mi proyecto",
   },
   footer: {
+    colProduct: "Producto",
+    colTrust: "Confianza",
     navAbout: "Acerca de",
     navPricing: "Planes",
     navSupport: "Soporte",
@@ -1460,21 +1487,23 @@ const en: Dictionary = {
     title: "QA Toolbar Sandbox - Manual testing with an automated edge",
     description: "Manual testing without losing track of environments and projects. A QA toolbar that runs directly on the page you are testing.",
     pageNavigation: "Page navigation",
+    openMenu: "Open menu",
+    closeMenu: "Close menu",
     languageSelector: "Language",
     languageOption: (language) => `Switch language to ${language}`,
   },
   nav: {
     home: "Home",
     about: "About",
-    simulator: "Simulator",
     semiauto: "Auto flavor",
     features: "Tools",
+    tutorials: "Tutorials",
     pricing: "Pricing",
     support: "Support",
     install: "Sign in",
     installGuest: "Create account and install",
-    installAuthenticated: "Install extension",
     myAccount: "My account",
+    navSignOut: "Sign out",
   },
   hero: {
     eyebrow: "By QA, for QA, or rather: for anyone",
@@ -1482,7 +1511,6 @@ const en: Dictionary = {
     titleGradient: "without losing yourself across environments and projects",
     lead: "QA Toolbar Sandbox runs right inside the page you're already testing: it always shows where you are, logs evidence in one click, and handles the repetitive grind, so your attention stays free for the one thing only a human does well: thinking like a tester.",
     ctaPricing: "See pricing",
-    ctaSimulate: "Try the simulator",
     ctaPermissions: "Understand permissions",
   },
   simulator: {
@@ -1755,6 +1783,12 @@ const en: Dictionary = {
       },
     },
   },
+  tutorials: {
+    eyebrow: "In practice",
+    title: "The same tools, recorded in real use",
+    lead: "No mockup, no slide: every video below is a real recording of the extension doing exactly what you just read about above.",
+    watchLabel: "Watch",
+  },
   pricing: {
     eyebrow: "Pricing",
     title: "Start free, grow at your pace",
@@ -1893,6 +1927,8 @@ const en: Dictionary = {
     cta2: "Talk about my project",
   },
   footer: {
+    colProduct: "Product",
+    colTrust: "Trust",
     navAbout: "About",
     navPricing: "Pricing",
     navSupport: "Support",

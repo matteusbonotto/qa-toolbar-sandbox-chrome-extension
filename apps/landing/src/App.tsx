@@ -1,7 +1,9 @@
+import { MotionConfig } from "framer-motion";
 import { HeroSection } from "./sections/HeroSection";
 import { AboutSection } from "./sections/AboutSection";
 import { SemiAutoSection } from "./sections/SemiAutoSection";
 import { FeaturesSection } from "./sections/FeaturesSection";
+import { TutorialVideosSection } from "./sections/TutorialVideosSection";
 import { PricingSection } from "./sections/PricingSection";
 import { SupportSection } from "./sections/SupportSection";
 import { CommunityCampaignSection } from "./sections/CommunityCampaignSection";
@@ -29,62 +31,50 @@ export default function App() {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, "");
   const isHomePage = pathname === basePath || pathname === `${basePath}/`;
 
-  if (isPrivacyPage) {
-    return (
-      <>
-        <ParticleBackground />
-        <SiteNavToolbar />
-        <div className="qts-page-content">
-          <PrivacyPolicyPage />
-          <Footer />
-        </div>
-      </>
-    );
-  }
-
-  if (isIpPage) {
-    return (
-      <>
-        <ParticleBackground />
-        <SiteNavToolbar />
-        <div className="qts-page-content">
-          <IntellectualPropertyPage />
-          <Footer />
-        </div>
-      </>
-    );
-  }
-
-  if (isPermissionsPage || isSecurityPage) {
-    return (
-      <>
-        <ParticleBackground />
-        <SiteNavToolbar />
-        <div className="qts-page-content">
-          <TrustCenterPage focus={isSecurityPage ? "security" : "permissions"} />
-          <Footer />
-        </div>
-      </>
-    );
-  }
-
-  if (isResetPasswordPage) {
-    return (
-      <>
-        <ParticleBackground />
-        <div className="qts-page-content">
-          <ResetPasswordPage />
-          <Footer />
-        </div>
-      </>
-    );
-  }
-
-  if (!isHomePage) {
-    return <><ParticleBackground /><div className="qts-page-content"><NotFoundPage /><Footer /></div></>;
-  }
-
-  return (
+  const content = isPrivacyPage ? (
+    <>
+      <ParticleBackground />
+      <SiteNavToolbar />
+      <div className="qts-page-content">
+        <PrivacyPolicyPage />
+        <Footer />
+      </div>
+    </>
+  ) : isIpPage ? (
+    <>
+      <ParticleBackground />
+      <SiteNavToolbar />
+      <div className="qts-page-content">
+        <IntellectualPropertyPage />
+        <Footer />
+      </div>
+    </>
+  ) : isPermissionsPage || isSecurityPage ? (
+    <>
+      <ParticleBackground />
+      <SiteNavToolbar />
+      <div className="qts-page-content">
+        <TrustCenterPage focus={isSecurityPage ? "security" : "permissions"} />
+        <Footer />
+      </div>
+    </>
+  ) : isResetPasswordPage ? (
+    <>
+      <ParticleBackground />
+      <div className="qts-page-content">
+        <ResetPasswordPage />
+        <Footer />
+      </div>
+    </>
+  ) : !isHomePage ? (
+    <>
+      <ParticleBackground />
+      <div className="qts-page-content">
+        <NotFoundPage />
+        <Footer />
+      </div>
+    </>
+  ) : (
     <>
       <ParticleBackground />
       <SiteNavToolbar />
@@ -94,6 +84,7 @@ export default function App() {
           <AboutSection />
           <SemiAutoSection />
           <FeaturesSection />
+          <TutorialVideosSection />
           <PricingSection />
           <CommunityCampaignSection />
           <SupportSection />
@@ -102,4 +93,9 @@ export default function App() {
       </div>
     </>
   );
+
+  // reducedMotion="user": every Framer Motion component in the tree automatically drops
+  // transform-based motion (keeping opacity/color transitions) when the visitor's OS reports
+  // prefers-reduced-motion, without each component re-implementing that check.
+  return <MotionConfig reducedMotion="user">{content}</MotionConfig>;
 }

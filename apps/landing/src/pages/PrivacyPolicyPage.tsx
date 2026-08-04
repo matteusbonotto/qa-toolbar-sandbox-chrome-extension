@@ -1,4 +1,5 @@
 import { Icon } from "../components/Icon";
+import { Reveal } from "../components/Reveal";
 import { useI18n } from "../i18n/I18nProvider";
 
 function ScannableCopy({ text }: { text: string }) {
@@ -15,10 +16,12 @@ export function PrivacyPolicyPage() {
         <a className="qts-back-link" href={import.meta.env.BASE_URL}>
           {t.privacy.back}
         </a>
-        <span className="qts-eyebrow">{t.privacy.eyebrow}</span>
-        <h1>{t.privacy.title}</h1>
-        <p className="qts-section-lead">{t.privacy.lead}</p>
-        <p className="qts-legal-effective-date">{t.privacy.effectiveDate}</p>
+        <Reveal>
+          <span className="qts-eyebrow">{t.privacy.eyebrow}</span>
+          <h1>{t.privacy.title}</h1>
+          <p className="qts-section-lead">{t.privacy.lead}</p>
+          <p className="qts-legal-effective-date">{t.privacy.effectiveDate}</p>
+        </Reveal>
 
         <div className="qts-legal-sections">
           <section className="qts-legal-section qts-legal-section-wide">

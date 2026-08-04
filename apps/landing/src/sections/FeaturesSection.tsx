@@ -1,22 +1,27 @@
 import { featureGroups } from "../data/featureGroups";
 import { useI18n } from "../i18n/I18nProvider";
 import { Icon } from "../components/Icon";
+import { Reveal } from "../components/Reveal";
 
 export function FeaturesSection() {
   const { t } = useI18n();
 
   return (
-    <section className="qts-section" id="ferramentas">
+    <section className="qts-section qts-zone-tint" id="ferramentas">
       <div className="qts-container">
-        <span className="qts-eyebrow">{t.features.eyebrow}</span>
-        <h2>{t.features.title}</h2>
-        <p className="qts-section-lead">{t.features.lead}</p>
+        <Reveal className="qts-section-head">
+          <div className="qts-section-head-main">
+            <span className="qts-eyebrow">{t.features.eyebrow}</span>
+            <h2>{t.features.title}</h2>
+          </div>
+          <p className="qts-section-head-lead">{t.features.lead}</p>
+        </Reveal>
 
         <div className="qts-feature-groups">
-          {featureGroups.map((group) => {
+          {featureGroups.map((group, index) => {
             const groupText = t.features.groups[group.key]!;
             return (
-              <div key={group.key} className="qts-feature-group">
+              <Reveal key={group.key} delay={Math.min(index * 0.05, 0.3)} className="qts-feature-group">
                 <div className="qts-feature-group-head">
                   <span className="qts-feature-group-icon">
                     <Icon name={group.icon} />
@@ -52,7 +57,7 @@ export function FeaturesSection() {
                     })}
                   </div>
                 )}
-              </div>
+              </Reveal>
             );
           })}
         </div>
