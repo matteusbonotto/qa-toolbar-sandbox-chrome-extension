@@ -48,6 +48,12 @@ import iconClock from "bootstrap-icons/icons/clock.svg?raw";
 import iconPencil from "bootstrap-icons/icons/pencil.svg?raw";
 import iconQrCode from "bootstrap-icons/icons/qr-code.svg?raw";
 import iconTranslate from "bootstrap-icons/icons/translate.svg?raw";
+import iconList from "bootstrap-icons/icons/list.svg?raw";
+import iconBullseye from "bootstrap-icons/icons/bullseye.svg?raw";
+import iconBinoculars from "bootstrap-icons/icons/binoculars.svg?raw";
+import iconGem from "bootstrap-icons/icons/gem.svg?raw";
+import iconLifePreserver from "bootstrap-icons/icons/life-preserver.svg?raw";
+import iconCompass from "bootstrap-icons/icons/compass.svg?raw";
 
 const ICONS = {
   archive: iconArchive,
@@ -98,6 +104,12 @@ const ICONS = {
   pencil: iconPencil,
   qrCode: iconQrCode,
   translate: iconTranslate,
+  list: iconList,
+  bullseye: iconBullseye,
+  binoculars: iconBinoculars,
+  gem: iconGem,
+  lifePreserver: iconLifePreserver,
+  compass: iconCompass,
 } as const;
 
 export type IconName = keyof typeof ICONS;

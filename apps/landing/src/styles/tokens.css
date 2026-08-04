@@ -20,9 +20,6 @@
   --qts-red: #ff6b6b;
   --qts-red-soft: rgba(255, 107, 107, 0.16);
 
-  --qts-gradient-brand: linear-gradient(135deg, #7c5cff 0%, #33d6b0 100%);
-  --qts-gradient-radial: radial-gradient(60% 60% at 50% 0%, rgba(124, 92, 255, 0.25) 0%, rgba(6, 7, 12, 0) 70%);
-
   --qts-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
   --qts-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
   --qts-shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.45);
@@ -46,7 +43,26 @@
   --qts-space-7: 48px;
   --qts-space-8: 64px;
   --qts-space-9: 96px;
+
+  /* Type scale - new tokens, not yet adopted by every existing rule (that migration is a
+     separate, lower-risk-in-isolation pass). Available for new/updated components starting now. */
+  --qts-text-xs: 0.75rem;
+  --qts-text-sm: 0.85rem;
+  --qts-text-base: 0.95rem;
+  --qts-text-md: 1.05rem;
+  --qts-text-lg: 1.25rem;
+  --qts-text-xl: 1.5rem;
+  --qts-text-2xl: clamp(1.8rem, 3.5vw, 2.6rem);
+  --qts-text-3xl: clamp(2.2rem, 5vw, 3.6rem);
 }
+
+/* Breakpoint reference (plain CSS media queries can't consume custom properties in their
+   condition, so this is documentation, not a usable token) - use these exact values in any new
+   @media rule instead of picking an arbitrary pixel number:
+     --qts-bp-sm: 400px   (smallest phones)
+     --qts-bp-md: 720px   (phone -> tablet)
+     --qts-bp-lg: 960px   (tablet -> small desktop)
+     --qts-bp-xl: 1280px  (small desktop -> wide) */
 
 * {
   box-sizing: border-box;

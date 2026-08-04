@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Icon, type IconName } from "../components/Icon";
 import { EcosystemDiagram } from "../components/EcosystemDiagram";
+import { Reveal } from "../components/Reveal";
 import { useI18n } from "../i18n/I18nProvider";
 
 const BADGE_ICONS: IconName[] = ["shieldCheck", "creditCard", "key", "archive"];
@@ -24,18 +25,20 @@ export function TrustCenterPage({ focus }: { focus: "permissions" | "security" }
         <a className="qts-back-link" href={import.meta.env.BASE_URL}>
           {t.trust.back}
         </a>
-        <span className="qts-eyebrow">{t.trust.eyebrow}</span>
-        <h1>{t.trust.title}</h1>
-        <p className="qts-section-lead">{t.trust.lead}</p>
+        <Reveal>
+          <span className="qts-eyebrow">{t.trust.eyebrow}</span>
+          <h1>{t.trust.title}</h1>
+          <p className="qts-section-lead">{t.trust.lead}</p>
+        </Reveal>
 
         <p className="qts-trust-badges-title">{t.trust.badgesTitle}</p>
         <div className="qts-trust-badges">
           {t.trust.badges.map((badge, index) => (
-            <article key={badge.title} className="qts-trust-badge">
+            <Reveal key={badge.title} delay={index * 0.06} className="qts-trust-badge">
               <span className="qts-trust-badge-icon"><Icon name={BADGE_ICONS[index]!} /></span>
               <h3>{badge.title}</h3>
               <p>{badge.body}</p>
-            </article>
+            </Reveal>
           ))}
         </div>
 

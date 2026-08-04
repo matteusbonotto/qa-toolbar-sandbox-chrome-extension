@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "../components/Icon";
+import { Reveal } from "../components/Reveal";
 import type { Session } from "@supabase/supabase-js";
 import { pricingPlans, type PlanId } from "../data/pricingData";
 import {
@@ -490,90 +492,141 @@ export function PricingSection() {
   return (
     <section className="qts-section" id="planos">
       <div className="qts-container">
-        <span className="qts-eyebrow">{t.pricing.eyebrow}</span>
-        <h2>{t.pricing.title}</h2>
-        <p className="qts-section-lead">{t.pricing.lead}</p>
+        <Reveal className="qts-section-head">
+          <div className="qts-section-head-main">
+            <span className="qts-eyebrow">{t.pricing.eyebrow}</span>
+            <h2>{t.pricing.title}</h2>
+          </div>
+          <p className="qts-section-head-lead">{t.pricing.lead}</p>
+        </Reveal>
 
-        {authModalOpen ? createPortal(
+        {createPortal(
           // Portaled straight to <body>: .qts-page-content (an ancestor here) sets its own
           // position+z-index to sit above the particle canvas, which makes it a stacking
           // context - so the modal's z-index:100 was only ever winning against siblings
           // *inside* that context, never against the sticky nav bar (z-index:50) outside it.
           // Tall modal content pushed the close button up into the nav's band and the nav won
           // the hit-test despite the "higher" z-index. Escaping to body sidesteps that entirely.
-          <div className="qts-auth-overlay" onMouseDown={(event) => {
-            if (event.target === event.currentTarget) closeAuthModal();
-          }}>
-            <div className="qts-auth-modal" role="dialog" aria-modal="true" aria-labelledby="qts-auth-title">
-              <button type="button" className="qts-auth-close" aria-label={t.pricing.closeModal} onClick={closeAuthModal}><Icon name="xLg" /></button>
-              <span className="qts-eyebrow">QA Toolbar Sandbox</span>
-              <h3 id="qts-auth-title">{t.pricing.accountTitle}</h3>
-              <p>{t.pricing.accountLead}</p>
-              {session ? (
-                <div className="qts-auth-session">
-                  <span>{t.pricing.signedInAs} <strong>{session.user.email}</strong></span>
-                  <button type="button" className="qts-btn qts-btn-ghost" disabled={authBusy} onClick={() => void handleSignOut()}>
-                    {t.pricing.signOut}
-                  </button>
-                </div>
-              ) : (
-                <>
-                  <div className="qts-auth-tabs" role="tablist" aria-label={t.pricing.accountTitle} onKeyDown={(event) => {
-                    if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
-                    event.preventDefault();
-                    const next = authMode === "signin" ? "signup" : "signin";
-                    setAuthMode(next);
-                    document.getElementById(`qts-auth-tab-${next}`)?.focus();
-                  }}>
-                    <button id="qts-auth-tab-signin" type="button" role="tab" aria-selected={authMode === "signin"} aria-controls="qts-auth-panel" tabIndex={authMode === "signin" ? 0 : -1} className={authMode === "signin" ? "is-active" : ""} onClick={() => {
-                      setAuthMode("signin"); setAuthError(null); setAuthMessage(null);
-                    }}>{t.pricing.signIn}</button>
-                    <button id="qts-auth-tab-signup" type="button" role="tab" aria-selected={authMode === "signup"} aria-controls="qts-auth-panel" tabIndex={authMode === "signup" ? 0 : -1} className={authMode === "signup" ? "is-active" : ""} onClick={() => {
-                      setAuthMode("signup"); setAuthError(null); setAuthMessage(null);
-                    }}>{t.pricing.signUp}</button>
+          //
+          // AnimatePresence has to live INSIDE the portaled subtree, not wrapped around the
+          // `createPortal(...)` call - wrapping it outside (gating the whole portal call on
+          // authModalOpen) silently produced zero DOM nodes on open, no error, nothing: verified
+          // by bisecting against a build with AnimatePresence removed, which rendered correctly.
+          // Portaling unconditionally (this component always exists, just empty when closed) and
+          // keeping only the *motion.div* conditional is the combination that actually works.
+          <AnimatePresence>
+            {authModalOpen ? (
+            <motion.div
+              className="qts-auth-overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.18 }}
+              onMouseDown={(event) => {
+                if (event.target === event.currentTarget) closeAuthModal();
+              }}
+            >
+              <motion.div
+                className="qts-auth-modal"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="qts-auth-title"
+                initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                animate={{ opacity: 1, scale: 1, y: 0 }}
+                exit={{ opacity: 0, scale: 0.96, y: 8 }}
+                transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+              >
+                <header className="qts-auth-modal-header">
+                  <div className="qts-auth-modal-brand">
+                    <img className="qts-auth-modal-logo qts-logo-light" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo.svg`} alt="" aria-hidden="true" width={22} height={22} />
+                    <img className="qts-auth-modal-logo qts-logo-dark" src={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-logo-dark.svg`} alt="" aria-hidden="true" width={22} height={22} />
+                    <span>QA Toolbar Sandbox</span>
                   </div>
-                  <form id="qts-auth-panel" role="tabpanel" aria-labelledby={`qts-auth-tab-${authMode}`} className="qts-auth-form" noValidate onSubmit={(event) => {
-                    event.preventDefault(); void handleAuth(authMode);
-                  }}>
-                    <label>
-                      <span>{t.pricing.emailLabel}</span>
-                      <input ref={emailRef} type="email" autoComplete="email" required autoFocus value={email} aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? "qts-email-error" : undefined} onChange={(event) => { setEmail(event.target.value); clearFieldError("email"); }} />
-                      {fieldErrors.email ? <small id="qts-email-error" className="qts-field-error">{fieldErrors.email}</small> : null}
-                    </label>
-                    <label>
-                      <span>{t.pricing.passwordLabel}</span>
-                      <input ref={passwordRef} type="password" minLength={8} autoComplete={authMode === "signup" ? "new-password" : "current-password"} required value={password} aria-invalid={Boolean(fieldErrors.password)} aria-describedby={fieldErrors.password ? "qts-password-error" : undefined} onChange={(event) => { setPassword(event.target.value); clearFieldError("password"); }} />
-                      {fieldErrors.password ? <small id="qts-password-error" className="qts-field-error">{fieldErrors.password}</small> : null}
-                    </label>
-                    {authMode === "signup" ? (
-                      <label className="qts-terms-check">
-                        <input id="qts-auth-terms" type="checkbox" checked={acceptedTerms} aria-invalid={Boolean(fieldErrors.terms)} aria-describedby={fieldErrors.terms ? "qts-terms-error" : undefined} onChange={(event) => { setAcceptedTerms(event.target.checked); clearFieldError("terms"); }} />
-                        <span>{t.pricing.acceptTerms} <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.pricing.privacyLink}</a>.</span>
-                      </label>
-                    ) : null}
-                    {fieldErrors.terms ? <small id="qts-terms-error" className="qts-field-error">{fieldErrors.terms}</small> : null}
-                    {authMessage ? <div className="qts-auth-feedback" role="status">{authMessage}</div> : null}
-                    {authError ? <div className="qts-auth-feedback is-error" role="alert">{authError}</div> : null}
-                    <button type="submit" className="qts-btn qts-btn-primary qts-auth-submit" disabled={authBusy}>
-                      {authBusy ? t.pricing.working : authMode === "signin" ? t.pricing.signIn : t.pricing.signUp}
-                    </button>
-                    {authMode === "signin" ? (
-                      <>
-                        <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleSendSignInLink()}>
-                          {t.pricing.emailLink}
+                  <button type="button" className="qts-auth-close" aria-label={t.pricing.closeModal} onClick={closeAuthModal}><Icon name="xLg" /></button>
+                </header>
+                <div className="qts-auth-modal-body">
+                  <h3 id="qts-auth-title">{t.pricing.accountTitle}</h3>
+                  <p>{t.pricing.accountLead}</p>
+                  {session ? (
+                    <div className="qts-auth-session">
+                      <span>{t.pricing.signedInAs} <strong>{session.user.email}</strong></span>
+                      <button type="button" className="qts-btn qts-btn-ghost" disabled={authBusy} onClick={() => void handleSignOut()}>
+                        {t.pricing.signOut}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="qts-auth-tabs" role="tablist" aria-label={t.pricing.accountTitle} onKeyDown={(event) => {
+                        if (!["ArrowLeft", "ArrowRight"].includes(event.key)) return;
+                        event.preventDefault();
+                        const next = authMode === "signin" ? "signup" : "signin";
+                        setAuthMode(next);
+                        document.getElementById(`qts-auth-tab-${next}`)?.focus();
+                      }}>
+                        <button id="qts-auth-tab-signin" type="button" role="tab" aria-selected={authMode === "signin"} aria-controls="qts-auth-panel" tabIndex={authMode === "signin" ? 0 : -1} className={authMode === "signin" ? "is-active" : ""} onClick={() => {
+                          setAuthMode("signin"); setAuthError(null); setAuthMessage(null);
+                        }}>
+                          {authMode === "signin" ? <motion.span layoutId="qts-auth-tab-pill" className="qts-auth-tab-pill" transition={{ type: "spring", stiffness: 420, damping: 34 }} /> : null}
+                          <span className="qts-auth-tab-label">{t.pricing.signIn}</span>
                         </button>
-                        <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleForgotPassword()}>
-                          {t.pricing.forgotPassword}
+                        <button id="qts-auth-tab-signup" type="button" role="tab" aria-selected={authMode === "signup"} aria-controls="qts-auth-panel" tabIndex={authMode === "signup" ? 0 : -1} className={authMode === "signup" ? "is-active" : ""} onClick={() => {
+                          setAuthMode("signup"); setAuthError(null); setAuthMessage(null);
+                        }}>
+                          {authMode === "signup" ? <motion.span layoutId="qts-auth-tab-pill" className="qts-auth-tab-pill" transition={{ type: "spring", stiffness: 420, damping: 34 }} /> : null}
+                          <span className="qts-auth-tab-label">{t.pricing.signUp}</span>
                         </button>
-                      </>
-                    ) : null}
-                  </form>
-                </>
-              )}
-            </div>
-          </div>,
+                      </div>
+                      <form id="qts-auth-panel" role="tabpanel" aria-labelledby={`qts-auth-tab-${authMode}`} className="qts-auth-form" noValidate onSubmit={(event) => {
+                        event.preventDefault(); void handleAuth(authMode);
+                      }}>
+                        <label>
+                          <span>{t.pricing.emailLabel}</span>
+                          <div className="qts-auth-input-wrap">
+                            <Icon name="envelope" className="qts-auth-input-icon" />
+                            <input ref={emailRef} type="email" autoComplete="email" required autoFocus value={email} aria-invalid={Boolean(fieldErrors.email)} aria-describedby={fieldErrors.email ? "qts-email-error" : undefined} onChange={(event) => { setEmail(event.target.value); clearFieldError("email"); }} />
+                          </div>
+                          {fieldErrors.email ? <small id="qts-email-error" className="qts-field-error">{fieldErrors.email}</small> : null}
+                        </label>
+                        <label>
+                          <span>{t.pricing.passwordLabel}</span>
+                          <div className="qts-auth-input-wrap">
+                            <Icon name="lockFill" className="qts-auth-input-icon" />
+                            <input ref={passwordRef} type="password" minLength={8} autoComplete={authMode === "signup" ? "new-password" : "current-password"} required value={password} aria-invalid={Boolean(fieldErrors.password)} aria-describedby={fieldErrors.password ? "qts-password-error" : undefined} onChange={(event) => { setPassword(event.target.value); clearFieldError("password"); }} />
+                          </div>
+                          {fieldErrors.password ? <small id="qts-password-error" className="qts-field-error">{fieldErrors.password}</small> : null}
+                        </label>
+                        {authMode === "signup" ? (
+                          <label className="qts-terms-check">
+                            <input id="qts-auth-terms" type="checkbox" checked={acceptedTerms} aria-invalid={Boolean(fieldErrors.terms)} aria-describedby={fieldErrors.terms ? "qts-terms-error" : undefined} onChange={(event) => { setAcceptedTerms(event.target.checked); clearFieldError("terms"); }} />
+                            <span>{t.pricing.acceptTerms} <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.pricing.privacyLink}</a>.</span>
+                          </label>
+                        ) : null}
+                        {fieldErrors.terms ? <small id="qts-terms-error" className="qts-field-error">{fieldErrors.terms}</small> : null}
+                        {authMessage ? <div className="qts-auth-feedback" role="status">{authMessage}</div> : null}
+                        {authError ? <div className="qts-auth-feedback is-error" role="alert">{authError}</div> : null}
+                        <button type="submit" className="qts-btn qts-btn-primary qts-auth-submit" disabled={authBusy}>
+                          {authBusy ? t.pricing.working : authMode === "signin" ? t.pricing.signIn : t.pricing.signUp}
+                        </button>
+                        {authMode === "signin" ? (
+                          <div className="qts-auth-links">
+                            <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleSendSignInLink()}>
+                              {t.pricing.emailLink}
+                            </button>
+                            <button type="button" className="qts-auth-link" disabled={authBusy} onClick={() => void handleForgotPassword()}>
+                              {t.pricing.forgotPassword}
+                            </button>
+                          </div>
+                        ) : null}
+                      </form>
+                    </>
+                  )}
+                </div>
+              </motion.div>
+            </motion.div>
+            ) : null}
+          </AnimatePresence>,
           document.body,
-        ) : null}
+        )}
 
         {access?.active ? (
           <div className="qts-access-panel" role="status">

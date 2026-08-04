@@ -3,6 +3,8 @@ import type { Session } from "@supabase/supabase-js";
 import { useI18n } from "../i18n/I18nProvider";
 import { supabase } from "../lib/supabaseClient";
 import { openAccountModal } from "../lib/accountModal";
+import { Reveal } from "../components/Reveal";
+import { Icon } from "../components/Icon";
 
 const STORE_URL = "https://chromewebstore.google.com/detail/ddaapjklnfjhjigeglgmjmadjnmdodfe";
 const CAMPAIGN_KEY = "qa-rewards-2026-community";
@@ -197,17 +199,25 @@ export function CommunityCampaignSection(){
   const spin=async()=>{if(!session){setWheelOpen(false);openAccountModal();return;}if(available<100){setMessage(t.notEnough);return;}if(!supabase)return;setSpinBusy(true);setMessage("");const requestId=crypto.randomUUID();const {data,error}=await supabase.functions.invoke("rewards-spin",{body:{requestId}});if(error||!data){setSpinBusy(false);setMessage(data?.error||error?.message||t.unavailable);return;}const won=data as SpinResult;const wonIndex=Math.max(0,wheelPrizes.findIndex(prize=>prize.key===won.prize_key));const target=(360-(wonIndex+.5)*wheelSegmentAngle)%360;scheduleWheelTicks(WHEEL_SPIN_MS);setRotation(current=>current+1440+((target-(current%360)+360)%360));window.setTimeout(()=>{setSpinBusy(false);setWheelOpen(false);setSpinResult(won);playWheelSuccessChime();fireWheelConfetti();requestAnimationFrame(()=>resultButton.current?.focus());},WHEEL_SPIN_MS);await load(session);};
   useEffect(()=>{if(!wheelOpen)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!spinBusy)closeWheel();};document.addEventListener("keydown",onKeyDown);return()=>document.removeEventListener("keydown",onKeyDown);},[wheelOpen,spinBusy]);
   const label=(p:Prize)=>locale==="pt-BR"?p.label_pt:locale==="es"?p.label_es:p.label_en; const locked=submission?.status==="pending"||submission?.status==="approved";
-  return <section id="comunidade" className="qts-section qts-community"><div className="qts-container"><p className="qts-eyebrow">{t.eyebrow}</p><h2>{t.title}</h2><p className="qts-section-lead">{t.lead}</p>
+  return <section id="comunidade" className="qts-section qts-community qts-zone-tint"><div className="qts-container"><Reveal className="qts-section-head"><div className="qts-section-head-main"><p className="qts-eyebrow">{t.eyebrow}</p><h2>{t.title}</h2></div><p className="qts-section-head-lead">{t.lead}</p></Reveal>
     <div className="qts-rewards-how"><h3>{t.how}</h3><ol>{t.steps.map(item=><li key={item}>{item}</li>)}</ol></div>
     <div className="qts-community-heading"><p className="qts-eyebrow">{wt.activities}</p><h3>{wt.activities}</h3><p>{wt.activitiesLead}</p></div>
-    <div className="qts-community-grid"><article className="qts-community-card"><h3>{t.affiliate}</h3><p>{t.offers}</p><p className="qts-affiliate-rules">{t.rules}</p>{!session?<button className="qts-btn qts-btn-primary" onClick={openAccountModal}>{t.signIn}</button>:profile?<><div className="qts-copy-field"><input aria-label={t.affiliate} readOnly value={affiliateLink}/><button type="button" onClick={()=>navigator.clipboard.writeText(affiliateLink).then(()=>setMessage(t.copied))}>{t.copy}</button></div><p className="qts-campaign-stats"><b>{referralCount}</b> {t.invited} · <b>{profile.qualified_referrals}</b> {t.qualified}</p></>:<p>{t.unavailable}</p>}</article>
-      <article className="qts-community-card qts-community-mission"><h3>{t.mission}</h3><p>{t.missionBody}</p>
+    <div className="qts-community-grid"><article className="qts-community-card">
+        <div className="qts-community-card-head"><span className="qts-community-card-icon"><Icon name="share"/></span><h3>{t.affiliate}</h3></div>
+        <div className="qts-community-card-body"><p>{t.offers}</p><p className="qts-affiliate-rules">{t.rules}</p></div>
+        <div className="qts-community-card-action">{!session?<button className="qts-btn qts-btn-primary" onClick={openAccountModal}>{t.signIn}</button>:profile?<><div className="qts-copy-field"><input aria-label={t.affiliate} readOnly value={affiliateLink}/><button type="button" onClick={()=>navigator.clipboard.writeText(affiliateLink).then(()=>setMessage(t.copied))}>{t.copy}</button></div><p className="qts-campaign-stats"><b>{referralCount}</b> {t.invited} · <b>{profile.qualified_referrals}</b> {t.qualified}</p></>:<p>{t.unavailable}</p>}</div>
+      </article>
+      <article className="qts-community-card qts-community-mission">
+        <div className="qts-community-card-head"><span className="qts-community-card-icon"><Icon name="award"/></span><h3>{t.mission}</h3></div>
+        <div className="qts-community-card-body"><p>{t.missionBody}</p>
         {!session ? <div className="qts-community-activity-preview">
-          <div><span>01</span><strong>{t.social}</strong><small>+40</small></div>
-          <div><span>02</span><strong>{t.linkedin}</strong><small>✓</small></div>
-          <div><span>03</span><strong>{t.feedback}</strong><small>+20</small></div>
+          <div><span className="qts-activity-step-icon"><Icon name="fileEarmarkText"/></span><strong>{t.social}</strong><small>+40</small></div>
+          <div><span className="qts-activity-step-icon"><Icon name="link45deg"/></span><strong>{t.linkedin}</strong><small>✓</small></div>
+          <div><span className="qts-activity-step-icon"><Icon name="pencil"/></span><strong>{t.feedback}</strong><small>+20</small></div>
         </div> : <fieldset className="qts-mission-list" disabled={locked}><label><b>{t.social}</b><input value={socialUrl} onChange={e=>setSocialUrl(e.target.value)} placeholder="https://..."/></label><label><b>{t.linkedin}</b><input value={linkedinUrl} onChange={e=>setLinkedinUrl(e.target.value)} placeholder="https://linkedin.com/..."/></label><label><b>{t.feedback}</b><textarea value={feedback} onChange={e=>setFeedback(e.target.value)} rows={4} placeholder={t.feedbackPlaceholder}/></label><label className="qts-disclosure"><input type="checkbox" checked={disclosure} onChange={e=>setDisclosure(e.target.checked)}/><span>{t.disclosure}</span></label></fieldset>}
-        <button className="qts-btn qts-btn-primary" disabled={busy||locked} onClick={()=>void submit()}>{!session?t.signIn:submission?.status==="rejected"?t.resubmit:t.submit}</button>{submission&&<div className={`qts-campaign-status is-${submission.status}`} role="status"><strong>{submission.status==="approved"?t.missionApproved:submission.status==="rejected"?t.missionRejected:t.missionPending}</strong><p>{submission.review_notes}</p></div>}</article></div>
+        </div>
+        <div className="qts-community-card-action"><button className="qts-btn qts-btn-primary" disabled={busy||locked} onClick={()=>void submit()}>{!session?t.signIn:submission?.status==="rejected"?t.resubmit:t.submit}</button>{submission&&<div className={`qts-campaign-status is-${submission.status}`} role="status"><strong>{submission.status==="approved"?t.missionApproved:submission.status==="rejected"?t.missionRejected:t.missionPending}</strong><p>{submission.review_notes}</p></div>}</div>
+      </article></div>
     <article className="qts-luck-cta"><div><p className="qts-eyebrow">{t.wheel}</p><h3>{wt.ctaTitle}</h3><p>{wt.ctaBody}</p></div><button ref={wheelTrigger} type="button" className="qts-btn qts-btn-primary" onClick={()=>setWheelOpen(true)}>{wt.cta}</button></article>
     {session&&<div className="qts-community-grid"><article className="qts-community-card"><h3>{t.benefits}</h3>{benefits.length?<div className="qts-reward-list">{benefits.map(b=><div key={b.id}><b>{b.kind==="discount_percent"?`${b.discount_percent}%`:`${b.grant_days} ${dayCopy[locale]}`}</b><span>{t.status[b.status as keyof typeof t.status]||b.status}</span><small>{fmtDate(b.expires_at,locale)}</small></div>)}</div>:<p>{t.emptyBenefits}</p>}</article><article className="qts-community-card"><h3>{t.ledger}</h3>{entries.length?<div className="qts-reward-list">{entries.map(e=><div key={e.id}><b className={e.points>0?"is-credit":"is-debit"}>{e.points>0?"+":""}{e.points}</b><span>{entryLabel(e.event_kind,locale)}</span><small>{fmtDate(e.created_at,locale)}</small></div>)}</div>:<p>{t.emptyLedger}</p>}</article></div>}
     <p className="qts-optional-review">{t.reviewSuggestion} {t.reviewNotice} <a href={STORE_URL} target="_blank" rel="noreferrer">{t.review}</a></p>{message&&<p role="status" className="qts-form-status">{message}</p>}
