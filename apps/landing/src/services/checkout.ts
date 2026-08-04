@@ -205,3 +205,15 @@ export async function loadAccessStatus(): Promise<AccessStatus> {
   if (data.installUrl) data.installUrl = safeStoreUrl(data.installUrl);
   return data as AccessStatus;
 }
+
+export interface CancelAccessResult {
+  mode: "at_period_end" | "immediate";
+  accessUntil: string | null;
+}
+
+export async function cancelAccess(): Promise<CancelAccessResult> {
+  const { data, error } = await requireClient().functions.invoke("cancel-access", { body: {} });
+  if (error) throw new Error(await functionErrorCode(error));
+  if (!data?.canceled) throw new Error("invalid_cancel_response");
+  return { mode: data.mode === "immediate" ? "immediate" : "at_period_end", accessUntil: data.accessUntil ?? null };
+}
