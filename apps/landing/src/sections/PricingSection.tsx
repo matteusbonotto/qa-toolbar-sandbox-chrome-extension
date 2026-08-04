@@ -3,9 +3,11 @@ import { createPortal } from "react-dom";
 import { AnimatePresence, motion } from "framer-motion";
 import { Icon } from "../components/Icon";
 import { Reveal } from "../components/Reveal";
+import { Toast } from "../components/Toast";
 import type { Session } from "@supabase/supabase-js";
 import { pricingPlans, type PlanId } from "../data/pricingData";
 import {
+  cancelAccess,
   loadAccessStatus,
   handoffSessionToExtension,
   loadPriceCatalog,
@@ -95,6 +97,13 @@ export function PricingSection() {
     return null;
   });
   const [statusError, setStatusError] = useState(false);
+
+  useEffect(() => {
+    if (!statusMessage) return;
+    const timer = window.setTimeout(() => setStatusMessage(null), 6_000);
+    return () => window.clearTimeout(timer);
+  }, [statusMessage]);
+
   const [access, setAccess] = useState<AccessStatus | null>(null);
   const [storeListingStatus, setStoreListingStatus] = useState<{ chrome_web_store_version: string | null; status: string } | null>(null);
   const checkoutReturn = new URLSearchParams(window.location.search).get("checkout");
@@ -503,6 +512,39 @@ export function PricingSection() {
   // fallback each visit, not something a visitor has to remember they already dismissed once.
   const [showOutdatedToast, setShowOutdatedToast] = useState(false);
 
+  const [cancelConfirmOpen, setCancelConfirmOpen] = useState(false);
+  const [cancelBusy, setCancelBusy] = useState(false);
+
+  function formatAccessDate(iso: string): string {
+    return new Date(iso).toLocaleDateString(locale === "en" ? "en-US" : locale === "es" ? "es-ES" : "pt-BR");
+  }
+
+  async function handleCancelAccess() {
+    setCancelBusy(true);
+    try {
+      const result = await cancelAccess();
+      const refreshed = await loadAccessStatus();
+      setAccess(refreshed);
+      setStatusError(false);
+      setStatusMessage(
+        result.mode === "at_period_end" && result.accessUntil
+          ? t.pricing.cancelScheduled.replace("{date}", formatAccessDate(result.accessUntil))
+          : t.pricing.cancelImmediate,
+      );
+    } catch (error) {
+      const code = error instanceof Error ? error.message : "";
+      setStatusError(true);
+      setStatusMessage(
+        code === "nothing_to_cancel" || code === "stripe_subscription_unavailable"
+          ? t.pricing.cancelUnavailable
+          : messageForError(error),
+      );
+    } finally {
+      setCancelBusy(false);
+      setCancelConfirmOpen(false);
+    }
+  }
+
   return (
     <section className="qts-section" id="planos">
       <div className="qts-container">
@@ -681,9 +723,24 @@ export function PricingSection() {
             document.body,
           )
         ) : null}
-        {statusMessage ? <p className={`qts-checkout-message${statusError ? " is-error" : ""}`} role="status">{statusMessage}</p> : null}
+        {statusMessage ? (
+          <Toast
+            message={statusMessage}
+            tone={statusError ? "error" : "success"}
+            closeLabel={t.pricing.closeModal}
+            onClose={() => setStatusMessage(null)}
+          />
+        ) : null}
         {pricingLoading ? <div className="qts-pricing-loading" role="status" aria-live="polite"><span className="qts-loading-dot" />{t.pricing.loadingPrices}</div> : null}
-        {pricingError ? <div className="qts-checkout-message is-error" role="alert"><span>{pricingError}</span><button type="button" className="qts-auth-link" onClick={() => void retryPricing()}>{t.pricing.retryPricing}</button></div> : null}
+        {pricingError ? (
+          <Toast
+            message={pricingError}
+            tone="error"
+            closeLabel={t.pricing.closeModal}
+            onClose={() => setPricingError(null)}
+            action={{ label: t.pricing.retryPricing, onClick: () => void retryPricing() }}
+          />
+        ) : null}
 
         <div className="qts-billing-toggle-row">
           <SegmentedControl
@@ -702,22 +759,27 @@ export function PricingSection() {
           />
         </div>
 
-        <div className="qts-voucher-row">
+        <div className="qts-voucher-panel">
           <label className="qts-voucher-label" htmlFor="qts-voucher-code">{t.pricing.voucherPlaceholder}</label>
-          <input
-            id="qts-voucher-code"
-            type="text"
-            className="qts-voucher-input"
-            placeholder={t.pricing.voucherPlaceholder}
-            value={voucherInput}
-            onChange={(event) => {
-              setVoucherInput(event.target.value);
-              if (appliedVoucher) { setAppliedVoucher(null); setVoucherPreview(null); }
-            }}
-          />
-          <button type="button" className="qts-btn qts-btn-ghost" onClick={() => void handleApplyVoucher()} disabled={voucherChecking}>
-            {voucherChecking ? t.pricing.working : t.pricing.voucherApply}
-          </button>
+          <div className="qts-voucher-row">
+            <div className="qts-voucher-input-wrap">
+              <Icon name="ticketPerforated" className="qts-voucher-input-icon" />
+              <input
+                id="qts-voucher-code"
+                type="text"
+                className="qts-voucher-input"
+                placeholder={t.pricing.voucherPlaceholder}
+                value={voucherInput}
+                onChange={(event) => {
+                  setVoucherInput(event.target.value);
+                  if (appliedVoucher) { setAppliedVoucher(null); setVoucherPreview(null); }
+                }}
+              />
+            </div>
+            <button type="button" className="qts-btn qts-btn-primary" onClick={() => void handleApplyVoucher()} disabled={voucherChecking}>
+              {voucherChecking ? t.pricing.working : t.pricing.voucherApply}
+            </button>
+          </div>
           {appliedVoucher && !voucherPreview ? (
             <span className="qts-voucher-applied">{appliedVoucher} {t.pricing.voucherQueued}</span>
           ) : null}
@@ -749,14 +811,18 @@ export function PricingSection() {
             const planText = t.pricing.plans[plan.id];
             const price = priceCatalog[plan.id]?.[billingCycle];
             const unavailable = pricingError ? "-" : t.pricing.working;
-            // Gate on `billing` (present only when a real Stripe subscription row backs the
-            // access), not on `access.active` in general - a founder/courtesy grant with no
-            // Stripe subscription (apps/admin's AccessPage supports granting access without a
-            // plan) is "active" but never blocks checkout-create-session server-side, so it
-            // must not block a purchase here either.
+            // `billing` is only present for a real Stripe subscription row - that's what blocks
+            // buying a *different* plan (contacting support to switch). A founder/trial/voucher
+            // grant with no Stripe subscription must never block a purchase, per the product rule
+            // that a free/courtesy user can always become a paying customer. Whether a plan is the
+            // visitor's *current* one, though, is a broader question than billing alone - any
+            // active grant (trial, voucher, founder courtesy, or a real subscription) matching
+            // this plan means it shouldn't be offered for purchase again.
             const hasBlockingSubscription = access?.billing != null;
-            const isCurrentPlan = hasBlockingSubscription && access?.plan?.key === plan.id;
+            const isCurrentPlan = Boolean(access?.active) && access?.plan?.key === plan.id;
             const isBlockedByOtherPlan = hasBlockingSubscription && access?.plan?.key !== plan.id;
+            const showCancelPanel = isCurrentPlan && !plan.isFree;
+            const isSubscriptionRenewal = access?.source === "subscription";
             const voucherTargetsPlan = Boolean(voucherPreview?.valid)
               && (voucherPreview?.plan == null || voucherPreview.plan.key === plan.id);
             return (
@@ -795,6 +861,39 @@ export function PricingSection() {
                               ? t.nav.installGuest
                               : plan.isFree ? t.pricing.ctaFree : t.pricing.ctaPaid}
                 </button>
+                {showCancelPanel ? (
+                  <div className="qts-plan-cancel-panel">
+                    <p className="qts-plan-renewal">
+                      {isSubscriptionRenewal && access?.expiresAt
+                        ? t.pricing.nextRenewalOn.replace("{date}", formatAccessDate(access.expiresAt))
+                        : access?.expiresAt
+                          ? `${t.pricing.accessExpires} ${formatAccessDate(access.expiresAt)}`
+                          : t.pricing.accessPermanent}
+                    </p>
+                    {!cancelConfirmOpen ? (
+                      <button type="button" className="qts-plan-cancel-link" onClick={() => setCancelConfirmOpen(true)}>
+                        {t.pricing.cancelAccessCta}
+                      </button>
+                    ) : (
+                      <div className="qts-plan-cancel-confirm">
+                        <strong>{t.pricing.cancelConfirmTitle}</strong>
+                        <p>
+                          {isSubscriptionRenewal && access?.expiresAt
+                            ? t.pricing.cancelConfirmBodySubscription.replace("{date}", formatAccessDate(access.expiresAt))
+                            : t.pricing.cancelConfirmBodyImmediate}
+                        </p>
+                        <div className="qts-plan-cancel-confirm-actions">
+                          <button type="button" className="qts-btn qts-btn-ghost" disabled={cancelBusy} onClick={() => setCancelConfirmOpen(false)}>
+                            {t.pricing.cancelConfirmBack}
+                          </button>
+                          <button type="button" className="qts-btn qts-btn-primary" disabled={cancelBusy} onClick={() => void handleCancelAccess()}>
+                            {cancelBusy ? t.pricing.working : t.pricing.cancelConfirmYes}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ) : null}
               </div>
             );
           })}

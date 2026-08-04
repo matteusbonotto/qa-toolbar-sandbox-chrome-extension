@@ -209,6 +209,16 @@ export interface Dictionary {
     currentPlanBadge: string;
     currentPlanCta: string;
     unavailableWhileSubscribed: string;
+    nextRenewalOn: string;
+    cancelAccessCta: string;
+    cancelConfirmTitle: string;
+    cancelConfirmBodySubscription: string;
+    cancelConfirmBodyImmediate: string;
+    cancelConfirmYes: string;
+    cancelConfirmBack: string;
+    cancelScheduled: string;
+    cancelImmediate: string;
+    cancelUnavailable: string;
     plans: Record<"smoke-test" | "regression-runner" | "root-cause-analyst" | "release-manager", PlanTranslation>;
   };
   support: {
@@ -709,6 +719,16 @@ const pt: Dictionary = {
     currentPlanBadge: "Seu plano atual",
     currentPlanCta: "Plano atual",
     unavailableWhileSubscribed: "Indisponível: assinatura ativa",
+    nextRenewalOn: "Renova em {date}",
+    cancelAccessCta: "Cancelar",
+    cancelConfirmTitle: "Cancelar seu plano?",
+    cancelConfirmBodySubscription: "Você mantém o acesso até {date}. Depois disso, sua conta volta para o plano grátis.",
+    cancelConfirmBodyImmediate: "Seu acesso a este plano será encerrado agora e sua conta volta para o plano grátis.",
+    cancelConfirmYes: "Sim, cancelar",
+    cancelConfirmBack: "Voltar",
+    cancelScheduled: "Cancelamento agendado. Seu acesso continua até {date}.",
+    cancelImmediate: "Acesso cancelado. Você voltou para o plano grátis.",
+    cancelUnavailable: "Não foi possível cancelar agora. Tente novamente em instantes.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -1294,6 +1314,16 @@ const es: Dictionary = {
     currentPlanBadge: "Tu plan actual",
     currentPlanCta: "Plan actual",
     unavailableWhileSubscribed: "No disponible: suscripción activa",
+    nextRenewalOn: "Se renueva el {date}",
+    cancelAccessCta: "Cancelar",
+    cancelConfirmTitle: "¿Cancelar tu plan?",
+    cancelConfirmBodySubscription: "Mantienes el acceso hasta el {date}. Después, tu cuenta vuelve al plan gratuito.",
+    cancelConfirmBodyImmediate: "Tu acceso a este plan terminará ahora y tu cuenta vuelve al plan gratuito.",
+    cancelConfirmYes: "Sí, cancelar",
+    cancelConfirmBack: "Volver",
+    cancelScheduled: "Cancelación programada. Tu acceso continúa hasta el {date}.",
+    cancelImmediate: "Acceso cancelado. Volviste al plan gratuito.",
+    cancelUnavailable: "No fue posible cancelar ahora. Inténtalo de nuevo en unos instantes.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -1879,6 +1909,16 @@ const en: Dictionary = {
     currentPlanBadge: "Your current plan",
     currentPlanCta: "Current plan",
     unavailableWhileSubscribed: "Unavailable: active subscription",
+    nextRenewalOn: "Renews on {date}",
+    cancelAccessCta: "Cancel",
+    cancelConfirmTitle: "Cancel your plan?",
+    cancelConfirmBodySubscription: "You keep access until {date}. After that, your account moves to the free plan.",
+    cancelConfirmBodyImmediate: "Your access to this plan ends now and your account moves to the free plan.",
+    cancelConfirmYes: "Yes, cancel",
+    cancelConfirmBack: "Go back",
+    cancelScheduled: "Cancellation scheduled. Your access continues until {date}.",
+    cancelImmediate: "Access canceled. You're back on the free plan.",
+    cancelUnavailable: "Could not cancel right now. Try again in a moment.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",

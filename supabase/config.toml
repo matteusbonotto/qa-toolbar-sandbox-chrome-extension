@@ -89,3 +89,6 @@ verify_jwt = false
 
 [functions.admin-email-otp]
 verify_jwt = false
+
+[functions.cancel-access]
+verify_jwt = false
