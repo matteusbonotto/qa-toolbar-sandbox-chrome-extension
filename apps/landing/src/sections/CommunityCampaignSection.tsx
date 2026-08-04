@@ -174,7 +174,7 @@ export function CommunityCampaignSection(){
   const [referralCount,setReferralCount]=useState(0),[submission,setSubmission]=useState<Submission|null>(null),[socialUrl,setSocialUrl]=useState(""),[linkedinUrl,setLinkedinUrl]=useState(""),[feedback,setFeedback]=useState(""),[disclosure,setDisclosure]=useState(false),[message,setMessage]=useState(""),[busy,setBusy]=useState(false),[spinBusy,setSpinBusy]=useState(false),[spinResult,setSpinResult]=useState<SpinResult|null>(null),[rotation,setRotation]=useState(0),[wheelOpen,setWheelOpen]=useState(false);
   const affiliateLink=useMemo(()=>profile?`${location.origin}${import.meta.env.BASE_URL}?ref=${profile.referral_code}#comunidade`:"",[profile]);
   const eligiblePrizes=useMemo(()=>prizes.filter(p=>p.minimum_lifetime_points<=(wallet?.lifetime_points||0)),[prizes,wallet]);
-  const totalWeight=eligiblePrizes.reduce((sum,p)=>sum+p.weight,0); const available=wallet?.available_points||0;
+  const available=wallet?.available_points||0;
   // Wheel wedges are drawn equal-sized (one per unlocked prize) for readable labels -- the real
   // odds stay driven by `weight` server-side and are shown as their own list below the wheel, same
   // as before; the wedges are a themed reveal animation, not a literal probability chart.
@@ -198,7 +198,7 @@ export function CommunityCampaignSection(){
   const closeWheel=()=>{if(spinBusy)return;setWheelOpen(false);requestAnimationFrame(()=>wheelTrigger.current?.focus());};
   const spin=async()=>{if(!session){setWheelOpen(false);openAccountModal();return;}if(available<100){setMessage(t.notEnough);return;}if(!supabase)return;setSpinBusy(true);setMessage("");const requestId=crypto.randomUUID();const {data,error}=await supabase.functions.invoke("rewards-spin",{body:{requestId}});if(error||!data){setSpinBusy(false);setMessage(data?.error||error?.message||t.unavailable);return;}const won=data as SpinResult;const wonIndex=Math.max(0,wheelPrizes.findIndex(prize=>prize.key===won.prize_key));const target=(360-(wonIndex+.5)*wheelSegmentAngle)%360;scheduleWheelTicks(WHEEL_SPIN_MS);setRotation(current=>current+1440+((target-(current%360)+360)%360));window.setTimeout(()=>{setSpinBusy(false);setWheelOpen(false);setSpinResult(won);playWheelSuccessChime();fireWheelConfetti();requestAnimationFrame(()=>resultButton.current?.focus());},WHEEL_SPIN_MS);await load(session);};
   useEffect(()=>{if(!wheelOpen)return;const onKeyDown=(event:KeyboardEvent)=>{if(event.key==="Escape"&&!spinBusy)closeWheel();};document.addEventListener("keydown",onKeyDown);return()=>document.removeEventListener("keydown",onKeyDown);},[wheelOpen,spinBusy]);
-  const label=(p:Prize)=>locale==="pt-BR"?p.label_pt:locale==="es"?p.label_es:p.label_en; const locked=submission?.status==="pending"||submission?.status==="approved";
+  const locked=submission?.status==="pending"||submission?.status==="approved";
   return <section id="comunidade" className="qts-section qts-community qts-zone-tint"><div className="qts-container"><Reveal className="qts-section-head"><div className="qts-section-head-main"><p className="qts-eyebrow">{t.eyebrow}</p><h2>{t.title}</h2></div><p className="qts-section-head-lead">{t.lead}</p></Reveal>
     <div className="qts-rewards-how"><h3>{t.how}</h3><ol>{t.steps.map(item=><li key={item}>{item}</li>)}</ol></div>
     <div className="qts-community-heading"><p className="qts-eyebrow">{wt.activities}</p><h3>{wt.activities}</h3><p>{wt.activitiesLead}</p></div>
@@ -224,11 +224,9 @@ export function CommunityCampaignSection(){
     {wheelOpen&&<div className="qts-reward-dialog-backdrop" role="presentation" onClick={closeWheel}><div className="qts-reward-dialog qts-wheel-dialog" role="dialog" aria-modal="true" aria-labelledby="reward-wheel-title" onClick={e=>e.stopPropagation()}>
       <button type="button" className="qts-wheel-close" aria-label={t.close} disabled={spinBusy} onClick={closeWheel}>×</button>
       <div className="qts-wheel-modal-copy"><p className="qts-eyebrow">{t.wheel}</p><h3 id="reward-wheel-title">{wt.ctaTitle}</h3><p>{t.random}</p>
-      <div className="qts-wheel-balance"><span>{wt.pointsNow}</span><strong>{session?available:"-"}</strong><small>{!session?wt.signIn:available>=100?wt.ready:wt.missing(100-available)}</small>{wallet?.debt_points?<small role="alert">{debtCopy[locale](wallet.debt_points)}</small>:null}</div>
-      <div className="qts-odds"><strong>{wt.prizes}</strong>{eligiblePrizes.length?eligiblePrizes.map(p=><div key={p.id}><span>{label(p)}</span><b>{totalWeight?((p.weight/totalWeight)*100).toFixed(1):"0"}%</b></div>):wt.prizesPreview.map(prize=><div key={prize}><span>{prize}</span><b>-</b></div>)}</div></div>
+      <div className="qts-wheel-balance"><span>{wt.pointsNow}</span><strong>{session?available:"-"}</strong><small>{!session?wt.signIn:available>=100?wt.ready:wt.missing(100-available)}</small>{wallet?.debt_points?<small role="alert">{debtCopy[locale](wallet.debt_points)}</small>:null}</div></div>
       <div className="qts-wheel-stage"><div className={`qts-reward-wheel qts-reward-wheel-live ${spinBusy?"is-spinning":""}`} style={{transform:`rotate(${rotation}deg)`,background:wheelBackground}} aria-label={t.wheel}>
         {wheelLabels.map((wheelLabel,i)=><div key={`${wheelLabel}-${i}`} className="qts-wheel-segment" style={{transform:`rotate(${i*wheelSegmentAngle+wheelSegmentAngle/2}deg)`}}><span className="qts-wheel-segment-label">{wheelLabel}</span></div>)}
-        <span className="qts-wheel-hub">QA</span>
       </div>
       <button type="button" className="qts-btn qts-btn-primary qts-spin-button" disabled={spinBusy||Boolean(session&&available<100)} onClick={()=>void spin()}>{!session?t.signIn:spinBusy?t.spinning:t.spin}</button></div>
     </div></div>}

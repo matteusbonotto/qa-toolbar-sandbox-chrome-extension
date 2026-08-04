@@ -489,6 +489,22 @@ export function PricingSection() {
     ? new Date(access.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : locale === "es" ? "es-ES" : "pt-BR")
     : null;
 
+  // Points the visitor at the floating install button right after they actually get access (free
+  // plan claimed, or a paid checkout completing) instead of before - a pulse triggered on mount
+  // for someone who was already a customer days ago would just be visual noise.
+  const [justUnlockedAccess, setJustUnlockedAccess] = useState(false);
+  const wasAccessActiveRef = useRef(false);
+  useEffect(() => {
+    const isActiveNow = Boolean(access?.active);
+    if (isActiveNow && !wasAccessActiveRef.current) {
+      setJustUnlockedAccess(true);
+      const timer = window.setTimeout(() => setJustUnlockedAccess(false), 6_000);
+      wasAccessActiveRef.current = true;
+      return () => window.clearTimeout(timer);
+    }
+    wasAccessActiveRef.current = isActiveNow;
+  }, [access?.active]);
+
   return (
     <section className="qts-section" id="planos">
       <div className="qts-container">
@@ -629,35 +645,44 @@ export function PricingSection() {
         )}
 
         {access?.active ? (
-          <div className="qts-access-panel" role="status">
-            <div>
-              <strong>{t.pricing.accessActive}: {access.plan?.name}</strong>
-              <span>{accessExpiry ? `${t.pricing.accessExpires} ${accessExpiry}` : t.pricing.accessPermanent}</span>
-            </div>
-            <div className="qts-access-panel-actions">
-              {access.installUrl ? (
-                <a className="qts-btn qts-btn-primary" href={access.installUrl} target="_blank" rel="noreferrer">
-                  {t.pricing.installExtension}
-                </a>
-              ) : null}
-              <a
-                className="qts-btn qts-btn-ghost"
-                href={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-extension.zip`}
-                download
-              >
-                {t.pricing.downloadExtensionZip}
-              </a>
-            </div>
-          </div>
+          <p className="qts-access-line">
+            <Icon name="shieldCheck" />
+            <span><strong>{t.pricing.accessActive}: {access.plan?.name}</strong> · {accessExpiry ? `${t.pricing.accessExpires} ${accessExpiry}` : t.pricing.accessPermanent}</span>
+          </p>
         ) : null}
-        {access?.active ? <p className="qts-manual-install-hint">{t.pricing.downloadExtensionHint}</p> : null}
         {access?.active ? (
           <p className="qts-version-line">
             {t.pricing.packageVersionLine.replace("{version}", __EXTENSION_PACKAGE_VERSION__)}
             {storeLookupState === "loading" ? <span> · {t.pricing.storeStatusLoading}</span> : null}
             {storeLookupState === "error" ? <span className="qts-version-pending"> · {t.pricing.storeStatusUnavailable}</span> : null}
+            {storeLookupState === "ready" && !storeIsBehind && storeListingStatus?.chrome_web_store_version ? (
+              <span> · {t.pricing.storeLiveVersionLine.replace("{version}", storeListingStatus.chrome_web_store_version)}</span>
+            ) : null}
             {storeLookupState === "ready" && storeIsBehind ? <span className="qts-version-pending"> · {t.pricing.storeReviewPendingNotice}</span> : null}
           </p>
+        ) : null}
+        {access?.active && storeIsBehind ? (
+          <p className="qts-manual-install-hint">
+            {t.pricing.downloadExtensionHint}{" "}
+            <a href={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-extension.zip`} download className="qts-auth-link">
+              {t.pricing.downloadExtensionZip}
+            </a>
+          </p>
+        ) : null}
+        {access?.active && access.installUrl ? (
+          createPortal(
+            <a
+              className={`qts-install-fab${justUnlockedAccess ? " qts-install-fab-tour" : ""}`}
+              href={access.installUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={() => setJustUnlockedAccess(false)}
+            >
+              <Icon name="browserChrome" />
+              {t.pricing.installFabLabel}
+            </a>,
+            document.body,
+          )
         ) : null}
         {statusMessage ? <p className={`qts-checkout-message${statusError ? " is-error" : ""}`} role="status">{statusMessage}</p> : null}
         {pricingLoading ? <div className="qts-pricing-loading" role="status" aria-live="polite"><span className="qts-loading-dot" />{t.pricing.loadingPrices}</div> : null}

@@ -29,7 +29,6 @@ export interface Dictionary {
     about: string;
     semiauto: string;
     features: string;
-    tutorials: string;
     pricing: string;
     support: string;
     install: string;
@@ -188,9 +187,11 @@ export interface Dictionary {
     accessPermanent: string;
     accessExpires: string;
     installExtension: string;
+    installFabLabel: string;
     downloadExtensionZip: string;
     downloadExtensionHint: string;
     packageVersionLine: string;
+    storeLiveVersionLine: string;
     storeReviewPendingNotice: string;
     storeStatusLoading: string;
     storeStatusUnavailable: string;
@@ -333,7 +334,6 @@ const pt: Dictionary = {
     about: "Sobre",
     semiauto: "Sabooor automático",
     features: "Ferramentas",
-    tutorials: "Tutoriais",
     pricing: "Planos",
     support: "Suporte",
     install: "Entrar",
@@ -685,9 +685,11 @@ const pt: Dictionary = {
     accessPermanent: "sem data de expiração",
     accessExpires: "válido até",
     installExtension: "Instalar extensão oficial",
+    installFabLabel: "Instalar",
     downloadExtensionZip: "Baixar extensão (.zip)",
     downloadExtensionHint: "Não quer esperar a análise da Chrome Web Store? Baixe o pacote, abra chrome://extensions, ative o Modo do desenvolvedor e clique em \"Carregar sem compactação\".",
-    packageVersionLine: "Versão atual do pacote: v{version}",
+    packageVersionLine: "Versão do pacote: v{version}",
+    storeLiveVersionLine: "Chrome Web Store: v{version}",
     storeReviewPendingNotice: "Em breve na Chrome Web Store: em análise do Google.",
     storeStatusLoading: "Consultando a versão disponível na Chrome Web Store…",
     storeStatusUnavailable: "Não foi possível confirmar agora a versão disponível na Chrome Web Store.",
@@ -915,7 +917,6 @@ const es: Dictionary = {
     about: "Acerca de",
     semiauto: "Sabor automático",
     features: "Herramientas",
-    tutorials: "Tutoriales",
     pricing: "Planes",
     support: "Soporte",
     install: "Entrar",
@@ -1267,9 +1268,11 @@ const es: Dictionary = {
     accessPermanent: "sin fecha de expiración",
     accessExpires: "válido hasta",
     installExtension: "Instalar extensión oficial",
+    installFabLabel: "Instalar",
     downloadExtensionZip: "Descargar extensión (.zip)",
     downloadExtensionHint: "¿No quieres esperar la revisión de la Chrome Web Store? Descarga el paquete, abre chrome://extensions, activa el Modo de desarrollador y haz clic en \"Cargar descomprimida\".",
-    packageVersionLine: "Versión actual del paquete: v{version}",
+    packageVersionLine: "Versión del paquete: v{version}",
+    storeLiveVersionLine: "Chrome Web Store: v{version}",
     storeReviewPendingNotice: "Próximamente en la Chrome Web Store: en revisión de Google.",
     storeStatusLoading: "Consultando la versión disponible en Chrome Web Store…",
     storeStatusUnavailable: "No fue posible confirmar ahora la versión disponible en Chrome Web Store.",
@@ -1497,7 +1500,6 @@ const en: Dictionary = {
     about: "About",
     semiauto: "Auto flavor",
     features: "Tools",
-    tutorials: "Tutorials",
     pricing: "Pricing",
     support: "Support",
     install: "Sign in",
@@ -1849,9 +1851,11 @@ const en: Dictionary = {
     accessPermanent: "no expiration date",
     accessExpires: "valid until",
     installExtension: "Install official extension",
+    installFabLabel: "Install",
     downloadExtensionZip: "Download extension (.zip)",
     downloadExtensionHint: "Don't want to wait for Chrome Web Store review? Download the package, open chrome://extensions, enable Developer mode and click \"Load unpacked\".",
-    packageVersionLine: "Current package version: v{version}",
+    packageVersionLine: "Package version: v{version}",
+    storeLiveVersionLine: "Chrome Web Store: v{version}",
     storeReviewPendingNotice: "Coming soon to the Chrome Web Store: pending Google review.",
     storeStatusLoading: "Checking the version available in the Chrome Web Store…",
     storeStatusUnavailable: "The version available in the Chrome Web Store could not be confirmed right now.",
