@@ -98,8 +98,8 @@ condicionada a `is_founder()`.
   injetada na página (shadow DOM); `pagebridge/` roda no MAIN world da página (único lugar que
   enxerga `window.fetch`/`XMLHttpRequest` reais); `popup/` e `options/` são as páginas de
   extensão padrão do Chrome.
-- **Permissões** (`manifest.json`): `storage`, `scripting`, `activeTab`, `tabs`, `contextMenus`,
-  `alarms`, `host_permissions: <all_urls>`. O escopo de host é restringível pelo usuário nas
+- **Permissões** (`manifest.json`): `storage`, `scripting`, `tabs`, `contextMenus`,
+  `alarms`, `browsingData`, `host_permissions: <all_urls>`. O escopo de host é restringível pelo usuário nas
   Configurações (modo "todos os sites" / "customizado" / "somente ambientes configurados"), e a
   extensão de fato des-registra os content scripts fora do escopo — confirmado por leitura de
   `background.js` (`registerContentScripts`/`unregisterContentScripts`), não é só texto de

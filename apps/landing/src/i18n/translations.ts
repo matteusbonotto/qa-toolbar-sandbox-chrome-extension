@@ -855,7 +855,7 @@ const pt: Dictionary = {
     permissions: [
       { name: "storage", reason: "Guardar seu workspace (clientes, projetos, produtos, ambientes) localmente no navegador, sem enviar para servidores externos." },
       { name: "scripting", reason: "Injetar a barra de QA e as ferramentas de teste na página que você está visitando, sob seu comando." },
-      { name: "activeTab / tabs", reason: "Saber em qual aba a barra deve aparecer e capturar screenshots da aba ativa quando você aciona o botão de evidência." },
+      { name: "tabs", reason: "Saber em qual aba a barra deve aparecer e capturar screenshots da aba ativa quando você aciona o botão de evidência." },
       { name: "host_permissions (todos os sites)", reason: "Permitir que você use a extensão em qualquer site por padrão. Você pode restringir isso nas configurações da extensão." },
       { name: "contextMenus", reason: "Adicionar itens ao menu de botão direito do mouse (ex.: \"Revelar test-id, seletor e XPath\", \"Preencher com dado fake\") para acesso rápido às ferramentas sem precisar abrir a barra." },
       { name: "alarms", reason: "Agendar uma nova tentativa de verificação de acesso/assinatura quando a rede falha temporariamente, sem manter a extensão constantemente ativa em segundo plano." },
@@ -1450,7 +1450,7 @@ const es: Dictionary = {
     permissions: [
       { name: "storage", reason: "Guardar tu workspace (clientes, proyectos, productos, entornos) localmente en el navegador, sin enviarlo a servidores externos." },
       { name: "scripting", reason: "Inyectar la barra de QA y las herramientas de prueba en la página que estás visitando, bajo tu orden." },
-      { name: "activeTab / tabs", reason: "Saber en qué pestaña debe aparecer la barra y capturar capturas de pantalla de la pestaña activa cuando activas el botón de evidencia." },
+      { name: "tabs", reason: "Saber en qué pestaña debe aparecer la barra y capturar capturas de pantalla de la pestaña activa cuando activas el botón de evidencia." },
       { name: "host_permissions (todos los sitios)", reason: "Permitir que uses la extensión en cualquier sitio por defecto. Puedes restringir esto en la configuración de la extensión." },
       { name: "contextMenus", reason: "Agregar opciones al menú del botón derecho del mouse (ej.: \"Revelar test-id, selector y XPath\", \"Rellenar con dato falso\") para acceso rápido a las herramientas sin abrir la barra." },
       { name: "alarms", reason: "Programar un nuevo intento de verificación de acceso/suscripción cuando la red falla temporalmente, sin mantener la extensión siempre activa en segundo plano." },
@@ -2045,7 +2045,7 @@ const en: Dictionary = {
     permissions: [
       { name: "storage", reason: "Store your workspace (clients, projects, products, environments) locally in the browser, without sending it to external servers." },
       { name: "scripting", reason: "Inject the QA bar and testing tools into the page you're visiting, only when you trigger it." },
-      { name: "activeTab / tabs", reason: "Know which tab the bar should appear on and capture screenshots of the active tab when you trigger the evidence button." },
+      { name: "tabs", reason: "Know which tab the bar should appear on and capture screenshots of the active tab when you trigger the evidence button." },
       { name: "host_permissions (all sites)", reason: "Let you use the extension on any site by default. You can restrict this in the extension's settings." },
       { name: "contextMenus", reason: "Add items to the mouse's right-click menu (e.g. \"Reveal test-id, selector and XPath\", \"Fill with fake data\") for quick access to tools without opening the bar." },
       { name: "alarms", reason: "Schedule a retry of the access/subscription check when the network fails temporarily, without keeping the extension constantly active in the background." },
