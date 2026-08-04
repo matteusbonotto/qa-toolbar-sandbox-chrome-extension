@@ -9,7 +9,7 @@
 ## O que o `manifest.json` pede hoje
 
 ```json
-"permissions": ["storage", "scripting", "activeTab", "tabs", "contextMenus", "alarms"],
+"permissions": ["storage", "scripting", "tabs", "contextMenus", "alarms", "browsingData"],
 "host_permissions": ["<all_urls>"]
 ```
 
@@ -23,11 +23,11 @@ interromper o fluxo de teste com um prompt a cada navegação.
 |---|---|---|
 | `storage` | Workspace, preferências, histórico local (`chrome.storage.local`) | `lib/storage.js`/`storage-content.js` |
 | `scripting` | Registrar/desregistrar a barra e o pagebridge dinamicamente, só nos domínios autorizados | `background.js` (`registerContentScripts`/`unregisterContentScripts`) |
-| `activeTab` | Screenshot da aba visível ao capturar evidência | `chrome.tabs.captureVisibleTab` via mensagem ao service worker |
-| `tabs` | Abrir aba de configurações/handoff de login, detectar URL da aba ativa | `background.js`, popup |
+| `tabs` | Abrir aba de configurações/handoff de login, detectar URL da aba ativa, screenshot da aba visível ao capturar evidência (`chrome.tabs.captureVisibleTab`) | `background.js`, popup |
 | `contextMenus` | Menu de contexto "QA Sandbox" (contar seleção, capturar elemento, etc.) | `background.js` |
 | `alarms` | Verificação periódica de `access-status` (plano/entitlement) | `background.js` |
-| `<all_urls>` (host) | Injetar a barra e o pagebridge no domínio que o QA está testando | `background.js` |
+| `browsingData` | Limpar dados do site atual sob comando explícito do QA (ferramenta "Limpar dados do site") | `background.js` |
+| `<all_urls>` (host) | Injetar a barra e o pagebridge no domínio que o QA está testando; também satisfaz o requisito de host permission do `captureVisibleTab`, tornando `activeTab` redundante (removida em 2026-08-04) | `background.js` |
 
 ## `<all_urls>` não significa "sempre ativo em todo lugar"
 

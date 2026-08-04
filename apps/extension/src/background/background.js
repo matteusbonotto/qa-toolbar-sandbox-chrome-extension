@@ -3,9 +3,15 @@ import { acceptSessionHandoff, deleteAccount, getAccessState, redeemVoucher, req
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
 const PAGEBRIDGE_SCRIPT_ID = "qts-pagebridge";
+// Packaging (scripts/package-extension.mjs) already strips localhost from the manifest's
+// externally_connectable.matches for the real Web Store artifact, so Chrome itself never
+// delivers a message from there in production. This mirrors that same test-build gate here as
+// defense in depth, for anyone who side-loads the raw apps/extension/ source directly instead of
+// the packaged build (see auth.js's identical IS_TEST_BUILD gate for the sign-in dev bypass).
+const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
 const LANDING_ORIGINS = new Set([
   "https://matteusbonotto.github.io",
-  "http://localhost:5173",
+  ...(IS_TEST_BUILD ? ["http://localhost:5173"] : []),
 ]);
 
 function isChromeMatchPattern(pattern) {
