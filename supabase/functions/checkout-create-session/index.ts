@@ -125,6 +125,16 @@ serve(async (request) => {
   let { data: customer } = await admin.from("payment_customers").select("provider_customer_id")
     .eq("user_id", user.id).maybeSingle();
   const stripe = stripeClient();
+  // A stored customer id from before this project's Stripe key moved from test mode to live mode
+  // (or from any account-level key rotation) silently 404s here - test/live data is fully
+  // isolated in Stripe, so the id simply doesn't exist under the current key. That used to bubble
+  // up as an opaque unhandled error instead of just minting a fresh customer for the new mode.
+  if (customer) {
+    const stillValid = await stripe.customers.retrieve(customer.provider_customer_id)
+      .then((found) => !found.deleted)
+      .catch(() => false);
+    if (!stillValid) customer = null;
+  }
   if (!customer) {
     const created = await stripe.customers.create({ email: user.email, metadata: { supabase_user_id: user.id } }, {
       idempotencyKey: `customer:${user.id}`,
