@@ -55,6 +55,7 @@ import iconGem from "bootstrap-icons/icons/gem.svg?raw";
 import iconLifePreserver from "bootstrap-icons/icons/life-preserver.svg?raw";
 import iconCompass from "bootstrap-icons/icons/compass.svg?raw";
 import iconBrowserChrome from "bootstrap-icons/icons/browser-chrome.svg?raw";
+import iconDownload from "bootstrap-icons/icons/download.svg?raw";
 
 const ICONS = {
   archive: iconArchive,
@@ -112,6 +113,7 @@ const ICONS = {
   lifePreserver: iconLifePreserver,
   compass: iconCompass,
   browserChrome: iconBrowserChrome,
+  download: iconDownload,
 } as const;
 
 export type IconName = keyof typeof ICONS;

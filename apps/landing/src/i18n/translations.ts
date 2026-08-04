@@ -179,6 +179,7 @@ export interface Dictionary {
     termsRequired: string;
     closeModal: string;
     configUnavailable: string;
+    rateLimited: string;
     pricingUnavailable: string;
     retryPricing: string;
     loadingPrices: string;
@@ -195,6 +196,7 @@ export interface Dictionary {
     storeReviewPendingNotice: string;
     storeStatusLoading: string;
     storeStatusUnavailable: string;
+    storeOutdatedToastTitle: string;
     paymentProcessing: string;
     paymentCanceled: string;
     checkoutFailed: string;
@@ -677,6 +679,7 @@ const pt: Dictionary = {
     termsRequired: "Aceite a Política de Privacidade para criar sua conta.",
     closeModal: "Fechar",
     configUnavailable: "O acesso está temporariamente indisponível. Tente novamente em instantes.",
+    rateLimited: "Muitas tentativas em pouco tempo. Aguarde alguns minutos e tente novamente.",
     pricingUnavailable: "Não foi possível carregar os preços oficiais agora.",
     retryPricing: "Tentar carregar novamente",
     loadingPrices: "Carregando preços oficiais…",
@@ -693,6 +696,7 @@ const pt: Dictionary = {
     storeReviewPendingNotice: "Em breve na Chrome Web Store: em análise do Google.",
     storeStatusLoading: "Consultando a versão disponível na Chrome Web Store…",
     storeStatusUnavailable: "Não foi possível confirmar agora a versão disponível na Chrome Web Store.",
+    storeOutdatedToastTitle: "A versão na Chrome Web Store está desatualizada?",
     paymentProcessing: "Pagamento recebido. Estamos confirmando seu acesso.",
     paymentCanceled: "Checkout cancelado. Nenhuma liberação foi feita.",
     checkoutFailed: "Não foi possível concluir esta etapa. Revise os dados e tente novamente.",
@@ -1260,6 +1264,7 @@ const es: Dictionary = {
     termsRequired: "Acepta la Política de Privacidad para crear tu cuenta.",
     closeModal: "Cerrar",
     configUnavailable: "El acceso no está disponible temporalmente. Inténtalo de nuevo en unos instantes.",
+    rateLimited: "Demasiados intentos en poco tiempo. Espera unos minutos y vuelve a intentarlo.",
     pricingUnavailable: "No fue posible cargar los precios oficiales ahora.",
     retryPricing: "Volver a cargar",
     loadingPrices: "Cargando precios oficiales…",
@@ -1276,6 +1281,7 @@ const es: Dictionary = {
     storeReviewPendingNotice: "Próximamente en la Chrome Web Store: en revisión de Google.",
     storeStatusLoading: "Consultando la versión disponible en Chrome Web Store…",
     storeStatusUnavailable: "No fue posible confirmar ahora la versión disponible en Chrome Web Store.",
+    storeOutdatedToastTitle: "¿La versión en la Chrome Web Store está desactualizada?",
     paymentProcessing: "Pago recibido. Estamos confirmando tu acceso.",
     paymentCanceled: "Checkout cancelado. No se liberó ningún acceso.",
     checkoutFailed: "No fue posible completar esta etapa. Revisa los datos e inténtalo de nuevo.",
@@ -1843,6 +1849,7 @@ const en: Dictionary = {
     termsRequired: "Accept the Privacy Policy to create your account.",
     closeModal: "Close",
     configUnavailable: "Access is temporarily unavailable. Try again in a moment.",
+    rateLimited: "Too many attempts in a short time. Wait a few minutes and try again.",
     pricingUnavailable: "Official prices could not be loaded right now.",
     retryPricing: "Try loading again",
     loadingPrices: "Loading official prices…",
@@ -1859,6 +1866,7 @@ const en: Dictionary = {
     storeReviewPendingNotice: "Coming soon to the Chrome Web Store: pending Google review.",
     storeStatusLoading: "Checking the version available in the Chrome Web Store…",
     storeStatusUnavailable: "The version available in the Chrome Web Store could not be confirmed right now.",
+    storeOutdatedToastTitle: "Is the Chrome Web Store version outdated?",
     paymentProcessing: "Payment received. We are confirming your access.",
     paymentCanceled: "Checkout canceled. No access was granted.",
     checkoutFailed: "This step could not be completed. Review the details and try again.",

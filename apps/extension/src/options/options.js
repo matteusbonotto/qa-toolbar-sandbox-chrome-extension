@@ -2926,10 +2926,10 @@ async function showPendingReleaseNotes() {
   const note = stored[STORAGE_KEYS.uiState]?.pendingReleaseNote;
   if (!note) return;
   const texts = currentLocale.startsWith("en")
-    ? { title: `Updated to version ${note.version}`, intro: "Your previous data and settings were preserved.", done: "Got it", items: ["Names are consistent across Tools, Settings, Workspace, and the Landing Page", "Macros opens a submenu with saved flows", "Field Validator shows rules, outcomes, and safe local history"] }
+    ? { title: `Updated to version ${note.version}`, intro: "Your previous data and settings were preserved.", done: "Got it", items: ["Active accounts now show their plan on the Landing Page", "The Install button shows the package version", "A direct download is available while the Chrome Web Store is pending"] }
     : currentLocale.startsWith("es")
-      ? { title: `Actualizado a la versión ${note.version}`, intro: "Tus datos y configuraciones se conservaron.", done: "Entendido", items: ["Nombres consistentes en Tools, Configuración, Workspace y Landing Page", "Macros abre un submenú con los flujos guardados", "El Validador de campos muestra reglas, resultado e historial local seguro"] }
-      : { title: `Atualizado para a versão ${note.version}`, intro: "Seus dados e configurações anteriores foram preservados.", done: "Entendi", items: ["Nomes consistentes em Tools, Configurações, Workspace e Landing Page", "Macros abre um submenu com os fluxos salvos", "O Validador de campos mostra regras, resultado e histórico local seguro"] };
+      ? { title: `Actualizado a la versión ${note.version}`, intro: "Tus datos y configuraciones se conservaron.", done: "Entendido", items: ["La cuenta activa ahora muestra el plan en la Landing Page", "El botón Instalar muestra la versión del paquete", "Cuando Chrome Web Store está pendiente, hay una descarga directa"] }
+      : { title: `Atualizado para a versão ${note.version}`, intro: "Seus dados e configurações anteriores foram preservados.", done: "Entendi", items: ["A conta ativa agora mostra o plano na Landing Page", "O botão Instalar mostra a versão do pacote", "Quando a Chrome Web Store estiver pendente, há download direto"] };
   const dialog = document.createElement("dialog");
   dialog.className = "composerDialog";
   dialog.innerHTML = `<div class="dialogHead"><h2>${escapeHtml(texts.title)}</h2></div><div class="dialogBody"><p>${escapeHtml(texts.intro)}</p><ul>${texts.items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div><div class="dialogActions"><button class="primary" type="button">${escapeHtml(texts.done)}</button></div>`;

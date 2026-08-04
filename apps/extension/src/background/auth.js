@@ -19,7 +19,7 @@ function testDemoAccess(session) {
     authenticated: true, active: true,
     plan: { key: "release-manager", name: "Release Manager - DEMO TESTE" },
     source: "test-demo", expiresAt: new Date(Date.now() + 24 * 60 * 60_000).toISOString(), billing: null,
-    features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true },
+    features: { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true, "clearSiteData.enabled": true, "jsonStudio.enabled": true, "breakpointViewer.enabled": true, "recording.mp4": true, "recording.gif": true },
     user: { id: session.user.id, email: session.user.email }, checkedAt: new Date().toISOString(), cachedAt: Date.now(), reason: null,
   };
 }

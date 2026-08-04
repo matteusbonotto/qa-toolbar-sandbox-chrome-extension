@@ -97,7 +97,6 @@ export function PricingSection() {
   const [statusError, setStatusError] = useState(false);
   const [access, setAccess] = useState<AccessStatus | null>(null);
   const [storeListingStatus, setStoreListingStatus] = useState<{ chrome_web_store_version: string | null; status: string } | null>(null);
-  const [storeLookupState, setStoreLookupState] = useState<"loading" | "ready" | "error">("loading");
   const checkoutReturn = new URLSearchParams(window.location.search).get("checkout");
 
   useEffect(() => {
@@ -108,10 +107,8 @@ export function PricingSection() {
       .eq("id", true)
       .maybeSingle()
       .then(({ data, error }) => {
-        if (error || !data) { setStoreLookupState("error"); return; }
-        setStoreListingStatus(data);
-        setStoreLookupState("ready");
-      }, () => setStoreLookupState("error"));
+        if (!error && data) setStoreListingStatus(data);
+      });
   }, []);
   // The Store lags the package when the founder hasn't marked it "live" yet, or when its recorded
   // version is numerically behind what's actually shipping - a plain !== would also flag a store
@@ -279,6 +276,7 @@ export function PricingSection() {
     if (code === "authentication_required" || code === "invalid_session") return t.pricing.authRequired;
     if (code === "backend_not_configured") return t.pricing.configUnavailable;
     if (code === "subscription_already_exists") return t.pricing.alreadySubscribed;
+    if (code === "rate_limit_exceeded") return t.pricing.rateLimited;
     return t.pricing.checkoutFailed;
   }
 
@@ -485,10 +483,6 @@ export function PricingSection() {
     finally { setPricingLoading(false); }
   }
 
-  const accessExpiry = access?.expiresAt
-    ? new Date(access.expiresAt).toLocaleDateString(locale === "en" ? "en-US" : locale === "es" ? "es-ES" : "pt-BR")
-    : null;
-
   // Points the visitor at the floating install button right after they actually get access (free
   // plan claimed, or a paid checkout completing) instead of before - a pulse triggered on mount
   // for someone who was already a customer days ago would just be visual noise.
@@ -504,6 +498,10 @@ export function PricingSection() {
     }
     wasAccessActiveRef.current = isActiveNow;
   }, [access?.active]);
+
+  // Reappears every time the install button is clicked (not just once) so it stays a reliable
+  // fallback each visit, not something a visitor has to remember they already dismissed once.
+  const [showOutdatedToast, setShowOutdatedToast] = useState(false);
 
   return (
     <section className="qts-section" id="planos">
@@ -644,43 +642,42 @@ export function PricingSection() {
           document.body,
         )}
 
-        {access?.active ? (
-          <p className="qts-access-line">
-            <Icon name="shieldCheck" />
-            <span><strong>{t.pricing.accessActive}: {access.plan?.name}</strong> · {accessExpiry ? `${t.pricing.accessExpires} ${accessExpiry}` : t.pricing.accessPermanent}</span>
-          </p>
-        ) : null}
-        {access?.active ? (
-          <p className="qts-version-line">
-            {t.pricing.packageVersionLine.replace("{version}", __EXTENSION_PACKAGE_VERSION__)}
-            {storeLookupState === "loading" ? <span> · {t.pricing.storeStatusLoading}</span> : null}
-            {storeLookupState === "error" ? <span className="qts-version-pending"> · {t.pricing.storeStatusUnavailable}</span> : null}
-            {storeLookupState === "ready" && !storeIsBehind && storeListingStatus?.chrome_web_store_version ? (
-              <span> · {t.pricing.storeLiveVersionLine.replace("{version}", storeListingStatus.chrome_web_store_version)}</span>
-            ) : null}
-            {storeLookupState === "ready" && storeIsBehind ? <span className="qts-version-pending"> · {t.pricing.storeReviewPendingNotice}</span> : null}
-          </p>
-        ) : null}
-        {access?.active && storeIsBehind ? (
-          <p className="qts-manual-install-hint">
-            {t.pricing.downloadExtensionHint}{" "}
-            <a href={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-extension.zip`} download className="qts-auth-link">
-              {t.pricing.downloadExtensionZip}
-            </a>
-          </p>
-        ) : null}
         {access?.active && access.installUrl ? (
           createPortal(
-            <a
-              className={`qts-install-fab${justUnlockedAccess ? " qts-install-fab-tour" : ""}`}
-              href={access.installUrl}
-              target="_blank"
-              rel="noreferrer"
-              onClick={() => setJustUnlockedAccess(false)}
-            >
-              <Icon name="browserChrome" />
-              {t.pricing.installFabLabel}
-            </a>,
+            <div className="qts-install-fab-stack">
+              {showOutdatedToast ? (
+                <div className="qts-outdated-toast" role="status">
+                  <button type="button" className="qts-outdated-toast-close" aria-label={t.pricing.closeModal} onClick={() => setShowOutdatedToast(false)}>
+                    <Icon name="xLg" />
+                  </button>
+                  <strong>{t.pricing.storeOutdatedToastTitle}</strong>
+                  <p>{t.pricing.downloadExtensionHint}</p>
+                  <a
+                    className="qts-btn qts-btn-primary"
+                    href={`${import.meta.env.BASE_URL}qa-toolbar-sandbox-extension.zip`}
+                    download
+                  >
+                    <Icon name="download" /> {t.pricing.downloadExtensionZip}
+                  </a>
+                </div>
+              ) : null}
+              <a
+                className={`qts-install-fab${justUnlockedAccess ? " qts-install-fab-tour" : ""}`}
+                href={access.installUrl}
+                target="_blank"
+                rel="noreferrer"
+                onClick={() => {
+                  setJustUnlockedAccess(false);
+                  if (storeIsBehind) setShowOutdatedToast(true);
+                }}
+              >
+                <Icon name="browserChrome" />
+                <span className="qts-install-fab-text">
+                  <strong>{t.pricing.installFabLabel}</strong>
+                  <small>v{__EXTENSION_PACKAGE_VERSION__}</small>
+                </span>
+              </a>
+            </div>,
             document.body,
           )
         ) : null}
