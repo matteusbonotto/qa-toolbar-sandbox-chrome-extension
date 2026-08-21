@@ -3604,6 +3604,23 @@ function drawerStyles() {
     .qts-net-item { padding: 8px 10px; margin-bottom: 6px; border: 1px solid var(--qts-panel-border); border-radius: 8px; background: var(--qts-panel-2); cursor: pointer; }
     .qts-net-item b { color: var(--qts-panel-accent); }
     .qts-net-item small { display: block; color: var(--qts-panel-muted); word-break: break-all; }
+    /* Semantic HTTP status chip (icon + color) shared by Error Monitor, Inspectors and the
+       notification bell - 2xx/3xx read as "ok", 4xx as a warning, 5xx as critical, and a
+       missing/zero status (request never completed) reads as neutral-unknown rather than success.
+       Layout only here - the color itself is set inline per statusChip() (see its own comment for
+       why: this file's later "semantic theme bridge" rule always repaints .qts-net-item b). */
+    .qts-status-chip { display: inline-flex; align-items: center; gap: 4px; font-weight: 800; white-space: nowrap; }
+    /* "×N" fold/unfold control for a group of identical (method+status+URL) captures. */
+    .qts-group-toggle { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; height: 24px; padding: 0 9px; border: 1px solid var(--qts-panel-border); border-radius: 999px; background: var(--qts-panel); color: var(--qts-panel-text); font-size: 11px; font-weight: 800; cursor: pointer; }
+    .qts-group-toggle:hover { border-color: var(--qts-panel-accent, #ffd700); }
+    .qts-net-group-detail { display: grid; gap: 5px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--qts-panel-border); }
+    .qts-net-group-detail .qts-net-item { margin-bottom: 0; }
+    /* Original technical message/exception text, kept as a secondary, collapsed-by-default detail
+       under the plain-QA sentence - never dropped, just not the first thing read. */
+    .qts-net-tech-detail { margin-top: 4px; }
+    .qts-net-tech-detail > summary { cursor: pointer; color: var(--qts-panel-muted); font-size: 10px; list-style: none; }
+    .qts-net-tech-detail > summary::-webkit-details-marker { display: none; }
+    .qts-net-tech-detail small { display: block; margin-top: 3px; color: var(--qts-panel-text); word-break: break-word; }
     .qts-json-tree { font: 11px/1.5 ui-monospace, Consolas, monospace; white-space: pre-wrap; word-break: break-word; }
     .qts-json-node { display: inline; }
     .qts-json-node > summary { display: inline-block; cursor: pointer; list-style: revert; }
@@ -3643,6 +3660,7 @@ function drawerStyles() {
     .qts-check-grid { display:grid; gap:8px; margin-top:8px; }
     .qts-check-grid label { display:flex; align-items:center; gap:9px; min-height:34px; }
     .qts-combo-clear { align-self: flex-end; background: none; border: 0; color: #ff8a8a; font-size: 10px; cursor: pointer; padding: 2px 4px; }
+    .qts-combo-empty { padding: 10px 4px; text-align: center; color: var(--qts-panel-muted); font-size: 11px; }
 
     /* Friendly (default) vs raw JSON detail view. */
     .qts-view-switch { display: inline-flex; margin-bottom: 10px; border: 1px solid #333; border-radius: 8px; overflow: hidden; }
@@ -3936,6 +3954,17 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Arquivo JSON": "Archivo JSON", "Validar página": "Validar página", "Revalidar após navegação": "Revalidar después de navegar",
   "Igual": "Coincide", "Ausente/diferente": "Ausente/diferente", "Importe um arquivo JSON válido.": "Importa un archivo JSON válido.",
   "O arquivo deve ter no máximo 2 MB.": "El archivo debe tener como máximo 2 MB.", "Nenhum texto encontrado": "No se encontró ningún texto",
+  "Limpar filtros": "Limpiar filtros", "Nenhuma opção encontrada.": "No se encontró ninguna opción.", "Detalhe técnico": "Detalle técnico",
+  "Acesso negado - sessão expirada ou sem permissão": "Acceso denegado - sesión expirada o sin permiso",
+  "Acesso proibido para este usuário/token": "Acceso prohibido para este usuario/token",
+  "Endpoint não encontrado": "Endpoint no encontrado",
+  "Tempo limite excedido - o servidor não respondeu a tempo": "Tiempo de espera agotado - el servidor no respondió a tiempo",
+  "Conflito de estado no servidor": "Conflicto de estado en el servidor",
+  "Dados enviados rejeitados pela validação do servidor": "Datos enviados rechazados por la validación del servidor",
+  "Limite de requisições excedido (rate limit)": "Límite de solicitudes excedido (rate limit)",
+  "Falha no servidor ao processar a requisição": "Fallo del servidor al procesar la solicitud",
+  "Requisição rejeitada pelo servidor": "Solicitud rechazada por el servidor",
+  "Falha ao carregar - servidor não respondeu": "Fallo al cargar - el servidor no respondió",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Limpar ferramentas ativas": "Clear active tools", "Ferramentas ativas": "Active tools", "Ferramentas ligadas": "Tools turned on", "Desativar todas": "Turn all off", "Nenhuma ferramenta ativa no momento.": "No tool is active right now.", "Marcadores na página": "Markers on the page", "Limpar todos": "Clear all", "Arraste pra reordenar a pilha visual (o primeiro da lista fica por baixo).": "Drag to reorder the visual stack (the first in the list stays at the bottom).", "Marcador": "Marker", "Nota": "Note", "Forma": "Shape", "Linha": "Line", "Posicionando marcador/forma/linha": "Placing marker/shape/line", "Corpo da resposta (JSON opcional)": "Response body (optional JSON)", "Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera.": "Leave empty to use a generic body. Filled in, the page receives exactly that JSON at the chosen status - useful for simulating the real error message the app expects.", "JSON inválido no corpo da resposta - corrija ou deixe vazio.": "Invalid JSON in the response body - fix it or leave it empty.", "Negrito": "Bold", "Itálico": "Italic", "Tachado": "Strikethrough", "Sublinhado": "Underline", "Tamanho": "Size", "Borrado": "Blurred", "Borda": "Border", "Sombra": "Shadow", "Cantos arredondados": "Rounded corners", "Prévia: como o holofote aparece ao redor do mouse": "Preview: how the spotlight looks around the mouse",
@@ -3950,6 +3979,17 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Arquivo JSON": "JSON file", "Validar página": "Validate page", "Revalidar após navegação": "Revalidate after navigation",
   "Igual": "Match", "Ausente/diferente": "Missing/different", "Importe um arquivo JSON válido.": "Import a valid JSON file.",
   "O arquivo deve ter no máximo 2 MB.": "The file must be no larger than 2 MB.", "Nenhum texto encontrado": "No text found",
+  "Limpar filtros": "Clear filters", "Nenhuma opção encontrada.": "No option found.", "Detalhe técnico": "Technical detail",
+  "Acesso negado - sessão expirada ou sem permissão": "Access denied - session expired or missing permission",
+  "Acesso proibido para este usuário/token": "Access forbidden for this user/token",
+  "Endpoint não encontrado": "Endpoint not found",
+  "Tempo limite excedido - o servidor não respondeu a tempo": "Timed out - the server did not respond in time",
+  "Conflito de estado no servidor": "State conflict on the server",
+  "Dados enviados rejeitados pela validação do servidor": "Submitted data rejected by server-side validation",
+  "Limite de requisições excedido (rate limit)": "Rate limit exceeded",
+  "Falha no servidor ao processar a requisição": "Server failed to process the request",
+  "Requisição rejeitada pelo servidor": "Request rejected by the server",
+  "Falha ao carregar - servidor não respondeu": "Failed to load - the server did not respond",
 });
 
 function translateQaSurfaceText(value) {
@@ -3971,8 +4011,10 @@ function translateQaSurfaceText(value) {
   if (state.t.locale === "es") translated = translated.replace(/^Não foi possível gerar:/, "No se pudo generar:").replace(/^(\d+)\/(\d+) textos encontrados na página atual\.$/, "$1/$2 textos encontrados en la página actual.").replace(/^(\d+) textos carregados\.$/, "$1 textos cargados.").replace(/^JSON inválido:/, "JSON no válido:");
   if (state.t.locale === "en") translated = translated.replace(/^(\d+) possível\(is\) quebra\(s\) encontrada\(s\)$/, "$1 possible issue(s) found").replace(/^(\d+) possível\(is\) quebra\(s\)$/, "$1 possible issue(s)").replace(/^Foram verificadas: /, "Checked: ");
   if (state.t.locale === "es") translated = translated.replace(/^(\d+) possível\(is\) quebra\(s\) encontrada\(s\)$/, "$1 posible(s) problema(s) encontrado(s)").replace(/^(\d+) possível\(is\) quebra\(s\)$/, "$1 posible(s) problema(s)").replace(/^Foram verificadas: /, "Se verificaron: ");
-  if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors - confira as rotas\/endpoints cadastrados\.$/, "$1 captured request(s) matched none of the configured Inspectors patterns - check the routes/endpoints you registered.");
-  if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisição\(ões\) capturada\(s\) não corresponderam a nenhum padrão configurado nos Inspectors - confira as rotas\/endpoints cadastrados\.$/, "$1 solicitud(es) capturada(s) no coincidieron con ningún patrón configurado en Inspectors - revisa las rutas/endpoints registrados.");
+  // Group-toggle tooltip (renderGroupToggleChip, Error Monitor + Inspectors "Todos"): count is
+  // baked into the PT sentence before translation, same convention as the count patterns above.
+  if (state.t.locale === "en") translated = translated.replace(/^(\d+) requisições idênticas agrupadas - clique para ver cada uma\.$/, "$1 identical requests grouped - click to see each one.");
+  if (state.t.locale === "es") translated = translated.replace(/^(\d+) requisições idênticas agrupadas - clique para ver cada uma\.$/, "$1 solicitudes idénticas agrupadas - haz clic para ver cada una.");
   return `${leading}${translated}${trailing}`;
 }
 
@@ -4018,6 +4060,7 @@ function renderSmartFilter({ key, label, options }, selected, onChange) {
           </label>
         `).join("")}
       </div>
+      <div class="qts-combo-empty" data-combo-empty hidden>${escapeHtml(translateQaSurfaceText("Nenhuma opção encontrada."))}</div>
     </div>
   </details>`;
 }
@@ -4037,14 +4080,43 @@ function wireSmartFilter(container, onChange) {
     }));
     widget.querySelector("[data-combo-search]")?.addEventListener("input", (event) => {
       const term = event.target.value.trim().toLowerCase();
+      let anyVisible = false;
       widget.querySelectorAll("[data-combo-option]").forEach((option) => {
-        option.style.display = !term || option.dataset.search.includes(term) ? "" : "none";
+        const visible = !term || option.dataset.search.includes(term);
+        option.style.display = visible ? "" : "none";
+        if (visible) anyVisible = true;
       });
+      const emptyState = widget.querySelector("[data-combo-empty]");
+      if (emptyState) emptyState.hidden = anyVisible;
     });
     widget.querySelector("[data-combo-clear]")?.addEventListener("click", () => {
       widget.querySelectorAll("input[type=checkbox]").forEach((checkbox) => { checkbox.checked = false; onChange(key, checkbox.value, false); });
     });
   });
+}
+
+// ---------------------------------------------------------------------------
+// Shared "no results" empty state for every filterable drawer (Inspectors, Error Monitor, Test
+// Accounts, Payment Methods, Resources): the translated message plus, only when a filter is
+// actually narrowing something down, a one-click way out - the founder's own empty-state rule is
+// that a blank list has to say what it is, why it's empty and what to do next, not just sit there.
+// ---------------------------------------------------------------------------
+
+function hasActiveListFilter(filterState) {
+  if (filterState.query?.trim()) return true;
+  return Object.values(filterState).some((value) => value instanceof Set && value.size > 0);
+}
+
+function clearListFilterState(filterState) {
+  filterState.query = "";
+  for (const value of Object.values(filterState)) { if (value instanceof Set) value.clear(); }
+}
+
+function renderFilterEmptyState(message, showClearAction) {
+  return `<div class="qts-empty">
+    <div>${escapeHtml(message)}</div>
+    ${showClearAction ? `<button type="button" class="action" data-clear-filters style="margin-top:12px">${escapeHtml(translateQaSurfaceText("Limpar filtros"))}</button>` : ""}
+  </div>`;
 }
 
 // `onBack`: an optional callback that reopens whatever list/parent view led here (e.g. an
@@ -4735,6 +4807,8 @@ function handleNetworkCaptured(entry) {
 // inspectorsEffectiveScope() (mine if the founder already has configured inspectors, since that
 // preserves the pre-existing filtered experience; all otherwise, since there'd be nothing to see).
 const inspectorsFilterState = { query: "", method: new Set(), status: new Set(), source: new Set(), inspector: new Set(), collapsed: false, scope: "auto" };
+// Expanded groups in the "Todos" list - same idea as errorMonitorExpandedGroups.
+const inspectorsExpandedGroups = new Set();
 
 function inspectorsEffectiveScope() {
   if (inspectorsFilterState.scope !== "auto") return inspectorsFilterState.scope;
@@ -4767,6 +4841,47 @@ async function markEntryAsInspector(entry) {
 function statusBucket(status) {
   if (!status) return "-";
   return `${String(status)[0]}xx`;
+}
+
+// Shared by every surface that shows an HTTP status (Error Monitor, Network Inspector
+// "Todos"/"Meus Inspectors", the notification bell): a bare number forced a QA tester under
+// pressure to remember status-code ranges themselves - color + icon reads instantly, matching the
+// same "2xx/3xx neutro, 4xx atenção, 5xx crítico" rule the founder used for the rest of the app.
+// Status 0/undefined (no real response - the request never completed) gets its own neutral
+// "unknown" treatment instead of silently looking like a success.
+function statusChip(status) {
+  const code = Number(status) || 0;
+  const text = escapeHtml(status ? String(status) : "-");
+  // Color is inline, not a CSS class, on purpose: the drawer's own "semantic theme bridge" rule
+  // (search drawerStyles() for that phrase) deliberately repaints every `.qts-net-item b` to the
+  // theme accent color and comes last so it wins any same-specificity class - inline style is the
+  // one thing that still beats it, same trick renderJsonDiff()'s added/removed/changed labels use.
+  if (!code) return `<b class="qts-status-chip" style="color:#888">${ICON("question")} ${text}</b>`;
+  if (code >= 500) return `<b class="qts-status-chip" style="color:#ff6767">${ICON("fail")} ${text}</b>`;
+  if (code >= 400) return `<b class="qts-status-chip" style="color:#ffb020">${ICON("warning")} ${text}</b>`;
+  return `<b class="qts-status-chip" style="color:#42d5c2">${ICON("pass")} ${text}</b>`;
+}
+
+// Founder feedback: a broken poll or retry loop turned into a wall of identical-looking rows, one
+// per occurrence, unreadable past a handful. Groups by the same method+status+URL signature
+// (order-preserving, most recent group position first) so the list can show one row per distinct
+// request with a count instead - every individual occurrence stays reachable via the group's
+// expand toggle, never dropped.
+function groupNetworkEntriesBySignature(entries) {
+  const order = [];
+  const groups = new Map();
+  for (const entry of entries) {
+    const key = `${entry.method} ${entry.status} ${entry.url}`;
+    if (!groups.has(key)) { groups.set(key, []); order.push(key); }
+    groups.get(key).push(entry);
+  }
+  return order.map((key) => groups.get(key));
+}
+
+// Small "×N" chip used by both Error Monitor and Inspectors to reveal/hide a group's individual
+// occurrences - kept generic (no product-specific wording) since it's just a fold/unfold control.
+function renderGroupToggleChip(groupId, count, expanded) {
+  return `<button type="button" class="qts-group-toggle" data-group-toggle="${escapeHtml(groupId)}" title="${escapeHtml(translateQaSurfaceText(`${count} requisições idênticas agrupadas - clique para ver cada uma.`))}">×${count} ${ICON(expanded ? "chevronUp" : "chevronDown")}</button>`;
 }
 
 function buildInspectorFilterFields() {
@@ -4821,12 +4936,12 @@ function renderInspectorDashboard(listBody) {
         <div style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(inspector.label || inspector.id)}</b><span class="qts-badge">${history.length}</span></div>
         <small>${escapeHtml((inspector.patterns || []).join(", "))}</small>
         ${entry
-          ? `<small style="display:block;margin-top:3px;color:#42d5c2">${ICON("pass")} ${escapeHtml(entry.method)} ${entry.status || "-"} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
+          ? `<small style="display:block;margin-top:3px">${statusChip(entry.status)} ${escapeHtml(entry.method)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
              <small style="display:block;margin-top:2px;word-break:break-all">${escapeHtml(entry.url)}</small>
              <div style="display:grid;gap:5px;margin-top:8px">${history.slice(0, 10).map((item) => {
                const captured = new Date(item.capturedAt);
                return `<div style="padding:7px 9px;border:1px solid var(--qts-ui-border);border-radius:8px">
-                 <small style="display:flex;justify-content:space-between;gap:8px"><b>${escapeHtml(`${item.method} ${item.status || "-"}`)}</b><span>${escapeHtml(captured.toLocaleTimeString())} ${escapeHtml(captured.toLocaleDateString())}</span></small>
+                 <small style="display:flex;justify-content:space-between;gap:8px"><span>${statusChip(item.status)} ${escapeHtml(item.method)}</span><span>${escapeHtml(captured.toLocaleTimeString())} ${escapeHtml(captured.toLocaleDateString())}</span></small>
                  <small style="display:block;margin-top:2px;word-break:break-all">${escapeHtml(item.url)}</small>
                </div>`;
              }).join("")}</div>`
@@ -4854,6 +4969,34 @@ function renderInspectorDashboard(listBody) {
   }));
 }
 
+// One row per distinct (method+status+url) group in the "Todos" list - same grouping this file
+// also applies to Error Monitor (see groupNetworkEntriesBySignature), so a poll or a retry loop
+// hammering the same endpoint doesn't turn into a wall of identical rows here either.
+function renderInspectorEntryRow(group) {
+  const entry = group[0];
+  const isGroup = group.length > 1;
+  const expanded = isGroup && inspectorsExpandedGroups.has(entry.id);
+  return `
+    <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:flex-start;gap:8px;justify-content:space-between">
+      <div style="min-width:0;flex:1">
+        <b>${escapeHtml(urlPathFor(entry.url))}</b>
+        <small style="display:block;margin-top:2px">${statusChip(entry.status)} ${escapeHtml(entry.method)}</small>
+        <small style="display:block;margin-top:2px;word-break:break-all;color:#888">${escapeHtml(entry.url)}</small>
+        ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">${ICON("star")} ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
+        ${isGroup && expanded ? `<div class="qts-net-group-detail">${group.map((occurrence) => `
+          <div class="qts-net-item" data-occurrence-id="${escapeHtml(occurrence.id)}" style="cursor:pointer">
+            <small>${new Date(occurrence.capturedAt).toLocaleTimeString()} - ${new Date(occurrence.capturedAt).toLocaleDateString()}</small>
+          </div>
+        `).join("")}</div>` : ""}
+      </div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px;flex:0 0 auto">
+        ${isGroup ? renderGroupToggleChip(entry.id, group.length, expanded) : ""}
+        <button type="button" class="qts-icon-btn" data-mark-inspector="${escapeHtml(entry.id)}" title="Marcar como meu inspector" style="width:26px;height:26px">${ICON("pin")}</button>
+      </div>
+    </div>
+  `;
+}
+
 function renderInspectorsList() {
   const t = state.t;
   const body = state.shadowRoot.getElementById("drawerBody");
@@ -4861,6 +5004,7 @@ function renderInspectorsList() {
   const scope = inspectorsEffectiveScope();
   const fields = scope === "mine" ? [] : buildInspectorFilterFields();
   const filtered = scope === "mine" ? [] : state.networkHistory.filter(matchesInspectorFilters);
+  const groups = scope === "mine" ? [] : groupNetworkEntriesBySignature(filtered);
   const focus = captureListFocus(body);
 
   body.innerHTML = `
@@ -4892,29 +5036,23 @@ function renderInspectorsList() {
     await chrome.storage.local.remove(INSPECTOR_HISTORY_KEY);
     renderInspectorsList();
   });
+  // Wired once here regardless of scope - both the "mine" early-return below and the "all" path
+  // that continues past it share the exact same tab buttons rendered above.
+  body.querySelectorAll("[data-inspector-scope]").forEach((button) => button.addEventListener("click", () => {
+    inspectorsFilterState.scope = button.dataset.inspectorScope;
+    renderInspectorsList();
+  }));
   if (scope === "mine") {
     renderInspectorDashboard(listBody);
-    body.querySelectorAll("[data-inspector-scope]").forEach((button) => button.addEventListener("click", () => {
-      inspectorsFilterState.scope = button.dataset.inspectorScope;
-      renderInspectorsList();
-    }));
     restoreListFocus(body, focus);
     return;
   }
   const emptyMessage = !state.networkHistory.length ? t.noResponsesYet : t.noFilterResults;
-  listBody.innerHTML = filtered.length
-    ? filtered.map((entry) => `
-        <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="display:flex;align-items:center;gap:8px;justify-content:space-between">
-          <div style="min-width:0;flex:1">
-            <b>${escapeHtml(urlPathFor(entry.url))}</b>
-            <small style="display:block;margin-top:2px;color:#42d5c2">${escapeHtml(entry.method)} ${entry.status || "-"}</small>
-            <small style="display:block;margin-top:2px;word-break:break-all;color:#888">${escapeHtml(entry.url)}</small>
-            ${entry.matchedInspectorIds?.length ? `<small style="color:#42d5c2">${ICON("star")} ${entry.matchedInspectorIds.length} inspector(es)</small>` : ""}
-          </div>
-          <button type="button" class="qts-icon-btn" data-mark-inspector="${escapeHtml(entry.id)}" title="Marcar como meu inspector" style="width:26px;height:26px;flex:0 0 auto">${ICON("pin")}</button>
-        </div>
-      `).join("")
-    : `<div class="qts-empty">${escapeHtml(emptyMessage)}</div>`;
+  listBody.innerHTML = groups.length
+    ? groups.map(renderInspectorEntryRow).join("")
+    : (state.networkHistory.length
+      ? renderFilterEmptyState(emptyMessage, hasActiveListFilter(inspectorsFilterState))
+      : `<div class="qts-empty">${escapeHtml(emptyMessage)}</div>`);
 
   listBody.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", (event) => {
     if (event.target.closest("[data-mark-inspector]")) return;
@@ -4928,11 +5066,22 @@ function renderInspectorsList() {
     const entry = state.networkHistory.find((item) => item.id === button.dataset.markInspector);
     if (entry) void markEntryAsInspector(entry);
   }));
-
-  body.querySelectorAll("[data-inspector-scope]").forEach((button) => button.addEventListener("click", () => {
-    inspectorsFilterState.scope = button.dataset.inspectorScope;
+  listBody.querySelectorAll("[data-occurrence-id]").forEach((row) => row.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const entry = state.networkHistory.find((item) => item.id === row.dataset.occurrenceId);
+    if (!entry) return;
+    const matchedInspector = configuredInspectors().find((item) => (entry.matchedInspectorIds || []).includes(item.id));
+    const title = matchedInspector ? `${matchedInspector.label || matchedInspector.id} ${entry.method}${entry.status}` : `${entry.method} ${entry.status}`;
+    openDrawer({ title, bodyHtml: "", view: "inspectors", onBack: openInspectorsDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url, entry.requestHeaders, entry.requestBody) });
+  }));
+  listBody.querySelectorAll("[data-group-toggle]").forEach((chip) => chip.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const id = chip.dataset.groupToggle;
+    if (inspectorsExpandedGroups.has(id)) inspectorsExpandedGroups.delete(id); else inspectorsExpandedGroups.add(id);
     renderInspectorsList();
   }));
+  body.querySelector("[data-clear-filters]")?.addEventListener("click", () => { clearListFilterState(inspectorsFilterState); renderInspectorsList(); });
+
   body.querySelector("#inspectorsSearch").addEventListener("input", (event) => updateListSearch(event, inspectorsFilterState, renderInspectorsList));
   body.querySelector("#inspectorsCollapseToggle").addEventListener("click", () => {
     inspectorsFilterState.collapsed = !inspectorsFilterState.collapsed;
@@ -5023,7 +5172,7 @@ function renderNotificationBellPanel() {
     ${releaseRow}
     ${entries.length ? entries.map((entry) => `
       <button type="button" class="qts-bell-row" data-open-notification>
-        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "-"}</b> ${escapeHtml(entry.method)}
+        ${statusChip(entry.status)} ${escapeHtml(entry.method)}
         <span>${escapeHtml(entry.url)}</span>
         <small>${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
       </button>
@@ -5047,6 +5196,9 @@ function toggleNotificationBellPanel(force) {
 }
 
 const errorMonitorFilterState = { query: "", status: new Set(), source: new Set(), collapsed: false };
+// Which grouped rows are currently expanded to show every individual occurrence - keyed by the
+// group's representative (most recent) entry id, same pattern as revealedTestAccountIds.
+const errorMonitorExpandedGroups = new Set();
 
 function buildErrorMonitorFilterFields() {
   const statuses = [...new Set(state.httpErrors.map((entry) => statusBucket(entry.status)))].sort();
@@ -5065,14 +5217,61 @@ function matchesErrorMonitorFilters(entry) {
   return true;
 }
 
-// Same message-extraction fallback chain the tampermonkey.js reference used - a plain status
-// code told a QA tester almost nothing; the actual message (when the API returns one) is what
-// makes a captured error useful at a glance, before ever opening the raw JSON.
+// Same message-extraction fallback chain the tampermonkey.js reference used - the actual API
+// message (when there is one) is the original technical detail. It's kept available, but
+// errorMonitorFriendlyReason() below is what a QA reads first now.
 function errorMonitorMessageFor(entry) {
   const payload = entry.payload;
   if (!payload || typeof payload !== "object") return null;
   const candidate = payload.message || payload.error?.message || payload.error || payload.title;
   return typeof candidate === "string" && candidate.trim() ? candidate.trim().slice(0, 300) : null;
+}
+
+// Founder feedback ("pense e faça um visual amigável muito mais intuitivo relacionado a erros
+// http"): a bare status code and a raw exception/response string made a QA under pressure stop
+// and parse jargon before they could tell what actually broke. This turns the status into the
+// same plain-language sentence a QA would write in a bug report themselves - the technical
+// message from errorMonitorMessageFor (when present) still renders right below as a secondary,
+// expandable detail (see renderErrorMonitorRow), never replaced or hidden.
+function errorMonitorFriendlyReason(status) {
+  const code = Number(status) || 0;
+  if (code === 401) return translateQaSurfaceText("Acesso negado - sessão expirada ou sem permissão");
+  if (code === 403) return translateQaSurfaceText("Acesso proibido para este usuário/token");
+  if (code === 404) return translateQaSurfaceText("Endpoint não encontrado");
+  if (code === 408 || code === 504) return translateQaSurfaceText("Tempo limite excedido - o servidor não respondeu a tempo");
+  if (code === 409) return translateQaSurfaceText("Conflito de estado no servidor");
+  if (code === 422) return translateQaSurfaceText("Dados enviados rejeitados pela validação do servidor");
+  if (code === 429) return translateQaSurfaceText("Limite de requisições excedido (rate limit)");
+  if (code >= 500) return translateQaSurfaceText("Falha no servidor ao processar a requisição");
+  if (code >= 400) return translateQaSurfaceText("Requisição rejeitada pelo servidor");
+  return translateQaSurfaceText("Falha ao carregar - servidor não respondeu");
+}
+
+// One row per distinct (method+status+url) group - group.length === 1 renders exactly like a
+// plain entry always did; a real repeat additionally gets the ×N toggle and, once expanded, every
+// individual occurrence as its own clickable sub-row (own id, own click-through to its JSON).
+function renderErrorMonitorRow(group) {
+  const entry = group[0];
+  const isGroup = group.length > 1;
+  const expanded = isGroup && errorMonitorExpandedGroups.has(entry.id);
+  const reason = errorMonitorFriendlyReason(entry.status);
+  const technical = errorMonitorMessageFor(entry);
+  return `
+    <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="${entry.payload ? "" : "cursor:default"}">
+      ${statusChip(entry.status)} ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
+      <small style="display:block;margin-top:3px;color:#ddd">${escapeHtml(reason)}</small>
+      ${technical && technical !== reason ? `<details class="qts-net-tech-detail"><summary>${escapeHtml(translateQaSurfaceText("Detalhe técnico"))}</summary><small>${escapeHtml(technical)}</small></details>` : ""}
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:2px">
+        <small style="color:#666">${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
+        ${isGroup ? renderGroupToggleChip(entry.id, group.length, expanded) : ""}
+      </div>
+      ${isGroup && expanded ? `<div class="qts-net-group-detail">${group.map((occurrence) => `
+        <div class="qts-net-item" data-occurrence-id="${escapeHtml(occurrence.id)}" style="cursor:${occurrence.payload ? "pointer" : "default"}">
+          <small>${new Date(occurrence.capturedAt).toLocaleTimeString()} - ${new Date(occurrence.capturedAt).toLocaleDateString()}</small>
+        </div>
+      `).join("")}</div>` : ""}
+    </div>
+  `;
 }
 
 function renderErrorMonitorList() {
@@ -5081,6 +5280,7 @@ function renderErrorMonitorList() {
   if (!body) return;
   const fields = buildErrorMonitorFilterFields();
   const filtered = state.httpErrors.filter(matchesErrorMonitorFilters);
+  const groups = groupNetworkEntriesBySignature(filtered);
   const focus = captureListFocus(body);
 
   body.innerHTML = `
@@ -5092,22 +5292,28 @@ function renderErrorMonitorList() {
     <div class="qts-filter-bar ${errorMonitorFilterState.collapsed ? "isCollapsed" : ""}" id="errorMonitorFilterBar">
       ${fields.map((field) => renderSmartFilter(field, errorMonitorFilterState[field.key], null)).join("")}
     </div>
-    <div>${filtered.length ? filtered.map((entry) => {
-      const message = errorMonitorMessageFor(entry);
-      return `
-      <div class="qts-net-item" data-id="${escapeHtml(entry.id)}" style="${entry.payload ? "" : "cursor:default"}">
-        <b style="color:${entry.status >= 500 ? "#ff6767" : "#ffb020"}">${entry.status || "-"}</b> ${escapeHtml(entry.method)} <small>${escapeHtml(entry.url)}</small>
-        ${message ? `<small style="display:block;margin-top:3px;color:#ddd">${escapeHtml(message)}</small>` : ""}
-        <small style="display:block;margin-top:2px;color:#666">${escapeHtml(entry.source)} · ${new Date(entry.capturedAt).toLocaleTimeString()}</small>
-      </div>
-    `;
-    }).join("") : `<div class="qts-empty">${state.httpErrors.length ? t.noFilterResults : t.errorMonitorEmpty}</div>`}</div>
+    <div>${groups.length ? groups.map(renderErrorMonitorRow).join("") : (state.httpErrors.length
+      ? renderFilterEmptyState(t.noFilterResults, hasActiveListFilter(errorMonitorFilterState))
+      : `<div class="qts-empty">${escapeHtml(t.errorMonitorEmpty)}</div>`)}</div>
   `;
   body.querySelectorAll("[data-id]").forEach((row) => row.addEventListener("click", () => {
     const entry = state.httpErrors.find((item) => item.id === row.dataset.id);
     if (!entry?.payload) return;
     openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", view: "errorMonitor", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url, entry.requestHeaders, entry.requestBody) });
   }));
+  body.querySelectorAll("[data-occurrence-id]").forEach((row) => row.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const entry = state.httpErrors.find((item) => item.id === row.dataset.occurrenceId);
+    if (!entry?.payload) return;
+    openDrawer({ title: `${entry.method} ${entry.status}`, bodyHtml: "", view: "errorMonitor", onBack: openErrorMonitorDrawer, onReady: (drawerBody) => renderJsonDetail(drawerBody, entry.payload, entry.method, entry.url, entry.requestHeaders, entry.requestBody) });
+  }));
+  body.querySelectorAll("[data-group-toggle]").forEach((chip) => chip.addEventListener("click", (event) => {
+    event.stopPropagation();
+    const id = chip.dataset.groupToggle;
+    if (errorMonitorExpandedGroups.has(id)) errorMonitorExpandedGroups.delete(id); else errorMonitorExpandedGroups.add(id);
+    renderErrorMonitorList();
+  }));
+  body.querySelector("[data-clear-filters]")?.addEventListener("click", () => { clearListFilterState(errorMonitorFilterState); renderErrorMonitorList(); });
   body.querySelector("#errorMonitorSearch").addEventListener("input", (event) => updateListSearch(event, errorMonitorFilterState, renderErrorMonitorList));
   body.querySelector("#errorMonitorCollapseToggle").addEventListener("click", () => { errorMonitorFilterState.collapsed = !errorMonitorFilterState.collapsed; renderErrorMonitorList(); });
   body.querySelector("#errorMonitorClear").addEventListener("click", () => clearHttpErrors());
@@ -5230,10 +5436,11 @@ function renderTestAccountsList() {
           ${account.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(account.notes)}</small>` : ""}
         </div>
       `;
-    }).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
+    }).join("") : renderFilterEmptyState(t.noFilterResults, hasActiveListFilter(testAccountsFilterState))}</div>
   `;
   wireDrawerAddButton(body, "testAccount");
 
+  body.querySelector("[data-clear-filters]")?.addEventListener("click", () => { clearListFilterState(testAccountsFilterState); renderTestAccountsList(); });
   body.querySelector("#testAccountsSearch").addEventListener("input", (event) => updateListSearch(event, testAccountsFilterState, renderTestAccountsList));
   body.querySelector("#testAccountsCollapseToggle").addEventListener("click", () => {
     testAccountsFilterState.collapsed = !testAccountsFilterState.collapsed;
@@ -5248,13 +5455,9 @@ function renderTestAccountsList() {
     if (revealedTestAccountIds.has(id)) revealedTestAccountIds.delete(id); else revealedTestAccountIds.add(id);
     renderTestAccountsList();
   }));
-  body.querySelectorAll("[data-copy-account]").forEach((button) => button.addEventListener("click", async () => {
+  body.querySelectorAll("[data-copy-account]").forEach((button) => button.addEventListener("click", () => {
     const account = accounts.find((item) => item.id === button.dataset.copyAccount);
-    if (!account?.username) return;
-    await navigator.clipboard.writeText(account.username).catch(() => {});
-    const original = button.innerHTML;
-    button.innerHTML = ICON("pass");
-    window.setTimeout(() => { button.innerHTML = original; }, 1200);
+    if (account?.username) copyToClipboardWithFeedback(button, account.username);
   }));
   body.querySelectorAll("[data-copy-account-all]").forEach((button) => button.addEventListener("click", () => {
     const account = accounts.find((item) => item.id === button.dataset.copyAccountAll);
@@ -5358,9 +5561,10 @@ function renderPaymentMethodsList() {
       </div>
       ${method.notes ? `<small style="display:block;margin-top:4px;color:#888">${escapeHtml(method.notes)}</small>` : ""}
     </div>`;
-  }).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
+  }).join("") : renderFilterEmptyState(t.noFilterResults, hasActiveListFilter(paymentMethodsFilterState))}</div>
   `;
   wireDrawerAddButton(body, "paymentMethod");
+  body.querySelector("[data-clear-filters]")?.addEventListener("click", () => { clearListFilterState(paymentMethodsFilterState); renderPaymentMethodsList(); });
   body.querySelector("#paymentMethodsSearch").addEventListener("input", (event) => updateListSearch(event, paymentMethodsFilterState, renderPaymentMethodsList));
   body.querySelector("#paymentMethodsCollapseToggle").addEventListener("click", () => { paymentMethodsFilterState.collapsed = !paymentMethodsFilterState.collapsed; renderPaymentMethodsList(); });
   wireSmartFilter(body.querySelector("#paymentMethodsFilterBar"), (key, value, isSelected) => {
@@ -5435,9 +5639,10 @@ function renderResourcesList() {
         ${resource.icon ? `<img class="qts-catalog-image" src="${escapeHtml(resource.icon)}" alt="" />` : ""}<b>${escapeHtml(resource.label || resource.safeUrl)}</b>${resource.category ? ` <span style="color:var(--qts-panel-accent, #ffd700)">${escapeHtml(resource.category)}</span>` : ""}
         <small style="display:block;margin-top:4px;color:#888">${escapeHtml(resource.safeUrl)}</small>
       </a>
-    `).join("") : `<div class="qts-empty">${escapeHtml(t.noFilterResults)}</div>`}</div>
+    `).join("") : renderFilterEmptyState(t.noFilterResults, hasActiveListFilter(resourcesFilterState))}</div>
   `;
   wireDrawerAddButton(body, "resource");
+  body.querySelector("[data-clear-filters]")?.addEventListener("click", () => { clearListFilterState(resourcesFilterState); renderResourcesList(); });
   body.querySelector("#resourcesSearch").addEventListener("input", (event) => updateListSearch(event, resourcesFilterState, renderResourcesList));
   body.querySelector("#resourcesCollapseToggle").addEventListener("click", () => { resourcesFilterState.collapsed = !resourcesFilterState.collapsed; renderResourcesList(); });
   wireSmartFilter(body.querySelector("#resourcesFilterBar"), (key, value, isSelected) => {
