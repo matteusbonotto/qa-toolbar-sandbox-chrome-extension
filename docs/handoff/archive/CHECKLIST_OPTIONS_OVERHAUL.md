@@ -1,5 +1,9 @@
 # Checklist — settings overhaul, relational model fix, LGPD deletion (2026-07-20)
 
+> **Arquivado em 2026-08-21.** A reforma de Configurações descrita aqui já foi executada e
+> verificada; foi superada por `docs/requirements/workspace-studio-redesign-2026-07.md`, que
+> descreve o redesenho ativo do Workspace Studio. Mantido aqui apenas como referência histórica.
+
 > Atualizado em tempo real conforme cada item é implementado E verificado ao vivo (Playwright,
 > não só leitura de código). Plano completo: `docs/adr` não se aplica aqui — plano de sessão
 > registrado via EnterPlanMode, este arquivo é o rastreamento público.

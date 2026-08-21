@@ -150,6 +150,25 @@ terminal depois de aplicar a migration acima (isso também cobre o deploy de `ac
 item 7). Não tenho o output final desse comando nesta conversa — confirme que ele terminou sem
 erro; se sim, os itens 2 e 7 abaixo ficam só com a parte de teste ao vivo pendente.
 
+## 10. Nova migration: remove overload órfão de review_engagement_campaign (2026-08-21)
+
+Um script novo (`npm run backend:check-schema-sync`, roda dentro de `npm test`) comparou o estado
+de RLS/grants que replayar todas as migrations produz contra `supabase/schema.sql` e achou:
+`review_engagement_campaign(uuid,boolean,text)` (a versão de 3 argumentos original, antes de
+`criteria jsonb` ser adicionado) nunca foi removida quando as versões seguintes de 4 argumentos a
+substituíram — `create or replace function` só troca uma função de assinatura idêntica, não
+remove overloads antigos. Ela e sua concessão a `authenticated`/`service_role` continuam vivas em
+produção hoje. Confirmado que nenhum código chama essa versão de 3 argumentos (o único chamador,
+`apps/admin/src/lib/api.ts`, sempre passa os 4 argumentos nomeados) — é código morto, não uma
+função em uso.
+
+- Ação externa: aplique `supabase/migrations/20260821010000_drop_orphaned_review_engagement_campaign_overload.sql`
+  (SQL Editor do Supabase ou CLI — idempotente, `drop function if exists`). Como toda escrita em
+  produção, isso exige rodar você mesmo (`npm run backend:apply-pending -- --apply` ou colar no SQL
+  Editor) — nem eu nem o script aplicamos isso sozinhos.
+- Depois de aplicar, `npx supabase migration list` deve mostrar essa migration como sincronizada
+  local/remoto, igual às outras 27.
+
 ## O que já está confirmado certo (verificado de novo em 2026-07-20, não é suposição)
 
 Rodado na versão final: `security:repo`, `security:extension`, testes unitários, `typecheck`

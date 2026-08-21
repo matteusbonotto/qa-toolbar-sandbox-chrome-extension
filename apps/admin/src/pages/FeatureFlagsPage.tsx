@@ -73,6 +73,7 @@ export function FeatureFlagsPage() {
                       return (
                         <td key={plan.id}>
                           <input
+                            aria-label={`${feature.key} - plano ${plan.name}`}
                             type="checkbox"
                             checked={checked}
                             disabled={busy}
@@ -90,6 +91,7 @@ export function FeatureFlagsPage() {
                             // value changed elsewhere (another admin, another tab); otherwise this
                             // uncontrolled input keeps showing what was on screen at first load.
                             key={`${cellKey}:${String(rawValue ?? "")}`}
+                            aria-label={`${feature.key} - plano ${plan.name}`}
                             type="number"
                             className="qa-cell-input"
                             defaultValue={typeof rawValue === "number" ? rawValue : ""}
@@ -108,6 +110,7 @@ export function FeatureFlagsPage() {
                       <td key={plan.id}>
                         <input
                           key={`${cellKey}:${String(rawValue ?? "")}`}
+                          aria-label={`${feature.key} - plano ${plan.name}`}
                           type="text"
                           className="qa-cell-input"
                           defaultValue={typeof rawValue === "string" ? rawValue : ""}

@@ -33,6 +33,7 @@ export function Layout({ children, currentPath }: { children: ReactNode; current
               key={item.to}
               href={`#${item.to}`}
               className={`qa-nav-item${currentPath === item.to ? " isActive" : ""}`}
+              aria-current={currentPath === item.to ? "page" : undefined}
             >
               {item.label}
             </a>

@@ -1,5 +1,9 @@
 # Checklist de lançamento — 1.4 e Gravador de Passos
 
+> **Arquivado em 2026-08-21.** Este checklist cobria o lançamento da versão 1.4 e do Gravador de
+> Passos; a versão do produto já avançou muito além de 1.4 e o conteúdo aqui não é mais
+> atualizado. Mantido aqui apenas como referência histórica.
+
 Este documento separa claramente o que está pronto no ambiente de teste do que ainda pode ir para produção. Nada abaixo autoriza publicação automática na Chrome Web Store ou merge na `main`.
 
 ## Concluído no código (ambiente de teste)

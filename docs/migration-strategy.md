@@ -60,13 +60,21 @@ migration está em produção" são coisas diferentes até alguém rodar o passo
    também deveria ter desde o início, **replique a mudança em `schema.sql` também** — os dois
    precisam concordar, senão um projeto novo criado do zero fica com um estado diferente do que
    está em produção. (Foi exatamente o tipo de bug encontrado e corrigido nesta sessão: um
-   artefato de merge quebrado em `schema.sql` que travava qualquer bootstrap novo.)
-3. Aplique com `npm run backend:apply-pending` (dry-run por padrão; `--apply` para escrever de
+   artefato de merge quebrado em `schema.sql` que travava qualquer bootstrap novo; e, de novo em
+   2026-08-04, uma correção de RLS aplicada em produção via migration que nunca foi replicada em
+   `schema.sql`, reintroduzindo a mesma vulnerabilidade em qualquer bootstrap novo.)
+3. Para `create/drop policy` e `grant/revoke ... on function` especificamente, `npm run
+   backend:check-schema-sync` (`scripts/check-schema-sync.mjs`, roda dentro de `npm test`) confere
+   isso automaticamente — sem precisar de Postgres/Docker — comparando o estado final que replayar
+   todas as migrations produziria contra o que `schema.sql` define. Não cobre tabelas, colunas,
+   triggers ou corpo de RPC; é uma rede de segurança para a classe de bug do parágrafo acima, não
+   um differ de schema completo.
+4. Aplique com `npm run backend:apply-pending` (dry-run por padrão; `--apply` para escrever de
    verdade — ver `scripts/apply-pending-backend-actions.mjs`). Esse script lê
    `SUPABASE_ACCESS_TOKEN` do `.env` e `SUPABASE_PROJECT_REF` do `.env.edge.local`, mas a
    escrita em produção **sempre exige aprovação humana explícita no momento** — nem um agente de
    IA nem o próprio script contornam isso.
-4. Atualize `docs/PENDENCIAS_USUARIO.md` até a migration ser confirmada aplicada (dry-run
+5. Atualize `docs/PENDENCIAS_USUARIO.md` até a migration ser confirmada aplicada (dry-run
    mostrando `"upToDate":true`).
 
 ### Rollback

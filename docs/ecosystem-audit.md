@@ -168,7 +168,7 @@ sistema de ticket estruturado.
 | Reward wheel / QA Rewards | Seção "Campanha comunitária" | `CampaignsPage` (kill switch, pesos, auditoria) | Não participa diretamente | tabelas `reward_*` | Consistente; gap de auditoria em `reward_programs/reward_prizes` corrigido nesta sessão |
 | Integrações (Jira/Azure/GitHub) | Não anunciadas (correto — não existem) | Não existe tela | Não existe conector | — | Ausente nas 3 pontas, coerente (nenhuma promessa falsa encontrada) |
 | Slack/Teams | Não anunciada como integração de app | N/A | Report Builder → "Copiar p/ Slack/Teams" (mrkdwn) | `docs/integrations.md` | Fase 1 real (cópia formatada), sem OAuth/webhook — status correspondente ao que existe |
-| Sessão de Teste / Report Builder | Não é recurso da Landing (é fluxo interno da extensão) | N/A | `FEATURE_REGISTRY` (`testSession`, `reportBuilder`), não gated por plano | `schemaVersion` 17 | Adicionado nesta sessão, coberto por smoke dedicado |
+| Sessão de Teste / Report Builder | Não é recurso da Landing (é fluxo interno da extensão) | N/A | `FEATURE_REGISTRY` (`testSession`, `reportBuilder`), não gated por plano | `schemaVersion` 18 | Adicionado nesta sessão, coberto por smoke dedicado |
 | Sessão de teste / Report Builder | Não mencionado | Não existe | Não existe como conceito único (existe Test Status + Report avulso) | — | Gap real, não uma inconsistência de nomes |
 | Nomes de planos como identidade | "Smoke Test" etc. | idem | idem | tabela `plans.name` | Os nomes soam como personas técnicas de QA, não como tiers comerciais óbvios (Free/Pro/Team) — o PDF sinaliza isso como possível fonte de confusão comercial; não alterado nesta sessão por ser decisão de produto, não bug |
 

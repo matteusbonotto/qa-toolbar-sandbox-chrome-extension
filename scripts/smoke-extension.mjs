@@ -1725,6 +1725,44 @@ try {
   await host.locator("#drawerClose").click();
   trace("macro recording survives reload (pre-reload steps kept, capture continued)");
 
+  // Sessão de Teste itself (not just its two recording sub-features above) used to be pure
+  // in-memory too - a full page reload/navigation, the single most common reason a QA needs to
+  // reload mid-session (click something, land on a new screen, keep evaluating), silently ended
+  // it with no way to resume (see startTestSession/persistTestSessionRun/qts:test-session in
+  // background.js). It should now resume on its own, with its elapsed time and any status already
+  // picked, the same tab-scoped chrome.storage.session pattern as the two tests above.
+  await host.locator("#toolsButton").click();
+  await host.locator("#testSessionMenuItem").click();
+  await host.locator("#testSessionBar:not(.isHidden)").waitFor({ timeout: 5_000 });
+  await host.locator("#toolsButton").click();
+  await host.locator("#statusMenuItem").click();
+  await host.locator('#qts-test-status-modal [data-status="pass"]').click();
+  await host.waitForTimeout(2_100);
+  await host.reload();
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await host.locator("#testSessionBar:not(.isHidden)").waitFor({ timeout: 10_000 });
+  // The indicator's own 1s setInterval hasn't necessarily ticked yet right after the bar
+  // reappears (it renders "00:00" until its first tick, same as a genuinely fresh session would),
+  // so poll briefly instead of reading it immediately.
+  let testSessionElapsedAfterReload = await host.locator("#testSessionElapsed").innerText();
+  for (let attempt = 0; attempt < 8 && testSessionElapsedAfterReload === "00:00"; attempt += 1) {
+    await host.waitForTimeout(500);
+    testSessionElapsedAfterReload = await host.locator("#testSessionElapsed").innerText();
+  }
+  const [elapsedMinutes, elapsedSeconds] = testSessionElapsedAfterReload.split(":").map(Number);
+  const totalSecondsAfterReload = (elapsedMinutes || 0) * 60 + (elapsedSeconds || 0);
+  // The pre-reload session already ran ~2.1s before this point; a genuine restore reads that plus
+  // reload/boot time. A session that silently restarted fresh instead would still read a low
+  // single digit here even after the poll above, since its own clock only just started.
+  if (!(totalSecondsAfterReload >= 3)) throw new Error(`Sessão de Teste resumed after reload but its elapsed timer reads too low to be the pre-reload session (got "${testSessionElapsedAfterReload}"), suggesting it started a fresh session instead of restoring the old one`);
+  await host.locator("#testSessionFinishButton").click();
+  const resumedSummary = host.locator(".qts-drawer:has([data-session-scenario])");
+  await resumedSummary.locator("[data-session-scenario]").waitFor();
+  const resumedSummaryBody = await resumedSummary.innerText();
+  if (!/Pass/i.test(resumedSummaryBody)) throw new Error(`Sessão de Teste resumed after reload but lost the status picked before it: ${resumedSummaryBody}`);
+  await host.locator("#drawerClose").click();
+  trace("Sessão de Teste survives reload (elapsed time and picked status kept, resumes without user action)");
+
   // Compact mode hides project/product names, preserving their image/initial badges and environment.
   await options.getByRole("button", { name: "Barra e aparência" }).click();
   // "Barra e aparência" is a list of collapsible accordions now (all closed by default except

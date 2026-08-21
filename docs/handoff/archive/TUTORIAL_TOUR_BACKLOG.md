@@ -1,5 +1,9 @@
 # Backlog: Tutorial vivo, tour de Configurações e novas ferramentas
 
+> **Arquivado em 2026-08-21.** Este backlog está 100% concluído (todos os itens marcados `[x]` e
+> validados); foi superado por `docs/requirements/product-backlog-2026-07-28.md`, que reflete o
+> backlog ativo do produto. Mantido aqui apenas como referência histórica.
+
 Checklist de acompanhamento pedido pelo usuário em 2026-07-22, para não perder nada durante uma
 sessão longa com orçamento semanal apertado (77% usado no início desta rodada). Marcar `[x]`
 conforme for concluído e validado (não só codificado — testado). Se a sessão acabar no meio,

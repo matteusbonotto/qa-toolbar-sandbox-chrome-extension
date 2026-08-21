@@ -1,5 +1,9 @@
 # PROMPT MESTRE — QA TOOLBAR SANDBOX
 
+> **Arquivado em 2026-08-21.** Este prompt já foi majoritariamente executado — é da mesma
+> linhagem de `docs/handoff/archive/PROMPT_MESTRE_RECONSTRUCAO_TOTAL.md` (já arquivado). Mantido
+> aqui apenas como referência histórica; não reflete mais o roadmap ativo.
+
 Você está trabalhando no repositório local:
 
 `C:\Users\matheus.bonotto\Documents\github\qa-toolbar-sandbox-chrome-extension`

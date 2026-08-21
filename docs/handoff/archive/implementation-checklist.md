@@ -1,5 +1,10 @@
 # Checklist de implementação do prompt-mestre
 
+> **Arquivado em 2026-08-21.** Este checklist rastreava a implementação do prompt-mestre antigo
+> (`docs/handoff/archive/prompt-mestre-claude-code-qa-toolbar-sandbox(5).md`); foi superado por
+> `docs/requirements/product-backlog-2026-07-28.md` e por
+> `docs/handoff/CODEX_PR121_CONTEXTO_2026-07-29.md`. Mantido aqui apenas como referência histórica.
+
 Atualizado em 2026-07-25. Este arquivo registra evidência do repositório; `[x]` significa que o
 comportamento foi encontrado e coberto por teste, não apenas que existe código relacionado.
 
