@@ -563,7 +563,9 @@ function sortedToolsMenuOrder(baseOrder) {
 function applyPinnedTools() {
   const root = state.shadowRoot;
   if (!root) return;
-  const pinned = [...new Set(state.workspace?.preferences?.pinnedTools || [])].slice(0, 4);
+  // No cap on how many tools can be pinned (founder decision, 2026-08-21) - #extraPinnedTools
+  // scrolls instead of overflowing the bar once there are more than fit (see toolbar.css).
+  const pinned = [...new Set(state.workspace?.preferences?.pinnedTools || [])];
   const enabledTools = new Set(state.workspace?.preferences?.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
   ["passButton", "failButton", "screenshotButton", "recordToggleButton"].forEach((id) => root.getElementById(id)?.classList.remove("isPreferenceHidden"));
   ["testStatusButton", "noteButton", "shapeWrapper", "blurQuickButton", "holofoteQuickButton"].forEach((id) => root.getElementById(id)?.classList.add("isPreferenceHidden"));
@@ -699,9 +701,12 @@ function buildShadowHost() {
       :host([data-toolbar-position="left"]) #left,
       :host([data-toolbar-position="right"]) #left { display:none; }
       :host([data-toolbar-position="left"]) #right,
-      :host([data-toolbar-position="right"]) #right,
+      :host([data-toolbar-position="right"]) #right { flex-direction:column; width:100%; }
       :host([data-toolbar-position="left"]) #extraPinnedTools,
-      :host([data-toolbar-position="right"]) #extraPinnedTools { flex-direction:column; width:100%; }
+      :host([data-toolbar-position="right"]) #extraPinnedTools {
+        flex-direction:column; width:100%; max-width:none; max-height:162px;
+        overflow-x:hidden; overflow-y:auto;
+      }
       :host([data-toolbar-position="left"]) #right,
       :host([data-toolbar-position="right"]) #right { align-items:center; }
       :host([data-toolbar-position="left"]) #right > *,
@@ -783,7 +788,16 @@ function buildShadowHost() {
       #loggedOutLoginButton { background: var(--qts-ui-primary, #ffd700); color: var(--qts-ui-primary-contrast, #111); border-color: #fff; }
       #left { min-width: 0; flex: 1 1 auto; height: 100%; display: flex; flex-direction: row; align-items: center; gap: 8px; }
       #right { display: flex; align-items: center; gap: 6px; min-width: 0; flex: 0 0 auto; }
-      #extraPinnedTools { display: flex; align-items: center; gap: 6px; }
+      /* No cap on how many tools can be pinned (founder decision, 2026-08-21) - beyond what fits
+         at a glance (~5 icons), this scrolls instead of squeezing the breadcrumb (#left) out or
+         overflowing the bar past the viewport edge, since #right/#bar never wrap. */
+      #extraPinnedTools {
+        display: flex; align-items: center; gap: 6px; max-width: 160px; flex-shrink: 1;
+        overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+      }
+      #extraPinnedTools::-webkit-scrollbar { height: 5px; }
+      #extraPinnedTools::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 55%,transparent); border-radius: 99px; }
+      #extraPinnedTools .iconOnly { flex-shrink: 0; }
       #textStack { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
