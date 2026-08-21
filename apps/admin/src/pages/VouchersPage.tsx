@@ -211,14 +211,14 @@ export function VouchersPage() {
         <h2>Voucher de uso único</h2>
         {voucherFormError ? <div className="qa-error">{voucherFormError}</div> : null}
         <form className="qa-form-row" onSubmit={handleCreateVoucher}>
-          <input disabled={Boolean(editingVoucherId)} placeholder={editingVoucherId ? "Código preservado (hash)" : "Código (ex.: BEMVINDO30)"} value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} />
-          <input placeholder="Rótulo" value={voucherLabel} onChange={(e) => setVoucherLabel(e.target.value)} />
-          <select value={voucherKind} onChange={(e) => setVoucherKind(e.target.value as VoucherKind)}>
+          <input aria-label="Código do voucher" disabled={Boolean(editingVoucherId)} placeholder={editingVoucherId ? "Código preservado (hash)" : "Código (ex.: BEMVINDO30)"} value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} />
+          <input aria-label="Rótulo" placeholder="Rótulo" value={voucherLabel} onChange={(e) => setVoucherLabel(e.target.value)} />
+          <select aria-label="Tipo de voucher" value={voucherKind} onChange={(e) => setVoucherKind(e.target.value as VoucherKind)}>
             <option value="days">{KIND_LABEL.days}</option>
             <option value="lifetime">{KIND_LABEL.lifetime}</option>
             <option value="discount">{KIND_LABEL.discount}</option>
           </select>
-          <select value={voucherPlanId} onChange={(e) => setVoucherPlanId(e.target.value)}>
+          <select aria-label="Plano" value={voucherPlanId} onChange={(e) => setVoucherPlanId(e.target.value)}>
             <option value="">{voucherKind === "discount" ? "Qualquer plano (o cliente escolhe no checkout)" : "Plano…"}</option>
             {(plans.data ?? []).map((plan) => (
               <option key={plan.id} value={plan.id}>
@@ -227,18 +227,19 @@ export function VouchersPage() {
             ))}
           </select>
           {voucherKind === "days" ? (
-            <input placeholder="Dias concedidos" value={voucherGrantDays} onChange={(e) => setVoucherGrantDays(e.target.value)} />
+            <input aria-label="Dias concedidos" placeholder="Dias concedidos" value={voucherGrantDays} onChange={(e) => setVoucherGrantDays(e.target.value)} />
           ) : null}
           {voucherKind === "lifetime" ? (
             <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Acesso permanente, sem data de expiração.</span>
           ) : null}
           {voucherKind === "discount" ? (
             <>
-              <select value={voucherDiscountMode} onChange={(e) => setVoucherDiscountMode(e.target.value as DiscountMode)}>
+              <select aria-label="Modo de desconto" value={voucherDiscountMode} onChange={(e) => setVoucherDiscountMode(e.target.value as DiscountMode)}>
                 <option value="percent">Percentual (%)</option>
                 <option value="amount">Valor fixo (R$)</option>
               </select>
               <input
+                aria-label="Valor do desconto"
                 placeholder={voucherDiscountMode === "percent" ? "Ex.: 20" : "Ex.: 20,00"}
                 value={voucherDiscountValue}
                 onChange={(e) => setVoucherDiscountValue(e.target.value)}
@@ -302,14 +303,14 @@ export function VouchersPage() {
         </p>
         {campaignFormError ? <div className="qa-error">{campaignFormError}</div> : null}
         <form className="qa-form-row" onSubmit={handleCreateCampaign}>
-          <input disabled={Boolean(editingCampaignId)} placeholder={editingCampaignId ? "Código preservado (hash)" : "Código (ex.: LANCAMENTO20)"} value={campaignCode} onChange={(e) => setCampaignCode(e.target.value)} />
-          <input placeholder="Rótulo" value={campaignLabel} onChange={(e) => setCampaignLabel(e.target.value)} />
-          <select value={campaignKind} onChange={(e) => setCampaignKind(e.target.value as VoucherKind)}>
+          <input aria-label="Código da campanha" disabled={Boolean(editingCampaignId)} placeholder={editingCampaignId ? "Código preservado (hash)" : "Código (ex.: LANCAMENTO20)"} value={campaignCode} onChange={(e) => setCampaignCode(e.target.value)} />
+          <input aria-label="Rótulo" placeholder="Rótulo" value={campaignLabel} onChange={(e) => setCampaignLabel(e.target.value)} />
+          <select aria-label="Tipo de voucher" value={campaignKind} onChange={(e) => setCampaignKind(e.target.value as VoucherKind)}>
             <option value="days">{KIND_LABEL.days}</option>
             <option value="lifetime">{KIND_LABEL.lifetime}</option>
             <option value="discount">{KIND_LABEL.discount}</option>
           </select>
-          <select value={campaignPlanId} onChange={(e) => setCampaignPlanId(e.target.value)}>
+          <select aria-label="Plano" value={campaignPlanId} onChange={(e) => setCampaignPlanId(e.target.value)}>
             <option value="">{campaignKind === "discount" ? "Qualquer plano (o cliente escolhe no checkout)" : "Plano…"}</option>
             {(plans.data ?? []).map((plan) => (
               <option key={plan.id} value={plan.id}>
@@ -318,25 +319,26 @@ export function VouchersPage() {
             ))}
           </select>
           {campaignKind === "days" ? (
-            <input placeholder="Dias concedidos" value={campaignGrantDays} onChange={(e) => setCampaignGrantDays(e.target.value)} />
+            <input aria-label="Dias concedidos" placeholder="Dias concedidos" value={campaignGrantDays} onChange={(e) => setCampaignGrantDays(e.target.value)} />
           ) : null}
           {campaignKind === "lifetime" ? (
             <span style={{ color: "var(--muted)", fontSize: "0.85rem" }}>Acesso permanente, sem data de expiração.</span>
           ) : null}
           {campaignKind === "discount" ? (
             <>
-              <select value={campaignDiscountMode} onChange={(e) => setCampaignDiscountMode(e.target.value as DiscountMode)}>
+              <select aria-label="Modo de desconto" value={campaignDiscountMode} onChange={(e) => setCampaignDiscountMode(e.target.value as DiscountMode)}>
                 <option value="percent">Percentual (%)</option>
                 <option value="amount">Valor fixo (R$)</option>
               </select>
               <input
+                aria-label="Valor do desconto"
                 placeholder={campaignDiscountMode === "percent" ? "Ex.: 20" : "Ex.: 20,00"}
                 value={campaignDiscountValue}
                 onChange={(e) => setCampaignDiscountValue(e.target.value)}
               />
             </>
           ) : null}
-          <input placeholder="Limite de resgates (vazio = ilimitado)" value={campaignMaxRedemptions} onChange={(e) => setCampaignMaxRedemptions(e.target.value)} />
+          <input aria-label="Limite de resgates" placeholder="Limite de resgates (vazio = ilimitado)" value={campaignMaxRedemptions} onChange={(e) => setCampaignMaxRedemptions(e.target.value)} />
           <button type="submit" className="qa-btn primary" disabled={campaignBusy}>
             {editingCampaignId ? "Salvar edição" : "+ Criar"}
           </button>

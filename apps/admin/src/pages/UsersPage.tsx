@@ -55,8 +55,8 @@ export function UsersPage() {
         <h2>Conceder role</h2>
         {formError ? <div className="qa-error">{formError}</div> : null}
         <form className="qa-form-row" onSubmit={handleGrant}>
-          <input placeholder="User ID" value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} />
-          <select value={roleId} onChange={(e) => setRoleId(e.target.value)}>
+          <input aria-label="User ID" placeholder="User ID" value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} />
+          <select aria-label="Role" value={roleId} onChange={(e) => setRoleId(e.target.value)}>
             <option value="">Role…</option>
             {(roles.data ?? [])
               .filter((role) => role.key !== "founder")
@@ -66,7 +66,7 @@ export function UsersPage() {
                 </option>
               ))}
           </select>
-          <input placeholder="Motivo (obrigatório, vai para audit_logs)" value={reason} onChange={(e) => setReason(e.target.value)} />
+          <input aria-label="Motivo" placeholder="Motivo (obrigatório, vai para audit_logs)" value={reason} onChange={(e) => setReason(e.target.value)} />
           <button type="submit" className="qa-btn primary" disabled={busy}>
             + Conceder
           </button>

@@ -1309,9 +1309,14 @@ create policy "founder manages stripe_prices" on public.stripe_prices for all us
 create policy "founder reads roles" on public.roles for select using (public.is_founder());
 create policy "founder manages roles" on public.roles for all using (public.is_founder()) with check (public.is_founder());
 
--- profiles: user reads/updates own row; founder reads/updates all
+-- profiles: user reads own row; founder reads/updates all.
+-- SECURITY: no self-service update policy here on purpose (fixed 2026-08-04, see
+-- 20260804020000_lock_down_profiles_update.sql). A self-service "auth.uid() = id" update policy
+-- let any authenticated user PATCH trial_ends_at directly and keep indefinite free paid access,
+-- because activate_free_trial() blindly trusts that column on every sign-in. No legitimate
+-- caller updates profiles as the row owner, so the fix removed the policy instead of narrowing it.
 create policy "user reads own profile" on public.profiles for select using (auth.uid() = id or public.is_founder());
-create policy "user updates own profile" on public.profiles for update using (auth.uid() = id or public.is_founder()) with check (auth.uid() = id or public.is_founder());
+create policy "founder updates profiles" on public.profiles for update using (public.is_founder()) with check (public.is_founder());
 
 -- user_roles: user reads own role assignments; founder full access (writes still gated
 -- by the guard_founder_role_grant trigger above regardless of RLS)
@@ -1739,6 +1744,12 @@ begin
 end; $$;
 revoke all on function public.credit_reward_points(uuid,text,integer,text,text,jsonb) from public,anon,authenticated;
 grant execute on function public.credit_reward_points(uuid,text,integer,text,text,jsonb) to service_role;
+-- Also grant authenticated: the function already gates non-founder callers internally
+-- (`not public.is_founder()` in its own body), but without this grant the founder's own
+-- authenticated session gets a Postgres permission error before the function body ever runs,
+-- breaking the admin console's manual point-adjustment action (fixed 2026-08-04, see
+-- 20260804010000_fix_credit_reward_points_grant.sql).
+grant execute on function public.credit_reward_points(uuid,text,integer,text,text,jsonb) to authenticated;
 
 create or replace function public.qualify_paid_referral(referred_user_id_input uuid,stripe_invoice_id_input text,amount_minor_input bigint)
 returns boolean language plpgsql security definer set search_path=public,pg_temp as $$

@@ -7,9 +7,9 @@ Principal runtime components:
 | Component | Use | License |
 | --- | --- | --- |
 | React / React DOM | Landing page and admin interfaces | MIT |
-| React Router | Admin navigation | MIT |
 | Supabase JS | Authentication and data access | MIT |
 | Bootstrap Icons | Landing-page icons | MIT |
+| Framer Motion | Landing-page animations | MIT |
 
 Development, testing, and packaging tools include Vite (MIT), Vitest (MIT), TypeScript (Apache-2.0), Playwright (Apache-2.0), and Archiver (MIT).
 

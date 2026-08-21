@@ -372,6 +372,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     }).catch(() => sendResponse({ ok: false, error: "recording_run_failed" }));
     return true;
   }
+  if (message.type === "qts:test-session") {
+    getAccessState().then(async (access) => {
+      // Same tab-scoped, session-only pattern as qts:recording-run above, for "Sessão de Teste"
+      // itself. state.testSession used to live only in the content script's in-memory state, so
+      // any full page reload/navigation mid-session - exactly the case a QA needs most: click
+      // something, land on a new screen, keep evaluating - silently ended the session with no way
+      // to resume it. This lets boot() pick the session back up after re-injection.
+      if (!access.active || !sender.tab?.id) return sendResponse({ ok: false, error: "authentication_required" });
+      const key = `qtsTestSessionTab${sender.tab.id}`;
+      if (message.operation === "get") {
+        const stored = await chrome.storage.session.get(key);
+        return sendResponse({ ok: true, run: stored[key] || null });
+      }
+      if (message.operation === "clear") {
+        await chrome.storage.session.remove(key);
+        return sendResponse({ ok: true });
+      }
+      if (message.operation === "set" && message.run && typeof message.run === "object") {
+        if (JSON.stringify(message.run).length > 50_000) return sendResponse({ ok: false, error: "test_session_too_large" });
+        const run = { ...message.run, expiresAt: Math.min(Date.now() + 12 * 60 * 60_000, Number(message.run.expiresAt) || 0) };
+        if (run.expiresAt <= Date.now()) return sendResponse({ ok: false, error: "invalid_test_session" });
+        await chrome.storage.session.set({ [key]: run });
+        return sendResponse({ ok: true });
+      }
+      return sendResponse({ ok: false, error: "invalid_operation" });
+    }).catch(() => sendResponse({ ok: false, error: "test_session_failed" }));
+    return true;
+  }
   if (message.type === "qts:auth-sign-in" && isOwnOptionsPage(sender)) {
     signIn(message.email, message.password)
       .then(() => getAccessState({ force: true }))

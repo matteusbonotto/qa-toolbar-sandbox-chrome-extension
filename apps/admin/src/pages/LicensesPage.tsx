@@ -60,8 +60,8 @@ export function LicensesPage() {
         <h2>Nova chave</h2>
         {formError ? <div className="qa-error">{formError}</div> : null}
         <form className="qa-form-row" onSubmit={handleCreate}>
-          <input placeholder="Sufixo (ex.: EMPRESA-2026)" value={suffix} onChange={(e) => setSuffix(e.target.value)} />
-          <select value={planId} onChange={(e) => setPlanId(e.target.value)}>
+          <input aria-label="Sufixo" placeholder="Sufixo (ex.: EMPRESA-2026)" value={suffix} onChange={(e) => setSuffix(e.target.value)} />
+          <select aria-label="Plano" value={planId} onChange={(e) => setPlanId(e.target.value)}>
             <option value="">Plano…</option>
             {(plans.data ?? []).map((plan) => (
               <option key={plan.id} value={plan.id}>
@@ -69,7 +69,7 @@ export function LicensesPage() {
               </option>
             ))}
           </select>
-          <input placeholder="Máx. ativações" value={maxActivations} onChange={(e) => setMaxActivations(e.target.value)} />
+          <input aria-label="Máx. ativações" placeholder="Máx. ativações" value={maxActivations} onChange={(e) => setMaxActivations(e.target.value)} />
           <button type="submit" className="qa-btn primary" disabled={busy}>
             + Criar
           </button>

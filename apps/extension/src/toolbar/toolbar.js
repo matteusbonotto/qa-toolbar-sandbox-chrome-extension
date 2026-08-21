@@ -1903,7 +1903,8 @@ function removeToolbar({ disableBridge = false } = {}) {
   stopHeaderOffsetMonitor();
   document.getElementById(HOST_ID)?.remove();
   document.getElementById(SPACER_ID)?.remove();
-  document.querySelectorAll(".qts-modal-backdrop,.qts-result-overlay,.qts-floating-item,.qts-shape-preview").forEach((element) => element.remove());
+  document.querySelectorAll(".qts-floating-item").forEach((item) => removeFloatingItem(item));
+  document.querySelectorAll(".qts-modal-backdrop,.qts-result-overlay,.qts-shape-preview").forEach((element) => element.remove());
   closeClickSpyTooltip();
   clearSiteFixedHeaderOffsets();
   state.shadowRoot = null;
@@ -2077,7 +2078,7 @@ async function recordTestStatus(option) {
   const history = Array.isArray(stored[TEST_STATUS_HISTORY_KEY]) ? stored[TEST_STATUS_HISTORY_KEY] : [];
   history.unshift({ status: option.key, label: option.label, url: window.location.href, at: new Date().toISOString() });
   await chrome.storage.local.set({ [TEST_STATUS_HISTORY_KEY]: history.slice(0, 200) });
-  if (state.testSession) state.testSession.statusPicks.push({ status: option.key, label: option.label, at: Date.now() });
+  if (state.testSession) { state.testSession.statusPicks.push({ status: option.key, label: option.label, at: Date.now() }); persistTestSessionRun(); }
 }
 
 // ---------------------------------------------------------------------------
@@ -2111,16 +2112,43 @@ function formatElapsed(ms) {
   return `${minutes}:${seconds}`;
 }
 
-function startTestSession() {
+// Same tab-scoped chrome.storage.session pattern as recordingRunRequest (Gravador de
+// Passos/Macro Studio), but for the Sessão de Teste itself - see qts:test-session in
+// background.js.
+function testSessionStorageRequest(operation, run) {
+  return new Promise((resolve) => chrome.runtime.sendMessage({ type: "qts:test-session", operation, run }, (response) => resolve(chrome.runtime.lastError ? { ok: false } : response || { ok: false })));
+}
+
+function persistTestSessionRun() {
+  const session = state.testSession;
+  if (!session) return;
+  void testSessionStorageRequest("set", { ...session, expiresAt: Date.now() + 12 * 60 * 60_000 });
+}
+
+// `existingRun`, when present (boot() rehydrating after a reload mid-session), restores the
+// session instead of starting a fresh one - a full page reload/navigation used to silently end
+// whatever was in state.testSession, which was exactly wrong for a QA who needs to click
+// something and land on a new screen mid-analysis.
+function startTestSession(existingRun) {
   if (state.testSession) return;
-  state.testSession = {
-    startedAt: Date.now(),
-    context: sessionContextSnapshot(),
-    statusPicks: [],
-    evidenceCount: 0,
-    stepRecordingIds: [],
-    httpErrorsAtStart: state.httpErrors.length,
-  };
+  const restoring = Boolean(existingRun) && existingRun.expiresAt > Date.now();
+  state.testSession = restoring
+    ? {
+        startedAt: existingRun.startedAt,
+        context: existingRun.context || sessionContextSnapshot(),
+        statusPicks: Array.isArray(existingRun.statusPicks) ? existingRun.statusPicks : [],
+        evidenceCount: Number(existingRun.evidenceCount) || 0,
+        stepRecordingIds: Array.isArray(existingRun.stepRecordingIds) ? existingRun.stepRecordingIds : [],
+        httpErrorsAtStart: Number(existingRun.httpErrorsAtStart) || 0,
+      }
+    : {
+        startedAt: Date.now(),
+        context: sessionContextSnapshot(),
+        statusPicks: [],
+        evidenceCount: 0,
+        stepRecordingIds: [],
+        httpErrorsAtStart: state.httpErrors.length,
+      };
   const bar = state.shadowRoot.getElementById("testSessionBar");
   bar.classList.remove("isHidden");
   const elapsedEl = state.shadowRoot.getElementById("testSessionElapsed");
@@ -2128,7 +2156,8 @@ function startTestSession() {
     if (!state.testSession) return;
     elapsedEl.textContent = formatElapsed(Date.now() - state.testSession.startedAt);
   }, 1_000);
-  showQaToast(state.t.testSessionStarted);
+  if (!restoring) showQaToast(state.t.testSessionStarted);
+  persistTestSessionRun();
   closeToolsMenu();
 }
 
@@ -2229,6 +2258,7 @@ function finishTestSession() {
   const session = state.testSession;
   window.clearInterval(testSessionTimer);
   state.testSession = null;
+  void testSessionStorageRequest("clear");
   state.shadowRoot.getElementById("testSessionBar")?.classList.add("isHidden");
   openDrawer({
     title: state.t.testSessionSummaryTitle,
@@ -2586,6 +2616,7 @@ async function disableAllActiveTools() {
   if (state.testSession) {
     window.clearInterval(testSessionTimer);
     state.testSession = null;
+    void testSessionStorageRequest("clear");
     state.shadowRoot.getElementById("testSessionBar")?.classList.add("isHidden");
   }
   const keyView = getKeyViewPreferences();
@@ -2615,7 +2646,7 @@ function activeToolEntries() {
     ["forceHttp", translateQaSurfaceText(TOOLS_MENU_LABELS.forceHttp), state.forceHttpActive, () => document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: null } }))],
     ["macroStudio", translateQaSurfaceText(TOOLS_MENU_LABELS.macroStudio), Boolean(state.macroRecording), cancelMacroRecording],
     ["stepsRecorder", translateQaSurfaceText(TOOLS_MENU_LABELS.stepsRecorder), Boolean(state.stepsRecording), () => { state.stepsRecording.cleanup(); state.stepsRecording = null; updateStepsRecordingUi(); }],
-    ["testSession", translateQaSurfaceText(TOOLS_MENU_LABELS.testSession), Boolean(state.testSession), () => { window.clearInterval(testSessionTimer); state.testSession = null; state.shadowRoot.getElementById("testSessionBar")?.classList.add("isHidden"); }],
+    ["testSession", translateQaSurfaceText(TOOLS_MENU_LABELS.testSession), Boolean(state.testSession), () => { window.clearInterval(testSessionTimer); state.testSession = null; void testSessionStorageRequest("clear"); state.shadowRoot.getElementById("testSessionBar")?.classList.add("isHidden"); }],
     ["keyView", translateQaSurfaceText(TOOLS_MENU_LABELS.keyView), keyView.enabled, async () => { state.workspace.preferences = { ...(state.workspace.preferences || {}), keyView: { ...keyView, enabled: false } }; stopKeyView(); state.workspace = await saveWorkspace(state.workspace); }],
   ];
 }
@@ -2824,7 +2855,7 @@ function placeMarker(kind, clientX, clientY) {
   // minWidth/minHeight must be large enough that the eye toggle (top-left) and resize handle
   // At compact sizes the control badges reflow vertically through the marker's container query.
   makeResizable(marker, marker.querySelector("[data-resize-handle]"), { minWidth: 24, minHeight: 24, lockAspectRatio: true });
-  marker.querySelector(".qts-remove-btn").addEventListener("click", () => { marker.remove(); updateClearAllVisibility(); });
+  marker.querySelector(".qts-remove-btn").addEventListener("click", () => { removeFloatingItem(marker); updateClearAllVisibility(); });
   updateClearAllVisibility();
 }
 
@@ -2869,7 +2900,7 @@ function renderSavedNote(note, text, style) {
   wireVisibilityControls(note);
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
   makeResizable(note, note.querySelector("[data-resize-handle]"), { minWidth: 100, minHeight: 40 });
-  note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
+  note.querySelector(".qts-remove-btn").addEventListener("click", () => { removeFloatingItem(note); updateClearAllVisibility(); });
   note.querySelector(".qts-edit-btn").addEventListener("click", () => renderEditingNote(note, text, style));
 }
 
@@ -2943,7 +2974,7 @@ function renderEditingNote(note, currentText, currentStyle) {
   }));
   livePreview();
   makeDraggable(note, note.querySelector("[data-drag-handle]"));
-  note.querySelector(".qts-remove-btn").addEventListener("click", () => { note.remove(); updateClearAllVisibility(); });
+  note.querySelector(".qts-remove-btn").addEventListener("click", () => { removeFloatingItem(note); updateClearAllVisibility(); });
   note.querySelector("[data-save]").addEventListener("click", () => {
     const text = textarea.value.trim() || t.noteDefault;
     renderSavedNote(note, text, readStyleFromForm());
@@ -3017,7 +3048,7 @@ function placeShape(left, top, width, height) {
   // .hasEditButton), so they need more headroom than markers before the eye toggle (top-left)
   // and resize handle (top-right) start to overlap -- 30px let the box shrink well past that.
   makeResizable(shape, shape.querySelector("[data-resize-handle]"), { minWidth: 80, minHeight: 80 });
-  shape.querySelector(".qts-remove-btn").addEventListener("click", () => { shape.remove(); updateClearAllVisibility(); });
+  shape.querySelector(".qts-remove-btn").addEventListener("click", () => { removeFloatingItem(shape); updateClearAllVisibility(); });
   shape.querySelector(".qts-edit-btn").addEventListener("click", () => toggleShapeStyleEditor(shape));
   // Applies the Formato already picked from the shape-type menu right away - the user shouldn't
   // have to reopen the style editor just to set the type they already chose before drawing.
@@ -3165,7 +3196,7 @@ function placeLine(startX, startY, endX, endY) {
   wireVisibilityControls(line);
   makeDraggable(line, line.querySelector("[data-drag-handle]"));
   makeLineResizable(line, line.querySelector("[data-resize-handle]"));
-  line.querySelector(".qts-remove-btn").addEventListener("click", () => { line.remove(); updateClearAllVisibility(); });
+  line.querySelector(".qts-remove-btn").addEventListener("click", () => { removeFloatingItem(line); updateClearAllVisibility(); });
   line.querySelector(".qts-edit-btn").addEventListener("click", () => toggleLineStyleEditor(line));
   updateClearAllVisibility();
 }
@@ -3236,11 +3267,28 @@ function toggleLineStyleEditor(line) {
   apply();
 }
 
+// makeDraggable/makeResizable/makeLineResizable each used to register their mousemove/mouseup
+// pair straight on `document` with no way to remove them - every marker/note/shape/line ever
+// created (and every note re-render: saved -> edit -> saved calls makeDraggable again on the same
+// element) left its pair behind forever, even after the item itself was deleted from the DOM. In
+// a normal QA session that creates and clears dozens of annotations, that's dozens of dead
+// listeners still running on every mousemove for the rest of the page's life. Each function now
+// stores its own teardown on the element (keyed so a second init on the same element - the note
+// re-render case - tears down the first pair before adding a new one) and
+// destroyFloatingItemInteractions() below is the single place that runs whatever is present.
+
+function destroyFloatingItemInteractions(element) {
+  element._qtsDragCleanup?.();
+  element._qtsResizeCleanup?.();
+  element._qtsLineResizeCleanup?.();
+}
+
 function makeDraggable(element, handle) {
+  element._qtsDragCleanup?.();
   let dragging = false;
   let offsetX = 0;
   let offsetY = 0;
-  handle.addEventListener("mousedown", (event) => {
+  const onMouseDown = (event) => {
     // Excludes anything interactive that can legitimately sit on top of/inside the drag handle
     // (the shape style editor's inputs, in particular) - a mousedown that starts on a real
     // control should never also start a drag.
@@ -3250,8 +3298,8 @@ function makeDraggable(element, handle) {
     offsetX = event.clientX - rect.left;
     offsetY = event.clientY - rect.top;
     event.preventDefault();
-  });
-  document.addEventListener("mousemove", (event) => {
+  };
+  const onMouseMove = (event) => {
     if (!dragging) return;
     element.style.left = `${Math.max(0, event.clientX - offsetX)}px`;
     // A bare getCurrentHeight() clamp (no gap) let an item land flush against the bar's bottom
@@ -3259,19 +3307,29 @@ function makeDraggable(element, handle) {
     // flush item's own drag handle could end up hairline-overlapped and un-grabbable on the next
     // attempt ("fica colado", per founder feedback). A few px of buffer keeps a real gap.
     element.style.top = `${Math.max(getCurrentHeight() + 6, event.clientY - offsetY)}px`;
-  });
-  document.addEventListener("mouseup", () => { dragging = false; });
+  };
+  const onMouseUp = () => { dragging = false; };
+  handle.addEventListener("mousedown", onMouseDown);
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
+  element._qtsDragCleanup = () => {
+    handle.removeEventListener("mousedown", onMouseDown);
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    element._qtsDragCleanup = null;
+  };
 }
 
 // Shared SE-corner drag-resize for markers/shapes/notes - one consistent resize gesture across
 // every annotation type instead of a different interaction per tool.
 function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAspectRatio = false, onResize } = {}) {
+  element._qtsResizeCleanup?.();
   let resizing = false;
   let startWidth = 0;
   let startHeight = 0;
   let startX = 0;
   let startY = 0;
-  handle.addEventListener("mousedown", (event) => {
+  const onMouseDown = (event) => {
     if (event.button !== 0) return;
     resizing = true;
     const rect = element.getBoundingClientRect();
@@ -3281,8 +3339,8 @@ function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAsp
     startY = event.clientY;
     event.preventDefault();
     event.stopPropagation();
-  });
-  document.addEventListener("mousemove", (event) => {
+  };
+  const onMouseMove = (event) => {
     if (!resizing) return;
     let width = Math.max(minWidth, startWidth + (event.clientX - startX));
     let height = Math.max(minHeight, startHeight + (event.clientY - startY));
@@ -3297,8 +3355,17 @@ function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAsp
     element.style.width = `${width}px`;
     element.style.height = `${height}px`;
     onResize?.(width, height);
-  });
-  document.addEventListener("mouseup", () => { resizing = false; });
+  };
+  const onMouseUp = () => { resizing = false; };
+  handle.addEventListener("mousedown", onMouseDown);
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
+  element._qtsResizeCleanup = () => {
+    handle.removeEventListener("mousedown", onMouseDown);
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    element._qtsResizeCleanup = null;
+  };
 }
 
 // Lines don't fit the SE-corner resize above (there's no fixed box, just a start point + length +
@@ -3306,15 +3373,16 @@ function makeResizable(element, handle, { minWidth = 24, minHeight = 24, lockAsp
 // the start point fixed and recomputes length/angle from it, the same math placeLine used to draw
 // it in the first place.
 function makeLineResizable(line, handle) {
+  line._qtsLineResizeCleanup?.();
   let resizing = false;
   const hitHeight = 24;
-  handle.addEventListener("mousedown", (event) => {
+  const onMouseDown = (event) => {
     if (event.button !== 0) return;
     resizing = true;
     event.preventDefault();
     event.stopPropagation();
-  });
-  document.addEventListener("mousemove", (event) => {
+  };
+  const onMouseMove = (event) => {
     if (!resizing) return;
     const startX = parseFloat(line.style.left) || 0;
     const startY = (parseFloat(line.style.top) || 0) + hitHeight / 2;
@@ -3322,12 +3390,26 @@ function makeLineResizable(line, handle) {
     const angle = Math.atan2(event.clientY - startY, event.clientX - startX) * (180 / Math.PI);
     line.style.width = `${length}px`;
     line.style.setProperty("--qts-line-angle", `${angle}deg`);
-  });
-  document.addEventListener("mouseup", () => { resizing = false; });
+  };
+  const onMouseUp = () => { resizing = false; };
+  handle.addEventListener("mousedown", onMouseDown);
+  document.addEventListener("mousemove", onMouseMove);
+  document.addEventListener("mouseup", onMouseUp);
+  line._qtsLineResizeCleanup = () => {
+    handle.removeEventListener("mousedown", onMouseDown);
+    document.removeEventListener("mousemove", onMouseMove);
+    document.removeEventListener("mouseup", onMouseUp);
+    line._qtsLineResizeCleanup = null;
+  };
+}
+
+function removeFloatingItem(item) {
+  destroyFloatingItemInteractions(item);
+  item.remove();
 }
 
 function clearAllFloatingItems() {
-  document.querySelectorAll(".qts-floating-item").forEach((item) => item.remove());
+  document.querySelectorAll(".qts-floating-item").forEach((item) => removeFloatingItem(item));
   updateClearAllVisibility();
 }
 
@@ -8294,7 +8376,7 @@ async function stopStepsRecording() {
   const recording = state.stepsRecording;
   if (!recording) return;
   recording.cleanup();
-  if (state.testSession && !state.testSession.stepRecordingIds.includes(recording.id)) state.testSession.stepRecordingIds.push(recording.id);
+  if (state.testSession && !state.testSession.stepRecordingIds.includes(recording.id)) { state.testSession.stepRecordingIds.push(recording.id); persistTestSessionRun(); }
   state.stepsRecording = null;
   updateStepsRecordingUi();
   void recordingRunRequest("steps", "clear");
@@ -8650,7 +8732,7 @@ function compactTimestamp() {
 // attributed to this specific piece of evidence -- never guessed, never left stale from an
 // unrelated earlier action).
 function buildEvidenceFileBaseName(statusKey) {
-  if (state.testSession) state.testSession.evidenceCount += 1;
+  if (state.testSession) { state.testSession.evidenceCount += 1; persistTestSessionRun(); }
   const prefix = state.t.recordFilenamePrefix || "evidencia";
   const segments = [prefix];
   if (statusKey) segments.push(statusKey);
@@ -8857,6 +8939,11 @@ async function boot() {
     if (pendingStepsRecording?.ok && pendingStepsRecording.run) startStepsRecording({}, pendingStepsRecording.run);
     const pendingMacroRecording = await recordingRunRequest("macro", "get");
     if (pendingMacroRecording?.ok && pendingMacroRecording.run) startMacroRecording(pendingMacroRecording.run);
+    // Sessão de Teste itself (see startTestSession/persistTestSessionRun/qts:test-session) - a QA
+    // clicking through to another screen mid-session is the single most common reason to reload,
+    // so this has to survive it the same way the two recording phases above already do.
+    const pendingTestSession = await testSessionStorageRequest("get");
+    if (pendingTestSession?.ok && pendingTestSession.run) startTestSession(pendingTestSession.run);
   }
 }
 
