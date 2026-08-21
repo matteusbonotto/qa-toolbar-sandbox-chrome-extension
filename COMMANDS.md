@@ -104,6 +104,19 @@ distribuição (ver seção **Empacotamento da Extensão**).
 - **Resultado esperado**: falha explícita se os dois arquivos divergirem em `FEATURE_REGISTRY` ou
   `schemaVersion`.
 
+### `npm run backend:check-schema-sync`
+- **Objetivo**: `scripts/check-schema-sync.mjs` — compara, sem precisar de Postgres/Docker, o
+  estado final de RLS policies e grants de função que replayar todas as `supabase/migrations/*.sql`
+  produziria contra o que `supabase/schema.sql` de fato define. Existe porque a correção de
+  segurança de 2026-08-04 (escalonamento de trial) rodou em produção via migration mas nunca foi
+  replicada em `schema.sql` — nada detectava esse tipo de divergência antes deste script.
+- **Quando usar**: já roda automaticamente dentro de `npm test` (e portanto em `npm run
+  test:all:clean` e no CI) — não precisa rodar à parte, mas é rápido o suficiente pra rodar sozinho
+  depois de escrever uma migration nova que mexa em `create/drop policy` ou `grant/revoke ... on
+  function`.
+- **Resultado esperado**: falha explícita listando exatamente qual policy/grant diverge, se
+  divergir; caso contrário, confirma quantas policies/grants foram conferidas.
+
 ---
 
 ## Desenvolvimento da Landing
@@ -248,7 +261,7 @@ Ver `docs/testing-strategy.md` para a tabela completa de camadas/quando rodar. C
 | `node --check <arquivo>` | Sintaxe de um arquivo `.js` da extensão |
 | `npm run typecheck` | TypeScript de todos os workspaces (`--workspaces --if-present`) |
 | `node scripts/test-extension-workspace.mjs` | Normalização de workspace / paridade ESM-clássico |
-| `npm test` | Unitários de todos os workspaces + `test-extension-workspace.mjs`, `test-release-environments.mjs`, `test-update-experience.mjs`, `test-reward-program.mjs`, `test-gif-encoder.mjs` |
+| `npm test` | Unitários de todos os workspaces + `test-extension-workspace.mjs`, `check-schema-sync.mjs`, `test-release-environments.mjs`, `test-update-experience.mjs`, `test-reward-program.mjs`, `test-gif-encoder.mjs` |
 | `npm run backend:check` | Testes Deno das Edge Functions |
 | `npm run security:repo` / `npm run security:extension` | Ver seção **Segurança** |
 | `npm run smoke:lp-admin` (= `npm run test:pages`) | Landing e Admin buildam e renderizam sem erro |

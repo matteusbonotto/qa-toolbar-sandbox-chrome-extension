@@ -1,0 +1,13 @@
+-- Found by scripts/check-schema-sync.mjs (new automated check added 2026-08-21, see
+-- docs/AUDITORIA_2026-08-21_RLS_ENTITLEMENTS.md): review_engagement_campaign(uuid,boolean,text)
+-- (the original 3-arg version from 20260722020000_community_campaign.sql) was superseded by a
+-- 4-arg version (adding `criteria jsonb`) in 20260722030000 and again in 20260723010000, but
+-- `create or replace function` only replaces a function with the identical signature - it never
+-- dropped the old 3-arg overload, so it and its grant to authenticated/service_role are still live
+-- in production today alongside the current 4-arg version. The only caller
+-- (apps/admin/src/lib/api.ts, `.rpc("review_engagement_campaign", { submission_id_input, approve,
+-- notes, criteria })`) always passes all 4 named arguments, so it always resolves to the 4-arg
+-- overload - the 3-arg one is unreachable from the app, just an orphaned grant sitting in the
+-- database. schema.sql never defined this 3-arg overload in the first place, which is what
+-- exposed the drift.
+drop function if exists public.review_engagement_campaign(uuid, boolean, text);
