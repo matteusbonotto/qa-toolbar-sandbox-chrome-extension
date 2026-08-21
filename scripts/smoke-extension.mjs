@@ -1789,6 +1789,32 @@ try {
   await host.locator("#qts-test-status-modal").waitFor();
   await host.locator('#qts-test-status-modal [data-close]').click();
   trace("Test Suite menu visibility + optional toolbar pinning verified");
+
+  // No cap on how many tools can be pinned (founder decision, 2026-08-21 - was 4 before). Pin 4
+  // more beyond testStatus (already pinned above) and confirm all 5 render on the real toolbar,
+  // not just the first 4 - the old PINNED_TOOLS_LIMIT truncated state.workspace.preferences.pinnedTools
+  // at read time in applyPinnedTools(), so this has to check the live bar, not just the saved list.
+  const extraPinKeys = ["clickSpy", "freezeClock", "forceHttp", "errorMonitor"];
+  for (const key of extraPinKeys) {
+    const pinButton = options.locator(`[data-pin-tool="${key}"]`);
+    await pinButton.waitFor({ state: "visible", timeout: 5_000 });
+    if (await pinButton.getAttribute("aria-pressed") !== "true") await pinButton.click();
+    if (await pinButton.getAttribute("aria-pressed") !== "true") throw new Error(`Clicking the pin button for "${key}" did not flip it to aria-pressed=true`);
+  }
+  await options.locator("#saveGeneralSettings").click();
+  await options.getByText(/Salvo/).first().waitFor({ timeout: 5_000 }).catch(() => {});
+  let pinnedCount = 0;
+  let pinnedKeys = [];
+  for (let attempt = 0; attempt < 20 && pinnedCount < 5; attempt += 1) {
+    await host.waitForTimeout(300);
+    ({ pinnedCount, pinnedKeys } = await host.evaluate(() => {
+      const nodes = [...(document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelectorAll("#extraPinnedTools [data-pinned-tool]") || [])];
+      return { pinnedCount: nodes.length, pinnedKeys: nodes.map((node) => node.dataset.pinnedTool) };
+    }));
+  }
+  if (pinnedCount < 5) throw new Error(`Pinning 5 tools should render all 5 on the toolbar, found only ${pinnedCount} (${pinnedKeys.join(",")}) - looks like the old 4-tool cap came back, or one of ${extraPinKeys.join(",")} didn't reach the bar`);
+  trace(`no limit on pinned tools verified (${pinnedCount} pinned tools all rendered on the real toolbar)`);
+
   await options.locator('[data-compact-entity="project"]').check();
   await options.locator("#saveGeneralSettings").click();
   await host.waitForTimeout(500);

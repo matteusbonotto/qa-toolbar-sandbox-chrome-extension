@@ -547,8 +547,6 @@ document.getElementById("colorThemeReset")?.addEventListener("click", async () =
   document.getElementById("generalSavedHint").textContent = t("Salvo - a barra já foi atualizada.");
 });
 
-const PINNED_TOOLS_LIMIT = 4;
-
 // Cliente/Projeto/Produto priority in the breadcrumb - a local draft array (not saved until
 // "Salvar", the sticky bottom button) so drag/arrow reordering and the live preview stay instant without writing
 // to the workspace on every rearrange. Environment is intentionally not reorderable - it's always
@@ -685,12 +683,6 @@ function renderToolsMenuOrderList() {
     const key = button.dataset.pinTool;
     if (pinnedToolsDraft.has(key)) pinnedToolsDraft.delete(key);
     else {
-      if (pinnedToolsDraft.size >= PINNED_TOOLS_LIMIT) {
-        const hint = document.getElementById("pinnedToolsLimitHint");
-        hint.hidden = false;
-        window.setTimeout(() => { hint.hidden = true; }, 6_000);
-        return;
-      }
       pinnedToolsDraft.add(key);
       enabledToolsDraft.add(key);
     }
