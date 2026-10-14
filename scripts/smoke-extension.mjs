@@ -1367,6 +1367,38 @@ try {
   await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ state: "hidden", timeout: 2_000 });
   trace("record type menu verified (video + real 15s GIF options, opens/closes correctly)");
 
+  // Pinned row with many tools (founder report 2026-10-14: native scrollbar with arrow buttons,
+  // clipped pin badges): no native scrollbar, chevrons only on the side that can scroll, clicking
+  // scrolls, and the badges sit fully inside the row.
+  const pinnedBeforeScrollerTest = await worker.evaluate(async () => {
+    const { qtsWorkspaceV1: workspace } = await chrome.storage.local.get("qtsWorkspaceV1");
+    const previous = workspace.preferences.pinnedTools || [];
+    workspace.preferences = { ...workspace.preferences, pinnedTools: ["characterCounter", "multiClick", "inputLab", "fakerFill", "clickSpy", "freezeClock", "forceHttp", "errorMonitor", "inspectors", "qrCode"] };
+    await chrome.storage.local.set({ qtsWorkspaceV1: workspace });
+    return previous;
+  });
+  await host.locator("#extraPinnedTools [data-pinned-tool]").nth(9).waitFor({ state: "attached", timeout: 5_000 });
+  await host.waitForTimeout(300);
+  const pinnedRow = await host.locator("#qts-toolbar-host").evaluate((element) => {
+    const row = element.shadowRoot.getElementById("extraPinnedTools");
+    const arrow = (edge) => getComputedStyle(row.querySelector(`.qts-edge-arrow[data-edge="${edge}"]`)).opacity;
+    const rowRect = row.getBoundingClientRect();
+    const badgeRect = row.querySelector("[data-pinned-tool] .qts-pin-badge").getBoundingClientRect();
+    return { scrollbar: getComputedStyle(row).scrollbarWidth, overflows: row.scrollWidth > row.clientWidth, start: arrow("start"), end: arrow("end"), badgeInside: badgeRect.top >= rowRect.top };
+  });
+  if (pinnedRow.scrollbar !== "none" || !pinnedRow.overflows || pinnedRow.start !== "0" || pinnedRow.end !== "1" || !pinnedRow.badgeInside) throw new Error(`Pinned row edge scroller is wrong at the start: ${JSON.stringify(pinnedRow)}`);
+  await host.locator('#extraPinnedTools .qts-edge-arrow[data-edge="end"]').click();
+  await host.waitForFunction(() => {
+    const row = document.querySelector("#qts-toolbar-host").shadowRoot.getElementById("extraPinnedTools");
+    return row.scrollLeft > 0 && getComputedStyle(row.querySelector('.qts-edge-arrow[data-edge="start"]')).opacity === "1";
+  }, null, { timeout: 3_000 });
+  await worker.evaluate(async (previous) => {
+    const { qtsWorkspaceV1: workspace } = await chrome.storage.local.get("qtsWorkspaceV1");
+    workspace.preferences = { ...workspace.preferences, pinnedTools: previous };
+    await chrome.storage.local.set({ qtsWorkspaceV1: workspace });
+  }, pinnedBeforeScrollerTest);
+  trace("pinned row edge scroller verified (no native scrollbar, chevrons per side, badges not clipped)");
+
   // "Resultado" menu: Status do teste is reachable from the bar's chevron, not only from Tools.
   await host.locator("#markerMoreButton").click();
   await host.locator("#markerStatusItem").click();

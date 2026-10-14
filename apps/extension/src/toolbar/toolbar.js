@@ -634,6 +634,64 @@ function resetToolsMenuSearch() {
   if (search && search.value) { search.value = ""; refreshToolsMenuGroups(); }
 }
 
+// Turns a scroll container into an edge scroller (see the .qts-edge-scroller CSS): keeps one
+// chevron as first and one as last child, toggles canScrollStart/canScrollEnd from the real scroll
+// position, scrolls ~80% of the visible size per chevron click and maps the vertical mouse wheel to
+// horizontal scrolling on the x axis. Idempotent: safe to call after every re-render.
+function ensureEdgeScroller(container, axis) {
+  if (!container) return;
+  const horizontal = axis === "x";
+  const update = () => {
+    const position = horizontal ? container.scrollLeft : container.scrollTop;
+    const max = horizontal ? container.scrollWidth - container.clientWidth : container.scrollHeight - container.clientHeight;
+    // 1px tolerance: fractional zoom levels leave scroll positions like 0.5 at the real edges.
+    container.classList.toggle("canScrollStart", position > 1);
+    container.classList.toggle("canScrollEnd", max - position > 1);
+  };
+  const placeArrows = () => {
+    let start = container.querySelector(":scope > .qts-edge-arrow[data-edge='start']");
+    let end = container.querySelector(":scope > .qts-edge-arrow[data-edge='end']");
+    if (!start || !end) {
+      [start, end] = ["start", "end"].map((edge) => {
+        const arrow = document.createElement("span");
+        arrow.className = "qts-edge-arrow";
+        arrow.dataset.edge = edge;
+        arrow.setAttribute("aria-hidden", "true");
+        arrow.innerHTML = `<i>${ICON(horizontal ? (edge === "start" ? "chevronLeft" : "chevronRight") : (edge === "start" ? "chevronUp" : "chevronDown"))}</i>`;
+        arrow.addEventListener("click", (event) => {
+          event.stopPropagation();
+          const step = (horizontal ? container.clientWidth : container.clientHeight) * 0.8 * (edge === "start" ? -1 : 1);
+          container.scrollBy(horizontal ? { left: step, behavior: "smooth" } : { top: step, behavior: "smooth" });
+        });
+        return arrow;
+      });
+    }
+    if (container.firstElementChild !== start) container.prepend(start);
+    if (container.lastElementChild !== end) container.append(end);
+  };
+  container.dataset.edgeAxis = axis;
+  container.classList.add("qts-edge-scroller");
+  if (!container._qtsEdgeScroller) {
+    container._qtsEdgeScroller = { update, placeArrows };
+    container.addEventListener("scroll", update, { passive: true });
+    if (horizontal) {
+      container.addEventListener("wheel", (event) => {
+        if (Math.abs(event.deltaY) <= Math.abs(event.deltaX) || container.scrollWidth <= container.clientWidth) return;
+        event.preventDefault();
+        container.scrollBy({ left: event.deltaY, behavior: "auto" });
+      }, { passive: false });
+    }
+    new ResizeObserver(update).observe(container);
+    // Re-renders (innerHTML, the minimized-drawer shortcut) replace or append children: keep the
+    // chevrons at both ends and re-measure.
+    new MutationObserver(() => { container._qtsEdgeScroller.placeArrows(); container._qtsEdgeScroller.update(); }).observe(container, { childList: true });
+  } else {
+    container._qtsEdgeScroller.update = update;
+  }
+  placeArrows();
+  requestAnimationFrame(update);
+}
+
 function applyPinnedTools() {
   const root = state.shadowRoot;
   if (!root) return;
@@ -676,7 +734,17 @@ function applyPinnedTools() {
     quickContainer.innerHTML = pinned.filter((key) => menuItems[key] && enabledTools.has(key) && hasPlanFeature(key)).map((key) => `<button class="iconOnly qts-user-pinned" type="button" data-pinned-tool="${escapeHtml(key)}" title="${escapeHtml(labels[key] || key)}" aria-label="${escapeHtml(labels[key] || key)}">${ICON(icons[key] || "pin")}<span class="qts-pin-badge">${ICON("pin")}</span></button>`).join("");
     quickContainer.querySelectorAll("[data-pinned-tool]").forEach((button) => button.addEventListener("click", () => root.getElementById(menuItems[button.dataset.pinnedTool])?.click()));
     renderMinimizedDrawerShortcut();
+    ensureEdgeScroller(quickContainer, "x");
   }
+  // Vertical layouts scroll the whole #right column instead (one scroller, never nested).
+  const rightColumn = root.getElementById("right");
+  const verticalBar = ["left", "right"].includes(effectiveToolbarPosition());
+  if (verticalBar) ensureEdgeScroller(rightColumn, "y");
+  else if (rightColumn?.classList.contains("qts-edge-scroller")) {
+    rightColumn.classList.remove("qts-edge-scroller", "canScrollStart", "canScrollEnd");
+    rightColumn.querySelectorAll(":scope > .qts-edge-arrow").forEach((arrow) => { arrow.style.display = "none"; });
+  }
+  rightColumn?.querySelectorAll(":scope > .qts-edge-arrow").forEach((arrow) => { arrow.style.display = verticalBar ? "" : "none"; });
   // Re-append each menu item in the effective order -- appendChild on an already-attached node
   // *moves* it, so iterating in order and re-appending sequentially reorders the whole menu
   // without rebuilding it. The base order is always the founder's manually dragged
@@ -788,28 +856,27 @@ function buildShadowHost() {
       :host([data-toolbar-position="right"]) #left { display:none; }
       :host([data-toolbar-position="left"]) #right,
       :host([data-toolbar-position="right"]) #right { flex-direction:column; width:100%; }
+      /* Vertical bar: the pinned row does not scroll on its own (no scroll inside a scroll); the
+         whole #right column is the single edge scroller below. */
       :host([data-toolbar-position="left"]) #extraPinnedTools,
       :host([data-toolbar-position="right"]) #extraPinnedTools {
-        flex-direction:column; width:100%; max-width:none; max-height:162px;
-        overflow-x:hidden; overflow-y:auto;
+        flex-direction:column; width:100%; max-width:none; max-height:none; margin:0; padding:0;
+        overflow:visible;
       }
+      :host([data-toolbar-position="left"]) #extraPinnedTools .qts-edge-arrow,
+      :host([data-toolbar-position="right"]) #extraPinnedTools .qts-edge-arrow { display:none; }
       :host([data-toolbar-position="left"]) #right,
       :host([data-toolbar-position="right"]) #right { align-items:center; }
-      /* Vertical bar with pinned tools on a short viewport: the column used to run past the
-         bottom edge with no way to scroll, hiding the bell, Tools and Settings. The column now
-         scrolls on its own with a thin scrollbar. Widened by the bar's padding so a 38px button
-         plus the thin scrollbar still fit, and padded so the pin/lock badges (top:-3px) are not
-         clipped by the scroll container. Popups stay reachable: they are position:fixed here. */
+      /* Vertical bar on a short viewport: the column used to run past the bottom edge, hiding the
+         bell, Tools and Settings. It is now an edge scroller (see .qts-edge-scroller): no visible
+         scrollbar, faded edges and sticky chevrons only on the side that still has content.
+         Padded so the pin/lock badges (top:-3px) are never clipped. Popups stay reachable: they
+         are position:fixed in this layout. */
       :host([data-toolbar-position="left"]) #right,
       :host([data-toolbar-position="right"]) #right {
         flex:1 1 auto; min-height:0; width:calc(100% + 12px); margin-inline:-6px; padding:4px 0;
         overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
-        scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.45) transparent;
       }
-      :host([data-toolbar-position="left"]) #right::-webkit-scrollbar,
-      :host([data-toolbar-position="right"]) #right::-webkit-scrollbar { width:5px; }
-      :host([data-toolbar-position="left"]) #right::-webkit-scrollbar-thumb,
-      :host([data-toolbar-position="right"]) #right::-webkit-scrollbar-thumb { background:rgba(255,255,255,.45); border-radius:99px; }
       :host([data-toolbar-position="left"]) #right > *,
       :host([data-toolbar-position="right"]) #right > * { flex:0 0 auto; margin-inline:auto; }
       :host([data-toolbar-position="left"]) #right button,
@@ -893,12 +960,37 @@ function buildShadowHost() {
          at a glance (~5 icons), this scrolls instead of squeezing the breadcrumb (#left) out or
          overflowing the bar past the viewport edge, since #right/#bar never wrap. */
       #extraPinnedTools {
-        display: flex; align-items: center; gap: 6px; max-width: 160px; flex-shrink: 1;
-        overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+        display: flex; align-items: center; gap: 6px; max-width: clamp(130px, 22vw, 236px); flex-shrink: 1;
+        overflow-x: auto; overflow-y: hidden; padding: 4px 4px 3px; margin: -4px -4px -3px; scroll-padding-inline: 30px; scroll-snap-type: x proximity;
       }
-      #extraPinnedTools::-webkit-scrollbar { height: 5px; }
-      #extraPinnedTools::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 55%,transparent); border-radius: 99px; }
-      #extraPinnedTools .iconOnly { flex-shrink: 0; }
+      #extraPinnedTools .iconOnly { flex-shrink: 0; scroll-snap-align: start; }
+      /* Edge scroller (pinned row, vertical #right column): founder rejected the native scrollbar
+         (Windows draws it with arrow buttons and it clipped the pin badges). The scrollbar is
+         hidden; only an edge that still has content shows a sticky chevron over a fade. The chevrons are spans, not buttons, so they never count as toolbar actions. */
+      .qts-edge-scroller { scrollbar-width: none; scroll-behavior: smooth; }
+      .qts-edge-scroller::-webkit-scrollbar { display: none; }
+      .qts-edge-arrow {
+        position: sticky; z-index: 2; flex: 0 0 auto; display: flex; align-items: center; box-sizing: border-box;
+        cursor: pointer; opacity: 0; pointer-events: none; transition: opacity 160ms ease;
+      }
+      .qts-edge-arrow i {
+        display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; font-style: normal;
+        color: var(--qts-text, #fff); background: color-mix(in srgb, var(--qts-bg, #111) 72%, #000);
+        border: 1px solid rgba(255,255,255,.5); box-shadow: 0 2px 8px rgba(0,0,0,.35); transition: transform 140ms ease;
+      }
+      .qts-edge-arrow svg { width: 11px; height: 11px; }
+      .qts-edge-arrow:hover i { transform: scale(1.14); }
+      /* The fade is the chevron's own backdrop, a gradient in the bar's colour (--qts-bg), so the
+         chevron itself stays fully opaque on top of the content it hides. */
+      [data-edge-axis="x"] > .qts-edge-arrow { width: 38px; align-self: stretch; margin-block: -4px -3px; }
+      [data-edge-axis="x"] > .qts-edge-arrow[data-edge="start"] { left: -4px; margin-right: -38px; justify-content: flex-start; padding-left: 2px; background: linear-gradient(to right, var(--qts-bg, #111) 62%, color-mix(in srgb, var(--qts-bg, #111) 0%, transparent)); }
+      [data-edge-axis="x"] > .qts-edge-arrow[data-edge="end"] { right: -4px; margin-left: -38px; justify-content: flex-end; padding-right: 2px; background: linear-gradient(to left, var(--qts-bg, #111) 62%, color-mix(in srgb, var(--qts-bg, #111) 0%, transparent)); }
+      [data-edge-axis="y"] > .qts-edge-arrow { width: 100%; height: 38px; justify-content: center; }
+      [data-edge-axis="y"] > .qts-edge-arrow[data-edge="start"] { top: -4px; margin: 0 0 -38px !important; align-items: flex-start; padding-top: 2px; background: linear-gradient(to bottom, var(--qts-bg, #111) 62%, color-mix(in srgb, var(--qts-bg, #111) 0%, transparent)); }
+      [data-edge-axis="y"] > .qts-edge-arrow[data-edge="end"] { bottom: -4px; margin: -38px 0 0 !important; align-items: flex-end; padding-bottom: 2px; background: linear-gradient(to top, var(--qts-bg, #111) 62%, color-mix(in srgb, var(--qts-bg, #111) 0%, transparent)); }
+      .qts-edge-scroller.canScrollStart > .qts-edge-arrow[data-edge="start"],
+      .qts-edge-scroller.canScrollEnd > .qts-edge-arrow[data-edge="end"] { opacity: 1; pointer-events: auto; }
+      @media (prefers-reduced-motion: reduce) { .qts-edge-scroller { scroll-behavior: auto; } .qts-edge-arrow, .qts-edge-arrow i { transition: none; } }
       #textStack { min-width: 0; display: flex; flex-direction: column; justify-content: center; gap: 1px; }
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
@@ -968,7 +1060,9 @@ function buildShadowHost() {
         transition: opacity 140ms ease, transform 140ms ease, visibility 140ms; color: #fff; z-index: 10;
       }
       #toolsMenu.isOpen { opacity: 1; visibility: visible; transform: translateY(0); }
-      #toolsSearchWrap { display:flex; align-items:center; gap:6px; height:32px; padding:0 9px; border:1px solid var(--qts-ui-border,#2c2c2c); border-radius:7px; background:var(--qts-ui-surface-2,#171717); color:var(--qts-ui-muted,#aaa); }
+      /* Sticky so the search stays reachable while scrolling a long menu; the outset shadow paints
+         over the menu's 7px top padding so rows never show through above it. */
+      #toolsSearchWrap { position:sticky; top:-7px; z-index:3; box-shadow:0 -8px 0 1px var(--qts-ui-surface,#0c0c0c), 0 6px 0 0 var(--qts-ui-surface,#0c0c0c); display:flex; align-items:center; gap:6px; height:32px; padding:0 9px; border:1px solid var(--qts-ui-border,#2c2c2c); border-radius:7px; background:var(--qts-ui-surface-2,#171717); color:var(--qts-ui-muted,#aaa); }
       #toolsSearchWrap:focus-within { border-color:var(--qts-ui-primary,#ffd700); }
       #toolsSearchWrap svg { width:15px; height:15px; flex:0 0 15px; }
       #toolsSearch { all:unset; flex:1; min-width:0; color:var(--qts-ui-text,#fff); font:600 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
@@ -994,8 +1088,11 @@ function buildShadowHost() {
       :host([data-toolbar-position="bottom"]) :is(#notificationBellPanel,#shapeTypeMenu,#markerTypeMenu,#recordTypeMenu,#macroRecHistoryPanel,#stepsRecHistoryPanel) {
         top:auto; bottom:30px;
       }
-      #toolsMenu::-webkit-scrollbar { width: 9px; }
-      #toolsMenu::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 64%,transparent); border:2px solid transparent; border-radius:99px; background-clip:padding-box; }
+      #toolsMenu::-webkit-scrollbar { width: 8px; }
+      #toolsMenu::-webkit-scrollbar-track { background: transparent; }
+      #toolsMenu::-webkit-scrollbar-button { display: none; }
+      #toolsMenu::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 38%,transparent); border:2px solid transparent; border-radius:99px; background-clip:padding-box; }
+      #toolsMenu::-webkit-scrollbar-thumb:hover { background-color: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 70%,transparent); }
       #toolsMenu button {
         box-sizing:border-box !important; width:100% !important; min-width:100% !important; max-width:100% !important;
         height:30px; justify-content:flex-start !important; gap:9px; padding:0 9px;
