@@ -690,7 +690,8 @@ export function normalizeWorkspace(rawWorkspace) {
       mobileDrawerPosition: ["left", "right", "top", "bottom"].includes(preferences.mobileDrawerPosition) ? preferences.mobileDrawerPosition : empty.preferences.mobileDrawerPosition,
       mobileToolbarPosition: ["top", "bottom", "left", "right"].includes(preferences.mobileToolbarPosition) ? preferences.mobileToolbarPosition : empty.preferences.mobileToolbarPosition,
       pinnedTools: Array.isArray(preferences.pinnedTools)
-        ? [...new Set(preferences.pinnedTools.map((value) => text(value, 40)).map((value) => ({ blurMode: "blurElements", holofoteMode: "holofote" })[value] || value).filter((value) => PINNABLE_TOOLS.has(value)))].slice(0, 4)
+        // No cap on how many tools can be pinned (founder decision, 2026-08-21 - was slice(0,4)).
+        ? [...new Set(preferences.pinnedTools.map((value) => text(value, 40)).map((value) => ({ blurMode: "blurElements", holofoteMode: "holofote" })[value] || value).filter((value) => PINNABLE_TOOLS.has(value)))]
         : empty.preferences.pinnedTools,
       pinnedMacroIds: Array.isArray(preferences.pinnedMacroIds) ? preferences.pinnedMacroIds.map((value) => text(value, 120)).filter(Boolean).slice(0, 20) : [],
       enabledTools: normalizedEnabledTools,
