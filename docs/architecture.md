@@ -41,6 +41,17 @@ Postgres ou Edge Functions.
   content script) — é o único lugar que enxerga o `window.fetch`/`XMLHttpRequest` reais da
   página, usado por Network Inspector, Force HTTP e Freeze Clock.
 - **`src/popup/`** e **`src/options/`**: páginas padrão de extensão Chrome.
+- **`src/recorder/`**: janela pequena (popup da própria extensão, aberta pelo background em
+  `qts:recorder-open`) que faz a gravação de evidência (vídeo e GIF). Existe porque o content
+  script é destruído a cada reload/navegação da aba e levava junto o `MediaStream` e todos os
+  trechos gravados. A janela não depende da aba, então a gravação sobrevive a reload. O estado
+  fica espelhado em `chrome.storage.local` (`qtsRecorderStateV1`) e toda toolbar (qualquer aba ou
+  frame) só desenha timer/pausar/parar e manda `qts:recorder-command` de volta. O Stop da janela
+  passa pela toolbar da aba de origem (`qts:recorder-stop-request`) para respeitar o lembrete de
+  status. O background marca o estado como ocioso se a janela fechar (`windows.onRemoved`) ou o
+  navegador reiniciar. Não exige permissão nova (`chrome.windows` não pede permissão). Regra de
+  status: um status marcado à mão durante a gravação é usado no Stop sem perguntar de novo; a
+  gravação seguinte volta a perguntar. Coberto em `scripts/smoke-extension.mjs`.
 - **`src/lib/`**: os módulos compartilhados (normalização de workspace, i18n, ícones, GIF
   encoder, etc.), sempre em par ESM/clássico quando usados dos dois lados.
 

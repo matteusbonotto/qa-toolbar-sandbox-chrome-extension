@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>QA Toolbar Sandbox - Gravação</title>
+  <link rel="stylesheet" href="recorder.css" />
+</head>
+<body>
+  <main id="card" data-status="starting">
+    <header>
+      <img src="../../icons/icon-32.png" alt="" />
+      <b id="title"></b>
+      <span id="dot" aria-hidden="true"></span>
+    </header>
+    <p id="timer" aria-live="off">00:00</p>
+    <p id="message" role="status"></p>
+    <div id="actions">
+      <button id="startButton" class="primary" type="button" hidden></button>
+      <button id="pauseButton" type="button" hidden></button>
+      <button id="stopButton" class="danger" type="button" hidden></button>
+      <button id="cancelButton" type="button" hidden></button>
+    </div>
+    <p id="hint"></p>
+  </main>
+  <script src="../lib/minizip-content.js"></script>
+  <script src="../lib/gif-content.js"></script>
+  <script src="recorder.js"></script>
+</body>
+</html>

@@ -27,6 +27,7 @@ interromper o fluxo de teste com um prompt a cada navegação.
 | `contextMenus` | Menu de contexto "QA Sandbox" (contar seleção, capturar elemento, etc.) | `background.js` |
 | `alarms` | Verificação periódica de `access-status` (plano/entitlement) | `background.js` |
 | `browsingData` | Limpar dados do site atual sob comando explícito do QA (ferramenta "Limpar dados do site") | `background.js` |
+| (nenhuma) | A gravação de evidência roda em `src/recorder/` (janela popup própria via `chrome.windows.create`, `getDisplayMedia` + `MediaRecorder` em página da extensão). `chrome.windows` e `getDisplayMedia` não exigem permissão no manifest; o seletor nativo de tela do Chrome continua sendo o consentimento do usuário. Decisão de 2026-10-14: `desktopCapture`/`offscreen`/`downloads` foram descartadas porque adicionariam aviso de permissão e desativariam a extensão na atualização até o usuário aceitar | `recorder.js`, `background.js` |
 | `<all_urls>` (host) | Injetar a barra e o pagebridge no domínio que o QA está testando; também satisfaz o requisito de host permission do `captureVisibleTab`, tornando `activeTab` redundante (removida em 2026-08-04) | `background.js` |
 
 ## `<all_urls>` não significa "sempre ativo em todo lugar"

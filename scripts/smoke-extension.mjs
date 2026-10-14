@@ -113,9 +113,12 @@ const server = createServer((request, response) => {
 });
 await new Promise((resolveReady) => server.listen(43117, "127.0.0.1", resolveReady));
 
+// Title the host tab takes right before a recording test, so Chromium's capture picker can be
+// answered automatically (see the evidence recording section below).
+const SMOKE_CAPTURE_TAB_TITLE = "QTS Smoke Capture Tab";
 const context = await chromium.launchPersistentContext(profilePath, {
   headless: false,
-  args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, "--window-position=20,20", "--window-size=1400,900", "--no-first-run"],
+  args: [`--disable-extensions-except=${extensionPath}`, `--load-extension=${extensionPath}`, "--window-position=20,20", "--window-size=1400,900", "--no-first-run", `--auto-select-tab-capture-source-by-title=${SMOKE_CAPTURE_TAB_TITLE}`],
   viewport: { width: 1400, height: 900 },
 });
 armSmokeWatchdog();
@@ -1331,11 +1334,8 @@ try {
 
   // Recording type menu offers a normal seekable video and a real locally encoded GIF mode. GIF
   // recordings are split into independent 15-second files and zipped only when there is >1 part.
-  // Actually invoking getDisplayMedia is not exercised here — it opens a real native OS picker
-  // with no Chromium test flag that reliably auto-approves it (unlike camera/mic fake devices),
-  // so clicking past this menu would hang or flake the suite. The menu wiring itself (open/close,
-  // both options present, parts option disabled) is real coverage; the segmentation/zip-packaging
-  // logic was verified separately via a Node harness against the already-proven window.QTS_ZIP writer.
+  // The real capture (picker answered by a launch flag) is exercised further below, including a
+  // reload in the middle of the recording.
   await host.locator("#recordToggleButton").click();
   await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ timeout: 2_000 });
   if (!(await host.locator("#recordTypeVideoItem").isVisible())) throw new Error("Record type menu missing the single-video option");
@@ -1441,6 +1441,14 @@ try {
   });
   if (responsiveCentering.frameCount !== 2 || Math.abs(responsiveCentering.stageCenter - responsiveCentering.groupCenter) > 2) throw new Error(`Responsive View is not centered: ${JSON.stringify(responsiveCentering)}`);
   if (await host.locator("[data-content-zoom]").count() !== 2) throw new Error("Responsive View does not expose independent internal zoom controls for both frames");
+  // The viewer covers the toolbar (founder report: "nao tem como printar a tela no modo
+  // resizeview"), so it carries its own capture button; the controls must be back afterwards.
+  const breakpointShotPromise = host.waitForEvent("download", { timeout: 15_000 });
+  await host.locator("#bpShot").click();
+  const breakpointShot = await breakpointShotPromise;
+  if (!breakpointShot.suggestedFilename().endsWith("_breakpoints.png")) throw new Error(`Unexpected Responsive View screenshot name: ${breakpointShot.suggestedFilename()}`);
+  if (await host.locator(".qts-bp-topbar").evaluate((element) => getComputedStyle(element).visibility) !== "visible") throw new Error("Responsive View controls stayed hidden after the screenshot");
+  trace("responsive view screenshot verified (own capture button, controls restored)");
   const desktopWrapBeforeZoom = await host.locator('[data-pane="a"] [data-viewport-wrap]').evaluate((element) => ({ width: element.offsetWidth, height: element.offsetHeight }));
   await host.locator('[data-content-zoom="a"]').fill("150");
   await host.waitForFunction(() => {
@@ -2337,6 +2345,66 @@ try {
   });
   if (Object.values(wizardResult).some((value) => value !== true)) throw new Error(`Onboarding wizard did not persist everything it created: ${JSON.stringify(wizardResult)}`);
   trace("onboarding wizard verified (Cliente->Projeto->Produto->Ambiente->URLs, optional step CSV import, all persisted)");
+
+  // Evidence recording survives a page reload (founder report 2026-10-08: "clicando recarrega a
+  // pagina a gravacao e interrompida"). The capture runs in the extension's own recorder window,
+  // so after host.reload() the toolbar must still show the running recording, and Stop must still
+  // download it. Also covers the status rule: a status picked by hand during the recording is
+  // reused on Stop (no second, forced prompt), while the next recording prompts again.
+  // --auto-select-tab-capture-source-by-title (launch args) answers the native picker.
+  await host.evaluate((title) => { document.title = title; }, SMOKE_CAPTURE_TAB_TITLE);
+  await worker.evaluate(async () => {
+    const { qtsWorkspaceV1: workspace } = await chrome.storage.local.get("qtsWorkspaceV1");
+    workspace.preferences = { ...workspace.preferences, remindTestStatusOnRecording: true };
+    await chrome.storage.local.set({ qtsWorkspaceV1: workspace });
+  });
+  const readRecorderState = () => worker.evaluate(async () => (await chrome.storage.local.get("qtsRecorderStateV1")).qtsRecorderStateV1 || null);
+  const waitRecorderStatus = async (expected) => {
+    for (let attempt = 0; attempt < 80; attempt += 1) {
+      const current = await readRecorderState();
+      if (current?.status === expected) return current;
+      await new Promise((resolveWait) => setTimeout(resolveWait, 250));
+    }
+    throw new Error(`Recorder never reached "${expected}": ${JSON.stringify(await readRecorderState())}`);
+  };
+  const startRecordingFromToolbar = async (itemId) => {
+    const recorderPagePromise = context.waitForEvent("page", { predicate: (page) => page.url().includes("/src/recorder/recorder.html"), timeout: 15_000 });
+    await host.locator("#recordToggleButton").click();
+    await host.locator(itemId).click();
+    const recorderPage = await recorderPagePromise;
+    await waitRecorderStatus("recording");
+    return recorderPage;
+  };
+  const videoRecorder = await startRecordingFromToolbar("#recordTypeVideoItem");
+  await new Promise((resolveWait) => setTimeout(resolveWait, 1_500));
+  await host.reload();
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached", timeout: 15_000 });
+  await host.locator("#recordStopButton:not(.isHidden)").waitFor({ timeout: 10_000 });
+  if ((await readRecorderState())?.status !== "recording") throw new Error("Recording did not survive a page reload");
+  await host.evaluate((title) => { document.title = title; }, SMOKE_CAPTURE_TAB_TITLE);
+  await host.locator("#toolsButton").click();
+  await host.locator("#statusMenuItem").click();
+  await host.locator('#qts-test-status-modal [data-status="pass"]').click();
+  for (let attempt = 0; attempt < 20 && (await readRecorderState())?.manualStatusKey !== "pass"; attempt += 1) await new Promise((resolveWait) => setTimeout(resolveWait, 150));
+  if ((await readRecorderState())?.manualStatusKey !== "pass") throw new Error("A manually picked status was not attached to the running recording");
+  const videoDownloadPromise = videoRecorder.waitForEvent("download", { timeout: 20_000 });
+  await host.locator("#recordStopButton").click();
+  const videoDownload = await videoDownloadPromise;
+  if (await host.locator("#qts-test-status-modal").count()) throw new Error("Stop asked for a status again although one was picked by hand during this recording");
+  if (!/^evidencia_pass_.+\.(?:mp4|webm)$/.test(videoDownload.suggestedFilename())) throw new Error(`Unexpected recording filename: ${videoDownload.suggestedFilename()}`);
+  await waitRecorderStatus("idle");
+  await host.locator("#recordStopButton.isHidden").waitFor({ state: "attached", timeout: 5_000 });
+  const gifRecorder = await startRecordingFromToolbar("#recordTypePartsItem");
+  if ((await readRecorderState())?.manualStatusKey) throw new Error("A new recording inherited the previous recording's manual status");
+  await new Promise((resolveWait) => setTimeout(resolveWait, 1_500));
+  const gifDownloadPromise = gifRecorder.waitForEvent("download", { timeout: 25_000 });
+  await host.locator("#recordStopButton").click();
+  await host.locator("#qts-test-status-modal").waitFor({ timeout: 3_000 });
+  await host.locator('#qts-test-status-modal [data-status="fail"]').click();
+  const gifDownload = await gifDownloadPromise;
+  if (!/^evidencia_fail_.+\.gif$/.test(gifDownload.suggestedFilename())) throw new Error(`Unexpected GIF filename: ${gifDownload.suggestedFilename()}`);
+  await waitRecorderStatus("idle");
+  trace("evidence recording survives reload, manual status is reused on Stop, next recording prompts again (video + GIF)");
 
   await options.getByRole("button", { name: "Minha conta" }).click();
   await options.locator("#signOutButton").click();

@@ -656,6 +656,8 @@ function render() {
   if (verticalUrlText) verticalUrlText.textContent = currentUrl;
   applyPinnedTools();
   syncKeyView();
+  setRecordingUi();
+  updateRecordTimerDisplay();
   setSpacerHeight();
   offsetSiteFixedHeaders();
   updateHttpErrorSurfaces();
@@ -704,6 +706,21 @@ function buildShadowHost() {
       :host([data-toolbar-position="right"]) #extraPinnedTools { flex-direction:column; width:100%; }
       :host([data-toolbar-position="left"]) #right,
       :host([data-toolbar-position="right"]) #right { align-items:center; }
+      /* Vertical bar with pinned tools on a short viewport: the column used to run past the
+         bottom edge with no way to scroll, hiding the bell, Tools and Settings. The column now
+         scrolls on its own with a thin scrollbar. Widened by the bar's padding so a 38px button
+         plus the thin scrollbar still fit, and padded so the pin/lock badges (top:-3px) are not
+         clipped by the scroll container. Popups stay reachable: they are position:fixed here. */
+      :host([data-toolbar-position="left"]) #right,
+      :host([data-toolbar-position="right"]) #right {
+        flex:1 1 auto; min-height:0; width:calc(100% + 12px); margin-inline:-6px; padding:4px 0;
+        overflow-y:auto; overflow-x:hidden; overscroll-behavior:contain;
+        scrollbar-width:thin; scrollbar-color:rgba(255,255,255,.45) transparent;
+      }
+      :host([data-toolbar-position="left"]) #right::-webkit-scrollbar,
+      :host([data-toolbar-position="right"]) #right::-webkit-scrollbar { width:5px; }
+      :host([data-toolbar-position="left"]) #right::-webkit-scrollbar-thumb,
+      :host([data-toolbar-position="right"]) #right::-webkit-scrollbar-thumb { background:rgba(255,255,255,.45); border-radius:99px; }
       :host([data-toolbar-position="left"]) #right > *,
       :host([data-toolbar-position="right"]) #right > * { flex:0 0 auto; margin-inline:auto; }
       :host([data-toolbar-position="left"]) #right button,
@@ -2057,6 +2074,9 @@ function openTestStatusModal({ forced = false, onDone = null } = {}) {
       showResultOverlay(option);
       playSound(key);
       void recordTestStatus(option);
+      // A status picked by hand while recording becomes that recording's status, so Stop does not
+      // ask for it again (see handleStopRecordingClick). The forced modal is Stop's own prompt.
+      if (!forced && RECORDER_ACTIVE_STATUSES.has(recordingState.status)) void recorderCommand("mark-status", { statusKey: key });
       if (onDone) window.setTimeout(() => onDone(option), 3_000);
     });
   });
@@ -3423,18 +3443,25 @@ function updateClearAllVisibility() {
 // context allowed to call chrome.tabs.captureVisibleTab.
 // ---------------------------------------------------------------------------
 
-async function captureScreenshot() {
-  const statusKey = await resolveRecentStatusKeyForCurrentPage();
-  chrome.runtime.sendMessage({ type: "qts:capture-visible-tab" }, (response) => {
-    if (!response?.ok) {
-      console.error("QA Toolbar Sandbox: screenshot failed", response?.error);
-      return;
-    }
-    const anchor = document.createElement("a");
-    anchor.href = response.dataUrl;
-    anchor.download = `${buildEvidenceFileBaseName(statusKey)}.png`;
-    anchor.click();
+function captureVisibleTabDataUrl() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "qts:capture-visible-tab" }, (response) => {
+      void chrome.runtime.lastError;
+      if (!response?.ok) console.error("QA Toolbar Sandbox: screenshot failed", response?.error);
+      resolve(response?.ok ? response.dataUrl : null);
+    });
   });
+}
+
+async function captureScreenshot(fileSuffix = "") {
+  const statusKey = await resolveRecentStatusKeyForCurrentPage();
+  const dataUrl = await captureVisibleTabDataUrl();
+  if (!dataUrl) return false;
+  const anchor = document.createElement("a");
+  anchor.href = dataUrl;
+  anchor.download = `${buildEvidenceFileBaseName(statusKey)}${fileSuffix}.png`;
+  anchor.click();
+  return true;
 }
 
 // ---------------------------------------------------------------------------
@@ -5618,6 +5645,7 @@ function breakpointStyles() {
     .qts-bp-zoom input[type="range"] { width: 90px; }
     #bpZoomLabel { min-width: 38px; text-align: center; color: var(--bp-muted); font-variant-numeric: tabular-nums; }
     .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
+    .qts-bp-overlay.isCapturing :is(.qts-bp-topbar, .qts-bp-content-zoom) { visibility: hidden; }
     .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--qts-ui-danger, #c70e0e); color:#fff; font-size: 18px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
     .qts-bp-pane { position:relative; display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 1 auto; min-width:0; max-width:100%; padding-bottom:48px; }
@@ -5669,6 +5697,7 @@ function openBreakpointViewer() {
         </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
+        <button type="button" class="qts-bp-toggle" id="bpShot" title="${escapeHtml(t.bpScreenshot)}">${ICON("camera")} ${escapeHtml(t.bpScreenshot)}</button>
         <button type="button" class="qts-bp-toggle" id="bpRecord">${ICON("recordStart")} Gravar tela cheia</button>
         <button type="button" class="qts-bp-close" id="bpClose">${ICON("fail")}</button>
       </div>
@@ -5690,6 +5719,17 @@ function openBreakpointViewer() {
 
   const close = () => { cleanupBreakpointViewer(); closeDrawer(); };
   drawerHost.querySelector("#bpClose").addEventListener("click", close);
+  // The viewer covers the whole page, toolbar included, so the toolbar's own screenshot button is
+  // unreachable here. This captures the device frames themselves: the viewer's controls are only
+  // made invisible (not removed, which would re-layout the stage and reload both iframes) for the
+  // two frames it takes the compositor to paint without them.
+  drawerHost.querySelector("#bpShot").addEventListener("click", async () => {
+    const overlay = drawerHost.querySelector(".qts-bp-overlay");
+    overlay.classList.add("isCapturing");
+    await new Promise((resolveFrame) => requestAnimationFrame(() => requestAnimationFrame(resolveFrame)));
+    try { await captureScreenshot("_breakpoints"); }
+    finally { overlay.classList.remove("isCapturing"); }
+  });
   drawerHost.querySelector("#bpRecord").addEventListener("click", () => {
     if (recordingState.status === "idle") startEvidenceRecording("video");
     else handleRecordToggle();
@@ -8122,44 +8162,29 @@ document.addEventListener("qts:force-http-state", (event) => {
 });
 
 // ---------------------------------------------------------------------------
-// Evidence recording: getDisplayMedia + MediaRecorder, start/pause/resume/
-// stop, download as MP4 when the browser's MediaRecorder supports it,
-// falling back to WebM otherwise (documented limitation, not a silent one -
-// the download filename extension always matches what was actually
-// recorded). GIF capture uses a local bounded encoder and 15-second standalone segments.
+// Evidence recording. The capture itself (getDisplayMedia + MediaRecorder / GIF encoder) runs in
+// the extension's own recorder window (src/recorder/recorder.js), not here: this content script is
+// destroyed on every reload/navigation and used to take the whole recording down with it. The
+// toolbar is only a remote control that mirrors RECORDER_STATE_KEY (chrome.storage.local), so any
+// tab or frame, including the one that was just reloaded, shows the same timer and pause/stop.
 // ---------------------------------------------------------------------------
 
-const RECORD_PART_DURATION_MS = 30_000;
-const GIF_PART_DURATION_MS = 15_000;
-const GIF_FPS = 5;
-const GIF_MAX_WIDTH = 1280;
-const GIF_MAX_HEIGHT = 720;
+const RECORDER_STATE_KEY = "qtsRecorderStateV1";
+const RECORDER_ACTIVE_STATUSES = new Set(["recording", "paused"]);
 
 const recordingState = {
-  status: "idle", // idle | recording | paused
-  mode: "video", // video | parts | gif
-  stream: null,
-  recorder: null,
-  chunks: [],
-  parts: [], // finished segment Blobs, only used when mode === "parts"
-  mimeType: "",
+  status: "idle", // idle | recording | paused (mirror of the recorder window)
+  mode: "video", // video | gif
   elapsedMs: 0,
   segmentStartedAt: 0,
+  // Status picked by hand (Status de teste) during this recording. Stop reuses it instead of
+  // forcing the reminder modal a second time; every new recording starts without one.
+  manualStatusKey: null,
   timerId: null,
-  partTimerId: null,
-  gifVideo: null,
-  gifCanvas: null,
-  gifEncoder: null,
-  gifCaptureId: null,
-  gifSegmentStartedAt: 0,
-  gifLastFrameAt: 0,
-  gifPausedAt: 0,
 };
-
-function pickRecordingMimeType() {
-  const candidates = ["video/mp4;codecs=avc1.42E01E", "video/mp4;codecs=avc1", "video/mp4", "video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"];
-  return candidates.find((type) => typeof MediaRecorder !== "undefined" && MediaRecorder.isTypeSupported(type)) || "";
-}
+// Resolvers of startEvidenceRecording() calls waiting for the user to pick a screen in the
+// recorder window: true once it reports "recording", false if it ends up idle (cancelled/closed).
+const pendingRecorderStarts = [];
 
 const STEPS_COPY = {
   "pt-BR": { title: "Gravador de Passos", intro: "Cada clique, campo preenchido e mensagem de retorno vira um passo - simples de ler, fácil de repetir.", record: "Gravar passos", manual: "Criar manualmente", numbered: "Passos numerados", gherkin: "Gherkin", start: "Estou na tela", click: "Clicar em", contextmenu: "Clicar com o botão direito em", input: "Preencher o campo", select: "no menu suspenso", check: "Marcar a caixa", uncheck: "Desmarcar a caixa", submit: "Enviar o formulário", key: "Pressionar", navigation: "Navegar para", protected: "Preencher campo protegido", expected: "O que apareceu na tela", add: "Adicionar etapa", save: "Salvar roteiro", export: "Exportar CSV", empty: "Nenhum roteiro salvo.", name: "Nome do roteiro", steps: "passos", saved: "Roteiro salvo.", paused: "Gravação de passos pausada.", resumed: "Gravação de passos retomada.", recording: "Gravação de passos iniciada.", resumedAfterReload: "Gravação de passos retomada após o recarregamento da página.", discard: "Descartar esta gravação de passos?", delete: "Excluir este roteiro?", edit: "Editar", remove: "Excluir", duplicate: "Duplicar", back: "Roteiros", csvSteps: "steps", csvExpected: "resultado esperado", withWord: "com", selectWord: "Selecionar", onWord: "em", occurs: "acontece" },
@@ -8253,7 +8278,7 @@ function appendDocumentedStep(step) {
 function persistStepsRecordingRun() {
   const recording = state.stepsRecording;
   if (!recording) return;
-  void recordingRunRequest("steps", "set", { id: recording.id, name: recording.name, mode: recording.mode, deviceId: recording.deviceId || "", paused: recording.paused, phase: recording.phase, lastActionAt: recording.lastActionAt, steps: recording.steps, expiresAt: Date.now() + 60 * 60_000 });
+  void recordingRunRequest("steps", "set", { id: recording.id, name: recording.name, mode: recording.mode, deviceId: recording.deviceId || "", mediaMode: recording.mediaMode || "", paused: recording.paused, phase: recording.phase, lastActionAt: recording.lastActionAt, steps: recording.steps, expiresAt: Date.now() + 60 * 60_000 });
 }
 
 function updateStepsRecordingUi() {
@@ -8355,7 +8380,7 @@ function startStepsRecording({ name, mode, deviceId = "" } = {}, resumeData = nu
   document.addEventListener("input", onInput, true); document.addEventListener("change", onChange, true); document.addEventListener("click", onClick, true); document.addEventListener("contextmenu", onContext, true); document.addEventListener("submit", onSubmit, true); document.addEventListener("keydown", onKey, true); window.addEventListener("popstate", onNavigate); window.addEventListener("hashchange", onNavigate); resultObserver.observe(document.body, { childList: true, subtree: true, characterData: true });
   const cleanup = () => { resultObserver.disconnect(); document.removeEventListener("input", onInput, true); document.removeEventListener("change", onChange, true); document.removeEventListener("click", onClick, true); document.removeEventListener("contextmenu", onContext, true); document.removeEventListener("submit", onSubmit, true); document.removeEventListener("keydown", onKey, true); window.removeEventListener("popstate", onNavigate); window.removeEventListener("hashchange", onNavigate); };
   state.stepsRecording = resumeData
-    ? { id: resumeData.id, name: resumeData.name, mode: resumeData.mode, deviceId: resumeData.deviceId || "", mediaMode: "", paused: resumeData.paused === true, phase: resumeData.phase || "given", lastActionAt: Date.now(), steps: resumeData.steps || [], cleanup }
+    ? { id: resumeData.id, name: resumeData.name, mode: resumeData.mode, deviceId: resumeData.deviceId || "", mediaMode: RECORDER_ACTIVE_STATUSES.has(recordingState.status) ? resumeData.mediaMode || "" : "", paused: resumeData.paused === true, phase: resumeData.phase || "given", lastActionAt: Date.now(), steps: resumeData.steps || [], cleanup }
     : { id: crypto.randomUUID(), name: String(name || copy.title).slice(0, 100), mode: mode === "gherkin" ? "gherkin" : "numbered", deviceId, mediaMode: "", paused: false, phase: "given", lastActionAt: Date.now(), steps: [makeDocumentedStep("start", `${copy.start} ${document.title || safeCurrentUrl()}`)], cleanup };
   updateStepsRecordingUi();
   showQaToast(resumeData ? copy.resumedAfterReload : copy.recording);
@@ -8504,13 +8529,6 @@ function openStepsRecorder() {
   });
 }
 
-function createEvidenceMediaRecorder(stream, mimeType) {
-  return new MediaRecorder(stream, {
-    ...(mimeType ? { mimeType } : {}),
-    videoBitsPerSecond: 4_000_000,
-  });
-}
-
 function formatDuration(ms) {
   const totalSeconds = Math.max(0, Math.floor(ms / 1000));
   const minutes = String(Math.floor(totalSeconds / 60)).padStart(2, "0");
@@ -8550,165 +8568,74 @@ function handleRecordToggle() {
   resumeEvidenceRecording();
 }
 
-function startPartRotationTimer() {
-  if (recordingState.mode !== "parts") return;
-  recordingState.partTimerId = window.setTimeout(handlePartRotationTick, RECORD_PART_DURATION_MS);
-}
-
-function stopPartRotationTimer() {
-  if (recordingState.partTimerId) {
-    window.clearTimeout(recordingState.partTimerId);
-    recordingState.partTimerId = null;
-  }
-}
-
-async function handlePartRotationTick() {
-  if (recordingState.status !== "recording" || recordingState.mode !== "parts") return;
-  await rotateRecordingSegment();
-  if (recordingState.status === "recording") startPartRotationTimer();
-}
-
-// Finishes the current MediaRecorder segment as its own standalone playable file (a fresh
-// MediaRecorder on the same live stream, not a mid-stream split - WebM/MP4 containers need their
-// own header, so this is the only reliable way to get N independently-playable chunks) and starts
-// the next one immediately so no video time is lost between segments.
-async function rotateRecordingSegment() {
-  const recorder = recordingState.recorder;
-  if (!recorder || !recordingState.stream) return;
-  const stopped = new Promise((resolveStop) => recorder.addEventListener("stop", resolveStop, { once: true }));
-  recorder.stop();
-  await stopped;
-  recordingState.parts.push(new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" }));
-  recordingState.chunks = [];
-  if (recordingState.status !== "recording") return;
-  recordingState.recorder = createEvidenceMediaRecorder(recordingState.stream, recordingState.mimeType);
-  recordingState.recorder.addEventListener("dataavailable", (event) => {
-    if (event.data?.size) recordingState.chunks.push(event.data);
+function recorderCommand(command, extra = {}) {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ type: "qts:recorder-command", command, ...extra }, (response) => {
+      void chrome.runtime.lastError; // no recorder window open: resolves null below
+      resolve(response || null);
+    });
   });
-  // Do not request one Blob every second. In Chromium's MP4 recorder those are media fragments;
-  // rebuilding a file by concatenating them can leave duration/index metadata unusable in common
-  // players. Let stop() finalize one complete, seekable container for each recording segment.
-  recordingState.recorder.start();
 }
 
-function stopGifCaptureTimer() {
-  if (recordingState.gifCaptureId) window.clearTimeout(recordingState.gifCaptureId);
-  recordingState.gifCaptureId = null;
-}
-
-function createGifEncoder() {
-  return new window.QTS_GIF.GifEncoder(recordingState.gifCanvas.width, recordingState.gifCanvas.height, Math.round(100 / GIF_FPS));
-}
-
-function captureGifFrame() {
-  if (recordingState.status !== "recording" || recordingState.mode !== "gif") return;
-  const started = performance.now();
-  const canvas = recordingState.gifCanvas;
-  const context = canvas.getContext("2d", { alpha: false, willReadFrequently: true });
-  context.drawImage(recordingState.gifVideo, 0, 0, canvas.width, canvas.height);
-  const now = Date.now();
-  const delayCs = recordingState.gifLastFrameAt ? Math.round((now - recordingState.gifLastFrameAt) / 10) : Math.round(100 / GIF_FPS);
-  recordingState.gifEncoder.addFrame(context.getImageData(0, 0, canvas.width, canvas.height), delayCs);
-  recordingState.gifLastFrameAt = now;
-  if (Date.now() - recordingState.gifSegmentStartedAt >= GIF_PART_DURATION_MS) {
-    recordingState.parts.push(recordingState.gifEncoder.finish());
-    recordingState.gifEncoder = createGifEncoder();
-    recordingState.gifSegmentStartedAt = Date.now();
-    recordingState.gifLastFrameAt = 0;
+function applyRecorderState(snapshot) {
+  const previousStatus = recordingState.status;
+  const live = Boolean(snapshot) && RECORDER_ACTIVE_STATUSES.has(snapshot.status);
+  recordingState.status = live ? snapshot.status : "idle";
+  recordingState.mode = snapshot?.mode === "gif" ? "gif" : "video";
+  recordingState.elapsedMs = live ? Number(snapshot.elapsedMs) || 0 : 0;
+  recordingState.segmentStartedAt = live ? Number(snapshot.segmentStartedAt) || Date.now() : 0;
+  recordingState.manualStatusKey = live ? snapshot.manualStatusKey || null : null;
+  if (live && !recordingState.timerId) recordingState.timerId = window.setInterval(updateRecordTimerDisplay, 500);
+  if (!live && recordingState.timerId) { window.clearInterval(recordingState.timerId); recordingState.timerId = null; }
+  if (snapshot?.status === "recording") pendingRecorderStarts.splice(0).forEach((resolve) => resolve(true));
+  else if (!snapshot || snapshot.status === "idle") pendingRecorderStarts.splice(0).forEach((resolve) => resolve(false));
+  if (RECORDER_ACTIVE_STATUSES.has(previousStatus) && !live && snapshot?.reason === "window_closed" && window.self === window.top) {
+    showQaToast(state.t.recorderWindowClosed, "error");
   }
-  // Serial scheduling provides backpressure: a slow device drops capture FPS instead of piling up
-  // callbacks and exhausting the page's memory. The GIF remains playable at its declared cadence.
-  const remaining = Math.max(0, 1000 / GIF_FPS - (performance.now() - started));
-  recordingState.gifCaptureId = window.setTimeout(captureGifFrame, remaining);
+  setRecordingUi();
+  updateRecordTimerDisplay();
 }
 
-async function initializeGifCapture(stream) {
-  if (!window.QTS_GIF?.GifEncoder) throw new Error("GIF encoder unavailable");
-  const video = document.createElement("video");
-  video.muted = true; video.playsInline = true; video.srcObject = stream;
-  await video.play();
-  const scale = Math.min(1, GIF_MAX_WIDTH / video.videoWidth, GIF_MAX_HEIGHT / video.videoHeight);
-  const canvas = document.createElement("canvas");
-  canvas.width = Math.max(2, Math.round(video.videoWidth * scale / 2) * 2);
-  canvas.height = Math.max(2, Math.round(video.videoHeight * scale / 2) * 2);
-  recordingState.gifVideo = video;
-  recordingState.gifCanvas = canvas;
-  recordingState.gifEncoder = createGifEncoder();
-  recordingState.gifSegmentStartedAt = Date.now();
-  recordingState.gifLastFrameAt = 0;
+// Boot-time read (e.g. right after a reload mid-recording). A snapshot left behind by a recorder
+// window that no longer exists (browser crash) must not show a phantom recording, so a live one is
+// only trusted after the window itself answers.
+async function syncRecorderStateFromStorage() {
+  const stored = await chrome.storage.local.get(RECORDER_STATE_KEY).catch(() => ({}));
+  const snapshot = stored[RECORDER_STATE_KEY];
+  if (snapshot && snapshot.status !== "idle") {
+    const pong = await recorderCommand("ping");
+    applyRecorderState(pong?.ok ? snapshot : null);
+    return;
+  }
+  applyRecorderState(snapshot);
 }
 
 async function startEvidenceRecording(mode = "video") {
-  if (!requireRawFeature(mode === "gif" ? "recording.gif" : "recording.mp4")) return;
-  if (!navigator.mediaDevices?.getDisplayMedia || (mode !== "gif" && typeof MediaRecorder === "undefined")) {
-    openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
-    return;
+  if (!requireRawFeature(mode === "gif" ? "recording.gif" : "recording.mp4")) return false;
+  if (recordingState.status !== "idle") return recordingState.status === "recording";
+  const response = await new Promise((resolve) => {
+    chrome.runtime.sendMessage({
+      type: "qts:recorder-open",
+      mode: mode === "gif" ? "gif" : "video",
+      lang: state.workspace?.preferences?.language || "pt-BR",
+      prefix: state.t.recordFilenamePrefix || "evidencia",
+      slug: currentScreenNameSlug(),
+    }, (result) => { void chrome.runtime.lastError; resolve(result || null); });
+  });
+  if (!response?.ok) {
+    if (response?.error === "already_recording") showQaToast(state.t.recorderAlreadyOpen, "info");
+    else openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(state.t.recordingUnavailableBody)}</p>` });
+    return false;
   }
-  let stream;
-  try {
-    stream = await navigator.mediaDevices.getDisplayMedia({ video: { frameRate: { ideal: 24, max: 30 } }, audio: false });
-  } catch {
-    return; // User cancelled the native picker - not an error.
-  }
-  const mimeType = pickRecordingMimeType();
-  recordingState.mode = mode;
-  recordingState.stream = stream;
-  recordingState.chunks = [];
-  recordingState.parts = [];
-  recordingState.mimeType = mimeType;
-  recordingState.elapsedMs = 0;
-  if (mode === "gif") {
-    try { await initializeGifCapture(stream); }
-    catch (error) {
-      stream.getTracks().forEach((track) => track.stop());
-      openDrawer({ title: state.t.recordingUnavailableTitle, bodyHtml: `<p>${escapeHtml(error.message)}</p>` });
-      return;
-    }
-    recordingState.recorder = null;
-  } else {
-    recordingState.recorder = createEvidenceMediaRecorder(stream, mimeType);
-    recordingState.mimeType = recordingState.recorder.mimeType || mimeType;
-    recordingState.recorder.addEventListener("dataavailable", (event) => {
-      if (event.data?.size) recordingState.chunks.push(event.data);
-    });
-  }
-  stream.getVideoTracks()[0]?.addEventListener("ended", () => {
-    if (recordingState.status !== "idle") stopEvidenceRecording();
-  }, { once: true });
-
-  recordingState.status = "recording";
-  recordingState.segmentStartedAt = Date.now();
-  if (mode === "gif") captureGifFrame();
-  else recordingState.recorder.start();
-  recordingState.timerId = window.setInterval(updateRecordTimerDisplay, 500);
-  startPartRotationTimer();
-  setRecordingUi();
+  return new Promise((resolve) => { pendingRecorderStarts.push(resolve); });
 }
 
 function pauseEvidenceRecording() {
-  if (recordingState.status !== "recording") return;
-  if (recordingState.mode === "gif") stopGifCaptureTimer();
-  else if (recordingState.recorder) recordingState.recorder.pause();
-  recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
-  recordingState.status = "paused";
-  if (recordingState.mode === "gif") recordingState.gifPausedAt = Date.now();
-  stopPartRotationTimer();
-  setRecordingUi();
+  if (recordingState.status === "recording") void recorderCommand("pause");
 }
 
 function resumeEvidenceRecording() {
-  if (recordingState.status !== "paused") return;
-  if (recordingState.mode !== "gif" && recordingState.recorder) recordingState.recorder.resume();
-  recordingState.segmentStartedAt = Date.now();
-  recordingState.status = "recording";
-  if (recordingState.mode === "gif") {
-    recordingState.gifSegmentStartedAt += Date.now() - recordingState.gifPausedAt;
-    recordingState.gifPausedAt = 0;
-    recordingState.gifLastFrameAt = 0;
-    captureGifFrame();
-  }
-  startPartRotationTimer();
-  setRecordingUi();
+  if (recordingState.status === "paused") void recorderCommand("resume");
 }
 
 // Screen name segment: the current page's own URL path is a far more stable, meaningful label
@@ -8768,91 +8695,26 @@ function triggerBlobDownload(blob, filename) {
   window.setTimeout(() => URL.revokeObjectURL(url), 10_000);
 }
 
-// Single segment downloads directly; 2+ segments (mode "parts", recording longer than 30s) get
-// packaged into one .zip via window.QTS_ZIP so the user gets one file to attach as evidence
-// instead of a scattered pile of part1/part2/... downloads.
-async function downloadRecordingResult(parts, extension, statusKey) {
-  const baseName = buildEvidenceFileBaseName(statusKey);
-  if (parts.length <= 1) {
-    triggerBlobDownload(parts[0], `${baseName}.${extension}`);
-    return;
-  }
-  const partWord = state.t.recordFilenamePart || "part";
-  const files = await Promise.all(parts.map(async (blob, index) => ({
-    name: `${baseName}_${partWord}${index + 1}.${extension}`,
-    data: new Uint8Array(await blob.arrayBuffer()),
-  })));
-  triggerBlobDownload(window.QTS_ZIP.createZip(files), `${baseName}.zip`);
-}
-
-async function recordingContainerExtension(blob) {
-  const header = new Uint8Array(await blob.slice(0, 16).arrayBuffer());
-  const ascii = String.fromCharCode(...header);
-  // ISO Base Media File Format starts with a size followed by the `ftyp` box. This verifies the
-  // bytes instead of trusting a requested MIME type that a browser may silently substitute.
-  if (header.length >= 12 && ascii.slice(4, 8) === "ftyp") return "mp4";
-  // WebM is EBML (1A 45 DF A3). Never label this output .mp4.
-  if (header[0] === 0x1a && header[1] === 0x45 && header[2] === 0xdf && header[3] === 0xa3) return "webm";
-  return "webm";
-}
-
-// Entry point for the visible Stop button (as opposed to the native "stop sharing" bar, which
-// ends the capture source itself and calls stopEvidenceRecording directly below - forcing the
-// status modal there would be pointless since there'd be nothing left to actually capture).
+// Entry point for Stop, whether clicked on the toolbar or on the recorder window (which forwards it
+// here through "qts:recorder-stop-request" so this preference is honoured either way). Founder
+// rule (2026-10-08): with "lembrar de atribuir status" on, Stop asks for a status, unless the QA
+// already picked one by hand during this same recording; that status is then used and the modal
+// is skipped. The next recording asks again. The native "stop sharing" bar ends the capture in
+// the recorder window directly, where there is nothing left to show a status on.
 function handleStopRecordingClick() {
-  if (state.workspace?.preferences?.remindTestStatusOnRecording && recordingState.status !== "idle") {
+  if (!RECORDER_ACTIVE_STATUSES.has(recordingState.status)) return;
+  if (recordingState.manualStatusKey) { void stopEvidenceRecording(recordingState.manualStatusKey); return; }
+  if (state.workspace?.preferences?.remindTestStatusOnRecording) {
     openTestStatusModal({ forced: true, onDone: (option) => stopEvidenceRecording(option.key) });
     return;
   }
-  stopEvidenceRecording();
+  void stopEvidenceRecording();
 }
 
 async function stopEvidenceRecording(statusKey) {
-  if (!["recording", "paused"].includes(recordingState.status) || (!recordingState.recorder && recordingState.mode !== "gif")) return;
-  stopPartRotationTimer();
-  stopGifCaptureTimer();
-  const recorder = recordingState.recorder;
-  if (recordingState.status === "recording") recordingState.elapsedMs += Date.now() - recordingState.segmentStartedAt;
-  recordingState.status = "stopping";
-  window.clearInterval(recordingState.timerId);
-  recordingState.timerId = null;
-
-  if (recorder) {
-    const stopped = new Promise((resolveStop) => recorder.addEventListener("stop", resolveStop, { once: true }));
-    recorder.stop();
-    await stopped;
-  }
-  recordingState.stream?.getTracks().forEach((track) => track.stop());
-
-  const isGif = recordingState.mode === "gif";
-  const finalBlob = isGif
-    ? (recordingState.gifEncoder.frameCount ? recordingState.gifEncoder.finish() : null)
-    : new Blob(recordingState.chunks, { type: recordingState.mimeType || "video/webm" });
-  const parts = (recordingState.mode === "parts" || isGif) ? [...recordingState.parts, finalBlob] : [finalBlob];
-  const nonEmptyParts = parts.filter((blob) => blob?.size > 50);
-  if (nonEmptyParts.length) {
-    const extension = isGif ? "gif" : await recordingContainerExtension(finalBlob);
-    const resolvedStatusKey = statusKey || await resolveRecentStatusKeyForCurrentPage();
-    await downloadRecordingResult(nonEmptyParts, extension, resolvedStatusKey);
-  } else {
-    showQaToast("A gravação terminou antes de capturar um quadro válido.", "error");
-  }
-
-  recordingState.status = "idle";
-  recordingState.mode = "video";
-  recordingState.recorder = null;
-  recordingState.stream = null;
-  recordingState.chunks = [];
-  recordingState.parts = [];
-  if (recordingState.gifVideo) { recordingState.gifVideo.srcObject = null; recordingState.gifVideo.remove(); }
-  recordingState.gifVideo = null;
-  recordingState.gifCanvas = null;
-  recordingState.gifEncoder = null;
-  recordingState.gifLastFrameAt = 0;
-  recordingState.gifPausedAt = 0;
-  recordingState.elapsedMs = 0;
-  setRecordingUi();
-  updateRecordTimerDisplay();
+  if (!RECORDER_ACTIVE_STATUSES.has(recordingState.status)) return;
+  const resolvedStatusKey = statusKey || recordingState.manualStatusKey || await resolveRecentStatusKeyForCurrentPage();
+  await recorderCommand("stop", { fileBaseName: buildEvidenceFileBaseName(resolvedStatusKey) });
 }
 
 function requestAccessState(force = false) {
@@ -8929,6 +8791,11 @@ async function boot() {
   // edge function independently every 5 minutes - with several tabs open that multiplier alone
   // blew through access-status' rate limit (enforceRateLimit in access-status/index.ts).
   state.accessInterval = window.setInterval(() => { void refreshAuthorization(false); }, 5 * 60_000);
+  chrome.storage.onChanged.addListener((changes, area) => {
+    if (area === "local" && changes[RECORDER_STATE_KEY]) applyRecorderState(changes[RECORDER_STATE_KEY].newValue);
+  });
+  // Before resuming a "Passos + vídeo" run below, so it knows whether its video is still going.
+  await syncRecorderStateFromStorage();
   if (authorizedAtBoot) {
     const pendingRun = await macroRunRequest("get");
     if (pendingRun?.ok && pendingRun.run) void continueMacroRun(pendingRun.run, { announce: true });
@@ -8961,6 +8828,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === "qts:context-action") {
     if (state.authorized) handleContextAction(message.action);
     sendResponse({ handled: state.authorized === true });
+    return undefined;
+  }
+  if (message?.type === "qts:recorder-stop-request") {
+    const handled = state.authorized === true && RECORDER_ACTIVE_STATUSES.has(recordingState.status);
+    if (handled) handleStopRecordingClick();
+    sendResponse({ handled });
     return undefined;
   }
   if (message?.type === "qts:open-detached-tool") {
