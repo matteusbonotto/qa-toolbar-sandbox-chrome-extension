@@ -504,6 +504,20 @@ function requireRawFeature(featureKey) {
 const TOOLS_MENU_ITEM_IDS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.menuItemId]));
 const TOOLS_MENU_LABELS = Object.fromEntries(window.QTS_STORAGE.FEATURE_REGISTRY.map((feature) => [feature.key, feature.label]));
 const TOOLS_MENU_ITEM_KEY_BY_ID = Object.fromEntries(Object.entries(TOOLS_MENU_ITEM_IDS).map(([key, id]) => [id, key]));
+// Founder request (2026-10-08): the Tools menu had ~30 rows in one flat list. They are now shown in
+// five collapsible sections plus a search field. Display-only: the founder's manual order and the
+// A-Z/Z-A/"mais usados" sort (preferences.toolsSortMode) still apply inside each section, and no
+// workspace schema changed. A registry key missing here falls into the last section, so a new tool
+// can never vanish from the menu. Notas/Formas are not registry tools; they open "evidence".
+const TOOLS_MENU_GROUPS = Object.freeze([
+  { key: "evidence", labelKey: "toolsGroupEvidence", staticItems: ["notesMenuItem", "shapesMenuItem"], tools: ["testStatus", "testSession", "stepsRecorder", "macroStudio", "reportBuilder"] },
+  { key: "inspect", labelKey: "toolsGroupInspect", tools: ["inspectors", "errorMonitor", "forceHttp", "jsonStudio", "clickSpy", "elementCapture", "languageValidator"] },
+  { key: "data", labelKey: "toolsGroupData", tools: ["fakerFill", "inputLab", "characterCounter", "multiClick", "testAccounts", "paymentMethods", "qrCode"] },
+  { key: "visual", labelKey: "toolsGroupVisual", tools: ["breakpoints", "pixelPerfect", "blurElements", "holofote", "keyView"] },
+  { key: "environment", labelKey: "toolsGroupEnvironment", tools: ["freezeClock", "clearSiteData", "resources"] },
+]);
+const TOOLS_MENU_GROUP_BY_KEY = Object.fromEntries(TOOLS_MENU_GROUPS.flatMap((group) => group.tools.map((key) => [key, group.key])));
+const TOOLS_MENU_COLLAPSED_KEY = "qtsToolsMenuCollapsedV1";
 
 function customShortcutFromEvent(event) {
   const key = event.key.length === 1 ? event.key.toLocaleUpperCase() : event.key;
@@ -517,7 +531,10 @@ function customShortcutFromEvent(event) {
 }
 
 function handleCustomToolShortcut(event) {
-  if (event.defaultPrevented || editableTypingTarget(event.target) || isKeyViewOwnSurface(event)) return;
+  // composedPath()[0] is the real element inside the toolbar's shadow root; event.target is
+  // retargeted to the host there, which made typing in a toolbar field fire custom shortcuts.
+  const typingTarget = event.composedPath?.()[0] || event.target;
+  if (event.defaultPrevented || editableTypingTarget(typingTarget) || isKeyViewOwnSurface(event)) return;
   const shortcut = customShortcutFromEvent(event);
   if (!shortcut) return;
   const entry = Object.entries(state.workspace?.preferences?.customShortcuts || {}).find(([, value]) => value === shortcut);
@@ -560,6 +577,63 @@ function sortedToolsMenuOrder(baseOrder) {
   return baseOrder;
 }
 
+function toolsMenuSearchText(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+}
+
+// Section counts, empty sections and the search filter. Searching shows every section expanded so
+// a match inside a collapsed one is never hidden; Enter opens the first match.
+function refreshToolsMenuGroups() {
+  const root = state.shadowRoot;
+  const menu = root?.getElementById("toolsMenu");
+  if (!menu) return;
+  const query = toolsMenuSearchText(root.getElementById("toolsSearch")?.value);
+  menu.classList.toggle("isSearching", Boolean(query));
+  let totalMatches = 0;
+  root.querySelectorAll(".qts-tools-group").forEach((group) => {
+    const items = [...group.querySelectorAll(".qts-tools-group-body > button")].filter((item) => !item.classList.contains("isPreferenceHidden"));
+    let matches = 0;
+    for (const item of items) {
+      const hit = !query || toolsMenuSearchText(item.textContent).includes(query);
+      item.classList.toggle("isSearchHidden", !hit);
+      if (hit) matches += 1;
+    }
+    totalMatches += matches;
+    group.hidden = matches === 0;
+    const count = group.querySelector("[data-tools-group-count]");
+    if (count) count.textContent = String(matches);
+  });
+  const empty = root.getElementById("toolsSearchEmpty");
+  if (empty) empty.hidden = !query || totalMatches > 0;
+}
+
+function setToolsGroupCollapsed(group, collapsed) {
+  group.classList.toggle("isCollapsed", collapsed);
+  group.querySelector(".qts-tools-group-head")?.setAttribute("aria-expanded", String(!collapsed));
+}
+
+async function applyStoredToolsMenuCollapse() {
+  const stored = await chrome.storage.local.get(TOOLS_MENU_COLLAPSED_KEY).catch(() => ({}));
+  const collapsed = new Set(Array.isArray(stored[TOOLS_MENU_COLLAPSED_KEY]) ? stored[TOOLS_MENU_COLLAPSED_KEY] : []);
+  state.shadowRoot?.querySelectorAll(".qts-tools-group").forEach((group) => setToolsGroupCollapsed(group, collapsed.has(group.dataset.toolsGroup)));
+}
+
+function persistToolsMenuCollapse() {
+  const collapsed = [...(state.shadowRoot?.querySelectorAll(".qts-tools-group.isCollapsed") || [])].map((group) => group.dataset.toolsGroup);
+  void chrome.storage.local.set({ [TOOLS_MENU_COLLAPSED_KEY]: collapsed }).catch(() => {});
+}
+
+// Tour steps and pinned shortcuts may target a row inside a collapsed section.
+function revealToolsMenuItem(item) {
+  const group = item?.closest?.(".qts-tools-group");
+  if (group?.classList.contains("isCollapsed")) setToolsGroupCollapsed(group, false);
+}
+
+function resetToolsMenuSearch() {
+  const search = state.shadowRoot?.getElementById("toolsSearch");
+  if (search && search.value) { search.value = ""; refreshToolsMenuGroups(); }
+}
+
 function applyPinnedTools() {
   const root = state.shadowRoot;
   if (!root) return;
@@ -569,6 +643,7 @@ function applyPinnedTools() {
   const enabledTools = new Set(state.workspace?.preferences?.enabledTools || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS);
   ["passButton", "failButton", "screenshotButton", "recordToggleButton"].forEach((id) => root.getElementById(id)?.classList.remove("isPreferenceHidden"));
   ["testStatusButton", "noteButton", "shapeWrapper", "blurQuickButton", "holofoteQuickButton"].forEach((id) => root.getElementById(id)?.classList.add("isPreferenceHidden"));
+  root.getElementById("markerStatusItem")?.classList.toggle("isPreferenceHidden", !enabledTools.has("testStatus"));
   const menuItems = TOOLS_MENU_ITEM_IDS;
   for (const [key, id] of Object.entries(menuItems)) {
     const element = root.getElementById(id);
@@ -611,7 +686,16 @@ function applyPinnedTools() {
   const menu = root.getElementById("toolsMenu");
   const toolsMenuOrder = state.workspace?.preferences?.toolsMenuOrder || window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS;
   const effectiveOrder = sortedToolsMenuOrder(toolsMenuOrder);
-  if (menu) for (const key of effectiveOrder) { const item = menuItems[key] && root.getElementById(menuItems[key]); if (item) menu.appendChild(item); }
+  if (menu) {
+    const groupBodies = Object.fromEntries(TOOLS_MENU_GROUPS.map((group) => [group.key, root.querySelector(`[data-tools-group="${group.key}"] .qts-tools-group-body`)]));
+    const fallbackBody = groupBodies[TOOLS_MENU_GROUPS.at(-1).key];
+    for (const group of TOOLS_MENU_GROUPS) for (const id of group.staticItems || []) { const item = root.getElementById(id); if (item) groupBodies[group.key].appendChild(item); }
+    for (const key of effectiveOrder) {
+      const item = menuItems[key] && root.getElementById(menuItems[key]);
+      if (item) (groupBodies[TOOLS_MENU_GROUP_BY_KEY[key]] || fallbackBody || menu).appendChild(item);
+    }
+    refreshToolsMenuGroups();
+  }
   // #pinnedMacrosMenu isn't itself a reorderable entry (it has no feature key), so the loop above
   // never touches it -- pin it back right under the Macros button regardless of where founder
   // customization put that button, instead of leaving it stranded wherever it last sat in the DOM.
@@ -745,7 +829,7 @@ function buildShadowHost() {
       :host([data-toolbar-position="left"]) #toolsMenu,
       :host([data-toolbar-position="right"]) #toolsMenu {
         position:fixed; top:8px; bottom:auto; width:min(278px,calc(100vw - 78px));
-        max-height:min(320px,calc(100vh - 16px)); transform:translateX(-6px); scrollbar-gutter:auto;
+        max-height:min(440px,calc(100vh - 16px)); transform:translateX(-6px); scrollbar-gutter:auto;
       }
       :host([data-toolbar-position="left"]) #toolsMenu { left:66px; right:auto; }
       :host([data-toolbar-position="right"]) #toolsMenu { left:auto; right:66px; }
@@ -878,12 +962,31 @@ function buildShadowHost() {
       #toolsWrapper { position: relative; }
       #toolsMenu {
         position: absolute; top: 30px; right: 0; width: 260px; padding: 7px; display: grid; gap: 5px;
-        max-height: 320px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
+        max-height: min(440px, calc(100vh - 56px)); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable;
         border-radius: 10px; background: #0c0c0c; border: 1px solid rgba(255,255,255,.18);
         box-shadow: 0 16px 40px rgba(0,0,0,.45); opacity: 0; visibility: hidden; transform: translateY(-6px);
         transition: opacity 140ms ease, transform 140ms ease, visibility 140ms; color: #fff; z-index: 10;
       }
       #toolsMenu.isOpen { opacity: 1; visibility: visible; transform: translateY(0); }
+      #toolsSearchWrap { display:flex; align-items:center; gap:6px; height:32px; padding:0 9px; border:1px solid var(--qts-ui-border,#2c2c2c); border-radius:7px; background:var(--qts-ui-surface-2,#171717); color:var(--qts-ui-muted,#aaa); }
+      #toolsSearchWrap:focus-within { border-color:var(--qts-ui-primary,#ffd700); }
+      #toolsSearchWrap svg { width:15px; height:15px; flex:0 0 15px; }
+      #toolsSearch { all:unset; flex:1; min-width:0; color:var(--qts-ui-text,#fff); font:600 12px/1 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif; }
+      #toolsSearch::placeholder { color:var(--qts-ui-muted,#aaa); }
+      .qts-tools-group { display:grid; gap:4px; }
+      .qts-tools-group[hidden] { display:none; }
+      .qts-tools-group-body { display:grid; gap:3px; }
+      #toolsMenu .qts-tools-group-head { height:26px; padding:0 4px !important; gap:6px; background:transparent !important; border-color:transparent !important; color:var(--qts-ui-muted,#aaa); font-size:10px; font-weight:800; letter-spacing:.05em; text-transform:uppercase; }
+      #toolsMenu .qts-tools-group-head:hover { color:var(--qts-ui-text,#fff); filter:none; }
+      #toolsMenu .qts-tools-group-head span { flex:1; text-align:left; }
+      #toolsMenu .qts-tools-group-head small { min-width:18px; padding:1px 6px; border-radius:99px; background:var(--qts-ui-surface-2,#171717); text-align:center; font-size:9px; letter-spacing:0; }
+      #toolsMenu .qts-tools-group-head > svg { width:14px !important; height:14px !important; flex:0 0 14px !important; padding:0 !important; background:none !important; color:inherit !important; transition:transform 140ms ease; }
+      .qts-tools-group.isCollapsed .qts-tools-group-head > svg { transform:rotate(-90deg); }
+      .qts-tools-group.isCollapsed .qts-tools-group-body { display:none; }
+      #toolsMenu.isSearching .qts-tools-group-body { display:grid; }
+      #toolsMenu.isSearching .qts-tools-group-head > svg { transform:none; }
+      .isSearchHidden { display:none !important; }
+      @media (prefers-reduced-motion: reduce) { #toolsMenu .qts-tools-group-head > svg { transition:none; } }
       :host([data-toolbar-position="bottom"]) #toolsMenu {
         top:auto; bottom:30px; transform:translateY(6px);
       }
@@ -895,7 +998,7 @@ function buildShadowHost() {
       #toolsMenu::-webkit-scrollbar-thumb { background: color-mix(in srgb,var(--qts-ui-primary,#2563eb) 64%,transparent); border:2px solid transparent; border-radius:99px; background-clip:padding-box; }
       #toolsMenu button {
         box-sizing:border-box !important; width:100% !important; min-width:100% !important; max-width:100% !important;
-        height:34px; justify-content:flex-start !important; gap:9px; padding:0 9px;
+        height:30px; justify-content:flex-start !important; gap:9px; padding:0 9px;
         background: #171717; border-color: #2c2c2c; font-size: 12px;
       }
       #toolsMenu button > svg {
@@ -1040,8 +1143,9 @@ function buildShadowHost() {
         <button id="passButton" class="iconOnly" type="button" title="${escapeHtml(t.pass)}">${ICON("pass")}</button>
         <button id="failButton" class="iconOnly" type="button" title="${escapeHtml(t.fail)}">${ICON("fail")}</button>
         <div id="markerWrapper">
-          <button id="markerMoreButton" class="iconOnly" type="button" title="${escapeHtml(t.markerMore)}">${ICON("chevronDown")}</button>
-          <div id="markerTypeMenu" class="isHidden" role="menu">
+          <button id="markerMoreButton" class="iconOnly" type="button" title="${escapeHtml(t.resultMenuHint)}" aria-label="${escapeHtml(t.resultMenuHint)}">${ICON("chevronDown")}</button>
+          <div id="markerTypeMenu" class="isHidden" role="menu" aria-label="${escapeHtml(t.resultMenu)}">
+            <button type="button" id="markerStatusItem" role="menuitem">${ICON("checkSquare")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testStatus))}</button>
             <button class="markerMobileOnly" type="button" data-marker-pick="pass" role="menuitem">${ICON("pass")} ${escapeHtml(t.pass)}</button>
             <button class="markerMobileOnly" type="button" data-marker-pick="fail" role="menuitem">${ICON("fail")} ${escapeHtml(t.fail)}</button>
             <button type="button" data-marker-pick="warning" role="menuitem">${ICON("warning")} ${escapeHtml(t.markerWarning)}</button>
@@ -1117,6 +1221,9 @@ function buildShadowHost() {
               <button type="button" id="mobileRecordItem" role="menuitem">${ICON("recordStart")} ${escapeHtml(t.recordStart)}</button>
             </div>
             <button type="button" id="disableAllToolsMenuItem" class="isHidden" role="menuitem">${ICON("fail")} ${escapeHtml(translateQaSurfaceText("Limpar ferramentas ativas"))}</button>
+            <div id="toolsSearchWrap">${ICON("search")}<input id="toolsSearch" type="search" autocomplete="off" spellcheck="false" placeholder="${escapeHtml(t.toolsSearchPlaceholder)}" aria-label="${escapeHtml(t.toolsSearchPlaceholder)}" /></div>
+            <p id="toolsSearchEmpty" class="qts-mini-empty" hidden>${escapeHtml(t.toolsSearchEmpty)}</p>
+            ${TOOLS_MENU_GROUPS.map((group) => `<section class="qts-tools-group" data-tools-group="${group.key}"><button type="button" class="qts-tools-group-head" aria-expanded="true"><span>${escapeHtml(t[group.labelKey])}</span><small data-tools-group-count></small>${ICON("chevronDown")}</button><div class="qts-tools-group-body" role="group" aria-label="${escapeHtml(t[group.labelKey])}"></div></section>`).join("")}
             <button type="button" id="clearSiteDataMenuItem" role="menuitem">${ICON("eraser")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.clearSiteData))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testStatus))}</button>
             <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testSession))}</button>
@@ -1197,9 +1304,20 @@ function buildShadowHost() {
   shadow.getElementById("failButton").addEventListener("click", (event) => enablePlacementMode("fail", event.currentTarget));
   shadow.getElementById("markerMoreButton").addEventListener("click", (event) => {
     event.stopPropagation();
+    // stopPropagation skips the shadow-level "close every popup" handler, so close the Tools menu
+    // here; otherwise both menus stayed open and overlapped.
+    closeToolsMenu();
+    toggleRecordTypeMenu(false);
+    toggleShapeTypeMenu(false);
     shadow.getElementById("markerTypeMenu").classList.toggle("isHidden");
   });
   shadow.getElementById("markerTypeMenu").addEventListener("click", (event) => event.stopPropagation());
+  // "Resultado" menu (founder simplification request, 2026-10-08): Pass/Fail stay one click on the
+  // bar; the other markers and Status do teste live behind this chevron instead of only in Tools.
+  shadow.getElementById("markerStatusItem").addEventListener("click", () => {
+    shadow.getElementById("markerTypeMenu").classList.add("isHidden");
+    openTestStatusModal();
+  });
   shadow.querySelectorAll("#markerTypeMenu [data-marker-pick]").forEach((button) => {
     button.addEventListener("click", () => {
       shadow.getElementById("markerTypeMenu").classList.add("isHidden");
@@ -1291,10 +1409,34 @@ function buildShadowHost() {
     closeToolsMenu();
   });
 
+  shadow.querySelectorAll(".qts-tools-group-head").forEach((head) => head.addEventListener("click", (event) => {
+    event.stopPropagation(); // the shadow-level click handler below would close the menu
+    const group = head.closest(".qts-tools-group");
+    setToolsGroupCollapsed(group, !group.classList.contains("isCollapsed"));
+    persistToolsMenuCollapse();
+  }));
+  const toolsSearch = shadow.getElementById("toolsSearch");
+  toolsSearch.addEventListener("click", (event) => event.stopPropagation());
+  toolsSearch.addEventListener("input", () => { refreshToolsMenuGroups(); shadow.getElementById("toolsMenu").scrollTop = 0; });
+  toolsSearch.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && toolsSearch.value) { event.preventDefault(); event.stopPropagation(); resetToolsMenuSearch(); }
+    if (event.key === "Enter") {
+      event.preventDefault();
+      shadow.querySelector(".qts-tools-group:not([hidden]) .qts-tools-group-body > button:not(.isPreferenceHidden):not(.isSearchHidden)")?.click();
+    }
+  });
+  void applyStoredToolsMenuCollapse();
   shadow.getElementById("toolsButton").addEventListener("click", (event) => {
     event.stopPropagation();
     const menu = shadow.getElementById("toolsMenu");
     const willOpen = !menu.classList.contains("isOpen");
+    resetToolsMenuSearch();
+    // Type-to-find right away; skipped on touch screens, where focusing pops the keyboard.
+    // #toolsMenu stays visibility:hidden until its 140ms open transition runs, and a hidden input
+    // cannot take focus, so focus once the menu has actually become visible.
+    if (willOpen && !window.matchMedia("(pointer: coarse)").matches) {
+      menu.addEventListener("transitionend", () => { if (menu.classList.contains("isOpen")) shadow.getElementById("toolsSearch")?.focus({ preventScroll: true }); }, { once: true });
+    }
     shadow.getElementById("disableAllToolsMenuItem").classList.toggle("isHidden", !hasAnyActiveTool() && !activeMarkerElements().length);
     shadow.getElementById("notificationBellPanel")?.classList.add("isHidden");
     toggleRecordTypeMenu(false);
@@ -1659,6 +1801,8 @@ async function renderTourStep() {
   const targetEl = state.shadowRoot.querySelector(config.menu && tourMenuPhase ? "#toolsButton" : config.selector);
   if (!targetEl) { advanceTourStep(); return; }
   if (config.menu && !tourMenuPhase && toolsMenu) {
+    resetToolsMenuSearch();
+    revealToolsMenuItem(targetEl);
     const menuRect = toolsMenu.getBoundingClientRect();
     const targetRect = targetEl.getBoundingClientRect();
     const safeInset = 6;
