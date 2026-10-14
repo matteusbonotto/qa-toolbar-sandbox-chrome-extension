@@ -38,28 +38,31 @@ automatizado por mim — é uma autorização OAuth real, feita no seu navegador
 1. Abra o [Google Cloud Console](https://console.cloud.google.com/) e crie (ou reaproveite) um
    projeto.
 2. Em **APIs e serviços → Biblioteca**, ative a **Chrome Web Store API**.
-3. Em **APIs e serviços → Tela de consentimento OAuth**, configure como "Externo" + modo de teste
-   (não precisa publicar o app OAuth; só a sua própria conta vai usá-lo).
+3. Em **APIs e serviços → Tela de consentimento OAuth** (ou "Google Auth Platform → Público-alvo"),
+   configure como "Externo" e clique em **Publicar app** para o status ficar **Em produção**.
+   Não deixe em "Teste": nesse modo o Google revoga o refresh token a cada 7 dias, e foi isso que
+   derrubou a publicação de 2026-10-14 (`invalid_grant` / "Bad Request"). Não precisa enviar o app
+   para verificação; ao autorizar, o Google mostra "app não verificado", basta clicar em Avançado e
+   depois em Acessar.
 4. Em **APIs e serviços → Credenciais → Criar credenciais → ID do cliente OAuth**, escolha o tipo
    **"App para computador" (Desktop app)** — não use "Aplicativo da Web". Copie o **Client ID** e o
    **Client Secret** gerados.
-5. Rode localmente (com as duas variáveis acima disponíveis no shell, ou em um arquivo passado via
-   `--env-file`):
-   ```
-   CHROME_WEBSTORE_CLIENT_ID=... CHROME_WEBSTORE_CLIENT_SECRET=... npm run chrome-webstore:oauth-setup
-   ```
-   O script abre uma URL de autorização do Google para você colar no navegador (logado com a
-   conta dona da extensão), sobe um servidor local só para capturar o retorno, troca o código por
-   tokens e imprime um **refresh token** uma única vez.
-6. Guarde os três valores (`CHROME_WEBSTORE_CLIENT_ID`, `CHROME_WEBSTORE_CLIENT_SECRET`,
+5. Na pasta do projeto, rode `npm run chrome-webstore:renew`. Ele pede o Client ID e o Client
+   Secret (cole quando pedir, sem `<>`), abre o navegador para você autorizar com a conta dona da
+   extensão, confere na própria Store que a conta é dona do item e grava os três secrets no GitHub
+   via `gh`, sem exibir o token. Depois, rode a Action **Check Chrome Web Store credentials** para
+   confirmar no CI. (`npm run chrome-webstore:oauth-setup` é a variante que só imprime o token.)
+6. Se preferir guardar manualmente, os três valores são (`CHROME_WEBSTORE_CLIENT_ID`, `CHROME_WEBSTORE_CLIENT_SECRET`,
    `CHROME_WEBSTORE_REFRESH_TOKEN`):
    - localmente, em `.env.edge.local` (já ignorado pelo Git) para rodar via `--env-file`;
    - e/ou como **GitHub Actions repository secrets** (`Settings → Secrets and variables →
      Actions`) com esses mesmos três nomes, para o workflow funcionar.
 
-O refresh token não expira por tempo (só se você revogar o acesso em
-`myaccount.google.com/permissions` ou trocar a senha da conta Google). Não precisa repetir esse
-passo depois — é literalmente único.
+Com o app OAuth **Em produção**, o refresh token não expira por tempo (só se você revogar o
+acesso em `myaccount.google.com/permissions`, trocar a senha da conta Google ou ficar 6 meses sem
+usá-lo). Em modo "Teste" ele expira em 7 dias. Se a publicação falhar com `invalid_grant`, rode
+`npm run chrome-webstore:renew` de novo. O job de publicação checa as credenciais logo no início
+(`--check-credentials`), então esse erro aparece em segundos, não depois do smoke.
 
 ## Seguro a cada merge em `main`
 

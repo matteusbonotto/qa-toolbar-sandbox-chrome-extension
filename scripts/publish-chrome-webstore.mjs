@@ -54,6 +54,23 @@ const refreshToken = secretEnvValue("CHROME_WEBSTORE_REFRESH_TOKEN");
 const extensionId = argValue("extension-id") ?? process.env.CHROME_WEBSTORE_EXTENSION_ID ?? DEFAULT_EXTENSION_ID;
 const zipPath = argValue("zip");
 const shouldPublish = process.argv.includes("--publish");
+const checkCredentialsOnly = process.argv.includes("--check-credentials");
+
+async function fetchAccessToken() {
+  const response = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "content-type": "application/x-www-form-urlencoded" },
+    body: new URLSearchParams({ client_id: clientId, client_secret: clientSecret, refresh_token: refreshToken, grant_type: "refresh_token" }),
+  });
+  const body = await response.json().catch(() => ({}));
+  if (response.ok) return body.access_token;
+  // Google answers an expired/revoked refresh token with invalid_grant + "Bad Request"; the
+  // old message only showed "Bad Request", which said nothing about how to fix it.
+  const hint = body.error === "invalid_grant"
+    ? " O refresh token expirou ou foi revogado (tela de consentimento OAuth em modo Testing expira em 7 dias). Rode `npm run chrome-webstore:renew` e publique de novo."
+    : body.error === "invalid_client" ? " CHROME_WEBSTORE_CLIENT_ID/SECRET não conferem. Rode `npm run chrome-webstore:renew`." : "";
+  throw new Error(`Falha ao renovar access token: ${body.error ?? response.status} ${body.error_description ?? ""}${hint}`);
+}
 const productionConfirmed = process.argv.includes("--confirm-production");
 const publishTarget = argValue("target") ?? "default";
 
@@ -61,6 +78,14 @@ const currentBranch = process.env.GITHUB_REF_NAME || (() => {
   try { return execFileSync("git", ["branch", "--show-current"], { cwd: resolve(import.meta.dirname, ".."), encoding: "utf8" }).trim(); }
   catch { return ""; }
 })();
+if (checkCredentialsOnly) {
+  if (!clientId || !clientSecret || !refreshToken) throw new Error("Secrets da Chrome Web Store ausentes. Rode `npm run chrome-webstore:renew`.");
+  const itemResponse = await fetch(`https://www.googleapis.com/chromewebstore/v1.1/items/${extensionId}?projection=DRAFT`, { headers: { Authorization: `Bearer ${await fetchAccessToken()}`, "x-goog-api-version": "2" } });
+  if (!itemResponse.ok) throw new Error(`Token válido, mas sem acesso ao item ${extensionId} (${itemResponse.status}).`);
+  const item = await itemResponse.json();
+  console.log(`Credenciais da Chrome Web Store OK (rascunho: ${item.uploadState ?? "?"}, versão ${item.crxVersion ?? "?"}).`);
+  process.exit(0);
+}
 if (!productionConfirmed) throw new Error("PUBLICAÇÃO BLOQUEADA: informe --confirm-production após aprovar o ambiente de TESTE.");
 if (currentBranch !== "main") throw new Error(`PUBLICAÇÃO BLOQUEADA: a Chrome Web Store só aceita releases vindos da main (branch atual: ${currentBranch || "desconhecida"}).`);
 
@@ -77,19 +102,7 @@ const resolvedZipPath = resolve(zipPath);
 if (!existsSync(resolvedZipPath)) throw new Error(`Arquivo não encontrado: ${resolvedZipPath}`);
 if (/(?:teste|test|staging)/i.test(basename(resolvedZipPath))) throw new Error("PUBLICAÇÃO BLOQUEADA: um pacote de TESTE nunca pode ser enviado à Chrome Web Store.");
 
-const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
-  method: "POST",
-  headers: { "content-type": "application/x-www-form-urlencoded" },
-  body: new URLSearchParams({
-    client_id: clientId,
-    client_secret: clientSecret,
-    refresh_token: refreshToken,
-    grant_type: "refresh_token",
-  }),
-});
-const tokenBody = await tokenResponse.json();
-if (!tokenResponse.ok) throw new Error(`Falha ao renovar access token: ${tokenBody.error_description ?? tokenBody.error ?? tokenResponse.status}`);
-const accessToken = tokenBody.access_token;
+const accessToken = await fetchAccessToken();
 
 const authHeaders = {
   Authorization: `Bearer ${accessToken}`,

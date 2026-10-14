@@ -69,6 +69,9 @@ jobs:
             echo "::error::Os segredos da Chrome Web Store e ACCESS_TOKEN_PRIVATE_KEY_JWK precisam estar configurados. Veja docs/DEPLOY_CHROME_WEBSTORE.md."
             exit 1
           fi
+      # Fails in seconds on an expired/revoked token instead of after the ~6 min real-Chrome smoke.
+      - name: Verify Chrome Web Store credentials
+        run: node scripts/publish-chrome-webstore.mjs --check-credentials
       - name: Repository security scan
         run: npm run security:repo
       - name: Install Chromium for the real-browser smoke test

@@ -47,6 +47,7 @@
     "package:extension:sideload": "node scripts/package-extension-sideload.mjs",
     "release:chrome:update": "npm run security:repo && npm run security:extension && npm run test:chrome && npm run package:extension",
     "chrome-webstore:oauth-setup": "node scripts/chrome-webstore-oauth-setup.mjs",
+    "chrome-webstore:renew": "node scripts/chrome-webstore-oauth-setup.mjs --set-github-secrets",
     "bump:extension": "node scripts/bump-extension-version.mjs",
     "release:chrome:upload": "npm run security:repo && npm run security:extension && npm run test:chrome && node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip && node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip --confirm-production",
     "release:chrome:publish": "npm run security:repo && npm run security:extension && npm run test:chrome && node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip && node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip --confirm-production --publish",
