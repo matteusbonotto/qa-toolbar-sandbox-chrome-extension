@@ -40,7 +40,10 @@ function readEnvFile(path) {
 }
 
 const envArgIndex = process.argv.indexOf("--env-file");
-const fileEnv = envArgIndex >= 0 ? readEnvFile(resolve(process.argv[envArgIndex + 1])) : {};
+// The project's gitignored .env is read automatically, so the founder only has to save the values
+// there once (GOOGLE_CLIENT_ID/GOOGLE_CLIENT_SECRET, as named in the Google Cloud console, are
+// accepted as aliases of the CHROME_WEBSTORE_* names).
+const fileEnv = envArgIndex >= 0 ? readEnvFile(resolve(process.argv[envArgIndex + 1])) : readEnvFile(resolve(import.meta.dirname, "../.env"));
 const env = { ...fileEnv, ...process.env };
 
 // Copy-pasted documentation placeholders ("<seu client id>") produced a confusing Google error
@@ -52,8 +55,8 @@ async function ask(question) {
   try { return (await prompt.question(question)).trim(); } finally { prompt.close(); }
 }
 
-let clientId = env.CHROME_WEBSTORE_CLIENT_ID;
-let clientSecret = env.CHROME_WEBSTORE_CLIENT_SECRET;
+let clientId = env.CHROME_WEBSTORE_CLIENT_ID || env.GOOGLE_CLIENT_ID;
+let clientSecret = env.CHROME_WEBSTORE_CLIENT_SECRET || env.GOOGLE_CLIENT_SECRET;
 if (looksLikePlaceholder(clientId)) clientId = await ask("Cole o Client ID (termina com .apps.googleusercontent.com): ");
 if (!/^[\w-]+\.apps\.googleusercontent\.com$/.test(clientId)) throw new Error("Client ID inválido: ele termina com .apps.googleusercontent.com (Google Cloud > APIs e serviços > Credenciais).");
 if (looksLikePlaceholder(clientSecret)) clientSecret = await ask("Cole o Client secret (começa com GOCSPX-): ");
