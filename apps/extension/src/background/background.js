@@ -296,7 +296,29 @@ chrome.runtime.onInstalled.addListener((details) => {
     ]));
   }
 });
-chrome.runtime.onStartup.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); setupContextMenus(); });
+chrome.runtime.onStartup.addListener(() => { void applyContentScriptRegistration({ forceAccess: true }); setupContextMenus(); void chrome.storage.local.remove(RECORDER_STATE_KEY); });
+
+// Evidence recording runs in its own extension window (src/recorder/recorder.js) so a page reload
+// no longer kills it. Toolbars mirror RECORDER_STATE_KEY; these helpers keep that mirror honest
+// when the window disappears without saying goodbye (closed by the user, crash, browser restart).
+const RECORDER_STATE_KEY = "qtsRecorderStateV1";
+async function readLiveRecorderState() {
+  const state = (await chrome.storage.local.get(RECORDER_STATE_KEY))[RECORDER_STATE_KEY];
+  if (!state || !["starting", "recording", "paused", "stopping"].includes(state.status) || !state.windowId) return null;
+  const alive = await chrome.windows.get(state.windowId).then(() => true, () => false);
+  if (!alive) {
+    await chrome.storage.local.set({ [RECORDER_STATE_KEY]: { ...state, status: "idle", reason: "window_closed", updatedAt: Date.now() } });
+    return null;
+  }
+  return state;
+}
+chrome.windows.onRemoved.addListener((windowId) => {
+  void chrome.storage.local.get(RECORDER_STATE_KEY).then(async (stored) => {
+    const state = stored[RECORDER_STATE_KEY];
+    if (state?.windowId !== windowId || state.status === "idle") return;
+    await chrome.storage.local.set({ [RECORDER_STATE_KEY]: { ...state, status: "idle", reason: "window_closed", updatedAt: Date.now() } });
+  });
+});
 
 onStorageChanged((changes) => {
   if (changes[STORAGE_KEYS.workspace] || changes[STORAGE_KEYS.siteScope]) void applyContentScriptRegistration();
@@ -516,6 +538,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           sendResponse({ ok: true, windowId: createdWindow.id });
         })
         .catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
+    });
+    return true;
+  }
+  if (message.type === "qts:recorder-open") {
+    Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(async ([access, authorizedSender]) => {
+      if (!access.active || !authorizedSender || !sender.tab?.id) return sendResponse({ ok: false, error: "authentication_required" });
+      try {
+        const existing = await readLiveRecorderState();
+        if (existing) {
+          await chrome.windows.update(existing.windowId, { focused: true }).catch(() => {});
+          return sendResponse({ ok: false, error: "already_recording" });
+        }
+        const query = new URLSearchParams({
+          mode: message.mode === "gif" ? "gif" : "video",
+          tabId: String(sender.tab.id),
+          windowId: String(sender.tab.windowId ?? ""),
+          lang: String(message.lang || "pt-BR").slice(0, 10),
+          prefix: String(message.prefix || "").slice(0, 40),
+          slug: String(message.slug || "").slice(0, 60),
+        });
+        const sourceWindow = await chrome.windows.get(sender.tab.windowId).catch(() => null);
+        const width = 380;
+        const height = 300;
+        const placement = sourceWindow && Number.isFinite(sourceWindow.left)
+          ? { left: Math.max(0, sourceWindow.left + sourceWindow.width - width - 24), top: Math.max(0, sourceWindow.top + 96) }
+          : {};
+        const created = await chrome.windows.create({ url: chrome.runtime.getURL(`src/recorder/recorder.html?${query}`), type: "popup", focused: true, width, height, ...placement });
+        sendResponse({ ok: true, windowId: created.id });
+      } catch (error) {
+        sendResponse({ ok: false, error: String(error?.message || error) });
+      }
     });
     return true;
   }

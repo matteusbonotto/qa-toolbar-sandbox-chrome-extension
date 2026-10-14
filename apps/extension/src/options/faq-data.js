@@ -36,7 +36,12 @@
     {
       key: "recordingFormats",
       question: "Qual formato devo escolher para gravar uma evidência?",
-      answer: "Use MP4 para uma evidência completa, com áudio, duração reconhecida e controles para avançar, pausar e voltar. Se o Chrome não oferecer MP4 real, a extensão salva como WebM em vez de usar uma extensão de arquivo incorreta. Use GIF para demonstrações visuais curtas: ele não possui áudio e é otimizado em partes de até 15 segundos.",
+      answer: "Use MP4 para uma evidência completa, com duração reconhecida e controles para avançar, pausar e voltar (a captura é só de imagem, sem áudio). Se o Chrome não oferecer MP4 real, a extensão salva como WebM em vez de usar uma extensão de arquivo incorreta. Use GIF para demonstrações visuais curtas: ele não possui áudio e é otimizado em partes de até 15 segundos.",
+    },
+    {
+      key: "recordingReload",
+      question: "Posso recarregar ou navegar na página enquanto gravo?",
+      answer: "Sim. A gravação roda em uma pequena janela própria da extensão, que abre ao iniciar e continua gravando mesmo se a página recarregar, navegar ou trocar de aba. A barra mostra o tempo e os botões de pausar e parar em qualquer aba. Não feche essa janela até parar: fechar descarta a gravação. Se você marcar um status de teste durante a gravação, ele é usado no arquivo ao parar, sem perguntar de novo.",
     },
     {
       key: "gifParts",
