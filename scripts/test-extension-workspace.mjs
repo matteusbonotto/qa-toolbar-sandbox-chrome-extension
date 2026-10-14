@@ -98,8 +98,8 @@ assert.deepEqual(normalizeWorkspace({ preferences: { customShortcuts: { inspecto
 assert.deepEqual(normalizeWorkspace({}).preferences.pinnedTools, [], "additional shortcuts are optional");
 assert.deepEqual(
   normalizeWorkspace({ preferences: { pinnedTools: ["clickSpy", "freezeClock", "forceHttp", "inspectors", "fakerFill"] } }).preferences.pinnedTools,
-  ["clickSpy", "freezeClock", "forceHttp", "inspectors"],
-  "at most four additional Tools shortcuts survive normalization",
+  ["clickSpy", "freezeClock", "forceHttp", "inspectors", "fakerFill"],
+  "no cap on how many pinnable Tools shortcuts survive normalization (founder decision, 2026-08-21)",
 );
 assert.deepEqual(
   normalizeWorkspace({ preferences: { pinnedTools: ["passFail", "screenshot", "record", "unknown-tool", "blurMode", "holofoteMode"] } }).preferences.pinnedTools,

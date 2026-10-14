@@ -461,7 +461,6 @@ function loadPreferenceUi() {
   applyColorThemeToPage(preferences.colorTheme || null);
   document.getElementById("appearanceTheme").value = preferences.appearanceTheme === "light" ? "light" : "dark";
   applyAppearanceTheme(document.getElementById("appearanceTheme").value);
-  document.getElementById("compactMode").checked = preferences.compactMode === true;
   compactEntitiesDraft = { ...(preferences.compactEntities || { project: preferences.compactMode === true, product: preferences.compactMode === true }) };
   document.getElementById("pushSiteContent").checked = preferences.pushSiteContent !== false;
   document.getElementById("pushSiteContentForDrawer").checked = preferences.pushSiteContentForDrawer === true;
@@ -546,8 +545,6 @@ document.getElementById("colorThemeReset")?.addEventListener("click", async () =
   renderColorThemeGrid("blue-light");
   document.getElementById("generalSavedHint").textContent = t("Salvo - a barra já foi atualizada.");
 });
-
-const PINNED_TOOLS_LIMIT = 4;
 
 // Cliente/Projeto/Produto priority in the breadcrumb - a local draft array (not saved until
 // "Salvar", the sticky bottom button) so drag/arrow reordering and the live preview stay instant without writing
@@ -685,12 +682,6 @@ function renderToolsMenuOrderList() {
     const key = button.dataset.pinTool;
     if (pinnedToolsDraft.has(key)) pinnedToolsDraft.delete(key);
     else {
-      if (pinnedToolsDraft.size >= PINNED_TOOLS_LIMIT) {
-        const hint = document.getElementById("pinnedToolsLimitHint");
-        hint.hidden = false;
-        window.setTimeout(() => { hint.hidden = true; }, 6_000);
-        return;
-      }
       pinnedToolsDraft.add(key);
       enabledToolsDraft.add(key);
     }
@@ -1093,7 +1084,9 @@ function renderUrlTree(records, dimensions, depth = 0) {
 }
 
 function renderEnvironmentUrlTree(records, remainingDimensions) {
-  const environments = visibleWorkspaceItems("environments").filter(matchesSearch);
+  // visibleWorkspaceItems() already applies matchesSearch() internally - the extra .filter(matchesSearch)
+  // that used to sit here re-ran the exact same (pure, side-effect-free) check a second time for nothing.
+  const environments = visibleWorkspaceItems("environments");
   const groups = environments.map((environment) => ({ environment, records: records.filter((record) => record.environment?.id === environment.id) }));
   const unassigned = records.filter((record) => !record.environment);
   if (unassigned.length) groups.push({ environment: null, records: unassigned });
@@ -1113,7 +1106,12 @@ function renderEnvironmentUrlTree(records, remainingDimensions) {
 
 function renderUrlRelationList() {
   const element = document.getElementById(COLLECTION_UI.urlBindings.listId);
-  const bindings = (workspace.urlBindings || []).filter(matchesSearch);
+  // Every other collection (clients/projects/products/environments/...) excludes `locked` demo
+  // records from its own list via this same `!item.locked` check - urlBindings was the one
+  // collection still missing it, so the locked demo URL binding could resurface here (with its
+  // real, otherwise-hidden demo product/environment) whenever "Ambiente" was toggled off as a
+  // grouping dimension, instead of staying out of everyday administration like its siblings.
+  const bindings = (workspace.urlBindings || []).filter((item) => !item.locked && matchesSearch(item));
   const records = bindings.flatMap((binding) => (binding.environmentIds?.length ? binding.environmentIds : [null]).map((environmentId) => urlTreeContext(binding, environmentId)));
   const dimensions = ["environment", "client", "project", "product"].filter((dimension) => urlTreeDimensions.has(dimension));
   element.innerHTML = dimensions[0] === "environment" ? renderEnvironmentUrlTree(records, dimensions.slice(1)) : (records.length ? renderUrlTree(records, dimensions) : `<div class="listEmpty">${escapeHtml(t(searchQuery ? "Nenhum resultado." : "Nada cadastrado ainda."))}</div>`);
@@ -1928,10 +1926,16 @@ function clearEdit(prefix) {
     renderScopePicker("testAccount", { requireEnvironment: true });
     const scopeError = document.getElementById("testAccountScopeError");
     if (scopeError) scopeError.hidden = true;
+    // Collapsed by default on a fresh "Adicionar conta" - editItem() re-opens it only when the
+    // account being edited already has notes/custom fields worth surfacing (see below).
+    const advancedAccordion = document.getElementById("testAccountAdvancedAccordion");
+    if (advancedAccordion) advancedAccordion.open = false;
   }
   if (prefix === "paymentMethod") {
     resetScopePickerState("paymentMethod");
     renderScopePicker("paymentMethod", { requireEnvironment: false });
+    const advancedAccordion = document.getElementById("paymentMethodAdvancedAccordion");
+    if (advancedAccordion) advancedAccordion.open = false;
   }
   if (prefix === "device") {
     document.querySelectorAll("#deviceOperatingSystems input, #deviceBrowsers input").forEach((input) => { input.checked = false; });
@@ -2314,6 +2318,11 @@ const COMPOSER_TITLES = {
   inspector: { add: "Adicionar Inspector", edit: "Editar Inspector" },
   api: { add: "Adicionar API", edit: "Editar API" },
   resource: { add: "Adicionar recurso", edit: "Editar recurso" },
+  accountType: { add: "Adicionar tipo de conta", edit: "Editar tipo de conta" },
+  paymentMethodType: { add: "Adicionar tipo de pagamento", edit: "Editar tipo de pagamento" },
+  operatingSystem: { add: "Adicionar sistema operacional", edit: "Editar sistema operacional" },
+  browser: { add: "Adicionar navegador", edit: "Editar navegador" },
+  device: { add: "Adicionar dispositivo", edit: "Editar dispositivo" },
 };
 
 function setComposerEditing(prefix, isEditing) {
@@ -2373,10 +2382,16 @@ function editItem(collection, item) {
     renderCustomFieldsEditor();
     resetScopePickerState("testAccount", { environmentIds: item.environmentIds || [], productIds: item.productIds || [] });
     renderScopePicker("testAccount", { requireEnvironment: true });
+    // Editing an account that already has notes or custom fields should surface them right away
+    // instead of hiding already-filled data behind the collapsed "opcional" accordion.
+    const advancedAccordion = document.getElementById("testAccountAdvancedAccordion");
+    if (advancedAccordion) advancedAccordion.open = Boolean(item.notes) || testAccountCustomFieldsDraft.length > 0;
   }
   if (collection === "paymentMethods") {
     resetScopePickerState("paymentMethod", { environmentIds: item.environmentIds || [], productIds: item.productIds || [] });
     renderScopePicker("paymentMethod", { requireEnvironment: false });
+    const advancedAccordion = document.getElementById("paymentMethodAdvancedAccordion");
+    if (advancedAccordion) advancedAccordion.open = Boolean(item.notes) || Boolean(item.icon);
   }
   if (collection === "urlBindings") {
     urlSelectedEnvironmentIds = new Set(item.environmentIds || []);
