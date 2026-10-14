@@ -618,13 +618,34 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#toolsMenu.isOpen").waitFor();
   await host.screenshot({ path: resolve(evidencePath, "extension-theme-tools-menu.png"), fullPage: false });
-  const toolRowWidths = await host.locator("#toolsMenu > button").evaluateAll((buttons) => buttons
+  const toolRowWidths = await host.locator("#toolsMenu .qts-tools-group-body > button").evaluateAll((buttons) => buttons
     .filter((button) => getComputedStyle(button).display !== "none" && button.getBoundingClientRect().width > 0)
     .slice(0, 8)
     .map((button) => button.getBoundingClientRect().width));
   if (!toolRowWidths.length || Math.max(...toolRowWidths) - Math.min(...toolRowWidths) > 1) {
     throw new Error(`Tools menu rows do not share a uniform width: ${toolRowWidths.join(",")}`);
   }
+  // Simplified Tools menu (founder request 2026-10-08): every tool lives in one of five sections,
+  // nothing is left loose in the flat list, and the search filters across all of them.
+  const groupedMenu = await host.locator("#qts-toolbar-host").evaluate((element) => {
+    const root = element.shadowRoot;
+    return {
+      sections: root.querySelectorAll(".qts-tools-group:not([hidden])").length,
+      loose: [...root.querySelectorAll("#toolsMenu > button")].map((button) => button.id).filter((id) => id !== "disableAllToolsMenuItem"),
+    };
+  });
+  if (groupedMenu.sections !== 5 || groupedMenu.loose.length) throw new Error(`Tools menu is not fully grouped: ${JSON.stringify(groupedMenu)}`);
+  await host.locator("#toolsSearch").fill("json");
+  const searchHits = await host.locator("#toolsMenu .qts-tools-group-body > button").evaluateAll((buttons) => buttons.filter((button) => getComputedStyle(button).display !== "none").map((button) => button.id));
+  if (searchHits.join(",") !== "jsonStudioMenuItem") throw new Error(`Tools search did not filter to JSON Studio: ${searchHits.join(",")}`);
+  await host.locator("#toolsSearch").fill("zzz-nada");
+  await host.locator("#toolsSearchEmpty:not([hidden])").waitFor({ timeout: 2_000 });
+  await host.locator("#toolsSearch").fill("");
+  await host.locator('[data-tools-group="inspect"] .qts-tools-group-head').click();
+  if (!(await host.locator("#toolsMenu.isOpen").count())) throw new Error("Collapsing a Tools section closed the menu");
+  if (await host.locator("#jsonStudioMenuItem").isVisible()) throw new Error("Collapsed Tools section still shows its rows");
+  await host.locator('[data-tools-group="inspect"] .qts-tools-group-head').click();
+  trace("grouped Tools menu verified (5 sections, search filter + empty state, collapse keeps menu open)");
   await host.locator("#toolsButton").click();
   await host.locator("#qts-toolbar-host").evaluate((element) => { element.dataset.toolbarPosition = "left"; });
   const verticalAlignment = await host.locator("#qts-toolbar-host").evaluate((element) => {
@@ -1345,6 +1366,13 @@ try {
   await host.locator("#currentUrl").click();
   await host.locator("#recordTypeMenu:not(.isHidden)").waitFor({ state: "hidden", timeout: 2_000 });
   trace("record type menu verified (video + real 15s GIF options, opens/closes correctly)");
+
+  // "Resultado" menu: Status do teste is reachable from the bar's chevron, not only from Tools.
+  await host.locator("#markerMoreButton").click();
+  await host.locator("#markerStatusItem").click();
+  await host.locator("#qts-test-status-modal").waitFor({ timeout: 3_000 });
+  await host.locator("#qts-test-status-modal [data-close]").click();
+  trace("result menu opens Status do teste");
 
   // A tool action must never dismantle the bar.
   await host.locator("#toolsButton").click();
