@@ -100,7 +100,9 @@ const code = await new Promise((resolvePromise, rejectPromise) => {
     console.log("\nAbrindo o navegador. Entre com a conta Google DONA da extensão na Chrome Web Store e clique em Permitir.");
     console.log("(Se aparecer \"O Google não verificou este app\", clique em Avançado > Acessar.)");
     console.log(`Se o navegador não abrir, copie esta URL:\n\n${authUrl}\n`);
-    const opener = process.platform === "win32" ? ["cmd", ["/c", "start", "", authUrl.toString()]]
+    // Not `cmd /c start`: cmd treats every "&" of the OAuth query string as a command separator,
+    // so the browser never opened with the real URL (2026-10-14). rundll32 takes it verbatim.
+    const opener = process.platform === "win32" ? ["rundll32", ["url.dll,FileProtocolHandler", authUrl.toString()]]
       : process.platform === "darwin" ? ["open", [authUrl.toString()]] : ["xdg-open", [authUrl.toString()]];
     spawn(opener[0], opener[1], { stdio: "ignore", detached: true }).on("error", () => {}).unref();
   });
