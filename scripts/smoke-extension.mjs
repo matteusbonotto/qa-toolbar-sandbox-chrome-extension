@@ -1399,6 +1399,29 @@ try {
   }, pinnedBeforeScrollerTest);
   trace("pinned row edge scroller verified (no native scrollbar, chevrons per side, badges not clipped)");
 
+  // Typing in toolbar fields on a site with hotkeys (founder report 2026-10-15: macro name could not
+  // be edited). The site handler below mimics common hotkey libraries: it skips inputs by checking
+  // event.target, which shadow DOM retargets to the toolbar host, and blocks every other letter.
+  await host.evaluate(() => {
+    window.__qtsHostileHotkeys = (event) => {
+      const target = event.target;
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) return;
+      if (event.key.length === 1 || event.key === "Backspace") event.preventDefault();
+    };
+    document.addEventListener("keydown", window.__qtsHostileHotkeys);
+  });
+  await host.locator("#toolsButton").click();
+  await host.locator("#toolsMenu.isOpen").waitFor();
+  await host.locator("#toolsSearch").click();
+  await host.keyboard.type("jsonx", { delay: 20 });
+  await host.keyboard.press("Backspace");
+  const typedOnHostileSite = await host.locator("#toolsSearch").inputValue();
+  await host.evaluate(() => document.removeEventListener("keydown", window.__qtsHostileHotkeys));
+  if (typedOnHostileSite !== "json") throw new Error(`Toolbar field lost keystrokes to a site hotkey handler: "${typedOnHostileSite}"`);
+  await host.locator("#toolsSearch").fill("");
+  await host.locator("#toolsButton").click();
+  trace("toolbar fields keep keystrokes on sites with hotkey handlers (shadow-root event isolation)");
+
   // "Resultado" menu: Status do teste is reachable from the bar's chevron, not only from Tools.
   await host.locator("#markerMoreButton").click();
   await host.locator("#markerStatusItem").click();
