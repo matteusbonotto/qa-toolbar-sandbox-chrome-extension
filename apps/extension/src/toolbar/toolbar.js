@@ -826,6 +826,21 @@ function buildShadowHost() {
   host.dataset.toolbarPosition = effectiveToolbarPosition();
   host.dataset.detachedWindow = String(Boolean(state.detachedToolKey));
   const shadow = host.attachShadow({ mode: "open" });
+  // Keyboard/focus isolation for the toolbar's own fields (founder report 2026-10-15: macro name and
+  // other inputs would not accept typing on real sites). Events leaving a shadow root are retargeted
+  // to this host <div>, so a site's hotkey library that skips inputs by checking event.target sees a
+  // plain div, treats every letter as a shortcut and calls preventDefault, and focus traps think
+  // focus left their modal and pull it back. Stopping these events at the shadow root, in the
+  // bubbling phase, keeps the site from seeing them at all while every listener of ours still runs
+  // (field listeners fire before this; the extension's document-level listeners are capture-phase).
+  // Escape still bubbles so site-agnostic "close" handlers keep working.
+  const ISOLATED_FIELD_EVENTS = ["keydown", "keypress", "keyup", "beforeinput", "input", "compositionstart", "compositionupdate", "compositionend", "paste", "cut", "copy", "focusin", "focusout"];
+  for (const type of ISOLATED_FIELD_EVENTS) {
+    shadow.addEventListener(type, (event) => {
+      if (event.key === "Escape") return;
+      if (editableTypingTarget(event.composedPath()[0])) event.stopPropagation();
+    });
+  }
 
   shadow.innerHTML = `
     <style>
