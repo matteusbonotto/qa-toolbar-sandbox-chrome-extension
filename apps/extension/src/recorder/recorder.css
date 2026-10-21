@@ -6,12 +6,11 @@ main { min-height: 100%; display: flex; flex-direction: column; gap: 8px; paddin
 header { display: flex; align-items: center; gap: 8px; }
 header img { width: 20px; height: 20px; }
 header b { flex: 1; font-size: 13px; }
-#dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); }
+#dot { width: 10px; height: 10px; border-radius: 50%; background: var(--muted); flex: none; }
 main[data-status="recording"] #dot { background: var(--accent); animation: pulse 1.4s ease-in-out infinite; }
 main[data-status="paused"] #dot { background: #e0a800; }
 main[data-status="done"] #dot { background: var(--ok); }
 @keyframes pulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
-@media (prefers-reduced-motion: reduce) { main[data-status="recording"] #dot { animation: none; } }
 #timer { margin: 0; font: 800 30px/1 ui-monospace, Consolas, monospace; font-variant-numeric: tabular-nums; }
 #message { margin: 0; min-height: 18px; color: var(--muted); }
 #actions { display: flex; flex-wrap: wrap; gap: 8px; }
@@ -21,3 +20,63 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
 button.danger { border-color: var(--accent); color: var(--accent); }
 #hint { margin: auto 0 0; padding-top: 6px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+
+/* Pre-capture ("choose") state: the window is large and vertical (see background.js), so give the
+   warning room to breathe and push a big primary button plus the hint to the bottom. */
+main[data-status="starting"] { gap: 14px; padding: 20px; }
+main[data-status="starting"] #title { font-size: 15px; }
+main[data-status="starting"] #timer { display: none; }
+main[data-status="starting"] #message { color: var(--text); font-size: 15px; line-height: 1.5; }
+main[data-status="starting"] #actions { flex-direction: column; gap: 10px; margin-top: auto; }
+main[data-status="starting"] #startButton { min-height: 52px; font-size: 15px; }
+main[data-status="starting"] #cancelButton { min-height: 40px; }
+main[data-status="starting"] #hint { margin: 0; padding-top: 10px; font-size: 12px; }
+
+/* Capture states: the window is shrunk (see shrinkToWidget in recorder.js) to a compact corner
+   widget. Show only the timer and the controls; hide the header and the long hint. */
+main[data-status="recording"],
+main[data-status="paused"],
+main[data-status="stopping"],
+main[data-status="done"] { gap: 8px; padding: 10px 12px; justify-content: center; }
+main[data-status="recording"] header,
+main[data-status="paused"] header,
+main[data-status="stopping"] header,
+main[data-status="done"] header,
+main[data-status="recording"] #hint,
+main[data-status="paused"] #hint,
+main[data-status="stopping"] #hint,
+main[data-status="done"] #hint { display: none; }
+main[data-status="recording"] #timer,
+main[data-status="paused"] #timer,
+main[data-status="stopping"] #timer,
+main[data-status="done"] #timer { font-size: 26px; text-align: center; }
+/* The header (with its own dot) is hidden here, so fold the recording indicator into the timer. */
+main[data-status="recording"] #timer::before,
+main[data-status="paused"] #timer::before { content: ""; display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 50%; vertical-align: middle; background: var(--accent); }
+main[data-status="recording"] #timer::before { animation: pulse 1.4s ease-in-out infinite; }
+main[data-status="paused"] #timer::before { background: #e0a800; }
+main[data-status="recording"] #message,
+main[data-status="paused"] #message { display: none; }
+main[data-status="stopping"] #message,
+main[data-status="done"] #message { min-height: 0; text-align: center; font-size: 11px; }
+main[data-status="recording"] #actions,
+main[data-status="paused"] #actions { flex-wrap: nowrap; gap: 6px; }
+/* Icon-only controls in the compact widget. font-size:0 hides the label text visually while keeping
+   it as the button's accessible name; the glyph comes from ::before. The :not([hidden]) guard is
+   required: an author "display:flex" beats the UA "[hidden]{display:none}" by origin precedence, so
+   without it the hidden #startButton would render as a blank ghost button inside the compact widget. */
+main[data-status="recording"] #actions button:not([hidden]),
+main[data-status="paused"] #actions button:not([hidden]) { display: flex; align-items: center; justify-content: center; flex: 1 1 0; min-width: 0; min-height: 38px; padding: 0; font-size: 0; }
+main[data-status="recording"] #actions button::before,
+main[data-status="paused"] #actions button::before { font-size: 16px; font-weight: 400; line-height: 1; }
+main[data-status="recording"] #pauseButton::before { content: "\23F8\FE0E"; }
+main[data-status="paused"] #pauseButton::before { content: "\25B6\FE0E"; }
+main[data-status="recording"] #stopButton::before,
+main[data-status="paused"] #stopButton::before { content: "\23F9\FE0E"; }
+main[data-status="recording"] #cancelButton::before,
+main[data-status="paused"] #cancelButton::before { content: "\2715"; }
+
+@media (prefers-reduced-motion: reduce) {
+  main[data-status="recording"] #dot,
+  main[data-status="recording"] #timer::before { animation: none; }
+}

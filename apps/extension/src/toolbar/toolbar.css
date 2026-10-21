@@ -622,15 +622,30 @@ body.qts-placement-mode, body.qts-placement-mode * {
 }
 #qts-key-view-overlay[data-theme="light"] .qts-key-view-typing { border-color: #cacaca !important; background: rgba(255,255,255,.96) !important; color: #111 !important; box-shadow: 0 12px 30px rgba(0,0,0,.25), inset 0 1px #fff !important; }
 
+/* The cursor overlay is data-driven: a figure (pointer shape + optional decorative badge + click
+   ring) stacked above an optional name label pill, both right-aligned so their right edge stays
+   anchored next to the real pointer (see positionMouseView). --qts-cursor-color /
+   --qts-cursor-label-text are custom properties set inline per config, so the same markup/styles can
+   render remote testers' cursors (Multi Testador) just by feeding a different config. Custom
+   properties survive the `all: initial` reset (only the `all` shorthand's non-custom longhands are
+   cleared), so children can read them even through the reset. */
 #qts-mouse-view-overlay {
-  all: initial; position: fixed !important; z-index: 2147483646 !important; width: 52px !important; height: 68px !important;
+  all: initial !important; position: fixed !important; z-index: 2147483646 !important;
+  display: grid !important; justify-items: end !important; gap: 4px !important;
   opacity: 0 !important; transform: scale(.88) !important; transform-origin: top right !important; transition: opacity 90ms ease, transform 120ms ease !important;
   pointer-events: none !important; filter: drop-shadow(0 9px 10px rgba(0,0,0,.38)) !important;
+  --qts-cursor-color: #5b35e8; --qts-cursor-label-text: #fff;
 }
-#qts-mouse-view-overlay[data-mouse-size="small"] { width: 40px !important; height: 52px !important; }
-#qts-mouse-view-overlay[data-mouse-size="large"] { width: 68px !important; height: 89px !important; }
 #qts-mouse-view-overlay.isVisible { opacity: 1 !important; transform: scale(1) !important; }
-#qts-mouse-view-overlay svg { width: 100% !important; height: 100% !important; overflow: visible !important; }
+[data-cursor-figure-host] { all: initial !important; display: block !important; }
+.qts-cursor-figure { position: relative !important; display: block !important; width: 52px !important; height: 68px !important; }
+#qts-mouse-view-overlay[data-mouse-size="small"] .qts-cursor-figure { width: 40px !important; height: 52px !important; }
+#qts-mouse-view-overlay[data-mouse-size="large"] .qts-cursor-figure { width: 68px !important; height: 89px !important; }
+.qts-cursor-pointer { position: absolute !important; inset: 0 !important; width: 100% !important; height: 100% !important; overflow: visible !important; }
+/* Single-color shapes (arrow / thin arrow / hand): painted in the chosen cursor color and ringed in
+   white so they stay legible on any page background (the overlay drop-shadow adds depth over light
+   pages). The detailed mouse shape keeps its own black/white styling below. */
+.qts-cursor-glyph { fill: var(--qts-cursor-color, #5b35e8) !important; stroke: #fff !important; stroke-width: 3 !important; stroke-linejoin: round !important; paint-order: stroke !important; }
 .qts-mouse-shadow { fill: rgba(0,0,0,.48) !important; }
 .qts-mouse-body, .qts-mouse-left, .qts-mouse-right { fill: #1d2028 !important; stroke: #f2f2f2 !important; stroke-width: 1.5 !important; }
 .qts-mouse-divider { fill: none !important; stroke: #f2f2f2 !important; stroke-width: 1.4 !important; }
@@ -639,12 +654,38 @@ body.qts-placement-mode, body.qts-placement-mode * {
 #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-body, #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-left, #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-right { fill: #fff !important; stroke: #111 !important; }
 #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-divider { stroke: #111 !important; }
 #qts-mouse-view-overlay[data-theme="light"] .qts-mouse-wheel { fill: #111 !important; }
+/* The detailed mouse shape keeps its click/scroll highlights on the color-theme tokens (not the
+   cursor color): it is the "show my clicks" visualizer tied to the chosen UI theme, while the cursor
+   color drives identity instead (label, single-color shapes, decorative badge, click ring). */
 #qts-mouse-view-overlay[data-action="left"] .qts-mouse-left, #qts-mouse-view-overlay[data-action="right"] .qts-mouse-right {
   fill: var(--qts-ui-highlight, #ef3340) !important; opacity: .55 !important; transition: opacity 120ms ease !important;
 }
 #qts-mouse-view-overlay.isPressed[data-action="left"] .qts-mouse-left, #qts-mouse-view-overlay.isPressed[data-action="right"] .qts-mouse-right { opacity: 1 !important; }
 #qts-mouse-view-overlay[data-action="middle"] .qts-mouse-wheel, #qts-mouse-view-overlay[data-action^="scroll"] .qts-mouse-wheel { fill: var(--qts-ui-primary, #ef3340) !important; }
 #qts-mouse-view-overlay[data-action="scroll-up"] .qts-mouse-arrow-up, #qts-mouse-view-overlay[data-action="scroll-down"] .qts-mouse-arrow-down { display: block !important; }
+/* Decorative background badge (flowers / hearts / skulls / lightning). Deliberately small and
+   low-key so the pointer stays professional: a pale tint of the cursor color with the glyph on top. */
+.qts-cursor-bg { position: absolute !important; right: -5px !important; bottom: -3px !important; width: 18px !important; height: 18px !important; padding: 2px !important; box-sizing: border-box !important; border-radius: 999px !important; background: color-mix(in srgb, var(--qts-cursor-color, #5b35e8) 22%, #fff) !important; box-shadow: 0 1px 4px rgba(0,0,0,.3) !important; overflow: visible !important; }
+.qts-cursor-figure[data-cursor-bg="none"] .qts-cursor-bg { display: none !important; }
+.qts-cursor-bg path, .qts-cursor-bg circle { fill: var(--qts-cursor-color, #5b35e8) !important; }
+.qts-cursor-bg .qts-cursor-bg-core { fill: #fff !important; opacity: .85 !important; }
+.qts-cursor-bg .qts-cursor-bg-cut { fill: rgba(0,0,0,.45) !important; }
+/* Universal click feedback for non-mouse shapes (the detailed mouse shape already shows clicks via
+   its own button parts, so the ring is hidden there to avoid doubled feedback). */
+.qts-cursor-click { position: absolute !important; left: 4px !important; top: 0 !important; width: 22px !important; height: 22px !important; border-radius: 999px !important; border: 2px solid var(--qts-cursor-color, #5b35e8) !important; opacity: 0 !important; transform: scale(.3) !important; pointer-events: none !important; }
+#qts-mouse-view-overlay[data-cursor-shape="mouse"] .qts-cursor-click { display: none !important; }
+/* 420ms: long enough for the ring to read as a deliberate click pulse, short enough to clear before
+   a normal double-click's second press. */
+#qts-mouse-view-overlay.qts-click-burst .qts-cursor-click { animation: qts-cursor-click-pulse 420ms ease-out !important; }
+@keyframes qts-cursor-click-pulse { 0% { opacity: .7; transform: scale(.3); } 100% { opacity: 0; transform: scale(1.2); } }
+.qts-cursor-label {
+  all: initial !important; display: inline-block !important; max-width: 200px !important; padding: 2px 9px !important; border-radius: 999px !important;
+  background: var(--qts-cursor-color, #5b35e8) !important; color: var(--qts-cursor-label-text, #fff) !important;
+  font: 800 11px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif !important;
+  white-space: nowrap !important; overflow: hidden !important; text-overflow: ellipsis !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,.3) !important; pointer-events: none !important;
+}
+.qts-cursor-label[hidden] { display: none !important; }
 
 /* Floating editors live outside the toolbar Shadow DOM so they can be dragged over the page.
    Tie them to the selected platform theme through the host that remains in the light DOM. */

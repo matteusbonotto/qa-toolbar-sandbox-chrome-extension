@@ -559,8 +559,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           slug: String(message.slug || "").slice(0, 60),
         });
         const sourceWindow = await chrome.windows.get(sender.tab.windowId).catch(() => null);
-        const width = 380;
-        const height = 300;
+        // Pre-capture ("choose") size: large and vertical so the picker guidance and the big
+        // "choose what to record" button are easy to read. recorder.js shrinks this window down to a
+        // small corner widget (see shrinkToWidget there) the moment capture actually starts.
+        const width = 420;
+        const height = 620;
+        // Anchor to the top-right of the source window: 24px in from its right edge, 96px down from
+        // its top, clamped so it never opens off the left/top edge.
         const placement = sourceWindow && Number.isFinite(sourceWindow.left)
           ? { left: Math.max(0, sourceWindow.left + sourceWindow.width - width - 24), top: Math.max(0, sourceWindow.top + 96) }
           : {};
