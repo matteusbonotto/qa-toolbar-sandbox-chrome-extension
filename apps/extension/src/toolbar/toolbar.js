@@ -6132,7 +6132,42 @@ const breakpointViewerState = {
   contentZoom: { a: 1, b: 1 },
   resizeObserver: null,
   cleanupFns: [],
+  // Phone emulation (see qts:bp-mobile-emulation in background.js): on by default whenever a pane
+  // shows a phone. `mobileEmulationSession` changes on every cleanup so an enable ack that arrives
+  // after the viewer closed (or was rebuilt) is ignored instead of resurrecting a stale flag.
+  emulateMobile: true,
+  mobileEmulationActive: false,
+  mobileEmulationPending: false,
+  mobileEmulationSession: 0,
+  mobileEmulationQueue: Promise.resolve(),
 };
+
+// Must match MOBILE_EMULATION_MARKER in background.js and the check in mobile-emulation.js.
+const MOBILE_EMULATION_MARKER = "__qtsbpua=1";
+
+// Only the phone pane's URL carries the marker: both panes load the same URL in the same tab, and
+// the marker is the one thing the session DNR rule can tell them apart by. Inserted as text (not
+// via URLSearchParams) so the rest of the query is never re-encoded; the hash stays last.
+function markMobilePreviewUrl(url) {
+  const hashIndex = url.indexOf("#");
+  const base = hashIndex === -1 ? url : url.slice(0, hashIndex);
+  const hash = hashIndex === -1 ? "" : url.slice(hashIndex);
+  return `${base}${base.includes("?") ? "&" : "?"}${MOBILE_EMULATION_MARKER}${hash}`;
+}
+
+// Enable/disable messages are chained so a disable from closing the viewer can never be overtaken
+// by a slower enable sent before it (both target the same per-tab rule id).
+function requestMobileEmulation(operation) {
+  const run = breakpointViewerState.mobileEmulationQueue.catch(() => {}).then(() => new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: "qts:bp-mobile-emulation", operation }, (response) => resolve(!chrome.runtime.lastError && response?.ok === true));
+    } catch {
+      resolve(false);
+    }
+  }));
+  breakpointViewerState.mobileEmulationQueue = run;
+  return run;
+}
 
 function buildDeviceFrameHtml(pane, device) {
   const chrome = device.kind === "phone"
@@ -6210,6 +6245,13 @@ function breakpointStyles() {
 }
 
 function cleanupBreakpointViewer() {
+  breakpointViewerState.mobileEmulationSession += 1;
+  breakpointViewerState.mobileEmulationPending = false;
+  // openDrawer() calls this for every drawer, so only talk to the background when a rule exists.
+  if (breakpointViewerState.mobileEmulationActive) {
+    breakpointViewerState.mobileEmulationActive = false;
+    void requestMobileEmulation("disable");
+  }
   breakpointViewerState.resizeObserver?.disconnect();
   breakpointViewerState.resizeObserver = null;
   breakpointViewerState.cleanupFns.forEach((fn) => fn());
@@ -6239,6 +6281,7 @@ function openBreakpointViewer() {
         </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
+        <button type="button" class="qts-bp-toggle ${breakpointViewerState.emulateMobile ? "isOn" : ""}" id="bpEmulateMobile" aria-pressed="${breakpointViewerState.emulateMobile}" title="${escapeHtml(t.emulateMobileTitle)}" hidden>${escapeHtml(t.emulateMobile)}</button>
         <button type="button" class="qts-bp-toggle" id="bpShot" title="${escapeHtml(t.bpScreenshot)}">${ICON("camera")} ${escapeHtml(t.bpScreenshot)}</button>
         <button type="button" class="qts-bp-toggle" id="bpRecord">${ICON("recordStart")} Gravar tela cheia</button>
         <button type="button" class="qts-bp-close" id="bpClose">${ICON("fail")}</button>
@@ -6304,8 +6347,47 @@ function openBreakpointViewer() {
   function layout() {
     stage.innerHTML = buildDeviceFrameHtml("a", findDevice(selectA.value)) + buildDeviceFrameHtml("b", findDevice(selectB.value));
     wireContentZoom();
-    fitAndLoad();
+    void syncMobileEmulation();
     wireSync();
+  }
+
+  const emulateButton = drawerHost.querySelector("#bpEmulateMobile");
+  const hasPhonePane = () => [selectA.value, selectB.value].some((id) => findDevice(id).kind === "phone");
+
+  // Decides whether the session rule should exist and waits for the background's ack BEFORE the
+  // phone pane gets its marked URL (otherwise its first request could leave with the desktop UA).
+  // `force` re-sends enable even when already active (Recarregar), since the tab-navigation
+  // teardown in background.js may have removed the rule meanwhile.
+  async function syncMobileEmulation({ force = false } = {}) {
+    emulateButton.hidden = !hasPhonePane();
+    const wanted = breakpointViewerState.emulateMobile && hasPhonePane() && !!normalizedPreviewUrl();
+    const session = breakpointViewerState.mobileEmulationSession;
+    if (wanted && (force || !breakpointViewerState.mobileEmulationActive)) {
+      breakpointViewerState.mobileEmulationPending = true;
+      fitAndLoad();
+      const ok = await requestMobileEmulation("enable");
+      if (session !== breakpointViewerState.mobileEmulationSession) {
+        // The viewer closed or was rebuilt while waiting. Its cleanup only queues a disable when the
+        // active flag was already set, so remove the rule this late ack just created.
+        if (ok) void requestMobileEmulation("disable");
+        return;
+      }
+      breakpointViewerState.mobileEmulationPending = false;
+      breakpointViewerState.mobileEmulationActive = ok;
+      if (!ok) showToolbarToast(state.t.emulateMobileFailed);
+    } else if (!wanted && breakpointViewerState.mobileEmulationActive) {
+      breakpointViewerState.mobileEmulationActive = false;
+      void requestMobileEmulation("disable");
+    }
+    fitAndLoad();
+  }
+
+  // The URL a pane should show: the phone pane gets the marker only once the rule is confirmed, and
+  // null while the enable is still in flight so the pane waits instead of loading as desktop.
+  function paneUrl(device, url) {
+    if (!url || device.kind !== "phone" || !breakpointViewerState.emulateMobile) return url;
+    if (breakpointViewerState.mobileEmulationPending) return null;
+    return breakpointViewerState.mobileEmulationActive ? markMobilePreviewUrl(url) : url;
   }
 
   function applyContentZoom(pane, { notify = false } = {}) {
@@ -6368,7 +6450,8 @@ function openBreakpointViewer() {
       wrap.style.width = `${Math.round(device.width * scale)}px`;
       wrap.style.height = `${Math.round(device.height * scale)}px`;
       iframe.style.transform = `scale(${scale})`;
-      if (url && iframe.src !== url) iframe.src = url;
+      const targetUrl = paneUrl(device, url);
+      if (targetUrl && iframe.src !== targetUrl) iframe.src = targetUrl;
       const label = frame.closest("[data-pane-wrap]").querySelector("[data-scale-label]");
       if (label) label.textContent = `${device.label} · ${device.width}×${device.height} · ${Math.round(scale * 100)}%`;
     });
@@ -6427,14 +6510,20 @@ function openBreakpointViewer() {
     window.setTimeout(() => toast.remove(), 3500);
   }
 
-  urlInput.addEventListener("change", fitAndLoad);
-  drawerHost.querySelector("#bpReload").addEventListener("click", () => {
+  urlInput.addEventListener("change", () => { void syncMobileEmulation(); });
+  drawerHost.querySelector("#bpReload").addEventListener("click", async () => {
     const url = normalizedPreviewUrl();
     if (!url) { showToolbarToast("Informe uma URL HTTP ou HTTPS válida."); return; }
-    stage.querySelectorAll("[data-bp-iframe]").forEach((iframe) => {
-      iframe.src = "about:blank";
-      window.setTimeout(() => { iframe.src = url; }, 0);
-    });
+    // about:blank first so the fitAndLoad inside syncMobileEmulation sees a changed src and reloads
+    // every pane (the phone one only after the re-sent enable is acknowledged).
+    stage.querySelectorAll("[data-bp-iframe]").forEach((iframe) => { iframe.src = "about:blank"; });
+    await syncMobileEmulation({ force: true });
+  });
+  emulateButton.addEventListener("click", () => {
+    breakpointViewerState.emulateMobile = !breakpointViewerState.emulateMobile;
+    emulateButton.classList.toggle("isOn", breakpointViewerState.emulateMobile);
+    emulateButton.setAttribute("aria-pressed", String(breakpointViewerState.emulateMobile));
+    void syncMobileEmulation();
   });
   selectA.addEventListener("change", layout);
   selectB.addEventListener("change", layout);
