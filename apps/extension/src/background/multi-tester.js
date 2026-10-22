@@ -24,8 +24,11 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const HEARTBEAT_MS = 25_000;
 // Reconnect backoff caps at 30s so a dropped network does not hammer Realtime.
 const RECONNECT_MAX_MS = 30_000;
-// Broadcast events the tabs may send; anything else is dropped before reaching the network.
-const ALLOWED_EVENTS = new Set(["cursor", "click", "chat"]);
+// Events a tab may SEND over the channel. Chat is deliberately absent: it goes through the
+// multi-tester Edge Function, which stamps the sender server-side (RLS rejects client `chat`).
+const SENDABLE_EVENTS = new Set(["cursor", "click"]);
+// Events relayed to the tabs when received.
+const RECEIVABLE_EVENTS = new Set(["cursor", "click", "chat"]);
 const MAX_PAYLOAD_CHARS = 4_000;
 
 const live = {
@@ -177,7 +180,7 @@ async function connect() {
       postToPorts({ type: "presence", members: presenceMembers() });
       return;
     }
-    if (message.event === "broadcast" && ALLOWED_EVENTS.has(message.payload?.event)) {
+    if (message.event === "broadcast" && RECEIVABLE_EVENTS.has(message.payload?.event)) {
       postToPorts({ type: "broadcast", event: message.payload.event, payload: message.payload.payload });
       return;
     }
@@ -209,20 +212,26 @@ function cleanText(value, max) {
 }
 
 // Tabs connect with chrome.runtime.connect({ name: "qts-mt" }). Only the extension's own content
-// script can open this Port (externally_connectable does not cover runtime.connect from pages).
-export function handleMultiTesterPort(port) {
+// script can open this Port (externally_connectable does not cover runtime.connect from pages), and
+// `authorize` applies the same active-access + authorized-page gate as the runtime messages.
+export function handleMultiTesterPort(port, authorize) {
   if (port.name !== "qts-mt" || port.sender?.id !== chrome.runtime.id || !port.sender?.tab?.id) return false;
+  const authorized = Promise.resolve(authorize(port.sender)).catch(() => false);
   live.ports.add(port);
   port.onDisconnect.addListener(() => {
     live.ports.delete(port);
     // Last tab gone: drop the socket so the worker can sleep. A reloaded tab reconnects and rejoins.
     if (!live.ports.size) closeSocket();
   });
-  port.onMessage.addListener((message) => {
+  port.onMessage.addListener(async (message) => {
     if (!message || typeof message !== "object") return;
+    if (!await authorized) {
+      try { port.postMessage({ type: "status", state: "denied", reason: "authentication_required" }); } catch {}
+      return;
+    }
     if (message.type === "join") {
       const channel = String(message.channel || "");
-      if (!/^mt:[0-9a-f-]{36}$/i.test(channel)) return;
+      if (!/^mt:[0-9a-f-]{36}:[0-9a-f]{32}$/i.test(channel)) return;
       const me = { userId: cleanText(message.me?.userId, 64), nickname: cleanText(message.me?.nickname, 40), color: /^#[0-9a-f]{6}$/i.test(message.me?.color) ? message.me.color : "#5b35e8", url: cleanText(message.me?.url, 300) };
       if (live.channel === channel && live.socket) {
         live.me = me;
@@ -239,7 +248,7 @@ export function handleMultiTesterPort(port) {
       void connect();
       return;
     }
-    if (message.type === "broadcast" && live.joined && ALLOWED_EVENTS.has(message.event)) {
+    if (message.type === "broadcast" && live.joined && SENDABLE_EVENTS.has(message.event)) {
       const payload = message.payload && typeof message.payload === "object" ? message.payload : {};
       if (JSON.stringify(payload).length > MAX_PAYLOAD_CHARS) return;
       // The sender id is stamped here, from the joined identity, never taken from the tab.

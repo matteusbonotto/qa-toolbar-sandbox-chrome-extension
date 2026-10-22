@@ -44,6 +44,13 @@ export async function verifyExtensionSource(sourceDirectory) {
     if (!/\.(?:js|css|html|json)$/i.test(entries[index])) continue;
     const text = contents.toString("utf8");
     if (SECRET_PATTERNS.some((pattern) => pattern.test(text))) throw new Error(`Secret-like value found in extension source: ${entries[index]}`);
+    // The Multi Testador ships the project's public `anon` JWT (background/multi-tester.js). Any
+    // other Supabase JWT (above all `service_role`) in the package would be a leaked secret.
+    for (const [token] of text.matchAll(/\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/g)) {
+      let role = "";
+      try { role = JSON.parse(Buffer.from(token.split(".")[1], "base64url").toString("utf8")).role || ""; } catch {}
+      if (role !== "anon") throw new Error(`Non-anon JWT found in extension source: ${entries[index]} (role: ${role || "unknown"})`);
+    }
   }
   // Tutorial clips deliberately pause 3s after every visible action. That makes them materially
   // more readable than the former ~3s whole clips, but also larger. Per-file limits above still

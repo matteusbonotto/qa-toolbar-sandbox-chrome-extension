@@ -413,9 +413,14 @@ function isOwnOptionsPage(sender) {
   }
 }
 
-chrome.runtime.onConnect.addListener((port) => { handleMultiTesterPort(port); });
+chrome.runtime.onConnect.addListener((port) => {
+  handleMultiTesterPort(port, async (sender) => {
+    const [access, authorizedSender] = await Promise.all([getAccessState(), isAuthorizedContentSender(sender)]);
+    return access.active === true && authorizedSender;
+  });
+});
 
-const MULTI_TESTER_ACTIONS = new Set(["create", "request", "state", "touch", "approve", "reject", "remove", "leave", "end"]);
+const MULTI_TESTER_ACTIONS = new Set(["create", "request", "state", "touch", "chat", "approve", "reject", "remove", "leave", "end"]);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== "object" || sender.id !== chrome.runtime.id) return undefined;
@@ -584,6 +589,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const body = { action: message.action };
       for (const key of ["roomId", "userId", "code", "nickname", "color"]) if (typeof message[key] === "string") body[key] = message[key].slice(0, 80);
       for (const key of ["durationMinutes", "idleTimeoutMinutes"]) if (Number.isFinite(message[key])) body[key] = message[key];
+      if (typeof message.text === "string") body.text = message.text.slice(0, 500);
       try {
         sendResponse({ ok: true, state: await callMultiTester(body) });
       } catch (error) {

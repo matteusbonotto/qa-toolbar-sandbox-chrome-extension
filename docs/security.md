@@ -69,10 +69,18 @@ resto:
   não expirada e não ociosa (`public.mt_can_use_channel`). `mt_rooms`/`mt_members` têm RLS sem
   nenhuma policy e sem grant para `anon`/`authenticated`: só a Edge Function `multi-tester` (service
   role) escreve, e é ela que aplica plano Release Manager (mesmo `resolveAccess` do
-  `access-status`), limite de 4, aprovação só pelo host, expiração por duração/inatividade e troca
-  do código ao encerrar. O remetente de cada broadcast é carimbado pelo service worker a partir da
-  sessão autenticada, nunca pelo que a aba declara. O código da sala só aparece para o host e
-  sozinho não dá acesso (gera pedido pendente). Nenhum e-mail é trocado entre usuários: só o
+  `access-status`, revalidado a cada 5 min durante a sessão), limite de 4 (atômico, em
+  `mt_set_member_status` com a sala travada), aprovação só pelo host, expiração por
+  duração/inatividade e troca do código ao encerrar. O Realtime autoriza o socket no `phx_join` e
+  guarda a decisão durante a conexão; por isso o tópico é `mt:<sala>:<época>` e a época é trocada a
+  cada remoção, saída e encerramento: quem saiu fica num tópico morto na hora, sem esperar o JWT
+  expirar. **Chat** só é publicado pela Edge Function, com o remetente vindo do JWT verificado (a
+  policy de insert recusa o evento `chat` vindo de cliente). **Risco aceito e documentado no ADR
+  0003:** cursor, clique e presence são enviados pelos próprios clientes; um membro ativo com um
+  cliente próprio consegue declarar outro `from` nesses eventos (mover o "cursor" de outro membro).
+  Não dá acesso a nada, não sai da sala e não afeta chat nem decisões do host. O código da sala só
+  aparece para o host e sozinho não dá acesso (gera pedido pendente); quem não é membro ativo recebe
+  só o próprio status, sem lista de membros nem canal. Nenhum e-mail é trocado entre usuários: só o
   apelido. Recomendado em produção: desligar "Allow public access" do Realtime para que só canais
   privados existam.
 

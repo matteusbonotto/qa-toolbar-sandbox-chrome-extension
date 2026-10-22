@@ -139,17 +139,23 @@ const fakeSession = {
 // join) and a fake Supabase Realtime (Phoenix) server, so the room UI, the service worker channel
 // client and remote cursors are exercised end to end without touching the real backend.
 const MT_GUEST_ID = "00000000-0000-4000-8000-000000000002";
-const multiTesterState = { room: null, members: [], joins: 0, broadcasts: [] };
+const multiTesterState = { room: null, members: [], joins: 0, broadcasts: [], chats: [], socket: null, topic: "" };
 function multiTesterMock(body) {
   const me = { userId: fakeSession.user.id, role: "host", status: "active" };
   if (body.action === "create") {
-    multiTesterState.room = { id: "11111111-2222-4333-8444-555555555555", status: "open", code: "ABCD2345", channel: "mt:11111111-2222-4333-8444-555555555555", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: Number(body.idleTimeoutMinutes), durationMinutes: Number(body.durationMinutes), endReason: null };
+    multiTesterState.room = { id: "11111111-2222-4333-8444-555555555555", status: "open", code: "ABCD2345", channel: "mt:11111111-2222-4333-8444-555555555555:0123456789abcdef0123456789abcdef", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: Number(body.idleTimeoutMinutes), durationMinutes: Number(body.durationMinutes), endReason: null };
     multiTesterState.members = [
       { userId: fakeSession.user.id, nickname: String(body.nickname), color: String(body.color), role: "host", status: "active" },
       { userId: MT_GUEST_ID, nickname: "Tucano 12", color: "#e11d48", role: "guest", status: "pending" },
     ];
   } else if (body.action === "approve" && body.userId === MT_GUEST_ID) {
     multiTesterState.members[1].status = "active";
+  } else if (body.action === "chat") {
+    // Server-stamped chat, published back to the room over the channel like the real function does.
+    const payload = { from: fakeSession.user.id, text: String(body.text), at: new Date().toISOString() };
+    multiTesterState.chats.push(payload);
+    if (multiTesterState.socket) wsSendText(multiTesterState.socket, JSON.stringify({ topic: multiTesterState.topic, event: "broadcast", payload: { type: "broadcast", event: "chat", payload }, ref: null, join_ref: null }));
+    return { sent: true };
   } else if (body.action === "end") {
     multiTesterState.room = { ...multiTesterState.room, status: "ended", code: null, endReason: "host" };
   }
@@ -187,6 +193,8 @@ realtimeServer.on("upgrade", (request, socket) => {
       const reply = (event, payload) => wsSendText(socket, JSON.stringify({ topic: message.topic, event, payload, ref: event === "phx_reply" ? message.ref : null, join_ref: message.join_ref }));
       if (message.event === "phx_join") {
         multiTesterState.joins += 1;
+        multiTesterState.socket = socket;
+        multiTesterState.topic = message.topic;
         if (!message.payload?.config?.private || !message.payload?.access_token) { reply("phx_reply", { status: "error", response: { reason: "private channel with user token required" } }); continue; }
         reply("phx_reply", { status: "ok", response: {} });
         reply("presence_state", { [MT_GUEST_ID]: { metas: [{ phx_ref: "g1", nickname: "Tucano 12", color: "#e11d48" }] } });
@@ -1852,9 +1860,10 @@ try {
   await host.locator("[data-mt-chat-input]").fill("Pode clicar em salvar");
   await host.locator("[data-mt-chat-form] button[type=submit]").click();
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("[data-mt-chat-log]")?.textContent.includes("Pode clicar em salvar"));
-  for (let attempt = 0; attempt < 30 && !multiTesterState.broadcasts.some((payload) => payload.event === "chat"); attempt += 1) await host.waitForTimeout(100);
-  const chatBroadcast = multiTesterState.broadcasts.find((payload) => payload.event === "chat");
-  if (chatBroadcast?.payload?.text !== "Pode clicar em salvar" || chatBroadcast.payload.from !== fakeSession.user.id) throw new Error(`Chat did not go out over the channel with the authenticated sender: ${JSON.stringify(chatBroadcast)}`);
+  // Chat goes through the Edge Function (server-stamped sender), never straight over the socket.
+  if (multiTesterState.chats.at(-1)?.text !== "Pode clicar em salvar") throw new Error(`Chat did not go through the multi-tester function: ${JSON.stringify(multiTesterState.chats)}`);
+  if (multiTesterState.broadcasts.some((payload) => payload.event === "chat")) throw new Error("The tab sent chat directly over the channel, bypassing the server-stamped sender");
+  if (multiTesterState.topic !== "realtime:mt:11111111-2222-4333-8444-555555555555:0123456789abcdef0123456789abcdef") throw new Error(`Channel topic did not carry the room epoch: ${multiTesterState.topic}`);
   await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-room.png"), fullPage: false });
   host.once("dialog", (dialog) => dialog.accept());
   await host.locator("[data-mt-leave]").click();

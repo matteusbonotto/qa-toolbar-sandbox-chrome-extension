@@ -6760,7 +6760,8 @@ function mtHandlePortMessage(message) {
     const payload = message.payload || {};
     // Only active members count (a pending guest cannot join the channel anyway; belt and braces).
     const sender = mtMember(payload.from);
-    if (sender?.status !== "active" || payload.from === mt.view?.me?.userId) return;
+    // The own chat echo is kept (it is how a sent message appears); own cursors/clicks are ignored.
+    if (sender?.status !== "active" || (payload.from === mt.view?.me?.userId && message.event !== "chat")) return;
     if (message.event === "cursor") {
       mt.remote.set(payload.from, { nx: Number(payload.nx), ny: Number(payload.ny), url: String(payload.url || ""), at: Date.now() });
       mtRenderCursors();
@@ -7047,11 +7048,12 @@ function openMultiTester() {
         const text = input.value.trim().slice(0, 500);
         const mt = mtState();
         if (!text || !mtInRoom()) return;
-        mtBroadcast("chat", { text });
-        mt.chat.push({ from: mt.view.me.userId, text, at: Date.now() });
-        mt.chat = mt.chat.slice(-100);
+        // Sent through the Edge Function, which stamps the sender and publishes it to the room; the
+        // message shows up here when that broadcast arrives, exactly as everyone else sees it.
         input.value = "";
-        mtRenderChat();
+        void mtCall("chat", { roomId: mt.view.room.id, text }).then((response) => {
+          if (!response?.ok) { input.value = text; showQaToast(mtErrorText(response?.error), "error"); }
+        });
       });
     },
   });

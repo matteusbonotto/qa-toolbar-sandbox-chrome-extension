@@ -97,8 +97,14 @@ Recomendacao tecnica, condicionada as decisoes em aberto abaixo:
   esbarra no limite de wall-clock das Edge Functions para conexoes longas, alem de exigir manter um
   relay. O invariante "extensao so fala com Edge Functions" passa a ter UMA excecao documentada: o
   WebSocket de Realtime, autenticado com o JWT do proprio usuario, em canal privado cuja policy
-  exige membro ativo da sala e plano release-manager. Criacao de sala, convite, remocao e
-  rotacao de codigo continuam em Edge Function/RPC `security definer`.
+  exige membro ativo da sala (o plano e revalidado pela Edge Function a cada 5 min e um membro sem
+  plano e removido). Criacao de sala, convite, remocao, rotacao de codigo e o CHAT continuam em
+  Edge Function/RPC `security definer`.
+  Ajustes da revisao de seguranca (antes do merge): topico `mt:<sala>:<epoca>` com epoca trocada a
+  cada remocao/saida/encerramento (o Realtime guarda a autorizacao durante a conexao); limite de 4
+  atomico em `mt_set_member_status`; chat publicado so pelo servidor com remetente do JWT.
+  Risco aceito: cursor, clique e presence sao peer-to-peer e um membro ativo com cliente proprio
+  pode declarar outro remetente nesses eventos; nao concede acesso nem afeta chat ou decisoes.
 - D4: o fundador autorizou o agente a escrever no Supabase de producao, com a condicao de criar
   backup antes de cada escrita para permitir rollback.
 
