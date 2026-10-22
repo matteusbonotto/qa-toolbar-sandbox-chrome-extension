@@ -41,7 +41,9 @@ const live = {
   heartbeat: null,
   reconnectTimer: null,
   reconnectDelay: 1_000,
-  presence: {}, // presence key -> metas
+  // presence key -> metas. A Map, not a plain object: keys come off the network, and a key like
+  // "__proto__" must never reach an object prototype.
+  presence: new Map(),
   ports: new Set(),
   tokenRefresh: null,
 };
@@ -75,17 +77,17 @@ function send(event, payload, topic = `realtime:${live.channel}`) {
 }
 
 function presenceMembers() {
-  return Object.entries(live.presence).map(([userId, metas]) => ({ userId, ...(metas?.[0] || {}) }));
+  return [...live.presence.entries()].map(([userId, metas]) => ({ userId, nickname: String(metas?.[0]?.nickname || ""), color: String(metas?.[0]?.color || ""), url: String(metas?.[0]?.url || "") }));
 }
 
 function applyPresenceDiff(diff) {
   for (const [key, value] of Object.entries(diff?.leaves || {})) {
     const leaving = new Set((value?.metas || []).map((meta) => meta.phx_ref));
-    const remaining = (live.presence[key] || []).filter((meta) => !leaving.has(meta.phx_ref));
-    if (remaining.length) live.presence[key] = remaining; else delete live.presence[key];
+    const remaining = (live.presence.get(key) || []).filter((meta) => !leaving.has(meta.phx_ref));
+    if (remaining.length) live.presence.set(key, remaining); else live.presence.delete(key);
   }
   for (const [key, value] of Object.entries(diff?.joins || {})) {
-    live.presence[key] = [...(live.presence[key] || []), ...(value?.metas || [])];
+    live.presence.set(key, [...(live.presence.get(key) || []), ...(value?.metas || [])]);
   }
 }
 
@@ -103,7 +105,7 @@ function closeSocket() {
   const socket = live.socket;
   live.socket = null;
   live.joined = false;
-  live.presence = {};
+  live.presence = new Map();
   if (socket) {
     socket.onclose = null;
     try { socket.close(1000); } catch {}
@@ -171,7 +173,7 @@ async function connect() {
       return;
     }
     if (message.event === "presence_state") {
-      live.presence = Object.fromEntries(Object.entries(message.payload || {}).map(([key, value]) => [key, value?.metas || []]));
+      live.presence = new Map(Object.entries(message.payload || {}).map(([key, value]) => [key, value?.metas || []]));
       postToPorts({ type: "presence", members: presenceMembers() });
       return;
     }

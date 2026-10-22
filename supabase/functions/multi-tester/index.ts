@@ -26,9 +26,11 @@ interface RoomRow {
 }
 interface MemberRow { room_id: string; user_id: string; nickname: string; color: string; role: "host" | "guest"; status: string; requested_at: string; plan_checked_at: string; }
 
+// The alphabet has exactly 32 symbols, so the low 5 bits of a uniform byte pick one uniformly
+// (a bit mask, no modulo bias).
 function randomCode(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(8));
-  return [...bytes].map((byte) => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join("");
+  return [...bytes].map((byte) => CODE_ALPHABET[byte & 31]).join("");
 }
 
 function randomEpoch(): string {
