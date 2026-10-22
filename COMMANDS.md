@@ -220,6 +220,10 @@ sem necessidade).
 - **Pré-requisitos**: `SUPABASE_ACCESS_TOKEN` (`.env`) e `SUPABASE_PROJECT_REF` (`.env.edge.local`).
 - **Resultado esperado**: em dry-run, relatório do que está pendente; com `--apply`, escreve — **em
   produção isso sempre exige aprovação humana explícita no momento**, nunca automática.
+- **Antes de `--apply` em produção**: rode o backup (`gh workflow run "Supabase backup"`) e espere
+  terminar. O plano Free do Supabase não tem backup automático; o workflow
+  `.github/workflows/supabase-backup.yml` faz um dump diário criptografado. Configuração,
+  restauração e teste mensal: `docs/guia-backup-supabase.md`.
 
 ### `npm run backend:verify-plan-features`
 - **Objetivo**: `scripts/verify-plan-features.mjs` — confere se a matriz `plan_features` no banco

@@ -133,7 +133,14 @@ async function main() {
     // this check looked for a `"upToDate":false` JSON substring that this CLI has never actually
     // printed, which always fell through to "up to date" regardless of the real state: it silently
     // reported "nothing pending" while migrations sat unapplied in production for weeks.
-    const upToDate = !dryRun.output.includes("Would push these migrations:");
+    // 2026-10-22: newer CLI versions switched to a JSON summary ({"upToDate":false,"migrations":[...]})
+    // and dropped the heading above, so the text-only check reported "nothing pending" with two
+    // migrations listed right above it. Both formats are accepted now; anything unrecognized counts
+    // as pending, so the script can never again claim "up to date" by default.
+    const jsonSummary = dryRun.output.split(/\r?\n/).map((line) => { try { return JSON.parse(line); } catch { return null; } }).find((value) => value && typeof value.upToDate === "boolean");
+    const upToDate = jsonSummary
+      ? jsonSummary.upToDate === true || (Array.isArray(jsonSummary.migrations) && jsonSummary.migrations.length === 0)
+      : !dryRun.output.includes("Would push these migrations:") && /up to date/i.test(dryRun.output);
     if (upToDate) {
       console.log("Migrations: nothing pending.");
     } else if (apply) {
