@@ -135,15 +135,84 @@ const fakeSession = {
   user: { id: "00000000-0000-4000-8000-000000000001", email: "tester@example.com" },
 };
 
+// Multi Testador: in-memory stand-in for the multi-tester Edge Function (room + one guest who asks to
+// join) and a fake Supabase Realtime (Phoenix) server, so the room UI, the service worker channel
+// client and remote cursors are exercised end to end without touching the real backend.
+const MT_GUEST_ID = "00000000-0000-4000-8000-000000000002";
+const multiTesterState = { room: null, members: [], joins: 0, broadcasts: [] };
+function multiTesterMock(body) {
+  const me = { userId: fakeSession.user.id, role: "host", status: "active" };
+  if (body.action === "create") {
+    multiTesterState.room = { id: "11111111-2222-4333-8444-555555555555", status: "open", code: "ABCD2345", channel: "mt:11111111-2222-4333-8444-555555555555", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: Number(body.idleTimeoutMinutes), durationMinutes: Number(body.durationMinutes), endReason: null };
+    multiTesterState.members = [
+      { userId: fakeSession.user.id, nickname: String(body.nickname), color: String(body.color), role: "host", status: "active" },
+      { userId: MT_GUEST_ID, nickname: "Tucano 12", color: "#e11d48", role: "guest", status: "pending" },
+    ];
+  } else if (body.action === "approve" && body.userId === MT_GUEST_ID) {
+    multiTesterState.members[1].status = "active";
+  } else if (body.action === "end") {
+    multiTesterState.room = { ...multiTesterState.room, status: "ended", code: null, endReason: "host" };
+  }
+  if (!multiTesterState.room) return { error: "room_not_found" };
+  return { room: { ...multiTesterState.room, code: multiTesterState.room.status === "open" ? multiTesterState.room.code : null }, me, members: multiTesterState.members.map((member) => ({ ...member })), maxMembers: 4 };
+}
+// Minimal RFC 6455 server (text frames only) standing in for Supabase Realtime: Playwright can route
+// a page's WebSocket but not the service worker's, so the extension is pointed here through its
+// unpacked-only, loopback-only override (background/multi-tester.js REALTIME_TEST_OVERRIDE_KEY).
+const MT_REALTIME_PORT = 43118;
+function wsSendText(socket, text) {
+  const payload = Buffer.from(text);
+  const header = payload.length < 126 ? Buffer.from([0x81, payload.length]) : Buffer.from([0x81, 126, payload.length >> 8, payload.length & 255]);
+  socket.write(Buffer.concat([header, payload]));
+}
+const realtimeServer = createServer();
+realtimeServer.on("upgrade", (request, socket) => {
+  const accept = createHash("sha1").update(`${request.headers["sec-websocket-key"]}258EAFA5-E914-47DA-95CA-C5AB0DC85B11`).digest("base64");
+  socket.write(["HTTP/1.1 101 Switching Protocols", "Upgrade: websocket", "Connection: Upgrade", `Sec-WebSocket-Accept: ${accept}`, "", ""].join(String.fromCharCode(13, 10)));
+  let buffer = Buffer.alloc(0);
+  socket.on("data", (chunk) => {
+    buffer = Buffer.concat([buffer, chunk]);
+    while (buffer.length >= 6) {
+      const opcode = buffer[0] & 15;
+      let length = buffer[1] & 127;
+      let offset = 2;
+      if (length === 126) { length = buffer.readUInt16BE(2); offset = 4; }
+      if (buffer.length < offset + 4 + length) return;
+      const mask = buffer.subarray(offset, offset + 4);
+      const data = Buffer.from(buffer.subarray(offset + 4, offset + 4 + length).map((byte, index) => byte ^ mask[index % 4]));
+      buffer = buffer.subarray(offset + 4 + length);
+      if (opcode === 8) { socket.end(); return; }
+      if (opcode !== 1) continue;
+      const message = JSON.parse(data.toString());
+      const reply = (event, payload) => wsSendText(socket, JSON.stringify({ topic: message.topic, event, payload, ref: event === "phx_reply" ? message.ref : null, join_ref: message.join_ref }));
+      if (message.event === "phx_join") {
+        multiTesterState.joins += 1;
+        if (!message.payload?.config?.private || !message.payload?.access_token) { reply("phx_reply", { status: "error", response: { reason: "private channel with user token required" } }); continue; }
+        reply("phx_reply", { status: "ok", response: {} });
+        reply("presence_state", { [MT_GUEST_ID]: { metas: [{ phx_ref: "g1", nickname: "Tucano 12", color: "#e11d48" }] } });
+      } else if (message.event === "presence" && message.payload?.event === "track") {
+        // The approved guest answers with a cursor on the same screen the host just reported.
+        const url = String(message.payload.payload?.url || "");
+        setTimeout(() => reply("broadcast", { type: "broadcast", event: "cursor", payload: { from: MT_GUEST_ID, nx: 0.5, ny: 0.3, url } }), 300);
+      } else if (message.event === "broadcast") {
+        multiTesterState.broadcasts.push(message.payload);
+      }
+    }
+  });
+  socket.on("error", () => {});
+});
+await new Promise((resolveReady) => realtimeServer.listen(MT_REALTIME_PORT, "127.0.0.1", resolveReady));
+
 await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", async (route) => {
   const name = new URL(route.request().url()).pathname.split("/").pop();
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
   if (name === "access-status") {
     const plan = { key: "release-manager", name: "Release Manager" };
-    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true, "clearSiteData.enabled": true, "jsonStudio.enabled": true, "breakpointViewer.enabled": true, "recording.mp4": true, "recording.gif": true };
+    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true, "clearSiteData.enabled": true, "jsonStudio.enabled": true, "breakpointViewer.enabled": true, "multiTester.enabled": true, "recording.mp4": true, "recording.gif": true };
     const token = await signMockAccessToken({ active: true, plan, features });
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
   }
+  if (name === "multi-tester") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(multiTesterMock(route.request().postDataJSON() || {})) });
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -1763,6 +1832,36 @@ try {
   await host.locator("#drawerClose").click();
   if (await host.evaluate(() => document.documentElement.classList.contains("qts-hide-native-cursor") || !!document.getElementById("qts-pointer-overlay"))) throw new Error("System pointer choice left the drawn pointer or the hidden OS pointer behind");
   trace("custom pointer, name pill, hidden OS pointer and per-button spotlight verified");
+
+  // Multi Testador: the host creates a room (code shown only to the host), approves the guest who
+  // asked to join, the private Realtime channel is joined with the user token, the guest's cursor
+  // appears with their nickname, chat goes out over the channel, and ending clears everything.
+  await host.locator("#toolsButton").click();
+  await options.evaluate((port) => chrome.storage.local.set({ qtsMtRealtimeUrlForTests: `ws://127.0.0.1:${port}/realtime/v1/websocket` }), MT_REALTIME_PORT);
+  await host.locator("#multiTesterMenuItem").click();
+  await host.locator("[data-mt-duration]").selectOption("30");
+  await host.locator("[data-mt-idle]").selectOption("15");
+  await host.locator("[data-mt-create]").click();
+  await host.locator("[data-mt-room-code]").waitFor();
+  if (await host.locator("[data-mt-room-code]").textContent() !== "ABCD2345") throw new Error("Multi Testador did not show the room code to the host");
+  await host.locator(`[data-mt-approve="${MT_GUEST_ID}"]`).click();
+  await host.waitForFunction((guestId) => !document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector(`[data-mt-approve="${guestId}"]`), MT_GUEST_ID);
+  await host.locator('.qts-mt-status[data-state="joined"]').waitFor({ timeout: 10_000 });
+  if (multiTesterState.joins < 1) throw new Error("Multi Testador never joined the private Realtime channel");
+  await host.waitForFunction(() => document.getElementById("qts-mt-cursors")?.shadowRoot?.querySelector(".qts-cursor-label")?.textContent === "Tucano 12", null, { timeout: 10_000 });
+  await host.locator("[data-mt-chat-input]").fill("Pode clicar em salvar");
+  await host.locator("[data-mt-chat-form] button[type=submit]").click();
+  await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("[data-mt-chat-log]")?.textContent.includes("Pode clicar em salvar"));
+  for (let attempt = 0; attempt < 30 && !multiTesterState.broadcasts.some((payload) => payload.event === "chat"); attempt += 1) await host.waitForTimeout(100);
+  const chatBroadcast = multiTesterState.broadcasts.find((payload) => payload.event === "chat");
+  if (chatBroadcast?.payload?.text !== "Pode clicar em salvar" || chatBroadcast.payload.from !== fakeSession.user.id) throw new Error(`Chat did not go out over the channel with the authenticated sender: ${JSON.stringify(chatBroadcast)}`);
+  await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-room.png"), fullPage: false });
+  host.once("dialog", (dialog) => dialog.accept());
+  await host.locator("[data-mt-leave]").click();
+  await host.locator("[data-mt-create]").waitFor();
+  if (await host.evaluate(() => !!document.getElementById("qts-mt-cursors"))) throw new Error("Remote cursors stayed on screen after the session ended");
+  await host.locator("#drawerClose").click();
+  trace("multi testador room, approval, private channel, remote cursor, chat and end verified");
   await host.locator("[data-key-view-clear]").click();
   if (await host.locator("#qts-key-view-overlay").count()) throw new Error("Key View typing was not cleared on demand");
   await host.locator("#toolsButton").click();
@@ -2671,5 +2770,6 @@ try {
 } finally {
   clearTimeout(smokeWatchdog);
   await context.close();
+  realtimeServer.close();
   await new Promise((resolveClosed) => server.close(resolveClosed));
 }

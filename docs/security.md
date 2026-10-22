@@ -62,6 +62,19 @@ resto:
   entidade e metadados seguros — nunca token, senha ou corpo de requisição.
 - **Webhooks do Stripe são verificados por assinatura** antes de qualquer processamento
   (`stripe-webhook`).
+- **Multi Testador: única conexão direta extensão para Supabase** (ADR 0003, decisão D3). O service
+  worker abre o WebSocket do Supabase Realtime com a chave pública `anon` (feita para ir no cliente;
+  não dá acesso a nada sozinha) e o JWT do próprio usuário, sempre em canal **privado** `mt:<sala>`.
+  As policies em `realtime.messages` só liberam broadcast/presence para membro ativo de sala aberta,
+  não expirada e não ociosa (`public.mt_can_use_channel`). `mt_rooms`/`mt_members` têm RLS sem
+  nenhuma policy e sem grant para `anon`/`authenticated`: só a Edge Function `multi-tester` (service
+  role) escreve, e é ela que aplica plano Release Manager (mesmo `resolveAccess` do
+  `access-status`), limite de 4, aprovação só pelo host, expiração por duração/inatividade e troca
+  do código ao encerrar. O remetente de cada broadcast é carimbado pelo service worker a partir da
+  sessão autenticada, nunca pelo que a aba declara. O código da sala só aparece para o host e
+  sozinho não dá acesso (gera pedido pendente). Nenhum e-mail é trocado entre usuários: só o
+  apelido. Recomendado em produção: desligar "Allow public access" do Realtime para que só canais
+  privados existam.
 
 ## O que NÃO fazer (regras já estabelecidas no projeto)
 

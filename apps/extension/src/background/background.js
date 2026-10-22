@@ -1,5 +1,6 @@
 import { getSiteScope, getWorkspace, saveWorkspace, onStorageChanged, STORAGE_KEYS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN, DEMO_TEST_ACCOUNT_ID, DEMO_PAYMENT_METHOD_ID } from "../lib/storage.js";
-import { acceptSessionHandoff, deleteAccount, getAccessState, redeemVoucher, requestPasswordReset, signIn, signOut } from "./auth.js";
+import { acceptSessionHandoff, callMultiTester, deleteAccount, getAccessState, redeemVoucher, requestPasswordReset, signIn, signOut } from "./auth.js";
+import { handleMultiTesterPort } from "./multi-tester.js";
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
 const PAGEBRIDGE_SCRIPT_ID = "qts-pagebridge";
@@ -412,6 +413,10 @@ function isOwnOptionsPage(sender) {
   }
 }
 
+chrome.runtime.onConnect.addListener((port) => { handleMultiTesterPort(port); });
+
+const MULTI_TESTER_ACTIONS = new Set(["create", "request", "state", "touch", "approve", "reject", "remove", "leave", "end"]);
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== "object" || sender.id !== chrome.runtime.id) return undefined;
   if (message.type === "qts:get-access-state") {
@@ -568,6 +573,23 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         return sendResponse({ ok: false, error: String(error?.message || error) });
       }
     }).catch(() => sendResponse({ ok: false, error: "mobile_emulation_failed" }));
+    return true;
+  }
+  if (message.type === "qts:multi-tester") {
+    // Same sender gate as the other page-scoped actions; the Edge Function re-checks plan and
+    // every room rule server-side, so this only forwards whitelisted, size-bounded fields.
+    Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(async ([access, authorizedSender]) => {
+      if (!access.active || !authorizedSender) return sendResponse({ ok: false, error: "authentication_required" });
+      if (!MULTI_TESTER_ACTIONS.has(message.action)) return sendResponse({ ok: false, error: "invalid_action" });
+      const body = { action: message.action };
+      for (const key of ["roomId", "userId", "code", "nickname", "color"]) if (typeof message[key] === "string") body[key] = message[key].slice(0, 80);
+      for (const key of ["durationMinutes", "idleTimeoutMinutes"]) if (Number.isFinite(message[key])) body[key] = message[key];
+      try {
+        sendResponse({ ok: true, state: await callMultiTester(body) });
+      } catch (error) {
+        sendResponse({ ok: false, error: String(error?.message || "multi_tester_failed"), status: error?.status });
+      }
+    }).catch(() => sendResponse({ ok: false, error: "multi_tester_failed" }));
     return true;
   }
   if (message.type === "qts:clear-site-data") {
