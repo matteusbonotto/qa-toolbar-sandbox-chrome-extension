@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { adminClient, enforceRateLimit } from "../_shared/auth.ts";
+import { adminClient, clientRateSubject, enforceRateLimit } from "../_shared/auth.ts";
 import { serve } from "../_shared/handler.ts";
 import { jsonResponse, readJson, requirePost } from "../_shared/http.ts";
 
@@ -47,7 +47,10 @@ serve(async (request) => {
 
   const voucherHash = createHash("sha256").update(code).digest("hex");
   await enforceRateLimit(voucherHash, "voucher-preview-code", 20, 3_600);
-  await enforceRateLimit("anonymous", "voucher-preview-global", 300, 3_600);
+  // Per client instead of one global bucket: a single attacker could exhaust the old global 300/h and
+  // take the preview down for every visitor (security audit 2026-10-22), and per client is also the
+  // useful brake against guessing codes.
+  await enforceRateLimit(await clientRateSubject(request), "voucher-preview-client", 60, 3_600);
 
   const admin = adminClient();
   const now = new Date().toISOString();

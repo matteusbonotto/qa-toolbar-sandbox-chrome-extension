@@ -1,5 +1,5 @@
 import { z } from "npm:zod@4.4.3";
-import { enforceRateLimit, publicClient } from "../_shared/auth.ts";
+import { clientRateSubject, enforceRateLimit, publicClient } from "../_shared/auth.ts";
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
 
@@ -16,6 +16,8 @@ serve(async (request) => {
   if (!parsed.success) throw new ApiError(400, "invalid_request");
   const email = parsed.data.email.toLowerCase();
   await enforceRateLimit(email, "auth-recover-password", 5, 900);
+  // Per client too, so one caller cannot e-mail-bomb many addresses.
+  await enforceRateLimit(await clientRateSubject(request), "auth-recover-password-client", 20, 3_600);
   // Supabase's own resetPasswordForEmail() never reveals whether the address has an
   // account — same "sent if it exists" response either way, nothing to branch on here.
   await publicClient().auth.resetPasswordForEmail(email, { redirectTo: RESET_REDIRECT_URL });
