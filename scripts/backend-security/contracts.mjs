@@ -52,8 +52,12 @@ export const RATE_LIMITS = {
   "admin-email-otp": [3, 900],
   "admin-email-otp-verify": [5, 600],
   "auth-recover-password": [5, 900],
+  "auth-recover-password-client": [20, 3_600],
   "auth-refresh": [30, 3_600],
+  // auth-sign-in/index.ts: per (client, e-mail), per client, per account (security audit 2026-10-22).
   "auth-sign-in": [10, 900],
+  "auth-sign-in-client": [30, 900],
+  "auth-sign-in-account": [50, 3_600],
   "cancel-access": [5, 3_600],
   "checkout-create-session": [8, 3_600],
   "keep-alive": [4, 86_400],
@@ -63,7 +67,7 @@ export const RATE_LIMITS = {
   "referral-track": [5, 3_600],
   "rewards-spin": [5, 60],
   "voucher-preview-code": [20, 3_600],
-  "voucher-preview-global": [300, 3_600],
+  "voucher-preview-client": [60, 3_600],
   "voucher-redeem": [8, 3_600],
 };
 

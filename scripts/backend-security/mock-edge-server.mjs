@@ -119,6 +119,11 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
     return context;
   }
 
+  // Mirrors _shared/auth.ts clientRateSubject: the first x-forwarded-for hop, else the socket.
+  function clientSubject(ctx) {
+    return `ip:${String(ctx.headers["x-forwarded-for"] ?? "").split(",")[0].trim() || ctx.remoteAddress || "unknown"}`;
+  }
+
   function enforceRateLimit(subject, action) {
     const [maximum, windowSeconds] = RATE_LIMITS[action];
     const windowStart = Math.floor(Date.now() / 1000 / windowSeconds);
@@ -369,6 +374,7 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
       const parsed = strictObject(await ctx.readJson(2_048), { email: zodEmail });
       if (!parsed) throw new ApiError(400, "invalid_request");
       enforceRateLimit(parsed.email.toLowerCase(), "auth-recover-password");
+      enforceRateLimit(clientSubject(ctx), "auth-recover-password-client");
       return { sent: true };
     },
     async "auth-refresh"(ctx) {
@@ -386,7 +392,9 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
       const parsed = strictObject(await ctx.readJson(8_192), { email: zodEmail, password: zodString(8, 200) });
       if (!parsed) throw new ApiError(400, "invalid_credentials");
       const email = parsed.email.toLowerCase();
-      enforceRateLimit(email, "auth-sign-in");
+      enforceRateLimit(`${clientSubject(ctx)}:${email}`, "auth-sign-in");
+      enforceRateLimit(clientSubject(ctx), "auth-sign-in-client");
+      enforceRateLimit(email, "auth-sign-in-account");
       maybeSqlFault(parsed.password, email);
       const user = [...users.values()].find((candidate) => candidate.email.toLowerCase() === email && !candidate.deleted);
       if (!user || user.password !== parsed.password) throw new ApiError(401, "authentication_failed");
@@ -456,7 +464,7 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
       const code = typeof input === "object" && input !== null && "code" in input ? String(input.code).trim().toUpperCase() : "";
       if (!VOUCHER_CODE.test(code)) return { valid: false, reason: "voucher_unavailable" };
       enforceRateLimit(sha256(code), "voucher-preview-code");
-      enforceRateLimit("anonymous", "voucher-preview-global");
+      enforceRateLimit(clientSubject(ctx), "voucher-preview-client");
       return { valid: false, reason: "voucher_unavailable" };
     },
     async "voucher-redeem"(ctx) {
@@ -571,6 +579,7 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
     const rawBody = Buffer.concat(chunks).toString("utf8");
     const ctx = {
       headers: request.headers,
+      remoteAddress: request.socket.remoteAddress,
       async readJson(maximumBytes) {
         if (!String(request.headers["content-type"] ?? "").toLowerCase().startsWith("application/json")) throw new ApiError(415, "content_type_required");
         const declared = Number(request.headers["content-length"] ?? "0");
