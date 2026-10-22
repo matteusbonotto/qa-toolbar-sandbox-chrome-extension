@@ -198,6 +198,14 @@ export async function redeemVoucher(code) {
   return result;
 }
 
+// Multi Testador room actions (create/request/state/approve/...): the Edge Function enforces every
+// rule (plan, 4 testers, host-only decisions); this only attaches the caller's session.
+export async function callMultiTester(body) {
+  const session = await getSession();
+  if (!session) throw new Error("authentication_required");
+  return post("multi-tester", body, session.accessToken);
+}
+
 export async function acceptSessionHandoff(session) {
   await chrome.storage.local.remove(STORAGE_KEYS.accessStatus);
   return storeSession(session);

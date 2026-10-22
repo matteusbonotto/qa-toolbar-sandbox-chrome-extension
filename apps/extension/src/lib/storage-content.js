@@ -27,6 +27,7 @@
     ["testSession","Sessões de teste","testSessionMenuItem","wait",""],
     ["reportBuilder","Relatórios","reportBuilderMenuItem","edit",""],
     ["clearSiteData","Limpar cache e cookies do site","clearSiteDataMenuItem","eraser","clearSiteData.enabled"],
+    ["multiTester","Multi Testador","multiTesterMenuItem","people","multiTester.enabled"],
   ].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
   const DEFAULT_ENABLED_TOOLS = Object.freeze(FEATURE_REGISTRY.map((feature) => feature.key));
   const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
@@ -42,6 +43,7 @@
   const SCHEMA_14_TOOLS = ["testSession"];
   const SCHEMA_15_TOOLS = ["reportBuilder"];
   const SCHEMA_18_TOOLS = ["clearSiteData"];
+  const SCHEMA_19_TOOLS = ["multiTester"];
   const DEMO_CLIENT_ID = "qts-demo-client";
   const DEMO_PROJECT_ID = "qts-demo-project";
   const DEMO_PRODUCT_ID = "qts-demo-product";
@@ -206,7 +208,7 @@
   }
   function createEmptyWorkspace() {
     return {
-      schemaVersion: 18,
+      schemaVersion: 19,
       updatedAt: new Date().toISOString(),
       clients: [],
       projects: [],
@@ -502,6 +504,7 @@
     if (Number(source.schemaVersion || 0) < 14) for (const tool of SCHEMA_14_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 15) for (const tool of SCHEMA_15_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     if (Number(source.schemaVersion || 0) < 18) for (const tool of SCHEMA_18_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+    if (Number(source.schemaVersion || 0) < 19) for (const tool of SCHEMA_19_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
     let operatingSystems = normalizeCatalogEntries(source.operatingSystems, "operatingSystem");
     let browsers = normalizeCatalogEntries(source.browsers, "browser");
     if (Number(source.schemaVersion || 0) < 17) {
@@ -520,7 +523,7 @@
     }
     return {
       ...empty,
-      schemaVersion: 18,
+      schemaVersion: 19,
       updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
       clients,
       projects,
@@ -603,6 +606,8 @@
         },
         breadcrumbOrder: normalizeBreadcrumbOrder(preferences.breadcrumbOrder),
         keyView: normalizeKeyView(preferences.keyView),
+        // Multi Testador nickname shown to other testers (never the e-mail); "" until set or generated.
+        nickname: text(preferences.nickname, 40),
       },
     };
   }

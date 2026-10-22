@@ -639,7 +639,7 @@ body.qts-placement-mode, body.qts-placement-mode * {
   width: 0 !important; height: 0 !important; overflow: visible !important; pointer-events: none !important;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)) !important;
 }
-#qts-click-effects {
+#qts-click-effects, #qts-mt-cursors {
   all: initial !important; position: fixed !important; inset: 0 !important; z-index: 2147483645 !important;
   display: block !important; pointer-events: none !important; overflow: hidden !important;
 }

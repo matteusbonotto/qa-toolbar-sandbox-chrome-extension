@@ -510,7 +510,7 @@ const TOOLS_MENU_ITEM_KEY_BY_ID = Object.fromEntries(Object.entries(TOOLS_MENU_I
 // workspace schema changed. A registry key missing here falls into the last section, so a new tool
 // can never vanish from the menu. Notas/Formas are not registry tools; they open "evidence".
 const TOOLS_MENU_GROUPS = Object.freeze([
-  { key: "evidence", labelKey: "toolsGroupEvidence", staticItems: ["notesMenuItem", "shapesMenuItem"], tools: ["testStatus", "testSession", "stepsRecorder", "macroStudio", "reportBuilder"] },
+  { key: "evidence", labelKey: "toolsGroupEvidence", staticItems: ["notesMenuItem", "shapesMenuItem"], tools: ["testStatus", "testSession", "stepsRecorder", "macroStudio", "reportBuilder", "multiTester"] },
   { key: "inspect", labelKey: "toolsGroupInspect", tools: ["inspectors", "errorMonitor", "forceHttp", "jsonStudio", "clickSpy", "elementCapture", "languageValidator"] },
   { key: "data", labelKey: "toolsGroupData", tools: ["fakerFill", "inputLab", "characterCounter", "multiClick", "testAccounts", "paymentMethods", "qrCode"] },
   { key: "visual", labelKey: "toolsGroupVisual", tools: ["breakpoints", "pixelPerfect", "blurElements", "holofote", "keyView"] },
@@ -1350,6 +1350,7 @@ function buildShadowHost() {
             <p id="toolsSearchEmpty" class="qts-mini-empty" hidden>${escapeHtml(t.toolsSearchEmpty)}</p>
             ${TOOLS_MENU_GROUPS.map((group) => `<section class="qts-tools-group" data-tools-group="${group.key}"><button type="button" class="qts-tools-group-head" aria-expanded="true"><span>${escapeHtml(t[group.labelKey])}</span><small data-tools-group-count></small>${ICON("chevronDown")}</button><div class="qts-tools-group-body" role="group" aria-label="${escapeHtml(t[group.labelKey])}"></div></section>`).join("")}
             <button type="button" id="clearSiteDataMenuItem" role="menuitem">${ICON("eraser")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.clearSiteData))}</button>
+            <button type="button" id="multiTesterMenuItem" role="menuitem">${ICON("people")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.multiTester))}</button>
             <button type="button" id="statusMenuItem" role="menuitem">${ICON("checkSquare")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testStatus))}</button>
             <button type="button" id="testSessionMenuItem" role="menuitem">${ICON("wait")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.testSession))}</button>
             <button type="button" id="reportBuilderMenuItem" role="menuitem">${ICON("edit")} ${escapeHtml(translateQaSurfaceText(TOOLS_MENU_LABELS.reportBuilder))}</button>
@@ -1579,6 +1580,7 @@ function buildShadowHost() {
   }, true);
   shadow.getElementById("disableAllToolsMenuItem").addEventListener("click", () => { openActiveToolsModal(); closeToolsMenu(); });
   shadow.getElementById("clearSiteDataMenuItem").addEventListener("click", () => { void clearCurrentSiteData(); closeToolsMenu(); });
+  shadow.getElementById("multiTesterMenuItem").addEventListener("click", () => { openMultiTester(); closeToolsMenu(); });
   shadow.getElementById("notificationBellButton").addEventListener("click", (event) => {
     event.stopPropagation();
     closeToolsMenu();
@@ -1716,7 +1718,7 @@ async function maybeOpenDetachedTool() {
 }
 
 function openDetachedTool(toolKey) {
-  const supportedTools = new Set(["testStatus", "testAccounts", "paymentMethods", "resources", "jsonStudio", "keyView", "elementCapture", "inputLab", "fakerFill", "stepsRecorder", "inspectors", "errorMonitor", "forceHttp", "blurElements", "holofote", "pixelPerfect", "characterCounter", "multiClick", "macroStudio"]);
+  const supportedTools = new Set(["multiTester", "testStatus", "testAccounts", "paymentMethods", "resources", "jsonStudio", "keyView", "elementCapture", "inputLab", "fakerFill", "stepsRecorder", "inspectors", "errorMonitor", "forceHttp", "blurElements", "holofote", "pixelPerfect", "characterCounter", "multiClick", "macroStudio"]);
   if (!supportedTools.has(toolKey)) return false;
   const existingDrawer = state.shadowRoot?.getElementById("drawerHost");
   if (existingDrawer?.dataset.view === toolKey && existingDrawer.querySelector(".qts-drawer")) return true;
@@ -1730,6 +1732,7 @@ function openDetachedTool(toolKey) {
     case "resources": openResourcesDrawer(); break;
     case "jsonStudio": openJsonStudio(); break;
     case "keyView": openKeyView(); break;
+    case "multiTester": openMultiTester(); break;
     case "elementCapture": openElementCapture(); break;
     case "inputLab": openInputLab(); break;
     case "fakerFill": openFakerFill(); break;
@@ -1795,6 +1798,7 @@ const TOUR_TARGETS = {
   languageValidator: { selector: "#languageValidatorMenuItem", menu: true },
   qrCode: { selector: "#qrCodeMenuItem", menu: true },
   clearSiteData: { selector: "#clearSiteDataMenuItem", menu: true },
+  multiTester: { selector: "#multiTesterMenuItem", menu: true },
   testAccounts: { selector: "#testAccountsMenuItem", menu: true },
   paymentMethods: { selector: "#paymentMethodsMenuItem", menu: true },
   resources: { selector: "#resourcesMenuItem", menu: true },
@@ -2192,6 +2196,8 @@ function removeToolbar({ disableBridge = false } = {}) {
   // Sign-out/scope change can remove the bar with the Breakpoint Viewer still open: drop its phone
   // emulation rule too (the background accepts disable without an active session).
   cleanupBreakpointViewer();
+  // Same for a live Multi Testador session: close the channel and the remote cursors locally.
+  if (state.mt?.view) void mtTeardown();
   cancelElementSelection();
   stopKeyView();
   state.elementViewCleanup?.();
@@ -2785,6 +2791,7 @@ function renderReportBuilder(container, context, prefill) {
       context.url,
       `${t.reportSeverity}: ${severityLabel[values.severity]} · ${t.reportPriority}: ${priorityLabel[values.priority]}`,
       deviceLabel ? `${t.testedDevice}: ${deviceLabel}` : "",
+      mtParticipantsLine(),
       values.tags ? `${t.reportTags}: ${values.tags}` : "",
       values.description ? `\n${t.reportDescription}\n${values.description}` : "",
       values.preconditions ? `\n${t.reportPreconditions}\n${values.preconditions}` : "",
@@ -4092,6 +4099,32 @@ function drawerStyles() {
     .qts-click-colors label { display: grid; gap: 5px; color: var(--qts-panel-muted); font-size: 11px; font-weight: 750; }
     .qts-click-colors input[type="color"] { width: 100%; height: 32px; padding: 2px; border: 1px solid var(--qts-panel-border); border-radius: 8px; background: var(--qts-panel-2); cursor: pointer; }
     .qts-cursor-mouse-options[hidden] { display: none; }
+    /* Multi Testador drawer. */
+    .qts-mt-card { display: grid; gap: 10px; margin: 12px 0; }
+    .qts-mt-row { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; }
+    .qts-mt-row > .qts-field-label { flex: 1 1 140px; margin: 0; }
+    .qts-mt-row > input { flex: 1 1 160px; min-width: 0; }
+    .qts-mt-row > button { flex: none; }
+    .qts-mt-hint { margin: 0; color: var(--qts-panel-muted); font-size: 12px; font-weight: 500; line-height: 1.4; }
+    .qts-mt-notice { border-color: var(--qts-ui-warning, #f59e0b); }
+    [data-mt-code] { font: 800 15px/1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .18em; text-transform: uppercase; }
+    .qts-mt-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .qts-mt-status { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 800; color: var(--qts-panel-muted); }
+    .qts-mt-status::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--qts-ui-warning, #f59e0b); }
+    .qts-mt-status[data-state="joined"]::before { background: var(--qts-ui-success, #16a34a); }
+    .qts-mt-status[data-state="denied"]::before, .qts-mt-status[data-state="error"]::before { background: var(--qts-ui-danger, #dc2626); }
+    .qts-mt-code { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 12px; border: 1px dashed var(--qts-ui-primary, #5b35e8); border-radius: 10px; }
+    .qts-mt-code > span { flex: 1 1 100%; color: var(--qts-panel-muted); font-size: 11px; font-weight: 800; text-transform: uppercase; }
+    .qts-mt-code > strong { flex: 1 1 auto; color: var(--qts-panel-text); font: 900 24px/1.1 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .2em; }
+    .qts-mt-members { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+    .qts-mt-member { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 10px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); }
+    .qts-mt-dot { flex: none; width: 12px; height: 12px; border-radius: 50%; box-shadow: 0 0 0 2px var(--qts-panel-bg, #111); }
+    .qts-mt-name { flex: 1 1 120px; min-width: 0; color: var(--qts-panel-text); font-weight: 800; overflow-wrap: anywhere; }
+    .qts-mt-role { color: var(--qts-panel-muted); font-weight: 700; }
+    .qts-mt-member .action { min-height: 30px; padding: 0 10px; font-size: 11px; }
+    .qts-mt-chat { display: grid; align-content: start; gap: 6px; max-height: 220px; min-height: 80px; overflow-y: auto; padding: 8px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); }
+    .qts-mt-message { margin: 0; color: var(--qts-panel-text); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
+    .qts-mt-card .action svg { width: 14px; height: 14px; vertical-align: -2px; }
     @media (max-width: 420px) { .qts-click-colors { grid-template-columns: 1fr; } }
     .qts-privacy-note p { margin: 5px 0 0; color: #aaa; }
     /* A bare native <input type=color> renders as a ~16px swatch with no border in some engines --
@@ -4239,6 +4272,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Desenho do mouse": "Dibujo del ratón", "Holofote": "Foco", "Ondas": "Ondas", "Nenhum": "Ninguno",
   "Comum": "Común", "Gamer": "Gamer", "Antigo": "Antiguo", "Com relevo": "Con relieve", "3D": "3D", "Coração": "Corazón", "Tech": "Tech", "Transformer": "Transformer",
   "Nenhuma": "Ninguna", "Flores": "Flores", "Corações": "Corazones", "Caveiras": "Calaveras", "Raios": "Rayos", "X Tech": "X Tech", "Hexágonos": "Hexágonos", "Diamantes": "Diamantes", "Flocos": "Copos", "Estrelas": "Estrellas",
+  "Multi Testador": "Multi Tester", "Multi Testador é exclusivo do plano Release Manager.": "Multi Tester es exclusivo del plan Release Manager.", "Código inválido ou sala encerrada.": "Código inválido o sala cerrada.", "O código tem 8 caracteres (letras e números).": "El código tiene 8 caracteres (letras y números).", "O host não liberou sua entrada nesta sala.": "El anfitrión no permitió tu entrada en esta sala.", "A sala já tem 4 testadores.": "La sala ya tiene 4 testers.", "Esse convidado não tem o plano Release Manager.": "Este invitado no tiene el plan Release Manager.", "Só o host pode fazer isso.": "Solo el anfitrión puede hacer esto.", "A sessão já foi encerrada.": "La sesión ya terminó.", "Entre na sua conta para usar o Multi Testador.": "Inicia sesión para usar Multi Tester.", "O host encerrou a sessão.": "El anfitrión terminó la sesión.", "O tempo da sessão acabou.": "Se acabó el tiempo de la sesión.", "A sessão foi encerrada por inatividade.": "La sesión terminó por inactividad.", "A sessão foi encerrada.": "La sesión terminó.", "O host removeu você da sessão.": "El anfitrión te quitó de la sesión.", "O host recusou sua entrada.": "El anfitrión rechazó tu entrada.", "O host aprovou sua entrada. Você está na sessão.": "El anfitrión aprobó tu entrada. Estás en la sesión.", "Não foi possível falar com o Multi Testador. Tente de novo.": "No se pudo contactar Multi Tester. Inténtalo de nuevo.", "host": "anfitrión", "Participantes (Multi Testador)": "Participantes (Multi Tester)", "min restantes": "min restantes", "Conectado": "Conectado", "Conectando...": "Conectando...", "Reconectando...": "Reconectando...", "Acesso ao canal negado": "Acceso al canal denegado", "Erro de conexão": "Error de conexión", "Você aparece para os outros como": "Los demás te ven como", "Altere o apelido em Configurações.": "Cambia el apodo en Configuración.", "Criar sala": "Crear sala", "Duração": "Duración", "Encerrar sem atividade após": "Cerrar sin actividad después de", "Entrar com código": "Entrar con código", "O host aprova cada entrada. Até 4 testadores por sala.": "El anfitrión aprueba cada entrada. Hasta 4 testers por sala.", "Código da sala": "Código de la sala", "Pedir para entrar": "Pedir entrar", "Pedido enviado": "Solicitud enviada", "Aguardando o host aprovar sua entrada.": "Esperando que el anfitrión apruebe tu entrada.", "Cancelar pedido": "Cancelar solicitud", "você": "tú", "pedindo para entrar": "pidiendo entrar", "online": "en línea", "offline": "desconectado", "Aprovar": "Aprobar", "Recusar": "Rechazar", "Copiar": "Copiar", "Só você vê o código. Quem entrar com ele ainda precisa da sua aprovação.": "Solo tú ves el código. Quien entre con él aún necesita tu aprobación.", "Testadores": "Testers", "Encerrar sessão": "Terminar sesión", "Sair da sessão": "Salir de la sesión", "Chat": "Chat", "Mensagem para a sala": "Mensaje para la sala", "Enviar": "Enviar", "Testador": "Tester", "Nenhuma mensagem ainda.": "Aún no hay mensajes.", "Remover este testador da sessão? Ele não poderá voltar nesta sala.": "¿Quitar a este tester de la sesión? No podrá volver a esta sala.", "Encerrar a sessão para todos? O código deixa de funcionar.": "¿Terminar la sesión para todos? El código deja de funcionar.", "Código copiado.": "Código copiado.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -4274,6 +4308,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Desenho do mouse": "Mouse drawing", "Holofote": "Spotlight", "Ondas": "Ripples", "Nenhum": "None",
   "Comum": "Classic", "Gamer": "Gamer", "Antigo": "Retro", "Com relevo": "Embossed", "3D": "3D", "Coração": "Heart", "Tech": "Tech", "Transformer": "Transformer",
   "Nenhuma": "None", "Flores": "Flowers", "Corações": "Hearts", "Caveiras": "Skulls", "Raios": "Lightning", "X Tech": "X Tech", "Hexágonos": "Hexagons", "Diamantes": "Diamonds", "Flocos": "Snowflakes", "Estrelas": "Stars",
+  "Multi Testador": "Multi Tester", "Multi Testador é exclusivo do plano Release Manager.": "Multi Tester is exclusive to the Release Manager plan.", "Código inválido ou sala encerrada.": "Invalid code or the room has ended.", "O código tem 8 caracteres (letras e números).": "The code has 8 characters (letters and numbers).", "O host não liberou sua entrada nesta sala.": "The host did not let you into this room.", "A sala já tem 4 testadores.": "The room already has 4 testers.", "Esse convidado não tem o plano Release Manager.": "This guest does not have the Release Manager plan.", "Só o host pode fazer isso.": "Only the host can do this.", "A sessão já foi encerrada.": "The session has already ended.", "Entre na sua conta para usar o Multi Testador.": "Sign in to use Multi Tester.", "O host encerrou a sessão.": "The host ended the session.", "O tempo da sessão acabou.": "The session time is over.", "A sessão foi encerrada por inatividade.": "The session ended due to inactivity.", "A sessão foi encerrada.": "The session ended.", "O host removeu você da sessão.": "The host removed you from the session.", "O host recusou sua entrada.": "The host declined your request.", "O host aprovou sua entrada. Você está na sessão.": "The host approved you. You are in the session.", "Não foi possível falar com o Multi Testador. Tente de novo.": "Could not reach Multi Tester. Try again.", "host": "host", "Participantes (Multi Testador)": "Participants (Multi Tester)", "min restantes": "min left", "Conectado": "Connected", "Conectando...": "Connecting...", "Reconectando...": "Reconnecting...", "Acesso ao canal negado": "Channel access denied", "Erro de conexão": "Connection error", "Você aparece para os outros como": "Others see you as", "Altere o apelido em Configurações.": "Change the nickname in Settings.", "Criar sala": "Create room", "Duração": "Duration", "Encerrar sem atividade após": "End when idle for", "Entrar com código": "Join with a code", "O host aprova cada entrada. Até 4 testadores por sala.": "The host approves every entry. Up to 4 testers per room.", "Código da sala": "Room code", "Pedir para entrar": "Ask to join", "Pedido enviado": "Request sent", "Aguardando o host aprovar sua entrada.": "Waiting for the host to approve you.", "Cancelar pedido": "Cancel request", "você": "you", "pedindo para entrar": "asking to join", "online": "online", "offline": "offline", "Aprovar": "Approve", "Recusar": "Decline", "Copiar": "Copy", "Só você vê o código. Quem entrar com ele ainda precisa da sua aprovação.": "Only you see the code. Anyone using it still needs your approval.", "Testadores": "Testers", "Encerrar sessão": "End session", "Sair da sessão": "Leave session", "Chat": "Chat", "Mensagem para a sala": "Message to the room", "Enviar": "Send", "Testador": "Tester", "Nenhuma mensagem ainda.": "No messages yet.", "Remover este testador da sessão? Ele não poderá voltar nesta sala.": "Remove this tester from the session? They cannot come back to this room.", "Encerrar a sessão para todos? O código deixa de funcionar.": "End the session for everyone? The code stops working.", "Código copiado.": "Code copied.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.": "Valida las reglas HTML sin enviar el formulario. El campo original se restaura y cada ejecución queda registrada en el historial local.",
@@ -6564,6 +6599,467 @@ function openBreakpointViewer() {
 }
 
 // ---------------------------------------------------------------------------
+// Multi Testador (docs/adr/0003-multi-testador-sessao-colaborativa.md): up to 4 release managers on
+// the same screen, live cursors with nicknames, chat, host-controlled room. Every rule lives on the
+// server (multi-tester Edge Function + RLS on the Realtime channel); this UI only shows state and
+// relays cursor/click/chat over the service worker Port (background/multi-tester.js).
+// ---------------------------------------------------------------------------
+const MT_ROOM_KEY = "qtsMultiTesterRoomV1";
+// 6s: pending requests, removals and the end of the room reach everyone within one poll, while a
+// 4-person room stays far below the Edge Function's per-user poll budget (2000/hour).
+const MT_POLL_MS = 6_000;
+// ~20 cursor updates per second: smooth for the others without flooding the channel.
+const MT_CURSOR_SEND_MS = 50;
+// A peer that stopped sending (tab hidden, different screen) fades out after this long.
+const MT_CURSOR_STALE_MS = 15_000;
+const MT_ANIMALS = ["Capivara", "Tucano", "Onça", "Lobo-guará", "Arara", "Boto", "Jabuti", "Quati", "Tamanduá", "Mico", "Coruja", "Raposa", "Panda", "Lontra", "Falcão", "Golfinho"];
+const MT_ERRORS = {
+  plan_required: "Multi Testador é exclusivo do plano Release Manager.",
+  room_not_found: "Código inválido ou sala encerrada.",
+  invalid_code: "O código tem 8 caracteres (letras e números).",
+  not_allowed: "O host não liberou sua entrada nesta sala.",
+  room_full: "A sala já tem 4 testadores.",
+  guest_plan_required: "Esse convidado não tem o plano Release Manager.",
+  host_only: "Só o host pode fazer isso.",
+  room_ended: "A sessão já foi encerrada.",
+  authentication_required: "Entre na sua conta para usar o Multi Testador.",
+};
+const MT_END_REASONS = { host: "O host encerrou a sessão.", expired: "O tempo da sessão acabou.", idle: "A sessão foi encerrada por inatividade." };
+
+function mtState() {
+  state.mt ||= { view: null, port: null, status: "idle", presence: [], remote: new Map(), chat: [], pollTimer: null, activityAt: 0, lastCursorAt: 0, listeners: null, notice: "" };
+  return state.mt;
+}
+
+// Nickname shown to the other testers (never the e-mail, founder decision D1). Set in Settings;
+// without one, a random animal name is generated once and kept.
+function mtNickname() {
+  const saved = String(state.workspace?.preferences?.nickname || "").trim().slice(0, 40);
+  if (saved) return saved;
+  const generated = `${MT_ANIMALS[Math.floor(Math.random() * MT_ANIMALS.length)]} ${Math.floor(10 + Math.random() * 90)}`;
+  state.workspace.preferences = { ...(state.workspace.preferences || {}), nickname: generated };
+  void persistWorkspaceState();
+  return generated;
+}
+
+function mtCall(action, extra = {}) {
+  return new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: "qts:multi-tester", action, ...extra }, (response) => resolve(chrome.runtime.lastError ? { ok: false, error: "multi_tester_failed" } : response || { ok: false }));
+    } catch {
+      resolve({ ok: false, error: "multi_tester_failed" });
+    }
+  });
+}
+
+function mtErrorText(error) {
+  return translateQaSurfaceText(MT_ERRORS[error] || "Não foi possível falar com o Multi Testador. Tente de novo.");
+}
+
+function mtPageKey() {
+  return `${location.origin}${location.pathname}`;
+}
+
+function mtInRoom() {
+  const view = mtState().view;
+  return view?.room?.status === "open" && view.me?.status === "active";
+}
+
+function mtMember(userId) {
+  return mtState().view?.members?.find((member) => member.userId === userId) || null;
+}
+
+async function mtApplyResponse(response) {
+  const mt = mtState();
+  if (!response?.ok) {
+    if (response?.status === 404 || response?.status === 403) await mtTeardown(mtErrorText(response.error));
+    return response;
+  }
+  const view = response.state;
+  const previous = mt.view;
+  mt.view = view;
+  const gone = view.room.status !== "open" || ["removed", "rejected", "left"].includes(view.me.status);
+  if (gone) {
+    const reason = view.room.status !== "open"
+      ? MT_END_REASONS[view.room.endReason] || "A sessão foi encerrada."
+      : view.me.status === "removed" ? "O host removeu você da sessão." : view.me.status === "rejected" ? "O host recusou sua entrada." : "";
+    await mtTeardown(translateQaSurfaceText(reason));
+    return response;
+  }
+  await chrome.storage.local.set({ [MT_ROOM_KEY]: { roomId: view.room.id } });
+  if (view.me.status === "active") mtConnect();
+  mtStartPolling();
+  if (previous?.me?.status === "pending" && view.me.status === "active") showQaToast(translateQaSurfaceText("O host aprovou sua entrada. Você está na sessão."));
+  mtRenderDrawer();
+  return response;
+}
+
+async function mtTeardown(notice = "") {
+  const mt = mtState();
+  window.clearInterval(mt.pollTimer);
+  mt.pollTimer = null;
+  try { mt.port?.postMessage({ type: "leave" }); } catch {}
+  try { mt.port?.disconnect(); } catch {}
+  mt.port = null;
+  mt.view = null;
+  mt.status = "idle";
+  mt.presence = [];
+  mt.remote.clear();
+  mt.chat = [];
+  mt.notice = notice;
+  mtDetachListeners();
+  document.getElementById("qts-mt-cursors")?.remove();
+  await chrome.storage.local.remove(MT_ROOM_KEY);
+  if (notice) showQaToast(notice);
+  mtRenderDrawer();
+}
+
+function mtStartPolling() {
+  const mt = mtState();
+  if (mt.pollTimer) return;
+  mt.pollTimer = window.setInterval(async () => {
+    const view = mt.view;
+    if (!view) return;
+    // "touch" keeps the room alive (server inactivity timeout) only while someone actually works.
+    const active = view.me.status === "active" && Date.now() - mt.activityAt < MT_POLL_MS * 2;
+    await mtApplyResponse(await mtCall(active ? "touch" : "state", { roomId: view.room.id }));
+  }, MT_POLL_MS);
+}
+
+function mtConnect() {
+  const mt = mtState();
+  const view = mt.view;
+  if (!view) return;
+  if (!mt.port) {
+    mt.port = chrome.runtime.connect({ name: "qts-mt" });
+    mt.port.onMessage.addListener(mtHandlePortMessage);
+    mt.port.onDisconnect.addListener(() => {
+      mt.port = null;
+      mt.status = "reconnecting";
+      mtRenderDrawer();
+      // The worker restarted (update, crash): reopen the Port and rejoin while still in the room.
+      // 1s gives a restarting worker time to register its onConnect listener.
+      window.setTimeout(() => { if (mtInRoom()) mtConnect(); }, 1_000);
+    });
+  }
+  const me = mtMember(view.me.userId);
+  mt.port.postMessage({ type: "join", channel: view.room.channel, me: { userId: view.me.userId, nickname: me?.nickname || mtNickname(), color: me?.color || getCursorConfig().color, url: mtPageKey() } });
+  mtAttachListeners();
+}
+
+function mtHandlePortMessage(message) {
+  const mt = mtState();
+  if (message.type === "status") {
+    mt.status = message.state;
+    if (message.state === "denied") void mtCall("state", { roomId: mt.view?.room?.id }).then(mtApplyResponse);
+    mtRenderDrawer();
+  } else if (message.type === "presence") {
+    mt.presence = Array.isArray(message.members) ? message.members : [];
+    mtRenderDrawer();
+  } else if (message.type === "broadcast") {
+    const payload = message.payload || {};
+    // Only active members count (a pending guest cannot join the channel anyway; belt and braces).
+    const sender = mtMember(payload.from);
+    // The own chat echo is kept (it is how a sent message appears); own cursors/clicks are ignored.
+    if (sender?.status !== "active" || (payload.from === mt.view?.me?.userId && message.event !== "chat")) return;
+    if (message.event === "cursor") {
+      mt.remote.set(payload.from, { nx: Number(payload.nx), ny: Number(payload.ny), url: String(payload.url || ""), at: Date.now() });
+      mtRenderCursors();
+    } else if (message.event === "click") {
+      if (String(payload.url || "") === mtPageKey()) mtShowRemoteClick(sender, Number(payload.nx), Number(payload.ny), String(payload.button || "left"));
+    } else if (message.event === "chat") {
+      const text = String(payload.text || "").slice(0, 500);
+      if (!text.trim()) return;
+      mt.chat.push({ from: payload.from, text, at: Date.now() });
+      mt.chat = mt.chat.slice(-100);
+      mtRenderChat();
+    }
+  }
+}
+
+function mtBroadcast(event, payload) {
+  const mt = mtState();
+  if (mt.status !== "joined" || !mt.port) return;
+  try { mt.port.postMessage({ type: "broadcast", event, payload }); } catch {}
+}
+
+// Document-relative coordinates (0..1 of the scrollable page), so testers with different window
+// sizes still point at the same element of the same screen.
+function mtNormalizedPoint(clientX, clientY) {
+  const root = document.documentElement;
+  return {
+    nx: (window.scrollX + clientX) / Math.max(1, root.scrollWidth),
+    ny: (window.scrollY + clientY) / Math.max(1, root.scrollHeight),
+  };
+}
+
+function mtAttachListeners() {
+  const mt = mtState();
+  if (mt.listeners) return;
+  const onMove = (event) => {
+    mt.activityAt = Date.now();
+    if (Date.now() - mt.lastCursorAt < MT_CURSOR_SEND_MS || isKeyViewOwnSurface(event)) return;
+    mt.lastCursorAt = Date.now();
+    mtBroadcast("cursor", { ...mtNormalizedPoint(event.clientX, event.clientY), url: mtPageKey() });
+  };
+  const onDown = (event) => {
+    mt.activityAt = Date.now();
+    if (isKeyViewOwnSurface(event)) return;
+    mtBroadcast("click", { ...mtNormalizedPoint(event.clientX, event.clientY), url: mtPageKey(), button: event.button === 2 ? "right" : event.button === 1 ? "middle" : "left" });
+  };
+  const onKey = () => { mt.activityAt = Date.now(); };
+  const onViewport = () => mtRenderCursors();
+  document.addEventListener("pointermove", onMove, { capture: true, passive: true });
+  document.addEventListener("mousedown", onDown, { capture: true, passive: true });
+  document.addEventListener("keydown", onKey, { capture: true, passive: true });
+  window.addEventListener("scroll", onViewport, { passive: true });
+  window.addEventListener("resize", onViewport, { passive: true });
+  // Re-check staleness even when nobody moves (a peer closed their tab).
+  const staleTimer = window.setInterval(() => mtRenderCursors(), 3_000);
+  mt.listeners = () => {
+    document.removeEventListener("pointermove", onMove, true);
+    document.removeEventListener("mousedown", onDown, true);
+    document.removeEventListener("keydown", onKey, true);
+    window.removeEventListener("scroll", onViewport);
+    window.removeEventListener("resize", onViewport);
+    window.clearInterval(staleTimer);
+  };
+}
+
+function mtDetachListeners() {
+  const mt = mtState();
+  mt.listeners?.();
+  mt.listeners = null;
+}
+
+const MT_CURSOR_SURFACE_CSS = `
+  .qts-mt-cursor { position: absolute; left: 0; top: 0; transition: transform 60ms linear; will-change: transform; }
+  .qts-mt-cursor .qts-pointer-box { position: absolute; left: 0; top: 0; width: 20px; height: 25px; }
+  .qts-mt-cursor .qts-cursor-label { position: absolute; left: 14px; top: 18px; }
+`;
+
+// Remote testers' pointers, drawn with the same renderPointerFigure as the local custom pointer, in
+// each tester's room color with the nickname pill. Only peers on the same screen are shown.
+function mtRenderCursors() {
+  const mt = mtState();
+  const visible = [...mt.remote.entries()].filter(([userId, cursor]) => cursor.url === mtPageKey() && Date.now() - cursor.at < MT_CURSOR_STALE_MS && mtMember(userId)?.status === "active");
+  if (!visible.length) {
+    document.getElementById("qts-mt-cursors")?.remove();
+    return;
+  }
+  let host = document.getElementById("qts-mt-cursors");
+  if (!host) {
+    host = ensureCursorSurface("qts-mt-cursors", `<style>${MT_CURSOR_SURFACE_CSS}</style>`);
+  }
+  const root = host.shadowRoot;
+  const ids = new Set(visible.map(([userId]) => userId));
+  root.querySelectorAll("[data-mt-cursor]").forEach((node) => { if (!ids.has(node.dataset.mtCursor)) node.remove(); });
+  const doc = document.documentElement;
+  const zoom = cursorDocumentZoom();
+  for (const [userId, cursor] of visible) {
+    const member = mtMember(userId);
+    let node = root.querySelector(`[data-mt-cursor="${CSS.escape(userId)}"]`);
+    if (!node) {
+      const config = sanitizeCursorConfig({ pointer: "classic", color: member.color });
+      node = document.createElement("div");
+      node.className = "qts-mt-cursor";
+      node.dataset.mtCursor = userId;
+      node.setAttribute("style", cursorStyleVars(config));
+      node.innerHTML = `<div class="qts-pointer-box">${renderPointerFigure(config)}</div><span class="qts-cursor-label"></span>`;
+      root.appendChild(node);
+    }
+    node.querySelector(".qts-cursor-label").textContent = member.nickname;
+    // Tip of the classic pointer sits at (2,2) of its 24x30 box drawn 20px wide.
+    const x = (cursor.nx * doc.scrollWidth - window.scrollX) / zoom - 1.7;
+    const y = (cursor.ny * doc.scrollHeight - window.scrollY) / zoom - 1.7;
+    node.style.transform = `translate(${x}px, ${y}px)`;
+  }
+}
+
+function mtShowRemoteClick(member, nx, ny, button) {
+  const doc = document.documentElement;
+  const zoom = cursorDocumentZoom();
+  const surface = ensureCursorSurface("qts-click-effects", "");
+  const effect = document.createElement("div");
+  effect.className = "qts-click-effect";
+  effect.dataset.button = button;
+  // Remote clicks always ripple in the tester's own room color, so everyone knows who clicked.
+  effect.style.setProperty("--qts-click-left", member.color);
+  effect.style.setProperty("--qts-click-right", member.color);
+  effect.style.setProperty("--qts-click-middle", member.color);
+  effect.style.left = `${(nx * doc.scrollWidth - window.scrollX) / zoom}px`;
+  effect.style.top = `${(ny * doc.scrollHeight - window.scrollY) / zoom}px`;
+  effect.innerHTML = `<div class="qts-click-ring"></div><div class="qts-click-ring"></div><div class="qts-click-ring"></div>`;
+  effect.lastElementChild.addEventListener("animationend", () => effect.remove(), { once: true });
+  surface.shadowRoot.appendChild(effect);
+}
+
+// Report Builder: who took part in the live session (nicknames only).
+function mtParticipantsLine() {
+  const view = mtState().view;
+  if (!mtInRoom() || !view?.members?.length) return "";
+  const names = view.members.filter((member) => member.status === "active").map((member) => `${member.nickname}${member.role === "host" ? ` (${translateQaSurfaceText("host")})` : ""}`);
+  return `${translateQaSurfaceText("Participantes (Multi Testador)")}: ${names.join(", ")}`;
+}
+
+async function mtResume() {
+  if (!hasPlanFeature("multiTester")) return;
+  const stored = (await chrome.storage.local.get(MT_ROOM_KEY))[MT_ROOM_KEY];
+  if (!stored?.roomId) return;
+  await mtApplyResponse(await mtCall("state", { roomId: stored.roomId }));
+}
+
+function mtRemainingText(view) {
+  const minutes = Math.max(0, Math.round((Date.parse(view.room.expiresAt) - Date.now()) / 60_000));
+  return `${minutes} ${translateQaSurfaceText("min restantes")}`;
+}
+
+function mtStatusLabel(status) {
+  return translateQaSurfaceText({ joined: "Conectado", connecting: "Conectando...", reconnecting: "Reconectando...", denied: "Acesso ao canal negado", error: "Erro de conexão" }[status] || "Conectando...");
+}
+
+function mtDrawerBody() {
+  return state.shadowRoot?.querySelector('#drawerHost[data-view="multiTester"] [data-mt-root]') || null;
+}
+
+function mtRenderDrawer() {
+  const root = mtDrawerBody();
+  if (!root) return;
+  const mt = mtState();
+  const view = mt.view;
+  const nickname = escapeHtml(mtNickname());
+  if (!view) {
+    root.innerHTML = `${mt.notice ? `<div class="qts-card qts-mt-notice">${escapeHtml(mt.notice)}</div>` : ""}
+      <p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Você aparece para os outros como"))} <b>${nickname}</b>. ${escapeHtml(translateQaSurfaceText("Altere o apelido em Configurações."))}</p>
+      <section class="qts-card qts-mt-card"><b>${escapeHtml(translateQaSurfaceText("Criar sala"))}</b>
+        <div class="qts-mt-row">
+          <label class="qts-field-label">${escapeHtml(translateQaSurfaceText("Duração"))}<select data-mt-duration>${[15, 30, 60, 120, 240].map((minutes) => `<option value="${minutes}" ${minutes === 60 ? "selected" : ""}>${minutes} min</option>`).join("")}</select></label>
+          <label class="qts-field-label">${escapeHtml(translateQaSurfaceText("Encerrar sem atividade após"))}<select data-mt-idle>${[5, 10, 15, 30].map((minutes) => `<option value="${minutes}" ${minutes === 10 ? "selected" : ""}>${minutes} min</option>`).join("")}</select></label>
+        </div>
+        <button type="button" class="action primary" data-mt-create>${ICON("people")} ${escapeHtml(translateQaSurfaceText("Criar sala"))}</button>
+      </section>
+      <section class="qts-card qts-mt-card"><b>${escapeHtml(translateQaSurfaceText("Entrar com código"))}</b>
+        <p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("O host aprova cada entrada. Até 4 testadores por sala."))}</p>
+        <div class="qts-mt-row"><input type="text" data-mt-code maxlength="8" autocomplete="off" spellcheck="false" placeholder="ABCD2345" aria-label="${escapeHtml(translateQaSurfaceText("Código da sala"))}" /><button type="button" class="action" data-mt-request>${escapeHtml(translateQaSurfaceText("Pedir para entrar"))}</button></div>
+      </section>`;
+    return;
+  }
+  if (view.me.status === "pending") {
+    root.innerHTML = `<section class="qts-card qts-mt-card"><b>${escapeHtml(translateQaSurfaceText("Pedido enviado"))}</b><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Aguardando o host aprovar sua entrada."))}</p><button type="button" class="action" data-mt-leave>${escapeHtml(translateQaSurfaceText("Cancelar pedido"))}</button></section>`;
+    return;
+  }
+  const isHost = view.me.role === "host";
+  const online = new Set(mt.presence.map((member) => member.userId));
+  const members = view.members.map((member) => `<li class="qts-mt-member" data-mt-member="${escapeHtml(member.userId)}">
+      <span class="qts-mt-dot" style="background:${escapeHtml(member.color)}"></span>
+      <span class="qts-mt-name">${escapeHtml(member.nickname)}${member.userId === view.me.userId ? ` <small>(${escapeHtml(translateQaSurfaceText("você"))})</small>` : ""}</span>
+      <small class="qts-mt-role">${escapeHtml(translateQaSurfaceText(member.status === "pending" ? "pedindo para entrar" : member.role === "host" ? "host" : online.has(member.userId) ? "online" : "offline"))}</small>
+      ${isHost && member.status === "pending" ? `<button type="button" class="action primary" data-mt-approve="${escapeHtml(member.userId)}">${escapeHtml(translateQaSurfaceText("Aprovar"))}</button><button type="button" class="action" data-mt-reject="${escapeHtml(member.userId)}">${escapeHtml(translateQaSurfaceText("Recusar"))}</button>` : ""}
+      ${isHost && member.status === "active" && member.role !== "host" ? `<button type="button" class="action" data-mt-remove="${escapeHtml(member.userId)}">${escapeHtml(translateQaSurfaceText("Remover"))}</button>` : ""}
+    </li>`).join("");
+  const activeCount = view.members.filter((member) => member.status === "active").length;
+  const hadChat = !!root.querySelector("[data-mt-chat-log]");
+  const draft = root.querySelector("[data-mt-chat-input]")?.value || "";
+  root.innerHTML = `<section class="qts-card qts-mt-card">
+      <div class="qts-mt-head"><span class="qts-mt-status" data-state="${escapeHtml(mt.status)}">${escapeHtml(mtStatusLabel(mt.status))}</span><small>${escapeHtml(mtRemainingText(view))}</small></div>
+      ${isHost && view.room.code ? `<div class="qts-mt-code"><span>${escapeHtml(translateQaSurfaceText("Código da sala"))}</span><strong data-mt-room-code>${escapeHtml(view.room.code)}</strong><button type="button" class="action" data-mt-copy>${ICON("clipboard")} ${escapeHtml(translateQaSurfaceText("Copiar"))}</button></div><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Só você vê o código. Quem entrar com ele ainda precisa da sua aprovação."))}</p>` : ""}
+      <b>${escapeHtml(translateQaSurfaceText("Testadores"))} (${activeCount}/${view.maxMembers})</b>
+      <ul class="qts-mt-members">${members}</ul>
+      <button type="button" class="action ${isHost ? "danger" : ""}" data-mt-leave>${ICON("doorOpen")} ${escapeHtml(translateQaSurfaceText(isHost ? "Encerrar sessão" : "Sair da sessão"))}</button>
+    </section>
+    <section class="qts-card qts-mt-card"><b>${ICON("chatDots")} ${escapeHtml(translateQaSurfaceText("Chat"))}</b>
+      <div class="qts-mt-chat" data-mt-chat-log aria-live="polite"></div>
+      <form class="qts-mt-row" data-mt-chat-form><input type="text" data-mt-chat-input maxlength="500" placeholder="${escapeHtml(translateQaSurfaceText("Mensagem para a sala"))}" aria-label="${escapeHtml(translateQaSurfaceText("Mensagem para a sala"))}" /><button type="submit" class="action primary" aria-label="${escapeHtml(translateQaSurfaceText("Enviar"))}">${ICON("send")}</button></form>
+    </section>`;
+  const input = root.querySelector("[data-mt-chat-input]");
+  if (input) {
+    input.value = draft;
+    if (hadChat && draft) input.focus();
+  }
+  mtRenderChat();
+}
+
+function mtRenderChat() {
+  const log = mtDrawerBody()?.querySelector("[data-mt-chat-log]");
+  if (!log) return;
+  const mt = mtState();
+  log.innerHTML = mt.chat.length
+    ? mt.chat.map((message) => {
+      const member = mtMember(message.from);
+      const mine = message.from === mt.view?.me?.userId;
+      return `<p class="qts-mt-message ${mine ? "isMine" : ""}"><b style="color:${escapeHtml(member?.color || "#888")}">${escapeHtml(member?.nickname || translateQaSurfaceText("Testador"))}</b> ${escapeHtml(message.text)}</p>`;
+    }).join("")
+    : `<p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Nenhuma mensagem ainda."))}</p>`;
+  log.scrollTop = log.scrollHeight;
+}
+
+function openMultiTester() {
+  if (!requirePlanFeature("multiTester")) return;
+  openDrawer({
+    title: "Multi Testador",
+    view: "multiTester",
+    bodyHtml: `<div data-mt-root></div>`,
+    onReady(body) {
+      mtRenderDrawer();
+      body.addEventListener("click", async (event) => {
+        const mt = mtState();
+        const target = event.target.closest("button");
+        if (!target || !body.contains(target)) return;
+        const roomId = mt.view?.room?.id;
+        const run = async (promise) => {
+          target.disabled = true;
+          const response = await promise;
+          target.disabled = false;
+          if (!response?.ok) showQaToast(mtErrorText(response?.error), "error");
+          return response;
+        };
+        if (target.matches("[data-mt-create]")) {
+          mt.notice = "";
+          await run(mtCall("create", {
+            nickname: mtNickname(),
+            color: getCursorConfig().color,
+            durationMinutes: Number(body.querySelector("[data-mt-duration]").value),
+            idleTimeoutMinutes: Number(body.querySelector("[data-mt-idle]").value),
+          }).then(mtApplyResponse));
+        } else if (target.matches("[data-mt-request]")) {
+          mt.notice = "";
+          const code = body.querySelector("[data-mt-code]").value.trim().toUpperCase();
+          await run(mtCall("request", { code, nickname: mtNickname(), color: getCursorConfig().color }).then(mtApplyResponse));
+        } else if (target.matches("[data-mt-approve]")) {
+          await run(mtCall("approve", { roomId, userId: target.dataset.mtApprove }).then(mtApplyResponse));
+        } else if (target.matches("[data-mt-reject]")) {
+          await run(mtCall("reject", { roomId, userId: target.dataset.mtReject }).then(mtApplyResponse));
+        } else if (target.matches("[data-mt-remove]")) {
+          if (!confirm(translateQaSurfaceText("Remover este testador da sessão? Ele não poderá voltar nesta sala."))) return;
+          await run(mtCall("remove", { roomId, userId: target.dataset.mtRemove }).then(mtApplyResponse));
+        } else if (target.matches("[data-mt-leave]")) {
+          if (mt.view?.me?.role === "host" && !confirm(translateQaSurfaceText("Encerrar a sessão para todos? O código deixa de funcionar."))) return;
+          await run(mtCall(mt.view?.me?.role === "host" ? "end" : "leave", { roomId }).then(mtApplyResponse));
+        } else if (target.matches("[data-mt-copy]")) {
+          await navigator.clipboard?.writeText(mt.view?.room?.code || "");
+          showQaToast(translateQaSurfaceText("Código copiado."));
+        }
+      });
+      body.addEventListener("submit", (event) => {
+        const form = event.target.closest("[data-mt-chat-form]");
+        if (!form) return;
+        event.preventDefault();
+        const input = form.querySelector("[data-mt-chat-input]");
+        const text = input.value.trim().slice(0, 500);
+        const mt = mtState();
+        if (!text || !mtInRoom()) return;
+        // Sent through the Edge Function, which stamps the sender and publishes it to the room; the
+        // message shows up here when that broadcast arrives, exactly as everyone else sees it.
+        input.value = "";
+        void mtCall("chat", { roomId: mt.view.room.id, text }).then((response) => {
+          if (!response?.ok) { input.value = text; showQaToast(mtErrorText(response?.error), "error"); }
+        });
+      });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
 // QA productivity kit: counters, Auto preenchimento, Validador de campos, Multiclick and macros.
 // ---------------------------------------------------------------------------
 
@@ -6877,7 +7373,7 @@ function getKeyViewPreferences() {
 }
 
 function isKeyViewOwnSurface(event) {
-  return event.composedPath?.().some((node) => node?.id === HOST_ID || ["qts-key-view-overlay", "qts-mouse-view-overlay", "qts-pointer-overlay", "qts-click-effects"].includes(node?.id)) === true;
+  return event.composedPath?.().some((node) => node?.id === HOST_ID || ["qts-key-view-overlay", "qts-mouse-view-overlay", "qts-pointer-overlay", "qts-click-effects", "qts-mt-cursors"].includes(node?.id)) === true;
 }
 
 function editableTypingTarget(target) {
@@ -10029,6 +10525,8 @@ async function boot() {
     // so this has to survive it the same way the two recording phases above already do.
     const pendingTestSession = await testSessionStorageRequest("get");
     if (pendingTestSession?.ok && pendingTestSession.run) startTestSession(pendingTestSession.run);
+    // Multi Testador: navigating or reloading must not drop the tester out of the live session.
+    void mtResume();
   }
 }
 

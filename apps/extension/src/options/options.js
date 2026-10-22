@@ -230,6 +230,8 @@ async function loadAccess(force = false) {
   if (active) {
     document.getElementById("accountEmail").textContent = accessState.user?.email || "Conta autenticada";
     document.getElementById("accountPlan").textContent = accessState.plan?.name || "Acesso ativo";
+    const nicknameInput = document.getElementById("nicknameInput");
+    if (document.activeElement !== nicknameInput) nicknameInput.value = workspace?.preferences?.nickname || "";
   } else if (paymentFailed) {
     showMessage("authMessage", "Seu pagamento falhou e o acesso a recursos pagos foi bloqueado. Veja o aviso acima para regularizar.", "Error");
   } else if (accessState?.authenticated && accessState?.reason === "access_required") {
@@ -307,6 +309,18 @@ document.getElementById("refreshAccess").addEventListener("click", async () => {
   showMessage("authMessage", "Atualizando acesso…");
   const active = await loadAccess(true);
   showMessage("authMessage", active ? "Acesso atualizado." : "O acesso não está ativo.", active ? "Success" : "Error");
+});
+
+// Multi Testador nickname (founder decision D1: other testers see this, never the e-mail). Stored in
+// the workspace preferences; the toolbar generates an animal name when it is empty.
+document.getElementById("nicknameForm").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  if (!workspace) return;
+  const nickname = document.getElementById("nicknameInput").value.replace(/[\u0000-\u001f\u007f<>]/g, "").trim().slice(0, 40);
+  workspace.preferences = { ...(workspace.preferences || {}), nickname };
+  await persistWorkspace();
+  document.getElementById("nicknameInput").value = workspace.preferences.nickname || "";
+  showMessage("nicknameMessage", "Apelido salvo. É assim que os outros testadores veem você.", "Success");
 });
 
 document.getElementById("voucherForm").addEventListener("submit", async (event) => {

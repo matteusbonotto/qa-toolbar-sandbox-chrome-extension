@@ -39,6 +39,7 @@ barra **não** é gated — está disponível em todo plano; só as listadas aba
 | Gravador de Passos | — | — | ✓ | ✓ |
 | Key View | — | — | — | ✓ |
 | Capturar Elementos | — | — | ✓ | ✓ |
+| Multi Testador (`multiTester.enabled`) | — | — | — | ✓ |
 
 Sessão de Teste e Report Builder (adicionados nesta sessão) **não são gated** — disponíveis em
 todos os planos, incluindo o gratuito, por decisão consciente: são fluxo de trabalho, não

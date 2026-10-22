@@ -59,6 +59,7 @@ export const FEATURE_REGISTRY = Object.freeze([
   ["testSession","Sessões de teste","testSessionMenuItem","wait",""],
   ["reportBuilder","Relatórios","reportBuilderMenuItem","edit",""],
   ["clearSiteData","Limpar cache e cookies do site","clearSiteDataMenuItem","eraser","clearSiteData.enabled"],
+  ["multiTester","Multi Testador","multiTesterMenuItem","people","multiTester.enabled"],
 ].map(([key,label,menuItemId,icon,planFeature]) => Object.freeze({ key,label,menuItemId,icon,planFeature:planFeature || null,pinnable:true })));
 export const DEFAULT_ENABLED_TOOLS = Object.freeze(FEATURE_REGISTRY.map((feature) => feature.key));
 const PINNABLE_TOOLS = new Set(DEFAULT_ENABLED_TOOLS);
@@ -74,6 +75,8 @@ const SCHEMA_13_TOOLS = ["testStatus"];
 const SCHEMA_14_TOOLS = ["testSession"];
 const SCHEMA_15_TOOLS = ["reportBuilder"];
 const SCHEMA_18_TOOLS = ["clearSiteData"];
+// 19: Multi Testador (docs/adr/0003). Release Manager only; the plan gate still applies.
+const SCHEMA_19_TOOLS = ["multiTester"];
 const KEY_VIEW_POSITIONS = new Set([
   "top-left", "top-center", "top-right",
   "middle-left", "middle-center", "middle-right",
@@ -351,7 +354,7 @@ function normalizeUrlBindings(source, products, environments) {
 
 export function createEmptyWorkspace() {
   return {
-    schemaVersion: 18,
+    schemaVersion: 19,
     updatedAt: new Date().toISOString(),
     clients: [], projects: [], products: [], environments: [], urlBindings: [], testAccounts: [],
     paymentMethods: [], apis: [], inspectors: [], resources: [], macros: [], stepRecordings: [],
@@ -637,9 +640,12 @@ export function normalizeWorkspace(rawWorkspace) {
   if (Number(source.schemaVersion || 0) < 18) {
     for (const tool of SCHEMA_18_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
   }
+  if (Number(source.schemaVersion || 0) < 19) {
+    for (const tool of SCHEMA_19_TOOLS) if (!normalizedEnabledTools.includes(tool)) normalizedEnabledTools.push(tool);
+  }
   const workspace = {
     ...empty,
-    schemaVersion: 18,
+    schemaVersion: 19,
     updatedAt: text(source.updatedAt, 40) || empty.updatedAt,
     clients, projects, products, environments, urlBindings,
     operatingSystems, browsers,
@@ -710,6 +716,8 @@ export function normalizeWorkspace(rawWorkspace) {
       },
       breadcrumbOrder: normalizeBreadcrumbOrder(preferences.breadcrumbOrder),
       keyView: normalizeKeyViewPreferences(preferences.keyView),
+      // Multi Testador nickname shown to other testers (never the e-mail); "" until set or generated.
+      nickname: text(preferences.nickname, 40),
     },
   };
   for (const key of COLLECTION_KEYS) workspace[key] = Array.isArray(workspace[key]) ? workspace[key] : [];

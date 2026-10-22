@@ -92,3 +92,6 @@ verify_jwt = false
 
 [functions.cancel-access]
 verify_jwt = false
+
+[functions.multi-tester]
+verify_jwt = false
