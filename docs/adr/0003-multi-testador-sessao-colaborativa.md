@@ -1,6 +1,6 @@
 # ADR 0003: Multi Testador (sessão colaborativa de teste em tempo real)
 
-- Status: aceito (decisões do fundador em 2026-10-22)
+- Status: aceito (decisões do fundador em 2026-10-22); MT1 em v1.4.42, MT2 (consenso) em v1.4.44
 - Data: 2026-10-21
 
 ## Contexto
@@ -137,6 +137,69 @@ Fase MT1 (este PR):
 
 Fase MT2 (PR seguinte): consenso. Clique de convidado bloqueado e transformado em proposta para o
 host; submit/requisicao de rede do host segurada no `pagebridge` ate todos aprovarem (Opcao D).
+
+## Fase MT2 implementada (2026-10-23, v1.4.44)
+
+Regras do fundador: "convidado nunca executa acao sem o host" e "confirmacao de todos os testadores
+antes de cliques/submits".
+
+Convidado (toolbar, mundo isolado): enquanto esta numa sala ativa como convidado, cliques,
+`pointerdown`/`mousedown`/`mouseup`, Enter/Espaco e `submit` reais (`isTrusted`) em alvos acionaveis
+sao cancelados na fase de captura do `window` (`preventDefault` + `stopImmediatePropagation`) e viram
+um evento `proposal` (seletor CSS do `uniqueSelector`, XPath do `buildXPath`, ponto normalizado,
+`origin+pathname` e o rotulo visivel truncado, nunca o valor de campo). Clique em qualquer outro
+ponto da pagina tambem e cancelado, mas so vira proposta o que parece acionavel (seletor de
+controles ou `cursor:pointer`). Digitar em campo de texto continua livre (Enter nao). O convidado ve
+"Aguardando o host" num painel flutuante e uma marcacao em volta do elemento. Nada e re-despachado:
+o host executa clicando ele mesmo (a proposta fecha sozinha como executada) ou descarta. Como
+segunda barreira, o `pagebridge` em modo "guest" recusa POST/PUT/PATCH/DELETE disparados por gesto
+do usuario.
+
+Host: com "Exigir confirmacao de todos" ligado (padrao) e pelo menos um convidado ativo:
+- submit nativo de formulario disparado por gesto (`navigator.userActivation.isActive`) e segurado na
+  captura e, depois do consenso, re-enviado com `form.requestSubmit(submitter)` com uma "concessao"
+  sincrona ao `pagebridge`, para a requisicao que o handler de submit da pagina dispara na hora nao
+  pedir um segundo voto;
+- `fetch`/`XMLHttpRequest` POST/PUT/PATCH/DELETE feitos enquanto a pagina tem ativacao transitoria do
+  usuario (o clique ou Enter dos ultimos segundos, janela do proprio Chrome) sao segurados no
+  `pagebridge` (MAIN world) por uma promise resolvida pelo evento DOM `qts:mt-hold-decision` vindo
+  do mundo isolado. Rejeitado: `fetch` rejeita com `TypeError` e o XHR dispara `error`, como falha
+  de rede. Varias requisicoes do mesmo clique entram no mesmo voto.
+- o voto (`vote-request` com id e descricao, `vote` de cada convidado, `vote-result` do host) passa
+  pela Edge Function `multi-tester`, que carimba o remetente do JWT e confere o papel; a policy de
+  insert do canal passou a recusar `vote`, `vote-request` e `vote-result` de cliente (migration nova
+  `20261023120000_multi_tester_votes_policy.sql`, replicada em `schema.sql`). Resolve quando todos
+  os membros ativos convidados de `view.members` aprovaram; qualquer recusa, o tempo
+  `MT_VOTE_TIMEOUT_MS` (60s), o host cancelar, desligar a chave ou a sessao terminar cancelam.
+
+Limites conhecidos (escopo, nao bug):
+- `isTrusted`: o re-envio do formulario e do navegador, nao um gesto novo; um handler que exige
+  ativacao do usuario (abrir janela, clipboard) depois de uma espera longa pode recusar.
+  `form.submit()` chamado pelo codigo da pagina nao dispara evento `submit` e fica fora.
+- Requisicao sem gesto do usuario (polling, GraphQL de leitura via POST no carregamento) passa: nao
+  e uma acao do testador. Se a pagina disparar outro POST depois de esperar a resposta, ainda dentro
+  da janela de ativacao, pede um segundo voto.
+- XHR sincrono de risco nao pode esperar voto sem travar a pagina: e recusado (falha fechada).
+- Acao puramente client-side do host (abrir dropdown, trocar aba) nao passa por consenso.
+- Listener da propria pagina registrado no `window` em captura antes da toolbar carregar roda antes
+  do bloqueio do convidado; o gate de rede do `pagebridge` cobre o efeito de rede nesse caso.
+  Entre o reload da pagina e a toolbar reidratar a sala (alguns centenas de ms) nada e bloqueado.
+- Teclado: setas em select/radio/tab e Enter/Espaco em controles sao bloqueados; outras
+  combinacoes de teclado exoticas nao sao cobertas.
+- Um script da pagina compartilha o MAIN world com o `pagebridge` e pode disparar os eventos DOM de
+  decisao, mas so afeta as proprias requisicoes (que ele poderia enviar sem o patch). Um pedido de
+  voto forjado pela pagina sem ativacao do usuario e recusado no mundo isolado.
+- Membro ausente (aba fechada) mas ainda ativo no servidor bloqueia o consenso ate o tempo
+  esgotar; o host pode remove-lo ou desligar a chave.
+- Risco aceito: `proposal`/`proposal-done` sao peer-to-peer como cursores (um cliente proprio pode
+  declarar outro remetente). So informam; o host sempre age por conta propria.
+
+Evidencia: `npm run test:chrome` cobre proposta do convidado chegando ao host (drawer e marcacao em
+volta do elemento, fechada quando o host clica nele), submit nativo segurado sem nenhum POST no
+servidor ate o voto de aprovacao, `fetch` POST cancelado por voto de recusa (zero POST), XHR POST
+liberado so depois da aprovacao (exatamente um POST), votos nunca enviados direto pelo canal, e no
+cenario de convidado: clique bloqueado (contador da pagina e servidor inalterados) virando proposta
+com "Aguardando o host", pedido de voto respondido pela Edge Function.
 
 Escrita no Supabase de producao: autorizada pelo fundador com backup antes (D4). Procedimento:
 `supabase db dump` do schema public e das tabelas afetadas para `artifacts/backups/` (fora do git),

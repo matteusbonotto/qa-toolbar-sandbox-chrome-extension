@@ -121,11 +121,81 @@
   }
 
   // ---------------------------------------------------------------------
+  // Multi Testador consensus (Fase MT2, docs/adr/0003-multi-testador-sessao-colaborativa.md).
+  // The isolated-world toolbar arms a mode with qts:mt-consensus-command:
+  //  - "host": a risky request (POST/PUT/PATCH/DELETE) made while the page has transient user
+  //    activation (navigator.userActivation.isActive, i.e. caused by a real click/Enter in the last
+  //    few seconds) is HELD until the toolbar answers qts:mt-hold-decision with the room's
+  //    consensus. A rejection makes it fail like a network error, never a silent success.
+  //  - "guest": the same requests are refused outright (a guest never acts without the host). This
+  //    is the backstop behind the toolbar's own click/submit interception.
+  // Requests without a user gesture (polling, GraphQL queries sent as POST on load) are not an
+  // action the tester performed and pass. Page scripts share this world and could dispatch these
+  // events too, but only to affect their OWN requests, which they could send unpatched anyway.
+  // ---------------------------------------------------------------------
+  const MT_RISKY_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+  let mtMode = "off";
+  // True only while the toolbar re-submits a form the room already approved (synchronous).
+  let mtGrant = false;
+  let mtSeq = 0;
+  const mtPending = new Map();
+
+  function mtShouldHold(method) {
+    if (mtMode === "off" || mtGrant || !MT_RISKY_METHODS.has(String(method || "GET").toUpperCase())) return false;
+    return navigator.userActivation ? navigator.userActivation.isActive : true;
+  }
+
+  // Resolves true when the request may go out.
+  function mtAwaitConsensus(method, url) {
+    const detail = { id: `h${Date.now().toString(36)}${(mtSeq += 1).toString(36)}`, method: String(method || "").toUpperCase(), url: String(url || "").slice(0, 500), mode: mtMode };
+    if (mtMode === "guest") {
+      document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail }));
+      return Promise.resolve(false);
+    }
+    return new Promise((resolve) => {
+      mtPending.set(detail.id, resolve);
+      document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail }));
+    });
+  }
+
+  document.addEventListener("qts:mt-hold-decision", (event) => {
+    const id = String(event.detail?.id || "");
+    const resolve = mtPending.get(id);
+    if (!resolve) return;
+    mtPending.delete(id);
+    resolve(event.detail?.approve === true);
+  });
+
+  function mtSetMode(mode) {
+    mtMode = mode === "host" || mode === "guest" ? mode : "off";
+    // Leaving host mode never releases what was waiting: the toolbar cancels the open vote first,
+    // and anything still pending here fails closed.
+    if (mtMode !== "host") {
+      for (const resolve of mtPending.values()) resolve(false);
+      mtPending.clear();
+    }
+  }
+
+  document.addEventListener("qts:mt-consensus-command", (event) => {
+    if (typeof event.detail?.grant === "boolean") { mtGrant = event.detail.grant; return; }
+    mtSetMode(String(event.detail?.mode || "off"));
+  });
+
+  function mtFailXhr(xhr) {
+    const defineOwn = (name, value) => Object.defineProperty(xhr, name, { value, configurable: true });
+    defineOwn("readyState", 4);
+    defineOwn("status", 0);
+    xhr.dispatchEvent(new Event("readystatechange"));
+    xhr.dispatchEvent(new ProgressEvent("error"));
+    xhr.dispatchEvent(new ProgressEvent("loadend"));
+  }
+
+  // ---------------------------------------------------------------------
   // Network capture: fetch + XMLHttpRequest, JSON responses only.
   // ---------------------------------------------------------------------
   const originalFetch = window.fetch;
   if (typeof originalFetch === "function" && !originalFetch.__qtsPatched) {
-    const patchedFetch = function (...args) {
+    const capturingFetch = function (...args) {
       if (!enabled) return originalFetch.apply(this, args);
       const requestIsRequestObject = typeof Request === "function" && args[0] instanceof Request;
       const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url;
@@ -159,6 +229,15 @@
       }).catch(() => {});
       return result;
     };
+    const patchedFetch = function (...args) {
+      const method = args[1]?.method || (typeof args[0] === "object" ? args[0]?.method : undefined) || "GET";
+      if (!mtShouldHold(method)) return capturingFetch.apply(this, args);
+      const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url ?? String(args[0] ?? "");
+      return mtAwaitConsensus(method, requestUrl).then((approved) => {
+        if (!approved) throw new TypeError("Failed to fetch (blocked by QA Toolbar Sandbox Multi Testador: no consensus)");
+        return capturingFetch.apply(this, args);
+      });
+    };
     Object.defineProperty(patchedFetch, "__qtsPatched", { value: true });
     window.fetch = patchedFetch;
   }
@@ -173,6 +252,8 @@
       this.__qtsMethod = method;
       this.__qtsUrl = url;
       this.__qtsHeaders = null;
+      // open(method, url) is async; open(method, url, async) follows the boolean conversion.
+      this.__qtsAsync = rest.length === 0 || Boolean(rest[0]);
       return originalOpen.call(this, method, url, ...rest);
     };
     XhrProto.setRequestHeader = function (name, value) {
@@ -180,6 +261,19 @@
       return originalSetRequestHeader.call(this, name, value);
     };
     XhrProto.send = function (...args) {
+      if (!mtShouldHold(this.__qtsMethod)) return capturingSend.apply(this, args);
+      if (this.__qtsAsync === false) {
+        // A synchronous XHR cannot wait for a vote without freezing the page: refused (fails closed).
+        document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail: { id: "", sync: true, mode: mtMode } }));
+        throw new DOMException("Blocked by QA Toolbar Sandbox Multi Testador: a synchronous request cannot wait for consensus", "NetworkError");
+      }
+      mtAwaitConsensus(this.__qtsMethod, this.__qtsUrl).then((approved) => {
+        if (!approved) { mtFailXhr(this); return; }
+        try { capturingSend.apply(this, args); } catch { mtFailXhr(this); }
+      });
+      return undefined;
+    };
+    const capturingSend = function (...args) {
       if (!enabled) return originalSend.apply(this, args);
       const requestHeaders = this.__qtsHeaders && Object.keys(this.__qtsHeaders).length ? this.__qtsHeaders : null;
       const requestBody = stringifyRequestBody(args[0]);
@@ -407,6 +501,7 @@
   });
   document.addEventListener("qts:pagebridge-disable", () => {
     enabled = false;
+    mtSetMode("off");
     window.__qtsForcedStatus = null;
     window.__qtsForcedBody = null;
   });

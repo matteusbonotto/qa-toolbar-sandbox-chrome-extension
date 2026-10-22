@@ -24,11 +24,13 @@ const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const HEARTBEAT_MS = 25_000;
 // Reconnect backoff caps at 30s so a dropped network does not hammer Realtime.
 const RECONNECT_MAX_MS = 30_000;
-// Events a tab may SEND over the channel. Chat is deliberately absent: it goes through the
-// multi-tester Edge Function, which stamps the sender server-side (RLS rejects client `chat`).
-const SENDABLE_EVENTS = new Set(["cursor", "click"]);
+// Events a tab may SEND over the channel. Chat and the consensus votes (vote-request, vote,
+// vote-result) are deliberately absent: they go through the multi-tester Edge Function, which stamps
+// the sender server-side (RLS rejects them from clients). A guest's `proposal` and the host's
+// `proposal-done` only inform (the host still acts himself), so they ride the channel like cursors.
+const SENDABLE_EVENTS = new Set(["cursor", "click", "proposal", "proposal-done"]);
 // Events relayed to the tabs when received.
-const RECEIVABLE_EVENTS = new Set(["cursor", "click", "chat"]);
+const RECEIVABLE_EVENTS = new Set(["cursor", "click", "chat", "proposal", "proposal-done", "vote-request", "vote", "vote-result"]);
 const MAX_PAYLOAD_CHARS = 4_000;
 
 const live = {

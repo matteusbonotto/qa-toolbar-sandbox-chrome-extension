@@ -2038,14 +2038,16 @@ revoke all on function public.mt_set_member_status(uuid, uuid, text[], text, int
 grant execute on function public.mt_set_member_status(uuid, uuid, text[], text, integer) to service_role;
 
 -- Realtime Authorization for private channels: broadcast (cursors, clicks) and presence only for
--- active members of that exact room and epoch. Chat is NOT sendable by clients: the Edge Function
--- publishes it with the sender stamped server-side, so nobody can post as someone else.
+-- active members of that exact room and epoch. Chat and the consensus votes (vote-request, vote,
+-- vote-result) are NOT sendable by clients: the Edge Function publishes them with the sender stamped
+-- server-side, so nobody can post or approve as someone else
+-- (migrations/20261023120000_multi_tester_votes_policy.sql).
 drop policy if exists "mt members receive room channel" on realtime.messages;
 create policy "mt members receive room channel" on realtime.messages for select to authenticated
   using (realtime.messages.extension in ('broadcast', 'presence') and public.mt_can_use_channel(realtime.topic()));
 drop policy if exists "mt members send room channel" on realtime.messages;
 create policy "mt members send room channel" on realtime.messages for insert to authenticated
-  with check (realtime.messages.extension in ('broadcast', 'presence') and coalesce(realtime.messages.event, '') <> 'chat' and public.mt_can_use_channel(realtime.topic()));
+  with check (realtime.messages.extension in ('broadcast', 'presence') and coalesce(realtime.messages.event, '') not in ('chat', 'vote', 'vote-request', 'vote-result') and public.mt_can_use_channel(realtime.topic()));
 
 insert into public.features (key, value_type, description) values
   ('multiTester.enabled', 'boolean', 'Multi Testador: up to 4 release managers in one live test session (cursors, chat, host-controlled room)')
