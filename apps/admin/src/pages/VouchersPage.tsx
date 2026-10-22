@@ -58,6 +58,16 @@ function campaignStatusBadge(campaign: VoucherCampaign): { label: string; classN
   return { label: "disponível", className: "available" };
 }
 
+// Single-use vouchers grant paid access, so a hand-picked word ("BEMVINDO30") can be guessed from a
+// dictionary of promo terms (security audit 2026-10-22). 16 symbols from a 32-symbol alphabet = 80
+// bits from crypto.getRandomValues; the bit mask keeps it unbiased (256 is a multiple of 32).
+const VOUCHER_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+function generateVoucherCode(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  const symbols = [...bytes].map((byte) => VOUCHER_ALPHABET[byte & 31]).join("");
+  return `${symbols.slice(0, 4)}-${symbols.slice(4, 8)}-${symbols.slice(8, 12)}-${symbols.slice(12)}`;
+}
+
 export function VouchersPage() {
   const plans = useAsyncData(listPlans);
   const vouchers = useAsyncData(listVouchers);
@@ -211,7 +221,8 @@ export function VouchersPage() {
         <h2>Voucher de uso único</h2>
         {voucherFormError ? <div className="qa-error">{voucherFormError}</div> : null}
         <form className="qa-form-row" onSubmit={handleCreateVoucher}>
-          <input aria-label="Código do voucher" disabled={Boolean(editingVoucherId)} placeholder={editingVoucherId ? "Código preservado (hash)" : "Código (ex.: BEMVINDO30)"} value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} />
+          <input aria-label="Código do voucher" disabled={Boolean(editingVoucherId)} placeholder={editingVoucherId ? "Código preservado (hash)" : "Código (use Gerar para um código seguro)"} value={voucherCode} onChange={(e) => setVoucherCode(e.target.value)} />
+          {editingVoucherId ? null : <button type="button" className="qa-btn" onClick={() => setVoucherCode(generateVoucherCode())}>Gerar código seguro</button>}
           <input aria-label="Rótulo" placeholder="Rótulo" value={voucherLabel} onChange={(e) => setVoucherLabel(e.target.value)} />
           <select aria-label="Tipo de voucher" value={voucherKind} onChange={(e) => setVoucherKind(e.target.value as VoucherKind)}>
             <option value="days">{KIND_LABEL.days}</option>

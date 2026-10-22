@@ -92,7 +92,13 @@ serve(async (request) => {
     };
   }
 
+  // Every early exit below must give back a discount voucher reserved above, or repeated calls
+  // could hold the slots of a limited campaign hostage (security audit 2026-10-22).
+  const releaseVoucher = async () => {
+    if (voucherDiscount) await admin.rpc("release_voucher_reservation", { request_id_input: input.requestId });
+  };
   if (plan.key === "smoke-test") {
+    await releaseVoucher();
     const { data: expiresAt, error } = await admin.rpc("activate_free_trial", { target_user_id: user.id });
     if (error) throw new ApiError(409, "free_trial_unavailable");
     return jsonResponse(request, { accessGranted: true, planKey: plan.key, expiresAt });
@@ -105,7 +111,10 @@ serve(async (request) => {
   }
   const { data: activeSubscription } = await admin.from("subscriptions").select("id")
     .eq("user_id", user.id).in("status", ["active", "trialing", "past_due"]).maybeSingle();
-  if (activeSubscription) throw new ApiError(409, "subscription_already_exists");
+  if (activeSubscription) {
+    await releaseVoucher();
+    throw new ApiError(409, "subscription_already_exists");
+  }
 
   const { data: price, error: priceError } = await admin.from("stripe_prices")
     .select("provider_price_id").eq("plan_id", plan.id).eq("billing_cycle", input.billingCycle)
@@ -179,7 +188,9 @@ serve(async (request) => {
       // A voucher discount is never combined with a manually typed Stripe promo code.
       allow_promotion_codes: voucherDiscount || rewardDiscount ? false : true,
       ...(discounts ? { discounts } : {}),
-      ...(voucherDiscount ? { expires_at: Math.floor(Date.now() / 1000) + 30 * 60 } : {}),
+      // Same 30 min as the server-side reservation of a voucher OR reward discount: a session paid
+      // after the reservation expired would otherwise hand the discount back as reusable.
+      ...(voucherDiscount || rewardDiscount ? { expires_at: Math.floor(Date.now() / 1000) + 30 * 60 } : {}),
       success_url: config.checkoutSuccessUrl,
       cancel_url: config.checkoutCancelUrl,
       metadata: {

@@ -81,7 +81,7 @@ create table if not exists public.profiles (
 create table if not exists public.user_roles (
   user_id uuid not null references auth.users(id) on delete cascade,
   role_id uuid not null references public.roles(id) on delete cascade,
-  granted_by uuid references auth.users(id),
+  granted_by uuid references auth.users(id) on delete set null,
   reason text not null check (char_length(reason) between 3 and 500),
   created_at timestamptz not null default now(),
   primary key (user_id, role_id)
@@ -257,7 +257,7 @@ create table if not exists public.vouchers (
   discount_currency text check (discount_currency is null or discount_currency ~ '^[a-z]{3}$'),
   status text not null default 'available' check (status in ('available', 'used', 'disabled')),
   expires_at timestamptz,
-  redeemed_by uuid references auth.users(id),
+  redeemed_by uuid references auth.users(id) on delete set null,
   redeemed_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
@@ -360,7 +360,7 @@ create table if not exists public.engagement_campaign_submissions (
   product_feedback text not null, disclosure_confirmed boolean not null default false,
   status text not null default 'pending' check (status in ('pending','approved','rejected')),
   review_notes text, submitted_at timestamptz not null default now(), reviewed_at timestamptz,
-  reviewed_by uuid references auth.users(id), reward_grant_id uuid references public.entitlement_grants(id),
+  reviewed_by uuid references auth.users(id) on delete set null, reward_grant_id uuid references public.entitlement_grants(id),
   review_criteria jsonb not null default '{}'::jsonb,
   resubmission_count integer not null default 0 check (resubmission_count >= 0),
   unique(user_id,campaign_key)
@@ -374,7 +374,7 @@ create unique index if not exists idx_engagement_campaign_one_reward_per_user on
 
 create table if not exists public.audit_logs (
   id bigint generated always as identity primary key,
-  actor_id uuid references auth.users(id),
+  actor_id uuid references auth.users(id) on delete set null,
   action text not null check (char_length(action) between 3 and 120),
   target_type text not null,
   target_id text,
@@ -421,7 +421,7 @@ create table if not exists public.legal_registration (
   public_query_url text,
   public_notice text,
   updated_at timestamptz not null default now(),
-  updated_by uuid references auth.users(id),
+  updated_by uuid references auth.users(id) on delete set null,
   constraint legal_registration_protocolled_fields check (
     status <> 'protocolled' or (protocol_number is not null and protocol_date is not null)
   ),
@@ -591,8 +591,15 @@ begin
   from auth.users where id = caller_id;
 
   if lower(coalesce(caller_email, '')) <> 'matteusbonotto+admin@gmail.com' or coalesce(caller_confirmed, false) = false then
-    insert into public.audit_logs (actor_id, action, target_type, target_id, reason, metadata)
-    values (caller_id, 'bootstrap_founder.denied', 'user_roles', caller_id::text, 'email not authorized or unverified', jsonb_build_object('email', caller_email));
+    -- At most one denial row per caller per hour: any signed-in user can call this, and an
+    -- unthrottled insert per call let anyone flood audit_logs (security audit 2026-10-22).
+    if not exists (
+      select 1 from public.audit_logs
+      where actor_id = caller_id and action = 'bootstrap_founder.denied' and created_at > now() - interval '1 hour'
+    ) then
+      insert into public.audit_logs (actor_id, action, target_type, target_id, reason, metadata)
+      values (caller_id, 'bootstrap_founder.denied', 'user_roles', caller_id::text, 'email not authorized or unverified', jsonb_build_object('email', caller_email));
+    end if;
     return false;
   end if;
 
@@ -1813,7 +1820,7 @@ begin
   select sum(weight) into total_weight from public.reward_prizes where program_id=program.id and enabled and minimum_lifetime_points<=wallet.lifetime_points
     and (maximum_global_awards is null or awarded_count<maximum_global_awards) and (kind<>'plan_days' or promo_days+grant_days<=30);
   if coalesce(total_weight,0)<=0 then raise exception 'no_eligible_reward_prizes'; end if;
-  random_bytes:=gen_random_bytes(4); random_number:=(('x'||encode(random_bytes,'hex'))::bit(32)::bigint); target_weight:=(random_number % total_weight)+1;
+  random_bytes:=extensions.gen_random_bytes(4); random_number:=(('x'||encode(random_bytes,'hex'))::bit(32)::bigint); target_weight:=(random_number % total_weight)+1;
   select p.id into chosen_id from (select rp.id,sum(weight) over(order by display_order,id) cumulative from public.reward_prizes rp
     where program_id=program.id and enabled and minimum_lifetime_points<=wallet.lifetime_points
       and (maximum_global_awards is null or awarded_count<maximum_global_awards) and (kind<>'plan_days' or promo_days+grant_days<=30)) p
@@ -1823,7 +1830,7 @@ begin
   insert into public.reward_point_entries(user_id,event_kind,points,status,source_type,source_reference,metadata,available_at)
     values(uid,'spin_debit',-program.points_per_spin,'available','reward_spin',new_spin::text,jsonb_build_object('requestId',request_id_input),now());
   insert into public.reward_spins(id,user_id,program_id,request_id,points_spent,prize_id,prize_snapshot,random_digest,eligible_weight_total)
-    values(new_spin,uid,program.id,request_id_input,program.points_per_spin,chosen.id,jsonb_build_object('key',chosen.key,'kind',chosen.kind,'discountPercent',chosen.discount_percent,'planId',chosen.plan_id,'grantDays',chosen.grant_days,'weight',chosen.weight),encode(digest(random_bytes||convert_to(new_spin::text,'utf8'),'sha256'),'hex'),total_weight);
+    values(new_spin,uid,program.id,request_id_input,program.points_per_spin,chosen.id,jsonb_build_object('key',chosen.key,'kind',chosen.kind,'discountPercent',chosen.discount_percent,'planId',chosen.plan_id,'grantDays',chosen.grant_days,'weight',chosen.weight),encode(extensions.digest(random_bytes||convert_to(new_spin::text,'utf8'),'sha256'),'hex'),total_weight);
   if chosen.kind='plan_days' then
     insert into public.entitlement_grants(user_id,plan_id,source,source_reference,starts_at,expires_at)
       values(uid,chosen.plan_id,'manual','reward-spin:'||new_spin::text,now(),now()+make_interval(days=>chosen.grant_days)) returning id into grant_id;

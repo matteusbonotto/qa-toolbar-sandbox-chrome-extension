@@ -98,3 +98,8 @@ verify_jwt = false
 
 [functions.multi-tester]
 verify_jwt = false
+
+# Authenticates manually (authenticatedUser) like every other function; the gateway check returned a
+# different 401 shape without CORS headers.
+[functions.account-delete]
+verify_jwt = false

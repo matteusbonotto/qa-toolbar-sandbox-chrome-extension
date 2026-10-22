@@ -161,6 +161,17 @@ Deno.serve(async (request) => {
         console.error("payment-failed email not sent:", error instanceof Error ? error.message : error);
       }
     }
+    // A Dispute object has no `customer` field (only `charge`/`payment_intent`), so the generic
+    // lookup above always left userId null here and a chargeback revoked nothing (security audit
+    // 2026-10-22). Resolve the customer through the disputed charge.
+    if (event.type === "charge.dispute.created" && !userId) {
+      const chargeRef = (object as { charge?: unknown }).charge;
+      const chargeId = typeof chargeRef === "string" ? chargeRef : (chargeRef as { id?: string } | null)?.id;
+      if (chargeId) {
+        const charge = await stripe.charges.retrieve(chargeId);
+        userId = await resolveUserId(typeof charge.customer === "string" ? charge.customer : charge.customer?.id ?? null);
+      }
+    }
     if (event.type === "charge.dispute.created" && userId) {
       await admin.from("entitlement_grants").update({ revoked_at: new Date().toISOString() })
         .eq("user_id", userId).eq("source", "subscription").is("revoked_at", null);
