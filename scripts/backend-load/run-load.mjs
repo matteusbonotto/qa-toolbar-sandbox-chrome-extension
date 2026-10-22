@@ -28,7 +28,9 @@ const argv = process.argv.slice(2);
 const local = argv.includes("--local");
 const MAX_REMOTE_VUS = 200;
 const MAX_REMOTE_DURATION_MS = 10 * 60_000;
-const SIGN_IN_LIMIT = 10; // auth-sign-in/index.ts: enforceRateLimit(email, "auth-sign-in", 10, 900)
+// auth-sign-in/index.ts: 10 per (client, e-mail) per 15 min window (plus per-client and per-account caps).
+const SIGN_IN_LIMIT = 10;
+const SIGN_IN_WINDOW_SECONDS = 900;
 
 const userThresholds = argv.filter((item) => item.startsWith("--threshold=")).map((item) => item.slice("--threshold=".length));
 
@@ -126,6 +128,9 @@ const SCENARIOS = {
       // One random e-mail per VU, never an existing account: the limiter is keyed by e-mail, so
       // this never locks a real user out.
       const emails = Array.from({ length: opts.vus }, () => `qts-load-${randomUUID().slice(0, 12)}@example.com`);
+      // The limiter uses fixed windows: a run that crosses a window boundary legitimately gets a fresh
+      // quota in the next window (this made the check flaky at :00/:15/:30/:45).
+      const startWindow = Math.floor(Date.now() / 1000 / SIGN_IN_WINDOW_SECONDS);
       const perEmail = emails.map(() => ({ unauthorized: 0, limited: 0, firstLimitedAt: null, unexpected: 0 }));
       await runVirtualUsers({
         ...opts,
@@ -139,9 +144,11 @@ const SCENARIOS = {
           } else stats.unexpected += 1;
         },
       });
-      const over = perEmail.filter((stats) => stats.unauthorized > SIGN_IN_LIMIT);
+      const windowsSpanned = Math.floor(Date.now() / 1000 / SIGN_IN_WINDOW_SECONDS) - startWindow + 1;
+      const allowed = SIGN_IN_LIMIT * windowsSpanned;
+      const over = perEmail.filter((stats) => stats.unauthorized > allowed);
       const never = perEmail.filter((stats) => stats.limited === 0);
-      metrics.check(`no e-mail got more than ${SIGN_IN_LIMIT} password attempts evaluated`, over.length === 0, over.length ? `max attempts evaluated: ${Math.max(...perEmail.map((stats) => stats.unauthorized))}` : "");
+      metrics.check(`no e-mail got more than ${allowed} password attempts evaluated (${windowsSpanned} window(s))`, over.length === 0, over.length ? `max attempts evaluated: ${Math.max(...perEmail.map((stats) => stats.unauthorized))}` : "");
       metrics.check("429 kicked in for every e-mail", never.length === 0, `first 429 at attempt ${perEmail.map((stats) => stats.firstLimitedAt).join(",")}`);
       metrics.check("never 200 / 5xx for wrong passwords", perEmail.every((stats) => stats.unexpected === 0));
     },
