@@ -74,11 +74,16 @@ resto:
   duração/inatividade e troca do código ao encerrar. O Realtime autoriza o socket no `phx_join` e
   guarda a decisão durante a conexão; por isso o tópico é `mt:<sala>:<época>` e a época é trocada a
   cada remoção, saída e encerramento: quem saiu fica num tópico morto na hora, sem esperar o JWT
-  expirar. **Chat** só é publicado pela Edge Function, com o remetente vindo do JWT verificado (a
-  policy de insert recusa o evento `chat` vindo de cliente). **Risco aceito e documentado no ADR
-  0003:** cursor, clique e presence são enviados pelos próprios clientes; um membro ativo com um
-  cliente próprio consegue declarar outro `from` nesses eventos (mover o "cursor" de outro membro).
-  Não dá acesso a nada, não sai da sala e não afeta chat nem decisões do host. O código da sala só
+  expirar. **Chat e os votos do consenso** (`vote-request`, `vote`, `vote-result`, Fase MT2) só são
+  publicados pela Edge Function, com o remetente vindo do JWT verificado e o papel conferido em
+  `mt_members` (só o host pede e anuncia o resultado; só convidado ativo vota). A policy de insert
+  recusa esses quatro eventos vindos de cliente (migration
+  `20261023120000_multi_tester_votes_policy.sql`, replicada em `schema.sql`), então ninguém aprova
+  em nome de outro testador. **Risco aceito e documentado no ADR 0003:** cursor, clique, presence e
+  as propostas do convidado (`proposal`/`proposal-done`) são enviados pelos próprios clientes; um
+  membro ativo com um cliente próprio consegue declarar outro `from` nesses eventos (mover o
+  "cursor" de outro membro, criar uma proposta em nome de outro). Não dá acesso a nada, não sai da
+  sala, não executa nada (o host sempre age por conta própria) e não afeta chat nem votos. O código da sala só
   aparece para o host e sozinho não dá acesso (gera pedido pendente); quem não é membro ativo recebe
   só o próprio status, sem lista de membros nem canal. Nenhum e-mail é trocado entre usuários: só o
   apelido. Recomendado em produção: desligar "Allow public access" do Realtime para que só canais

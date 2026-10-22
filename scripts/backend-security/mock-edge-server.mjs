@@ -16,7 +16,7 @@ import { createServer } from "node:http";
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import {
-  ADMIN_EMAIL, ANY_UUID, BODY_LIMITS, CHALLENGE_ID, COLOR, MFA_TOKEN, OTP, PLAN_KEY, RATE_LIMITS,
+  ADMIN_EMAIL, ANY_UUID, VOTE_ID, BODY_LIMITS, CHALLENGE_ID, COLOR, MFA_TOKEN, OTP, PLAN_KEY, RATE_LIMITS,
   REFERRAL_CODE, REQUEST_ID, ROOM_CODE, VOUCHER_CODE, ZOD_EMAIL,
 } from "./contracts.mjs";
 
@@ -248,7 +248,7 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
     const { user } = authenticated(ctx.headers);
     const input = await ctx.readJson(16_384);
     const action = String(field(input, "action") ?? "");
-    const budget = ["touch", "state"].includes(action) ? "multi-tester-poll" : action === "chat" ? "multi-tester-chat" : "multi-tester-action";
+    const budget = ["touch", "state"].includes(action) ? "multi-tester-poll" : action === "chat" ? "multi-tester-chat" : ["vote-request", "vote", "vote-result"].includes(action) ? "multi-tester-vote" : "multi-tester-action";
     enforceRateLimit(user.id, budget);
 
     if (action === "create") {
@@ -309,6 +309,22 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
       if (room.status !== "open" || member?.status !== "active") throw new ApiError(403, "not_allowed");
       const text = String(field(input, "text") ?? "").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").trim().slice(0, 500);
       if (!text) throw new ApiError(400, "invalid_message");
+      room.last_activity_at = new Date().toISOString();
+      return { sent: true };
+    }
+
+    // Fase MT2 consensus (multi-tester/index.ts): guests vote, only the host asks and announces.
+    if (action === "vote-request" || action === "vote" || action === "vote-result") {
+      const room = loadRoom(roomId);
+      const member = members.get(roomId)?.get(user.id);
+      if (room.status !== "open" || member?.status !== "active") throw new ApiError(403, "not_allowed");
+      if (!VOTE_ID.test(String(field(input, "voteId") ?? ""))) throw new ApiError(400, "invalid_vote");
+      if (action === "vote") {
+        if (member.role !== "guest" || room.host_id === user.id) throw new ApiError(403, "guest_only");
+      } else {
+        if (room.host_id !== user.id) throw new ApiError(403, "host_only");
+        if (action === "vote-request" && !String(field(input, "description") ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").trim()) throw new ApiError(400, "invalid_vote");
+      }
       room.last_activity_at = new Date().toISOString();
       return { sent: true };
     }

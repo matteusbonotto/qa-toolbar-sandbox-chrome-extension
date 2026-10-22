@@ -26,7 +26,7 @@ import {
   ALL_HOSTILE_STRINGS, INVALID_JSON_BODIES, LEAK_PATTERNS, NON_OBJECT_JSON_BODIES, prototypePollutionBodies,
 } from "./hostile-inputs.mjs";
 import {
-  ANY_UUID, BODY_LIMITS, CHALLENGE_ID, emailAccepted, OTP, PLAN_KEY, REFERRAL_CODE, REQUEST_ID, ROOM_CODE, upperTrim, VOUCHER_CODE,
+  ANY_UUID, BODY_LIMITS, CHALLENGE_ID, emailAccepted, OTP, PLAN_KEY, REFERRAL_CODE, REQUEST_ID, ROOM_CODE, upperTrim, VOTE_ID, VOUCHER_CODE,
 } from "./contracts.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -600,6 +600,22 @@ describe("authorization: Multi Testador room (one user acting on another user's 
   test("active guest still cannot use host-only actions", async () => {
     expectSafe(await mt(g1, { action: "remove", roomId: room.id, userId: idOf(host) }), { status: 403, error: "host_only" });
     expectSafe(await mt(g1, { action: "end", roomId: room.id }), { status: 403, error: "host_only" });
+  });
+
+  test("consensus votes: only the host asks/announces, only an active guest votes, outsiders and pending get nothing", async () => {
+    const voteId = "vSecuritySuite0001";
+    expectSafe(await mt(g1, { action: "vote-request", roomId: room.id, voteId, description: "forged" }), { status: 403, error: "host_only" });
+    expectSafe(await mt(g1, { action: "vote-result", roomId: room.id, voteId, approved: true }), { status: 403, error: "host_only" });
+    expectSafe(await mt(host, { action: "vote", roomId: room.id, voteId, approve: true }), { status: 403, error: "guest_only" });
+    expectSafe(await mt(IDS.outsider, { action: "vote", roomId: room.id, voteId, approve: true }), { status: 403, error: "not_allowed" });
+    for (const value of [...ALL_HOSTILE_STRINGS.slice(0, 6), 123, null, {}]) {
+      if (VOTE_ID.test(String(value ?? ""))) continue;
+      expectSafe(await mt(g1, { action: "vote", roomId: room.id, voteId: value, approve: true }), { status: 400, error: "invalid_vote" });
+    }
+    expectSafe(await mt(host, { action: "vote-request", roomId: room.id, voteId, description: "\u0000\u0007<>" }), { status: 400, error: "invalid_vote" });
+    expectSafe(await mt(host, { action: "vote-request", roomId: room.id, voteId, description: "\"Salvar\" (POST /api/x)" }), { status: 200, check: (json) => assert.deepEqual(json, { sent: true }) });
+    expectSafe(await mt(g1, { action: "vote", roomId: room.id, voteId, approve: true }), { status: 200, check: (json) => assert.deepEqual(json, { sent: true }) });
+    expectSafe(await mt(host, { action: "vote-result", roomId: room.id, voteId, approved: true }), { status: 200, check: (json) => assert.deepEqual(json, { sent: true }) });
   });
 
   test("active member chat: hostile text is accepted as text, empty-after-cleanup is 400", async () => {

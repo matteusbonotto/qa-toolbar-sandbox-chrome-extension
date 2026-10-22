@@ -1,7 +1,7 @@
 # Testes manuais locais (antes de aprovar uma publicação)
 
 Roteiro curto para o fundador conferir no Chrome real o que os testes automáticos não provam
-visualmente. Versão atual da main: 1.4.42.
+visualmente. Versão atual da main: 1.4.44.
 
 ## 1. Abrir o Chrome de teste (1 comando)
 
@@ -59,6 +59,19 @@ visualmente. Versão atual da main: 1.4.42.
 - [ ] Conta A encerra a sessão: o código antigo deixa de funcionar ("Código inválido ou sala
       encerrada").
 - [ ] Report Builder durante a sessão: aparece a linha "Participantes (Multi Testador)".
+
+### Multi Testador: consenso (v1.4.44, mesma dupla de contas)
+- [ ] Conta B (convidado) clica num botão ou link da página: nada acontece na página dela; aparece
+      "Aguardando o host" no canto e uma marcação em volta do elemento.
+- [ ] Conta A (host) vê a proposta no drawer e a marcação "Proposta de <apelido>" no elemento.
+      "Descartar" some com a marcação dos dois lados; clicar no próprio elemento conta como
+      executada ("O host executou sua proposta" na conta B).
+- [ ] Conta A envia um formulário ou clica em algo que salva/exclui (POST, PUT, PATCH, DELETE):
+      a ação fica parada com "Aguardando a confirmação de todos" e a contagem de aprovações.
+- [ ] Conta B vê o pedido com Aprovar/Recusar e a contagem regressiva. Aprovar libera a ação na
+      conta A; Recusar cancela (a página da conta A trata como falha de rede).
+- [ ] Sem resposta por 60 segundos: a ação é cancelada.
+- [ ] Desligar "Exigir confirmação de todos" no drawer da conta A: as ações seguem direto.
 
 ### Atualização sem reativação (antes de publicar)
 - [ ] Em `chrome://extensions`, a extensão continua **ativada** depois de recarregar a versão nova
