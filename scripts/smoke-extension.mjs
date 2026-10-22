@@ -1,4 +1,4 @@
-import { createHash, webcrypto } from "node:crypto";
+import { createHash, randomUUID, webcrypto } from "node:crypto";
 import { createServer } from "node:http";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rm } from "node:fs/promises";
