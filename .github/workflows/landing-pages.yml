@@ -15,12 +15,13 @@ on:
       - "package.json"
       - "package-lock.json"
       - ".github/workflows/landing-pages.yml"
+      - "firebase.json"
 
 permissions:
   contents: read
 
 concurrency:
-  group: pages
+  group: firebase-hosting
   cancel-in-progress: true
 
 jobs:
@@ -45,39 +46,32 @@ jobs:
           test -n "$VITE_SUPABASE_URL"
           test -n "$VITE_SUPABASE_PUBLISHABLE_KEY"
           case "$VITE_SUPABASE_URL" in https://*.supabase.co) ;; *) exit 1 ;; esac
-      - uses: actions/configure-pages@v6
-      - name: Build landing with the repository base path
-        run: npm run build -w @qts/landing -- --base "/${{ github.event.repository.name }}/"
-      - name: Build founder admin under the same Pages site
-        run: npm run build -w @qts/admin -- --base "/${{ github.event.repository.name }}/admin/"
+      - name: Build landing for Firebase Hosting (site at the root)
+        run: npm run build -w @qts/landing -- --base "/"
+      - name: Build founder admin under /admin of the same site
+        run: npm run build -w @qts/admin -- --base "/admin/"
       - name: Add founder admin to the landing artifact
         run: |
           mkdir -p apps/landing/dist/admin
           cp -R apps/admin/dist/. apps/landing/dist/admin/
       - name: Package the manual-install (sideload) extension zip for the download fallback
         run: npm run package:extension:sideload -- --output=apps/landing/dist/qa-toolbar-sandbox-extension.zip
-      - name: Add SPA fallback so deep links survive a direct load/reload
-        run: cp apps/landing/dist/index.html apps/landing/dist/404.html
-      - name: Give static-checked routes a real 200 response (not just the 404-status SPA fallback)
+      # SPA routing (deep links, /admin/**) is handled by the rewrites in firebase.json.
+      - name: Check for the Firebase deploy credential
+        id: credential
+        env:
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_QATOOLBARSANDBOX }}
         run: |
-          for route in privacidade redefinir-senha propriedade-intelectual; do
-            mkdir -p "apps/landing/dist/$route"
-            cp apps/landing/dist/index.html "apps/landing/dist/$route/index.html"
-          done
-      - uses: actions/upload-pages-artifact@v5
+          if [ -n "$FIREBASE_SERVICE_ACCOUNT" ]; then echo "present=true" >> "$GITHUB_OUTPUT"; else
+            echo "::warning::FIREBASE_SERVICE_ACCOUNT_QATOOLBARSANDBOX is not set: built and checked, but not deployed. Deploy by hand with npm run deploy:firebase."
+            echo "present=false" >> "$GITHUB_OUTPUT"; fi
+      # Moved from GitHub Pages to Firebase Hosting on 2026-10-22 (the repository goes private, and
+      # Pages on private repositories needs a paid plan). https://qatoolbarsandbox.web.app
+      - name: Deploy to Firebase Hosting
+        if: steps.credential.outputs.present == 'true'
+        uses: FirebaseExtended/action-hosting-deploy@v0
         with:
-          path: apps/landing/dist
-
-  deploy:
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    runs-on: ubuntu-latest
-    needs: build
-    permissions:
-      pages: write
-      id-token: write
-    steps:
-      - name: Deploy GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_QATOOLBARSANDBOX }}
+          projectId: qatoolbarsandbox
+          channelId: live

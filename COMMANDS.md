@@ -53,13 +53,16 @@
 - **Resultado esperado**: build servido em modo teste, sem risco de escrever em dado produtivo.
 
 ### `npm run dev:extension`
-- **Objetivo**: abrir um Chrome real com a extensão carregada a partir do worktree atual, contra o
-  backend de teste (`scripts/dev-extension-chrome.mjs`).
+- **Objetivo**: abrir um Chromium real (o do Playwright, separado do Chrome pessoal) com a extensão
+  carregada a partir do worktree atual, falando com o backend REAL de produção, sem rotas falsas
+  (`scripts/dev-extension-chrome.mjs`). Para uma segunda conta (Multi Testador):
+  `npm run dev:extension -- --profile-path=artifacts/chrome-dev-profile-b`.
 - **Quando usar**: qualquer desenvolvimento manual na extensão.
 - **Pré-requisitos**: Chrome instalado; rodar `npm run automation:clean` antes se a última sessão
   não terminou limpa (regra obrigatória de `AGENTS.md`).
-- **Resultado esperado**: janela do Chrome abre com um profile de teste descartável e a extensão já
-  carregada — não reutiliza profile manual.
+- **Resultado esperado**: janela abre com a extensão já carregada e um perfil próprio persistente em
+  `artifacts/chrome-dev-profile` (login e workspace sobrevivem entre execuções; apague a pasta para
+  recomeçar). Nunca usa o perfil manual do Chrome pessoal.
 
 ### `npm run dev:extension:test`
 - **Objetivo**: variante que primeiro roda `automation:clean`, empacota um build de teste
@@ -464,7 +467,7 @@ Nenhum destes é digitado manualmente no dia a dia — são os workflows reais e
 - **O que roda**: typecheck + test de Landing e Admin, valida que a URL do Supabase configurada é
   `https://*.supabase.co`, builda Landing e Admin (Admin embutido em `/admin` do mesmo site),
   empacota o zip de sideload, gera fallback de SPA (`404.html`) e rotas estáticas para
-  `/privacidade`, `/redefinir-senha`, `/propriedade-intelectual`, publica no GitHub Pages.
+  `/privacidade`, `/redefinir-senha`, `/propriedade-intelectual`, publica no Firebase Hosting (`https://qatoolbarsandbox.web.app`; deploy manual: `npm run deploy:firebase`, que exige `npx firebase login`).
 
 ### `CodeQL` (`codeql.yml`)
 - **Gatilho**: push/PR em `main`/`master`, mais agenda semanal (`23 6 * * 1`).

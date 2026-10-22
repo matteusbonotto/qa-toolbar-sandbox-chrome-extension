@@ -8,7 +8,7 @@ const SUPABASE_URL = process.env.SUPABASE_URL?.replace(/\/$/, "");
 const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 const PUBLIC_KEY = process.env.SUPABASE_PUBLIC_KEY;
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
-const ORIGIN = "https://matteusbonotto.github.io";
+const ORIGIN = "https://qatoolbarsandbox.web.app";
 const runId = `${Date.now().toString(36)}-${randomBytes(3).toString("hex")}`;
 const label = `qts-live-smoke-${runId}`;
 
@@ -140,7 +140,7 @@ async function completeHostedCheckout(checkoutUrl) {
     assert(!page.isClosed(), "Stripe Checkout closed unexpectedly before submission");
     const submit = page.locator('button[type="submit"], [data-testid="hosted-payment-submit-button"]').filter({ visible: true }).last();
     await submit.click({ timeout: 30_000 });
-    await page.waitForURL((url) => url.hostname === "matteusbonotto.github.io", { timeout: 120_000 });
+    await page.waitForURL((url) => url.hostname === "qatoolbarsandbox.web.app", { timeout: 120_000 });
   } catch (error) {
     const evidenceDir = resolve("artifacts", "live-backend-smoke");
     await mkdir(evidenceDir, { recursive: true });

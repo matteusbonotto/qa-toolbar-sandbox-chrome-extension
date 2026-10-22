@@ -78,6 +78,15 @@ export async function authenticatedUser(request: Request): Promise<User> {
   return (await authenticatedContext(request)).user;
 }
 
+// Rate-limit subject for the calling client: the first x-forwarded-for hop (set by the Supabase edge
+// gateway), hashed so raw IPs never land in the rate_limits table.
+export async function clientRateSubject(request: Request): Promise<string> {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+  const ip = forwarded || request.headers.get("cf-connecting-ip")?.trim() || "unknown";
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(`qts-ip:${ip}`));
+  return `ip:${[...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("")}`;
+}
+
 export async function enforceRateLimit(subject: string, action: string, maximum: number, windowSeconds: number): Promise<void> {
   const keyHash = createHash("sha256").update(`${action}:${subject}`).digest("hex");
   const { data, error } = await adminClient().rpc("consume_rate_limit", {

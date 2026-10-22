@@ -1,9 +1,12 @@
 project_id = "qa-toolbar-sandbox"
 
 [auth]
-site_url = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/"
+site_url = "https://qatoolbarsandbox.web.app/"
 jwt_expiry = 3600
 additional_redirect_urls = [
+  "https://qatoolbarsandbox.web.app/",
+  "https://qatoolbarsandbox.web.app/admin/",
+  "https://qatoolbarsandbox.web.app/**",
   "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/",
   "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/admin/",
   "http://localhost:5173/",
@@ -94,4 +97,9 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.multi-tester]
+verify_jwt = false
+
+# Authenticates manually (authenticatedUser) like every other function; the gateway check returned a
+# different 401 shape without CORS headers.
+[functions.account-delete]
 verify_jwt = false

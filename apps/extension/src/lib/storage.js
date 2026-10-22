@@ -24,7 +24,11 @@ export const DEMO_PROJECT_ID = "qts-demo-project";
 export const DEMO_PRODUCT_ID = "qts-demo-product";
 export const DEMO_ENVIRONMENT_ID = "qts-demo-env";
 export const DEMO_URL_BINDING_ID = "qts-demo-url-binding";
-export const DEMO_SITE_URL_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
+// Site moved to Firebase Hosting on 2026-10-22. The locked demo binding below is rewritten on every
+// normalize, so existing workspaces pick the new host up automatically; the legacy GitHub Pages
+// pattern stays alongside while that host still answers.
+export const DEMO_SITE_URL_PATTERN = "https://qatoolbarsandbox.web.app/sandbox/*";
+export const LEGACY_DEMO_SITE_URL_PATTERN = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/sandbox/*";
 // Unlike the five ids above, these two aren't re-asserted by normalizeWorkspace (nothing in the
 // tour depends on their exact content) - just seeded once so a fresh install already shows what a
 // filled-in test account / sandbox card looks like, editable/removable like any real entry.
@@ -575,7 +579,7 @@ export function normalizeWorkspace(rawWorkspace) {
   }
   const urlBindings = normalizeUrlBindings(source, products, environments);
   if (source.preferences?.demoWorkspaceSeeded === true) {
-    ensureLockedEntity(urlBindings, DEMO_URL_BINDING_ID, { patterns: [DEMO_SITE_URL_PATTERN], productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], primaryUrl: "" });
+    ensureLockedEntity(urlBindings, DEMO_URL_BINDING_ID, { patterns: [DEMO_SITE_URL_PATTERN, LEGACY_DEMO_SITE_URL_PATTERN], productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], primaryUrl: "" });
   }
 
   const copyCollection = (key) => (Array.isArray(source[key]) ? source[key] : []).map((item, index) => ({
