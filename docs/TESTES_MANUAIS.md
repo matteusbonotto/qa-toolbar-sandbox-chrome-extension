@@ -3,18 +3,22 @@
 Roteiro curto para o fundador conferir no Chrome real o que os testes automáticos não provam
 visualmente. Versão atual da main: 1.4.42.
 
-## 1. Preparar (uma vez, 3 minutos)
+## 1. Abrir o Chrome de teste (1 comando)
 
 1. Atualize o código: `git switch main && git pull`.
-2. Crie um perfil de Chrome só para teste (ícone do perfil > Adicionar). Assim a versão da Chrome
-   Web Store do seu perfil normal não aparece junto, e nada do seu Chrome pessoal é afetado.
-3. Nesse perfil, abra `chrome://extensions`, ligue **Modo do desenvolvedor** (canto superior
-   direito), clique em **Carregar sem compactação** e escolha a pasta
-   `apps/extension` do repositório.
-4. Clique no ícone da extensão > Configurações > Minha conta e entre com sua conta (o backend é o
-   de produção).
-5. Depois de puxar código novo: em `chrome://extensions`, botão de recarregar do card da extensão,
-   e recarregue as abas abertas.
+2. No terminal, na pasta do projeto:
+   ```
+   npm run dev:extension
+   ```
+   Abre uma janela de Chromium separada do seu Chrome, já com a extensão do repositório carregada,
+   falando com o backend real. O perfil fica em `artifacts/chrome-dev-profile`: o login e o
+   workspace continuam lá na próxima vez. Fechar a janela encerra o comando.
+3. Na primeira vez: ícone da extensão > Configurações > Minha conta e entre com sua conta.
+4. Para o Multi Testador você precisa de uma segunda janela com outra conta, em outro terminal:
+   ```
+   npm run dev:extension -- --profile-path=artifacts/chrome-dev-profile-b
+   ```
+5. Depois de puxar código novo, feche e abra de novo com o mesmo comando.
 
 ## 2. O que conferir
 
@@ -44,8 +48,7 @@ visualmente. Versão atual da main: 1.4.42.
 
 ### Multi Testador (v1.4.42, precisa de duas contas Release Manager)
 - [ ] Configurações > Minha conta > "Apelido no Multi Testador": salve um apelido em cada conta.
-- [ ] Use dois perfis de Chrome (um por conta), os dois com a extensão carregada (passo 1.3), no
-      mesmo site.
+- [ ] Use as duas janelas do passo 1.4 (uma por conta), no mesmo site.
 - [ ] Conta A: Tools > Multi Testador > Criar sala. Copie o código.
 - [ ] Conta B: Multi Testador > Entrar com código > Pedir para entrar. Aparece "Aguardando o host".
 - [ ] Conta A aprova. Em até 6 segundos, a conta B entra; os dois veem "Conectado".
@@ -65,6 +68,3 @@ visualmente. Versão atual da main: 1.4.42.
 
 Anote o passo, tire um print e mande. Erros técnicos: `chrome://extensions` > card da extensão >
 "Erros" (e o link "service worker" para o console do background).
-
-Testes automáticos, se quiser rodar: `npm test` (rápido) e `npm run test:chrome` (abre um Chrome
-próprio por uns 10 minutos, não mexe no seu). Detalhes em `COMMANDS.md`.
