@@ -8,7 +8,7 @@ import {
   sha256Hex,
 } from "../_shared/admin_mfa.ts";
 import { adminClient, authenticatedContext, enforceRateLimit, publicKey } from "../_shared/auth.ts";
-import { ApiError, jsonResponse, preflight, readJson, requirePost } from "../_shared/http.ts";
+import { ApiError, jsonResponse, preflight, readJsonObject, requirePost } from "../_shared/http.ts";
 
 interface RequestBody {
   action?: unknown;
@@ -144,7 +144,7 @@ Deno.serve(async (request) => {
   if (early) return early;
   try {
     requirePost(request);
-    const body = await readJson(request, 2_048) as RequestBody;
+    const body = await readJsonObject(request, 2_048) as RequestBody;
     if (body.action === "request") return jsonResponse(request, await requestOtp(request));
     if (body.action === "verify") return jsonResponse(request, await verifyOtp(request, body));
     if (body.action === "revoke") return jsonResponse(request, await revokeMfa(request, body));

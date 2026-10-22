@@ -65,6 +65,15 @@ export async function readJson(request: Request, maximumBytes = 16_384): Promise
   }
 }
 
+// For handlers that read fields straight off the body (`body.action`): JSON `null`, an array or a
+// primitive is a valid JSON document but not a request object, and `null.action` would otherwise
+// throw a TypeError that surfaces as a 500 (found by scripts/backend-security, admin-email-otp).
+export async function readJsonObject(request: Request, maximumBytes = 16_384): Promise<Record<string, unknown>> {
+  const value = await readJson(request, maximumBytes);
+  if (!value || typeof value !== "object" || Array.isArray(value)) throw new ApiError(400, "invalid_request");
+  return value as Record<string, unknown>;
+}
+
 export function requirePost(request: Request): void {
   if (request.method !== "POST") throw new ApiError(405, "method_not_allowed");
 }

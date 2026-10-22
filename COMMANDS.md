@@ -265,7 +265,10 @@ Ver `docs/testing-strategy.md` para a tabela completa de camadas/quando rodar. C
 | `node --check <arquivo>` | Sintaxe de um arquivo `.js` da extensão |
 | `npm run typecheck` | TypeScript de todos os workspaces (`--workspaces --if-present`) |
 | `node scripts/test-extension-workspace.mjs` | Normalização de workspace / paridade ESM-clássico |
-| `npm test` | Unitários de todos os workspaces + `test-extension-workspace.mjs`, `check-schema-sync.mjs`, `test-release-environments.mjs`, `test-update-experience.mjs`, `test-reward-program.mjs`, `test-gif-encoder.mjs` |
+| `npm test` | Unitários de todos os workspaces + `test-extension-workspace.mjs`, `check-schema-sync.mjs`, `test-release-environments.mjs`, `test-update-experience.mjs`, `test-reward-program.mjs`, `test-gif-encoder.mjs`, `backend-security/check-rls-static.mjs`, `backend-security/test-backend-security-tools.mjs` |
+| `npm run test:security:local` / `npm run test:load:local` | Suítes de segurança e carga do backend contra o mock local (ver abaixo) |
+| `npm run test:security` / `npm run test:load` | As mesmas suítes contra Supabase local ou projeto de TESTE separado (produção bloqueada) |
+| `npm run test:security:rls` | Auditoria estática de RLS/`security definer` em `supabase/schema.sql` |
 | `npm run backend:check` | Testes Deno das Edge Functions |
 | `npm run security:repo` / `npm run security:extension` | Ver seção **Segurança** |
 | `npm run smoke:lp-admin` (= `npm run test:pages`) | Landing e Admin buildam e renderizam sem erro |
@@ -282,9 +285,49 @@ Ver `docs/testing-strategy.md` para a tabela completa de camadas/quando rodar. C
 - **Resultado esperado**: estado limpo; nunca use `taskkill` genérico para matar Chrome travado —
   isso mataria também o Chrome pessoal de quem está rodando (encerre por PID específico).
 
+### `npm run test:security:local`
+- **Objetivo**: `scripts/backend-security/run-security.mjs --local`. Roda a auditoria estática de
+  RLS, sobe o mock local das Edge Functions (`mock-edge-server.mjs`, porta aleatória em
+  `127.0.0.1`), executa a suíte de entradas hostis e autorização
+  (`edge-functions.security.test.mjs`) e depois o autoteste de mutação: a mesma suíte precisa falhar
+  contra 7 mocks com vulnerabilidades injetadas.
+- **Quando usar**: depois de mexer em `supabase/functions/`, `supabase/schema.sql` ou nas suítes.
+- **Pré-requisitos**: nenhum (sem Docker, sem rede, sem credencial).
+- **Resultado esperado**: `pass` igual ao total de testes, `fail 0`, e
+  `Self-check passed: all 7 injected vulnerabilities were detected.` Verde aqui prova a suíte, não a
+  produção (o mock emula os contratos).
+
+### `npm run test:load:local`
+- **Objetivo**: `scripts/backend-load/run-load.mjs --local`. Cenários `access-status`,
+  `multi-tester` (salas de 4 usuários fazendo polling de `state`/`touch`) e `sign-in-rate-limit`
+  (senha errada até o 429) contra o mock, com p50/p95/p99, taxa de erro, vazão e limiares; depois
+  confirma que os limiares reprovam um alvo lento e um limitador desligado.
+- **Quando usar**: depois de mexer nas funções, nos limites de taxa ou no motor de carga.
+- **Resultado esperado**: `RESULT <cenário>: PASS` nos três cenários e `Self-check passed` no fim (as
+  linhas `FAIL` do autoteste são esperadas). Relatório JSON em `artifacts/load-reports/`.
+
+### `npm run test:security` / `npm run test:load`
+- **Objetivo**: as mesmas suítes contra um alvo real.
+- **Quando usar**: com Supabase local (`--target=http://127.0.0.1:54321`, exige Docker) ou com um
+  projeto Supabase de TESTE separado: `QTS_TEST_SUPABASE_URL`, `QTS_TEST_SUPABASE_PROJECT_REF`,
+  `QTS_TEST_IDENTITIES_FILE` (segurança), `QTS_TEST_LOAD_USERS_FILE` (carga) e a flag
+  `--i-own-this-test-target`. Detalhes e formato dos arquivos em `docs/testing-strategy.md`.
+- **Atenção**: **PRODUÇÃO É SEMPRE RECUSADA** (`xhusvkylbouwtpcevgri`, mesmo com a flag), assim como
+  qualquer host fora de `localhost` e do projeto de teste declarado; a recusa acontece antes de
+  qualquer requisição e sai com código 2. Carga remota tem teto de 200 VUs e 10 minutos.
+- **Resultado esperado**: igual aos `:local`; casos que só receberam 429 aparecem como
+  "masked by rate limit" e papéis sem credencial aparecem como skipped.
+
+### `npm run test:security:rls`
+- **Objetivo**: `scripts/backend-security/check-rls-static.mjs`. Falha se tabela `public` sem RLS,
+  policy `using (true)` fora do catálogo público, função `security definer` sem `set search_path` ou
+  com `EXECUTE` padrão para `PUBLIC` sem justificativa.
+- **Quando usar**: já roda dentro de `npm test`; isolado ao editar `supabase/schema.sql`.
+
 ### Testes ausentes conhecidos (não invente comando para eles — não existem hoje)
-Acessibilidade (WCAG) automatizada, carga/performance de backend, cobertura de integrações externas
-(nenhuma integração externa existe ainda). Ver `docs/testing-strategy.md`.
+Acessibilidade (WCAG) automatizada e cobertura de integrações externas (nenhuma integração externa
+existe ainda). Carga e segurança do backend têm suíte (acima), mas ainda não rodaram contra um
+backend real. Ver `docs/testing-strategy.md`.
 
 ---
 
