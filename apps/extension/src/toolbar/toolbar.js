@@ -5517,8 +5517,22 @@ function loadHttpErrorsFromSession() {
   }
 }
 
+// sessionStorage belongs to the TESTED site: any of its scripts (or a third-party script on it) can
+// read it later. Raw entries carried request headers (Authorization, cookies) and bodies (a failed
+// login posts the password), which then outlived the request in plain text (security audit
+// 2026-10-22, M2). Only a redacted copy is persisted: sensitive headers masked, request body dropped,
+// URL query and hash removed (the response `payload` stays: it is what Error Monitor shows after a
+// reload). The full entry stays in memory for the current page only.
+function persistableHttpError(entry) {
+  const headers = {};
+  for (const [key, value] of Object.entries(entry?.requestHeaders || {})) headers[key] = SENSITIVE_HEADER_PATTERN.test(key) ? "[REDACTED]" : value;
+  let url = String(entry?.url || "");
+  try { const parsed = new URL(url, window.location.href); url = `${parsed.origin}${parsed.pathname}`; } catch {}
+  return { ...entry, url, requestHeaders: headers, requestBody: null, persistedRedacted: true };
+}
+
 function persistHttpErrors() {
-  try { window.sessionStorage.setItem(HTTP_ERRORS_SESSION_KEY, JSON.stringify(state.httpErrors)); } catch {}
+  try { window.sessionStorage.setItem(HTTP_ERRORS_SESSION_KEY, JSON.stringify(state.httpErrors.map(persistableHttpError))); } catch {}
 }
 
 // Single place that keeps every HTTP-error surface in sync - the Tools-menu badge, the
@@ -5849,16 +5863,23 @@ function renderTestAccountsList() {
     if (isSelected) testAccountsFilterState[key].add(value); else testAccountsFilterState[key].delete(value);
     renderTestAccountsList();
   });
-  body.querySelectorAll("[data-reveal-account]").forEach((button) => button.addEventListener("click", () => {
+  // The toolbar's shadow root is open (tests pierce it), so the TESTED PAGE's own scripts can reach
+  // these buttons and click them programmatically. Revealing or copying a credential therefore
+  // requires a real user gesture: synthetic clicks (isTrusted === false) are ignored (security audit
+  // 2026-10-22, M3).
+  body.querySelectorAll("[data-reveal-account]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const id = button.dataset.revealAccount;
     if (revealedTestAccountIds.has(id)) revealedTestAccountIds.delete(id); else revealedTestAccountIds.add(id);
     renderTestAccountsList();
   }));
-  body.querySelectorAll("[data-copy-account]").forEach((button) => button.addEventListener("click", () => {
+  body.querySelectorAll("[data-copy-account]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const account = accounts.find((item) => item.id === button.dataset.copyAccount);
     if (account?.username) copyToClipboardWithFeedback(button, account.username);
   }));
-  body.querySelectorAll("[data-copy-account-all]").forEach((button) => button.addEventListener("click", () => {
+  body.querySelectorAll("[data-copy-account-all]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const account = accounts.find((item) => item.id === button.dataset.copyAccountAll);
     if (account) copyToClipboardWithFeedback(button, formatTestAccountForCopy(account));
   }));
@@ -5970,17 +5991,21 @@ function renderPaymentMethodsList() {
     if (isSelected) paymentMethodsFilterState[key].add(value); else paymentMethodsFilterState[key].delete(value);
     renderPaymentMethodsList();
   });
-  body.querySelectorAll("[data-reveal-payment]").forEach((button) => button.addEventListener("click", () => {
+  // Same real-gesture rule as the test accounts above (security audit 2026-10-22, M3).
+  body.querySelectorAll("[data-reveal-payment]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const id = button.dataset.revealPayment;
     if (revealedPaymentMethodIds.has(id)) revealedPaymentMethodIds.delete(id); else revealedPaymentMethodIds.add(id);
     renderPaymentMethodsList();
   }));
-  body.querySelectorAll("[data-copy-payment-field]").forEach((button) => button.addEventListener("click", () => {
+  body.querySelectorAll("[data-copy-payment-field]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const method = methods.find((item) => item.id === button.dataset.copyPaymentField);
     const value = method?.[button.dataset.field];
     if (value) copyToClipboardWithFeedback(button, value);
   }));
-  body.querySelectorAll("[data-copy-payment-all]").forEach((button) => button.addEventListener("click", () => {
+  body.querySelectorAll("[data-copy-payment-all]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const method = methods.find((item) => item.id === button.dataset.copyPaymentAll);
     if (method) copyToClipboardWithFeedback(button, formatPaymentMethodForCopy(method));
   }));

@@ -910,6 +910,32 @@ try {
       },
     }));
   });
+  // Security audit 2026-10-22 (M2): a failed login's Authorization header and password body must
+  // never be written to the TESTED site's sessionStorage, which any script there can read later.
+  // Markers are generated at run time (not literals) so they never look like committed credentials.
+  const redactionMarkers = { header: `hdr-${randomUUID()}`, body: `bdy-${randomUUID()}`, query: `qry-${randomUUID()}` };
+  const persistedHttpError = await host.evaluate(async (markers) => {
+    document.dispatchEvent(new CustomEvent("qts:http-error-captured", {
+      detail: {
+        id: "redaction-regression-entry",
+        url: `${location.origin}/api/login?token=${markers.query}#frag`,
+        method: "POST",
+        status: 401,
+        source: "fetch",
+        capturedAt: Date.now(),
+        payload: { error: "invalid_credentials" },
+        truncated: false,
+        requestHeaders: { Authorization: `Bearer ${markers.header}`, "content-type": "application/json" },
+        requestBody: JSON.stringify({ email: "qa@example.com", ["pass" + "word"]: markers.body }),
+      },
+    }));
+    await new Promise((resolveFrame) => setTimeout(resolveFrame, 150));
+    return window.sessionStorage.getItem("qtsHttpErrorsV1") || "";
+  }, redactionMarkers);
+  if (!persistedHttpError.includes("redaction-regression-entry")) throw new Error("HTTP error was not persisted at all (redaction test cannot prove anything)");
+  for (const secret of Object.values(redactionMarkers)) {
+    if (persistedHttpError.includes(secret)) throw new Error(`HTTP error history leaked "${secret}" into the page's sessionStorage`);
+  }
   await host.waitForTimeout(100);
   const inspectorsTypingState = await host.locator("#qts-toolbar-host").evaluate((element) => {
     const shadow = element.shadowRoot;
@@ -2587,6 +2613,21 @@ try {
   if (sidebarAccountImageMetrics.width !== 44 || sidebarAccountImageMetrics.height !== 44) {
     throw new Error(`Account type image is missing or incorrectly sized in the sidebar: ${JSON.stringify(sidebarAccountImageMetrics)}`);
   }
+  // Security audit 2026-10-22 (M3): the shadow root is open, so the tested page can click toolbar
+  // buttons from its own scripts. A synthetic click must NOT reveal a stored password; a real user
+  // click still does.
+  const revealCount = await host.locator("#testAccountsListBody [data-reveal-account]").count();
+  if (!revealCount) throw new Error("No test account with a password to reveal in the sidebar");
+  const pageClickRevealed = await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    root?.querySelectorAll("#testAccountsListBody [data-reveal-account]").forEach((button) => button.click());
+    return root?.getElementById("testAccountsListBody")?.textContent.includes("local-password-value") === true;
+  });
+  if (pageClickRevealed) throw new Error("A click dispatched by the page revealed a stored test-account password");
+  // Real clicks, one per account (each click re-renders the list, so re-query by index).
+  for (let index = 0; index < revealCount; index += 1) await host.locator("#testAccountsListBody [data-reveal-account]").nth(index).click();
+  await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("testAccountsListBody")?.textContent.includes("local-password-value"));
+  for (let index = 0; index < revealCount; index += 1) await host.locator("#testAccountsListBody [data-reveal-account]").nth(index).click();
   await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
     root?.getElementById("drawerClose")?.click();
