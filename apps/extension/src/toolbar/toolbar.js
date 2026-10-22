@@ -641,7 +641,12 @@ function resetToolsMenuSearch() {
 function ensureEdgeScroller(container, axis) {
   if (!container) return;
   const horizontal = axis === "x";
+  // A container whose only children are the two chevrons has nothing to scroll (e.g. the pinned row
+  // with zero pins): the scroll nav must not show at all, per the founder rule "a navegacao scroll
+  // so aparece quando a regra for verdadeira".
+  const hasContent = () => !!container.querySelector(":scope > :not(.qts-edge-arrow)");
   const update = () => {
+    if (!hasContent()) { container.classList.remove("canScrollStart", "canScrollEnd"); return; }
     const position = horizontal ? container.scrollLeft : container.scrollTop;
     const max = horizontal ? container.scrollWidth - container.clientWidth : container.scrollHeight - container.clientHeight;
     // 1px tolerance: fractional zoom levels leave scroll positions like 0.5 at the real edges.
@@ -649,6 +654,14 @@ function ensureEdgeScroller(container, axis) {
     container.classList.toggle("canScrollEnd", max - position > 1);
   };
   const placeArrows = () => {
+    // Empty row: strip any leftover chevrons and the canScroll flags instead of injecting them, so an
+    // empty pinned bar looks empty rather than showing a cut-off scroll arrow. Runs on every
+    // childList mutation (see the observer below), so it self-heals after innerHTML is cleared.
+    if (!hasContent()) {
+      container.querySelectorAll(":scope > .qts-edge-arrow").forEach((arrow) => arrow.remove());
+      container.classList.remove("canScrollStart", "canScrollEnd");
+      return;
+    }
     let start = container.querySelector(":scope > .qts-edge-arrow[data-edge='start']");
     let end = container.querySelector(":scope > .qts-edge-arrow[data-edge='end']");
     if (!start || !end) {
@@ -4032,6 +4045,39 @@ function drawerStyles() {
     .qts-key-view-preview[data-theme="light"] .qts-keycap-face { fill: #fff; stroke: #d1d1d1; }
     .qts-key-view-preview[data-theme="light"] .qts-keycap-shine { stroke: rgba(255,255,255,.9); }
     .qts-key-view-preview[data-theme="light"] .qts-keycap text { fill: #111; }
+    /* Cursor customization UI (Key View drawer). Lives in the shadow sheet, isolated from the
+       light-DOM overlay styles -- same class names, but these only style the drawer previews/pickers.
+       The chosen color flows through --qts-cursor-color, set live on the preview and the two grids. */
+    .qts-cursor-hint { display: block; margin-top: 4px; color: var(--qts-panel-muted); font-weight: 500; }
+    .qts-cursor-preview { --qts-cursor-color: #5b35e8; --qts-cursor-label-text: #fff; position: relative; min-height: 96px; display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0; border: 1px dashed var(--qts-panel-border); border-radius: 12px; background: var(--qts-panel); }
+    .qts-cursor-preview[data-theme="light"] { background: #e9edf4; }
+    .qts-cursor-preview .qts-cursor-figure { position: relative; width: 52px; height: 68px; }
+    .qts-cursor-pointer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+    .qts-cursor-glyph { fill: var(--qts-cursor-color, #5b35e8); stroke: #fff; stroke-width: 3; stroke-linejoin: round; paint-order: stroke; }
+    .qts-mouse-shadow { fill: rgba(0,0,0,.48); }
+    .qts-mouse-body, .qts-mouse-left, .qts-mouse-right { fill: #1d2028; stroke: #f2f2f2; stroke-width: 1.5; }
+    .qts-mouse-divider { fill: none; stroke: #f2f2f2; stroke-width: 1.4; }
+    .qts-mouse-wheel { fill: #f2f2f2; }
+    .qts-mouse-arrow { display: none; }
+    .qts-cursor-preview[data-theme="light"] .qts-mouse-body, .qts-cursor-preview[data-theme="light"] .qts-mouse-left, .qts-cursor-preview[data-theme="light"] .qts-mouse-right { fill: #fff; stroke: #111; }
+    .qts-cursor-preview[data-theme="light"] .qts-mouse-divider { stroke: #111; }
+    .qts-cursor-preview[data-theme="light"] .qts-mouse-wheel { fill: #111; }
+    .qts-cursor-bg { position: absolute; right: -5px; bottom: -3px; width: 18px; height: 18px; padding: 2px; box-sizing: border-box; border-radius: 999px; background: color-mix(in srgb, var(--qts-cursor-color, #5b35e8) 22%, #fff); box-shadow: 0 1px 4px rgba(0,0,0,.3); overflow: visible; }
+    .qts-cursor-figure[data-cursor-bg="none"] .qts-cursor-bg { display: none; }
+    .qts-cursor-bg path, .qts-cursor-bg circle { fill: var(--qts-cursor-color, #5b35e8); }
+    .qts-cursor-bg .qts-cursor-bg-core { fill: #fff; opacity: .85; }
+    .qts-cursor-bg .qts-cursor-bg-cut { fill: rgba(0,0,0,.45); }
+    .qts-cursor-click { display: none; }
+    .qts-cursor-label { display: inline-block; max-width: 160px; padding: 2px 9px; border-radius: 999px; background: var(--qts-cursor-color, #5b35e8); color: var(--qts-cursor-label-text, #fff); font: 800 11px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+    .qts-cursor-grid { --qts-cursor-color: #5b35e8; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
+    .qts-cursor-option { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 6px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); color: var(--qts-panel-muted); cursor: pointer; font-size: 10px; font-weight: 700; }
+    .qts-cursor-option small { color: inherit; text-align: center; }
+    .qts-cursor-option.isSelected { border-color: var(--qts-ui-primary, #5b35e8); color: var(--qts-panel-text); box-shadow: 0 0 0 2px color-mix(in srgb, var(--qts-ui-primary, #5b35e8) 20%, transparent); }
+    .qts-cursor-swatch { position: relative; width: 30px; height: 40px; }
+    .qts-cursor-swatch-bg { display: grid; place-items: center; }
+    .qts-cursor-swatch-bg .qts-cursor-bg { position: static; right: auto; bottom: auto; width: 26px; height: 26px; }
+    .qts-cursor-none { font-size: 18px; line-height: 1; color: var(--qts-panel-muted); }
+    @media (max-width: 680px) { .qts-cursor-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
     .qts-privacy-note p { margin: 5px 0 0; color: #aaa; }
     /* A bare native <input type=color> renders as a ~16px swatch with no border in some engines --
        easy to miss entirely as "this is a color picker". Wrapping it with a visible frame and a
@@ -4171,6 +4217,10 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Cor": "Color", "Espessura da linha": "Grosor de la línea",
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Usa el scroll para ir al elemento padre/hijo · Haz clic para fijarlo",
   "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: usa el scroll para cambiar de elemento, haz clic para soltarlo.",
+  "Cursor personalizado": "Cursor personalizado", "O nome e a cor aparecem ao lado do cursor, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "El nombre y el color aparecen junto al cursor, al estilo Figma. Útil en grabaciones y sesiones con más personas.",
+  "Nome no cursor": "Nombre en el cursor", "Ex.: Ana (QA)": "Ej.: Ana (QA)", "Cor do cursor": "Color del cursor", "Formato do cursor": "Forma del cursor", "Decoração do cursor": "Decoración del cursor",
+  "Mouse": "Ratón", "Seta": "Flecha", "Seta fina": "Flecha fina", "Mãozinha": "Manita",
+  "Nenhuma": "Ninguna", "Flores": "Flores", "Corações": "Corazones", "Caveiras": "Calaveras", "Raios": "Rayos",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -4199,6 +4249,10 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Cor": "Color", "Espessura da linha": "Line thickness",
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Scroll to go to the parent/child element · Click to pin it",
   "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: scroll to switch elements, click to release.",
+  "Cursor personalizado": "Custom cursor", "O nome e a cor aparecem ao lado do cursor, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "The name and color appear next to the cursor, Figma style. Handy for recordings and sessions with more people.",
+  "Nome no cursor": "Name on cursor", "Ex.: Ana (QA)": "E.g., Ana (QA)", "Cor do cursor": "Cursor color", "Formato do cursor": "Cursor shape", "Decoração do cursor": "Cursor decoration",
+  "Mouse": "Mouse", "Seta": "Arrow", "Seta fina": "Thin arrow", "Mãozinha": "Hand",
+  "Nenhuma": "None", "Flores": "Flowers", "Corações": "Hearts", "Caveiras": "Skulls", "Raios": "Lightning",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.": "Valida las reglas HTML sin enviar el formulario. El campo original se restaura y cada ejecución queda registrada en el historial local.",
@@ -6106,26 +6160,38 @@ function buildDeviceFrameHtml(pane, device) {
 }
 
 function breakpointStyles() {
+  // The top bar reuses the QA Toolbar theme: the --bp-* tokens mirror the drawer's panel palette
+  // (see drawerStyles) across the 3 theme states, and every accent (active toggle, hover, focus ring)
+  // derives from --qts-ui-primary like the rest of the toolbar instead of ad-hoc colors. All controls
+  // and feature buttons (bpUrl/bpDeviceA/B/bpReload/zoom/syncScroll/syncClick/bpShot/bpRecord/bpClose)
+  // are kept, only restyled.
   return `
-    .qts-bp-overlay { --bp-bg:#050505;--bp-surface:#111;--bp-control:#1a1a1a;--bp-border:#333;--bp-text:#fff;--bp-muted:#ccc; position: fixed; inset: 0; z-index: 2147483647; background: var(--bp-bg); display: flex; flex-direction: column; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--bp-text); }
-    :host([data-theme="light"]) .qts-bp-overlay { --bp-bg:#eef1f6;--bp-surface:#fff;--bp-control:#f7f9fc;--bp-border:#b8c2d3;--bp-text:#171a24;--bp-muted:#536078; }
-    @media (prefers-color-scheme:light) { :host([data-theme="system"]) .qts-bp-overlay { --bp-bg:#eef1f6;--bp-surface:#fff;--bp-control:#f7f9fc;--bp-border:#b8c2d3;--bp-text:#171a24;--bp-muted:#536078; } }
-    .qts-bp-topbar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--bp-border); background: var(--bp-surface); flex-wrap: wrap; }
-    .qts-bp-topbar input[type="url"] { flex: 1 1 220px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid var(--bp-border); border-radius: 8px; background: var(--bp-control); color: var(--bp-text); }
-    .qts-bp-topbar select { height: 34px; padding: 0 8px; border: 1px solid var(--bp-border); border-radius: 8px; background: var(--bp-control); color: var(--bp-text); }
-    .qts-bp-toggle { height: 34px; padding: 0 12px; border: 1px solid var(--bp-border); border-radius: 8px; background: var(--bp-control); color: var(--bp-muted); cursor: pointer; font-weight: 700; }
-    .qts-bp-zoom { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border: 1px solid var(--bp-border); border-radius: 8px; background: var(--bp-control); }
-    .qts-bp-zoom-btn { all: unset; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; border-radius: 5px; background: #262626; color: #fff; cursor: pointer; font-weight: 900; }
-    .qts-bp-zoom-btn:hover { background: #333; }
-    .qts-bp-zoom input[type="range"] { width: 90px; }
+    .qts-bp-overlay { --bp-bg:#0b0b0b;--bp-surface:#141414;--bp-control:#1d1d1d;--bp-border:#333;--bp-text:#fff;--bp-muted:#aaa;--bp-accent:var(--qts-ui-primary,#5b35e8);--bp-accent-contrast:var(--qts-ui-primary-contrast,#fff); position: fixed; inset: 0; z-index: 2147483647; background: var(--bp-bg); display: flex; flex-direction: column; font: 13px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: var(--bp-text); }
+    :host([data-theme="light"]) .qts-bp-overlay { --bp-bg:#eef1f6;--bp-surface:#fff;--bp-control:#f2f4f8;--bp-border:#b8c2d3;--bp-text:#171a24;--bp-muted:#58647a; }
+    @media (prefers-color-scheme:light) { :host([data-theme="system"]) .qts-bp-overlay { --bp-bg:#eef1f6;--bp-surface:#fff;--bp-control:#f2f4f8;--bp-border:#b8c2d3;--bp-text:#171a24;--bp-muted:#58647a; } }
+    .qts-bp-topbar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--bp-border); background: var(--bp-surface); flex-wrap: wrap; }
+    .qts-bp-topbar input[type="url"] { flex: 1 1 220px; min-width: 0; height: 34px; padding: 0 12px; border: 1px solid var(--bp-border); border-radius: 9px; background: var(--bp-control); color: var(--bp-text); font: inherit; }
+    .qts-bp-topbar input[type="url"]:hover, .qts-bp-topbar select:hover { border-color: var(--bp-accent); }
+    .qts-bp-topbar select { height: 34px; padding: 0 10px; border: 1px solid var(--bp-border); border-radius: 9px; background: var(--bp-control); color: var(--bp-text); cursor: pointer; font: inherit; }
+    .qts-bp-topbar select option { background: var(--bp-surface); color: var(--bp-text); }
+    .qts-bp-toggle { display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px; border: 1px solid var(--bp-border); border-radius: 9px; background: var(--bp-control); color: var(--bp-text); cursor: pointer; font-weight: 700; font-size: 12px; }
+    .qts-bp-toggle svg { width: 15px; height: 15px; }
+    .qts-bp-toggle:hover { border-color: var(--bp-accent); background: color-mix(in srgb, var(--bp-accent) 12%, var(--bp-control)); }
+    .qts-bp-toggle.isOn { background: var(--bp-accent); border-color: var(--bp-accent); color: var(--bp-accent-contrast); }
+    .qts-bp-zoom { display: flex; align-items: center; gap: 6px; height: 34px; padding: 0 8px; border: 1px solid var(--bp-border); border-radius: 9px; background: var(--bp-control); }
+    .qts-bp-zoom-btn { all: unset; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; border-radius: 6px; background: var(--bp-surface); color: var(--bp-text); cursor: pointer; font-weight: 900; }
+    .qts-bp-zoom-btn:hover { background: color-mix(in srgb, var(--bp-accent) 22%, var(--bp-surface)); color: var(--bp-accent); }
+    .qts-bp-zoom input[type="range"] { width: 90px; accent-color: var(--bp-accent); }
     #bpZoomLabel { min-width: 38px; text-align: center; color: var(--bp-muted); font-variant-numeric: tabular-nums; }
-    .qts-bp-toggle.isOn { background: #147b49; border-color: #1ca868; color: #fff; }
+    .qts-bp-overlay :is(input, select, button):focus-visible { outline: 3px solid color-mix(in srgb, var(--bp-accent) 42%, transparent); outline-offset: 2px; }
     .qts-bp-overlay.isCapturing :is(.qts-bp-topbar, .qts-bp-content-zoom) { visibility: hidden; }
-    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 8px; background: var(--qts-ui-danger, #c70e0e); color:#fff; font-size: 18px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
+    .qts-bp-close { width: 34px; height: 34px; border: 0; border-radius: 9px; background: var(--qts-ui-danger, #c70e0e); color:#fff; font-size: 18px; cursor: pointer; display:flex; align-items:center; justify-content:center; }
+    .qts-bp-close svg { width: 15px; height: 15px; }
+    .qts-bp-close:hover { filter: brightness(1.08); }
     .qts-bp-stage { flex: 1; display: flex; align-items: center; align-content: center; justify-content: center; flex-wrap: wrap; gap: 26px; overflow: auto; padding: 20px; }
     .qts-bp-pane { position:relative; display:flex; flex-direction:column; align-items:center; gap:8px; flex:0 1 auto; min-width:0; max-width:100%; padding-bottom:48px; }
     .qts-bp-frame { display: flex; flex-direction: column; align-items: center; background: var(--bp-control); border-radius: 14px; padding: 8px; box-shadow: 0 30px 70px rgba(0,0,0,.25); }
-    .qts-bp-frame.kind-phone { border-radius: 34px; padding: 14px 8px; border: 2px solid #2c2c2c; }
+    .qts-bp-frame.kind-phone { border-radius: 34px; padding: 14px 8px; border: 2px solid var(--bp-border); }
     .qts-bp-laptop-bar { width: 100%; display: flex; align-items: center; gap: 8px; padding: 6px 10px; }
     .qts-bp-laptop-bar .dot { width: 8px; height: 8px; border-radius: 50%; }
     .qts-bp-laptop-bar .dot.r { background: #ff5f57; } .qts-bp-laptop-bar .dot.y { background: #febc2e; } .qts-bp-laptop-bar .dot.g { background: #28c840; }
@@ -6133,10 +6199,11 @@ function breakpointStyles() {
     .qts-bp-phone-status { width: 100%; display: flex; justify-content: space-between; padding: 4px 14px; color: var(--bp-muted); font-size: 10px; }
     .qts-bp-viewport-wrap { position: relative; overflow: hidden; background: #fff; border-radius: 4px; }
     .qts-bp-viewport-wrap iframe { position: absolute; top: 0; left: 0; transform-origin: top left; border: 0; }
-    .qts-bp-home-indicator { width: 90px; height: 4px; border-radius: 99px; background: #444; margin-top: 8px; }
+    .qts-bp-home-indicator { width: 90px; height: 4px; border-radius: 99px; background: var(--bp-border); margin-top: 8px; }
     .qts-bp-content-zoom { position:absolute; left:50%; bottom:16px; transform:translateX(-50%); display:flex; align-items:center; gap:7px; min-height:32px; padding:4px 8px; border:1px solid var(--bp-border); border-radius:9px; background:var(--bp-surface); color:var(--bp-muted); font-size:10px; white-space:nowrap; }
-    .qts-bp-content-zoom input { width:90px; }
+    .qts-bp-content-zoom input { width:90px; accent-color: var(--bp-accent); }
     .qts-bp-content-zoom button { all:unset; display:grid; place-items:center; width:22px; height:22px; border-radius:6px; background:var(--bp-control); color:var(--bp-text); cursor:pointer; font-size:14px; font-weight:900; }
+    .qts-bp-content-zoom button:hover { background: color-mix(in srgb, var(--bp-accent) 22%, var(--bp-control)); color: var(--bp-accent); }
     .qts-bp-content-zoom strong { min-width:34px; color:var(--bp-text); text-align:center; font-variant-numeric:tabular-nums; }
     .qts-bp-scale-label { position:absolute; left:50%; bottom:0; transform:translateX(-50%); color:var(--bp-muted); font-size:10px; white-space:nowrap; }
   `;
@@ -6399,6 +6466,109 @@ const KEY_VIEW_SIZE_SCALE = Object.freeze({ small: 0.78, medium: 1, large: 1.3 }
 const KEY_VIEW_SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorization|auth[_-]?key|api[_-]?key|card|cart[aã]o|credit|debit|cc(?:num|number)?|cvv|cvc|security[_-]?code)/i;
 const KEY_VIEW_MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta", "AltGraph"]);
 
+// ---------------------------------------------------------------------------
+// Cursor identity (Key View "Visualizar mouse") -- DATA-DRIVEN on purpose.
+// Everything needed to paint a pointer (shape + color + decorative background +
+// name label) comes from one plain config object: { name, color, shape,
+// background }. The drawing helpers (sanitizeCursorConfig / renderCursorFigure /
+// cursorContrastColor) never read storage or state, so the upcoming "Multi
+// Testador" feature can reuse them verbatim to render each remote tester's cursor
+// just by passing a different config per peer. getCursorConfig() is the only
+// local-user source today (reads the keyViewCursor passthrough preference).
+// ---------------------------------------------------------------------------
+const CURSOR_DEFAULTS = Object.freeze({ name: "", color: "#5b35e8", shape: "mouse", background: "none" });
+const CURSOR_HEX_PATTERN = /^#[0-9a-f]{6}$/i;
+const CURSOR_NAME_MAX = 40;
+// Pointer silhouettes. "mouse" keeps the original detailed mouse (its click/scroll parts are styled
+// by the #qts-mouse-view-overlay[data-action=...] rules in toolbar.css); the others are single-color
+// glyphs filled via --qts-cursor-color with a white outline (see .qts-cursor-glyph in toolbar.css).
+const CURSOR_SHAPES = Object.freeze({
+  mouse: {
+    label: "Mouse",
+    svg: `<svg class="qts-cursor-pointer qts-cursor-pointer-mouse" viewBox="0 0 52 68" role="img" aria-hidden="true">
+      <path class="qts-mouse-shadow" d="M26 4C13 4 5 13 5 27v14c0 15 8 23 21 23s21-8 21-23V27C47 13 39 4 26 4Z" />
+      <path class="qts-mouse-body" d="M26 2C13 2 5 11 5 25v14c0 15 8 23 21 23s21-8 21-23V25C47 11 39 2 26 2Z" />
+      <path class="qts-mouse-left" d="M24 5C14 6 9 13 9 25v3h15V5Z" />
+      <path class="qts-mouse-right" d="M28 5c10 1 15 8 15 20v3H28V5Z" />
+      <path class="qts-mouse-divider" d="M26 4v25M8 30h36" />
+      <rect class="qts-mouse-wheel" x="22" y="11" width="8" height="15" rx="4" />
+      <path class="qts-mouse-arrow qts-mouse-arrow-up" d="m26 13-3 4h6Z" />
+      <path class="qts-mouse-arrow qts-mouse-arrow-down" d="m26 24 3-4h-6Z" />
+    </svg>`,
+  },
+  arrow: {
+    label: "Seta",
+    svg: `<svg class="qts-cursor-pointer" viewBox="0 0 52 68" role="img" aria-hidden="true"><path class="qts-cursor-glyph" d="M11 5 L11 50 L23 39 L30 57 L38 54 L31 36 L45 36 Z" /></svg>`,
+  },
+  "thin-arrow": {
+    label: "Seta fina",
+    svg: `<svg class="qts-cursor-pointer" viewBox="0 0 52 68" role="img" aria-hidden="true"><path class="qts-cursor-glyph" d="M14 4 L14 46 L21 38 L25 53 L30 51 L26 37 L35 37 Z" /></svg>`,
+  },
+  hand: {
+    label: "Mãozinha",
+    svg: `<svg class="qts-cursor-pointer" viewBox="0 0 52 68" role="img" aria-hidden="true"><path class="qts-cursor-glyph" d="M21 7 c-1.7 0 -3 1.3 -3 3 v18.5 l-2.7 -2.4 c-1.3 -1.1 -3.2 -1 -4.3 0.2 c-1 1.2 -0.9 3 0.2 4.1 l8.4 8.6 c1.7 1.7 4 2.7 6.4 2.7 h6.2 c3.6 0 6.6 -3 6.6 -6.6 V28.2 c0 -1.5 -1.2 -2.7 -2.7 -2.7 c-0.5 0 -1 0.1 -1.4 0.4 v-0.9 c0 -1.5 -1.2 -2.7 -2.7 -2.7 c-0.6 0 -1.1 0.2 -1.5 0.5 c-0.2 -1.3 -1.3 -2.3 -2.6 -2.3 c-0.6 0 -1.1 0.2 -1.5 0.4 V10 c0 -1.7 -1.3 -3 -3 -3 Z" /></svg>`,
+  },
+});
+const CURSOR_SHAPE_KEYS = Object.keys(CURSOR_SHAPES);
+// Decorative, deliberately subtle badges. Each glyph is painted with --qts-cursor-color over a pale
+// tint of the same color (see .qts-cursor-bg in toolbar.css). All SVG is inline (MV3: no remote code).
+const CURSOR_BACKGROUNDS = Object.freeze({
+  none: { label: "Nenhuma", svg: "" },
+  flower: {
+    label: "Flores",
+    svg: `<svg class="qts-cursor-bg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5.5" r="3.4" /><circle cx="18.5" cy="10" r="3.4" /><circle cx="16" cy="17.5" r="3.4" /><circle cx="8" cy="17.5" r="3.4" /><circle cx="5.5" cy="10" r="3.4" /><circle class="qts-cursor-bg-core" cx="12" cy="12" r="3.2" /></svg>`,
+  },
+  heart: {
+    label: "Corações",
+    svg: `<svg class="qts-cursor-bg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5 C3.5 14.5 4 7.5 9 7.5 c2 0 3 1.6 3 1.6 c0 0 1 -1.6 3 -1.6 c5 0 5.5 7 -3 13 Z" /></svg>`,
+  },
+  skull: {
+    label: "Caveiras",
+    svg: `<svg class="qts-cursor-bg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 C6.8 2.5 3.5 6 3.5 10.8 c0 2.6 1.2 4.3 2.6 5.3 v2.1 c0 1 0.8 1.8 1.8 1.8 h8.2 c1 0 1.8 -0.8 1.8 -1.8 v-2.1 c1.4 -1 2.6 -2.7 2.6 -5.3 C20.5 6 17.2 2.5 12 2.5 Z" /><circle class="qts-cursor-bg-cut" cx="8.6" cy="11" r="1.9" /><circle class="qts-cursor-bg-cut" cx="15.4" cy="11" r="1.9" /><path class="qts-cursor-bg-cut" d="M11 15 h2 v3 h-2 Z" /></svg>`,
+  },
+  lightning: {
+    label: "Raios",
+    svg: `<svg class="qts-cursor-bg" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 L5 13 h5 l-1.5 9 L19 10 h-5.5 Z" /></svg>`,
+  },
+});
+const CURSOR_BACKGROUND_KEYS = Object.keys(CURSOR_BACKGROUNDS);
+
+// Validates an arbitrary cursor config into a clean one safe to render or persist. The config rides
+// along as a passthrough preference (keyViewCursor), so the workspace normalizer never touches it --
+// we clamp/validate here instead, both on read and before every save.
+function sanitizeCursorConfig(cfg) {
+  const raw = cfg && typeof cfg === "object" ? cfg : {};
+  return {
+    name: String(raw.name ?? "").slice(0, CURSOR_NAME_MAX),
+    color: CURSOR_HEX_PATTERN.test(raw.color) ? String(raw.color) : CURSOR_DEFAULTS.color,
+    shape: CURSOR_SHAPES[raw.shape] ? raw.shape : CURSOR_DEFAULTS.shape,
+    background: CURSOR_BACKGROUNDS[raw.background] ? raw.background : CURSOR_DEFAULTS.background,
+  };
+}
+
+function getCursorConfig() {
+  return sanitizeCursorConfig(state.workspace?.preferences?.keyViewCursor);
+}
+
+// Readable text color for a name pill painted in `hex`: standard luma threshold so a bright pill gets
+// dark text and a dark pill gets white text.
+function cursorContrastColor(hex) {
+  const value = CURSOR_HEX_PATTERN.test(hex) ? hex : CURSOR_DEFAULTS.color;
+  const r = parseInt(value.slice(1, 3), 16);
+  const g = parseInt(value.slice(3, 5), 16);
+  const b = parseInt(value.slice(5, 7), 16);
+  const luma = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luma > 0.62 ? "#15151c" : "#ffffff";
+}
+
+// Pointer figure markup for a config (shape + optional decorative badge + a universal click ring).
+// Reused as-is by Multi Testador to draw remote cursors.
+function renderCursorFigure(config) {
+  const shape = CURSOR_SHAPES[config.shape] ? config.shape : CURSOR_DEFAULTS.shape;
+  const background = CURSOR_BACKGROUNDS[config.background] ? config.background : CURSOR_DEFAULTS.background;
+  return `<div class="qts-cursor-figure" data-cursor-shape="${shape}" data-cursor-bg="${background}">${CURSOR_SHAPES[shape].svg}${CURSOR_BACKGROUNDS[background].svg}<span class="qts-cursor-click" aria-hidden="true"></span></div>`;
+}
+
 function getKeyViewPreferences() {
   return state.workspace?.preferences?.keyView || { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" };
 }
@@ -6568,15 +6738,33 @@ function clearKeyViewTyping() {
   renderKeyViewTyping();
 }
 
+// Inside the Breakpoint Viewer the preview <iframe>'s document gets a CSS zoom on its <html>
+// (applyContentZoom). The cursor overlay is a child of that same zoomed <html>, so a value written to
+// style.left/top is multiplied by this zoom when painted, while the pointer's clientX/clientY and
+// window.innerWidth/innerHeight stay in real (unzoomed) viewport pixels: in Chrome clientX and a
+// position:fixed child do NOT compose linearly with root zoom. We read the zoom straight off the
+// overlay's own document (the Key View also runs inside the iframe and has no access to the top
+// frame's breakpointViewerState). A normal page leaves style.zoom empty, so this returns 1.
+function cursorDocumentZoom() {
+  const raw = parseFloat(document.documentElement.style.zoom);
+  return Number.isFinite(raw) && raw > 0 ? raw : 1;
+}
+
 function positionMouseView(overlay) {
-  const width = overlay.offsetWidth || 52;
-  const height = overlay.offsetHeight || 68;
+  // Zoom compensation: offsetWidth/offsetHeight and the clientX/clientY-based math below are all in
+  // real viewport pixels, but the overlay lives inside the zoomed <html>, so what we assign to
+  // left/top is scaled by `zoom` on paint. We size the overlay into screen pixels (offset* * zoom),
+  // do the usual placement/clamping in screen space, then divide the final value by `zoom` so it
+  // lands exactly under the pointer. With zoom === 1 (every normal page) this is identical to before.
+  const zoom = cursorDocumentZoom();
+  const width = (overlay.offsetWidth || 52) * zoom;
+  const height = (overlay.offsetHeight || 68) * zoom;
   let left = state.keyView.pointerX - width - 12;
   let top = state.keyView.pointerY + 16;
   if (left < 8) left = Math.min(window.innerWidth - width - 8, state.keyView.pointerX + 18);
   if (top + height > window.innerHeight - 8) top = Math.max(56, state.keyView.pointerY - height - 18);
-  overlay.style.left = `${Math.max(8, left)}px`;
-  overlay.style.top = `${Math.max(56, top)}px`;
+  overlay.style.left = `${Math.max(8, left) / zoom}px`;
+  overlay.style.top = `${Math.max(56, top) / zoom}px`;
 }
 
 function ensureMouseViewOverlay() {
@@ -6587,16 +6775,11 @@ function ensureMouseViewOverlay() {
   }
   overlay = document.createElement("div");
   overlay.id = "qts-mouse-view-overlay";
-  overlay.innerHTML = `<svg viewBox="0 0 52 68" role="img" aria-label="Ação do mouse">
-    <path class="qts-mouse-shadow" d="M26 4C13 4 5 13 5 27v14c0 15 8 23 21 23s21-8 21-23V27C47 13 39 4 26 4Z" />
-    <path class="qts-mouse-body" d="M26 2C13 2 5 11 5 25v14c0 15 8 23 21 23s21-8 21-23V25C47 11 39 2 26 2Z" />
-    <path class="qts-mouse-left" d="M24 5C14 6 9 13 9 25v3h15V5Z" />
-    <path class="qts-mouse-right" d="M28 5c10 1 15 8 15 20v3H28V5Z" />
-    <path class="qts-mouse-divider" d="M26 4v25M8 30h36" />
-    <rect class="qts-mouse-wheel" x="22" y="11" width="8" height="15" rx="4" />
-    <path class="qts-mouse-arrow qts-mouse-arrow-up" d="m26 13-3 4h6Z" />
-    <path class="qts-mouse-arrow qts-mouse-arrow-down" d="m26 24 3-4h-6Z" />
-  </svg><span class="qts-mouse-count-badge" data-mouse-count></span>`;
+  overlay.setAttribute("aria-label", "Ação do mouse");
+  // The figure markup is (re)built from the cursor config by updateMouseViewOverlayAppearance, so the
+  // shape/background can change without recreating the overlay. The name label and count badge are
+  // stable hosts updated in place.
+  overlay.innerHTML = `<div data-cursor-figure-host></div><span class="qts-cursor-label" data-cursor-label hidden></span><span class="qts-mouse-count-badge" data-mouse-count></span>`;
   document.documentElement.appendChild(overlay);
   updateMouseViewOverlayAppearance(overlay);
   return overlay;
@@ -6607,6 +6790,25 @@ function updateMouseViewOverlayAppearance(overlay) {
   const preferences = getKeyViewPreferences();
   overlay.dataset.theme = preferences.theme;
   overlay.dataset.mouseSize = preferences.mouseSize;
+  const config = getCursorConfig();
+  overlay.dataset.cursorShape = config.shape;
+  overlay.dataset.cursorBg = config.background;
+  overlay.style.setProperty("--qts-cursor-color", config.color);
+  overlay.style.setProperty("--qts-cursor-label-text", cursorContrastColor(config.color));
+  // Only rebuild the SVG figure when the shape or background actually changed, not on every
+  // click/scroll reposition.
+  const figureHost = overlay.querySelector("[data-cursor-figure-host]");
+  const figureSignature = `${config.shape}|${config.background}`;
+  if (figureHost && figureHost.dataset.signature !== figureSignature) {
+    figureHost.innerHTML = renderCursorFigure(config);
+    figureHost.dataset.signature = figureSignature;
+  }
+  const label = overlay.querySelector("[data-cursor-label]");
+  if (label) {
+    const name = config.name.trim();
+    label.textContent = name;
+    label.hidden = !name;
+  }
 }
 
 function showMouseView(action, duration = 650) {
@@ -6689,6 +6891,14 @@ function startKeyView() {
     const action = event.button === 2 ? "right" : event.button === 1 ? "middle" : "left";
     const overlay = showMouseView(action, null);
     overlay?.classList.add("isPressed");
+    if (overlay) {
+      // The click ring is a one-shot burst driven by its own class, not by isPressed: a fast mouseup
+      // removes isPressed, which would otherwise cut the 420ms pulse short on the non-mouse shapes.
+      // Remove then re-add after a forced reflow so repeated clicks restart the animation.
+      overlay.classList.remove("qts-click-burst");
+      void overlay.offsetWidth;
+      overlay.classList.add("qts-click-burst");
+    }
     bumpMouseRepeat(overlay, action);
   };
   const onMouseUp = () => {
@@ -6760,13 +6970,22 @@ async function saveKeyViewPreferences(next) {
 function openKeyView() {
   if (!requirePlanFeature("keyView")) return;
   const preferences = getKeyViewPreferences();
+  const cursor = getCursorConfig();
   let selectedPosition = preferences.position;
+  let selectedShape = cursor.shape;
+  let selectedBackground = cursor.background;
   openDrawer({
     title: "Key View",
     view: "keyView",
     toggle: { checked: preferences.enabled, label: "Ativar Key View", onChange: async (checked) => { await saveKeyViewPreferences({ enabled: checked }); openKeyView(); } },
     bodyHtml: `<label class="qts-switch-row"><input id="keyViewTyping" type="checkbox" ${preferences.typingMode ? "checked" : ""} /><span><b>Modo Typing</b><small>Mantém o texto digitado na tela até você clicar em Limpar.</small></span></label>
       <label class="qts-switch-row"><input id="keyViewMouse" type="checkbox" ${preferences.mouseEffects ? "checked" : ""} /><span><b>Visualizar mouse</b><small>Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.</small></span></label>
+      <div class="qts-field-label"><span>Cursor personalizado</span><small class="qts-cursor-hint">O nome e a cor aparecem ao lado do cursor, no estilo Figma. Útil em gravações e sessões com mais pessoas.</small></div>
+      <div class="qts-cursor-preview" id="cursorPreview" data-theme="${preferences.theme}"></div>
+      <label class="qts-field-label">Nome no cursor<input id="cursorName" type="text" maxlength="${CURSOR_NAME_MAX}" value="${escapeHtml(cursor.name)}" placeholder="Ex.: Ana (QA)" /></label>
+      <div class="qts-field-label"><span>Cor do cursor</span><div class="qts-pp-color-row"><input id="cursorColor" type="color" value="${escapeHtml(cursor.color)}" aria-label="Cor do cursor" /><span class="qts-pp-color-hex" id="cursorColorHex">${escapeHtml(cursor.color)}</span></div></div>
+      <div class="qts-field-label"><span>Formato do cursor</span><div class="qts-cursor-grid" id="cursorShapeGrid">${CURSOR_SHAPE_KEYS.map((key) => `<button type="button" class="qts-cursor-option ${key === cursor.shape ? "isSelected" : ""}" data-cursor-shape="${key}" title="${escapeHtml(CURSOR_SHAPES[key].label)}" aria-label="${escapeHtml(CURSOR_SHAPES[key].label)}"><span class="qts-cursor-swatch">${CURSOR_SHAPES[key].svg}</span><small>${escapeHtml(CURSOR_SHAPES[key].label)}</small></button>`).join("")}</div></div>
+      <div class="qts-field-label"><span>Decoração do cursor</span><div class="qts-cursor-grid" id="cursorBgGrid">${CURSOR_BACKGROUND_KEYS.map((key) => `<button type="button" class="qts-cursor-option ${key === cursor.background ? "isSelected" : ""}" data-cursor-bg="${key}" title="${escapeHtml(CURSOR_BACKGROUNDS[key].label)}" aria-label="${escapeHtml(CURSOR_BACKGROUNDS[key].label)}"><span class="qts-cursor-swatch qts-cursor-swatch-bg">${CURSOR_BACKGROUNDS[key].svg || '<span class="qts-cursor-none" aria-hidden="true">·</span>'}</span><small>${escapeHtml(CURSOR_BACKGROUNDS[key].label)}</small></button>`).join("")}</div></div>
       <label class="qts-field-label">Aparência das teclas<select id="keyViewTheme"><option value="dark" ${preferences.theme === "dark" ? "selected" : ""}>Tecla preta · texto branco</option><option value="light" ${preferences.theme === "light" ? "selected" : ""}>Tecla branca · texto preto</option></select></label>
       <div class="qts-key-view-size-grid">
         <label class="qts-field-label">Tamanho das teclas<select id="keyViewKeySize"><option value="small" ${preferences.keySize === "small" ? "selected" : ""}>Pequeno</option><option value="medium" ${preferences.keySize === "medium" ? "selected" : ""}>Médio</option><option value="large" ${preferences.keySize === "large" ? "selected" : ""}>Grande</option></select></label>
@@ -6781,13 +7000,46 @@ function openKeyView() {
       const keySize = body.querySelector("#keyViewKeySize");
       const mouseSize = body.querySelector("#keyViewMouseSize");
       const preview = body.querySelector("#keyViewPreview");
+      const cursorPreview = body.querySelector("#cursorPreview");
+      const cursorName = body.querySelector("#cursorName");
+      const cursorColor = body.querySelector("#cursorColor");
+      const cursorColorHex = body.querySelector("#cursorColorHex");
+      const shapeGrid = body.querySelector("#cursorShapeGrid");
+      const bgGrid = body.querySelector("#cursorBgGrid");
+      // Reads the live form controls into a clean config -- the single source the cursor preview and
+      // the eventual save both draw from (same sanitizer used on read/persist, so previews cannot show
+      // something that would not actually be stored).
+      const currentCursor = () => sanitizeCursorConfig({ name: cursorName.value, color: cursorColor.value, shape: selectedShape, background: selectedBackground });
+      const renderCursorPreview = () => {
+        const cfg = currentCursor();
+        const name = cfg.name.trim();
+        [cursorPreview, shapeGrid, bgGrid].forEach((host) => host.style.setProperty("--qts-cursor-color", cfg.color));
+        cursorPreview.style.setProperty("--qts-cursor-label-text", cursorContrastColor(cfg.color));
+        cursorPreview.dataset.theme = theme.value;
+        cursorPreview.innerHTML = `${renderCursorFigure(cfg)}${name ? `<span class="qts-cursor-label">${escapeHtml(name)}</span>` : ""}`;
+        cursorColorHex.textContent = cfg.color;
+      };
       const renderPreview = () => {
         preview.dataset.theme = theme.value;
         preview.dataset.keySize = keySize.value;
         preview.innerHTML = `${keycapSvg("Ctrl", keySize.value)}<span>+</span>${keycapSvg("V", keySize.value)}`;
+        renderCursorPreview();
       };
       theme.addEventListener("change", renderPreview);
       keySize.addEventListener("change", renderPreview);
+      cursorName.addEventListener("input", renderCursorPreview);
+      cursorColor.addEventListener("input", renderCursorPreview);
+      shapeGrid.querySelectorAll("[data-cursor-shape]").forEach((button) => button.addEventListener("click", () => {
+        selectedShape = button.dataset.cursorShape;
+        shapeGrid.querySelectorAll("[data-cursor-shape]").forEach((candidate) => candidate.classList.toggle("isSelected", candidate === button));
+        renderCursorPreview();
+      }));
+      bgGrid.querySelectorAll("[data-cursor-bg]").forEach((button) => button.addEventListener("click", () => {
+        selectedBackground = button.dataset.cursorBg;
+        bgGrid.querySelectorAll("[data-cursor-bg]").forEach((candidate) => candidate.classList.toggle("isSelected", candidate === button));
+        renderCursorPreview();
+      }));
+      renderCursorPreview();
       body.querySelectorAll("[data-key-view-position]").forEach((button) => button.addEventListener("click", () => {
         selectedPosition = button.dataset.keyViewPosition;
         body.querySelectorAll("[data-key-view-position]").forEach((candidate) => candidate.classList.toggle("isSelected", candidate === button));
@@ -6801,7 +7053,15 @@ function openKeyView() {
       body.querySelector("#keyViewTyping").addEventListener("change", (event) => persistSwitch(event.currentTarget, "typingMode"));
       body.querySelector("#keyViewMouse").addEventListener("change", (event) => persistSwitch(event.currentTarget, "mouseEffects"));
       body.querySelector("#keyViewSave").addEventListener("click", async () => {
-        await saveKeyViewPreferences({ typingMode: body.querySelector("#keyViewTyping").checked, mouseEffects: body.querySelector("#keyViewMouse").checked, theme: theme.value, position: selectedPosition, keySize: keySize.value, mouseSize: mouseSize.value });
+        // One persist for both the Key View prefs and the passthrough cursor config, so the whole
+        // "Salvar" writes once and re-renders the live overlay once.
+        state.workspace.preferences = {
+          ...(state.workspace.preferences || {}),
+          keyView: { ...getKeyViewPreferences(), typingMode: body.querySelector("#keyViewTyping").checked, mouseEffects: body.querySelector("#keyViewMouse").checked, theme: theme.value, position: selectedPosition, keySize: keySize.value, mouseSize: mouseSize.value },
+          keyViewCursor: currentCursor(),
+        };
+        await persistWorkspaceState();
+        updateMouseViewOverlayAppearance(document.getElementById("qts-mouse-view-overlay"));
         body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");
       });
       body.querySelector("#keyViewClear").addEventListener("click", () => { clearKeyViewTyping(); body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Texto limpo."); });

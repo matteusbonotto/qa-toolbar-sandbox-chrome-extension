@@ -21,6 +21,14 @@
   // Gives Chrome's download manager time to take the blob URL before this window (and every blob
   // URL it created) is torn down; closing immediately can cancel a large download.
   const CLOSE_AFTER_DOWNLOAD_MS = 4_000;
+  // Compact recorder widget, used once capture is running: just the timer and the pause/stop/cancel
+  // controls, parked in the top-right corner of the physical screen so it stays visible without
+  // covering much of the page being recorded. Width/height in CSS pixels; the layout in recorder.css
+  // (main[data-status="recording"|"paused"]) is tuned to these.
+  const WIDGET_WIDTH = 230;
+  const WIDGET_HEIGHT = 96;
+  // Breathing room kept between the widget and the screen edges, in CSS pixels.
+  const WIDGET_SCREEN_MARGIN = 16;
 
   const params = new URLSearchParams(location.search);
   const mode = params.get("mode") === "gif" ? "gif" : "video";
@@ -69,7 +77,11 @@
     $("timer").textContent = formatDuration(elapsed());
     $("pauseButton").hidden = !["recording", "paused"].includes(rec.status);
     $("pauseButton").textContent = rec.status === "paused" ? t.resume : t.pause;
+    // Compact widget hides label text (CSS), so keep a hover tooltip and the accessible name in sync.
+    $("pauseButton").title = rec.status === "paused" ? t.resume : t.pause;
     $("stopButton").hidden = !["recording", "paused"].includes(rec.status);
+    // Cancel stays reachable before capture (abort) and during capture (discard without saving).
+    $("cancelButton").hidden = !["starting", "recording", "paused"].includes(rec.status);
     if (message !== undefined) $("message").textContent = message;
     else if (rec.status === "recording") $("message").textContent = t.recording;
     else if (rec.status === "paused") $("message").textContent = t.paused;
@@ -179,7 +191,33 @@
   }
 
   // ---------------------------------------------------------------- lifecycle
+  // Shrinks this window from the large "choose" layout down to the compact corner widget once
+  // capture is running. Driven from here (never from the service worker), because the worker may be
+  // asleep by the time capture starts, while this page stays alive for the whole recording.
+  async function shrinkToWidget() {
+    try {
+      // "system.display" is intentionally NOT in the manifest (adding a permission is a separate,
+      // higher-risk change), so the physical screen geometry comes from this extension page's own
+      // window.screen. availWidth/availLeft/availTop already exclude OS chrome (taskbar, etc.) and,
+      // on multi-monitor setups, describe the display this window currently sits on.
+      const screen = window.screen || {};
+      const availWidth = Number.isFinite(screen.availWidth) ? screen.availWidth : (screen.width || WIDGET_WIDTH);
+      const availLeft = Number.isFinite(screen.availLeft) ? screen.availLeft : 0;
+      const availTop = Number.isFinite(screen.availTop) ? screen.availTop : 0;
+      const left = Math.max(availLeft, availLeft + availWidth - WIDGET_WIDTH - WIDGET_SCREEN_MARGIN);
+      const top = availTop + WIDGET_SCREEN_MARGIN;
+      const current = await chrome.windows.getCurrent();
+      // No focused:true on purpose: focus must stay on the page being tested, not jump to this widget.
+      await chrome.windows.update(current.id, { width: WIDGET_WIDTH, height: WIDGET_HEIGHT, left, top });
+    } catch {}
+  }
+
   async function begin({ userInitiated }) {
+    // Reentrancy guard: a second begin() while capture is already live would reopen the picker and
+    // overwrite rec.stream/rec.recorder without stopping the previous stream, orphaning the OS
+    // screen-share indicator. The initial call and the "choose" retry both run at status "starting";
+    // only an already-capturing state (recording/paused/stopping) must be rejected.
+    if (["recording", "paused", "stopping"].includes(rec.status)) return;
     if (!navigator.mediaDevices?.getDisplayMedia || (mode !== "gif" && typeof MediaRecorder === "undefined")) {
       await finishIdle(t.unavailable, { reason: "unavailable" });
       return;
@@ -224,7 +262,8 @@
     rec.recorder?.start();
     await publish();
     render();
-    $("cancelButton").hidden = true;
+    // Capture is running: collapse the large "choose" window into the minimal corner widget.
+    void shrinkToWidget();
     // Hand focus back to the page being tested; this window keeps recording in the background.
     if (sourceWindowId) chrome.windows.update(sourceWindowId, { focused: true }).catch(() => {});
     if (sourceTabId) chrome.tabs.update(sourceTabId, { active: true }).catch(() => {});
@@ -286,6 +325,9 @@
     rec.status = "idle";
     rec.ticker?.terminate();
     rec.ticker = null;
+    // Release any still-live capture (e.g. Cancel pressed mid-recording) so the OS screen-share
+    // indicator and the MediaStream are torn down even if the window lingers before closing.
+    rec.stream?.getTracks().forEach((track) => track.stop());
     await publish({ reason });
     render(message);
     $("pauseButton").hidden = true;
@@ -334,8 +376,12 @@
   $("title").textContent = mode === "gif" ? t.titleGif : t.title;
   $("hint").textContent = t.hint;
   $("startButton").textContent = t.chooseButton;
+  $("startButton").title = t.chooseButton;
   $("cancelButton").textContent = t.cancel;
+  // Compact widget renders these as icons only (CSS), so a tooltip keeps the label discoverable.
+  $("cancelButton").title = t.cancel;
   $("stopButton").textContent = t.stop;
+  $("stopButton").title = t.stop;
   $("cancelButton").hidden = false;
   $("startButton").addEventListener("click", () => { void begin({ userInitiated: true }); });
   $("cancelButton").addEventListener("click", () => { void finishIdle("", { reason: "cancelled", closeDelayMs: 0 }); });
