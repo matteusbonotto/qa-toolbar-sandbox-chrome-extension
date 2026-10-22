@@ -4048,42 +4048,51 @@ function drawerStyles() {
     .qts-key-view-preview[data-theme="light"] .qts-keycap-face { fill: #fff; stroke: #d1d1d1; }
     .qts-key-view-preview[data-theme="light"] .qts-keycap-shine { stroke: rgba(255,255,255,.9); }
     .qts-key-view-preview[data-theme="light"] .qts-keycap text { fill: #111; }
-    /* Cursor customization UI (Key View drawer). Lives in the shadow sheet, isolated from the
-       light-DOM overlay styles -- same class names, but these only style the drawer previews/pickers.
-       The chosen color flows through --qts-cursor-color, set live on the preview and the two grids. */
+    /* Cursor customization UI (Key View drawer). Pointer and click visualizer are separate sections.
+       Every choice tile has a FIXED art box (the SVG fills it via width/height 100%, no absolute
+       positioning) and an auto-height label, so nothing can spill over the tile border again. The
+       drawings themselves use CURSOR_FIGURE_CSS, the same sheet the live overlays use. */
+    ${CURSOR_FIGURE_CSS}
     .qts-cursor-hint { display: block; margin-top: 4px; color: var(--qts-panel-muted); font-weight: 500; }
-    .qts-cursor-preview { --qts-cursor-color: #5b35e8; --qts-cursor-label-text: #fff; position: relative; min-height: 96px; display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0; border: 1px dashed var(--qts-panel-border); border-radius: 12px; background: var(--qts-panel); }
+    .qts-cursor-section { display: grid; gap: 10px; margin: 14px 0; padding: 12px; border: 1px solid var(--qts-panel-border); border-radius: 12px; background: color-mix(in srgb, var(--qts-panel-2) 60%, transparent); }
+    .qts-cursor-section > h4 { display: flex; align-items: center; gap: 7px; margin: 0; color: var(--qts-panel-text); font-size: 12px; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
+    .qts-cursor-section > h4 svg { width: 14px; height: 14px; }
+    .qts-cursor-subtitle { margin: 2px 0 0; color: var(--qts-panel-muted); font-size: 11px; font-weight: 700; }
+    .qts-cursor-preview { display: flex; align-items: center; justify-content: center; gap: 28px; min-height: 104px; padding: 14px; border: 1px dashed var(--qts-panel-border); border-radius: 12px; background: #20232b; }
     .qts-cursor-preview[data-theme="light"] { background: #e9edf4; }
-    .qts-cursor-preview .qts-cursor-figure { position: relative; width: 52px; height: 68px; }
-    .qts-cursor-pointer { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-    .qts-cursor-glyph { fill: var(--qts-cursor-color, #5b35e8); stroke: #fff; stroke-width: 3; stroke-linejoin: round; paint-order: stroke; }
-    .qts-mouse-shadow { fill: rgba(0,0,0,.48); }
-    .qts-mouse-body, .qts-mouse-left, .qts-mouse-right { fill: #1d2028; stroke: #f2f2f2; stroke-width: 1.5; }
-    .qts-mouse-divider { fill: none; stroke: #f2f2f2; stroke-width: 1.4; }
-    .qts-mouse-wheel { fill: #f2f2f2; }
-    .qts-mouse-arrow { display: none; }
-    .qts-cursor-preview[data-theme="light"] .qts-mouse-body, .qts-cursor-preview[data-theme="light"] .qts-mouse-left, .qts-cursor-preview[data-theme="light"] .qts-mouse-right { fill: #fff; stroke: #111; }
-    .qts-cursor-preview[data-theme="light"] .qts-mouse-divider { stroke: #111; }
-    .qts-cursor-preview[data-theme="light"] .qts-mouse-wheel { fill: #111; }
-    .qts-cursor-bg { position: absolute; right: -5px; bottom: -3px; width: 18px; height: 18px; padding: 2px; box-sizing: border-box; border-radius: 999px; background: color-mix(in srgb, var(--qts-cursor-color, #5b35e8) 22%, #fff); box-shadow: 0 1px 4px rgba(0,0,0,.3); overflow: visible; }
-    .qts-cursor-figure[data-cursor-bg="none"] .qts-cursor-bg { display: none; }
-    .qts-cursor-bg path, .qts-cursor-bg circle { fill: var(--qts-cursor-color, #5b35e8); }
-    .qts-cursor-bg .qts-cursor-bg-core { fill: #fff; opacity: .85; }
-    .qts-cursor-bg .qts-cursor-bg-cut { fill: rgba(0,0,0,.45); }
-    .qts-cursor-click { display: none; }
-    .qts-cursor-label { display: inline-block; max-width: 160px; padding: 2px 9px; border-radius: 999px; background: var(--qts-cursor-color, #5b35e8); color: var(--qts-cursor-label-text, #fff); font: 800 11px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
-    .qts-cursor-grid { --qts-cursor-color: #5b35e8; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
-    /* min-height + flex:none on the swatch: the swatch's SVG is absolutely positioned (no intrinsic
-       size), so any height pressure on the button used to shrink the swatch to 0 and spill the icon
-       over the border with the label clipped (founder screenshot). */
-    .qts-cursor-option { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; box-sizing: border-box; min-height: 76px; height: auto; padding: 9px 6px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); color: var(--qts-panel-muted); cursor: pointer; font-size: 10px; font-weight: 700; }
-    .qts-cursor-option small { color: inherit; text-align: center; line-height: 1.2; }
-    .qts-cursor-option.isSelected { border-color: var(--qts-ui-primary, #5b35e8); color: var(--qts-panel-text); box-shadow: 0 0 0 2px color-mix(in srgb, var(--qts-ui-primary, #5b35e8) 20%, transparent); }
-    .qts-cursor-swatch { position: relative; flex: none; width: 30px; height: 40px; }
-    .qts-cursor-swatch-bg { display: grid; place-items: center; }
-    .qts-cursor-swatch-bg .qts-cursor-bg { position: static; right: auto; bottom: auto; width: 26px; height: 26px; }
-    .qts-cursor-none { font-size: 18px; line-height: 1; color: var(--qts-panel-muted); }
-    @media (max-width: 680px) { .qts-cursor-grid { grid-template-columns: repeat(2, minmax(0,1fr)); } }
+    .qts-cursor-preview-pointer { position: relative; width: 120px; height: 60px; }
+    .qts-cursor-preview-pointer .qts-pointer-box { position: absolute; left: 18px; top: 8px; }
+    .qts-cursor-preview-pointer .qts-cursor-label { position: absolute; }
+    .qts-cursor-preview-system { position: absolute; left: 18px; top: 8px; width: 13px; height: 20px; fill: #fff; stroke: #111; stroke-width: 1; }
+    .qts-cursor-preview-click { position: relative; display: grid; place-items: center; width: 92px; height: 92px; }
+    .qts-cursor-preview-click .qts-mouse-box { width: 52px; height: 68px; }
+    .qts-cursor-preview-click .qts-click-effect { left: 46px; top: 46px; }
+    .qts-cursor-preview-click .qts-click-ring { animation: none; opacity: .75; transform: scale(2.2); }
+    .qts-cursor-preview-click .qts-click-ring + .qts-click-ring { opacity: .4; transform: scale(3.4); }
+    .qts-cursor-preview-click .qts-click-spotlight { animation: none; }
+    .qts-choice-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; }
+    .qts-choice { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 6px; box-sizing: border-box; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 8px 4px 7px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); color: var(--qts-panel-muted); cursor: pointer; font: inherit; }
+    .qts-choice:hover { border-color: color-mix(in srgb, var(--qts-ui-primary, #5b35e8) 60%, var(--qts-panel-border)); color: var(--qts-panel-text); }
+    .qts-choice[aria-pressed="true"] { border-color: var(--qts-ui-primary, #5b35e8); color: var(--qts-panel-text); box-shadow: 0 0 0 2px color-mix(in srgb, var(--qts-ui-primary, #5b35e8) 22%, transparent); }
+    .qts-choice-art { flex: none; display: grid; place-items: center; width: 40px; height: 48px; }
+    .qts-choice-art > svg { display: block; width: 100%; height: 100%; }
+    .qts-choice-art.isPointer { width: 30px; height: 36px; }
+    .qts-choice-art.isPointer > svg { width: auto; max-width: 100%; height: 100%; }
+    .qts-choice-label { display: block; max-width: 100%; color: inherit; font-size: 10.5px; font-weight: 750; line-height: 1.2; text-align: center; overflow-wrap: anywhere; }
+    .qts-segmented { display: flex; flex-wrap: wrap; gap: 6px; }
+    .qts-segmented > button { display: inline-flex; align-items: center; justify-content: center; gap: 6px; flex: 1 1 0; min-width: 96px; height: auto; min-height: 34px; margin: 0; padding: 6px 10px; border: 1px solid var(--qts-panel-border); border-radius: 9px; background: var(--qts-panel-2); color: var(--qts-panel-muted); cursor: pointer; font: inherit; font-size: 11.5px; font-weight: 750; line-height: 1.2; }
+    .qts-segmented > button svg { flex: none; width: 15px; height: 15px; }
+    /* Long labels ("Desenho do mouse") wrap inside the button instead of overflowing both sides
+       (centered flex content wider than its box spills left and right). */
+    .qts-segmented > button span { min-width: 0; white-space: normal; overflow-wrap: anywhere; text-align: left; }
+    #cursorClickMode { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    #cursorClickMode > button { min-width: 0; justify-content: flex-start; }
+    .qts-segmented > button[aria-pressed="true"] { border-color: var(--qts-ui-primary, #5b35e8); background: color-mix(in srgb, var(--qts-ui-primary, #5b35e8) 14%, var(--qts-panel-2)); color: var(--qts-panel-text); }
+    .qts-click-colors { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+    .qts-click-colors label { display: grid; gap: 5px; color: var(--qts-panel-muted); font-size: 11px; font-weight: 750; }
+    .qts-click-colors input[type="color"] { width: 100%; height: 32px; padding: 2px; border: 1px solid var(--qts-panel-border); border-radius: 8px; background: var(--qts-panel-2); cursor: pointer; }
+    .qts-cursor-mouse-options[hidden] { display: none; }
+    @media (max-width: 420px) { .qts-click-colors { grid-template-columns: 1fr; } }
     .qts-privacy-note p { margin: 5px 0 0; color: #aaa; }
     /* A bare native <input type=color> renders as a ~16px swatch with no border in some engines --
        easy to miss entirely as "this is a color picker". Wrapping it with a visible frame and a
@@ -4223,10 +4232,13 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Cor": "Color", "Espessura da linha": "Grosor de la línea",
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Usa el scroll para ir al elemento padre/hijo · Haz clic para fijarlo",
   "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: usa el scroll para cambiar de elemento, haz clic para soltarlo.",
-  "Cursor personalizado": "Cursor personalizado", "O nome e a cor aparecem ao lado do cursor, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "El nombre y el color aparecen junto al cursor, al estilo Figma. Útil en grabaciones y sesiones con más personas.",
-  "Nome no cursor": "Nombre en el cursor", "Ex.: Ana (QA)": "Ej.: Ana (QA)", "Cor do cursor": "Color del cursor", "Formato do cursor": "Forma del cursor", "Decoração do cursor": "Decoración del cursor",
-  "Mouse": "Ratón", "Seta": "Flecha", "Seta fina": "Flecha fina", "Mãozinha": "Manita",
-  "Nenhuma": "Ninguna", "Flores": "Flores", "Corações": "Corazones", "Caveiras": "Calaveras", "Raios": "Rayos",
+  "Cursor personalizado": "Cursor personalizado", "Ponteiro e mouse são personalizados separadamente. O nome aparece ao lado do ponteiro, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "El puntero y el ratón se personalizan por separado. El nombre aparece junto al puntero, al estilo Figma. Útil en grabaciones y sesiones con más personas.",
+  "Nome no cursor": "Nombre en el cursor", "Ex.: Ana (QA)": "Ej.: Ana (QA)", "Cor do cursor": "Color del cursor", "Ponteiro": "Puntero", "Ao clicar": "Al hacer clic", "Modelo do mouse": "Modelo del ratón", "Arte no mouse": "Arte en el ratón", "Cor de cada botão": "Color de cada botón",
+  "Esquerdo": "Izquierdo", "Direito": "Derecho", "Meio e scroll": "Medio y scroll", "Usar cores do tema": "Usar colores del tema", "Preenchido": "Relleno", "Vazado": "Hueco",
+  "Do sistema": "Del sistema", "Padrão": "Estándar", "Flecha": "Flecha", "Triângulo": "Triángulo", "Seta fina": "Flecha fina", "Mão": "Mano",
+  "Desenho do mouse": "Dibujo del ratón", "Holofote": "Foco", "Ondas": "Ondas", "Nenhum": "Ninguno",
+  "Comum": "Común", "Gamer": "Gamer", "Antigo": "Antiguo", "Com relevo": "Con relieve", "3D": "3D", "Coração": "Corazón", "Tech": "Tech", "Transformer": "Transformer",
+  "Nenhuma": "Ninguna", "Flores": "Flores", "Corações": "Corazones", "Caveiras": "Calaveras", "Raios": "Rayos", "X Tech": "X Tech", "Hexágonos": "Hexágonos", "Diamantes": "Diamantes", "Flocos": "Copos", "Estrelas": "Estrellas",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -4255,10 +4267,13 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Cor": "Color", "Espessura da linha": "Line thickness",
   "Role o scroll para ir ao elemento pai/filho · Clique para fixar": "Scroll to go to the parent/child element · Click to pin it",
   "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: scroll to switch elements, click to release.",
-  "Cursor personalizado": "Custom cursor", "O nome e a cor aparecem ao lado do cursor, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "The name and color appear next to the cursor, Figma style. Handy for recordings and sessions with more people.",
-  "Nome no cursor": "Name on cursor", "Ex.: Ana (QA)": "E.g., Ana (QA)", "Cor do cursor": "Cursor color", "Formato do cursor": "Cursor shape", "Decoração do cursor": "Cursor decoration",
-  "Mouse": "Mouse", "Seta": "Arrow", "Seta fina": "Thin arrow", "Mãozinha": "Hand",
-  "Nenhuma": "None", "Flores": "Flowers", "Corações": "Hearts", "Caveiras": "Skulls", "Raios": "Lightning",
+  "Cursor personalizado": "Custom cursor", "Ponteiro e mouse são personalizados separadamente. O nome aparece ao lado do ponteiro, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "Pointer and mouse are customized separately. The name shows next to the pointer, Figma style. Useful in recordings and sessions with more people.",
+  "Nome no cursor": "Name on cursor", "Ex.: Ana (QA)": "E.g., Ana (QA)", "Cor do cursor": "Cursor color", "Ponteiro": "Pointer", "Ao clicar": "On click", "Modelo do mouse": "Mouse model", "Arte no mouse": "Mouse art", "Cor de cada botão": "Color of each button",
+  "Esquerdo": "Left", "Direito": "Right", "Meio e scroll": "Middle and scroll", "Usar cores do tema": "Use theme colors", "Preenchido": "Filled", "Vazado": "Hollow",
+  "Do sistema": "System", "Padrão": "Default", "Flecha": "Arrowhead", "Triângulo": "Triangle", "Seta fina": "Thin arrow", "Mão": "Hand",
+  "Desenho do mouse": "Mouse drawing", "Holofote": "Spotlight", "Ondas": "Ripples", "Nenhum": "None",
+  "Comum": "Classic", "Gamer": "Gamer", "Antigo": "Retro", "Com relevo": "Embossed", "3D": "3D", "Coração": "Heart", "Tech": "Tech", "Transformer": "Transformer",
+  "Nenhuma": "None", "Flores": "Flowers", "Corações": "Hearts", "Caveiras": "Skulls", "Raios": "Lightning", "X Tech": "X Tech", "Hexágonos": "Hexagons", "Diamantes": "Diamonds", "Flocos": "Snowflakes", "Estrelas": "Stars",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.": "Valida las reglas HTML sin enviar el formulario. El campo original se restaura y cada ejecución queda registrada en el historial local.",
@@ -6562,91 +6577,179 @@ const KEY_VIEW_SENSITIVE_HINT = /(?:passw(?:or)?d|senha|secret|token|authorizati
 const KEY_VIEW_MODIFIER_KEYS = new Set(["Control", "Alt", "Shift", "Meta", "AltGraph"]);
 
 // ---------------------------------------------------------------------------
-// Cursor identity (Key View "Visualizar mouse") -- DATA-DRIVEN on purpose.
-// Everything needed to paint a pointer (shape + color + decorative background +
-// name label) comes from one plain config object: { name, color, shape,
-// background }. The drawing helpers (sanitizeCursorConfig / renderCursorFigure /
-// cursorContrastColor) never read storage or state, so the upcoming "Multi
-// Testador" feature can reuse them verbatim to render each remote tester's cursor
-// just by passing a different config per peer. getCursorConfig() is the only
-// local-user source today (reads the keyViewCursor passthrough preference).
+// Cursor identity v2 (Key View "Visualizar mouse") -- DATA-DRIVEN on purpose.
+// Two independent things, never mixed again:
+//  - POINTER: the arrow/hand that follows the real pointer (or the system one), always visible while
+//    Key View mouse effects are on, carrying the tester's name pill Figma-style.
+//  - CLICK VISUALIZER: what appears when a button is pressed -- a mouse drawing (8 styles, filled or
+//    hollow, with an optional art pattern painted INSIDE the mouse body), a spotlight, or quake rings,
+//    each mouse button with its own color.
+// Every helper below takes a plain config and never reads storage/state, so Multi Testador can draw
+// each remote tester just by passing that peer's config.
 // ---------------------------------------------------------------------------
-const CURSOR_DEFAULTS = Object.freeze({ name: "", color: "#5b35e8", shape: "mouse", background: "none" });
+const CURSOR_DEFAULTS = Object.freeze({
+  name: "",
+  color: "#5b35e8",
+  pointer: "system",
+  pointerFill: "filled",
+  clickMode: "mouse",
+  mouseStyle: "normal",
+  mouseFill: "filled",
+  mouseArt: "none",
+  // "" = follow the UI color theme (left/right use --qts-ui-highlight, middle/scroll --qts-ui-primary),
+  // which is what the theme-preset smoke checks expect by default.
+  clickColors: Object.freeze({ left: "", right: "", middle: "" }),
+});
 const CURSOR_HEX_PATTERN = /^#[0-9a-f]{6}$/i;
 const CURSOR_NAME_MAX = 40;
-// Pointer silhouettes. "mouse" keeps the original detailed mouse (its click/scroll parts are styled
-// by the #qts-mouse-view-overlay[data-action=...] rules in toolbar.css); the others are single-color
-// glyphs filled via --qts-cursor-color with a white outline (see .qts-cursor-glyph in toolbar.css).
-const CURSOR_SHAPES = Object.freeze({
-  mouse: {
-    label: "Mouse",
-    svg: `<svg class="qts-cursor-pointer qts-cursor-pointer-mouse" viewBox="0 0 52 68" role="img" aria-hidden="true">
-      <path class="qts-mouse-shadow" d="M26 4C13 4 5 13 5 27v14c0 15 8 23 21 23s21-8 21-23V27C47 13 39 4 26 4Z" />
-      <path class="qts-mouse-body" d="M26 2C13 2 5 11 5 25v14c0 15 8 23 21 23s21-8 21-23V25C47 11 39 2 26 2Z" />
-      <path class="qts-mouse-left" d="M24 5C14 6 9 13 9 25v3h15V5Z" />
-      <path class="qts-mouse-right" d="M28 5c10 1 15 8 15 20v3H28V5Z" />
-      <path class="qts-mouse-divider" d="M26 4v25M8 30h36" />
-      <rect class="qts-mouse-wheel" x="22" y="11" width="8" height="15" rx="4" />
-      <path class="qts-mouse-arrow qts-mouse-arrow-up" d="m26 13-3 4h6Z" />
-      <path class="qts-mouse-arrow qts-mouse-arrow-down" d="m26 24 3-4h-6Z" />
-    </svg>`,
+
+// Mouse drawings share one 52x68 viewBox and one part vocabulary so click/scroll highlighting is
+// pure CSS on the same classes for every style: body (also the art clip), left/right buttons, wheel,
+// divider, plus purely decorative `extra` markup. `wheel` is [x, y, width, height].
+const MOUSE_STYLES = Object.freeze({
+  normal: {
+    label: "Comum",
+    body: "M26 2C13 2 5 11 5 25v14c0 15 8 23 21 23s21-8 21-23V25C47 11 39 2 26 2Z",
+    left: "M24 5C14 6 9 13 9 25v3h15V5Z",
+    right: "M28 5c10 1 15 8 15 20v3H28V5Z",
+    divider: "M26 4v25M8 30h36",
+    wheel: [22, 11, 8, 15],
+    extra: () => "",
   },
-  arrow: {
-    label: "Seta",
-    svg: `<svg class="qts-cursor-pointer" viewBox="0 0 52 68" role="img" aria-hidden="true"><path class="qts-cursor-glyph" d="M11 5 L11 50 L23 39 L30 57 L38 54 L31 36 L45 36 Z" /></svg>`,
+  gamer: {
+    label: "Gamer",
+    body: "M26 3C17 3 11 8 9 16L6 30 4 44c0 12 9 21 22 21s22-9 22-21l-2-14-3-14C41 8 35 3 26 3Z",
+    left: "M24 6c-7 1-11 5-12.5 12L9.5 30H24Z",
+    right: "M28 6c7 1 11 5 12.5 12l2 12H28Z",
+    divider: "M26 6v24M8 32h36",
+    wheel: [22.5, 10, 7, 14],
+    extra: () => `<path class="qts-mouse-line" d="M7.5 37l4 1.5M7 42l4 1.5M6.8 47l4 1.5M44.5 37l-4 1.5M45 42l-4 1.5M45.2 47l-4 1.5"/><rect class="qts-mouse-accent-fill" x="3.2" y="33" width="2.6" height="7" rx="1.2"/><path class="qts-mouse-accent" d="M15 54q11 6 22 0"/>`,
   },
-  "thin-arrow": {
-    label: "Seta fina",
-    svg: `<svg class="qts-cursor-pointer" viewBox="0 0 52 68" role="img" aria-hidden="true"><path class="qts-cursor-glyph" d="M14 4 L14 46 L21 38 L25 53 L30 51 L26 37 L35 37 Z" /></svg>`,
+  retro: {
+    label: "Antigo",
+    body: "M10 9h32q5 0 5 5v44q0 6-6 6H11q-6 0-6-6V14q0-5 5-5Z",
+    left: "M10 12h14.5v21H8V14q0-2 2-2Z",
+    right: "M27.5 12H42q2 0 2 2v19H27.5Z",
+    divider: "M26 11v23M7 34.5h38",
+    wheel: [23, 16, 6, 10],
+    extra: () => `<path class="qts-mouse-line" d="M26 9V4q0-3 3-3h4"/><path class="qts-mouse-line" d="M17 50h18M17 54h18"/>`,
   },
-  hand: {
-    label: "Mãozinha",
-    svg: `<svg class="qts-cursor-pointer" viewBox="0 0 52 68" role="img" aria-hidden="true"><path class="qts-cursor-glyph" d="M21 7 c-1.7 0 -3 1.3 -3 3 v18.5 l-2.7 -2.4 c-1.3 -1.1 -3.2 -1 -4.3 0.2 c-1 1.2 -0.9 3 0.2 4.1 l8.4 8.6 c1.7 1.7 4 2.7 6.4 2.7 h6.2 c3.6 0 6.6 -3 6.6 -6.6 V28.2 c0 -1.5 -1.2 -2.7 -2.7 -2.7 c-0.5 0 -1 0.1 -1.4 0.4 v-0.9 c0 -1.5 -1.2 -2.7 -2.7 -2.7 c-0.6 0 -1.1 0.2 -1.5 0.5 c-0.2 -1.3 -1.3 -2.3 -2.6 -2.3 c-0.6 0 -1.1 0.2 -1.5 0.4 V10 c0 -1.7 -1.3 -3 -3 -3 Z" /></svg>`,
+  emboss: {
+    label: "Com relevo",
+    body: "M26 3C14.5 3 7 11.5 7 25v13c0 15.5 7.5 24 19 24s19-8.5 19-24V25C45 11.5 37.5 3 26 3Z",
+    left: "M24 6c-9 1-13.5 7.5-13.5 19v3H24Z",
+    right: "M28 6c9 1 13.5 7.5 13.5 19v3H28Z",
+    divider: "M26 5v24M9 30h34",
+    wheel: [22.5, 11, 7, 14],
+    extra: () => `<path class="qts-mouse-bevel" d="M11 32c0 18 6 26 15 26s15-8 15-26"/><path class="qts-mouse-line qts-mouse-soft" d="M15 40q11 6 22 0M16 46q10 5.5 20 0M18 52q8 4.5 16 0"/>`,
   },
-});
-const CURSOR_SHAPE_KEYS = Object.keys(CURSOR_SHAPES);
-// Decorative, deliberately subtle badges. Each glyph is painted with --qts-cursor-color over a pale
-// tint of the same color (see .qts-cursor-bg in toolbar.css). All SVG is inline (MV3: no remote code).
-const CURSOR_BACKGROUNDS = Object.freeze({
-  none: { label: "Nenhuma", svg: "" },
-  flower: {
-    label: "Flores",
-    svg: `<svg class="qts-cursor-bg" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5.5" r="3.4" /><circle cx="18.5" cy="10" r="3.4" /><circle cx="16" cy="17.5" r="3.4" /><circle cx="8" cy="17.5" r="3.4" /><circle cx="5.5" cy="10" r="3.4" /><circle class="qts-cursor-bg-core" cx="12" cy="12" r="3.2" /></svg>`,
+  "3d": {
+    label: "3D",
+    body: "M26 2C13 2 5 11 5 25v14c0 15 8 23 21 23s21-8 21-23V25C47 11 39 2 26 2Z",
+    left: "M24 5C14 6 9 13 9 25v3h15V5Z",
+    right: "M28 5c10 1 15 8 15 20v3H28V5Z",
+    divider: "M26 4v25M8 30h36",
+    wheel: [22, 11, 8, 15],
+    // Shading over the whole body: light from the top-left, shade on the bottom-right, plus a gloss.
+    extra: (uid, body) => `<defs><linearGradient id="${uid}-shade" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".55"/><stop offset=".45" stop-color="#fff" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".45"/></linearGradient></defs><path d="${body}" fill="url(#${uid}-shade)" style="pointer-events:none"/><ellipse class="qts-mouse-gloss" cx="18" cy="16" rx="5" ry="8" transform="rotate(-20 18 16)"/>`,
   },
   heart: {
-    label: "Corações",
-    svg: `<svg class="qts-cursor-bg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 20.5 C3.5 14.5 4 7.5 9 7.5 c2 0 3 1.6 3 1.6 c0 0 1 -1.6 3 -1.6 c5 0 5.5 7 -3 13 Z" /></svg>`,
+    label: "Coração",
+    body: "M26 64C14 55 4 45 4 28 4 16 11 8 19.5 8c3.5 0 5.5 2 6.5 4 1-2 3-4 6.5-4C41 8 48 16 48 28c0 17-10 27-22 36Z",
+    left: "M24.5 13c-1.5-2-3-2.5-5-2.5C12.5 10.5 7 17 7 28v3h17.5Z",
+    right: "M27.5 13c1.5-2 3-2.5 5-2.5C39.5 10.5 45 17 45 28v3H27.5Z",
+    divider: "M26 13v19M6 32h40",
+    wheel: [22.5, 15, 7, 13],
+    extra: () => "",
   },
-  skull: {
-    label: "Caveiras",
-    svg: `<svg class="qts-cursor-bg" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 C6.8 2.5 3.5 6 3.5 10.8 c0 2.6 1.2 4.3 2.6 5.3 v2.1 c0 1 0.8 1.8 1.8 1.8 h8.2 c1 0 1.8 -0.8 1.8 -1.8 v-2.1 c1.4 -1 2.6 -2.7 2.6 -5.3 C20.5 6 17.2 2.5 12 2.5 Z" /><circle class="qts-cursor-bg-cut" cx="8.6" cy="11" r="1.9" /><circle class="qts-cursor-bg-cut" cx="15.4" cy="11" r="1.9" /><path class="qts-cursor-bg-cut" d="M11 15 h2 v3 h-2 Z" /></svg>`,
+  tech: {
+    label: "Tech",
+    body: "M26 2C14 2 7 10 7 23v17c0 14 7 22 19 22s19-8 19-22V23C45 10 38 2 26 2Z",
+    left: "M24 5c-9 1-13.5 7-13.5 18v6H24Z",
+    right: "M28 5c9 1 13.5 7 13.5 18v6H28Z",
+    divider: "M26 4v25M9 31h34",
+    wheel: [22.5, 10, 7, 15],
+    extra: () => `<path class="qts-mouse-accent" d="M14 39h6l3 3h6M38 44h-5l-3 3v6M16 50h5l2-2"/><circle class="qts-mouse-accent-fill" cx="14" cy="39" r="1.4"/><circle class="qts-mouse-accent-fill" cx="30" cy="53" r="1.4"/><circle class="qts-mouse-accent-fill" cx="23" cy="48" r="1.4"/><path class="qts-mouse-accent qts-mouse-led" d="M8.5 33v12M43.5 33v12"/>`,
   },
-  lightning: {
-    label: "Raios",
-    svg: `<svg class="qts-cursor-bg" viewBox="0 0 24 24" aria-hidden="true"><path d="M13.5 2 L5 13 h5 l-1.5 9 L19 10 h-5.5 Z" /></svg>`,
+  transformer: {
+    label: "Transformer",
+    body: "M18 3h16l10 9 3 18-2 20-9 14H16L7 50 5 30l3-18Z",
+    left: "M18.5 6h6v24H8.2l2.4-16.4Z",
+    right: "M27.5 6h6l7.9 7.6L43.8 30H27.5Z",
+    divider: "M26 6v24M7 32h38",
+    wheel: [22.5, 11, 7, 13],
+    extra: () => `<path class="qts-mouse-line" d="M9 35l8 2-2 13-5-3ZM43 35l-8 2 2 13 5-3Z"/><path class="qts-mouse-accent-fill" d="M20 40h12l-2 9h-8Z"/><path class="qts-mouse-line" d="M21 55h10"/>`,
   },
 });
-const CURSOR_BACKGROUND_KEYS = Object.keys(CURSOR_BACKGROUNDS);
+const MOUSE_STYLE_KEYS = Object.keys(MOUSE_STYLES);
 
-// Validates an arbitrary cursor config into a clean one safe to render or persist. The config rides
-// along as a passthrough preference (keyViewCursor), so the workspace normalizer never touches it --
-// we clamp/validate here instead, both on read and before every save.
+// Art painted INSIDE the mouse body (clipped to its outline), like a mouse skin. Each entry is the
+// content of one repeating 12x12 tile; colors come from --qts-mouse-art-color.
+const MOUSE_ARTS = Object.freeze({
+  none: { label: "Nenhuma", tile: "" },
+  flowers: { label: "Flores", tile: `<g transform="translate(6 6)"><circle cx="0" cy="-2.3" r="1.6"/><circle cx="2.2" cy="-.7" r="1.6"/><circle cx="1.4" cy="1.9" r="1.6"/><circle cx="-1.4" cy="1.9" r="1.6"/><circle cx="-2.2" cy="-.7" r="1.6"/></g>` },
+  hearts: { label: "Corações", tile: `<path d="M6 9.5C2.2 6.8 2.4 3.6 4.6 3.6c.9 0 1.4.7 1.4.7s.5-.7 1.4-.7c2.2 0 2.4 3.2-1.4 5.9Z"/>` },
+  skulls: { label: "Caveiras", tile: `<path fill-rule="evenodd" d="M6 2.2c-2.4 0-4 1.6-4 3.8 0 1.2.6 2 1.2 2.4v1c0 .5.4.8.8.8h4c.4 0 .8-.3.8-.8v-1c.6-.4 1.2-1.2 1.2-2.4 0-2.2-1.6-3.8-4-3.8ZM4.4 5.2a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Zm3.2 0a.9.9 0 1 0 0 1.8.9.9 0 0 0 0-1.8Z"/>` },
+  lightning: { label: "Raios", tile: `<path d="M7 1.5 3 7h2.4l-.8 3.5L9 5H6.5Z"/>` },
+  xtech: { label: "X Tech", tile: `<path d="M2.5 2.5l7 7M9.5 2.5l-7 7" style="stroke:var(--qts-mouse-art-color);stroke-width:1.6;stroke-linecap:round;fill:none"/><rect x="5.3" y=".2" width="1.4" height="1.4"/>` },
+  hexagons: { label: "Hexágonos", tile: `<path d="M6 1.2 10 3.5v5L6 10.8 2 8.5v-5Z" style="stroke:var(--qts-mouse-art-color);stroke-width:1;fill:none"/>` },
+  diamonds: { label: "Diamantes", tile: `<path d="M6 1.5 10 6 6 10.5 2 6Z"/>` },
+  snow: { label: "Flocos", tile: `<path d="M6 1.5v9M2.1 3.75l7.8 4.5M2.1 8.25l7.8-4.5" style="stroke:var(--qts-mouse-art-color);stroke-width:1;stroke-linecap:round;fill:none"/>` },
+  stars: { label: "Estrelas", tile: `<path d="m6 1.8 1.2 2.7 2.9.3-2.2 1.9.7 2.9L6 8.1 3.4 9.6l.7-2.9-2.2-1.9 2.9-.3Z"/>` },
+});
+const MOUSE_ART_KEYS = Object.keys(MOUSE_ARTS);
+
+// Pointers: each has its own viewBox and the exact hotspot (tip) so the drawing lands where the real
+// pointer clicks. "system" draws nothing and keeps the OS pointer (the name pill still follows it).
+const POINTER_STYLES = Object.freeze({
+  system: { label: "Do sistema" },
+  classic: { label: "Padrão", viewBox: "0 0 24 30", tip: [2, 2], path: "M2 2v21.5l6-5.6 4.2 9.4 3.9-1.7-4.2-9.2H20Z" },
+  arrowhead: { label: "Flecha", viewBox: "0 0 26 26", tip: [2, 2], path: "M2 2 23.5 10.5 14.5 14.5 10.5 23.5Z" },
+  triangle: { label: "Triângulo", viewBox: "0 0 26 26", tip: [2.5, 2.5], path: "M2.5 2.5 23 11.5 11.5 23Z" },
+  thin: { label: "Seta fina", viewBox: "0 0 20 28", tip: [2, 2], path: "M2 2v19.5l4.6-4.4 3.3 7.6 2.7-1.2-3.2-7.4H15Z" },
+  // Bootstrap Icons hand-index-fill path (MIT, already the toolbar's icon set), fingertip as hotspot.
+  hand: { label: "Mão", viewBox: "-1 -1 18 18", tip: [6.75, 0], path: "M8.5 4.466V1.75a1.75 1.75 0 1 0-3.5 0v5.34l-1.2.24a1.5 1.5 0 0 0-1.196 1.636l.345 3.106a2.5 2.5 0 0 0 .405 1.11l1.433 2.15A1.5 1.5 0 0 0 6.035 16h6.385a1.5 1.5 0 0 0 1.302-.756l1.395-2.441a3.5 3.5 0 0 0 .444-1.389l.271-2.715a2 2 0 0 0-1.99-2.199h-.581a5 5 0 0 0-.195-.248c-.191-.229-.51-.568-.88-.716-.364-.146-.846-.132-1.158-.108l-.132.012a1.26 1.26 0 0 0-.56-.642 2.6 2.6 0 0 0-.738-.288c-.31-.062-.739-.058-1.05-.046z" },
+});
+const POINTER_STYLE_KEYS = Object.keys(POINTER_STYLES);
+const CLICK_MODES = Object.freeze({
+  mouse: { label: "Desenho do mouse", icon: "mouse2Fill" },
+  spotlight: { label: "Holofote", icon: "lightbulbFill" },
+  quake: { label: "Ondas", icon: "broadcast" },
+  none: { label: "Nenhum", icon: "slashCircle" },
+});
+const CLICK_MODE_KEYS = Object.keys(CLICK_MODES);
+
+function sanitizeCursorColor(value, fallback) {
+  return CURSOR_HEX_PATTERN.test(value) ? String(value) : fallback;
+}
+
+// Validates an arbitrary config into one safe to render or persist. Also migrates the v1 shape
+// ({ shape, background }) saved by 1.4.39: a non-mouse shape becomes the pointer, the old badge
+// becomes the art inside the mouse.
 function sanitizeCursorConfig(cfg) {
   const raw = cfg && typeof cfg === "object" ? cfg : {};
+  const legacyPointer = { arrow: "classic", "thin-arrow": "thin", hand: "hand" }[raw.shape];
+  const legacyArt = { flower: "flowers", heart: "hearts", skull: "skulls", lightning: "lightning" }[raw.background];
+  const pick = (value, table, fallback) => (Object.prototype.hasOwnProperty.call(table, value) ? value : fallback);
+  const clickColors = raw.clickColors && typeof raw.clickColors === "object" ? raw.clickColors : {};
   return {
     name: String(raw.name ?? "").slice(0, CURSOR_NAME_MAX),
-    color: CURSOR_HEX_PATTERN.test(raw.color) ? String(raw.color) : CURSOR_DEFAULTS.color,
-    shape: CURSOR_SHAPES[raw.shape] ? raw.shape : CURSOR_DEFAULTS.shape,
-    background: CURSOR_BACKGROUNDS[raw.background] ? raw.background : CURSOR_DEFAULTS.background,
+    color: sanitizeCursorColor(raw.color, CURSOR_DEFAULTS.color),
+    pointer: pick(raw.pointer ?? legacyPointer, POINTER_STYLES, CURSOR_DEFAULTS.pointer),
+    pointerFill: raw.pointerFill === "outline" ? "outline" : "filled",
+    clickMode: pick(raw.clickMode, CLICK_MODES, CURSOR_DEFAULTS.clickMode),
+    mouseStyle: pick(raw.mouseStyle, MOUSE_STYLES, CURSOR_DEFAULTS.mouseStyle),
+    mouseFill: raw.mouseFill === "outline" ? "outline" : "filled",
+    mouseArt: pick(raw.mouseArt ?? legacyArt, MOUSE_ARTS, CURSOR_DEFAULTS.mouseArt),
+    clickColors: {
+      left: sanitizeCursorColor(clickColors.left, ""),
+      right: sanitizeCursorColor(clickColors.right, ""),
+      middle: sanitizeCursorColor(clickColors.middle, ""),
+    },
   };
 }
 
-function getCursorConfig() {
-  return sanitizeCursorConfig(state.workspace?.preferences?.keyViewCursor);
-}
-
-// Readable text color for a name pill painted in `hex`: standard luma threshold so a bright pill gets
-// dark text and a dark pill gets white text.
+// Readable text color for a pill/glyph painted in `hex` (standard luma threshold).
 function cursorContrastColor(hex) {
   const value = CURSOR_HEX_PATTERN.test(hex) ? hex : CURSOR_DEFAULTS.color;
   const r = parseInt(value.slice(1, 3), 16);
@@ -6656,20 +6759,125 @@ function cursorContrastColor(hex) {
   return luma > 0.62 ? "#15151c" : "#ffffff";
 }
 
-// Pointer figure markup for a config (shape + optional decorative badge + a universal click ring).
-// Reused as-is by Multi Testador to draw remote cursors.
-function renderCursorFigure(config) {
-  const shape = CURSOR_SHAPES[config.shape] ? config.shape : CURSOR_DEFAULTS.shape;
-  const background = CURSOR_BACKGROUNDS[config.background] ? config.background : CURSOR_DEFAULTS.background;
-  return `<div class="qts-cursor-figure" data-cursor-shape="${shape}" data-cursor-bg="${background}">${CURSOR_SHAPES[shape].svg}${CURSOR_BACKGROUNDS[background].svg}<span class="qts-cursor-click" aria-hidden="true"></span></div>`;
+// The custom properties every cursor surface reads (overlay, previews, remote testers).
+function cursorStyleVars(config) {
+  const vars = [`--qts-cursor-color:${config.color}`, `--qts-cursor-contrast:${cursorContrastColor(config.color)}`];
+  if (config.clickColors.left) vars.push(`--qts-click-left:${config.clickColors.left}`);
+  if (config.clickColors.right) vars.push(`--qts-click-right:${config.clickColors.right}`);
+  if (config.clickColors.middle) vars.push(`--qts-click-middle:${config.clickColors.middle}`);
+  return vars.join(";");
 }
+
+// SVG ids must be unique per document (several previews + the live overlay coexist).
+let cursorFigureSequence = 0;
+
+function renderMouseFigure(config, { pressed = "" } = {}) {
+  const style = MOUSE_STYLES[config.mouseStyle] || MOUSE_STYLES.normal;
+  const art = MOUSE_ARTS[config.mouseArt] || MOUSE_ARTS.none;
+  const uid = `qtsm${++cursorFigureSequence}`;
+  const [wx, wy, ww, wh] = style.wheel;
+  const cx = wx + ww / 2;
+  const artLayer = art.tile
+    ? `<defs><pattern id="${uid}-art" width="12" height="12" patternUnits="userSpaceOnUse" style="fill:var(--qts-mouse-art-color)">${art.tile}</pattern><clipPath id="${uid}-clip"><path d="${style.body}"/></clipPath></defs><rect class="qts-mouse-art" x="0" y="0" width="52" height="68" fill="url(#${uid}-art)" clip-path="url(#${uid}-clip)"/>`
+    : "";
+  return `<svg class="qts-mouse-figure" viewBox="0 0 52 68" data-mouse-style="${config.mouseStyle}" data-mouse-fill="${config.mouseFill}" data-mouse-art="${config.mouseArt}"${pressed ? ` data-pressed="${pressed}"` : ""} role="img" aria-hidden="true">
+    <path class="qts-mouse-shadow" d="${style.body}" transform="translate(0 2.5)"/>
+    <path class="qts-mouse-body" d="${style.body}"/>
+    <path class="qts-mouse-left" d="${style.left}"/>
+    <path class="qts-mouse-right" d="${style.right}"/>
+    ${artLayer}
+    ${style.extra(uid, style.body)}
+    <path class="qts-mouse-divider" d="${style.divider}"/>
+    <rect class="qts-mouse-wheel" x="${wx}" y="${wy}" width="${ww}" height="${wh}" rx="${ww / 2}"/>
+    <path class="qts-mouse-arrow qts-mouse-arrow-up" d="M${cx} ${wy + 2.2}l-2.6 3.6h5.2Z"/>
+    <path class="qts-mouse-arrow qts-mouse-arrow-down" d="M${cx} ${wy + wh - 2.2}l2.6-3.6h-5.2Z"/>
+  </svg>`;
+}
+
+function renderPointerFigure(config) {
+  const pointer = POINTER_STYLES[config.pointer];
+  if (!pointer?.path) return "";
+  return `<svg class="qts-pointer-figure" viewBox="${pointer.viewBox}" data-pointer="${config.pointer}" data-pointer-fill="${config.pointerFill}" role="img" aria-hidden="true"><path class="qts-pointer-shape" d="${pointer.path}"/></svg>`;
+}
+
+// Fraction of the pointer box where the hotspot sits, so callers can align the tip exactly.
+function pointerHotspot(config) {
+  const pointer = POINTER_STYLES[config.pointer];
+  if (!pointer?.path) return { x: 0, y: 0 };
+  const [minX, minY, width, height] = pointer.viewBox.split(/\s+/).map(Number);
+  return { x: (pointer.tip[0] - minX) / width, y: (pointer.tip[1] - minY) / height };
+}
+
+// One stylesheet for every cursor surface. The live overlays (pointer, mouse, click effects) render
+// inside their own open shadow roots and the drawer previews inside the toolbar's shadow root, so
+// this single string styles all of them and no page CSS can reach in (no !important war, no copy in
+// toolbar.css drifting from the drawer's).
+// Color inputs (custom properties, set per config by cursorStyleVars): --qts-cursor-color,
+// --qts-cursor-contrast, --qts-click-left/right/middle (fall back to the UI theme tokens), and
+// --qts-mouse-surface for the hollow fill (dark/light key theme).
+const CURSOR_FIGURE_CSS = `
+  :host, .qts-cursor-scope { --qts-mouse-surface: #1d2028; }
+  /* Resolved on the figure itself, not on the scope: a custom property referencing another is
+     computed where it is declared, so declaring these on an ancestor would freeze them before the
+     per-config --qts-click-* values set closer to the figure could apply. */
+  .qts-mouse-figure, .qts-click-effect {
+    --qts-click-left-color: var(--qts-click-left, var(--qts-ui-highlight, #ef3340));
+    --qts-click-right-color: var(--qts-click-right, #f59e0b);
+    --qts-click-middle-color: var(--qts-click-middle, var(--qts-ui-primary, #ef3340));
+  }
+  :host([data-theme="light"]), .qts-cursor-scope[data-theme="light"] { --qts-mouse-surface: #ffffff; }
+  .qts-mouse-figure { display: block; width: 100%; height: 100%; overflow: visible; }
+  .qts-mouse-shadow { fill: rgba(0,0,0,.35); }
+  /* Filled: the body wears the tester color with a contrasting outline. Hollow: neutral surface,
+     outline and accents in the tester color. Buttons share the body paint until clicked. */
+  .qts-mouse-figure[data-mouse-fill="filled"] { --qts-mouse-paint: var(--qts-cursor-color, #5b35e8); --qts-mouse-ink: var(--qts-cursor-contrast, #fff); --qts-mouse-art-color: color-mix(in srgb, var(--qts-cursor-contrast, #fff) 55%, transparent); }
+  .qts-mouse-figure[data-mouse-fill="outline"] { --qts-mouse-paint: var(--qts-mouse-surface); --qts-mouse-ink: var(--qts-cursor-color, #5b35e8); --qts-mouse-art-color: color-mix(in srgb, var(--qts-cursor-color, #5b35e8) 50%, transparent); }
+  .qts-mouse-body, .qts-mouse-left, .qts-mouse-right { fill: var(--qts-mouse-paint); stroke: var(--qts-mouse-ink); stroke-width: 1.6; stroke-linejoin: round; transition: fill 90ms ease; }
+  .qts-mouse-figure[data-mouse-fill="outline"] :is(.qts-mouse-body, .qts-mouse-left, .qts-mouse-right) { stroke-width: 2.2; }
+  .qts-mouse-divider, .qts-mouse-line { fill: none; stroke: var(--qts-mouse-ink); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
+  .qts-mouse-soft { opacity: .55; }
+  .qts-mouse-bevel { fill: none; stroke: var(--qts-mouse-ink); stroke-width: 1; opacity: .4; }
+  .qts-mouse-accent { fill: none; stroke: var(--qts-mouse-ink); stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; }
+  .qts-mouse-accent-fill { fill: var(--qts-mouse-ink); }
+  .qts-mouse-gloss { fill: #fff; opacity: .28; }
+  .qts-mouse-art { pointer-events: none; }
+  .qts-mouse-wheel { fill: var(--qts-mouse-ink); }
+  .qts-mouse-arrow { display: none; fill: var(--qts-mouse-paint); }
+  /* Click/scroll feedback: each button its own color. data-pressed (previews) and the overlay host's
+     data-action share the same rules. */
+  :host([data-action="left"]) .qts-mouse-left, .qts-mouse-figure[data-pressed="left"] .qts-mouse-left { fill: var(--qts-click-left-color); }
+  :host([data-action="right"]) .qts-mouse-right, .qts-mouse-figure[data-pressed="right"] .qts-mouse-right { fill: var(--qts-click-right-color); }
+  :host([data-action="middle"]) .qts-mouse-wheel, :host([data-action^="scroll"]) .qts-mouse-wheel, .qts-mouse-figure[data-pressed="middle"] .qts-mouse-wheel { fill: var(--qts-click-middle-color); }
+  :host([data-action="scroll-up"]) .qts-mouse-arrow-up, :host([data-action="scroll-down"]) .qts-mouse-arrow-down { display: block; }
+  .qts-pointer-figure { display: block; width: 100%; height: 100%; overflow: visible; }
+  .qts-pointer-shape { stroke-linejoin: round; stroke-linecap: round; }
+  .qts-pointer-figure[data-pointer-fill="filled"] .qts-pointer-shape { fill: var(--qts-cursor-color, #5b35e8); stroke: #fff; stroke-width: 1.6; }
+  .qts-pointer-figure[data-pointer-fill="outline"] .qts-pointer-shape { fill: rgba(255,255,255,.94); stroke: var(--qts-cursor-color, #5b35e8); stroke-width: 2; }
+  .qts-pointer-figure[data-pointer="hand"] .qts-pointer-shape { stroke-width: 1; }
+  .qts-pointer-figure[data-pointer="hand"][data-pointer-fill="outline"] .qts-pointer-shape { stroke-width: 1.2; }
+  .qts-cursor-label { display: inline-block; max-width: 200px; padding: 2px 9px; border-radius: 999px; background: var(--qts-cursor-color, #5b35e8); color: var(--qts-cursor-contrast, #fff); font: 800 11px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
+  .qts-cursor-label[hidden] { display: none; }
+  /* Click effects, one element per press, colored by the button that fired it. */
+  .qts-click-effect { position: absolute; left: 0; top: 0; width: 0; height: 0; pointer-events: none; color: var(--qts-click-left-color); }
+  .qts-click-effect[data-button="right"] { color: var(--qts-click-right-color); }
+  .qts-click-effect[data-button="middle"] { color: var(--qts-click-middle-color); }
+  .qts-click-spotlight { position: absolute; left: -46px; top: -46px; width: 92px; height: 92px; border-radius: 50%; background: radial-gradient(circle, color-mix(in srgb, currentColor 55%, transparent) 0%, color-mix(in srgb, currentColor 22%, transparent) 45%, transparent 70%); box-shadow: 0 0 0 2px color-mix(in srgb, currentColor 70%, transparent) inset; animation: qts-spotlight-in 140ms ease-out both; }
+  .qts-click-effect.isReleased .qts-click-spotlight { animation: qts-spotlight-out 320ms ease-in both; }
+  .qts-click-ring { position: absolute; left: -10px; top: -10px; width: 20px; height: 20px; border-radius: 50%; border: 3px solid currentColor; opacity: 0; animation: qts-quake 620ms cubic-bezier(.2,.7,.3,1) both; }
+  .qts-click-ring:nth-child(2) { animation-delay: 90ms; }
+  .qts-click-ring:nth-child(3) { animation-delay: 180ms; }
+  @keyframes qts-spotlight-in { from { opacity: 0; transform: scale(.4); } to { opacity: 1; transform: scale(1); } }
+  @keyframes qts-spotlight-out { from { opacity: 1; transform: scale(1); } to { opacity: 0; transform: scale(1.25); } }
+  @keyframes qts-quake { 0% { opacity: .95; transform: scale(.4); } 100% { opacity: 0; transform: scale(3.6); } }
+  @media (prefers-reduced-motion: reduce) { .qts-click-spotlight, .qts-click-ring { animation-duration: 1ms; } }
+`;
 
 function getKeyViewPreferences() {
   return state.workspace?.preferences?.keyView || { enabled: false, typingMode: false, theme: "dark", position: "bottom-center", mouseEffects: true, keySize: "medium", mouseSize: "medium" };
 }
 
 function isKeyViewOwnSurface(event) {
-  return event.composedPath?.().some((node) => node?.id === HOST_ID || node?.id === "qts-key-view-overlay" || node?.id === "qts-mouse-view-overlay") === true;
+  return event.composedPath?.().some((node) => node?.id === HOST_ID || ["qts-key-view-overlay", "qts-mouse-view-overlay", "qts-pointer-overlay", "qts-click-effects"].includes(node?.id)) === true;
 }
 
 function editableTypingTarget(target) {
@@ -6845,6 +7053,56 @@ function cursorDocumentZoom() {
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
 }
 
+function getCursorConfig() {
+  return sanitizeCursorConfig(state.workspace?.preferences?.keyViewCursor);
+}
+
+// Inner layout of the live cursor surfaces (their light-DOM hosts are positioned by toolbar.css).
+const CURSOR_SURFACE_CSS = `
+  .qts-mouse-box { position: relative; width: 52px; height: 68px; }
+  :host([data-mouse-size="small"]) .qts-mouse-box { width: 40px; height: 52px; }
+  :host([data-mouse-size="large"]) .qts-mouse-box { width: 68px; height: 89px; }
+  .qts-mouse-count-badge { position: absolute; top: -8px; right: -8px; min-width: 20px; height: 20px; padding: 0 5px; box-sizing: border-box; border-radius: 999px; background: var(--qts-ui-primary, #ef3340); color: var(--qts-ui-primary-contrast, #fff); font: 800 11px/20px sans-serif; text-align: center; opacity: 0; transform: scale(.6); transition: opacity 200ms ease, transform 200ms ease; box-shadow: 0 4px 10px rgba(0,0,0,.35); }
+  .qts-mouse-count-badge.isVisible { opacity: 1; transform: scale(1); }
+  .qts-mouse-count-badge.isFading { opacity: 0; transform: scale(.85); transition: opacity 500ms ease, transform 500ms ease; }
+  .qts-pointer-box { position: absolute; left: 0; top: 0; }
+  .qts-pointer-box:empty { display: none; }
+  .qts-pointer-label { position: absolute; left: var(--qts-label-x, 18px); top: var(--qts-label-y, 20px); }
+`;
+const CURSOR_POINTER_WIDTH = { small: 18, medium: 22, large: 28 };
+
+// Live cursor surfaces: a light-DOM host (fixed, pointer-events none, positioned by toolbar.css)
+// with an open shadow root holding CURSOR_FIGURE_CSS, so no page stylesheet can restyle the drawing
+// and the drawer previews use the exact same rules.
+function ensureCursorSurface(id, innerHtml) {
+  let host = document.getElementById(id);
+  if (host?.shadowRoot) return host;
+  host?.remove();
+  host = document.createElement("div");
+  host.id = id;
+  host.attachShadow({ mode: "open" }).innerHTML = `<style>${CURSOR_FIGURE_CSS}${CURSOR_SURFACE_CSS}</style>${innerHtml}`;
+  document.documentElement.appendChild(host);
+  return host;
+}
+
+// Sets only the per-config color properties; left/top and the other inline layout survive.
+function applyCursorVars(host, config) {
+  ["--qts-click-left", "--qts-click-right", "--qts-click-middle"].forEach((name) => host.style.removeProperty(name));
+  cursorStyleVars(config).split(";").forEach((declaration) => {
+    const [name, value] = declaration.split(":");
+    if (name && value) host.style.setProperty(name, value);
+  });
+  host.dataset.theme = getKeyViewPreferences().theme;
+}
+
+// toolbar.css resets each host with `all: initial !important` (shields it from page CSS), and an
+// author !important beats a plain inline style, so left/top MUST be set as important too or the
+// host silently falls back to its static position (top-left of the page) instead of the pointer.
+function setCursorSurfacePosition(host, left, top) {
+  host.style.setProperty("left", `${left}px`, "important");
+  host.style.setProperty("top", `${top}px`, "important");
+}
+
 function positionMouseView(overlay) {
   // Zoom compensation: offsetWidth/offsetHeight and the clientX/clientY-based math below are all in
   // real viewport pixels, but the overlay lives inside the zoomed <html>, so what we assign to
@@ -6858,59 +7116,39 @@ function positionMouseView(overlay) {
   let top = state.keyView.pointerY + 16;
   if (left < 8) left = Math.min(window.innerWidth - width - 8, state.keyView.pointerX + 18);
   if (top + height > window.innerHeight - 8) top = Math.max(56, state.keyView.pointerY - height - 18);
-  overlay.style.left = `${Math.max(8, left) / zoom}px`;
-  overlay.style.top = `${Math.max(56, top) / zoom}px`;
+  setCursorSurfacePosition(overlay, Math.max(8, left) / zoom, Math.max(56, top) / zoom);
 }
 
 function ensureMouseViewOverlay() {
-  let overlay = document.getElementById("qts-mouse-view-overlay");
-  if (overlay) {
-    updateMouseViewOverlayAppearance(overlay);
-    return overlay;
-  }
-  overlay = document.createElement("div");
-  overlay.id = "qts-mouse-view-overlay";
+  const overlay = ensureCursorSurface("qts-mouse-view-overlay", `<div class="qts-mouse-box" data-mouse-host></div><span class="qts-mouse-count-badge" data-mouse-count></span>`);
   overlay.setAttribute("aria-label", "Ação do mouse");
-  // The figure markup is (re)built from the cursor config by updateMouseViewOverlayAppearance, so the
-  // shape/background can change without recreating the overlay. The name label and count badge are
-  // stable hosts updated in place.
-  overlay.innerHTML = `<div data-cursor-figure-host></div><span class="qts-cursor-label" data-cursor-label hidden></span><span class="qts-mouse-count-badge" data-mouse-count></span>`;
-  document.documentElement.appendChild(overlay);
   updateMouseViewOverlayAppearance(overlay);
   return overlay;
 }
 
 function updateMouseViewOverlayAppearance(overlay) {
-  if (!overlay) return;
-  const preferences = getKeyViewPreferences();
-  overlay.dataset.theme = preferences.theme;
-  overlay.dataset.mouseSize = preferences.mouseSize;
+  if (!overlay?.shadowRoot) return;
   const config = getCursorConfig();
-  overlay.dataset.cursorShape = config.shape;
-  overlay.dataset.cursorBg = config.background;
-  overlay.style.setProperty("--qts-cursor-color", config.color);
-  overlay.style.setProperty("--qts-cursor-label-text", cursorContrastColor(config.color));
-  // Only rebuild the SVG figure when the shape or background actually changed, not on every
-  // click/scroll reposition.
-  const figureHost = overlay.querySelector("[data-cursor-figure-host]");
-  const figureSignature = `${config.shape}|${config.background}`;
-  if (figureHost && figureHost.dataset.signature !== figureSignature) {
-    figureHost.innerHTML = renderCursorFigure(config);
-    figureHost.dataset.signature = figureSignature;
-  }
-  const label = overlay.querySelector("[data-cursor-label]");
-  if (label) {
-    const name = config.name.trim();
-    label.textContent = name;
-    label.hidden = !name;
+  applyCursorVars(overlay, config);
+  overlay.dataset.mouseSize = getKeyViewPreferences().mouseSize;
+  // Rebuild the SVG only when the drawing itself changed, not on every click/scroll reposition.
+  const host = overlay.shadowRoot.querySelector("[data-mouse-host]");
+  const signature = `${config.mouseStyle}|${config.mouseFill}|${config.mouseArt}`;
+  if (host.dataset.signature !== signature) {
+    host.innerHTML = renderMouseFigure(config);
+    host.dataset.signature = signature;
   }
 }
 
+function mouseViewActive() {
+  const preferences = getKeyViewPreferences();
+  return preferences.enabled === true && preferences.mouseEffects === true;
+}
+
 function showMouseView(action, duration = 650) {
-  if (!getKeyViewPreferences().enabled || !getKeyViewPreferences().mouseEffects) return;
+  if (!mouseViewActive() || getCursorConfig().clickMode !== "mouse") return null;
   const overlay = ensureMouseViewOverlay();
   overlay.dataset.action = action;
-  updateMouseViewOverlayAppearance(overlay);
   positionMouseView(overlay);
   overlay.classList.add("isVisible");
   window.clearTimeout(state.keyView.mouseTimer);
@@ -6921,8 +7159,84 @@ function showMouseView(action, duration = 650) {
   return overlay;
 }
 
+// The custom pointer (or, with the system pointer, just the name pill) follows every move. When a
+// custom pointer is drawn the OS one is hidden page-wide (toolbar.css html.qts-hide-native-cursor),
+// so a recording shows exactly one pointer.
+function syncPointerOverlay() {
+  const config = getCursorConfig();
+  const name = config.name.trim();
+  const wanted = mouseViewActive() && (config.pointer !== "system" || !!name) && state.keyView.pointerSeen === true;
+  document.documentElement.classList.toggle("qts-hide-native-cursor", wanted && config.pointer !== "system");
+  if (!wanted) {
+    document.getElementById("qts-pointer-overlay")?.remove();
+    return;
+  }
+  const overlay = ensureCursorSurface("qts-pointer-overlay", `<div class="qts-pointer-box" data-pointer-host></div><span class="qts-cursor-label qts-pointer-label" data-cursor-label></span>`);
+  applyCursorVars(overlay, config);
+  const root = overlay.shadowRoot;
+  const width = CURSOR_POINTER_WIDTH[getKeyViewPreferences().mouseSize] || CURSOR_POINTER_WIDTH.medium;
+  const pointer = POINTER_STYLES[config.pointer];
+  let hotspot = { x: 0, y: 0 };
+  let height = 0;
+  if (pointer?.path) {
+    const [, , viewBoxWidth, viewBoxHeight] = pointer.viewBox.split(/\s+/).map(Number);
+    height = Math.round((width * viewBoxHeight) / viewBoxWidth);
+    const fraction = pointerHotspot(config);
+    hotspot = { x: fraction.x * width, y: fraction.y * height };
+  }
+  const pointerHost = root.querySelector("[data-pointer-host]");
+  const signature = `${config.pointer}|${config.pointerFill}|${width}`;
+  if (pointerHost.dataset.signature !== signature) {
+    pointerHost.innerHTML = renderPointerFigure(config);
+    pointerHost.style.width = `${width}px`;
+    pointerHost.style.height = `${height}px`;
+    pointerHost.dataset.signature = signature;
+  }
+  const label = root.querySelector("[data-cursor-label]");
+  label.textContent = name;
+  label.hidden = !name;
+  // Name pill just below-right of the tip, like Figma/Miro. With the system pointer it clears the OS
+  // arrow, which is about 12x19px at 100%.
+  overlay.style.setProperty("--qts-label-x", `${pointer?.path ? Math.round(width * 0.7) : 14}px`);
+  overlay.style.setProperty("--qts-label-y", `${pointer?.path ? Math.round(height * 0.72) : 20}px`);
+  const zoom = cursorDocumentZoom();
+  setCursorSurfacePosition(overlay, (state.keyView.pointerX - hotspot.x * zoom) / zoom, (state.keyView.pointerY - hotspot.y * zoom) / zoom);
+}
+
+// Spotlight (held while the button is down) and quake rings (one-shot), colored per button.
+function showClickEffect(button) {
+  const config = getCursorConfig();
+  if (!mouseViewActive() || !["spotlight", "quake"].includes(config.clickMode)) return;
+  const surface = ensureCursorSurface("qts-click-effects", "");
+  applyCursorVars(surface, config);
+  const zoom = cursorDocumentZoom();
+  const effect = document.createElement("div");
+  effect.className = "qts-click-effect";
+  effect.dataset.button = button;
+  effect.style.left = `${state.keyView.pointerX / zoom}px`;
+  effect.style.top = `${state.keyView.pointerY / zoom}px`;
+  if (config.clickMode === "spotlight") {
+    effect.innerHTML = `<div class="qts-click-spotlight"></div>`;
+    state.keyView.heldSpotlight?.remove();
+    state.keyView.heldSpotlight = effect;
+  } else {
+    effect.innerHTML = `<div class="qts-click-ring"></div><div class="qts-click-ring"></div><div class="qts-click-ring"></div>`;
+    // The third ring starts last (180ms delay, 620ms run): its animationend means the burst is over.
+    effect.lastElementChild.addEventListener("animationend", () => effect.remove(), { once: true });
+  }
+  surface.shadowRoot.appendChild(effect);
+}
+
+function releaseClickEffect() {
+  const effect = state.keyView.heldSpotlight;
+  if (!effect) return;
+  state.keyView.heldSpotlight = null;
+  effect.classList.add("isReleased");
+  effect.firstElementChild?.addEventListener("animationend", () => effect.remove(), { once: true });
+}
+
 function bumpMouseRepeat(overlay, action) {
-  const badge = overlay?.querySelector("[data-mouse-count]");
+  const badge = overlay?.shadowRoot?.querySelector("[data-mouse-count]");
   registerRepeat(
     state.keyView.mouseRepeat,
     action,
@@ -6974,11 +7288,24 @@ function handleKeyViewBeforeInput(event) {
 function startKeyView() {
   if (state.keyView.listening) { updateKeyViewOverlayAppearance(document.getElementById("qts-key-view-overlay")); return; }
   const onPointerMove = (event) => {
-    if (isKeyViewOwnSurface(event)) return;
+    if (isKeyViewOwnSurface(event)) {
+      // Over the toolbar the OS pointer is shown again (toolbar.css), so drop the drawn one instead
+      // of leaving it frozen at the last page position.
+      state.keyView.pointerSeen = false;
+      syncPointerOverlay();
+      return;
+    }
     state.keyView.pointerX = event.clientX;
     state.keyView.pointerY = event.clientY;
+    state.keyView.pointerSeen = true;
+    syncPointerOverlay();
     const overlay = document.getElementById("qts-mouse-view-overlay");
     if (overlay?.classList.contains("isVisible")) positionMouseView(overlay);
+  };
+  const onPointerOut = (event) => {
+    if (event.relatedTarget) return;
+    state.keyView.pointerSeen = false;
+    syncPointerOverlay();
   };
   const onMouseDown = (event) => {
     if (isKeyViewOwnSurface(event)) return;
@@ -6986,17 +7313,11 @@ function startKeyView() {
     const action = event.button === 2 ? "right" : event.button === 1 ? "middle" : "left";
     const overlay = showMouseView(action, null);
     overlay?.classList.add("isPressed");
-    if (overlay) {
-      // The click ring is a one-shot burst driven by its own class, not by isPressed: a fast mouseup
-      // removes isPressed, which would otherwise cut the 420ms pulse short on the non-mouse shapes.
-      // Remove then re-add after a forced reflow so repeated clicks restart the animation.
-      overlay.classList.remove("qts-click-burst");
-      void overlay.offsetWidth;
-      overlay.classList.add("qts-click-burst");
-    }
+    showClickEffect(action);
     bumpMouseRepeat(overlay, action);
   };
   const onMouseUp = () => {
+    releaseClickEffect();
     const overlay = document.getElementById("qts-mouse-view-overlay");
     if (!overlay) return;
     overlay.classList.remove("isPressed");
@@ -7014,6 +7335,7 @@ function startKeyView() {
   document.addEventListener("keyup", handleKeyViewKeyup, true);
   document.addEventListener("beforeinput", handleKeyViewBeforeInput, true);
   document.addEventListener("pointermove", onPointerMove, { capture: true, passive: true });
+  document.addEventListener("pointerout", onPointerOut, { capture: true, passive: true });
   document.addEventListener("mousedown", onMouseDown, { capture: true, passive: true });
   document.addEventListener("mouseup", onMouseUp, { capture: true, passive: true });
   document.addEventListener("wheel", onWheel, { capture: true, passive: true });
@@ -7022,6 +7344,7 @@ function startKeyView() {
     document.removeEventListener("keyup", handleKeyViewKeyup, true);
     document.removeEventListener("beforeinput", handleKeyViewBeforeInput, true);
     document.removeEventListener("pointermove", onPointerMove, true);
+    document.removeEventListener("pointerout", onPointerOut, true);
     document.removeEventListener("mousedown", onMouseDown, true);
     document.removeEventListener("mouseup", onMouseUp, true);
     document.removeEventListener("wheel", onWheel, true);
@@ -7043,6 +7366,11 @@ function stopKeyView() {
   state.keyView.mouseRepeat = { signature: null, count: 0, resetTimer: null };
   document.getElementById("qts-key-view-overlay")?.remove();
   document.getElementById("qts-mouse-view-overlay")?.remove();
+  document.getElementById("qts-pointer-overlay")?.remove();
+  document.getElementById("qts-click-effects")?.remove();
+  document.documentElement.classList.remove("qts-hide-native-cursor");
+  state.keyView.heldSpotlight = null;
+  state.keyView.pointerSeen = false;
 }
 
 function syncKeyView() {
@@ -7054,6 +7382,7 @@ function syncKeyView() {
     startKeyView();
     const mouseOverlay = document.getElementById("qts-mouse-view-overlay");
     updateMouseViewOverlayAppearance(mouseOverlay);
+    syncPointerOverlay();
   } else if (state.keyView.listening || document.getElementById("qts-key-view-overlay")) stopKeyView();
 }
 
@@ -7067,20 +7396,47 @@ function openKeyView() {
   const preferences = getKeyViewPreferences();
   const cursor = getCursorConfig();
   let selectedPosition = preferences.position;
-  let selectedShape = cursor.shape;
-  let selectedBackground = cursor.background;
+  // Draft of the cursor config edited by the pickers below; text/color inputs are read live.
+  const cursorDraft = { ...cursor, clickColors: { ...cursor.clickColors } };
+  const choice = (group, key, label, artHtml, pressed, artClass = "") => `<button type="button" class="qts-choice" data-cursor-choice="${group}" data-value="${key}" aria-pressed="${pressed}" title="${escapeHtml(label)}"><span class="qts-choice-art ${artClass}">${artHtml}</span><span class="qts-choice-label">${escapeHtml(label)}</span></button>`;
+  const segment = (group, key, label, icon, pressed) => `<button type="button" data-cursor-choice="${group}" data-value="${key}" aria-pressed="${pressed}">${ICON(icon)}<span>${escapeHtml(label)}</span></button>`;
+  const systemPointerArt = `<svg viewBox="0 0 13 20" aria-hidden="true"><path d="M1 1v15.5l4-3.8 2.6 5.8 2.4-1-2.5-5.6H13Z" fill="#fff" stroke="#111" stroke-width="1.1" stroke-linejoin="round"/></svg>`;
+  const pointerChoices = () => POINTER_STYLE_KEYS.map((key) => choice("pointer", key, POINTER_STYLES[key].label, key === "system" ? systemPointerArt : renderPointerFigure({ ...cursorDraft, pointer: key }), cursorDraft.pointer === key, "isPointer")).join("");
+  const mouseStyleChoices = () => MOUSE_STYLE_KEYS.map((key) => choice("mouseStyle", key, MOUSE_STYLES[key].label, renderMouseFigure({ ...cursorDraft, mouseStyle: key }), cursorDraft.mouseStyle === key)).join("");
+  const mouseArtChoices = () => MOUSE_ART_KEYS.map((key) => choice("mouseArt", key, MOUSE_ARTS[key].label, renderMouseFigure({ ...cursorDraft, mouseArt: key }), cursorDraft.mouseArt === key)).join("");
   openDrawer({
     title: "Key View",
     view: "keyView",
     toggle: { checked: preferences.enabled, label: "Ativar Key View", onChange: async (checked) => { await saveKeyViewPreferences({ enabled: checked }); openKeyView(); } },
     bodyHtml: `<label class="qts-switch-row"><input id="keyViewTyping" type="checkbox" ${preferences.typingMode ? "checked" : ""} /><span><b>Modo Typing</b><small>Mantém o texto digitado na tela até você clicar em Limpar.</small></span></label>
       <label class="qts-switch-row"><input id="keyViewMouse" type="checkbox" ${preferences.mouseEffects ? "checked" : ""} /><span><b>Visualizar mouse</b><small>Destaca clique esquerdo, direito, meio e direção do scroll ao lado do ponteiro.</small></span></label>
-      <div class="qts-field-label"><span>Cursor personalizado</span><small class="qts-cursor-hint">O nome e a cor aparecem ao lado do cursor, no estilo Figma. Útil em gravações e sessões com mais pessoas.</small></div>
-      <div class="qts-cursor-preview" id="cursorPreview" data-theme="${preferences.theme}"></div>
+      <div class="qts-field-label"><span>Cursor personalizado</span><small class="qts-cursor-hint">Ponteiro e mouse são personalizados separadamente. O nome aparece ao lado do ponteiro, no estilo Figma. Útil em gravações e sessões com mais pessoas.</small></div>
+      <div class="qts-cursor-preview qts-cursor-scope" id="cursorPreview" data-theme="${preferences.theme}"></div>
       <label class="qts-field-label">Nome no cursor<input id="cursorName" type="text" maxlength="${CURSOR_NAME_MAX}" value="${escapeHtml(cursor.name)}" placeholder="Ex.: Ana (QA)" /></label>
       <div class="qts-field-label"><span>Cor do cursor</span><div class="qts-pp-color-row"><input id="cursorColor" type="color" value="${escapeHtml(cursor.color)}" aria-label="Cor do cursor" /><span class="qts-pp-color-hex" id="cursorColorHex">${escapeHtml(cursor.color)}</span></div></div>
-      <div class="qts-field-label"><span>Formato do cursor</span><div class="qts-cursor-grid" id="cursorShapeGrid">${CURSOR_SHAPE_KEYS.map((key) => `<button type="button" class="qts-cursor-option ${key === cursor.shape ? "isSelected" : ""}" data-cursor-shape="${key}" title="${escapeHtml(CURSOR_SHAPES[key].label)}" aria-label="${escapeHtml(CURSOR_SHAPES[key].label)}"><span class="qts-cursor-swatch">${CURSOR_SHAPES[key].svg}</span><small>${escapeHtml(CURSOR_SHAPES[key].label)}</small></button>`).join("")}</div></div>
-      <div class="qts-field-label"><span>Decoração do cursor</span><div class="qts-cursor-grid" id="cursorBgGrid">${CURSOR_BACKGROUND_KEYS.map((key) => `<button type="button" class="qts-cursor-option ${key === cursor.background ? "isSelected" : ""}" data-cursor-bg="${key}" title="${escapeHtml(CURSOR_BACKGROUNDS[key].label)}" aria-label="${escapeHtml(CURSOR_BACKGROUNDS[key].label)}"><span class="qts-cursor-swatch qts-cursor-swatch-bg">${CURSOR_BACKGROUNDS[key].svg || '<span class="qts-cursor-none" aria-hidden="true">·</span>'}</span><small>${escapeHtml(CURSOR_BACKGROUNDS[key].label)}</small></button>`).join("")}</div></div>
+      <section class="qts-cursor-section qts-cursor-scope" id="cursorPointerSection" data-theme="${preferences.theme}">
+        <h4>${ICON("cursorFill")} Ponteiro</h4>
+        <div class="qts-choice-grid" id="cursorPointerGrid">${pointerChoices()}</div>
+        <div class="qts-segmented" id="cursorPointerFill">${segment("pointerFill", "filled", "Preenchido", "circleFill", cursor.pointerFill === "filled")}${segment("pointerFill", "outline", "Vazado", "circleOutline", cursor.pointerFill === "outline")}</div>
+      </section>
+      <section class="qts-cursor-section qts-cursor-scope" id="cursorClickSection" data-theme="${preferences.theme}">
+        <h4>${ICON("mouse2Fill")} Ao clicar</h4>
+        <div class="qts-segmented" id="cursorClickMode">${CLICK_MODE_KEYS.map((key) => segment("clickMode", key, CLICK_MODES[key].label, CLICK_MODES[key].icon, cursor.clickMode === key)).join("")}</div>
+        <div class="qts-cursor-mouse-options" id="cursorMouseOptions" ${cursor.clickMode === "mouse" ? "" : "hidden"}>
+          <p class="qts-cursor-subtitle">Modelo do mouse</p>
+          <div class="qts-choice-grid" id="cursorMouseStyleGrid">${mouseStyleChoices()}</div>
+          <div class="qts-segmented" id="cursorMouseFill">${segment("mouseFill", "filled", "Preenchido", "circleFill", cursor.mouseFill === "filled")}${segment("mouseFill", "outline", "Vazado", "circleOutline", cursor.mouseFill === "outline")}</div>
+          <p class="qts-cursor-subtitle">Arte no mouse</p>
+          <div class="qts-choice-grid" id="cursorMouseArtGrid">${mouseArtChoices()}</div>
+        </div>
+        <p class="qts-cursor-subtitle">Cor de cada botão</p>
+        <div class="qts-click-colors">
+          <label>Esquerdo<input type="color" data-click-color="left" value="${escapeHtml(cursor.clickColors.left || "#3b82f6")}" /></label>
+          <label>Direito<input type="color" data-click-color="right" value="${escapeHtml(cursor.clickColors.right || "#f59e0b")}" /></label>
+          <label>Meio e scroll<input type="color" data-click-color="middle" value="${escapeHtml(cursor.clickColors.middle || "#22c55e")}" /></label>
+        </div>
+        <button type="button" class="action" id="cursorClickColorsReset">Usar cores do tema</button>
+      </section>
       <label class="qts-field-label">Aparência das teclas<select id="keyViewTheme"><option value="dark" ${preferences.theme === "dark" ? "selected" : ""}>Tecla preta · texto branco</option><option value="light" ${preferences.theme === "light" ? "selected" : ""}>Tecla branca · texto preto</option></select></label>
       <div class="qts-key-view-size-grid">
         <label class="qts-field-label">Tamanho das teclas<select id="keyViewKeySize"><option value="small" ${preferences.keySize === "small" ? "selected" : ""}>Pequeno</option><option value="medium" ${preferences.keySize === "medium" ? "selected" : ""}>Médio</option><option value="large" ${preferences.keySize === "large" ? "selected" : ""}>Grande</option></select></label>
@@ -7099,20 +7455,42 @@ function openKeyView() {
       const cursorName = body.querySelector("#cursorName");
       const cursorColor = body.querySelector("#cursorColor");
       const cursorColorHex = body.querySelector("#cursorColorHex");
-      const shapeGrid = body.querySelector("#cursorShapeGrid");
-      const bgGrid = body.querySelector("#cursorBgGrid");
-      // Reads the live form controls into a clean config -- the single source the cursor preview and
-      // the eventual save both draw from (same sanitizer used on read/persist, so previews cannot show
+      const cursorSections = [body.querySelector("#cursorPointerSection"), body.querySelector("#cursorClickSection")];
+      // Reads the live form controls + picker draft into a clean config -- the single source the
+      // previews and the save both use (same sanitizer as read/persist, so a preview can never show
       // something that would not actually be stored).
-      const currentCursor = () => sanitizeCursorConfig({ name: cursorName.value, color: cursorColor.value, shape: selectedShape, background: selectedBackground });
+      const currentCursor = () => sanitizeCursorConfig({ ...cursorDraft, name: cursorName.value, color: cursorColor.value });
       const renderCursorPreview = () => {
         const cfg = currentCursor();
         const name = cfg.name.trim();
-        [cursorPreview, shapeGrid, bgGrid].forEach((host) => host.style.setProperty("--qts-cursor-color", cfg.color));
-        cursorPreview.style.setProperty("--qts-cursor-label-text", cursorContrastColor(cfg.color));
-        cursorPreview.dataset.theme = theme.value;
-        cursorPreview.innerHTML = `${renderCursorFigure(cfg)}${name ? `<span class="qts-cursor-label">${escapeHtml(name)}</span>` : ""}`;
+        const vars = cursorStyleVars(cfg);
+        [cursorPreview, ...cursorSections].forEach((host) => { host.setAttribute("style", vars); host.dataset.theme = theme.value; });
+        const pointer = POINTER_STYLES[cfg.pointer];
+        const pointerWidth = CURSOR_POINTER_WIDTH.medium;
+        let pointerHeight = 20;
+        let pointerHtml = `<svg class="qts-cursor-preview-system" viewBox="0 0 13 20" aria-hidden="true"><path d="M1 1v15.5l4-3.8 2.6 5.8 2.4-1-2.5-5.6H13Z" stroke-linejoin="round"/></svg>`;
+        if (pointer.path) {
+          const [, , viewBoxWidth, viewBoxHeight] = pointer.viewBox.split(/\s+/).map(Number);
+          pointerHeight = Math.round((pointerWidth * viewBoxHeight) / viewBoxWidth);
+          pointerHtml = `<div class="qts-pointer-box" style="width:${pointerWidth}px;height:${pointerHeight}px">${renderPointerFigure(cfg)}</div>`;
+        }
+        const labelLeft = 18 + (pointer.path ? Math.round(pointerWidth * 0.7) : 14);
+        const labelTop = 8 + (pointer.path ? Math.round(pointerHeight * 0.72) : 20);
+        const clickHtml = cfg.clickMode === "mouse"
+          ? `<div class="qts-mouse-box">${renderMouseFigure(cfg, { pressed: "left" })}</div>`
+          : cfg.clickMode === "spotlight"
+            ? `<div class="qts-click-effect" data-button="left"><div class="qts-click-spotlight"></div></div>`
+            : cfg.clickMode === "quake"
+              ? `<div class="qts-click-effect" data-button="left"><div class="qts-click-ring"></div><div class="qts-click-ring"></div></div>`
+              : "";
+        cursorPreview.innerHTML = `<div class="qts-cursor-preview-pointer">${pointerHtml}${name ? `<span class="qts-cursor-label" style="left:${labelLeft}px;top:${labelTop}px">${escapeHtml(name)}</span>` : ""}</div>${clickHtml ? `<div class="qts-cursor-preview-click">${clickHtml}</div>` : ""}`;
         cursorColorHex.textContent = cfg.color;
+      };
+      // Tiles show the real drawing in the current color/fill, so they are rebuilt when those change.
+      const renderCursorChoices = () => {
+        body.querySelector("#cursorPointerGrid").innerHTML = pointerChoices();
+        body.querySelector("#cursorMouseStyleGrid").innerHTML = mouseStyleChoices();
+        body.querySelector("#cursorMouseArtGrid").innerHTML = mouseArtChoices();
       };
       const renderPreview = () => {
         preview.dataset.theme = theme.value;
@@ -7124,16 +7502,25 @@ function openKeyView() {
       keySize.addEventListener("change", renderPreview);
       cursorName.addEventListener("input", renderCursorPreview);
       cursorColor.addEventListener("input", renderCursorPreview);
-      shapeGrid.querySelectorAll("[data-cursor-shape]").forEach((button) => button.addEventListener("click", () => {
-        selectedShape = button.dataset.cursorShape;
-        shapeGrid.querySelectorAll("[data-cursor-shape]").forEach((candidate) => candidate.classList.toggle("isSelected", candidate === button));
+      // One delegated handler for every picker (tiles and segmented buttons share data-cursor-choice).
+      body.addEventListener("click", (event) => {
+        const button = event.target.closest("[data-cursor-choice]");
+        if (!button || !body.contains(button)) return;
+        const group = button.dataset.cursorChoice;
+        cursorDraft[group] = button.dataset.value;
+        body.querySelectorAll(`[data-cursor-choice="${group}"]`).forEach((candidate) => candidate.setAttribute("aria-pressed", String(candidate === button)));
+        if (group === "clickMode") body.querySelector("#cursorMouseOptions").hidden = cursorDraft.clickMode !== "mouse";
+        if (["pointerFill", "mouseFill", "mouseStyle"].includes(group)) renderCursorChoices();
+        renderCursorPreview();
+      });
+      body.querySelectorAll("[data-click-color]").forEach((input) => input.addEventListener("input", () => {
+        cursorDraft.clickColors = { ...cursorDraft.clickColors, [input.dataset.clickColor]: input.value };
         renderCursorPreview();
       }));
-      bgGrid.querySelectorAll("[data-cursor-bg]").forEach((button) => button.addEventListener("click", () => {
-        selectedBackground = button.dataset.cursorBg;
-        bgGrid.querySelectorAll("[data-cursor-bg]").forEach((candidate) => candidate.classList.toggle("isSelected", candidate === button));
+      body.querySelector("#cursorClickColorsReset").addEventListener("click", () => {
+        cursorDraft.clickColors = { left: "", right: "", middle: "" };
         renderCursorPreview();
-      }));
+      });
       renderCursorPreview();
       body.querySelectorAll("[data-key-view-position]").forEach((button) => button.addEventListener("click", () => {
         selectedPosition = button.dataset.keyViewPosition;
@@ -7157,6 +7544,7 @@ function openKeyView() {
         };
         await persistWorkspaceState();
         updateMouseViewOverlayAppearance(document.getElementById("qts-mouse-view-overlay"));
+        syncPointerOverlay();
         body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");
       });
       body.querySelector("#keyViewClear").addEventListener("click", () => { clearKeyViewTyping(); body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Texto limpo."); });

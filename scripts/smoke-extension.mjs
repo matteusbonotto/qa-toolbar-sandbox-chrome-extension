@@ -1611,15 +1611,36 @@ try {
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
   if (await host.locator("[data-key-view-position]").count() !== 9) throw new Error("Key View does not expose all nine screen positions");
-  // Founder screenshot: shape/decoration buttons were squashed, icon spilling over the border and
-  // labels clipped. Every option must fully contain its 40px swatch and its label.
-  const cursorOptionBoxes = await host.locator(".qts-cursor-option").evaluateAll((buttons) => buttons.map((button) => {
+  // Founder screenshots: option tiles were squashed (drawing spilling over the border, labels
+  // clipped) and pointer/mouse were mixed in one control. Pointer (6), mouse model (8) and mouse art
+  // (10) are separate pickers, and every tile fully contains its drawing and its label.
+  const cursorTiles = await host.locator(".qts-choice").evaluateAll((buttons) => buttons.map((button) => {
     const box = button.getBoundingClientRect();
-    const swatch = button.querySelector(".qts-cursor-swatch").getBoundingClientRect();
-    const label = button.querySelector("small").getBoundingClientRect();
-    return { height: box.height, swatchHeight: swatch.height, contained: swatch.top >= box.top && label.bottom <= box.bottom + 0.5 };
+    const art = button.querySelector(".qts-choice-art").getBoundingClientRect();
+    const svg = button.querySelector(".qts-choice-art svg")?.getBoundingClientRect();
+    const label = button.querySelector(".qts-choice-label").getBoundingClientRect();
+    const inside = (inner) => inner && inner.top >= box.top - 0.5 && inner.bottom <= box.bottom + 0.5 && inner.left >= box.left - 0.5 && inner.right <= box.right + 0.5;
+    return { group: button.dataset.cursorChoice, artHeight: art.height, svgHeight: svg?.height || 0, contained: inside(art) && inside(svg) && inside(label) && label.top >= art.bottom - 0.5 };
   }));
-  if (cursorOptionBoxes.length !== 9 || cursorOptionBoxes.some((entry) => entry.swatchHeight < 39 || !entry.contained)) throw new Error(`Cursor shape/decoration options are squashed: ${JSON.stringify(cursorOptionBoxes)}`);
+  const tileCount = (group) => cursorTiles.filter((tile) => tile.group === group).length;
+  if (tileCount("pointer") !== 6 || tileCount("mouseStyle") !== 8 || tileCount("mouseArt") !== 10 || cursorTiles.some((tile) => !tile.contained || tile.artHeight < 30 || tile.svgHeight < 20)) {
+    throw new Error(`Cursor picker tiles are missing or squashed: ${JSON.stringify(cursorTiles)}`);
+  }
+  // Segmented buttons (fill, click mode): icon and text must stay inside the button border.
+  const segmentOverflow = await host.locator(".qts-segmented > button").evaluateAll((buttons) => buttons.map((button) => {
+    const box = button.getBoundingClientRect();
+    return [...button.children].map((child) => child.getBoundingClientRect()).filter((inner) => inner.left < box.left - 0.5 || inner.right > box.right + 0.5 || inner.top < box.top - 0.5 || inner.bottom > box.bottom + 0.5).length ? button.textContent.trim() : null;
+  }).filter(Boolean));
+  if (segmentOverflow.length) throw new Error(`Segmented cursor buttons overflow their border: ${JSON.stringify(segmentOverflow)}`);
+  // Art is painted INSIDE the mouse body (clipped to it), not as a badge beside it.
+  await host.locator('[data-cursor-choice="mouseArt"][data-value="hearts"]').click();
+  const artClip = await host.locator("#cursorPreview .qts-mouse-art").getAttribute("clip-path");
+  if (!/^url\(#qtsm\d+-clip\)$/.test(artClip || "")) throw new Error(`Mouse art is not clipped to the mouse body: ${artClip}`);
+  await host.locator('[data-cursor-choice="mouseArt"][data-value="none"]').click();
+  await host.screenshot({ path: resolve(evidencePath, "extension-key-view-cursor-pickers.png"), fullPage: false });
+  await host.locator("#cursorPreview").scrollIntoViewIfNeeded();
+  await host.locator("#cursorPointerSection").screenshot({ path: resolve(evidencePath, "extension-key-view-pointer-section.png") });
+  await host.locator("#cursorClickSection").screenshot({ path: resolve(evidencePath, "extension-key-view-click-section.png") });
   await host.locator("#keyViewTyping").check();
   await host.locator("#keyViewTheme").selectOption("light");
   await host.locator("#keyViewKeySize").selectOption("large");
@@ -1661,6 +1682,11 @@ try {
   if (!await host.locator("[data-key-view-shortcut]").isHidden()) throw new Error("Key View shortcut did not fade after three seconds");
   await host.locator("main").dispatchEvent("mousedown", { button: 0, clientX: 420, clientY: 320 });
   if (await host.locator("#qts-mouse-view-overlay").getAttribute("data-action") !== "left") throw new Error("Key View did not visualize the left mouse button");
+  // Regression: toolbar.css's `all: initial !important` used to override the inline left/top, so the
+  // drawing sat at the page's top-left instead of next to the pointer. It must end 12px left of the
+  // pointer and start 16px below it.
+  const mousePlacement = await host.locator("#qts-mouse-view-overlay").evaluate((node) => { const box = node.getBoundingClientRect(); return { right: box.right, top: box.top }; });
+  if (Math.abs(mousePlacement.right - (420 - 12)) > 1.5 || Math.abs(mousePlacement.top - (320 + 16)) > 1.5) throw new Error(`Mouse drawing is not anchored next to the pointer: ${JSON.stringify(mousePlacement)}`);
   const mouseSize = await host.locator("#qts-mouse-view-overlay").evaluate((node) => ({ size: node.dataset.mouseSize, width: node.offsetWidth, height: node.offsetHeight }));
   if (mouseSize.size !== "small" || mouseSize.width !== 40 || mouseSize.height !== 52) throw new Error(`Key View mouse size mismatch: ${JSON.stringify(mouseSize)}`);
   await host.locator("main").dispatchEvent("mouseup", { button: 0, clientX: 420, clientY: 320 });
@@ -1691,6 +1717,52 @@ try {
   if (keyBadge !== "×3") throw new Error(`Key repeat badge did not show ×3 after three rapid "j" presses: ${keyBadge}`);
   await host.waitForTimeout(3_600);
   if (await host.locator("[data-mouse-count].isVisible").count()) throw new Error("Mouse repeat badge did not reset after the 3s linger");
+  // Drawn pointer + name pill land exactly on the real pointer (hotspot), the OS pointer is hidden so
+  // recordings show one pointer, and spotlight/quake effects use each button's own color.
+  await host.locator("#toolsButton").click();
+  await host.locator("#keyViewMenuItem").click();
+  await host.locator('[data-cursor-choice="pointer"][data-value="classic"]').click();
+  await host.locator("#cursorName").fill("Bonotto");
+  await host.locator('[data-cursor-choice="clickMode"][data-value="spotlight"]').click();
+  await host.locator('[data-click-color="right"]').evaluate((input) => { input.value = "#ff8800"; input.dispatchEvent(new Event("input", { bubbles: true })); });
+  await host.locator("#keyViewSave").click();
+  await host.getByText("Configurações salvas.").waitFor();
+  await host.locator("#drawerClose").click();
+  await host.locator("main").dispatchEvent("pointermove", { clientX: 500, clientY: 400, bubbles: true });
+  const pointerPlacement = await host.evaluate(() => {
+    const overlay = document.getElementById("qts-pointer-overlay");
+    const shape = overlay?.shadowRoot?.querySelector(".qts-pointer-figure")?.getBoundingClientRect();
+    return {
+      shapeLeft: shape?.left, shapeTop: shape?.top, shapeWidth: shape?.width,
+      label: overlay?.shadowRoot?.querySelector("[data-cursor-label]")?.textContent,
+      nativeHidden: document.documentElement.classList.contains("qts-hide-native-cursor") && getComputedStyle(document.querySelector("main")).cursor === "none",
+    };
+  });
+  // Classic pointer: viewBox 24x30 with the tip at (2, 2), scaled to the drawn width (mouse size).
+  const expectedTip = 2 * (pointerPlacement.shapeWidth / 24);
+  if (Math.abs(pointerPlacement.shapeLeft + expectedTip - 500) > 1 || Math.abs(pointerPlacement.shapeTop + expectedTip - 400) > 1 || pointerPlacement.label !== "Bonotto" || !pointerPlacement.nativeHidden) {
+    throw new Error(`Custom pointer is not aligned to the real pointer or the OS pointer is still visible: ${JSON.stringify(pointerPlacement)}`);
+  }
+  await host.locator("main").dispatchEvent("mousedown", { button: 2, clientX: 500, clientY: 400 });
+  const spotlight = await host.evaluate(() => {
+    const effect = document.getElementById("qts-click-effects")?.shadowRoot?.querySelector('.qts-click-effect[data-button="right"] .qts-click-spotlight');
+    return effect ? { color: getComputedStyle(effect.parentElement).color, mouseShown: document.getElementById("qts-mouse-view-overlay")?.classList.contains("isVisible") === true } : null;
+  });
+  if (!spotlight || spotlight.color !== "rgb(255, 136, 0)" || spotlight.mouseShown) throw new Error(`Spotlight did not use the right button color (or the mouse drawing still showed): ${JSON.stringify(spotlight)}`);
+  await host.locator("main").dispatchEvent("mouseup", { button: 2, clientX: 500, clientY: 400 });
+  await host.waitForFunction(() => !document.getElementById("qts-click-effects")?.shadowRoot?.querySelector(".qts-click-spotlight"));
+  await host.screenshot({ path: resolve(evidencePath, "extension-key-view-custom-pointer.png"), fullPage: false });
+  // Back to the defaults the rest of the smoke expects (system pointer, mouse drawing).
+  await host.locator("#toolsButton").click();
+  await host.locator("#keyViewMenuItem").click();
+  await host.locator('[data-cursor-choice="pointer"][data-value="system"]').click();
+  await host.locator("#cursorName").fill("");
+  await host.locator('[data-cursor-choice="clickMode"][data-value="mouse"]').click();
+  await host.locator("#keyViewSave").click();
+  await host.getByText("Configurações salvas.").waitFor();
+  await host.locator("#drawerClose").click();
+  if (await host.evaluate(() => document.documentElement.classList.contains("qts-hide-native-cursor") || !!document.getElementById("qts-pointer-overlay"))) throw new Error("System pointer choice left the drawn pointer or the hidden OS pointer behind");
+  trace("custom pointer, name pill, hidden OS pointer and per-button spotlight verified");
   await host.locator("[data-key-view-clear]").click();
   if (await host.locator("#qts-key-view-overlay").count()) throw new Error("Key View typing was not cleared on demand");
   await host.locator("#toolsButton").click();
