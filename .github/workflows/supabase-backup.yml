@@ -1,0 +1,87 @@
+name: Supabase backup
+
+# Daily logical backup of the production database. The Supabase free plan has no automatic backups
+# (only Pro and above), so this is the project's backup. Guide: docs/guia-backup-supabase.md.
+#
+# The repository is PUBLIC and workflow artifacts of public repositories can be downloaded by any
+# signed-in GitHub user, so the dump is encrypted (AES-256, gpg symmetric) BEFORE upload and the
+# plain files never leave the runner. Without BACKUP_PASSPHRASE the artifact is useless to anyone.
+#
+# Required repository secrets (Settings > Secrets and variables > Actions):
+#   SUPABASE_DB_URL     Session pooler connection string with the database password
+#                       (Supabase dashboard > Connect > Session pooler).
+#   BACKUP_PASSPHRASE   Long random passphrase. Keep a copy in a password manager: it is the only way
+#                       to decrypt the backups.
+
+on:
+  schedule:
+    # 06:00 UTC = 03:00 in Brasília, low traffic.
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: supabase-backup
+  cancel-in-progress: false
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Require the backup secrets
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          if [ -z "$SUPABASE_DB_URL" ] || [ -z "$BACKUP_PASSPHRASE" ]; then
+            echo "::error::Set the SUPABASE_DB_URL and BACKUP_PASSPHRASE repository secrets (see docs/guia-backup-supabase.md)."
+            exit 1
+          fi
+          if [ "${#BACKUP_PASSPHRASE}" -lt 24 ]; then
+            echo "::error::BACKUP_PASSPHRASE must have at least 24 characters."
+            exit 1
+          fi
+
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      # Roles, schema and data as three files, the format the Supabase restore guide expects.
+      # `supabase db dump` runs pg_dump in Docker, which ubuntu-latest runners provide.
+      - name: Dump roles, schema and data
+        env:
+          SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}
+        run: |
+          set -euo pipefail
+          mkdir -p backup
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/roles.sql --role-only
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/schema.sql
+          supabase db dump --db-url "$SUPABASE_DB_URL" -f backup/data.sql --use-copy --data-only
+          # An empty schema dump means something went wrong even if the CLI exited 0.
+          test -s backup/schema.sql
+
+      - name: Encrypt
+        env:
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          set -euo pipefail
+          stamp="$(date -u +%Y-%m-%dT%H%M%SZ)"
+          echo "STAMP=$stamp" >> "$GITHUB_ENV"
+          tar -czf "supabase-backup-$stamp.tar.gz" -C backup .
+          sha256sum "supabase-backup-$stamp.tar.gz" | cut -d' ' -f1 > "supabase-backup-$stamp.sha256"
+          gpg --batch --yes --pinentry-mode loopback --passphrase "$BACKUP_PASSPHRASE" \
+            --symmetric --cipher-algo AES256 -o "supabase-backup-$stamp.tar.gz.gpg" "supabase-backup-$stamp.tar.gz"
+          # Nothing readable may reach the artifact.
+          rm -rf backup "supabase-backup-$stamp.tar.gz"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: supabase-backup-${{ env.STAMP }}
+          path: |
+            supabase-backup-${{ env.STAMP }}.tar.gz.gpg
+            supabase-backup-${{ env.STAMP }}.sha256
+          retention-days: 30
+          if-no-files-found: error
