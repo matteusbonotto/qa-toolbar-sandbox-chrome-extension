@@ -2189,6 +2189,9 @@ async function dismissFirstRunNotification() {
 }
 
 function removeToolbar({ disableBridge = false } = {}) {
+  // Sign-out/scope change can remove the bar with the Breakpoint Viewer still open: drop its phone
+  // emulation rule too (the background accepts disable without an active session).
+  cleanupBreakpointViewer();
   cancelElementSelection();
   stopKeyView();
   state.elementViewCleanup?.();
@@ -4070,10 +4073,13 @@ function drawerStyles() {
     .qts-cursor-click { display: none; }
     .qts-cursor-label { display: inline-block; max-width: 160px; padding: 2px 9px; border-radius: 999px; background: var(--qts-cursor-color, #5b35e8); color: var(--qts-cursor-label-text, #fff); font: 800 11px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
     .qts-cursor-grid { --qts-cursor-color: #5b35e8; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
-    .qts-cursor-option { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 6px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); color: var(--qts-panel-muted); cursor: pointer; font-size: 10px; font-weight: 700; }
-    .qts-cursor-option small { color: inherit; text-align: center; }
+    /* min-height + flex:none on the swatch: the swatch's SVG is absolutely positioned (no intrinsic
+       size), so any height pressure on the button used to shrink the swatch to 0 and spill the icon
+       over the border with the label clipped (founder screenshot). */
+    .qts-cursor-option { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; box-sizing: border-box; min-height: 76px; height: auto; padding: 9px 6px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); color: var(--qts-panel-muted); cursor: pointer; font-size: 10px; font-weight: 700; }
+    .qts-cursor-option small { color: inherit; text-align: center; line-height: 1.2; }
     .qts-cursor-option.isSelected { border-color: var(--qts-ui-primary, #5b35e8); color: var(--qts-panel-text); box-shadow: 0 0 0 2px color-mix(in srgb, var(--qts-ui-primary, #5b35e8) 20%, transparent); }
-    .qts-cursor-swatch { position: relative; width: 30px; height: 40px; }
+    .qts-cursor-swatch { position: relative; flex: none; width: 30px; height: 40px; }
     .qts-cursor-swatch-bg { display: grid; place-items: center; }
     .qts-cursor-swatch-bg .qts-cursor-bg { position: static; right: auto; bottom: auto; width: 26px; height: 26px; }
     .qts-cursor-none { font-size: 18px; line-height: 1; color: var(--qts-panel-muted); }
@@ -6132,7 +6138,42 @@ const breakpointViewerState = {
   contentZoom: { a: 1, b: 1 },
   resizeObserver: null,
   cleanupFns: [],
+  // Phone emulation (see qts:bp-mobile-emulation in background.js): on by default whenever a pane
+  // shows a phone. `mobileEmulationSession` changes on every cleanup so an enable ack that arrives
+  // after the viewer closed (or was rebuilt) is ignored instead of resurrecting a stale flag.
+  emulateMobile: true,
+  mobileEmulationActive: false,
+  mobileEmulationPending: false,
+  mobileEmulationSession: 0,
+  mobileEmulationQueue: Promise.resolve(),
 };
+
+// Must match MOBILE_EMULATION_MARKER in background.js and the check in mobile-emulation.js.
+const MOBILE_EMULATION_MARKER = "__qtsbpua=1";
+
+// Only the phone pane's URL carries the marker: both panes load the same URL in the same tab, and
+// the marker is the one thing the session DNR rule can tell them apart by. Inserted as text (not
+// via URLSearchParams) so the rest of the query is never re-encoded; the hash stays last.
+function markMobilePreviewUrl(url) {
+  const hashIndex = url.indexOf("#");
+  const base = hashIndex === -1 ? url : url.slice(0, hashIndex);
+  const hash = hashIndex === -1 ? "" : url.slice(hashIndex);
+  return `${base}${base.includes("?") ? "&" : "?"}${MOBILE_EMULATION_MARKER}${hash}`;
+}
+
+// Enable/disable messages are chained so a disable from closing the viewer can never be overtaken
+// by a slower enable sent before it (both target the same per-tab rule id).
+function requestMobileEmulation(operation) {
+  const run = breakpointViewerState.mobileEmulationQueue.catch(() => {}).then(() => new Promise((resolve) => {
+    try {
+      chrome.runtime.sendMessage({ type: "qts:bp-mobile-emulation", operation }, (response) => resolve(!chrome.runtime.lastError && response?.ok === true));
+    } catch {
+      resolve(false);
+    }
+  }));
+  breakpointViewerState.mobileEmulationQueue = run;
+  return run;
+}
 
 function buildDeviceFrameHtml(pane, device) {
   const chrome = device.kind === "phone"
@@ -6210,6 +6251,13 @@ function breakpointStyles() {
 }
 
 function cleanupBreakpointViewer() {
+  breakpointViewerState.mobileEmulationSession += 1;
+  breakpointViewerState.mobileEmulationPending = false;
+  // openDrawer() calls this for every drawer, so only talk to the background when a rule exists.
+  if (breakpointViewerState.mobileEmulationActive) {
+    breakpointViewerState.mobileEmulationActive = false;
+    void requestMobileEmulation("disable");
+  }
   breakpointViewerState.resizeObserver?.disconnect();
   breakpointViewerState.resizeObserver = null;
   breakpointViewerState.cleanupFns.forEach((fn) => fn());
@@ -6239,6 +6287,7 @@ function openBreakpointViewer() {
         </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
+        <button type="button" class="qts-bp-toggle ${breakpointViewerState.emulateMobile ? "isOn" : ""}" id="bpEmulateMobile" aria-pressed="${breakpointViewerState.emulateMobile}" title="${escapeHtml(t.emulateMobileTitle)}" hidden>${escapeHtml(t.emulateMobile)}</button>
         <button type="button" class="qts-bp-toggle" id="bpShot" title="${escapeHtml(t.bpScreenshot)}">${ICON("camera")} ${escapeHtml(t.bpScreenshot)}</button>
         <button type="button" class="qts-bp-toggle" id="bpRecord">${ICON("recordStart")} Gravar tela cheia</button>
         <button type="button" class="qts-bp-close" id="bpClose">${ICON("fail")}</button>
@@ -6304,8 +6353,47 @@ function openBreakpointViewer() {
   function layout() {
     stage.innerHTML = buildDeviceFrameHtml("a", findDevice(selectA.value)) + buildDeviceFrameHtml("b", findDevice(selectB.value));
     wireContentZoom();
-    fitAndLoad();
+    void syncMobileEmulation();
     wireSync();
+  }
+
+  const emulateButton = drawerHost.querySelector("#bpEmulateMobile");
+  const hasPhonePane = () => [selectA.value, selectB.value].some((id) => findDevice(id).kind === "phone");
+
+  // Decides whether the session rule should exist and waits for the background's ack BEFORE the
+  // phone pane gets its marked URL (otherwise its first request could leave with the desktop UA).
+  // `force` re-sends enable even when already active (Recarregar), since the tab-navigation
+  // teardown in background.js may have removed the rule meanwhile.
+  async function syncMobileEmulation({ force = false } = {}) {
+    emulateButton.hidden = !hasPhonePane();
+    const wanted = breakpointViewerState.emulateMobile && hasPhonePane() && !!normalizedPreviewUrl();
+    const session = breakpointViewerState.mobileEmulationSession;
+    if (wanted && (force || !breakpointViewerState.mobileEmulationActive)) {
+      breakpointViewerState.mobileEmulationPending = true;
+      fitAndLoad();
+      const ok = await requestMobileEmulation("enable");
+      if (session !== breakpointViewerState.mobileEmulationSession) {
+        // The viewer closed or was rebuilt while waiting. Its cleanup only queues a disable when the
+        // active flag was already set, so remove the rule this late ack just created.
+        if (ok) void requestMobileEmulation("disable");
+        return;
+      }
+      breakpointViewerState.mobileEmulationPending = false;
+      breakpointViewerState.mobileEmulationActive = ok;
+      if (!ok) showToolbarToast(state.t.emulateMobileFailed);
+    } else if (!wanted && breakpointViewerState.mobileEmulationActive) {
+      breakpointViewerState.mobileEmulationActive = false;
+      void requestMobileEmulation("disable");
+    }
+    fitAndLoad();
+  }
+
+  // The URL a pane should show: the phone pane gets the marker only once the rule is confirmed, and
+  // null while the enable is still in flight so the pane waits instead of loading as desktop.
+  function paneUrl(device, url) {
+    if (!url || device.kind !== "phone" || !breakpointViewerState.emulateMobile) return url;
+    if (breakpointViewerState.mobileEmulationPending) return null;
+    return breakpointViewerState.mobileEmulationActive ? markMobilePreviewUrl(url) : url;
   }
 
   function applyContentZoom(pane, { notify = false } = {}) {
@@ -6368,7 +6456,8 @@ function openBreakpointViewer() {
       wrap.style.width = `${Math.round(device.width * scale)}px`;
       wrap.style.height = `${Math.round(device.height * scale)}px`;
       iframe.style.transform = `scale(${scale})`;
-      if (url && iframe.src !== url) iframe.src = url;
+      const targetUrl = paneUrl(device, url);
+      if (targetUrl && iframe.src !== targetUrl) iframe.src = targetUrl;
       const label = frame.closest("[data-pane-wrap]").querySelector("[data-scale-label]");
       if (label) label.textContent = `${device.label} · ${device.width}×${device.height} · ${Math.round(scale * 100)}%`;
     });
@@ -6427,14 +6516,20 @@ function openBreakpointViewer() {
     window.setTimeout(() => toast.remove(), 3500);
   }
 
-  urlInput.addEventListener("change", fitAndLoad);
-  drawerHost.querySelector("#bpReload").addEventListener("click", () => {
+  urlInput.addEventListener("change", () => { void syncMobileEmulation(); });
+  drawerHost.querySelector("#bpReload").addEventListener("click", async () => {
     const url = normalizedPreviewUrl();
     if (!url) { showToolbarToast("Informe uma URL HTTP ou HTTPS válida."); return; }
-    stage.querySelectorAll("[data-bp-iframe]").forEach((iframe) => {
-      iframe.src = "about:blank";
-      window.setTimeout(() => { iframe.src = url; }, 0);
-    });
+    // about:blank first so the fitAndLoad inside syncMobileEmulation sees a changed src and reloads
+    // every pane (the phone one only after the re-sent enable is acknowledged).
+    stage.querySelectorAll("[data-bp-iframe]").forEach((iframe) => { iframe.src = "about:blank"; });
+    await syncMobileEmulation({ force: true });
+  });
+  emulateButton.addEventListener("click", () => {
+    breakpointViewerState.emulateMobile = !breakpointViewerState.emulateMobile;
+    emulateButton.classList.toggle("isOn", breakpointViewerState.emulateMobile);
+    emulateButton.setAttribute("aria-pressed", String(breakpointViewerState.emulateMobile));
+    void syncMobileEmulation();
   });
   selectA.addEventListener("change", layout);
   selectB.addEventListener("change", layout);

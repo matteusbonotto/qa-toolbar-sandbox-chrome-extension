@@ -102,7 +102,11 @@ const assertElementContrast = async (page, selector, minimum = 4.5) => {
 await rm(profilePath, { recursive: true, force: true });
 await mkdir(evidencePath, { recursive: true });
 
+// Every request the host server sees, so the Breakpoint Viewer phone emulation can be proven on the
+// wire (User-Agent per frame), not only by reading the page's navigator.
+const serverRequests = [];
 const server = createServer((request, response) => {
+  serverRequests.push({ at: Date.now(), url: request.url, userAgent: String(request.headers["user-agent"] || ""), mobileHint: String(request.headers["sec-ch-ua-mobile"] || ""), dest: String(request.headers["sec-fetch-dest"] || "") });
   if (request.url === "/api/data") {
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify({ hello: "world", nested: { count: 3 } }));
@@ -1510,8 +1514,40 @@ try {
     if (toolbarToolLabels[key] !== settingsLabel) throw new Error(`Tool label differs between Settings and Tools for ${key}: ${settingsLabel} != ${toolbarToolLabels[key]}`);
   }
   await host.screenshot({ path: resolve(evidencePath, "extension-tools-canonical-labels.png"), fullPage: false });
+  const requestsBeforeViewer = serverRequests.length;
   await host.locator("#breakpointMenuItem").click();
   await host.locator("#bpStage .qts-bp-frame").nth(1).waitFor();
+  // Founder bug (Cinemark Cineclub): the phone pane only had the phone's width, so sites that pick
+  // their mobile layout by User-Agent/touch/pointer kept rendering desktop. Pane b defaults to a phone.
+  const isMobileUa = (userAgent) => /Android/.test(userAgent) && /Mobile/.test(userAgent);
+  await host.waitForFunction(() => {
+    const iframe = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector('[data-pane="b"] iframe');
+    // contentWindow.location, not iframe.src: right after src is set the initial about:blank
+    // document already reports readyState "complete" before the marked request reaches the server.
+    return iframe?.contentWindow?.location.search.includes("__qtsbpua=1") && iframe.contentDocument?.readyState === "complete";
+  });
+  for (let attempt = 0; attempt < 50 && !serverRequests.slice(requestsBeforeViewer).some((entry) => entry.dest === "iframe" && entry.url.includes("__qtsbpua=1")); attempt += 1) await host.waitForTimeout(100);
+  if (await host.locator("#bpEmulateMobile").getAttribute("aria-pressed") !== "true" || await host.locator("#bpEmulateMobile").isHidden()) throw new Error("Emular celular toggle is not visible and on by default with a phone pane");
+  const viewerRequests = serverRequests.slice(requestsBeforeViewer).filter((entry) => entry.dest === "iframe");
+  const phoneRequest = viewerRequests.find((entry) => entry.url.includes("__qtsbpua=1"));
+  const desktopPaneRequest = viewerRequests.find((entry) => !entry.url.includes("__qtsbpua=1"));
+  const mainFrameRequests = serverRequests.slice(0, requestsBeforeViewer).filter((entry) => entry.dest === "document");
+  if (!phoneRequest || !isMobileUa(phoneRequest.userAgent) || phoneRequest.mobileHint !== "?1") throw new Error(`Phone pane request did not carry the mobile User-Agent: ${JSON.stringify({ phoneRequest, seen: serverRequests.slice(requestsBeforeViewer) })}`);
+  if (!desktopPaneRequest || isMobileUa(desktopPaneRequest.userAgent)) throw new Error(`Desktop pane request leaked the mobile User-Agent: ${JSON.stringify(desktopPaneRequest)}`);
+  if (!mainFrameRequests.length || mainFrameRequests.some((entry) => isMobileUa(entry.userAgent))) throw new Error("Top-level page requests must keep the desktop User-Agent");
+  const phoneSignals = await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    const signals = (pane) => {
+      const win = root?.querySelector(`[data-pane="${pane}"] iframe`)?.contentWindow;
+      return { userAgent: win?.navigator.userAgent, touch: win?.navigator.maxTouchPoints, coarse: win?.matchMedia("(pointer: coarse)").matches, hoverNone: win?.matchMedia("(hover: none)").matches, screenWidth: win?.screen.width, innerWidth: win?.innerWidth };
+    };
+    return { phone: signals("b"), desktop: signals("a") };
+  });
+  if (!isMobileUa(phoneSignals.phone.userAgent) || !(phoneSignals.phone.touch > 0) || !phoneSignals.phone.coarse || !phoneSignals.phone.hoverNone || phoneSignals.phone.screenWidth !== phoneSignals.phone.innerWidth) throw new Error(`Phone pane page does not look like a phone: ${JSON.stringify(phoneSignals.phone)}`);
+  if (isMobileUa(phoneSignals.desktop.userAgent) || phoneSignals.desktop.coarse) throw new Error(`Desktop pane page was emulated as a phone: ${JSON.stringify(phoneSignals.desktop)}`);
+  const sessionRulesOpen = await context.serviceWorkers()[0].evaluate(() => chrome.declarativeNetRequest.getSessionRules());
+  if (sessionRulesOpen.length !== 1 || sessionRulesOpen[0].condition.urlFilter !== "__qtsbpua=1^" || JSON.stringify(sessionRulesOpen[0].condition.resourceTypes) !== '["sub_frame"]' || sessionRulesOpen[0].condition.tabIds?.length !== 1) throw new Error(`Unexpected phone emulation session rules: ${JSON.stringify(sessionRulesOpen)}`);
+  trace("breakpoint phone emulation verified (mobile UA on the phone pane only, touch/pointer signals, scoped session rule)");
   const responsiveCentering = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
     const stage = root?.getElementById("bpStage")?.getBoundingClientRect();
@@ -1549,12 +1585,41 @@ try {
   }
   await host.screenshot({ path: resolve(evidencePath, "extension-breakpoint-independent-internal-zoom.png"), fullPage: false });
   await host.locator("#bpClose").click();
+  let sessionRulesClosed = null;
+  for (let attempt = 0; attempt < 50; attempt += 1) {
+    sessionRulesClosed = await context.serviceWorkers()[0].evaluate(() => chrome.declarativeNetRequest.getSessionRules());
+    if (!sessionRulesClosed.length) break;
+    await host.waitForTimeout(100);
+  }
+  if (sessionRulesClosed.length) throw new Error(`Phone emulation rule survived closing the viewer: ${JSON.stringify(sessionRulesClosed)}`);
+  // No leak after closing: even a marked iframe in the same tab now reaches the server as desktop.
+  const requestsAfterClose = serverRequests.length;
+  await host.evaluate(() => new Promise((resolveFrame) => {
+    const probe = document.createElement("iframe");
+    probe.id = "qtsUaLeakProbe";
+    probe.onload = resolveFrame;
+    probe.src = "/ua-leak-probe?__qtsbpua=1";
+    document.body.appendChild(probe);
+  }));
+  const leakProbe = serverRequests.slice(requestsAfterClose).find((entry) => entry.url.startsWith("/ua-leak-probe"));
+  await host.evaluate(() => document.getElementById("qtsUaLeakProbe")?.remove());
+  if (!leakProbe || isMobileUa(leakProbe.userAgent)) throw new Error(`Mobile User-Agent leaked after closing the viewer: ${JSON.stringify(leakProbe)}`);
+  trace("breakpoint phone emulation torn down on close (no session rule, desktop UA again)");
 
   // Key View renders SVG keycaps for three seconds, keeps opt-in typing only in
   // memory, never captures sensitive fields, and visualizes mouse actions.
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
   if (await host.locator("[data-key-view-position]").count() !== 9) throw new Error("Key View does not expose all nine screen positions");
+  // Founder screenshot: shape/decoration buttons were squashed, icon spilling over the border and
+  // labels clipped. Every option must fully contain its 40px swatch and its label.
+  const cursorOptionBoxes = await host.locator(".qts-cursor-option").evaluateAll((buttons) => buttons.map((button) => {
+    const box = button.getBoundingClientRect();
+    const swatch = button.querySelector(".qts-cursor-swatch").getBoundingClientRect();
+    const label = button.querySelector("small").getBoundingClientRect();
+    return { height: box.height, swatchHeight: swatch.height, contained: swatch.top >= box.top && label.bottom <= box.bottom + 0.5 };
+  }));
+  if (cursorOptionBoxes.length !== 9 || cursorOptionBoxes.some((entry) => entry.swatchHeight < 39 || !entry.contained)) throw new Error(`Cursor shape/decoration options are squashed: ${JSON.stringify(cursorOptionBoxes)}`);
   await host.locator("#keyViewTyping").check();
   await host.locator("#keyViewTheme").selectOption("light");
   await host.locator("#keyViewKeySize").selectOption("large");
@@ -2213,6 +2278,13 @@ try {
   // with the same screenshots).
   await options.getByRole("button", { name: "Minha conta" }).click();
   if (await options.locator("#tutorialBanner").isHidden()) throw new Error("Tutorial banner should be visible before it's dismissed");
+  // Founder rule: the tour banner above the login spans the full panel row (col 12), not half of it.
+  const tutorialBannerSpan = await options.locator('.panel[data-panel="account"]').evaluate((panel) => {
+    const banner = panel.querySelector("#tutorialBanner").getBoundingClientRect();
+    const style = getComputedStyle(panel);
+    return { banner: banner.width, row: panel.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight) };
+  });
+  if (Math.abs(tutorialBannerSpan.banner - tutorialBannerSpan.row) > 2) throw new Error(`Tour banner is not full width: ${JSON.stringify(tutorialBannerSpan)}`);
   await options.getByRole("button", { name: "Tutorial" }).click();
   const tutorialModuleCount = await options.locator("[data-tutorial-module]").count();
   if (tutorialModuleCount < 20) throw new Error(`Tutorial panel rendered too few modules: ${tutorialModuleCount}`);

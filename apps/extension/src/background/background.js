@@ -3,6 +3,7 @@ import { acceptSessionHandoff, deleteAccount, getAccessState, redeemVoucher, req
 
 const TOOLBAR_SCRIPT_ID = "qts-toolbar";
 const PAGEBRIDGE_SCRIPT_ID = "qts-pagebridge";
+const MOBILE_EMULATION_SCRIPT_ID = "qts-mobile-emu";
 // Packaging (scripts/package-extension.mjs) already strips localhost from the manifest's
 // externally_connectable.matches for the real Web Store artifact, so Chrome itself never
 // delivers a message from there in production. This mirrors that same test-build gate here as
@@ -49,11 +50,14 @@ function patternToRegExp(pattern) {
 }
 
 async function unregisterContentScripts() {
-  const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [TOOLBAR_SCRIPT_ID, PAGEBRIDGE_SCRIPT_ID] });
+  const existing = await chrome.scripting.getRegisteredContentScripts({ ids: [TOOLBAR_SCRIPT_ID, PAGEBRIDGE_SCRIPT_ID, MOBILE_EMULATION_SCRIPT_ID] });
   if (existing.length) await chrome.scripting.unregisterContentScripts({ ids: existing.map((script) => script.id) });
 }
 
 async function removeToolbarFromOpenTabs() {
+  // The toolbar is going away everywhere (sign-out, account deletion, empty scope), so no
+  // Breakpoint Viewer can still need its phone emulation rule.
+  await removeAllMobileEmulationRules();
   const tabs = await chrome.tabs.query({});
   await Promise.all(tabs.map(async (tab) => {
     if (!tab.id) return;
@@ -101,6 +105,10 @@ async function applyContentScriptRegistrationNow({ forceAccess = false } = {}) {
   }
   await chrome.scripting.registerContentScripts([
     { id: PAGEBRIDGE_SCRIPT_ID, matches, js: ["src/pagebridge/pagebridge.js"], world: "MAIN", runAt: "document_start", allFrames: false },
+    // Inert in every frame whose URL lacks the Breakpoint Viewer phone marker (see
+    // MOBILE_EMULATION_MARKER); allFrames + document_start so it patches navigator/screen/matchMedia
+    // inside the phone iframe before any of the site's own scripts run.
+    { id: MOBILE_EMULATION_SCRIPT_ID, matches, js: ["src/pagebridge/mobile-emulation.js"], world: "MAIN", runAt: "document_start", allFrames: true },
     // allFrames:true so the bar also renders inside the Breakpoint Viewer's own device-preview
     // iframes (same-origin, matching these same URL patterns) - boot()'s tiny-frame guard in
     // toolbar.js keeps this from mounting in incidental small embedded widgets on normal pages.
@@ -320,6 +328,75 @@ chrome.windows.onRemoved.addListener((windowId) => {
   });
 });
 
+// Breakpoint Viewer phone emulation (declarativeNetRequestWithHostAccess, see docs/permissions.md).
+// Sites like Cinemark Cineclub pick their mobile layout from the User-Agent (server and JS), not
+// only from the viewport width the phone iframe already has. Both panes of the viewer load the
+// SAME URL in the SAME tab, and DNR cannot tell two iframes apart, so toolbar.js adds the
+// MOBILE_EMULATION_MARKER query param only to the phone pane's URL and the rule matches on it.
+// Session rules (the only kind that accepts tabIds) survive the service worker dying (rule 14),
+// so every exit path below removes them: explicit disable, tab navigation/close and a startup sweep.
+const MOBILE_EMULATION_MARKER = "__qtsbpua=1";
+// Chrome's own reduced Android UA format, with the real Chrome major so client hints and UA stay
+// coherent. src/pagebridge/mobile-emulation.js builds the exact same string for navigator.userAgent:
+// keep both in sync.
+const MOBILE_EMULATION_CHROME_MAJOR = /Chrome\/(\d+)/.exec(navigator.userAgent)?.[1] || "141";
+const MOBILE_EMULATION_HEADERS = [
+  { header: "user-agent", operation: "set", value: `Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/${MOBILE_EMULATION_CHROME_MAJOR}.0.0.0 Mobile Safari/537.36` },
+  { header: "sec-ch-ua-mobile", operation: "set", value: "?1" },
+  { header: "sec-ch-ua-platform", operation: "set", value: "\"Android\"" },
+];
+
+function mobileEmulationRule(tabId) {
+  return {
+    // One rule per tab, keyed by the tab id itself: enabling twice just replaces it (idempotent).
+    id: tabId,
+    priority: 1,
+    action: { type: "modifyHeaders", requestHeaders: MOBILE_EMULATION_HEADERS },
+    // "^" is DNR's separator anchor (any non-alphanumeric/_-.% char or the end of the URL), so a
+    // longer value like __qtsbpua=12 never matches. urlFilter, not regexFilter: in the full smoke
+    // run a regexFilter rule present before the request still did not rewrite the phone pane's
+    // header (4 runs in a row), while this urlFilter form passed every time.
+    condition: { tabIds: [tabId], resourceTypes: ["sub_frame"], urlFilter: `${MOBILE_EMULATION_MARKER}^` },
+  };
+}
+
+async function removeMobileEmulationRule(tabId) {
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId] }); }
+  catch (error) { console.warn("QTS: could not remove phone emulation rule", error); }
+}
+
+async function removeAllMobileEmulationRules() {
+  try {
+    const rules = await chrome.declarativeNetRequest.getSessionRules();
+    if (rules.length) await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: rules.map((rule) => rule.id) });
+  } catch (error) { console.warn("QTS: could not remove phone emulation rules", error); }
+}
+
+// The only session rules this extension creates are these (keep it that way, or filter by id
+// range here), so any rule whose tab no longer exists is a leftover from a service worker that
+// died before its teardown ran.
+async function sweepMobileEmulationRules() {
+  try {
+    const rules = await chrome.declarativeNetRequest.getSessionRules();
+    const openTabIds = new Set((await chrome.tabs.query({})).map((tab) => tab.id));
+    const stale = rules.filter((rule) => !openTabIds.has(rule.id)).map((rule) => rule.id);
+    if (stale.length) await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: stale });
+  } catch (error) { console.warn("QTS: could not sweep phone emulation rules", error); }
+}
+
+// A top-level navigation destroys the viewer overlay along with the page, so the rule has nothing
+// left to serve. Keyed on changeInfo.url only, NOT status === "loading": Chrome reports the tab as
+// loading whenever ANY frame loads, so the viewer's own laptop pane loading next to the phone pane
+// used to delete the rule right after it was created (caught by the smoke as a desktop UA on the
+// phone request). A same-URL reload therefore keeps the rule until the tab closes, navigates or
+// the viewer is opened/closed again; it still only touches marked sub_frames of that one tab.
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.url) void removeMobileEmulationRule(tabId);
+});
+chrome.tabs.onRemoved.addListener((tabId) => { void removeMobileEmulationRule(tabId); });
+chrome.runtime.onStartup.addListener(() => { void sweepMobileEmulationRules(); });
+chrome.runtime.onInstalled.addListener(() => { void sweepMobileEmulationRules(); });
+
 onStorageChanged((changes) => {
   if (changes[STORAGE_KEYS.workspace] || changes[STORAGE_KEYS.siteScope]) void applyContentScriptRegistration();
 });
@@ -469,6 +546,28 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         .then((dataUrl) => sendResponse({ ok: true, dataUrl }))
         .catch((error) => sendResponse({ ok: false, error: String(error?.message || error) }));
     });
+    return true;
+  }
+  if (message.type === "qts:bp-mobile-emulation") {
+    // Removing the sender's own tab rule is always safe, so disable skips the session/scope gate:
+    // a sign-out or expired plan with the viewer open must still be able to tear it down.
+    if (message.operation === "disable" && sender.tab?.id) {
+      void removeMobileEmulationRule(sender.tab.id).then(() => sendResponse({ ok: true }));
+      return true;
+    }
+    Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(async ([access, authorizedSender]) => {
+      if (!access.active || !authorizedSender || !sender.tab?.id) return sendResponse({ ok: false, error: "authentication_required" });
+      const tabId = sender.tab.id;
+      try {
+        if (message.operation === "enable") {
+          await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId], addRules: [mobileEmulationRule(tabId)] });
+          return sendResponse({ ok: true, marker: MOBILE_EMULATION_MARKER });
+        }
+        return sendResponse({ ok: false, error: "invalid_operation" });
+      } catch (error) {
+        return sendResponse({ ok: false, error: String(error?.message || error) });
+      }
+    }).catch(() => sendResponse({ ok: false, error: "mobile_emulation_failed" }));
     return true;
   }
   if (message.type === "qts:clear-site-data") {

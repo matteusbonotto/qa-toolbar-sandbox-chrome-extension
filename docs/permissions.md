@@ -9,7 +9,7 @@
 ## O que o `manifest.json` pede hoje
 
 ```json
-"permissions": ["storage", "scripting", "tabs", "contextMenus", "alarms", "browsingData"],
+"permissions": ["storage", "scripting", "tabs", "contextMenus", "alarms", "browsingData", "declarativeNetRequestWithHostAccess"],
 "host_permissions": ["<all_urls>"]
 ```
 
@@ -28,7 +28,27 @@ interromper o fluxo de teste com um prompt a cada navegação.
 | `alarms` | Verificação periódica de `access-status` (plano/entitlement) | `background.js` |
 | `browsingData` | Limpar dados do site atual sob comando explícito do QA (ferramenta "Limpar dados do site") | `background.js` |
 | (nenhuma) | A gravação de evidência roda em `src/recorder/` (janela popup própria via `chrome.windows.create`, `getDisplayMedia` + `MediaRecorder` em página da extensão). `chrome.windows` e `getDisplayMedia` não exigem permissão no manifest; o seletor nativo de tela do Chrome continua sendo o consentimento do usuário. Decisão de 2026-10-14: `desktopCapture`/`offscreen`/`downloads` foram descartadas porque adicionariam aviso de permissão e desativariam a extensão na atualização até o usuário aceitar | `recorder.js`, `background.js` |
+| `declarativeNetRequestWithHostAccess` | Emulação de celular no Breakpoint Viewer (PR 2). Quando uma pane está num device "phone" e o toggle "Emular celular" está ligado (padrão), o service worker cria uma regra de **sessão** (`chrome.declarativeNetRequest.updateSessionRules`) que sobrescreve os headers `user-agent`, `sec-ch-ua-mobile` e `sec-ch-ua-platform` para um Chromium Android. Escopo exato da regra: `tabIds: [aba do viewer]` + `resourceTypes: ["sub_frame"]` + `urlFilter: "__qtsbpua=1^"` (marcador de query; o `^` exige separador ou fim da URL depois do valor, que só a URL do iframe phone recebe). Nunca afeta `main_frame`, outras abas, a página real embaixo do viewer nem a navegação normal. Teardown: a regra é removida ao fechar o viewer, Esc, desligar o toggle, trocar para laptop/tablet, a aba navegar para outra URL (`tabs.onUpdated` com `changeInfo.url`; não com `status: "loading"`, que o Chrome também dispara quando qualquer iframe carrega e apagaria a regra logo após criá-la. Um recarregamento na mesma URL mantém a regra até a aba fechar, navegar ou o viewer abrir/fechar de novo, ainda restrita aos sub_frames marcados daquela aba), fechar a aba (`tabs.onRemoved`), no logout ou mudança de escopo (o `disable` não exige sessão ativa, e a remoção da barra em todas as abas apaga todas as regras) e numa varredura em `onStartup`/`onInstalled`. Session rules vivem só em memória do navegador e são apagadas no shutdown e no update da extensão; nada é persistido em disco. **Não gera aviso de instalação**: a variante `WithHostAccess` só atua onde já existe host permission, e a extensão já tem `<all_urls>`, então nenhum aviso novo aparece e o Chrome não desativa a extensão no auto-update (compatível com a decisão de 2026-10-14 acima). Por que não `declarativeNetRequest` "nua": ela gera o aviso "Bloquear conteúdo em qualquer página" e desativaria a extensão na atualização até o usuário aceitar. `declarativeNetRequestFeedback` não é usado. Por que não `debugger` (CDP, emulação completa): exibe o banner de depuração do Chrome em toda a janela e tem alto risco na revisão da Chrome Web Store; rejeitada pelo fundador | `background.js` (regras de sessão e teardown), `src/pagebridge/mobile-emulation.js` (content script MAIN world, `document_start`, `allFrames`: inerte em qualquer frame sem o marcador; no iframe phone falsifica `navigator.userAgent`/`platform`/`maxTouchPoints`, `screen.*` e `matchMedia` de `pointer`/`hover`), `toolbar.js` (toggle e URL marcada do iframe phone) |
 | `<all_urls>` (host) | Injetar a barra e o pagebridge no domínio que o QA está testando; também satisfaz o requisito de host permission do `captureVisibleTab`, tornando `activeTab` redundante (removida em 2026-08-04) | `background.js` |
+
+## Limitações conhecidas da emulação de celular (`declarativeNetRequestWithHostAccess`)
+
+Registradas para que o texto público nunca prometa mais do que o código entrega:
+
+- O servidor recebe o query param `__qtsbpua=1` na URL do iframe phone; um site que varie o
+  render por query param desconhecido pode se comportar diferente.
+- `navigator.userAgentData` de alta entropia, `devicePixelRatio`, toque real e `orientation` não
+  são emulados.
+- Navegação de documento inteiro dentro do iframe phone perde o marcador e volta ao UA desktop.
+- O UA emulado é sempre Chromium Android, mesmo em presets chamados iPhone (o preset controla só
+  o tamanho da pane).
+- Só o documento do iframe phone recebe o UA Android no header. Subrecursos e chamadas
+  `fetch`/XHR feitas por ele não têm o marcador na URL e saem com o UA desktop
+  (`sec-ch-ua-mobile: ?0`); uma API que detecte o dispositivo pelo header continua vendo desktop.
+- `@media (pointer: ...)`/`(hover: ...)` escritos em CSS não são emulados; só `matchMedia`
+  chamado por JavaScript.
+- Emulação completa via `debugger`/CDP foi rejeitada (banner de depuração e risco na revisão da
+  Chrome Web Store), então essas lacunas são aceitas por decisão de produto, não por omissão.
 
 ## `<all_urls>` não significa "sempre ativo em todo lugar"
 
@@ -54,6 +74,10 @@ Auditoria feita nesta sessão confirmou que está correto — não altere um lad
 
 - Não injeta em `chrome://`, Web Store ou outras extensões (Manifest V3 já bloqueia isso).
 - Não lê `history`/bookmarks — nenhuma dessas permissões foi solicitada.
+- Não bloqueia, redireciona nem lê requisições: a única regra de `declarativeNetRequest` criada é
+  a de sessão do Breakpoint Viewer (troca de headers de UA no `sub_frame` marcado da aba do
+  viewer), e `declarativeNetRequestFeedback` não é solicitada, então a extensão não consegue ver
+  quais requisições casaram com a regra.
 - Não faz upload de conteúdo de página, cookies ou credenciais reais para servidor algum; o que
   sai para o Supabase é sessão/plano/telemetria de erro sanitizada (ver `docs/security.md`).
 
@@ -64,3 +88,8 @@ Auditoria feita nesta sessão confirmou que está correto — não altere um lad
    idiomas.
 3. Rode `npm run test:chrome` — o smoke verifica que a extensão carrega e a barra injeta
    corretamente; uma permissão nova mal declarada quebra isso antes de chegar à Web Store.
+4. Confirme na documentação oficial do Chrome se a permissão gera aviso de instalação. Se gerar,
+   ela desativa a extensão no auto-update até o usuário aceitar (ver decisão de 2026-10-14 na
+   tabela): só entra com aprovação explícita do fundador. Prefira a variante que reaproveita a
+   host permission existente (ex.: `declarativeNetRequestWithHostAccess` em vez de
+   `declarativeNetRequest`).
