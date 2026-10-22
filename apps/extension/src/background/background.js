@@ -55,6 +55,9 @@ async function unregisterContentScripts() {
 }
 
 async function removeToolbarFromOpenTabs() {
+  // The toolbar is going away everywhere (sign-out, account deletion, empty scope), so no
+  // Breakpoint Viewer can still need its phone emulation rule.
+  await removeAllMobileEmulationRules();
   const tabs = await chrome.tabs.query({});
   await Promise.all(tabs.map(async (tab) => {
     if (!tab.id) return;
@@ -349,29 +352,46 @@ function mobileEmulationRule(tabId) {
     id: tabId,
     priority: 1,
     action: { type: "modifyHeaders", requestHeaders: MOBILE_EMULATION_HEADERS },
-    condition: { tabIds: [tabId], resourceTypes: ["sub_frame"], urlFilter: MOBILE_EMULATION_MARKER },
+    // "^" is DNR's separator anchor (any non-alphanumeric/_-.% char or the end of the URL), so a
+    // longer value like __qtsbpua=12 never matches. urlFilter, not regexFilter: in the full smoke
+    // run a regexFilter rule present before the request still did not rewrite the phone pane's
+    // header (4 runs in a row), while this urlFilter form passed every time.
+    condition: { tabIds: [tabId], resourceTypes: ["sub_frame"], urlFilter: `${MOBILE_EMULATION_MARKER}^` },
   };
 }
 
 async function removeMobileEmulationRule(tabId) {
-  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId] }); } catch {}
+  try { await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId] }); }
+  catch (error) { console.warn("QTS: could not remove phone emulation rule", error); }
 }
 
-// The only session rules this extension creates are these, so any rule whose tab no longer exists
-// is a leftover from a service worker that died before its teardown ran.
+async function removeAllMobileEmulationRules() {
+  try {
+    const rules = await chrome.declarativeNetRequest.getSessionRules();
+    if (rules.length) await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: rules.map((rule) => rule.id) });
+  } catch (error) { console.warn("QTS: could not remove phone emulation rules", error); }
+}
+
+// The only session rules this extension creates are these (keep it that way, or filter by id
+// range here), so any rule whose tab no longer exists is a leftover from a service worker that
+// died before its teardown ran.
 async function sweepMobileEmulationRules() {
   try {
     const rules = await chrome.declarativeNetRequest.getSessionRules();
     const openTabIds = new Set((await chrome.tabs.query({})).map((tab) => tab.id));
     const stale = rules.filter((rule) => !openTabIds.has(rule.id)).map((rule) => rule.id);
     if (stale.length) await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: stale });
-  } catch {}
+  } catch (error) { console.warn("QTS: could not sweep phone emulation rules", error); }
 }
 
-// A top-level navigation or reload destroys the viewer overlay along with the page, so the rule
-// has nothing left to serve.
+// A top-level navigation destroys the viewer overlay along with the page, so the rule has nothing
+// left to serve. Keyed on changeInfo.url only, NOT status === "loading": Chrome reports the tab as
+// loading whenever ANY frame loads, so the viewer's own laptop pane loading next to the phone pane
+// used to delete the rule right after it was created (caught by the smoke as a desktop UA on the
+// phone request). A same-URL reload therefore keeps the rule until the tab closes, navigates or
+// the viewer is opened/closed again; it still only touches marked sub_frames of that one tab.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
-  if (changeInfo.status === "loading" || changeInfo.url) void removeMobileEmulationRule(tabId);
+  if (changeInfo.url) void removeMobileEmulationRule(tabId);
 });
 chrome.tabs.onRemoved.addListener((tabId) => { void removeMobileEmulationRule(tabId); });
 chrome.runtime.onStartup.addListener(() => { void sweepMobileEmulationRules(); });
@@ -529,6 +549,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
   if (message.type === "qts:bp-mobile-emulation") {
+    // Removing the sender's own tab rule is always safe, so disable skips the session/scope gate:
+    // a sign-out or expired plan with the viewer open must still be able to tear it down.
+    if (message.operation === "disable" && sender.tab?.id) {
+      void removeMobileEmulationRule(sender.tab.id).then(() => sendResponse({ ok: true }));
+      return true;
+    }
     Promise.all([getAccessState(), isAuthorizedContentSender(sender)]).then(async ([access, authorizedSender]) => {
       if (!access.active || !authorizedSender || !sender.tab?.id) return sendResponse({ ok: false, error: "authentication_required" });
       const tabId = sender.tab.id;
@@ -536,10 +562,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         if (message.operation === "enable") {
           await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId], addRules: [mobileEmulationRule(tabId)] });
           return sendResponse({ ok: true, marker: MOBILE_EMULATION_MARKER });
-        }
-        if (message.operation === "disable") {
-          await chrome.declarativeNetRequest.updateSessionRules({ removeRuleIds: [tabId] });
-          return sendResponse({ ok: true });
         }
         return sendResponse({ ok: false, error: "invalid_operation" });
       } catch (error) {

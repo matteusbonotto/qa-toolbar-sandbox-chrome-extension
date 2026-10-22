@@ -29,11 +29,11 @@ resto:
 - **Override de user-agent restrito ao Breakpoint Viewer** (`declarativeNetRequestWithHostAccess`,
   ver `docs/permissions.md`): a emulação de celular usa só regras de **sessão**
   (`updateSessionRules`), nunca regras dinâmicas ou estáticas. Cada regra é limitada a
-  `tabIds: [aba do viewer]` + `resourceTypes: ["sub_frame"]` + `urlFilter: "__qtsbpua=1"`, então
+  `tabIds: [aba do viewer]` + `resourceTypes: ["sub_frame"]` + `urlFilter: "__qtsbpua=1^"`, então
   só o iframe phone marcado recebe os headers `user-agent`/`sec-ch-ua-mobile`/`sec-ch-ua-platform`
   de Android; nunca o `main_frame`, outras abas, a página real embaixo do viewer ou a navegação
   normal. A regra é removida ao fechar o viewer, Esc, desligar o toggle, trocar de device,
-  navegar/recarregar ou fechar a aba, e numa varredura em `onStartup`/`onInstalled`. Session rules
+  navegar para outra URL ou fechar a aba, no logout ou mudança de escopo (o `disable` não exige sessão ativa), e numa varredura em `onStartup`/`onInstalled`. Session rules
   vivem em memória do navegador e somem no shutdown e no update da extensão: nada é persistido em
   disco. `declarativeNetRequestFeedback` não é solicitada, então a extensão não observa quais
   requisições casaram. O content script `src/pagebridge/mobile-emulation.js` roda no MAIN world

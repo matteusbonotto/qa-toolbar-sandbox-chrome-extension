@@ -7,8 +7,6 @@
 // rule in background.js; this file only covers what the page's JavaScript can observe.
 (() => {
   if (!/[?&]__qtsbpua=1(?:&|$)/.test(window.location.search)) return;
-  if (window.__qtsMobileEmulationInstalled) return;
-  window.__qtsMobileEmulationInstalled = true;
 
   // Same string as MOBILE_EMULATION_HEADERS in background.js (Chrome's reduced Android UA with the
   // real Chrome major): keep both in sync so the server and the page see one coherent device.

@@ -2189,6 +2189,9 @@ async function dismissFirstRunNotification() {
 }
 
 function removeToolbar({ disableBridge = false } = {}) {
+  // Sign-out/scope change can remove the bar with the Breakpoint Viewer still open: drop its phone
+  // emulation rule too (the background accepts disable without an active session).
+  cleanupBreakpointViewer();
   cancelElementSelection();
   stopKeyView();
   state.elementViewCleanup?.();
@@ -4070,10 +4073,13 @@ function drawerStyles() {
     .qts-cursor-click { display: none; }
     .qts-cursor-label { display: inline-block; max-width: 160px; padding: 2px 9px; border-radius: 999px; background: var(--qts-cursor-color, #5b35e8); color: var(--qts-cursor-label-text, #fff); font: 800 11px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; box-shadow: 0 2px 6px rgba(0,0,0,.3); }
     .qts-cursor-grid { --qts-cursor-color: #5b35e8; display: grid; grid-template-columns: repeat(4, minmax(0,1fr)); gap: 8px; }
-    .qts-cursor-option { display: flex; flex-direction: column; align-items: center; gap: 5px; padding: 9px 6px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); color: var(--qts-panel-muted); cursor: pointer; font-size: 10px; font-weight: 700; }
-    .qts-cursor-option small { color: inherit; text-align: center; }
+    /* min-height + flex:none on the swatch: the swatch's SVG is absolutely positioned (no intrinsic
+       size), so any height pressure on the button used to shrink the swatch to 0 and spill the icon
+       over the border with the label clipped (founder screenshot). */
+    .qts-cursor-option { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px; box-sizing: border-box; min-height: 76px; height: auto; padding: 9px 6px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); color: var(--qts-panel-muted); cursor: pointer; font-size: 10px; font-weight: 700; }
+    .qts-cursor-option small { color: inherit; text-align: center; line-height: 1.2; }
     .qts-cursor-option.isSelected { border-color: var(--qts-ui-primary, #5b35e8); color: var(--qts-panel-text); box-shadow: 0 0 0 2px color-mix(in srgb, var(--qts-ui-primary, #5b35e8) 20%, transparent); }
-    .qts-cursor-swatch { position: relative; width: 30px; height: 40px; }
+    .qts-cursor-swatch { position: relative; flex: none; width: 30px; height: 40px; }
     .qts-cursor-swatch-bg { display: grid; place-items: center; }
     .qts-cursor-swatch-bg .qts-cursor-bg { position: static; right: auto; bottom: auto; width: 26px; height: 26px; }
     .qts-cursor-none { font-size: 18px; line-height: 1; color: var(--qts-panel-muted); }
