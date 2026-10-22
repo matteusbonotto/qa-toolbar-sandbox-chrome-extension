@@ -13,6 +13,8 @@ const MOBILE_EMULATION_SCRIPT_ID = "qts-mobile-emu";
 const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
 const LANDING_ORIGINS = new Set([
   "https://matteusbonotto.github.io",
+  // Firebase Hosting (2026-10-22). Both hosts stay accepted until GitHub Pages is switched off.
+  "https://qatoolbarsandbox.web.app",
   ...(IS_TEST_BUILD ? ["http://localhost:5173"] : []),
 ]);
 

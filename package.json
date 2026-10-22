@@ -54,7 +54,9 @@
     "verify:cineluna": "node scripts/verify-cineluna-import.mjs",
     "tutorial:capture": "node scripts/capture-tutorial-media.mjs",
     "prepare": "node scripts/install-git-hooks.mjs",
-    "inpi:package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-inpi-package.ps1"
+    "inpi:package": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/generate-inpi-package.ps1",
+    "build:firebase": "node scripts/build-pages-local.mjs --base=/",
+    "deploy:firebase": "npm run build:firebase && firebase deploy --only hosting --project qatoolbarsandbox"
   },
   "engines": {
     "node": ">=20.19.0"
@@ -62,6 +64,7 @@
   "devDependencies": {
     "archiver": "^8.0.0",
     "esbuild": "^0.28.1",
+    "firebase-tools": "^15.34.1",
     "mermaid": "^11.16.0",
     "playwright": "^1.62.0",
     "qrcode": "^1.5.4"

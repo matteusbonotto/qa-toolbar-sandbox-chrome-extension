@@ -41,3 +41,6 @@ apps/landing/src/assets/logo-branco.png
 apps/landing/src/assets/logo-colorido.svg
 apps/landing/src/assets/logo-colorido.png
 apps/landing/src/assets/qaSBTB.svg
+
+# Firebase CLI deploy cache
+.firebase/

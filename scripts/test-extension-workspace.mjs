@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { FEATURE_REGISTRY, DEFAULT_ENABLED_TOOLS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
+import { FEATURE_REGISTRY, DEFAULT_ENABLED_TOOLS, DEMO_CLIENT_ID, DEMO_PROJECT_ID, DEMO_PRODUCT_ID, DEMO_ENVIRONMENT_ID, DEMO_URL_BINDING_ID, DEMO_SITE_URL_PATTERN, LEGACY_DEMO_SITE_URL_PATTERN, normalizeUrlPatterns, normalizeWorkspace } from "../apps/extension/src/lib/storage.js";
 
 assert.deepEqual(FEATURE_REGISTRY.map((feature) => feature.key), DEFAULT_ENABLED_TOOLS);
 assert.equal(new Set(FEATURE_REGISTRY.map((feature) => feature.key)).size, FEATURE_REGISTRY.length);
@@ -328,7 +328,15 @@ const importDroppedEnvAndBinding = normalizeWorkspace({
 const demoEnv = importDroppedEnvAndBinding.environments.find((environment) => environment.id === DEMO_ENVIRONMENT_ID);
 assert.equal(demoEnv?.name, "QA", "the QA environment is re-created if an import dropped it");
 const demoBinding = importDroppedEnvAndBinding.urlBindings.find((binding) => binding.id === DEMO_URL_BINDING_ID);
-assert.deepEqual(demoBinding?.patterns, [DEMO_SITE_URL_PATTERN], "the demo site URL binding is re-created if an import dropped it");
+assert.deepEqual(demoBinding?.patterns, [DEMO_SITE_URL_PATTERN, LEGACY_DEMO_SITE_URL_PATTERN], "the demo site URL binding is re-created if an import dropped it");
+// Hosting moved to Firebase (2026-10-22): a workspace saved with the GitHub Pages demo pattern only
+// must come back pointing at the new host too, or the live tutorial stops mounting on the demo site.
+assert.equal(DEMO_SITE_URL_PATTERN, "https://qatoolbarsandbox.web.app/sandbox/*");
+const legacyDemoWorkspace = normalizeWorkspace({
+  ...importDroppedEnvAndBinding,
+  urlBindings: [{ id: DEMO_URL_BINDING_ID, productId: DEMO_PRODUCT_ID, environmentIds: [DEMO_ENVIRONMENT_ID], patterns: [LEGACY_DEMO_SITE_URL_PATTERN] }],
+});
+assert.deepEqual(legacyDemoWorkspace.urlBindings.find((binding) => binding.id === DEMO_URL_BINDING_ID)?.patterns, [DEMO_SITE_URL_PATTERN, LEGACY_DEMO_SITE_URL_PATTERN], "a pre-Firebase demo binding is migrated to the new host");
 assert.equal(demoBinding?.productId, DEMO_PRODUCT_ID);
 assert.deepEqual(demoBinding?.environmentIds, [DEMO_ENVIRONMENT_ID]);
 

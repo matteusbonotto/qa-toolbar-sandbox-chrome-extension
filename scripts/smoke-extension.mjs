@@ -237,11 +237,11 @@ try {
   for (let attempt = 0; attempt < 40 && installDemoTabs.length === 0; attempt += 1) {
     await new Promise((resolveInstallTab) => setTimeout(resolveInstallTab, 100));
     installDemoTabs = context.pages().filter((page) => {
-      try { return ["matteusbonotto.github.io"].includes(new URL(page.url()).hostname); } catch { return false; }
+      try { return ["qatoolbarsandbox.web.app"].includes(new URL(page.url()).hostname); } catch { return false; }
     });
   }
   installDemoTabs = context.pages().filter((page) => {
-    try { return ["matteusbonotto.github.io"].includes(new URL(page.url()).hostname); } catch { return false; }
+    try { return ["qatoolbarsandbox.web.app"].includes(new URL(page.url()).hostname); } catch { return false; }
   });
   if (installDemoTabs.length !== 1) throw new Error(`Fresh install should open exactly one demo-site tab, found ${installDemoTabs.length}`);
   const installDemo = installDemoTabs[0];
@@ -328,7 +328,7 @@ try {
   for (let attempt = 0; attempt < 50 && firstAccessTourTabs.length === 0; attempt += 1) {
     await new Promise((resolveTourTab) => setTimeout(resolveTourTab, 100));
     firstAccessTourTabs = context.pages().filter((page) => {
-      try { return ["matteusbonotto.github.io"].includes(new URL(page.url()).hostname); } catch { return false; }
+      try { return ["qatoolbarsandbox.web.app"].includes(new URL(page.url()).hostname); } catch { return false; }
     });
   }
   if (firstAccessTourTabs.length !== 1) throw new Error(`First successful login should open exactly one demo-site tour tab, found ${firstAccessTourTabs.length}`);
@@ -2632,7 +2632,7 @@ try {
   } catch {
     throw new Error(`"Iniciar tutorial" opened an unexpected URL: ${demoTabUrl}`);
   }
-  const allowedDemoHosts = new Set(["matteusbonotto.github.io"]);
+  const allowedDemoHosts = new Set(["qatoolbarsandbox.web.app", "matteusbonotto.github.io"]);
   if (!allowedDemoHosts.has(demoTabHost)) throw new Error(`"Iniciar tutorial" opened an unexpected URL: ${demoTabUrl}`);
   await demoTab.close();
   const clientCountAfterTourButton = await options.evaluate(async () => (await chrome.storage.local.get("qtsWorkspaceV1")).qtsWorkspaceV1?.clients?.length || 0);

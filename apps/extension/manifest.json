@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "QA Toolbar Sandbox",
-  "version": "1.4.42",
+  "version": "1.4.43",
   "description": "Toolbar local-first com contexto, evidências, Macros, Roteiros, Relatórios e ferramentas rápidas de QA.",
   "icons": {
     "16": "icons/icon-16.png",
@@ -38,6 +38,7 @@
   "externally_connectable": {
     "matches": [
       "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/*",
+      "https://qatoolbarsandbox.web.app/*",
       "http://localhost:5173/*"
     ]
   },

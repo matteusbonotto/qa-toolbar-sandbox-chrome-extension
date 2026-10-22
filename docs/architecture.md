@@ -8,8 +8,8 @@
 
 ```
 apps/extension/   Extensão Chrome (Manifest V3), sem framework, sem build step
-apps/landing/      React 19 + Vite + TypeScript, GitHub Pages
-apps/admin/         React 19 + Vite + TypeScript, GitHub Pages (/admin)
+apps/landing/      React 19 + Vite + TypeScript, Firebase Hosting (qatoolbarsandbox.web.app)
+apps/admin/         React 19 + Vite + TypeScript, Firebase Hosting (/admin)
 packages/domain/    (reservado — hoje sem código próprio)
 supabase/            Schema, migrations, Edge Functions (Deno), seeds
 scripts/              Build, empacotamento, testes, deploy — tudo `node scripts/*.mjs`
