@@ -1,9 +1,12 @@
 project_id = "qa-toolbar-sandbox"
 
 [auth]
-site_url = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/"
+site_url = "https://qatoolbarsandbox.web.app/"
 jwt_expiry = 3600
 additional_redirect_urls = [
+  "https://qatoolbarsandbox.web.app/",
+  "https://qatoolbarsandbox.web.app/admin/",
+  "https://qatoolbarsandbox.web.app/**",
   "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/",
   "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/admin/",
   "http://localhost:5173/",

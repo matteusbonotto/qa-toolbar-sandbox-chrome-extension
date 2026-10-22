@@ -12,8 +12,8 @@ Três aplicações + um backend compartilhado, todos neste monorepo:
 ```mermaid
 flowchart LR
   subgraph Client["Navegador do usuário"]
-    LP["Landing Page\napps/landing\nGitHub Pages"]
-    ADMIN["Admin (founder-only)\napps/admin\nGitHub Pages /admin"]
+    LP["Landing Page\napps/landing\nFirebase Hosting"]
+    ADMIN["Admin (founder-only)\napps/admin\nFirebase Hosting /admin"]
     EXT["Extensão Chrome\napps/extension\nManifest V3"]
   end
 
@@ -51,7 +51,7 @@ condicionada a `is_founder()`.
 ### 2.1 Landing Page (`apps/landing`)
 
 - **Stack**: React 19 + Vite + TypeScript, sem router (roteamento manual por `window.location.pathname`
-  em `App.tsx`), publicada como site estático no GitHub Pages.
+  em `App.tsx`), publicada como site estático no Firebase Hosting (`https://qatoolbarsandbox.web.app`; até 2026-10-22 era GitHub Pages).
 - **Finalidade**: apresentar o produto, planos/preços, cadastro/login, central de confiança
   (permissões/segurança), políticas legais, e entregar o handoff de sessão para a extensão.
 - **Páginas reais hoje**: home (seções: Hero, Sobre, Semi-automático, Recursos, Planos, Campanha
@@ -69,7 +69,7 @@ condicionada a `is_founder()`.
 
 ### 2.2 Painel Administrativo (`apps/admin`)
 
-- **Stack**: React 19 + Vite + TypeScript, GitHub Pages em `/admin`, sem self-signup público.
+- **Stack**: React 19 + Vite + TypeScript, Firebase Hosting em `/admin`, sem self-signup público.
 - **Finalidade**: operação do SaaS pelo founder — usuários, papéis, planos, feature flags,
   vouchers/campanhas, licenças offline, afiliados, QA Rewards (roleta de pontos), auditoria,
   jurídico (registro de marca/software), Dashboard de MRR/uso.

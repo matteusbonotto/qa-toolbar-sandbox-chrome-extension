@@ -424,7 +424,7 @@ Nenhum destes é digitado manualmente no dia a dia — são os workflows reais e
 - **O que roda**: typecheck + test de Landing e Admin, valida que a URL do Supabase configurada é
   `https://*.supabase.co`, builda Landing e Admin (Admin embutido em `/admin` do mesmo site),
   empacota o zip de sideload, gera fallback de SPA (`404.html`) e rotas estáticas para
-  `/privacidade`, `/redefinir-senha`, `/propriedade-intelectual`, publica no GitHub Pages.
+  `/privacidade`, `/redefinir-senha`, `/propriedade-intelectual`, publica no Firebase Hosting (`https://qatoolbarsandbox.web.app`; deploy manual: `npm run deploy:firebase`, que exige `npx firebase login`).
 
 ### `CodeQL` (`codeql.yml`)
 - **Gatilho**: push/PR em `main`/`master`, mais agenda semanal (`23 6 * * 1`).

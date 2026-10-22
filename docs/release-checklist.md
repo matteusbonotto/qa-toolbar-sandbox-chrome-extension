@@ -69,7 +69,7 @@ Nenhum desses passos deve ser executado sem autorização explícita do founder 
 `AGENTS.md`: "Nenhum deploy, publicação na Chrome Web Store, merge, Stripe ou Supabase produtivo
 é autorizado apenas porque os testes passaram."
 
-Landing e Admin são publicados via GitHub Pages a partir do build (`npm run build:landing` /
+Landing e Admin são publicados via Firebase Hosting (`firebase.json`; workflow `landing-pages.yml` ou `npm run deploy:firebase`) a partir do build (`npm run build:landing` /
 `npm run build:admin`) — confirme que o deploy do Pages realmente pegou o build novo antes de
 comunicar a mudança como "no ar".
 

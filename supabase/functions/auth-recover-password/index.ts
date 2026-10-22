@@ -6,7 +6,7 @@ import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.t
 // Lets the extension's own login screen offer "Esqueci minha senha" without bundling
 // supabase-js or the anon key into the extension — the reset link always lands on the LP's
 // own reset-password page (the extension has no in-browser page to complete the flow on).
-const RESET_REDIRECT_URL = "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/redefinir-senha";
+const RESET_REDIRECT_URL = "https://qatoolbarsandbox.web.app/redefinir-senha";
 
 const schema = z.object({ email: z.string().trim().email().max(254) }).strict();
 
