@@ -260,6 +260,40 @@ document.querySelectorAll("#langSwitch button").forEach((button) => button.addEv
   await window.QTS_I18N.setLocale(button.dataset.locale); await loadLocale(); renderWorkspace();
 }));
 
+// E-mails that signed in successfully on this device, newest first, so the login field can suggest
+// them (datalist) and prefill the last one. Only e-mails are kept, never passwords: the password
+// stays with the browser's own password manager via autocomplete="current-password". Lives in the
+// local uiState (not the workspace) so it never enters exports, sync or schemaVersion.
+const REMEMBERED_LOGIN_EMAILS_LIMIT = 5;
+async function readRememberedLoginEmails() {
+  const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  const list = stored[STORAGE_KEYS.uiState]?.rememberedLoginEmails;
+  return Array.isArray(list) ? list.filter((item) => typeof item === "string" && item.includes("@")).slice(0, REMEMBERED_LOGIN_EMAILS_LIMIT) : [];
+}
+async function writeRememberedLoginEmails(update) {
+  const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
+  const uiState = current[STORAGE_KEYS.uiState] || {};
+  const list = update(Array.isArray(uiState.rememberedLoginEmails) ? uiState.rememberedLoginEmails : []).slice(0, REMEMBERED_LOGIN_EMAILS_LIMIT);
+  await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...uiState, rememberedLoginEmails: list } });
+  renderRememberedLoginEmails(list);
+}
+function rememberLoginEmail(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized.includes("@")) return Promise.resolve();
+  return writeRememberedLoginEmails((list) => [normalized, ...list.filter((item) => item !== normalized)]);
+}
+function forgetLoginEmail(email) {
+  const normalized = String(email || "").trim().toLowerCase();
+  return writeRememberedLoginEmails((list) => list.filter((item) => item !== normalized));
+}
+function renderRememberedLoginEmails(list) {
+  const datalist = document.getElementById("rememberedLoginEmails");
+  datalist.replaceChildren(...list.map((email) => Object.assign(document.createElement("option"), { value: email })));
+  const input = document.getElementById("loginEmail");
+  if (!input.value && document.activeElement !== input && list[0]) input.value = list[0];
+}
+readRememberedLoginEmails().then(renderRememberedLoginEmails).catch(() => {});
+
 document.getElementById("loginForm").addEventListener("submit", async (event) => {
   event.preventDefault();
   const button = event.submitter;
@@ -282,6 +316,7 @@ document.getElementById("loginForm").addEventListener("submit", async (event) =>
     return;
   }
   accessState = response.access;
+  await rememberLoginEmail(document.getElementById("loginEmail").value).catch(() => {});
   await loadAccess();
   showMessage("authMessage", "Conta conectada e acesso validado.", "Success");
   switchTab("general");
@@ -381,6 +416,9 @@ document.getElementById("deleteAccountForm").addEventListener("submit", async (e
     return;
   }
   document.getElementById("deleteAccountDialog").close();
+  // A deleted account must not keep being suggested on the login form of this device.
+  const deletedEmail = accessState?.user?.email;
+  if (deletedEmail) { await forgetLoginEmail(deletedEmail).catch(() => {}); document.getElementById("loginEmail").value = ""; }
   accessState = null;
   await loadAccess();
   showMessage("authMessage", "Sua conta foi excluída.", "Success");
