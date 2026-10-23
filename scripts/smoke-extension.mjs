@@ -171,8 +171,12 @@ function mtSettleVotes() {
   }
   return guests;
 }
+// The caller's own id in the Multi Testador mock. The real-backend build signs in as fakeSession,
+// while the [TESTE] package signs in locally as its demo user (auth.js testDemoAccess, token
+// "test-demo-access-..."), so the mock answers as whoever the bearer token says is calling.
+let mtSelfId = fakeSession.user.id;
 function multiTesterMock(body) {
-  const me = { userId: fakeSession.user.id, role: multiTesterState.role, status: multiTesterState.myStatus };
+  const me = { userId: mtSelfId, role: multiTesterState.role, status: multiTesterState.myStatus };
   if (body.action === "request" && multiTesterState.role === "guest") {
     // The host already approved this guest (approval itself is covered by the host scenario).
     multiTesterState.myStatus = "active";
@@ -182,17 +186,17 @@ function multiTesterMock(body) {
     multiTesterState.room = { id: "22222222-2222-4333-8444-555555555555", status: "open", code: null, channel: "mt:22222222-2222-4333-8444-555555555555:fedcba9876543210fedcba9876543210", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: 10, durationMinutes: 60, endReason: null };
     multiTesterState.members = [
       { userId: MT_HOST_ID, nickname: "Arara 7", color: "#0ea5e9", role: "host", status: "active" },
-      { userId: fakeSession.user.id, nickname: String(body.nickname), color: String(body.color), role: "guest", status: "active" },
+      { userId: mtSelfId, nickname: String(body.nickname), color: String(body.color), role: "guest", status: "active" },
     ];
   } else if (body.action === "leave" && multiTesterState.role === "guest") {
     multiTesterState.myStatus = "left";
     me.status = "left";
   } else if (body.action === "vote-request" || body.action === "vote-result" || body.action === "vote") {
-    const payload = { from: fakeSession.user.id, id: String(body.voteId), at: new Date().toISOString() };
+    const payload = { from: mtSelfId, id: String(body.voteId), at: new Date().toISOString() };
     if (body.action === "vote-request") {
       payload.description = String(body.description);
       multiTesterState.voteRequests.push(payload);
-      multiTesterState.serverVotes.set(payload.id, { id: payload.id, requestedBy: fakeSession.user.id, description: payload.description, status: "open", createdAt: payload.at, ballots: new Map() });
+      multiTesterState.serverVotes.set(payload.id, { id: payload.id, requestedBy: mtSelfId, description: payload.description, status: "open", createdAt: payload.at, ballots: new Map() });
     } else if (body.action === "vote-result") {
       payload.approved = body.approved === true;
       multiTesterState.voteResults.push(payload);
@@ -201,7 +205,7 @@ function multiTesterMock(body) {
     } else {
       payload.approve = body.approve === true;
       multiTesterState.votes.push(payload);
-      mtStoreBallot(payload.id, fakeSession.user.id, payload.approve);
+      mtStoreBallot(payload.id, mtSelfId, payload.approve);
     }
     mtServerBroadcast(body.action);
     return { sent: true };
@@ -210,14 +214,14 @@ function multiTesterMock(body) {
     multiTesterState.chats = [];
     multiTesterState.room = { id: "11111111-2222-4333-8444-555555555555", status: "open", code: "ABCD2345", channel: "mt:11111111-2222-4333-8444-555555555555:0123456789abcdef0123456789abcdef", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: Number(body.idleTimeoutMinutes), durationMinutes: Number(body.durationMinutes), endReason: null };
     multiTesterState.members = [
-      { userId: fakeSession.user.id, nickname: String(body.nickname), color: String(body.color), role: "host", status: "active" },
+      { userId: mtSelfId, nickname: String(body.nickname), color: String(body.color), role: "host", status: "active" },
       { userId: MT_GUEST_ID, nickname: "Tucano 12", color: "#e11d48", role: "guest", status: "pending" },
     ];
   } else if (body.action === "approve" && body.userId === MT_GUEST_ID) {
     multiTesterState.members[1].status = "active";
   } else if (body.action === "chat") {
     // Stored server-side with the sender from the token, delivered through the state.
-    multiTesterState.chats.push({ id: `c${multiTesterState.chats.length + 1}`, from: fakeSession.user.id, text: String(body.text), at: new Date().toISOString() });
+    multiTesterState.chats.push({ id: `c${multiTesterState.chats.length + 1}`, from: mtSelfId, text: String(body.text), at: new Date().toISOString() });
     mtServerBroadcast("chat");
     return { sent: true };
   } else if (body.action === "end") {
@@ -280,6 +284,14 @@ realtimeServer.on("upgrade", (request, socket) => {
 });
 await new Promise((resolveReady) => realtimeServer.listen(MT_REALTIME_PORT, "127.0.0.1", resolveReady));
 
+function fulfillMultiTester(route) {
+  const bearer = route.request().headers().authorization || "";
+  mtSelfId = bearer.startsWith("Bearer test-demo-access-") ? "00000000-0000-4000-8000-000000000014" : fakeSession.user.id;
+  return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(multiTesterMock(route.request().postDataJSON() || {})) });
+}
+// The [TESTE] package talks to the isolated backend instead of production (package-extension-test.mjs),
+// so the Multi Testador mock has to answer there too or that whole section can never pass on it.
+await context.route(`${String(process.env.QTS_TEST_FUNCTIONS_BASE_URL || "http://127.0.0.1:54321/functions/v1").replace(/\/+$/, "")}/multi-tester`, (route) => fulfillMultiTester(route));
 await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", async (route) => {
   const name = new URL(route.request().url()).pathname.split("/").pop();
   if (name === "auth-sign-in" || name === "auth-refresh") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(fakeSession) });
@@ -289,7 +301,7 @@ await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", 
     const token = await signMockAccessToken({ active: true, plan, features });
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
   }
-  if (name === "multi-tester") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(multiTesterMock(route.request().postDataJSON() || {})) });
+  if (name === "multi-tester") return fulfillMultiTester(route);
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -364,6 +376,15 @@ try {
     throw new Error(`Authentication did not unlock options: ${authMessage || "no auth message"}; options console: ${optionsErrors.join(" | ") || "none"}; worker console: ${workerErrors.join(" | ") || "none"}`, { cause: error });
   }
   trace("authenticated");
+  // Founder rule 2026-10-23: the login form remembers the e-mails that signed in on this device
+  // (datalist suggestions + prefill of the last one). Only the e-mail is stored, never the password.
+  const rememberedLogin = await options.evaluate(async () => {
+    const stored = await chrome.storage.local.get("qtsUiStateV1");
+    return { emails: stored.qtsUiStateV1?.rememberedLoginEmails, options: [...document.querySelectorAll("#rememberedLoginEmails option")].map((option) => option.value), raw: JSON.stringify(stored.qtsUiStateV1 || {}) };
+  });
+  if (rememberedLogin.emails?.[0] !== "tester@example.com" || !rememberedLogin.options.includes("tester@example.com")) throw new Error(`Login e-mail was not remembered after a successful sign-in: ${JSON.stringify(rememberedLogin)}`);
+  if (rememberedLogin.raw.includes("safe-test-password")) throw new Error("SECURITY REGRESSION: the login password was persisted in uiState");
+  trace("successful login e-mail remembered for the next sign-in, password not stored");
 
   // Regression test for the paywall-bypass vulnerability: forging {active:true,...} directly into
   // chrome.storage.local (exactly what a real user did via "Inspect service worker" -> console)
@@ -730,6 +751,23 @@ try {
   await options.locator('[data-color-family="blue"]').click();
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
   await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.dataset.theme === "dark");
+  // Founder rule 2026-10-23: with "Todos os sites" on, a site that no environment owns gets the bar
+  // in the color theme picked in Settings (blue-dark here), not a fixed color.
+  const scopeBeforeAllSites = await options.evaluate(async () => window.QTS_STORAGE.getSiteScope());
+  await options.evaluate(async () => window.QTS_STORAGE.saveSiteScope({ mode: "all", patterns: [] }));
+  const allSitesPage = await context.newPage();
+  await allSitesPage.goto("http://localhost:43117/all-sites-theme");
+  await allSitesPage.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("bar")?.style.getPropertyValue("--qts-bg") === "#3b82f6", null, { timeout: 15_000 }).catch(async (error) => {
+    const actual = await allSitesPage.evaluate(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("bar")?.style.getPropertyValue("--qts-bg") || "no toolbar").catch(() => "unreadable");
+    throw new Error(`All-sites toolbar did not follow the selected color theme (expected #3b82f6, got ${actual})`, { cause: error });
+  });
+  await options.locator('[data-color-family="green"]').click();
+  await allSitesPage.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("bar")?.style.getPropertyValue("--qts-bg") === "#22c55e");
+  await allSitesPage.close();
+  await options.locator('[data-color-family="blue"]').click();
+  await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
+  await options.evaluate(async (scope) => window.QTS_STORAGE.saveSiteScope(scope), scopeBeforeAllSites);
+  trace("all-sites toolbar follows the selected color theme");
   // The Settings page is the extension's own chrome.runtime page (not a content script), so it has
   // its own separate --accent token that needs the same preset applied to it directly -- otherwise
   // Settings keeps the fixed purple regardless of what the user picked (screenshotted as evidence

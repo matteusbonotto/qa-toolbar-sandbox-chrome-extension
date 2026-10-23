@@ -2229,10 +2229,13 @@ function removeToolbar({ disableBridge = false } = {}) {
 function syncToolbarForCurrentLocation() {
   state.environment = findActiveEnvironment(state.workspace || { environments: [] });
   if (!state.environment && state.siteScope?.mode === "all") {
+    // No environment owns this site, so the bar takes the color theme picked in Settings (founder
+    // rule 2026-10-23) instead of a fixed blue. A matched environment keeps its own bar color.
+    const themePreset = THEME_PRESETS.find((item) => item.id === state.workspace?.preferences?.colorTheme);
     state.environment = {
       id: "qts-all-sites",
       name: "Todos os sites",
-      color: "#2878ff",
+      color: themePreset?.primary || "#2878ff",
       productId: null,
       projectId: null,
       clientId: null,

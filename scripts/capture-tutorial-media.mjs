@@ -156,7 +156,7 @@ await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", 
   // action, not about exercising the lock/upgrade UI (that's covered by the real smoke test).
   if (name === "access-status") {
     const plan = { key: "release-manager", name: "Release Manager" };
-    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true, "clearSiteData.enabled": true, "jsonStudio.enabled": true, "breakpointViewer.enabled": true, "recording.mp4": true, "recording.gif": true };
+    const features = { "characterCounter.enabled": true, "multiClick.enabled": true, "inputLab.enabled": true, "fakerFill.enabled": true, "macroStudio.enabled": true, "keyView.enabled": true, "elementCapture.enabled": true, "stepsRecorder.enabled": true, "clearSiteData.enabled": true, "jsonStudio.enabled": true, "breakpointViewer.enabled": true, "multiTester.enabled": true, "recording.mp4": true, "recording.gif": true };
     const token = await signMockAccessToken({ active: true, plan, features });
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
   }

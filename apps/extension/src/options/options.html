@@ -46,8 +46,8 @@
         <div class="card accountCard">
           <div id="signedOutState">
             <form id="loginForm" class="loginForm">
-              <label>E-mail<input id="loginEmail" type="email" autocomplete="username" required /></label>
-              <label>Senha<input id="loginPassword" type="password" autocomplete="current-password" minlength="8" required /></label>
+              <label>E-mail<input id="loginEmail" name="username" type="email" autocomplete="username" list="rememberedLoginEmails" required /></label><datalist id="rememberedLoginEmails"></datalist>
+              <label>Senha<input id="loginPassword" name="password" type="password" autocomplete="current-password" minlength="8" required /></label>
               <button class="button primary" type="submit">Entrar</button>
               <button class="button linkButton" type="button" id="forgotPasswordButton">Esqueci minha senha</button>
             </form>

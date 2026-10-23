@@ -1,7 +1,7 @@
 # Testes manuais locais (antes de aprovar uma publicação)
 
 Roteiro curto para o fundador conferir no Chrome real o que os testes automáticos não provam
-visualmente. Versão atual da main: 1.4.44.
+visualmente. Versão atual da main: 1.4.45.
 
 ## 1. Abrir o Chrome de teste (1 comando)
 
@@ -59,6 +59,14 @@ visualmente. Versão atual da main: 1.4.44.
 - [ ] Conta A encerra a sessão: o código antigo deixa de funcionar ("Código inválido ou sala
       encerrada").
 - [ ] Report Builder durante a sessão: aparece a linha "Participantes (Multi Testador)".
+
+### Login lembrado e cor da barra em "Todos os sites" (v1.4.45)
+- [ ] Entre com uma conta, saia e reabra Minha conta: o e-mail já vem preenchido e, ao clicar no
+      campo, aparecem os e-mails que já entraram neste Chrome. A senha não vem preenchida pela
+      extensão.
+- [ ] Configurações > Geral > "Todos os sites" ligado: num site sem ambiente cadastrado, a barra
+      fica na cor do tema escolhido em Configurações. Trocar o tema troca a cor da barra na hora.
+      Num site com ambiente, a barra segue a cor do ambiente.
 
 ### Multi Testador: consenso (v1.4.44, mesma dupla de contas)
 - [ ] Conta B (convidado) clica num botão ou link da página: nada acontece na página dela; aparece
