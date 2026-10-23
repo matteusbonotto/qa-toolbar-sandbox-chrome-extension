@@ -145,25 +145,40 @@
     return navigator.userActivation ? navigator.userActivation.isActive : true;
   }
 
-  // Resolves true when the request may go out.
+  // Safety net (B4): a hold the toolbar never answers (toolbar removed, extension reloaded mid-vote)
+  // fails closed after the 60s vote timeout plus a 15s margin; nothing waits forever.
+  const MT_HOLD_SAFETY_MS = 75_000;
+
+  function mtSettleHold(id, approved) {
+    const settle = mtPending.get(id);
+    if (!settle) return false;
+    mtPending.delete(id);
+    settle(approved);
+    return true;
+  }
+
+  // Resolves true when the request may go out. The promise carries its hold id (qtsHoldId) so an
+  // abort can drop it.
   function mtAwaitConsensus(method, url) {
     const detail = { id: `h${Date.now().toString(36)}${(mtSeq += 1).toString(36)}`, method: String(method || "").toUpperCase(), url: String(url || "").slice(0, 500), mode: mtMode };
     if (mtMode === "guest") {
       document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail }));
-      return Promise.resolve(false);
+      const refused = Promise.resolve(false);
+      refused.qtsHoldId = "";
+      return refused;
     }
-    return new Promise((resolve) => {
-      mtPending.set(detail.id, resolve);
-      document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail }));
-    });
+    let resolveHold;
+    const promise = new Promise((resolve) => { resolveHold = resolve; });
+    // originalSetTimeout: the page's timers may be frozen by Freeze Clock, this one must not be.
+    const timer = originalSetTimeout(() => mtSettleHold(detail.id, false), MT_HOLD_SAFETY_MS);
+    mtPending.set(detail.id, (approved) => { originalClearTimeout(timer); resolveHold(approved); });
+    promise.qtsHoldId = detail.id;
+    document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail }));
+    return promise;
   }
 
   document.addEventListener("qts:mt-hold-decision", (event) => {
-    const id = String(event.detail?.id || "");
-    const resolve = mtPending.get(id);
-    if (!resolve) return;
-    mtPending.delete(id);
-    resolve(event.detail?.approve === true);
+    mtSettleHold(String(event.detail?.id || ""), event.detail?.approve === true);
   });
 
   function mtSetMode(mode) {
@@ -171,8 +186,7 @@
     // Leaving host mode never releases what was waiting: the toolbar cancels the open vote first,
     // and anything still pending here fails closed.
     if (mtMode !== "host") {
-      for (const resolve of mtPending.values()) resolve(false);
-      mtPending.clear();
+      for (const id of [...mtPending.keys()]) mtSettleHold(id, false);
     }
   }
 
@@ -232,12 +246,24 @@
     const patchedFetch = function (...args) {
       const method = args[1]?.method || (typeof args[0] === "object" ? args[0]?.method : undefined) || "GET";
       if (!mtShouldHold(method)) return capturingFetch.apply(this, args);
+      // An AbortSignal is honored while held, exactly like a native fetch in flight (M1).
+      const signal = args[1]?.signal ?? (typeof Request === "function" && args[0] instanceof Request ? args[0].signal : undefined);
+      const abortReason = () => signal?.reason ?? new DOMException("The user aborted a request.", "AbortError");
+      if (signal?.aborted) return Promise.reject(abortReason());
       const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url ?? String(args[0] ?? "");
-      return mtAwaitConsensus(method, requestUrl).then((approved) => {
-        if (!approved) throw new TypeError("Failed to fetch (blocked by QA Toolbar Sandbox Multi Testador: no consensus)");
-        return capturingFetch.apply(this, args);
+      const hold = mtAwaitConsensus(method, requestUrl);
+      return new Promise((resolve, reject) => {
+        const onAbort = () => { mtSettleHold(hold.qtsHoldId, false); reject(abortReason()); };
+        signal?.addEventListener?.("abort", onAbort, { once: true });
+        hold.then((approved) => {
+          signal?.removeEventListener?.("abort", onAbort);
+          if (signal?.aborted) return;
+          if (!approved) { reject(new TypeError("Failed to fetch (blocked by QA Toolbar Sandbox Multi Testador: no consensus)")); return; }
+          try { resolve(capturingFetch.apply(this, args)); } catch (error) { reject(error); }
+        });
       });
     };
+
     Object.defineProperty(patchedFetch, "__qtsPatched", { value: true });
     window.fetch = patchedFetch;
   }
@@ -246,9 +272,19 @@
   if (XhrProto && !XhrProto.__qtsPatched) {
     const originalOpen = XhrProto.open;
     const originalSend = XhrProto.send;
+    const originalAbort = XhrProto.abort;
     const originalSetRequestHeader = XhrProto.setRequestHeader;
+    // Own properties this file may define on an instance (Force HTTP, a refused hold); a new open()
+    // removes them so the native getters answer again.
+    const OWN_XHR_PROPS = ["readyState", "status", "statusText", "response", "responseText", "responseURL", "getAllResponseHeaders", "getResponseHeader"];
+    const defineOwn = (xhr, name, value) => Object.defineProperty(xhr, name, { value, configurable: true });
     Object.defineProperty(XhrProto, "__qtsPatched", { value: true });
     XhrProto.open = function (method, url, ...rest) {
+      // open() while a send is held drops it silently, like a native open() terminating a request (M1).
+      const heldId = this.__qtsHoldId;
+      this.__qtsHoldId = null;
+      if (heldId) mtSettleHold(heldId, false);
+      for (const name of OWN_XHR_PROPS) if (Object.prototype.hasOwnProperty.call(this, name)) delete this[name];
       this.__qtsMethod = method;
       this.__qtsUrl = url;
       this.__qtsHeaders = null;
@@ -256,23 +292,47 @@
       this.__qtsAsync = rest.length === 0 || Boolean(rest[0]);
       return originalOpen.call(this, method, url, ...rest);
     };
+    XhrProto.abort = function (...args) {
+      const heldId = this.__qtsHoldId;
+      if (!heldId) return originalAbort.apply(this, args);
+      // Aborting a held send: never sent; mirrors a native abort of a request in flight (state DONE,
+      // abort and loadend events, then UNSENT).
+      this.__qtsHoldId = null;
+      mtSettleHold(heldId, false);
+      defineOwn(this, "readyState", 4);
+      defineOwn(this, "status", 0);
+      this.dispatchEvent(new Event("readystatechange"));
+      this.dispatchEvent(new ProgressEvent("abort"));
+      this.dispatchEvent(new ProgressEvent("loadend"));
+      defineOwn(this, "readyState", 0);
+      return undefined;
+    };
     XhrProto.setRequestHeader = function (name, value) {
       (this.__qtsHeaders ??= {})[name] = value;
       return originalSetRequestHeader.call(this, name, value);
     };
     XhrProto.send = function (...args) {
+      // A second send() while one is held is the same error the browser throws for a send in flight.
+      if (this.__qtsHoldId) throw new DOMException("Failed to execute 'send' on 'XMLHttpRequest': The object's state must be OPENED.", "InvalidStateError");
       if (!mtShouldHold(this.__qtsMethod)) return capturingSend.apply(this, args);
       if (this.__qtsAsync === false) {
         // A synchronous XHR cannot wait for a vote without freezing the page: refused (fails closed).
         document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail: { id: "", sync: true, mode: mtMode } }));
         throw new DOMException("Blocked by QA Toolbar Sandbox Multi Testador: a synchronous request cannot wait for consensus", "NetworkError");
       }
-      mtAwaitConsensus(this.__qtsMethod, this.__qtsUrl).then((approved) => {
+      const hold = mtAwaitConsensus(this.__qtsMethod, this.__qtsUrl);
+      const heldId = hold.qtsHoldId;
+      this.__qtsHoldId = heldId;
+      hold.then((approved) => {
+        // Dropped by abort()/open() meanwhile: nothing to do.
+        if (this.__qtsHoldId !== heldId) return;
+        this.__qtsHoldId = null;
         if (!approved) { mtFailXhr(this); return; }
         try { capturingSend.apply(this, args); } catch { mtFailXhr(this); }
       });
       return undefined;
     };
+
     const capturingSend = function (...args) {
       if (!enabled) return originalSend.apply(this, args);
       const requestHeaders = this.__qtsHeaders && Object.keys(this.__qtsHeaders).length ? this.__qtsHeaders : null;

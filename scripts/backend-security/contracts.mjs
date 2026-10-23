@@ -63,7 +63,7 @@ export const RATE_LIMITS = {
   "cancel-access": [5, 3_600],
   "checkout-create-session": [8, 3_600],
   "keep-alive": [4, 86_400],
-  "multi-tester-poll": [2_000, 3_600],
+  "multi-tester-poll": [4_000, 3_600],
   "multi-tester-chat": [600, 3_600],
   "multi-tester-action": [120, 3_600],
   "multi-tester-vote": [1_500, 3_600],

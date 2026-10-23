@@ -98,8 +98,14 @@ async function call(name, { method = "POST", token, origin, contentType = "appli
 }
 
 function assertNoLeak(res) {
+  // Multi Testador chat is text the testers typed themselves (the suite posts hostile strings such as
+  // "pg_sleep" on purpose) and the room state echoes it back by design: it is user content, not a
+  // server error, so only the chat texts are left out of the leak scan; everything else is scanned.
+  const text = Array.isArray(res.json?.chat)
+    ? JSON.stringify({ ...res.json, chat: res.json.chat.map((message) => ({ ...message, text: "" })) })
+    : res.text;
   for (const [label, pattern] of LEAK_PATTERNS) {
-    assert.doesNotMatch(res.text, pattern, `${res.name}: response leaks ${label}: ${res.text.slice(0, 200)}`);
+    assert.doesNotMatch(text, pattern, `${res.name}: response leaks ${label}: ${text.slice(0, 200)}`);
   }
 }
 
@@ -583,7 +589,9 @@ describe("authorization: Multi Testador room (one user acting on another user's 
       expectSafe(await mt(host, { action: "remove", roomId: value, userId: idOf(g1) }), { status: 400, error: "invalid_id" });
     }
     expectSafe(await mt(host, { action: "approve", roomId: room.id, userId: idOf(IDS.outsider) }), { status: 409, error: "status_changed" });
-    expectSafe(await mt(host, { action: "approve", roomId: room.id, userId: idOf(IDS.noPlan) }), { status: 409, error: "guest_plan_required" });
+    // A user who never asked to join: same answer as the outsider, whether or not they have the plan
+    // (the host cannot probe other users' plans through approve).
+    expectSafe(await mt(host, { action: "approve", roomId: room.id, userId: idOf(IDS.noPlan) }), { status: 409, error: "status_changed" });
   });
 
   test("approved guest gets the channel but never the code", async () => {
@@ -613,9 +621,42 @@ describe("authorization: Multi Testador room (one user acting on another user's 
       expectSafe(await mt(g1, { action: "vote", roomId: room.id, voteId: value, approve: true }), { status: 400, error: "invalid_vote" });
     }
     expectSafe(await mt(host, { action: "vote-request", roomId: room.id, voteId, description: "\u0000\u0007<>" }), { status: 400, error: "invalid_vote" });
+    expectSafe(await mt(g1, { action: "vote", roomId: room.id, voteId: "vNeverRequested01", approve: true }), { status: 404, error: "vote_not_found" });
     expectSafe(await mt(host, { action: "vote-request", roomId: room.id, voteId, description: "\"Salvar\" (POST /api/x)" }), { status: 200, check: (json) => assert.deepEqual(json, { sent: true }) });
+    expectSafe(await mt(host, { action: "vote-request", roomId: room.id, voteId, description: "again" }), { status: 409, error: "vote_exists" });
+    // The host cannot declare an approval the stored tally does not have.
+    expectSafe(await mt(host, { action: "vote-result", roomId: room.id, voteId, approved: true }), { status: 409, error: "vote_not_approved" });
+    let state = await mt(host, { action: "state", roomId: room.id });
+    let vote = state.json.votes.find((item) => item.id === voteId);
+    assert.equal(vote.status, "open");
+    assert.deepEqual(vote.approvals, []);
     expectSafe(await mt(g1, { action: "vote", roomId: room.id, voteId, approve: true }), { status: 200, check: (json) => assert.deepEqual(json, { sent: true }) });
+    expectSafe(await mt(g1, { action: "vote", roomId: room.id, voteId, approve: false }), { status: 409, errors: ["vote_closed", "already_voted"] });
+    state = await mt(host, { action: "state", roomId: room.id });
+    vote = state.json.votes.find((item) => item.id === voteId);
+    assert.equal(vote.status, "approved");
+    assert.deepEqual(vote.approvals, [idOf(g1)]);
     expectSafe(await mt(host, { action: "vote-result", roomId: room.id, voteId, approved: true }), { status: 200, check: (json) => assert.deepEqual(json, { sent: true }) });
+    // A rejection settles the vote as rejected; a cancelled vote no longer takes ballots.
+    expectSafe(await mt(host, { action: "vote-request", roomId: room.id, voteId: "vSecuritySuite0002", description: "Excluir" }), { status: 200 });
+    expectSafe(await mt(g1, { action: "vote", roomId: room.id, voteId: "vSecuritySuite0002", approve: false }), { status: 200 });
+    state = await mt(g1, { action: "state", roomId: room.id });
+    assert.equal(state.json.votes.find((item) => item.id === "vSecuritySuite0002").status, "rejected");
+    expectSafe(await mt(host, { action: "vote-request", roomId: room.id, voteId: "vSecuritySuite0003", description: "Arquivar" }), { status: 200 });
+    expectSafe(await mt(host, { action: "vote-result", roomId: room.id, voteId: "vSecuritySuite0003", approved: false }), { status: 200 });
+    expectSafe(await mt(g1, { action: "vote", roomId: room.id, voteId: "vSecuritySuite0003", approve: true }), { status: 409, error: "vote_closed" });
+    // Outsiders never see votes or chat.
+    expectSafe(await mt(IDS.outsider, { action: "state", roomId: room.id }), { status: 404, error: "room_not_found" });
+  });
+
+  test("chat is stored server-side with the sender from the token and served only through the state", async () => {
+    expectSafe(await mt(g1, { action: "chat", roomId: room.id, text: "<img src=x onerror=alert(1)> oi" }), { status: 200 });
+    const state = await mt(host, { action: "state", roomId: room.id });
+    expectSafe(state, { status: 200 });
+    const message = state.json.chat.at(-1);
+    assert.equal(message.from, idOf(g1));
+    assert.equal(message.text, "<img src=x onerror=alert(1)> oi");
+    assert.ok(state.json.chat.length <= 50);
   });
 
   test("active member chat: hostile text is accepted as text, empty-after-cleanup is 400", async () => {

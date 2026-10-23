@@ -165,30 +165,61 @@ Host: com "Exigir confirmacao de todos" ligado (padrao) e pelo menos um convidad
   `pagebridge` (MAIN world) por uma promise resolvida pelo evento DOM `qts:mt-hold-decision` vindo
   do mundo isolado. Rejeitado: `fetch` rejeita com `TypeError` e o XHR dispara `error`, como falha
   de rede. Varias requisicoes do mesmo clique entram no mesmo voto.
-- o voto (`vote-request` com id e descricao, `vote` de cada convidado, `vote-result` do host) passa
-  pela Edge Function `multi-tester`, que carimba o remetente do JWT e confere o papel; a policy de
-  insert do canal passou a recusar `vote`, `vote-request` e `vote-result` de cliente (migration nova
-  `20261023120000_multi_tester_votes_policy.sql`, replicada em `schema.sql`). Resolve quando todos
-  os membros ativos convidados de `view.members` aprovaram; qualquer recusa, o tempo
-  `MT_VOTE_TIMEOUT_MS` (60s), o host cancelar, desligar a chave ou a sessao terminar cancelam.
+- o voto (`vote-request` com id e descricao, `vote` de cada convidado, `vote-result` do host para
+  cancelar) passa pela Edge Function `multi-tester`, que confere papel e membro ativo e GRAVA tudo
+  no servidor: `mt_votes` e `mt_vote_ballots` (um voto por convidado, o primeiro vale), e o chat em
+  `mt_chat_messages` (migration `20261023130000_multi_tester_server_state.sql`, replicada em
+  `schema.sql`; RLS ligado, sem policy, sem grant). O servidor apura (`settleVotes`): aprovado quando
+  todo convidado ATIVO aprovou, recusado com qualquer recusa, expirado apos `VOTE_TIMEOUT_MS` (60s),
+  cancelado pelo host ou quando nao resta convidado (falha fechada, nunca "aprovado por ninguem").
+  O host so libera a acao segurada quando o estado do servidor diz "approved"; o cliente renderiza
+  chat e pedidos de voto SO a partir do estado (`roomState`: ultimas 50 mensagens e votos recentes
+  com apuracao, so para membros ativos). Motivo: o Supabase Realtime avalia as policies de
+  `realtime.messages` no JOIN e guarda a decisao por conexao, entao o filtro por evento da policy
+  "mt members send room channel" (que segue recusando `chat`, `vote`, `vote-request` e
+  `vote-result` de cliente, migration `20261023120000_multi_tester_votes_policy.sql`) e defesa em
+  profundidade, nao garantia por mensagem. O broadcast desses eventos virou um "poke" sem conteudo:
+  quem recebe so busca o estado na hora; um poke forjado causa no maximo uma busca extra. Durante
+  um voto aberto o estado e buscado a cada `MT_VOTE_POLL_MS` (1s, e pokes nunca buscam mais rapido
+  que isso), depois volta aos 6s normais; o orcamento de poll do servidor subiu para 4000/hora.
+- Os controles de acao do Multi Testador (aprovar/recusar voto, cancelar, chave de consenso, botoes
+  do drawer e envio do chat) so reagem a eventos `isTrusted`: a shadow root da toolbar e aberta (a
+  automacao precisa dela), entao a pagina testada conseguiria clica-los por script.
 
 Limites conhecidos (escopo, nao bug):
+- A regra do convidado e COOPERATIVA, nao uma barreira de seguranca: o convidado controla o proprio
+  navegador e pode desligar a extensao, usar outro perfil ou o DevTools. O que o produto garante e
+  que, com a extensao ativa, o clique dele vira proposta e nao executa; quem precisa de garantia
+  real de "nao altera dado" deve dar ao convidado uma conta sem permissao de escrita no sistema
+  testado.
+- O gate de rede cobre so `fetch` e `XMLHttpRequest` do documento principal. Fica fora: iframes
+  (o `pagebridge` e registrado com `allFrames:false`), Web Workers e Service Workers da pagina,
+  `navigator.sendBeacon`, WebSocket, `form.submit()` chamado pelo codigo da pagina (nao dispara
+  `submit`) e mutacoes feitas com GET.
+- Uma pagina hostil compartilha o MAIN world com o `pagebridge` e pode desligar o PROPRIO gate
+  (disparando o evento de modo). A toolbar reafirma o modo a cada gesto real (pointerdown/keydown,
+  clique e submit), mas uma pagina que queira burlar o proprio gate consegue; isso so afeta as
+  requisicoes dela, que ela poderia enviar sem o patch.
 - `isTrusted`: o re-envio do formulario e do navegador, nao um gesto novo; um handler que exige
   ativacao do usuario (abrir janela, clipboard) depois de uma espera longa pode recusar.
-  `form.submit()` chamado pelo codigo da pagina nao dispara evento `submit` e fica fora.
 - Requisicao sem gesto do usuario (polling, GraphQL de leitura via POST no carregamento) passa: nao
-  e uma acao do testador. Se a pagina disparar outro POST depois de esperar a resposta, ainda dentro
-  da janela de ativacao, pede um segundo voto.
-- XHR sincrono de risco nao pode esperar voto sem travar a pagina: e recusado (falha fechada).
+  e uma acao do testador. Se a ativacao veio de um clique na propria toolbar, a requisicao tambem
+  passa. Se a pagina disparar outro POST depois de esperar a resposta, ainda dentro da janela de
+  ativacao, pede um segundo voto.
+- XHR sincrono de risco nao pode esperar voto sem travar a pagina: e recusado (falha fechada). Um
+  XHR segurado respeita `abort()` e `open()` (descartado, nunca enviado) e um segundo `send()` lanca
+  `InvalidStateError`; um `fetch` segurado respeita o `AbortSignal`. Sem resposta da toolbar (aba
+  sem toolbar, extensao recarregada), a requisicao segurada falha fechada apos 75s.
 - Acao puramente client-side do host (abrir dropdown, trocar aba) nao passa por consenso.
 - Listener da propria pagina registrado no `window` em captura antes da toolbar carregar roda antes
   do bloqueio do convidado; o gate de rede do `pagebridge` cobre o efeito de rede nesse caso.
   Entre o reload da pagina e a toolbar reidratar a sala (alguns centenas de ms) nada e bloqueado.
 - Teclado: setas em select/radio/tab e Enter/Espaco em controles sao bloqueados; outras
   combinacoes de teclado exoticas nao sao cobertas.
-- Um script da pagina compartilha o MAIN world com o `pagebridge` e pode disparar os eventos DOM de
-  decisao, mas so afeta as proprias requisicoes (que ele poderia enviar sem o patch). Um pedido de
-  voto forjado pela pagina sem ativacao do usuario e recusado no mundo isolado.
+- Saem do navegador: o rotulo do controle (so `aria-label`, valor de botao, `title` ou texto de
+  botao/link/summary/option; nome com cara de dado sensivel vira o nome da tag e sequencias de 4 ou
+  mais digitos sao mascaradas) e o caminho da URL (`origin+pathname` na proposta, caminho na
+  descricao do voto). Nunca valor de campo nem texto de container.
 - Membro ausente (aba fechada) mas ainda ativo no servidor bloqueia o consenso ate o tempo
   esgotar; o host pode remove-lo ou desligar a chave.
 - Risco aceito: `proposal`/`proposal-done` sao peer-to-peer como cursores (um cliente proprio pode
@@ -196,10 +227,13 @@ Limites conhecidos (escopo, nao bug):
 
 Evidencia: `npm run test:chrome` cobre proposta do convidado chegando ao host (drawer e marcacao em
 volta do elemento, fechada quando o host clica nele), submit nativo segurado sem nenhum POST no
-servidor ate o voto de aprovacao, `fetch` POST cancelado por voto de recusa (zero POST), XHR POST
-liberado so depois da aprovacao (exatamente um POST), votos nunca enviados direto pelo canal, e no
-cenario de convidado: clique bloqueado (contador da pagina e servidor inalterados) virando proposta
-com "Aguardando o host", pedido de voto respondido pela Edge Function.
+servidor mesmo depois de um broadcast forjado de aprovacao, liberado so quando o voto aprovado esta
+gravado no servidor, `fetch` POST cancelado por voto de recusa (zero POST), XHR POST liberado so
+depois da aprovacao (exatamente um POST), chat forjado pelo canal nunca renderizado, e no cenario de
+convidado: clique bloqueado (contador da pagina e servidor inalterados) virando proposta com
+"Aguardando o host", clique disparado pela pagina no botao Aprovar sem nenhum voto, e o voto real
+gravado pela Edge Function. `npm run test:security:local` cobre papeis, voto duplicado, voto em
+votacao fechada, host declarando aprovacao que a apuracao nao tem e chat servido so pelo estado.
 
 Escrita no Supabase de producao: autorizada pelo fundador com backup antes (D4). Procedimento:
 `supabase db dump` do schema public e das tabelas afetadas para `artifacts/backups/` (fora do git),

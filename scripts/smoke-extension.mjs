@@ -148,10 +148,28 @@ const fakeSession = {
 const MT_GUEST_ID = "00000000-0000-4000-8000-000000000002";
 // Second scenario (Fase MT2): the smoke user joins someone else's room as a GUEST of this host.
 const MT_HOST_ID = "00000000-0000-4000-8000-000000000003";
-const multiTesterState = { room: null, members: [], joins: 0, broadcasts: [], chats: [], socket: null, topic: "", role: "host", myStatus: "active", voteRequests: [], votes: [], voteResults: [] };
-// Server-side publish to the room, like the real function's broadcastRoom (chat and votes).
-function mtServerBroadcast(event, payload) {
-  if (multiTesterState.socket) wsSendText(multiTesterState.socket, JSON.stringify({ topic: multiTesterState.topic, event: "broadcast", payload: { type: "broadcast", event, payload }, ref: null, join_ref: null }));
+const multiTesterState = { room: null, members: [], joins: 0, broadcasts: [], chats: [], socket: null, topic: "", role: "host", myStatus: "active", voteRequests: [], votes: [], voteResults: [], serverVotes: new Map() };
+// Content-free poke, like the real function's pokeRoom: the clients fetch the state on it.
+function mtServerBroadcast(event) {
+  if (multiTesterState.socket) wsSendText(multiTesterState.socket, JSON.stringify({ topic: multiTesterState.topic, event: "broadcast", payload: { type: "broadcast", event, payload: { at: new Date().toISOString() } }, ref: null, join_ref: null }));
+}
+// Server-side ballot (the real function stores it in mt_vote_ballots), then the poke.
+function mtStoreBallot(voteId, userId, approve) {
+  const vote = multiTesterState.serverVotes.get(voteId);
+  if (!vote || vote.status !== "open" || vote.ballots.has(userId)) return false;
+  vote.ballots.set(userId, approve);
+  return true;
+}
+// Mirrors settleVotes in supabase/functions/multi-tester/index.ts.
+function mtSettleVotes() {
+  const guests = multiTesterState.members.filter((member) => member.status === "active" && member.role === "guest").map((member) => member.userId);
+  for (const vote of multiTesterState.serverVotes.values()) {
+    if (vote.status !== "open") continue;
+    if (!guests.length) vote.status = "cancelled";
+    else if (guests.some((guest) => vote.ballots.get(guest) === false)) vote.status = "rejected";
+    else if (guests.every((guest) => vote.ballots.get(guest) === true)) vote.status = "approved";
+  }
+  return guests;
 }
 function multiTesterMock(body) {
   const me = { userId: fakeSession.user.id, role: multiTesterState.role, status: multiTesterState.myStatus };
@@ -159,6 +177,8 @@ function multiTesterMock(body) {
     // The host already approved this guest (approval itself is covered by the host scenario).
     multiTesterState.myStatus = "active";
     me.status = "active";
+    multiTesterState.serverVotes.clear();
+    multiTesterState.chats = [];
     multiTesterState.room = { id: "22222222-2222-4333-8444-555555555555", status: "open", code: null, channel: "mt:22222222-2222-4333-8444-555555555555:fedcba9876543210fedcba9876543210", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: 10, durationMinutes: 60, endReason: null };
     multiTesterState.members = [
       { userId: MT_HOST_ID, nickname: "Arara 7", color: "#0ea5e9", role: "host", status: "active" },
@@ -169,12 +189,25 @@ function multiTesterMock(body) {
     me.status = "left";
   } else if (body.action === "vote-request" || body.action === "vote-result" || body.action === "vote") {
     const payload = { from: fakeSession.user.id, id: String(body.voteId), at: new Date().toISOString() };
-    if (body.action === "vote-request") { payload.description = String(body.description); multiTesterState.voteRequests.push(payload); }
-    else if (body.action === "vote-result") { payload.approved = body.approved === true; multiTesterState.voteResults.push(payload); }
-    else { payload.approve = body.approve === true; multiTesterState.votes.push(payload); }
-    mtServerBroadcast(body.action, payload);
+    if (body.action === "vote-request") {
+      payload.description = String(body.description);
+      multiTesterState.voteRequests.push(payload);
+      multiTesterState.serverVotes.set(payload.id, { id: payload.id, requestedBy: fakeSession.user.id, description: payload.description, status: "open", createdAt: payload.at, ballots: new Map() });
+    } else if (body.action === "vote-result") {
+      payload.approved = body.approved === true;
+      multiTesterState.voteResults.push(payload);
+      const vote = multiTesterState.serverVotes.get(payload.id);
+      if (vote && !payload.approved && vote.status === "open") vote.status = "cancelled";
+    } else {
+      payload.approve = body.approve === true;
+      multiTesterState.votes.push(payload);
+      mtStoreBallot(payload.id, fakeSession.user.id, payload.approve);
+    }
+    mtServerBroadcast(body.action);
     return { sent: true };
   } else if (body.action === "create") {
+    multiTesterState.serverVotes.clear();
+    multiTesterState.chats = [];
     multiTesterState.room = { id: "11111111-2222-4333-8444-555555555555", status: "open", code: "ABCD2345", channel: "mt:11111111-2222-4333-8444-555555555555:0123456789abcdef0123456789abcdef", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: Number(body.idleTimeoutMinutes), durationMinutes: Number(body.durationMinutes), endReason: null };
     multiTesterState.members = [
       { userId: fakeSession.user.id, nickname: String(body.nickname), color: String(body.color), role: "host", status: "active" },
@@ -183,16 +216,20 @@ function multiTesterMock(body) {
   } else if (body.action === "approve" && body.userId === MT_GUEST_ID) {
     multiTesterState.members[1].status = "active";
   } else if (body.action === "chat") {
-    // Server-stamped chat, published back to the room over the channel like the real function does.
-    const payload = { from: fakeSession.user.id, text: String(body.text), at: new Date().toISOString() };
-    multiTesterState.chats.push(payload);
-    mtServerBroadcast("chat", payload);
+    // Stored server-side with the sender from the token, delivered through the state.
+    multiTesterState.chats.push({ id: `c${multiTesterState.chats.length + 1}`, from: fakeSession.user.id, text: String(body.text), at: new Date().toISOString() });
+    mtServerBroadcast("chat");
     return { sent: true };
   } else if (body.action === "end") {
     multiTesterState.room = { ...multiTesterState.room, status: "ended", code: null, endReason: "host" };
   }
   if (!multiTesterState.room) return { error: "room_not_found" };
-  return { room: { ...multiTesterState.room, code: multiTesterState.room.status === "open" ? multiTesterState.room.code : null }, me, members: multiTesterState.members.map((member) => ({ ...member })), maxMembers: 4 };
+  const guests = mtSettleVotes();
+  const votes = [...multiTesterState.serverVotes.values()].map((vote) => ({
+    id: vote.id, requestedBy: vote.requestedBy, description: vote.description, status: vote.status, createdAt: vote.createdAt, required: guests,
+    approvals: [...vote.ballots].filter(([, approve]) => approve).map(([userId]) => userId), rejections: [...vote.ballots].filter(([, approve]) => !approve).map(([userId]) => userId),
+  }));
+  return { room: { ...multiTesterState.room, code: multiTesterState.room.status === "open" ? multiTesterState.room.code : null }, me, members: multiTesterState.members.map((member) => ({ ...member })), maxMembers: 4, chat: multiTesterState.chats.slice(-50), votes };
 }
 // Minimal RFC 6455 server (text frames only) standing in for Supabase Realtime: Playwright can route
 // a page's WebSocket but not the service worker's, so the extension is pointed here through its
@@ -1122,6 +1159,11 @@ try {
   if (await host.locator("#firstRunIntro").count()) throw new Error("First-run intro still renders as a popup card instead of a bell notification");
   await host.locator("#notificationBellButton").click();
   await host.getByText("A barra está pronta").waitFor({ timeout: 5_000 });
+  // The redaction regression above injected a real HTTP error entry (it counts in this badge):
+  // cleared here so the check below is only about the first-run entry.
+  if (await host.locator("#notificationBellClear:not([disabled])").count()) await host.locator("#notificationBellClear").click();
+  if (await host.evaluate(() => (window.sessionStorage.getItem("qtsHttpErrorsV1") || "").includes("redaction-regression-entry"))) throw new Error("Clearing the HTTP error history did not remove the injected entry");
+  await host.getByText("A barra está pronta").waitFor({ timeout: 5_000 });
   await host.locator('[data-dismiss-intro]').click();
   await host.locator("#notificationBellBadge.isVisible").waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
   if (await host.locator("#notificationBellBadge.isVisible").count()) throw new Error("Notification bell badge stayed visible after dismissing the first-run entry");
@@ -1968,6 +2010,10 @@ try {
     });
   });
   if (!await host.locator("[data-mt-consensus]").isChecked()) throw new Error("Exigir confirmação de todos must be on by default");
+  mtPush("chat", { from: MT_GUEST_ID, text: "mensagem forjada pelo canal", at: new Date().toISOString() });
+  // Deliberate wait: covers the poke-triggered state fetch (at most 1s apart).
+  await host.waitForTimeout(1_500);
+  if (await host.evaluate(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("[data-mt-chat-log]")?.textContent.includes("mensagem forjada"))) throw new Error("A forged chat broadcast was rendered instead of the server state");
   // A guest proposal reaches the host: listed in the drawer and marked around the element on the page;
   // the host clicking that element himself closes it for the guest.
   const mtPageKey = await host.evaluate(() => `${location.origin}${location.pathname}`);
@@ -1998,10 +2044,18 @@ try {
   await host.waitForTimeout(1_000);
   if (mtSaves() !== savesBeforeSubmit || await host.locator("#mtForm").getAttribute("data-sent")) throw new Error("The host's form submit went out before every guest approved");
   await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-vote-progress.png"), fullPage: false });
+  // A forged "approve" broadcast (what a member with a custom client could send) is only a poke:
+  // the host fetches the state, finds no stored ballot, and keeps holding.
   mtPush("vote", { from: MT_GUEST_ID, id: submitVote.id, approve: true, at: new Date().toISOString() });
+  // Deliberate wait: longer than the 1s vote polling, proves the forged approval released nothing.
+  await host.waitForTimeout(1_800);
+  if (mtSaves() !== savesBeforeSubmit || await host.locator("#mtForm").getAttribute("data-sent")) throw new Error("A forged vote broadcast released the held submit");
+  // The real approval: a ballot stored server-side, then the poke.
+  mtStoreBallot(submitVote.id, MT_GUEST_ID, true);
+  mtServerBroadcast("vote");
   await host.waitForFunction(() => document.getElementById("mtForm")?.dataset.sent === "1");
   if (mtSaves() !== savesBeforeSubmit + 1) throw new Error(`Approved submit did not reach the server exactly once: ${mtSaves() - savesBeforeSubmit}`);
-  if (multiTesterState.voteResults.at(-1)?.id !== submitVote.id || multiTesterState.voteResults.at(-1)?.approved !== true) throw new Error(`Approved vote result was not published: ${JSON.stringify(multiTesterState.voteResults)}`);
+  if (multiTesterState.serverVotes.get(submitVote.id)?.status !== "approved") throw new Error("The submit was released without the server tally approving it");
   // 2) fetch POST from a click: held in pagebridge, a rejecting vote cancels it (fails like a network error).
   const savesBeforeReject = mtSaves();
   await host.locator("#mtSave").click();
@@ -2009,18 +2063,20 @@ try {
   if (!rejectVote.description.includes("POST /api/mt-save") || !rejectVote.description.includes("Excluir MT")) throw new Error(`Vote request does not describe the held request: ${JSON.stringify(rejectVote)}`);
   await host.waitForTimeout(500);
   if (mtSaves() !== savesBeforeReject) throw new Error("The held fetch POST went out before the vote");
-  mtPush("vote", { from: MT_GUEST_ID, id: rejectVote.id, approve: false, at: new Date().toISOString() });
+  mtStoreBallot(rejectVote.id, MT_GUEST_ID, false);
+  mtServerBroadcast("vote");
   await host.waitForFunction(() => document.getElementById("mtSave")?.dataset.result === "blocked");
   await host.waitForTimeout(300);
   if (mtSaves() !== savesBeforeReject) throw new Error("A rejected action still reached the server");
-  if (multiTesterState.voteResults.at(-1)?.approved !== false) throw new Error("Rejected vote result was not published");
+  if (multiTesterState.serverVotes.get(rejectVote.id)?.status !== "rejected") throw new Error("Rejected vote was not settled as rejected on the server");
   // 3) XHR POST: held, approved, then sent once.
   const savesBeforeXhr = mtSaves();
   await host.locator("#mtXhr").click();
   const xhrVote = await mtWaitFor(() => multiTesterState.voteRequests[2], "the XHR vote-request");
   await host.waitForTimeout(500);
   if (mtSaves() !== savesBeforeXhr) throw new Error("The held XHR POST went out before the vote");
-  mtPush("vote", { from: MT_GUEST_ID, id: xhrVote.id, approve: true, at: new Date().toISOString() });
+  mtStoreBallot(xhrVote.id, MT_GUEST_ID, true);
+  mtServerBroadcast("vote");
   await host.waitForFunction(() => document.getElementById("mtXhr")?.dataset.result === "ok");
   if (mtSaves() !== savesBeforeXhr + 1) throw new Error("Approved XHR did not reach the server exactly once");
   if (multiTesterState.broadcasts.some((payload) => ["vote", "vote-request", "vote-result"].includes(payload.event))) throw new Error("A vote event went straight over the channel instead of through the Edge Function");
@@ -2056,7 +2112,8 @@ try {
   await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-guest-waiting.png"), fullPage: false });
   mtPush("proposal-done", { from: MT_HOST_ID, id: guestProposal.payload.id, outcome: "dismissed" });
   await host.waitForFunction((label) => !document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("[data-mt-waiting]")?.textContent.includes(`"${label}"`), "Alvo");
-  mtPush("vote-request", { from: MT_HOST_ID, id: "vSmokeGuestVote01", description: '"Salvar" (POST /api/mt-save)', at: new Date().toISOString() });
+  multiTesterState.serverVotes.set("vSmokeGuestVote01", { id: "vSmokeGuestVote01", requestedBy: MT_HOST_ID, description: '"Salvar" (POST /api/mt-save)', status: "open", createdAt: new Date().toISOString(), ballots: new Map() });
+  mtServerBroadcast("vote-request");
   await host.locator('[data-mt-guest-vote="vSmokeGuestVote01"]').waitFor();
   // The prompt must really be styled as a floating card (it once rendered as bare text at the left).
   const votePanel = await host.evaluate(() => {
@@ -2068,10 +2125,18 @@ try {
   });
   if (votePanel?.position !== "fixed" || votePanel.right > 40 || votePanel.approveBg === "rgba(0, 0, 0, 0)") throw new Error(`Vote prompt is not rendered as the floating panel: ${JSON.stringify(votePanel)}`);
   await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-guest-vote.png"), fullPage: false });
+  // The toolbar shadow root is open: the PAGE can reach the approve button and click() it from
+  // script. That synthetic click must never cast a vote (A1).
+  await host.evaluate(() => document.querySelector("#qts-toolbar-host").shadowRoot.querySelector('[data-mt-vote-approve="vSmokeGuestVote01"]').click());
+  await host.evaluate(() => document.querySelector("#qts-toolbar-host").shadowRoot.querySelector('[data-mt-vote-approve="vSmokeGuestVote01"]').dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true })));
+  // Deliberate wait: long enough for a vote call to reach the fake function if one were made.
+  await host.waitForTimeout(800);
+  if (multiTesterState.votes.some((vote) => vote.id === "vSmokeGuestVote01")) throw new Error("A page-dispatched click cast a vote");
   await host.locator('[data-mt-vote-approve="vSmokeGuestVote01"]').click();
   await mtWaitFor(() => multiTesterState.votes.find((vote) => vote.id === "vSmokeGuestVote01" && vote.approve === true), "the guest approval through the Edge Function");
-  mtPush("vote-result", { from: MT_HOST_ID, id: "vSmokeGuestVote01", approved: true, at: new Date().toISOString() });
+  // The server settles it (only active guest approved): the prompt closes from the state alone.
   await host.locator('[data-mt-guest-vote="vSmokeGuestVote01"]').waitFor({ state: "detached" });
+  if (multiTesterState.serverVotes.get("vSmokeGuestVote01")?.status !== "approved") throw new Error("Guest approval was not stored server-side");
   await mtOpenDrawer();
   await host.locator("[data-mt-leave]").click();
   await host.locator("[data-mt-create]").waitFor();
