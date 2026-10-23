@@ -6,7 +6,60 @@
 // The request headers half (User-Agent and client hints sent to the server) is the session DNR
 // rule in background.js; this file only covers what the page's JavaScript can observe.
 (() => {
-  if (!/[?&]__qtsbpua=1(?:&|$)/.test(window.location.search)) return;
+  const MARKER = "__qtsbpua=1";
+  const FRAME_NAME = "qts-bp-phone"; // MOBILE_EMULATION_FRAME_NAME in toolbar.js
+  const hasMarker = (search) => /[?&]__qtsbpua=1(?:&|$)/.test(search);
+  const isPhonePane = window.top !== window && window.name === FRAME_NAME;
+  if (!hasMarker(window.location.search) && !isPhonePane) return;
+  const addMarker = (url) => {
+    const hashIndex = url.indexOf("#");
+    const base = hashIndex === -1 ? url : url.slice(0, hashIndex);
+    if (hasMarker(base.slice(base.indexOf("?")))) return url;
+    return `${base}${base.includes("?") ? "&" : "?"}${MARKER}${hashIndex === -1 ? "" : url.slice(hashIndex)}`;
+  };
+
+  // A navigation inside the phone pane (link, form, location.href) loads a document without the
+  // marker, so its request left with the desktop User-Agent and the server sent the desktop page.
+  // Reload it once with the marker, at document_start, before the site's own scripts run. The
+  // sessionStorage stamp stops a loop when a server redirect strips unknown query parameters.
+  if (isPhonePane && !hasMarker(window.location.search) && /^https?:$/.test(window.location.protocol)) {
+    let retried = false;
+    try {
+      const last = Number(sessionStorage.getItem("qtsBpUaRetry")) || 0;
+      retried = Date.now() - last < 5_000;
+      if (!retried) sessionStorage.setItem("qtsBpUaRetry", String(Date.now()));
+    } catch {}
+    if (!retried) {
+      window.location.replace(addMarker(window.location.href));
+      return;
+    }
+  }
+
+  // Same-origin fetch/XHR carry the marker too, so the session rule also gives them the phone
+  // User-Agent (background.js mobileEmulationRule). Cross-origin requests are left untouched: adding
+  // a parameter could break signed URLs, and third-party APIs rarely pick the layout.
+  const markSameOrigin = (input) => {
+    try {
+      const url = new URL(String(input), window.location.href);
+      return url.origin === window.location.origin ? addMarker(url.href) : null;
+    } catch {
+      return null;
+    }
+  };
+  const realFetch = window.fetch;
+  if (typeof realFetch === "function") {
+    window.fetch = function fetch(input, init) {
+      try {
+        const marked = markSameOrigin(input instanceof Request ? input.url : input);
+        if (marked) return realFetch.call(this, input instanceof Request ? new Request(marked, input) : marked, init);
+      } catch {}
+      return realFetch.call(this, input, init);
+    };
+  }
+  const realOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function open(method, url, ...rest) {
+    return realOpen.call(this, method, markSameOrigin(url) || url, ...rest);
+  };
 
   // Same string as MOBILE_EMULATION_HEADERS in background.js (Chrome's reduced Android UA with the
   // real Chrome major): keep both in sync so the server and the page see one coherent device.

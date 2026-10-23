@@ -429,6 +429,12 @@ function buildBreadcrumb(workspace, environment) {
   // doc nobody reads before their first click.
   const badge = (key, size, maxChars) => {
     const tooltip = escapeHtml(state.t[CRUMB_TOOLTIP_KEYS[key]] || "");
+    // "Todos os sites" on a site no environment owns: the product logo takes the environment's
+    // place (founder request 2026-10-23). Extension URL, not data:, so a strict page CSP img-src
+    // cannot block it (icons/icon-48.png is web-accessible for exactly this, see manifest).
+    if (key === "environment" && environment.id === "qts-all-sites") {
+      return wrapCrumb(`<strong class="qts-environment-name qts-all-sites-brand" title="QA Toolbar Sandbox"><img src="${escapeHtml(chrome.runtime.getURL("icons/icon-48.png"))}" alt="" width="20" height="20" />QA Toolbar Sandbox</strong>`);
+    }
     if (key === "environment") return wrapCrumb(`<strong class="qts-environment-name" title="${tooltip}">${escapeHtml(environment.name)}</strong>`);
     const entity = entityFor[key];
     if (!entity) return "";
@@ -1023,6 +1029,8 @@ function buildShadowHost() {
       #breadcrumb { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 28vw; display: flex; align-items: center; gap: 5px; flex-shrink: 0; }
       .qts-crumb-sep { opacity: .55; }
       .qts-crumb-link { all: unset; cursor: pointer; display: inline-flex; align-items: center; }
+      .qts-all-sites-brand { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+      .qts-all-sites-brand img { width: 20px; height: 20px; border-radius: 5px; flex: none; }
       .qts-crumb-tooltip { display: inline-flex; align-items: center; cursor: help; }
       .qts-crumb-link:hover { opacity: .8; text-decoration: underline; }
       .qts-client-label {
@@ -4274,7 +4282,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: usa el scroll para cambiar de elemento, haz clic para soltarlo.",
   "Cursor personalizado": "Cursor personalizado", "Ponteiro e mouse são personalizados separadamente. O nome aparece ao lado do ponteiro, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "El puntero y el ratón se personalizan por separado. El nombre aparece junto al puntero, al estilo Figma. Útil en grabaciones y sesiones con más personas.",
   "Nome no cursor": "Nombre en el cursor", "Ex.: Ana (QA)": "Ej.: Ana (QA)", "Cor do cursor": "Color del cursor", "Ponteiro": "Puntero", "Ao clicar": "Al hacer clic", "Modelo do mouse": "Modelo del ratón", "Arte no mouse": "Arte en el ratón", "Cor de cada botão": "Color de cada botón",
-  "Esquerdo": "Izquierdo", "Direito": "Derecho", "Meio e scroll": "Medio y scroll", "Usar cores do tema": "Usar colores del tema", "Preenchido": "Relleno", "Vazado": "Hueco",
+  "Esquerdo": "Izquierdo", "Direito": "Derecho", "Meio e scroll": "Medio y scroll", "Usar cores do tema": "Usar colores del tema", "Cores do mouse": "Colores del ratón", "Corpo": "Cuerpo", "Linhas": "Líneas", "Cores automáticas": "Colores automáticos", "Restaurar padrão": "Restaurar predeterminado", "Padrão restaurado.": "Predeterminado restaurado.", "Preenchido": "Relleno", "Vazado": "Hueco",
   "Do sistema": "Del sistema", "Padrão": "Estándar", "Flecha": "Flecha", "Triângulo": "Triángulo", "Seta fina": "Flecha fina", "Mão": "Mano",
   "Desenho do mouse": "Dibujo del ratón", "Holofote": "Foco", "Ondas": "Ondas", "Nenhum": "Ninguno",
   "Comum": "Común", "Gamer": "Gamer", "Antigo": "Antiguo", "Com relevo": "Con relieve", "3D": "3D", "Coração": "Corazón", "Tech": "Tech", "Transformer": "Transformer",
@@ -4311,7 +4319,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: scroll to switch elements, click to release.",
   "Cursor personalizado": "Custom cursor", "Ponteiro e mouse são personalizados separadamente. O nome aparece ao lado do ponteiro, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "Pointer and mouse are customized separately. The name shows next to the pointer, Figma style. Useful in recordings and sessions with more people.",
   "Nome no cursor": "Name on cursor", "Ex.: Ana (QA)": "E.g., Ana (QA)", "Cor do cursor": "Cursor color", "Ponteiro": "Pointer", "Ao clicar": "On click", "Modelo do mouse": "Mouse model", "Arte no mouse": "Mouse art", "Cor de cada botão": "Color of each button",
-  "Esquerdo": "Left", "Direito": "Right", "Meio e scroll": "Middle and scroll", "Usar cores do tema": "Use theme colors", "Preenchido": "Filled", "Vazado": "Hollow",
+  "Esquerdo": "Left", "Direito": "Right", "Meio e scroll": "Middle and scroll", "Usar cores do tema": "Use theme colors", "Cores do mouse": "Mouse colors", "Corpo": "Body", "Linhas": "Lines", "Cores automáticas": "Automatic colors", "Restaurar padrão": "Restore defaults", "Padrão restaurado.": "Defaults restored.", "Preenchido": "Filled", "Vazado": "Hollow",
   "Do sistema": "System", "Padrão": "Default", "Flecha": "Arrowhead", "Triângulo": "Triangle", "Seta fina": "Thin arrow", "Mão": "Hand",
   "Desenho do mouse": "Mouse drawing", "Holofote": "Spotlight", "Ondas": "Ripples", "Nenhum": "None",
   "Comum": "Classic", "Gamer": "Gamer", "Antigo": "Retro", "Com relevo": "Embossed", "3D": "3D", "Coração": "Heart", "Tech": "Tech", "Transformer": "Transformer",
@@ -6225,7 +6233,7 @@ const breakpointViewerState = {
   // Phone emulation (see qts:bp-mobile-emulation in background.js): on by default whenever a pane
   // shows a phone. `mobileEmulationSession` changes on every cleanup so an enable ack that arrives
   // after the viewer closed (or was rebuilt) is ignored instead of resurrecting a stale flag.
-  emulateMobile: true,
+  // Phone panes always emulate a phone (founder rule 2026-10-23: no toggle, it is the default).
   mobileEmulationActive: false,
   mobileEmulationPending: false,
   mobileEmulationSession: 0,
@@ -6234,6 +6242,10 @@ const breakpointViewerState = {
 
 // Must match MOBILE_EMULATION_MARKER in background.js and the check in mobile-emulation.js.
 const MOBILE_EMULATION_MARKER = "__qtsbpua=1";
+// Browsing-context name of the phone pane's iframe. Unlike the URL marker it survives every
+// navigation inside the frame, so mobile-emulation.js still recognizes the phone pane after the site
+// navigates (link, form, location.href) and can put the marker back. Must match mobile-emulation.js.
+const MOBILE_EMULATION_FRAME_NAME = "qts-bp-phone";
 
 // Only the phone pane's URL carries the marker: both panes load the same URL in the same tab, and
 // the marker is the one thing the session DNR rule can tell them apart by. Inserted as text (not
@@ -6268,7 +6280,7 @@ function buildDeviceFrameHtml(pane, device) {
       <div class="qts-bp-frame kind-${device.kind}" data-pane="${pane}">
         ${chrome}
         <div class="qts-bp-viewport-wrap" data-viewport-wrap>
-          <iframe data-bp-iframe style="width:${device.width}px;height:${device.height}px"></iframe>
+          <iframe data-bp-iframe ${device.kind === "phone" ? `name="${MOBILE_EMULATION_FRAME_NAME}" ` : ""}style="width:${device.width}px;height:${device.height}px"></iframe>
         </div>
         ${device.kind === "phone" ? `<div class="qts-bp-home-indicator"></div>` : ""}
       </div>
@@ -6371,7 +6383,6 @@ function openBreakpointViewer() {
         </div>
         <button type="button" class="qts-bp-toggle" id="bpSyncScroll">${escapeHtml(t.syncScroll)}</button>
         <button type="button" class="qts-bp-toggle" id="bpSyncClick">${escapeHtml(t.syncClick)}</button>
-        <button type="button" class="qts-bp-toggle ${breakpointViewerState.emulateMobile ? "isOn" : ""}" id="bpEmulateMobile" aria-pressed="${breakpointViewerState.emulateMobile}" title="${escapeHtml(t.emulateMobileTitle)}" hidden>${escapeHtml(t.emulateMobile)}</button>
         <button type="button" class="qts-bp-toggle" id="bpShot" title="${escapeHtml(t.bpScreenshot)}">${ICON("camera")} ${escapeHtml(t.bpScreenshot)}</button>
         <button type="button" class="qts-bp-toggle" id="bpRecord">${ICON("recordStart")} Gravar tela cheia</button>
         <button type="button" class="qts-bp-close" id="bpClose">${ICON("fail")}</button>
@@ -6441,7 +6452,6 @@ function openBreakpointViewer() {
     wireSync();
   }
 
-  const emulateButton = drawerHost.querySelector("#bpEmulateMobile");
   const hasPhonePane = () => [selectA.value, selectB.value].some((id) => findDevice(id).kind === "phone");
 
   // Decides whether the session rule should exist and waits for the background's ack BEFORE the
@@ -6449,8 +6459,7 @@ function openBreakpointViewer() {
   // `force` re-sends enable even when already active (Recarregar), since the tab-navigation
   // teardown in background.js may have removed the rule meanwhile.
   async function syncMobileEmulation({ force = false } = {}) {
-    emulateButton.hidden = !hasPhonePane();
-    const wanted = breakpointViewerState.emulateMobile && hasPhonePane() && !!normalizedPreviewUrl();
+    const wanted = hasPhonePane() && !!normalizedPreviewUrl();
     const session = breakpointViewerState.mobileEmulationSession;
     if (wanted && (force || !breakpointViewerState.mobileEmulationActive)) {
       breakpointViewerState.mobileEmulationPending = true;
@@ -6475,7 +6484,7 @@ function openBreakpointViewer() {
   // The URL a pane should show: the phone pane gets the marker only once the rule is confirmed, and
   // null while the enable is still in flight so the pane waits instead of loading as desktop.
   function paneUrl(device, url) {
-    if (!url || device.kind !== "phone" || !breakpointViewerState.emulateMobile) return url;
+    if (!url || device.kind !== "phone") return url;
     if (breakpointViewerState.mobileEmulationPending) return null;
     return breakpointViewerState.mobileEmulationActive ? markMobilePreviewUrl(url) : url;
   }
@@ -6608,12 +6617,6 @@ function openBreakpointViewer() {
     // every pane (the phone one only after the re-sent enable is acknowledged).
     stage.querySelectorAll("[data-bp-iframe]").forEach((iframe) => { iframe.src = "about:blank"; });
     await syncMobileEmulation({ force: true });
-  });
-  emulateButton.addEventListener("click", () => {
-    breakpointViewerState.emulateMobile = !breakpointViewerState.emulateMobile;
-    emulateButton.classList.toggle("isOn", breakpointViewerState.emulateMobile);
-    emulateButton.setAttribute("aria-pressed", String(breakpointViewerState.emulateMobile));
-    void syncMobileEmulation();
   });
   selectA.addEventListener("change", layout);
   selectB.addEventListener("change", layout);
@@ -7845,6 +7848,10 @@ const CURSOR_DEFAULTS = Object.freeze({
   // "" = follow the UI color theme (left/right use --qts-ui-highlight, middle/scroll --qts-ui-primary),
   // which is what the theme-preset smoke checks expect by default.
   clickColors: Object.freeze({ left: "", right: "", middle: "" }),
+  // "" = automatic: filled paints the body in the cursor color with contrasting lines, hollow paints
+  // a neutral body with lines in the cursor color. Set either to mix any body/line combination.
+  mouseBodyColor: "",
+  mouseLineColor: "",
 });
 const CURSOR_HEX_PATTERN = /^#[0-9a-f]{6}$/i;
 const CURSOR_NAME_MAX = 40;
@@ -7992,6 +7999,8 @@ function sanitizeCursorConfig(cfg) {
       right: sanitizeCursorColor(clickColors.right, ""),
       middle: sanitizeCursorColor(clickColors.middle, ""),
     },
+    mouseBodyColor: sanitizeCursorColor(raw.mouseBodyColor, ""),
+    mouseLineColor: sanitizeCursorColor(raw.mouseLineColor, ""),
   };
 }
 
@@ -8011,6 +8020,8 @@ function cursorStyleVars(config) {
   if (config.clickColors.left) vars.push(`--qts-click-left:${config.clickColors.left}`);
   if (config.clickColors.right) vars.push(`--qts-click-right:${config.clickColors.right}`);
   if (config.clickColors.middle) vars.push(`--qts-click-middle:${config.clickColors.middle}`);
+  if (config.mouseBodyColor) vars.push(`--qts-mouse-body:${config.mouseBodyColor}`);
+  if (config.mouseLineColor) vars.push(`--qts-mouse-lines:${config.mouseLineColor}`);
   return vars.join(";");
 }
 
@@ -8076,8 +8087,9 @@ const CURSOR_FIGURE_CSS = `
   .qts-mouse-shadow { fill: rgba(0,0,0,.35); }
   /* Filled: the body wears the tester color with a contrasting outline. Hollow: neutral surface,
      outline and accents in the tester color. Buttons share the body paint until clicked. */
-  .qts-mouse-figure[data-mouse-fill="filled"] { --qts-mouse-paint: var(--qts-cursor-color, #5b35e8); --qts-mouse-ink: var(--qts-cursor-contrast, #fff); --qts-mouse-art-color: color-mix(in srgb, var(--qts-cursor-contrast, #fff) 55%, transparent); }
-  .qts-mouse-figure[data-mouse-fill="outline"] { --qts-mouse-paint: var(--qts-mouse-surface); --qts-mouse-ink: var(--qts-cursor-color, #5b35e8); --qts-mouse-art-color: color-mix(in srgb, var(--qts-cursor-color, #5b35e8) 50%, transparent); }
+  /* --qts-mouse-body / --qts-mouse-lines (optional, from the body and line pickers) override either. */
+  .qts-mouse-figure[data-mouse-fill="filled"] { --qts-mouse-paint: var(--qts-mouse-body, var(--qts-cursor-color, #5b35e8)); --qts-mouse-ink: var(--qts-mouse-lines, var(--qts-cursor-contrast, #fff)); --qts-mouse-art-color: color-mix(in srgb, var(--qts-mouse-ink) 55%, transparent); }
+  .qts-mouse-figure[data-mouse-fill="outline"] { --qts-mouse-paint: var(--qts-mouse-body, var(--qts-mouse-surface)); --qts-mouse-ink: var(--qts-mouse-lines, var(--qts-cursor-color, #5b35e8)); --qts-mouse-art-color: color-mix(in srgb, var(--qts-mouse-ink) 50%, transparent); }
   .qts-mouse-body, .qts-mouse-left, .qts-mouse-right { fill: var(--qts-mouse-paint); stroke: var(--qts-mouse-ink); stroke-width: 1.6; stroke-linejoin: round; transition: fill 90ms ease; }
   .qts-mouse-figure[data-mouse-fill="outline"] :is(.qts-mouse-body, .qts-mouse-left, .qts-mouse-right) { stroke-width: 2.2; }
   .qts-mouse-divider, .qts-mouse-line { fill: none; stroke: var(--qts-mouse-ink); stroke-width: 1.3; stroke-linecap: round; stroke-linejoin: round; }
@@ -8333,7 +8345,7 @@ function ensureCursorSurface(id, innerHtml) {
 
 // Sets only the per-config color properties; left/top and the other inline layout survive.
 function applyCursorVars(host, config) {
-  ["--qts-click-left", "--qts-click-right", "--qts-click-middle"].forEach((name) => host.style.removeProperty(name));
+  ["--qts-click-left", "--qts-click-right", "--qts-click-middle", "--qts-mouse-body", "--qts-mouse-lines"].forEach((name) => host.style.removeProperty(name));
   cursorStyleVars(config).split(";").forEach((declaration) => {
     const [name, value] = declaration.split(":");
     if (name && value) host.style.setProperty(name, value);
@@ -8672,14 +8684,20 @@ function openKeyView() {
           <p class="qts-cursor-subtitle">Modelo do mouse</p>
           <div class="qts-choice-grid" id="cursorMouseStyleGrid">${mouseStyleChoices()}</div>
           <div class="qts-segmented" id="cursorMouseFill">${segment("mouseFill", "filled", "Preenchido", "circleFill", cursor.mouseFill === "filled")}${segment("mouseFill", "outline", "Vazado", "circleOutline", cursor.mouseFill === "outline")}</div>
+          <p class="qts-cursor-subtitle">Cores do mouse</p>
+          <div class="qts-click-colors">
+            <label>Corpo<input type="color" data-mouse-color="mouseBodyColor" value="#5b35e8" /></label>
+            <label>Linhas<input type="color" data-mouse-color="mouseLineColor" value="#ffffff" /></label>
+          </div>
+          <button type="button" class="action" id="cursorMouseColorsReset">Cores automáticas</button>
           <p class="qts-cursor-subtitle">Arte no mouse</p>
           <div class="qts-choice-grid" id="cursorMouseArtGrid">${mouseArtChoices()}</div>
         </div>
         <p class="qts-cursor-subtitle">Cor de cada botão</p>
         <div class="qts-click-colors">
-          <label>Esquerdo<input type="color" data-click-color="left" value="${escapeHtml(cursor.clickColors.left || "#3b82f6")}" /></label>
-          <label>Direito<input type="color" data-click-color="right" value="${escapeHtml(cursor.clickColors.right || "#f59e0b")}" /></label>
-          <label>Meio e scroll<input type="color" data-click-color="middle" value="${escapeHtml(cursor.clickColors.middle || "#22c55e")}" /></label>
+          <label>Esquerdo<input type="color" data-click-color="left" value="#3b82f6" /></label>
+          <label>Direito<input type="color" data-click-color="right" value="#f59e0b" /></label>
+          <label>Meio e scroll<input type="color" data-click-color="middle" value="#22c55e" /></label>
         </div>
         <button type="button" class="action" id="cursorClickColorsReset">Usar cores do tema</button>
       </section>
@@ -8691,7 +8709,7 @@ function openKeyView() {
       <div class="qts-field-label"><span>Posição na tela</span><div class="qts-position-grid">${KEY_VIEW_POSITIONS.map(([value, icon, label]) => `<button class="${value === preferences.position ? "isSelected" : ""}" type="button" data-key-view-position="${value}" title="${label}" aria-label="${label}">${icon}</button>`).join("")}</div></div>
       <div class="qts-key-view-preview" data-theme="${preferences.theme}" data-key-size="${preferences.keySize}" id="keyViewPreview">${keycapSvg("Ctrl", preferences.keySize)}<span>+</span>${keycapSvg("V", preferences.keySize)}</div>
       <div class="qts-card qts-privacy-note"><b>Privacidade local</b><p>O texto não é salvo nem enviado. Campos de senha, cartão, CVV, token e segredo nunca são capturados.</p></div>
-      <div class="qts-card-actions"><button class="action primary" id="keyViewSave" type="button">Salvar configurações</button><button class="action" id="keyViewClear" type="button">Limpar texto</button></div><div class="qts-status" id="keyViewStatus"></div>`,
+      <div class="qts-card-actions"><button class="action primary" id="keyViewSave" type="button">Salvar configurações</button><button class="action" id="cursorRestoreDefaults" type="button">Restaurar padrão</button><button class="action" id="keyViewClear" type="button">Limpar texto</button></div><div class="qts-status" id="keyViewStatus"></div>`,
     onReady(body) {
       const theme = body.querySelector("#keyViewTheme");
       const keySize = body.querySelector("#keyViewKeySize");
@@ -8706,6 +8724,43 @@ function openKeyView() {
       // previews and the save both use (same sanitizer as read/persist, so a preview can never show
       // something that would not actually be stored).
       const currentCursor = () => sanitizeCursorConfig({ ...cursorDraft, name: cursorName.value, color: cursorColor.value });
+      // The preview presses the button whose color was edited last, so changing the right or the
+      // middle color shows on the drawing instead of the preview always pressing the left button.
+      let previewButton = "left";
+      // Pickers always show the color actually in use: an automatic ("") value is read back from the
+      // preview's computed CSS, so it matches the theme/cursor color instead of a fixed sample.
+      const toHex = (cssColor) => {
+        const value = String(cssColor || "").trim();
+        if (CURSOR_HEX_PATTERN.test(value)) return value.toLowerCase();
+        const match = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(value);
+        return match ? `#${match.slice(1, 4).map((part) => Number(part).toString(16).padStart(2, "0")).join("")}` : "";
+      };
+      const resolveCssColor = (value) => {
+        const probe = document.createElement("span");
+        probe.style.color = value;
+        cursorPreview.appendChild(probe);
+        const resolved = getComputedStyle(probe).color;
+        probe.remove();
+        return resolved;
+      };
+      const syncColorInputs = (cfg) => {
+        // Only the mouse drawing and the click effects declare the resolved --qts-click-*-color
+        // tokens; with "Nenhum" there is nothing to read, so automatic pickers keep their value.
+        const figure = cursorPreview.querySelector(".qts-mouse-figure, .qts-click-effect");
+        const computed = figure ? getComputedStyle(figure) : null;
+        body.querySelectorAll("[data-click-color]").forEach((input) => {
+          const key = input.dataset.clickColor;
+          const token = computed?.getPropertyValue(`--qts-click-${key}-color`).trim();
+          const value = cfg.clickColors[key] || (token ? toHex(resolveCssColor(token)) : "");
+          if (value) input.value = value;
+        });
+        const bodyPart = cursorPreview.querySelector(".qts-mouse-body");
+        const automatic = { mouseBodyColor: bodyPart ? toHex(getComputedStyle(bodyPart).fill) : "", mouseLineColor: bodyPart ? toHex(getComputedStyle(bodyPart).stroke) : "" };
+        body.querySelectorAll("[data-mouse-color]").forEach((input) => {
+          const value = cfg[input.dataset.mouseColor] || automatic[input.dataset.mouseColor];
+          if (value) input.value = value;
+        });
+      };
       const renderCursorPreview = () => {
         const cfg = currentCursor();
         const name = cfg.name.trim();
@@ -8723,14 +8778,15 @@ function openKeyView() {
         const labelLeft = 18 + (pointer.path ? Math.round(pointerWidth * 0.7) : 14);
         const labelTop = 8 + (pointer.path ? Math.round(pointerHeight * 0.72) : 20);
         const clickHtml = cfg.clickMode === "mouse"
-          ? `<div class="qts-mouse-box">${renderMouseFigure(cfg, { pressed: "left" })}</div>`
+          ? `<div class="qts-mouse-box">${renderMouseFigure(cfg, { pressed: previewButton })}</div>`
           : cfg.clickMode === "spotlight"
-            ? `<div class="qts-click-effect" data-button="left"><div class="qts-click-spotlight"></div></div>`
+            ? `<div class="qts-click-effect" data-button="${previewButton}"><div class="qts-click-spotlight"></div></div>`
             : cfg.clickMode === "quake"
-              ? `<div class="qts-click-effect" data-button="left"><div class="qts-click-ring"></div><div class="qts-click-ring"></div></div>`
+              ? `<div class="qts-click-effect" data-button="${previewButton}"><div class="qts-click-ring"></div><div class="qts-click-ring"></div></div>`
               : "";
         cursorPreview.innerHTML = `<div class="qts-cursor-preview-pointer">${pointerHtml}${name ? `<span class="qts-cursor-label" style="left:${labelLeft}px;top:${labelTop}px">${escapeHtml(name)}</span>` : ""}</div>${clickHtml ? `<div class="qts-cursor-preview-click">${clickHtml}</div>` : ""}`;
         cursorColorHex.textContent = cfg.color;
+        syncColorInputs(cfg);
       };
       // Tiles show the real drawing in the current color/fill, so they are rebuilt when those change.
       const renderCursorChoices = () => {
@@ -8761,10 +8817,20 @@ function openKeyView() {
       });
       body.querySelectorAll("[data-click-color]").forEach((input) => input.addEventListener("input", () => {
         cursorDraft.clickColors = { ...cursorDraft.clickColors, [input.dataset.clickColor]: input.value };
+        previewButton = input.dataset.clickColor;
         renderCursorPreview();
       }));
       body.querySelector("#cursorClickColorsReset").addEventListener("click", () => {
         cursorDraft.clickColors = { left: "", right: "", middle: "" };
+        renderCursorPreview();
+      });
+      body.querySelectorAll("[data-mouse-color]").forEach((input) => input.addEventListener("input", () => {
+        cursorDraft[input.dataset.mouseColor] = input.value;
+        renderCursorPreview();
+      }));
+      body.querySelector("#cursorMouseColorsReset").addEventListener("click", () => {
+        cursorDraft.mouseBodyColor = "";
+        cursorDraft.mouseLineColor = "";
         renderCursorPreview();
       });
       renderCursorPreview();
@@ -8792,6 +8858,20 @@ function openKeyView() {
         updateMouseViewOverlayAppearance(document.getElementById("qts-mouse-view-overlay"));
         syncPointerOverlay();
         body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Configurações salvas.");
+      });
+      body.querySelector("#cursorRestoreDefaults").addEventListener("click", async () => {
+        // Every cursor choice and color goes back to the defaults; the name is identity, not looks,
+        // so it stays. Saved right away and the drawer rebuilt so every picker shows the defaults.
+        state.workspace.preferences = {
+          ...(state.workspace.preferences || {}),
+          keyViewCursor: sanitizeCursorConfig({ ...CURSOR_DEFAULTS, name: cursorName.value }),
+        };
+        await persistWorkspaceState();
+        updateMouseViewOverlayAppearance(document.getElementById("qts-mouse-view-overlay"));
+        syncPointerOverlay();
+        openKeyView();
+        const status = state.shadowRoot?.getElementById("keyViewStatus");
+        if (status) status.textContent = translateQaSurfaceText("Padrão restaurado.");
       });
       body.querySelector("#keyViewClear").addEventListener("click", () => { clearKeyViewTyping(); body.querySelector("#keyViewStatus").textContent = translateQaSurfaceText("Texto limpo."); });
     },
