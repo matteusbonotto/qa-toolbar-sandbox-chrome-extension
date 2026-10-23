@@ -16,7 +16,7 @@ import { createServer } from "node:http";
 import { createHash, createHmac, randomBytes, randomUUID, timingSafeEqual } from "node:crypto";
 import { fileURLToPath } from "node:url";
 import {
-  ADMIN_EMAIL, ANY_UUID, BODY_LIMITS, CHALLENGE_ID, COLOR, MFA_TOKEN, OTP, PLAN_KEY, RATE_LIMITS,
+  ADMIN_EMAIL, ANY_UUID, VOTE_ID, BODY_LIMITS, CHALLENGE_ID, COLOR, MFA_TOKEN, OTP, PLAN_KEY, RATE_LIMITS,
   REFERRAL_CODE, REQUEST_ID, ROOM_CODE, VOUCHER_CODE, ZOD_EMAIL,
 } from "./contracts.mjs";
 
@@ -63,6 +63,8 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
   const rateBuckets = new Map();
   const rooms = new Map(); // id -> room
   const members = new Map(); // room id -> Map(user id -> member)
+  const chats = new Map(); // room id -> [{ id, from, text, at }] (multi-tester mt_chat_messages)
+  const votes = new Map(); // room id -> Map(vote id -> { vote, ballots: Map(user id -> approve) })
   const challenges = new Map();
 
   function addUser(label, { plan = null, founder = false, email } = {}) {
@@ -214,6 +216,8 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
       me: { userId, role: me.role, status: me.status },
       members: [],
       maxMembers: MAX_ACTIVE_MEMBERS,
+      chat: [],
+      votes: [],
     };
     if (!active) return base;
     base.room.channel = `mt:${room.id}:${room.channel_epoch}`;
@@ -221,7 +225,27 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
     base.members = list
       .filter((member) => (isHost ? ["active", "pending"].includes(member.status) : member.status === "active"))
       .map((member) => ({ userId: member.user_id, nickname: member.nickname, color: member.color, role: member.role, status: member.status }));
+    settleVotes(room);
+    const guests = activeGuests(room);
+    base.chat = (chats.get(room.id) ?? []).slice(-50);
+    base.votes = [...(votes.get(room.id)?.values() ?? [])].map(({ vote, ballots }) => ({
+      id: vote.id, requestedBy: vote.requestedBy, description: vote.description, status: vote.status, createdAt: vote.createdAt,
+      required: guests, approvals: [...ballots].filter(([, approve]) => approve).map(([id]) => id), rejections: [...ballots].filter(([, approve]) => !approve).map(([id]) => id),
+    }));
     return base;
+  }
+  function activeGuests(room) {
+    return [...(members.get(room.id)?.values() ?? [])].filter((member) => member.status === "active" && member.role === "guest").map((member) => member.user_id);
+  }
+  // Mirrors settleVotes in multi-tester/index.ts: the stored ballots decide, zero guests fails closed.
+  function settleVotes(room) {
+    const guests = activeGuests(room);
+    for (const { vote, ballots } of votes.get(room.id)?.values() ?? []) {
+      if (vote.status !== "open") continue;
+      if (room.status !== "open" || !guests.length) vote.status = "cancelled";
+      else if (guests.some((guest) => ballots.get(guest) === false)) vote.status = "rejected";
+      else if (guests.every((guest) => ballots.get(guest) === true)) vote.status = "approved";
+    }
   }
   function requireHostRoom(roomId, userId) {
     const room = loadRoom(roomId);
@@ -248,7 +272,7 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
     const { user } = authenticated(ctx.headers);
     const input = await ctx.readJson(16_384);
     const action = String(field(input, "action") ?? "");
-    const budget = ["touch", "state"].includes(action) ? "multi-tester-poll" : action === "chat" ? "multi-tester-chat" : "multi-tester-action";
+    const budget = ["touch", "state"].includes(action) ? "multi-tester-poll" : action === "chat" ? "multi-tester-chat" : ["vote-request", "vote", "vote-result"].includes(action) ? "multi-tester-vote" : "multi-tester-action";
     enforceRateLimit(user.id, budget);
 
     if (action === "create") {
@@ -309,6 +333,40 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
       if (room.status !== "open" || member?.status !== "active") throw new ApiError(403, "not_allowed");
       const text = String(field(input, "text") ?? "").replace(/[\u0000-\u0008\u000b-\u001f\u007f]/g, "").trim().slice(0, 500);
       if (!text) throw new ApiError(400, "invalid_message");
+      if (!chats.has(roomId)) chats.set(roomId, []);
+      chats.get(roomId).push({ id: randomUUID(), from: user.id, text, at: new Date().toISOString() });
+      room.last_activity_at = new Date().toISOString();
+      return { sent: true };
+    }
+
+    // Fase MT2 consensus (multi-tester/index.ts): guests vote, only the host asks and announces.
+    if (action === "vote-request" || action === "vote" || action === "vote-result") {
+      const room = loadRoom(roomId);
+      const member = members.get(roomId)?.get(user.id);
+      if (room.status !== "open" || member?.status !== "active") throw new ApiError(403, "not_allowed");
+      const voteId = String(field(input, "voteId") ?? "");
+      if (!VOTE_ID.test(voteId)) throw new ApiError(400, "invalid_vote");
+      if (!votes.has(roomId)) votes.set(roomId, new Map());
+      const entry = votes.get(roomId).get(voteId);
+      if (action === "vote") {
+        if (member.role !== "guest" || room.host_id === user.id) throw new ApiError(403, "guest_only");
+        if (!entry) throw new ApiError(404, "vote_not_found");
+        if (entry.vote.status !== "open") throw new ApiError(409, "vote_closed");
+        if (entry.ballots.has(user.id)) throw new ApiError(409, "already_voted");
+        entry.ballots.set(user.id, field(input, "approve") === true);
+        settleVotes(room);
+      } else if (action === "vote-result") {
+        if (room.host_id !== user.id) throw new ApiError(403, "host_only");
+        if (!entry) throw new ApiError(404, "vote_not_found");
+        if (field(input, "approved") === true) { if (entry.vote.status !== "approved") throw new ApiError(409, "vote_not_approved"); }
+        else if (entry.vote.status === "open") entry.vote.status = "cancelled";
+      } else {
+        if (room.host_id !== user.id) throw new ApiError(403, "host_only");
+        const description = String(field(input, "description") ?? "").replace(/[\u0000-\u001f\u007f<>]/g, " ").replace(/\s+/g, " ").trim().slice(0, 300);
+        if (!description) throw new ApiError(400, "invalid_vote");
+        if (entry) throw new ApiError(409, "vote_exists");
+        votes.get(roomId).set(voteId, { vote: { id: voteId, requestedBy: user.id, description, status: "open", createdAt: new Date().toISOString() }, ballots: new Map() });
+      }
       room.last_activity_at = new Date().toISOString();
       return { sent: true };
     }
@@ -318,6 +376,8 @@ export function createMockBackend({ extraReleaseManagerUsers = 0, faults = [], l
       const targetId = uuid(field(input, "userId"));
       if (targetId === user.id) throw new ApiError(400, "invalid_target");
       if (action === "approve") {
+        // Pending in this room first, then the plan (same answer for any non-pending id).
+        if (members.get(roomId)?.get(targetId)?.status !== "pending") throw new ApiError(409, "status_changed");
         if (!hasMultiTester(targetId)) throw new ApiError(409, "guest_plan_required");
         setMemberStatus(roomId, targetId, ["pending"], "active");
       } else if (action === "reject") {

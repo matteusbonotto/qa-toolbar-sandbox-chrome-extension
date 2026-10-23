@@ -422,7 +422,7 @@ chrome.runtime.onConnect.addListener((port) => {
   });
 });
 
-const MULTI_TESTER_ACTIONS = new Set(["create", "request", "state", "touch", "chat", "approve", "reject", "remove", "leave", "end"]);
+const MULTI_TESTER_ACTIONS = new Set(["create", "request", "state", "touch", "chat", "approve", "reject", "remove", "leave", "end", "vote-request", "vote", "vote-result"]);
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message !== "object" || sender.id !== chrome.runtime.id) return undefined;
@@ -592,6 +592,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       for (const key of ["roomId", "userId", "code", "nickname", "color"]) if (typeof message[key] === "string") body[key] = message[key].slice(0, 80);
       for (const key of ["durationMinutes", "idleTimeoutMinutes"]) if (Number.isFinite(message[key])) body[key] = message[key];
       if (typeof message.text === "string") body.text = message.text.slice(0, 500);
+      // Multi Testador consensus (Fase MT2): vote id, the action description shown to guests, and the
+      // guest answer / host outcome. The Edge Function re-validates shape, role and sender.
+      if (typeof message.voteId === "string") body.voteId = message.voteId.slice(0, 40);
+      if (typeof message.description === "string") body.description = message.description.slice(0, 300);
+      for (const key of ["approve", "approved"]) if (typeof message[key] === "boolean") body[key] = message[key];
       try {
         sendResponse({ ok: true, state: await callMultiTester(body) });
       } catch (error) {

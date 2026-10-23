@@ -4125,6 +4125,10 @@ function drawerStyles() {
     .qts-mt-chat { display: grid; align-content: start; gap: 6px; max-height: 220px; min-height: 80px; overflow-y: auto; padding: 8px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); }
     .qts-mt-message { margin: 0; color: var(--qts-panel-text); font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; }
     .qts-mt-card .action svg { width: 14px; height: 14px; vertical-align: -2px; }
+    .qts-mt-toggle { display: flex; align-items: flex-start; gap: 10px; padding: 10px 12px; border: 1px solid var(--qts-panel-border); border-radius: 10px; background: var(--qts-panel-2); cursor: pointer; }
+    .qts-mt-toggle input { flex: none; width: 18px; height: 18px; margin: 2px 0 0; accent-color: var(--qts-ui-primary, #5b35e8); }
+    .qts-mt-toggle span { display: grid; gap: 3px; color: var(--qts-panel-text); font-size: 12px; }
+    .qts-mt-toggle small, .qts-mt-name small { color: var(--qts-panel-muted); font-weight: 600; line-height: 1.4; }
     @media (max-width: 420px) { .qts-click-colors { grid-template-columns: 1fr; } }
     .qts-privacy-note p { margin: 5px 0 0; color: #aaa; }
     /* A bare native <input type=color> renders as a ~16px swatch with no border in some engines --
@@ -4273,6 +4277,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Comum": "Común", "Gamer": "Gamer", "Antigo": "Antiguo", "Com relevo": "Con relieve", "3D": "3D", "Coração": "Corazón", "Tech": "Tech", "Transformer": "Transformer",
   "Nenhuma": "Ninguna", "Flores": "Flores", "Corações": "Corazones", "Caveiras": "Calaveras", "Raios": "Rayos", "X Tech": "X Tech", "Hexágonos": "Hexágonos", "Diamantes": "Diamantes", "Flocos": "Copos", "Estrelas": "Estrellas",
   "Multi Testador": "Multi Tester", "Multi Testador é exclusivo do plano Release Manager.": "Multi Tester es exclusivo del plan Release Manager.", "Código inválido ou sala encerrada.": "Código inválido o sala cerrada.", "O código tem 8 caracteres (letras e números).": "El código tiene 8 caracteres (letras y números).", "O host não liberou sua entrada nesta sala.": "El anfitrión no permitió tu entrada en esta sala.", "A sala já tem 4 testadores.": "La sala ya tiene 4 testers.", "Esse convidado não tem o plano Release Manager.": "Este invitado no tiene el plan Release Manager.", "Só o host pode fazer isso.": "Solo el anfitrión puede hacer esto.", "A sessão já foi encerrada.": "La sesión ya terminó.", "Entre na sua conta para usar o Multi Testador.": "Inicia sesión para usar Multi Tester.", "O host encerrou a sessão.": "El anfitrión terminó la sesión.", "O tempo da sessão acabou.": "Se acabó el tiempo de la sesión.", "A sessão foi encerrada por inatividade.": "La sesión terminó por inactividad.", "A sessão foi encerrada.": "La sesión terminó.", "O host removeu você da sessão.": "El anfitrión te quitó de la sesión.", "O host recusou sua entrada.": "El anfitrión rechazó tu entrada.", "O host aprovou sua entrada. Você está na sessão.": "El anfitrión aprobó tu entrada. Estás en la sesión.", "Não foi possível falar com o Multi Testador. Tente de novo.": "No se pudo contactar Multi Tester. Inténtalo de nuevo.", "host": "anfitrión", "Participantes (Multi Testador)": "Participantes (Multi Tester)", "min restantes": "min restantes", "Conectado": "Conectado", "Conectando...": "Conectando...", "Reconectando...": "Reconectando...", "Acesso ao canal negado": "Acceso al canal denegado", "Erro de conexão": "Error de conexión", "Você aparece para os outros como": "Los demás te ven como", "Altere o apelido em Configurações.": "Cambia el apodo en Configuración.", "Criar sala": "Crear sala", "Duração": "Duración", "Encerrar sem atividade após": "Cerrar sin actividad después de", "Entrar com código": "Entrar con código", "O host aprova cada entrada. Até 4 testadores por sala.": "El anfitrión aprueba cada entrada. Hasta 4 testers por sala.", "Código da sala": "Código de la sala", "Pedir para entrar": "Pedir entrar", "Pedido enviado": "Solicitud enviada", "Aguardando o host aprovar sua entrada.": "Esperando que el anfitrión apruebe tu entrada.", "Cancelar pedido": "Cancelar solicitud", "você": "tú", "pedindo para entrar": "pidiendo entrar", "online": "en línea", "offline": "desconectado", "Aprovar": "Aprobar", "Recusar": "Rechazar", "Copiar": "Copiar", "Só você vê o código. Quem entrar com ele ainda precisa da sua aprovação.": "Solo tú ves el código. Quien entre con él aún necesita tu aprobación.", "Testadores": "Testers", "Encerrar sessão": "Terminar sesión", "Sair da sessão": "Salir de la sesión", "Chat": "Chat", "Mensagem para a sala": "Mensaje para la sala", "Enviar": "Enviar", "Testador": "Tester", "Nenhuma mensagem ainda.": "Aún no hay mensajes.", "Remover este testador da sessão? Ele não poderá voltar nesta sala.": "¿Quitar a este tester de la sesión? No podrá volver a esta sala.", "Encerrar a sessão para todos? O código deixa de funcionar.": "¿Terminar la sesión para todos? El código deja de funcionar.", "Código copiado.": "Código copiado.",
+  "Ação cancelada: a sessão terminou.": "Acción cancelada: la sesión terminó.", "Proposta: clique em": "Propuesta: clic en", "Proposta: Enter em": "Propuesta: Enter en", "Proposta: enviar formulário": "Propuesta: enviar formulario", "Sem conexão com a sala. Sua ação foi bloqueada.": "Sin conexión con la sala. Tu acción fue bloqueada.", "Ação cancelada: tempo esgotado sem a confirmação de todos.": "Acción cancelada: se agotó el tiempo sin la confirmación de todos.", "Ação cancelada: não foi possível pedir a confirmação.": "Acción cancelada: no se pudo pedir la confirmación.", "Ação liberada: todos aprovaram.": "Acción liberada: todos aprobaron.", "Ação cancelada: um testador recusou.": "Acción cancelada: un tester la rechazó.", "Todos aprovaram: o host seguiu com a ação.": "Todos aprobaron: el anfitrión siguió con la acción.", "A ação do host foi cancelada.": "La acción del anfitrión fue cancelada.", "Nova proposta de": "Nueva propuesta de", "O host executou sua proposta.": "El anfitrión ejecutó tu propuesta.", "O host descartou sua proposta.": "El anfitrión descartó tu propuesta.", "Requisição bloqueada: convidado não executa ações sem o host.": "Solicitud bloqueada: un invitado no ejecuta acciones sin el anfitrión.", "Requisição síncrona bloqueada: precisa da confirmação de todos.": "Solicitud síncrona bloqueada: necesita la confirmación de todos.", "Aguardando o host": "Esperando al anfitrión", "Proposta de": "Propuesta de", "segundos restantes": "segundos restantes", "Aguardando a confirmação de todos": "Esperando la confirmación de todos", "aprovaram": "aprobaron", "Cancelar ação": "Cancelar acción", "O host pede confirmação": "El anfitrión pide confirmación", "O host quer executar esta ação na página:": "El anfitrión quiere ejecutar esta acción en la página:", "Voto enviado. Aguardando os outros testadores.": "Voto enviado. Esperando a los demás testers.", "Seus cliques não executam nada: o host decide e executa.": "Tus clics no ejecutan nada: el anfitrión decide y ejecuta.", "Ação cancelada pelo host.": "Acción cancelada por el anfitrión.", "Esta votação já foi encerrada.": "Esta votación ya terminó.", "Ação cancelada: nenhum convidado para confirmar.": "Acción cancelada: no hay invitados para confirmar.", "em outra tela": "en otra pantalla", "Mostrar": "Mostrar", "Descartar": "Descartar", "Exigir confirmação de todos": "Exigir la confirmación de todos", "Envios de formulário e cliques que disparam POST, PUT, PATCH ou DELETE só executam depois que todos os convidados aprovarem.": "Los envíos de formulario y los clics que disparan POST, PUT, PATCH o DELETE solo se ejecutan después de que todos los invitados aprueben.", "Propostas dos convidados": "Propuestas de los invitados", "Para executar, clique você mesmo no elemento marcado na página.": "Para ejecutarla, haz clic tú mismo en el elemento marcado en la página.", "Nenhuma proposta ainda.": "Aún no hay propuestas.", "Você é convidado: seus cliques viram propostas para o host, e o host pede a sua confirmação antes de ações de risco.": "Eres invitado: tus clics se convierten en propuestas para el anfitrión, y el anfitrión pide tu confirmación antes de acciones de riesgo.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Mostre atalhos e ações do mouse durante demonstrações, testes e gravações.": "Show shortcuts and mouse actions during demos, tests, and recordings.",
@@ -4309,6 +4314,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Comum": "Classic", "Gamer": "Gamer", "Antigo": "Retro", "Com relevo": "Embossed", "3D": "3D", "Coração": "Heart", "Tech": "Tech", "Transformer": "Transformer",
   "Nenhuma": "None", "Flores": "Flowers", "Corações": "Hearts", "Caveiras": "Skulls", "Raios": "Lightning", "X Tech": "X Tech", "Hexágonos": "Hexagons", "Diamantes": "Diamonds", "Flocos": "Snowflakes", "Estrelas": "Stars",
   "Multi Testador": "Multi Tester", "Multi Testador é exclusivo do plano Release Manager.": "Multi Tester is exclusive to the Release Manager plan.", "Código inválido ou sala encerrada.": "Invalid code or the room has ended.", "O código tem 8 caracteres (letras e números).": "The code has 8 characters (letters and numbers).", "O host não liberou sua entrada nesta sala.": "The host did not let you into this room.", "A sala já tem 4 testadores.": "The room already has 4 testers.", "Esse convidado não tem o plano Release Manager.": "This guest does not have the Release Manager plan.", "Só o host pode fazer isso.": "Only the host can do this.", "A sessão já foi encerrada.": "The session has already ended.", "Entre na sua conta para usar o Multi Testador.": "Sign in to use Multi Tester.", "O host encerrou a sessão.": "The host ended the session.", "O tempo da sessão acabou.": "The session time is over.", "A sessão foi encerrada por inatividade.": "The session ended due to inactivity.", "A sessão foi encerrada.": "The session ended.", "O host removeu você da sessão.": "The host removed you from the session.", "O host recusou sua entrada.": "The host declined your request.", "O host aprovou sua entrada. Você está na sessão.": "The host approved you. You are in the session.", "Não foi possível falar com o Multi Testador. Tente de novo.": "Could not reach Multi Tester. Try again.", "host": "host", "Participantes (Multi Testador)": "Participants (Multi Tester)", "min restantes": "min left", "Conectado": "Connected", "Conectando...": "Connecting...", "Reconectando...": "Reconnecting...", "Acesso ao canal negado": "Channel access denied", "Erro de conexão": "Connection error", "Você aparece para os outros como": "Others see you as", "Altere o apelido em Configurações.": "Change the nickname in Settings.", "Criar sala": "Create room", "Duração": "Duration", "Encerrar sem atividade após": "End when idle for", "Entrar com código": "Join with a code", "O host aprova cada entrada. Até 4 testadores por sala.": "The host approves every entry. Up to 4 testers per room.", "Código da sala": "Room code", "Pedir para entrar": "Ask to join", "Pedido enviado": "Request sent", "Aguardando o host aprovar sua entrada.": "Waiting for the host to approve you.", "Cancelar pedido": "Cancel request", "você": "you", "pedindo para entrar": "asking to join", "online": "online", "offline": "offline", "Aprovar": "Approve", "Recusar": "Decline", "Copiar": "Copy", "Só você vê o código. Quem entrar com ele ainda precisa da sua aprovação.": "Only you see the code. Anyone using it still needs your approval.", "Testadores": "Testers", "Encerrar sessão": "End session", "Sair da sessão": "Leave session", "Chat": "Chat", "Mensagem para a sala": "Message to the room", "Enviar": "Send", "Testador": "Tester", "Nenhuma mensagem ainda.": "No messages yet.", "Remover este testador da sessão? Ele não poderá voltar nesta sala.": "Remove this tester from the session? They cannot come back to this room.", "Encerrar a sessão para todos? O código deixa de funcionar.": "End the session for everyone? The code stops working.", "Código copiado.": "Code copied.",
+  "Ação cancelada: a sessão terminou.": "Action cancelled: the session ended.", "Proposta: clique em": "Proposal: click on", "Proposta: Enter em": "Proposal: Enter on", "Proposta: enviar formulário": "Proposal: submit form", "Sem conexão com a sala. Sua ação foi bloqueada.": "No connection to the room. Your action was blocked.", "Ação cancelada: tempo esgotado sem a confirmação de todos.": "Action cancelled: time ran out without everyone's confirmation.", "Ação cancelada: não foi possível pedir a confirmação.": "Action cancelled: could not ask for confirmation.", "Ação liberada: todos aprovaram.": "Action released: everyone approved.", "Ação cancelada: um testador recusou.": "Action cancelled: a tester declined.", "Todos aprovaram: o host seguiu com a ação.": "Everyone approved: the host went ahead with the action.", "A ação do host foi cancelada.": "The host's action was cancelled.", "Nova proposta de": "New proposal from", "O host executou sua proposta.": "The host performed your proposal.", "O host descartou sua proposta.": "The host dismissed your proposal.", "Requisição bloqueada: convidado não executa ações sem o host.": "Request blocked: a guest does not perform actions without the host.", "Requisição síncrona bloqueada: precisa da confirmação de todos.": "Synchronous request blocked: it needs everyone's confirmation.", "Aguardando o host": "Waiting for the host", "Proposta de": "Proposal from", "segundos restantes": "seconds left", "Aguardando a confirmação de todos": "Waiting for everyone's confirmation", "aprovaram": "approved", "Cancelar ação": "Cancel action", "O host pede confirmação": "The host asks for confirmation", "O host quer executar esta ação na página:": "The host wants to perform this action on the page:", "Voto enviado. Aguardando os outros testadores.": "Vote sent. Waiting for the other testers.", "Seus cliques não executam nada: o host decide e executa.": "Your clicks do not perform anything: the host decides and acts.", "Ação cancelada pelo host.": "Action cancelled by the host.", "Esta votação já foi encerrada.": "This vote has already closed.", "Ação cancelada: nenhum convidado para confirmar.": "Action cancelled: no guest left to confirm.", "em outra tela": "on another screen", "Mostrar": "Show", "Descartar": "Dismiss", "Exigir confirmação de todos": "Require everyone's confirmation", "Envios de formulário e cliques que disparam POST, PUT, PATCH ou DELETE só executam depois que todos os convidados aprovarem.": "Form submits and clicks that fire POST, PUT, PATCH or DELETE only run after every guest approves.", "Propostas dos convidados": "Guest proposals", "Para executar, clique você mesmo no elemento marcado na página.": "To perform it, click the highlighted element on the page yourself.", "Nenhuma proposta ainda.": "No proposals yet.", "Você é convidado: seus cliques viram propostas para o host, e o host pede a sua confirmação antes de ações de risco.": "You are a guest: your clicks become proposals for the host, and the host asks for your confirmation before risky actions.",
 });
 Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Valide as regras HTML sem enviar o formulário. O campo original é restaurado e cada execução fica registrada no histórico local.": "Valida las reglas HTML sin enviar el formulario. El campo original se restaura y cada ejecución queda registrada en el historial local.",
@@ -5511,8 +5517,22 @@ function loadHttpErrorsFromSession() {
   }
 }
 
+// sessionStorage belongs to the TESTED site: any of its scripts (or a third-party script on it) can
+// read it later. Raw entries carried request headers (Authorization, cookies) and bodies (a failed
+// login posts the password), which then outlived the request in plain text (security audit
+// 2026-10-22, M2). Only a redacted copy is persisted: sensitive headers masked, request body dropped,
+// URL query and hash removed (the response `payload` stays: it is what Error Monitor shows after a
+// reload). The full entry stays in memory for the current page only.
+function persistableHttpError(entry) {
+  const headers = {};
+  for (const [key, value] of Object.entries(entry?.requestHeaders || {})) headers[key] = SENSITIVE_HEADER_PATTERN.test(key) ? "[REDACTED]" : value;
+  let url = String(entry?.url || "");
+  try { const parsed = new URL(url, window.location.href); url = `${parsed.origin}${parsed.pathname}`; } catch {}
+  return { ...entry, url, requestHeaders: headers, requestBody: null, persistedRedacted: true };
+}
+
 function persistHttpErrors() {
-  try { window.sessionStorage.setItem(HTTP_ERRORS_SESSION_KEY, JSON.stringify(state.httpErrors)); } catch {}
+  try { window.sessionStorage.setItem(HTTP_ERRORS_SESSION_KEY, JSON.stringify(state.httpErrors.map(persistableHttpError))); } catch {}
 }
 
 // Single place that keeps every HTTP-error surface in sync - the Tools-menu badge, the
@@ -5843,16 +5863,23 @@ function renderTestAccountsList() {
     if (isSelected) testAccountsFilterState[key].add(value); else testAccountsFilterState[key].delete(value);
     renderTestAccountsList();
   });
-  body.querySelectorAll("[data-reveal-account]").forEach((button) => button.addEventListener("click", () => {
+  // The toolbar's shadow root is open (tests pierce it), so the TESTED PAGE's own scripts can reach
+  // these buttons and click them programmatically. Revealing or copying a credential therefore
+  // requires a real user gesture: synthetic clicks (isTrusted === false) are ignored (security audit
+  // 2026-10-22, M3).
+  body.querySelectorAll("[data-reveal-account]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const id = button.dataset.revealAccount;
     if (revealedTestAccountIds.has(id)) revealedTestAccountIds.delete(id); else revealedTestAccountIds.add(id);
     renderTestAccountsList();
   }));
-  body.querySelectorAll("[data-copy-account]").forEach((button) => button.addEventListener("click", () => {
+  body.querySelectorAll("[data-copy-account]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const account = accounts.find((item) => item.id === button.dataset.copyAccount);
     if (account?.username) copyToClipboardWithFeedback(button, account.username);
   }));
-  body.querySelectorAll("[data-copy-account-all]").forEach((button) => button.addEventListener("click", () => {
+  body.querySelectorAll("[data-copy-account-all]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const account = accounts.find((item) => item.id === button.dataset.copyAccountAll);
     if (account) copyToClipboardWithFeedback(button, formatTestAccountForCopy(account));
   }));
@@ -5964,17 +5991,21 @@ function renderPaymentMethodsList() {
     if (isSelected) paymentMethodsFilterState[key].add(value); else paymentMethodsFilterState[key].delete(value);
     renderPaymentMethodsList();
   });
-  body.querySelectorAll("[data-reveal-payment]").forEach((button) => button.addEventListener("click", () => {
+  // Same real-gesture rule as the test accounts above (security audit 2026-10-22, M3).
+  body.querySelectorAll("[data-reveal-payment]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const id = button.dataset.revealPayment;
     if (revealedPaymentMethodIds.has(id)) revealedPaymentMethodIds.delete(id); else revealedPaymentMethodIds.add(id);
     renderPaymentMethodsList();
   }));
-  body.querySelectorAll("[data-copy-payment-field]").forEach((button) => button.addEventListener("click", () => {
+  body.querySelectorAll("[data-copy-payment-field]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const method = methods.find((item) => item.id === button.dataset.copyPaymentField);
     const value = method?.[button.dataset.field];
     if (value) copyToClipboardWithFeedback(button, value);
   }));
-  body.querySelectorAll("[data-copy-payment-all]").forEach((button) => button.addEventListener("click", () => {
+  body.querySelectorAll("[data-copy-payment-all]").forEach((button) => button.addEventListener("click", (event) => {
+    if (!event.isTrusted) return;
     const method = methods.find((item) => item.id === button.dataset.copyPaymentAll);
     if (method) copyToClipboardWithFeedback(button, formatPaymentMethodForCopy(method));
   }));
@@ -6623,11 +6654,18 @@ const MT_ERRORS = {
   host_only: "Só o host pode fazer isso.",
   room_ended: "A sessão já foi encerrada.",
   authentication_required: "Entre na sua conta para usar o Multi Testador.",
+  vote_closed: "Esta votação já foi encerrada.",
+  vote_not_found: "Esta votação já foi encerrada.",
+  already_voted: "Esta votação já foi encerrada.",
 };
 const MT_END_REASONS = { host: "O host encerrou a sessão.", expired: "O tempo da sessão acabou.", idle: "A sessão foi encerrada por inatividade." };
 
 function mtState() {
-  state.mt ||= { view: null, port: null, status: "idle", presence: [], remote: new Map(), chat: [], pollTimer: null, activityAt: 0, lastCursorAt: 0, listeners: null, notice: "" };
+  // proposals: host = received from guests, guest = own pending ones. guestVotes: prompts a guest
+  // must answer (derived from the SERVER state, never from a broadcast). openVote: the host's action
+  // currently held for consensus. consensusMode starts null so the first sync always tells
+  // pagebridge the real mode (it may survive a toolbar reload). chat: the server's last messages.
+  state.mt ||= { view: null, port: null, status: "idle", presence: [], remote: new Map(), chat: [], pollTimer: null, pollDueAt: 0, pollInFlight: false, pollQueued: false, lastFetchAt: 0, activityAt: 0, lastCursorAt: 0, listeners: null, notice: "", proposals: [], guestVotes: new Map(), openVote: null, requireConsensus: true, consensusMode: null, lastGesture: null, lastPageGestureAt: 0, lastToolbarGestureAt: 0, voteTicker: null, submitGrant: null };
   return state.mt;
 }
 
@@ -6686,18 +6724,26 @@ async function mtApplyResponse(response) {
     await mtTeardown(translateQaSurfaceText(reason));
     return response;
   }
-  await chrome.storage.local.set({ [MT_ROOM_KEY]: { roomId: view.room.id } });
+  await chrome.storage.local.set({ [MT_ROOM_KEY]: { roomId: view.room.id, requireConsensus: mt.requireConsensus } });
   if (view.me.status === "active") mtConnect();
   mtStartPolling();
   if (previous?.me?.status === "pending" && view.me.status === "active") showQaToast(translateQaSurfaceText("O host aprovou sua entrada. Você está na sessão."));
+  // Chat and votes come ONLY from the server state (a forged broadcast carries nothing we use).
+  mt.chat = Array.isArray(view.chat) ? view.chat.slice(-50) : [];
+  mtApplyServerVotes(Array.isArray(view.votes) ? view.votes : []);
+  mtSyncConsensus();
   mtRenderDrawer();
+  mtRenderFloat();
   return response;
 }
 
 async function mtTeardown(notice = "") {
   const mt = mtState();
-  window.clearInterval(mt.pollTimer);
+  // A held action never runs because the session ended: cancelled before the mode drops to "off".
+  if (mt.openVote) mtFinishVote(mt.openVote, false, translateQaSurfaceText("Ação cancelada: a sessão terminou."));
+  window.clearTimeout(mt.pollTimer);
   mt.pollTimer = null;
+  mt.pollQueued = false;
   try { mt.port?.postMessage({ type: "leave" }); } catch {}
   try { mt.port?.disconnect(); } catch {}
   mt.port = null;
@@ -6706,24 +6752,74 @@ async function mtTeardown(notice = "") {
   mt.presence = [];
   mt.remote.clear();
   mt.chat = [];
+  mt.proposals = [];
+  mt.guestVotes.clear();
+  mt.requireConsensus = true;
   mt.notice = notice;
+  mtSyncConsensus();
+  mtStopVoteTicker();
   mtDetachListeners();
   document.getElementById("qts-mt-cursors")?.remove();
+  document.getElementById("qts-mt-proposals")?.remove();
+  state.shadowRoot?.getElementById("mtFloat")?.remove();
   await chrome.storage.local.remove(MT_ROOM_KEY);
   if (notice) showQaToast(notice);
   mtRenderDrawer();
 }
 
-function mtStartPolling() {
+// While a vote is open (host waiting or guest prompted) the state is fetched every
+// MT_VOTE_POLL_MS so approvals arrive within a second even if the poke broadcast is lost; otherwise
+// the regular MT_POLL_MS. Pokes never fetch more often than MT_VOTE_POLL_MS either, so a member
+// spamming forged pokes cannot push this tab past the server's poll budget (4000/hour).
+const MT_VOTE_POLL_MS = 1_000;
+
+function mtPollDelay() {
   const mt = mtState();
-  if (mt.pollTimer) return;
-  mt.pollTimer = window.setInterval(async () => {
-    const view = mt.view;
-    if (!view) return;
+  return mt.openVote || mt.guestVotes.size ? MT_VOTE_POLL_MS : MT_POLL_MS;
+}
+
+function mtSchedulePoll(delay) {
+  const mt = mtState();
+  window.clearTimeout(mt.pollTimer);
+  mt.pollDueAt = Date.now() + delay;
+  mt.pollTimer = window.setTimeout(() => void mtPollNow(), delay);
+}
+
+async function mtPollNow() {
+  const mt = mtState();
+  window.clearTimeout(mt.pollTimer);
+  mt.pollTimer = null;
+  const view = mt.view;
+  if (!view) return;
+  if (mt.pollInFlight) { mt.pollQueued = true; return; }
+  mt.pollInFlight = true;
+  mt.lastFetchAt = Date.now();
+  try {
     // "touch" keeps the room alive (server inactivity timeout) only while someone actually works.
     const active = view.me.status === "active" && Date.now() - mt.activityAt < MT_POLL_MS * 2;
     await mtApplyResponse(await mtCall(active ? "touch" : "state", { roomId: view.room.id }));
-  }, MT_POLL_MS);
+  } finally {
+    mt.pollInFlight = false;
+  }
+  if (!mt.view) return;
+  if (mt.pollQueued) { mt.pollQueued = false; mtSchedulePoll(Math.max(0, MT_VOTE_POLL_MS - (Date.now() - mt.lastFetchAt))); }
+  else mtSchedulePoll(mtPollDelay());
+}
+
+function mtStartPolling() {
+  const mt = mtState();
+  if (mt.pollTimer || mt.pollInFlight) return;
+  mtSchedulePoll(mtPollDelay());
+}
+
+// A poke (chat/vote broadcast, or our own action): fetch the state soon, at most once per
+// MT_VOTE_POLL_MS. The broadcast payload is ignored on purpose.
+function mtPokeRefresh() {
+  const mt = mtState();
+  if (!mt.view) return;
+  if (mt.pollInFlight) { mt.pollQueued = true; return; }
+  const delay = Math.max(0, MT_VOTE_POLL_MS - (Date.now() - mt.lastFetchAt));
+  if (!mt.pollTimer || mt.pollDueAt > Date.now() + delay) mtSchedulePoll(delay);
 }
 
 function mtConnect() {
@@ -6757,30 +6853,31 @@ function mtHandlePortMessage(message) {
     mt.presence = Array.isArray(message.members) ? message.members : [];
     mtRenderDrawer();
   } else if (message.type === "broadcast") {
+    // Chat and votes: only a poke to fetch the server state. Realtime authorizes a socket at JOIN,
+    // so these broadcasts can be forged by a member with a custom client; their content is ignored.
+    if (["chat", "vote-request", "vote", "vote-result"].includes(message.event)) { mtPokeRefresh(); return; }
     const payload = message.payload || {};
     // Only active members count (a pending guest cannot join the channel anyway; belt and braces).
     const sender = mtMember(payload.from);
-    // The own chat echo is kept (it is how a sent message appears); own cursors/clicks are ignored.
-    if (sender?.status !== "active" || (payload.from === mt.view?.me?.userId && message.event !== "chat")) return;
+    // Own cursors/clicks/proposals are ignored.
+    if (sender?.status !== "active" || payload.from === mt.view?.me?.userId) return;
     if (message.event === "cursor") {
       mt.remote.set(payload.from, { nx: Number(payload.nx), ny: Number(payload.ny), url: String(payload.url || ""), at: Date.now() });
       mtRenderCursors();
     } else if (message.event === "click") {
       if (String(payload.url || "") === mtPageKey()) mtShowRemoteClick(sender, Number(payload.nx), Number(payload.ny), String(payload.button || "left"));
-    } else if (message.event === "chat") {
-      const text = String(payload.text || "").slice(0, 500);
-      if (!text.trim()) return;
-      mt.chat.push({ from: payload.from, text, at: Date.now() });
-      mt.chat = mt.chat.slice(-100);
-      mtRenderChat();
+    } else if (message.event === "proposal") {
+      mtReceiveProposal(sender, payload);
+    } else if (message.event === "proposal-done") {
+      mtReceiveProposalDone(sender, payload);
     }
   }
 }
 
 function mtBroadcast(event, payload) {
   const mt = mtState();
-  if (mt.status !== "joined" || !mt.port) return;
-  try { mt.port.postMessage({ type: "broadcast", event, payload }); } catch {}
+  if (mt.status !== "joined" || !mt.port) return false;
+  try { mt.port.postMessage({ type: "broadcast", event, payload }); return true; } catch { return false; }
 }
 
 // Document-relative coordinates (0..1 of the scrollable page), so testers with different window
@@ -6808,20 +6905,35 @@ function mtAttachListeners() {
     mtBroadcast("click", { ...mtNormalizedPoint(event.clientX, event.clientY), url: mtPageKey(), button: event.button === 2 ? "right" : event.button === 1 ? "middle" : "left" });
   };
   const onKey = () => { mt.activityAt = Date.now(); };
-  const onViewport = () => mtRenderCursors();
+  const onViewport = () => { mtRenderCursors(); mtRenderProposalMarkers(); };
   document.addEventListener("pointermove", onMove, { capture: true, passive: true });
   document.addEventListener("mousedown", onDown, { capture: true, passive: true });
   document.addEventListener("keydown", onKey, { capture: true, passive: true });
   window.addEventListener("scroll", onViewport, { passive: true });
   window.addEventListener("resize", onViewport, { passive: true });
-  // Re-check staleness even when nobody moves (a peer closed their tab).
-  const staleTimer = window.setInterval(() => mtRenderCursors(), 3_000);
+  // Fase MT2. On WINDOW in the capture phase, so they run before any listener of the page's own
+  // elements (a page listener registered on window capture before the toolbar loaded still runs
+  // first: pagebridge's network gate is the backstop for that case).
+  // Registered first so it sees every press even when the guest gate stops it right after.
+  ["pointerdown", "keydown"].forEach((type) => window.addEventListener(type, mtTrackGesture, { capture: true, passive: true }));
+  MT_GUEST_BLOCKED_EVENTS.forEach((type) => window.addEventListener(type, mtGuestBlocker, { capture: true }));
+  window.addEventListener("submit", mtHostSubmit, { capture: true });
+  window.addEventListener("click", mtHostClick, { capture: true, passive: true });
+  // Re-check staleness even when nobody moves (a peer closed their tab, a proposal expired).
+  const staleTimer = window.setInterval(() => {
+    mtRenderCursors();
+    if (mtPruneProposals()) { mtRenderProposalMarkers(); mtRenderFloat(); mtRenderDrawer(); }
+  }, 3_000);
   mt.listeners = () => {
     document.removeEventListener("pointermove", onMove, true);
     document.removeEventListener("mousedown", onDown, true);
     document.removeEventListener("keydown", onKey, true);
     window.removeEventListener("scroll", onViewport);
     window.removeEventListener("resize", onViewport);
+    ["pointerdown", "keydown"].forEach((type) => window.removeEventListener(type, mtTrackGesture, true));
+    MT_GUEST_BLOCKED_EVENTS.forEach((type) => window.removeEventListener(type, mtGuestBlocker, true));
+    window.removeEventListener("submit", mtHostSubmit, true);
+    window.removeEventListener("click", mtHostClick, true);
     window.clearInterval(staleTimer);
   };
 }
@@ -6894,6 +7006,590 @@ function mtShowRemoteClick(member, nx, ny, button) {
   surface.shadowRoot.appendChild(effect);
 }
 
+// ---------------------------------------------------------------------------
+// Multi Testador Fase MT2: consensus (ADR 0003, Opcao D). Founder rules: a guest never performs an
+// action on the page without the host, and the host's risky clicks/submits wait for every tester.
+//  - Guest: real clicks/Enter/submits on actionable targets are cancelled in the capture phase and
+//    become a `proposal` (selector + XPath + point + screen). Nothing is ever re-dispatched: the host
+//    performs the action himself, or dismisses it.
+//  - Host: a form submit (held here, re-submitted with requestSubmit after consensus) or a request
+//    POST/PUT/PATCH/DELETE caused by a real gesture (held in pagebridge, MAIN world) waits until
+//    every active guest approves. Votes go through the multi-tester Edge Function (sender stamped
+//    from the JWT; RLS rejects client vote events). Any rejection or the timeout cancels it.
+// ---------------------------------------------------------------------------
+// How long the host waits for every guest before the held action is cancelled. 60s: enough to read
+// the prompt and answer, short enough that a held request does not run into the page's own request
+// timeout or leave the host looking at a frozen button.
+const MT_VOTE_TIMEOUT_MS = 60_000;
+// A proposal leaves the indicators after 2 min even if the host never answers (he may simply have
+// closed the drawer); the guest can click again to propose again.
+const MT_PROPOSAL_TTL_MS = 120_000;
+// The same element proposed again within 1.5s is a double click, not a second intention.
+const MT_PROPOSAL_DEDUPE_MS = 1_500;
+// The host's last real click names the request it causes in the vote prompt. 5s mirrors Chrome's
+// transient user activation window, which is also what pagebridge uses to decide what to hold.
+const MT_GESTURE_LABEL_MS = 5_000;
+// 1s: the countdown shown in the vote prompts ticks in whole seconds.
+const MT_VOTE_TICK_MS = 1_000;
+const MT_ID_PATTERN = /^[A-Za-z0-9_-]{8,40}$/;
+const MT_GUEST_BLOCKED_EVENTS = ["pointerdown", "mousedown", "pointerup", "mouseup", "click", "dblclick", "auxclick", "keydown", "keyup", "submit"];
+const MT_ACTIONABLE_SELECTOR = "a[href],button,summary,select,option,label,input,[role=button],[role=link],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=tab],[role=checkbox],[role=radio],[role=switch],[role=option],[role=combobox],[onclick],[tabindex]:not([tabindex='-1'])";
+// Typing is not an action on its own (Enter is, and is intercepted): a guest may focus and type.
+const MT_TEXT_INPUT_TYPES = new Set(["text", "search", "email", "url", "tel", "password", "number", "date", "datetime-local", "month", "week", "time"]);
+const MT_PROPOSAL_KINDS = { click: "Proposta: clique em", enter: "Proposta: Enter em", submit: "Proposta: enviar formulário" };
+
+function mtRandomId(prefix) {
+  return `${prefix}${crypto.randomUUID().replaceAll("-", "").slice(0, 20)}`;
+}
+
+function mtActiveGuests() {
+  const view = mtState().view;
+  return (view?.members || []).filter((member) => member.status === "active" && member.role !== "host" && member.userId !== view.me.userId);
+}
+
+// "guest": block and propose. "host": hold risky actions (only with the toggle on and at least one
+// active guest to ask). "off": nothing is intercepted.
+function mtConsensusMode() {
+  const mt = mtState();
+  if (!mtInRoom()) return "off";
+  if (mt.view.me.role !== "host") return "guest";
+  return mt.requireConsensus && mtActiveGuests().length ? "host" : "off";
+}
+
+// `force` re-sends the mode even when unchanged: the page shares the DOM event channel with
+// pagebridge and can switch its OWN gate off, so every real gesture re-asserts it (B1, ADR 0003).
+function mtSyncConsensus(force = false) {
+  const mt = mtState();
+  const mode = mtConsensusMode();
+  if (mode === mt.consensusMode && !force) return;
+  mt.consensusMode = mode;
+  document.dispatchEvent(new CustomEvent("qts:mt-consensus-command", { detail: { mode } }));
+}
+
+// Remembers whether the last real press was on the page or on the toolbar, so a request the page
+// fires right after the host clicked the TOOLBAR (same transient user activation) is not mistaken
+// for a page action and held (B3). Also re-asserts the pagebridge mode before the page reacts.
+function mtTrackGesture(event) {
+  if (!event.isTrusted || !mtInRoom()) return;
+  const mt = mtState();
+  const origin = event.composedPath?.()[0];
+  if (isKeyViewOwnSurface(event) || (origin instanceof Element && isInsideToolbarUi(origin))) mt.lastToolbarGestureAt = Date.now();
+  else mt.lastPageGestureAt = Date.now();
+  if (mt.consensusMode !== "off") mtSyncConsensus(true);
+}
+
+function mtIsTextEntry(element) {
+  if (!(element instanceof Element)) return false;
+  if (element instanceof HTMLTextAreaElement || element.isContentEditable) return true;
+  if (element instanceof HTMLInputElement) return MT_TEXT_INPUT_TYPES.has(element.type);
+  if (element instanceof HTMLLabelElement) return mtIsTextEntry(element.control);
+  return false;
+}
+
+// The element an event acts on: the nearest actionable node of the composed path (crosses the
+// page's own shadow roots), or the node itself when the page styles it as clickable.
+function mtActionTarget(event) {
+  const path = event.composedPath?.() || [];
+  for (const node of path) {
+    if (!(node instanceof Element) || node === document.documentElement || node === document.body) break;
+    if (node.matches(MT_ACTIONABLE_SELECTOR)) return node;
+  }
+  const first = path[0] instanceof Element ? path[0] : null;
+  return first && first !== document.documentElement && first !== document.body && getComputedStyle(first).cursor === "pointer" ? first : null;
+}
+
+// The label LEAVES the browser (proposal to the host, vote description to every guest), so it is
+// built only from a control's own name: aria-label, a button's value, title, or the text of a simple
+// control (button, link, summary, option). Never a field value, never the text of a container, a
+// select or a label row. Sensitive-looking names are redacted and long digit runs masked.
+const MT_LABEL_TEXT_TAGS = new Set(["BUTTON", "A", "SUMMARY", "OPTION"]);
+function mtElementLabel(element) {
+  if (!(element instanceof Element)) return "";
+  const tag = element.tagName.toLowerCase();
+  const fallback = element instanceof HTMLInputElement ? `${tag}[${element.type}]` : tag;
+  if (window.QTS_QA_TOOLS?.isSensitiveElement?.(element)) return fallback;
+  const buttonValue = element instanceof HTMLInputElement && ["submit", "button", "reset"].includes(element.type) ? element.value : "";
+  const ownText = MT_LABEL_TEXT_TAGS.has(element.tagName) || element.getAttribute("role") === "button" ? element.textContent : "";
+  const raw = String(element.getAttribute("aria-label") || buttonValue || element.getAttribute("title") || ownText || "").replace(/\s+/g, " ").trim();
+  if (!raw || KEY_VIEW_SENSITIVE_HINT.test(raw)) return fallback;
+  // Card numbers, documents, phone numbers: 4+ digits in a row are masked.
+  return raw.replace(/\d{4,}/g, (digits) => "•".repeat(Math.min(digits.length, 8))).slice(0, 60);
+}
+
+function mtProposalText(proposal) {
+  return `${translateQaSurfaceText(MT_PROPOSAL_KINDS[proposal.kind] || MT_PROPOSAL_KINDS.click)} "${proposal.label}"`;
+}
+
+// Selector/XPath come from another tester: both lookups are side-effect free and throw on garbage.
+function mtResolveProposalElement(proposal) {
+  try {
+    const bySelector = proposal.selector ? document.querySelector(proposal.selector) : null;
+    if (bySelector) return bySelector;
+  } catch {}
+  try {
+    const byXPath = proposal.xpath ? document.evaluate(proposal.xpath, document, null, XPathResult.FIRST_ORDERED_NODE_TYPE, null).singleNodeValue : null;
+    if (byXPath instanceof Element) return byXPath;
+  } catch {}
+  return null;
+}
+
+function mtPruneProposals() {
+  const mt = mtState();
+  const before = mt.proposals.length;
+  mt.proposals = mt.proposals.filter((proposal) => Date.now() - proposal.at < MT_PROPOSAL_TTL_MS);
+  return mt.proposals.length !== before;
+}
+
+function mtBlockEvent(event) {
+  event.preventDefault();
+  event.stopImmediatePropagation();
+}
+
+function mtGuestPropose(kind, element, clientX, clientY) {
+  const mt = mtState();
+  if (!(element instanceof Element)) return;
+  const selector = String(window.QTS_QA_TOOLS?.uniqueSelector?.(element) || "").slice(0, 600);
+  const now = Date.now();
+  if (mt.proposals.some((proposal) => proposal.selector === selector && proposal.url === mtPageKey() && now - proposal.at < MT_PROPOSAL_DEDUPE_MS)) return;
+  let point;
+  if (Number.isFinite(clientX) && Number.isFinite(clientY) && (clientX || clientY)) point = mtNormalizedPoint(clientX, clientY);
+  else {
+    const rect = element.getBoundingClientRect();
+    point = mtNormalizedPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
+  }
+  const proposal = { id: mtRandomId("p"), kind, selector, xpath: buildXPath(element).slice(0, 600), label: mtElementLabel(element), url: mtPageKey(), nx: point.nx, ny: point.ny };
+  if (!mtBroadcast("proposal", proposal)) {
+    showQaToast(translateQaSurfaceText("Sem conexão com a sala. Sua ação foi bloqueada."), "error");
+    return;
+  }
+  mt.proposals = [...mt.proposals, { ...proposal, from: mt.view.me.userId, at: now }].slice(-10);
+  mtRenderProposalMarkers();
+  mtRenderFloat();
+}
+
+// Guest gate. Only trusted events (a real person) are touched: a page's own synthetic events are
+// the page's business. The toolbar and its floating items keep working.
+function mtGuestBlocker(event) {
+  if (!event.isTrusted || mtConsensusMode() !== "guest" || isKeyViewOwnSurface(event)) return;
+  const origin = event.composedPath?.()[0] || event.target;
+  if (origin instanceof Element && isInsideToolbarUi(origin)) return;
+  const type = event.type;
+  // Re-assert the pagebridge backstop before the page can react to this gesture (B1).
+  if (type === "click" || type === "submit") mtSyncConsensus(true);
+  if (type === "submit") {
+    mtBlockEvent(event);
+    mtGuestPropose("submit", event.submitter || event.target);
+    return;
+  }
+  if (type === "keydown" || type === "keyup") {
+    const focused = origin instanceof Element ? origin : document.activeElement;
+    if (event.key === "Enter" && focused instanceof HTMLInputElement && mtIsTextEntry(focused)) {
+      // Enter in a field is the implicit submit of its form.
+      mtBlockEvent(event);
+      if (type === "keydown" && focused.form) mtGuestPropose("enter", focused.form.querySelector("button[type=submit],button:not([type]),input[type=submit],input[type=image]") || focused);
+      return;
+    }
+    if (mtIsTextEntry(focused)) return;
+    const target = mtActionTarget(event);
+    if (!target) return;
+    if (event.key === "Enter" || event.key === " ") {
+      mtBlockEvent(event);
+      if (type === "keydown" && !event.repeat) mtGuestPropose("click", target);
+    } else if (String(event.key || "").startsWith("Arrow") && (target instanceof HTMLSelectElement || target.matches("input[type=radio],input[type=range],[role=radio],[role=tab],[role=option]"))) {
+      // Arrow keys change a select/radio/tab: also an action.
+      mtBlockEvent(event);
+    }
+    return;
+  }
+  if (mtIsTextEntry(origin)) return;
+  const target = mtActionTarget(event);
+  if (type === "pointerdown" || type === "mousedown" || type === "pointerup" || type === "mouseup") {
+    // Only actionable targets: a press on plain text still selects text, and blur still happens.
+    if (!target) return;
+    mtBlockEvent(event);
+    // The blocked press would never reach the ripple broadcaster on document: the others still see it.
+    if (type === "mousedown") mtBroadcast("click", { ...mtNormalizedPoint(event.clientX, event.clientY), url: mtPageKey(), button: event.button === 2 ? "right" : event.button === 1 ? "middle" : "left" });
+    return;
+  }
+  // click / dblclick / auxclick: blocked everywhere (a div with a click handler is an action too),
+  // proposed only for something that looks actionable, so plain text clicks do not spam the host.
+  mtBlockEvent(event);
+  if (type === "click" && event.button === 0 && target) mtGuestPropose("click", target, event.clientX, event.clientY);
+}
+
+function mtCloseProposal(id, outcome) {
+  const mt = mtState();
+  const proposal = mt.proposals.find((item) => item.id === id);
+  if (!proposal) return;
+  mt.proposals = mt.proposals.filter((item) => item.id !== id);
+  mtBroadcast("proposal-done", { id, outcome, to: proposal.from });
+  mtRenderProposalMarkers();
+  mtRenderDrawer();
+}
+
+// Host: remembers what the last real click was (names the request it causes) and closes a guest's
+// proposal when the host clicks that same element himself.
+function mtHostClick(event) {
+  const mt = mtState();
+  if (!event.isTrusted || mt.view?.me?.role !== "host" || isKeyViewOwnSurface(event)) return;
+  const origin = event.composedPath?.()[0];
+  if (!(origin instanceof Element) || isInsideToolbarUi(origin)) return;
+  mt.lastGesture = { label: mtElementLabel(mtActionTarget(event) || origin), at: Date.now() };
+  for (const proposal of mt.proposals.filter((item) => item.url === mtPageKey())) {
+    const element = mtResolveProposalElement(proposal);
+    if (element && (element === origin || element.contains(origin))) mtCloseProposal(proposal.id, "performed");
+  }
+}
+
+// Host: a native form submit is held here (it never reaches the network layer pagebridge sees when
+// it navigates). After consensus it is re-submitted with form.requestSubmit(submitter), which runs
+// validation and the page's own submit handlers like the original. Limitation (isTrusted): the
+// re-submit is the browser's, not a fresh user gesture, so a handler that demands transient user
+// activation (window.open, clipboard) after a 5s+ wait may refuse; form.submit() called by page code
+// fires no submit event at all and is out of reach.
+function mtHostSubmit(event) {
+  if (mtConsensusMode() !== "host") return;
+  const mt = mtState();
+  const form = event.target;
+  if (!(form instanceof HTMLFormElement) || isInsideToolbarUi(form) || mt.submitGrant === form) return;
+  // Only a submit the host caused (click/Enter); a page that submits on its own is not his action.
+  if (navigator.userActivation && !navigator.userActivation.isActive) return;
+  mtBlockEvent(event);
+  const submitter = event.submitter;
+  let path = "";
+  try { path = new URL(form.getAttribute("action") || location.href, location.href).pathname; } catch {}
+  const description = `"${mtElementLabel(submitter || form)}" (submit ${String(form.method || "get").toUpperCase()} ${path})`;
+  void mtRequestConsensus(description).then((approved) => {
+    if (!approved || !form.isConnected) return;
+    mt.submitGrant = form;
+    // The page's submit handler usually fires its request synchronously inside requestSubmit: the
+    // grant lets exactly that request through pagebridge instead of asking a second time.
+    document.dispatchEvent(new CustomEvent("qts:mt-consensus-command", { detail: { grant: true } }));
+    try { form.requestSubmit(submitter?.form === form ? submitter : undefined); } catch {}
+    finally {
+      mt.submitGrant = null;
+      document.dispatchEvent(new CustomEvent("qts:mt-consensus-command", { detail: { grant: false } }));
+    }
+  });
+}
+
+function mtRequestConsensus(description) {
+  const mt = mtState();
+  if (mtConsensusMode() !== "host") return Promise.resolve(true);
+  // One click often fires more than one request: they all ride the vote already open.
+  if (mt.openVote) {
+    mt.openVote.extra += 1;
+    mtRenderFloat();
+    return mt.openVote.promise;
+  }
+  const vote = { id: mtRandomId("v"), description: String(description).slice(0, 300), approvals: new Set(), extra: 0, expiresAt: Date.now() + MT_VOTE_TIMEOUT_MS, resolve: null, promise: null, timer: null };
+  vote.promise = new Promise((resolve) => { vote.resolve = resolve; });
+  mt.openVote = vote;
+  // Timeout is a rejection: nothing risky runs without everyone's confirmation (see MT_VOTE_TIMEOUT_MS).
+  vote.timer = window.setTimeout(() => mtFinishVote(vote, false, translateQaSurfaceText("Ação cancelada: tempo esgotado sem a confirmação de todos.")), MT_VOTE_TIMEOUT_MS);
+  mtStartVoteTicker();
+  mtRenderFloat();
+  void mtCall("vote-request", { roomId: mt.view.room.id, voteId: vote.id, description: vote.description }).then((response) => {
+    if (!response?.ok) mtFinishVote(vote, false, translateQaSurfaceText("Ação cancelada: não foi possível pedir a confirmação."));
+    else mtPokeRefresh();
+  });
+  return vote.promise;
+}
+
+// `approved` is true ONLY when the server state settled the vote as approved (mtApplyServerVotes).
+// A local cancel (timeout, host, toggle, session end) is sent to the server so the guests' prompts
+// close and late ballots are refused.
+function mtFinishVote(vote, approved, message) {
+  const mt = mtState();
+  if (!vote || mt.openVote !== vote) return;
+  mt.openVote = null;
+  window.clearTimeout(vote.timer);
+  vote.resolve(approved);
+  if (!approved && mt.view?.room?.id) void mtCall("vote-result", { roomId: mt.view.room.id, voteId: vote.id, approved: false });
+  showQaToast(message, approved ? "info" : "error");
+  mtRenderFloat();
+}
+
+// The single place a vote outcome is decided on the client, always from the server's tally
+// (multi-tester settleVotes). Host: releases the held action only on "approved"; any other closed
+// status cancels it; with no guest left to ask it fails closed. Guest: prompts for open votes of the
+// host, closes them (with the outcome) when the server closes them.
+function mtApplyServerVotes(votes) {
+  const mt = mtState();
+  const me = mt.view?.me?.userId;
+  const vote = mt.openVote;
+  if (vote && mt.view?.me?.role === "host") {
+    const server = votes.find((item) => item.id === vote.id);
+    if (server) {
+      vote.approvals = new Set(Array.isArray(server.approvals) ? server.approvals : []);
+      if (server.status === "approved") mtFinishVote(vote, true, translateQaSurfaceText("Ação liberada: todos aprovaram."));
+      else if (server.status === "rejected") {
+        const who = (Array.isArray(server.rejections) ? server.rejections : []).map((userId) => mtMember(userId)?.nickname).filter(Boolean).join(", ");
+        mtFinishVote(vote, false, `${translateQaSurfaceText("Ação cancelada: um testador recusou.")}${who ? ` (${who})` : ""}`);
+      } else if (server.status === "expired") mtFinishVote(vote, false, translateQaSurfaceText("Ação cancelada: tempo esgotado sem a confirmação de todos."));
+      else if (server.status === "cancelled") mtFinishVote(vote, false, translateQaSurfaceText("Ação cancelada pelo host."));
+    }
+    // Never "approved by nobody": the last guest leaving cancels the held action (B2).
+    if (mt.openVote === vote && !mtActiveGuests().length) mtFinishVote(vote, false, translateQaSurfaceText("Ação cancelada: nenhum convidado para confirmar."));
+  }
+  if (mt.view?.me?.role !== "host") {
+    const hostId = mt.view?.members?.find((member) => member.role === "host")?.userId;
+    for (const [id, local] of mt.guestVotes) {
+      const server = votes.find((item) => item.id === id);
+      if (server?.status === "open") continue;
+      mt.guestVotes.delete(id);
+      if (server) showQaToast(translateQaSurfaceText(server.status === "approved" ? "Todos aprovaram: o host seguiu com a ação." : "A ação do host foi cancelada."), server.status === "approved" ? "info" : "error");
+      else if (local) mtRenderFloat();
+    }
+    for (const server of votes) {
+      if (server.status !== "open" || server.requestedBy !== hostId || !MT_ID_PATTERN.test(String(server.id || ""))) continue;
+      const answered = [...(server.approvals || []), ...(server.rejections || [])].includes(me);
+      const existing = mt.guestVotes.get(server.id);
+      if (existing) { existing.answered = existing.answered || answered; continue; }
+      // The countdown starts when this tab first sees the vote (clocks of two machines differ).
+      mt.guestVotes.set(server.id, { id: server.id, description: String(server.description || "").slice(0, 300), expiresAt: Date.now() + MT_VOTE_TIMEOUT_MS, answered });
+    }
+    if (mt.guestVotes.size) mtStartVoteTicker();
+  }
+}
+
+async function mtCastVote(id, approve) {
+  const mt = mtState();
+  const vote = mt.guestVotes.get(id);
+  if (!vote || vote.answered || !mt.view) return;
+  vote.answered = true;
+  mtRenderFloat();
+  const response = await mtCall("vote", { roomId: mt.view.room.id, voteId: id, approve });
+  if (!response?.ok) {
+    vote.answered = false;
+    showQaToast(mtErrorText(response?.error), "error");
+    mtRenderFloat();
+    return;
+  }
+  mtPokeRefresh();
+}
+
+function mtReceiveProposal(sender, payload) {
+  const mt = mtState();
+  const id = String(payload.id || "");
+  if (mt.view?.me?.role !== "host" || sender.role === "host" || !MT_ID_PATTERN.test(id) || mt.proposals.some((item) => item.id === id)) return;
+  const unit = (value) => Math.min(1, Math.max(0, Number(value) || 0));
+  const proposal = {
+    id, from: payload.from, kind: Object.hasOwn(MT_PROPOSAL_KINDS, payload.kind) ? payload.kind : "click",
+    selector: String(payload.selector || "").slice(0, 600), xpath: String(payload.xpath || "").slice(0, 600),
+    label: String(payload.label || "").replace(/\s+/g, " ").slice(0, 80), url: String(payload.url || "").slice(0, 300),
+    nx: unit(payload.nx), ny: unit(payload.ny), at: Date.now(),
+  };
+  mt.proposals = [...mt.proposals, proposal].slice(-20);
+  showQaToast(`${translateQaSurfaceText("Nova proposta de")} ${sender.nickname}: ${mtProposalText(proposal)}`);
+  mtRenderProposalMarkers();
+  mtRenderDrawer();
+}
+
+function mtReceiveProposalDone(sender, payload) {
+  const mt = mtState();
+  const id = String(payload.id || "");
+  if (mt.view?.me?.role === "host" || sender.role !== "host" || !mt.proposals.some((item) => item.id === id)) return;
+  mt.proposals = mt.proposals.filter((item) => item.id !== id);
+  showQaToast(translateQaSurfaceText(payload.outcome === "performed" ? "O host executou sua proposta." : "O host descartou sua proposta."));
+  mtRenderProposalMarkers();
+  mtRenderFloat();
+}
+
+// Pagebridge (MAIN world) asks before letting a held request through; answered with the consensus.
+document.addEventListener("qts:mt-hold-request", (event) => {
+  const detail = event.detail || {};
+  const id = String(detail.id || "");
+  const answer = (approve) => document.dispatchEvent(new CustomEvent("qts:mt-hold-decision", { detail: { id, approve } }));
+  const mode = mtConsensusMode();
+  if (detail.mode === "guest" || detail.sync) {
+    // Already refused by pagebridge; tell the tester why the page did nothing.
+    if (mode !== "off") showQaToast(translateQaSurfaceText(detail.mode === "guest" ? "Requisição bloqueada: convidado não executa ações sem o host." : "Requisição síncrona bloqueada: precisa da confirmação de todos."), "error");
+    return;
+  }
+  if (mode !== "host") { answer(true); return; }
+  // A real hold is raised synchronously inside the request the gesture caused, so the page still has
+  // transient activation; without it a page script forged the event (it gets nothing out of it).
+  if (navigator.userActivation && !navigator.userActivation.isActive) { answer(false); return; }
+  const mt = mtState();
+  // The activation came from clicking the TOOLBAR (drawer, vote panel), not the page: whatever the
+  // page sends in that window is not an action the host took on it (B3).
+  if (mt.lastToolbarGestureAt > mt.lastPageGestureAt) { answer(true); return; }
+  let path = "";
+  try {
+    const url = new URL(String(detail.url || ""), location.href);
+    path = url.origin === location.origin ? url.pathname : `${url.host}${url.pathname}`;
+  } catch {}
+  const label = mt.lastGesture && Date.now() - mt.lastGesture.at < MT_GESTURE_LABEL_MS ? mt.lastGesture.label : "";
+  const method = String(detail.method || "POST").toUpperCase().slice(0, 10);
+  void mtRequestConsensus(`${label ? `"${label}" ` : ""}(${method} ${path.slice(0, 200)})`).then(answer);
+});
+
+// Multi Testador consensus panel. It lives in the toolbar shadow root OUTSIDE the drawer (so it shows
+// with the drawer closed), which is why it carries its own <style> instead of drawerStyles().
+const MT_FLOAT_CSS = `
+  .qts-mt-float { --qts-panel:#0b0b0b; --qts-panel-2:#1a1a1a; --qts-panel-text:#fff; --qts-panel-muted:#b5b5b5; --qts-panel-border:#3a3a3a; position: fixed; right: 16px; bottom: 76px; z-index: 2147483647; display: grid; gap: 10px; width: min(340px, calc(100vw - 32px)); max-height: calc(100vh - 140px); overflow-y: auto; font: 500 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  :host([data-theme="light"]) .qts-mt-float { --qts-panel:#fff; --qts-panel-2:#f2f4f8; --qts-panel-text:#171a24; --qts-panel-muted:#4f5b70; --qts-panel-border:#b8c2d3; }
+  @media (prefers-color-scheme: light) { :host([data-theme="system"]) .qts-mt-float { --qts-panel:#fff; --qts-panel-2:#f2f4f8; --qts-panel-text:#171a24; --qts-panel-muted:#4f5b70; --qts-panel-border:#b8c2d3; } }
+  .qts-mt-float-item { display: grid; gap: 8px; padding: 12px 14px; border: 1px solid var(--qts-panel-border); border-radius: 12px; background: var(--qts-panel); color: var(--qts-panel-text); box-shadow: 0 14px 34px rgba(0,0,0,.32); }
+  .qts-mt-float-item.isPrompt { border: 2px solid var(--qts-ui-warning, #f59e0b); }
+  .qts-mt-float-item > b { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 850; }
+  .qts-mt-float-item p, .qts-mt-float-item ul { margin: 0; }
+  .qts-mt-float-item ul { padding-left: 18px; }
+  .qts-mt-float-desc { padding: 8px 10px; border-radius: 8px; background: var(--qts-panel-2); font-weight: 750; overflow-wrap: anywhere; }
+  .qts-mt-float-meta { color: var(--qts-panel-muted); font-size: 12px; }
+  .qts-mt-float-row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .qts-mt-float-row button { flex: 1 1 120px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 36px; padding: 0 12px; border: 1px solid var(--qts-panel-border); border-radius: 8px; background: var(--qts-panel-2); color: var(--qts-panel-text); font-family: inherit; font-size: 12px; font-weight: 800; line-height: 1; cursor: pointer; }
+  .qts-mt-float-row button.isPrimary { border-color: var(--qts-ui-success, #15803d); background: var(--qts-ui-success, #15803d); color: #fff; }
+  .qts-mt-float-row button.isDanger { border-color: var(--qts-ui-danger, #b91c1c); background: var(--qts-ui-danger, #b91c1c); color: #fff; }
+  .qts-mt-float-row button:focus-visible { outline: 3px solid var(--qts-ui-primary, #5b35e8); outline-offset: 2px; }
+  .qts-mt-float svg { width: 14px; height: 14px; flex: none; }
+  .qts-mt-voters { display: flex; flex-wrap: wrap; gap: 6px; }
+  .qts-mt-voters span { padding: 2px 8px; border: 1px solid var(--qts-panel-border); border-radius: 999px; font-size: 11px; font-weight: 750; }
+  .qts-mt-voters span[data-approved="true"] { border-color: var(--qts-ui-success, #16a34a); color: var(--qts-ui-success, #16a34a); }
+`;
+
+const MT_PROPOSAL_SURFACE_CSS = `
+  .qts-mt-proposal { position: absolute; box-sizing: border-box; border: 3px dashed var(--qts-mt-color, #5b35e8); border-radius: 8px; animation: qts-mt-proposal-pulse 1.4s ease-in-out infinite; }
+  .qts-mt-proposal.isPoint { width: 30px; height: 30px; border-radius: 50%; }
+  .qts-mt-proposal-label { position: absolute; left: -3px; bottom: calc(100% + 4px); max-width: 280px; overflow: hidden; padding: 3px 9px; border-radius: 999px; background: var(--qts-mt-color, #5b35e8); color: #fff; font: 800 11px/1.35 system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; box-shadow: 0 4px 12px rgba(0,0,0,.3); }
+  @keyframes qts-mt-proposal-pulse { 0%, 100% { opacity: 1; } 50% { opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) { .qts-mt-proposal { animation: none; } }
+`;
+
+// Proposals drawn on the page: around the element when it is found here, else at the point. The
+// host sees "Proposta de <apelido>", the guest sees his own as "Aguardando o host".
+function mtRenderProposalMarkers() {
+  const mt = mtState();
+  mtPruneProposals();
+  const visible = mt.proposals.filter((proposal) => proposal.url === mtPageKey());
+  if (!visible.length) {
+    document.getElementById("qts-mt-proposals")?.remove();
+    return;
+  }
+  const root = ensureCursorSurface("qts-mt-proposals", `<style>${MT_PROPOSAL_SURFACE_CSS}</style>`).shadowRoot;
+  root.querySelectorAll(".qts-mt-proposal").forEach((node) => node.remove());
+  const doc = document.documentElement;
+  const zoom = cursorDocumentZoom();
+  for (const proposal of visible) {
+    const member = mtMember(proposal.from);
+    const mine = proposal.from === mt.view?.me?.userId;
+    const node = document.createElement("div");
+    node.className = "qts-mt-proposal";
+    node.dataset.mtProposalMarker = proposal.id;
+    node.style.setProperty("--qts-mt-color", member?.color || "#5b35e8");
+    const element = mtResolveProposalElement(proposal);
+    const rect = element?.getBoundingClientRect();
+    if (rect && rect.width > 0 && rect.height > 0) {
+      node.style.left = `${(rect.left - 5) / zoom}px`;
+      node.style.top = `${(rect.top - 5) / zoom}px`;
+      node.style.width = `${(rect.width + 10) / zoom}px`;
+      node.style.height = `${(rect.height + 10) / zoom}px`;
+    } else {
+      node.classList.add("isPoint");
+      node.style.left = `${(proposal.nx * doc.scrollWidth - window.scrollX) / zoom - 15}px`;
+      node.style.top = `${(proposal.ny * doc.scrollHeight - window.scrollY) / zoom - 15}px`;
+    }
+    const label = document.createElement("span");
+    label.className = "qts-mt-proposal-label";
+    label.textContent = mine ? `${translateQaSurfaceText("Aguardando o host")}: ${proposal.label}` : `${translateQaSurfaceText("Proposta de")} ${member?.nickname || translateQaSurfaceText("Testador")}: ${proposal.label}`;
+    node.appendChild(label);
+    root.appendChild(node);
+  }
+}
+
+function mtStartVoteTicker() {
+  const mt = mtState();
+  if (mt.voteTicker) return;
+  mt.voteTicker = window.setInterval(() => {
+    const now = Date.now();
+    // A guest prompt closes only when the SERVER closes the vote (it expires it after 60s); the local
+    // countdown is display only, so a prompt cannot vanish and come back with clock skew.
+    if (!mt.openVote && !mt.guestVotes.size) { mtStopVoteTicker(); mtRenderFloat(); return; }
+    // Only the countdown text changes: a full re-render would steal focus from the vote buttons.
+    state.shadowRoot?.querySelectorAll("#mtFloat [data-mt-left]").forEach((node) => {
+      node.textContent = String(Math.max(0, Math.ceil((Number(node.dataset.mtLeft) - now) / 1_000)));
+    });
+  }, MT_VOTE_TICK_MS);
+}
+
+function mtStopVoteTicker() {
+  const mt = mtState();
+  window.clearInterval(mt.voteTicker);
+  mt.voteTicker = null;
+}
+
+// Floating panel inside the toolbar's shadow root (outside the drawer, so it shows even with the
+// drawer closed): the host's vote progress, the guest's vote prompts and his pending proposals.
+function mtRenderFloat() {
+  const shadow = state.shadowRoot;
+  if (!shadow) return;
+  const mt = mtState();
+  const now = Date.now();
+  const t = translateQaSurfaceText;
+  const left = (expiresAt) => `<span data-mt-left="${expiresAt}">${Math.max(0, Math.ceil((expiresAt - now) / 1_000))}</span> ${escapeHtml(t("segundos restantes"))}`;
+  const items = [];
+  if (mt.openVote && mt.view) {
+    const vote = mt.openVote;
+    const required = mtActiveGuests();
+    const approvedCount = required.filter((member) => vote.approvals.has(member.userId)).length;
+    items.push(`<section class="qts-mt-float-item" data-mt-vote-progress="${escapeHtml(vote.id)}">
+      <b>${ICON("wait")} ${escapeHtml(t("Aguardando a confirmação de todos"))}</b>
+      <p class="qts-mt-float-desc">${escapeHtml(vote.description)}${vote.extra ? ` (+${vote.extra})` : ""}</p>
+      <p class="qts-mt-float-meta"><strong data-mt-vote-count>${approvedCount}/${required.length}</strong> ${escapeHtml(t("aprovaram"))} · ${left(vote.expiresAt)}</p>
+      <div class="qts-mt-voters">${required.map((member) => `<span data-approved="${vote.approvals.has(member.userId)}">${escapeHtml(member.nickname)}</span>`).join("")}</div>
+      <div class="qts-mt-float-row"><button type="button" data-mt-vote-cancel>${escapeHtml(t("Cancelar ação"))}</button></div>
+    </section>`);
+  }
+  for (const vote of mt.guestVotes.values()) {
+    items.push(`<section class="qts-mt-float-item isPrompt" role="alertdialog" aria-label="${escapeHtml(t("O host pede confirmação"))}" data-mt-guest-vote="${escapeHtml(vote.id)}">
+      <b>${ICON("warning")} ${escapeHtml(t("O host pede confirmação"))}</b>
+      <p>${escapeHtml(t("O host quer executar esta ação na página:"))}</p>
+      <p class="qts-mt-float-desc">${escapeHtml(vote.description)}</p>
+      <p class="qts-mt-float-meta">${left(vote.expiresAt)}</p>
+      ${vote.answered
+        ? `<p class="qts-mt-float-meta">${escapeHtml(t("Voto enviado. Aguardando os outros testadores."))}</p>`
+        : `<div class="qts-mt-float-row"><button type="button" class="isPrimary" data-mt-vote-approve="${escapeHtml(vote.id)}">${ICON("pass")} ${escapeHtml(t("Aprovar"))}</button><button type="button" class="isDanger" data-mt-vote-reject="${escapeHtml(vote.id)}">${ICON("fail")} ${escapeHtml(t("Recusar"))}</button></div>`}
+    </section>`);
+  }
+  const mine = mt.view?.me?.role === "host" ? [] : mt.proposals.filter((proposal) => proposal.from === mt.view?.me?.userId);
+  if (mine.length) {
+    items.push(`<section class="qts-mt-float-item" data-mt-waiting>
+      <b>${ICON("wait")} ${escapeHtml(t("Aguardando o host"))}</b>
+      <ul>${mine.map((proposal) => `<li>${escapeHtml(mtProposalText(proposal))}</li>`).join("")}</ul>
+      <p class="qts-mt-float-meta">${escapeHtml(t("Seus cliques não executam nada: o host decide e executa."))}</p>
+    </section>`);
+  }
+  let panel = shadow.getElementById("mtFloat");
+  if (!items.length) {
+    panel?.remove();
+    return;
+  }
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.id = "mtFloat";
+    panel.className = "qts-mt-float";
+    panel.setAttribute("aria-live", "polite");
+    panel.addEventListener("click", (event) => {
+      // The shadow root is open (automation needs it), so the page could click these buttons from
+      // script: only a real click votes or cancels (A1).
+      if (!event.isTrusted) return;
+      const button = event.target.closest("button");
+      if (!button) return;
+      if (button.matches("[data-mt-vote-approve]")) void mtCastVote(button.dataset.mtVoteApprove, true);
+      else if (button.matches("[data-mt-vote-reject]")) void mtCastVote(button.dataset.mtVoteReject, false);
+      else if (button.matches("[data-mt-vote-cancel]")) mtFinishVote(mtState().openVote, false, translateQaSurfaceText("Ação cancelada pelo host."));
+    });
+    shadow.appendChild(panel);
+  }
+  // Polled every second during a vote: only rebuild when what is shown changed (the countdown
+  // ticks on its own), so a button is never swapped under the pointer or the keyboard focus.
+  const signature = items.join("").replace(/data-mt-left="\d+">\d+</g, "");
+  if (panel.dataset.mtSignature === signature) return;
+  panel.dataset.mtSignature = signature;
+  panel.innerHTML = `<style>${MT_FLOAT_CSS}</style>${items.join("")}`;
+}
+
 // Report Builder: who took part in the live session (nicknames only).
 function mtParticipantsLine() {
   const view = mtState().view;
@@ -6906,6 +7602,7 @@ async function mtResume() {
   if (!hasPlanFeature("multiTester")) return;
   const stored = (await chrome.storage.local.get(MT_ROOM_KEY))[MT_ROOM_KEY];
   if (!stored?.roomId) return;
+  mtState().requireConsensus = stored.requireConsensus !== false;
   await mtApplyResponse(await mtCall("state", { roomId: stored.roomId }));
 }
 
@@ -6927,6 +7624,11 @@ function mtRenderDrawer() {
   if (!root) return;
   const mt = mtState();
   const view = mt.view;
+  // The state is fetched every second while a vote is open: re-render only when something shown
+  // changed, so typing in the chat box is not interrupted.
+  const signature = JSON.stringify([mt.status, mt.notice, mt.requireConsensus, view?.room, view?.me, view?.members, mt.presence.map((member) => member.userId), mt.proposals.map((proposal) => proposal.id), mt.chat.map((message) => message.id), view ? mtRemainingText(view) : "", state.t?.locale]);
+  if (root.dataset.mtSignature === signature) return;
+  root.dataset.mtSignature = signature;
   const nickname = escapeHtml(mtNickname());
   if (!view) {
     root.innerHTML = `${mt.notice ? `<div class="qts-card qts-mt-notice">${escapeHtml(mt.notice)}</div>` : ""}
@@ -6960,6 +7662,24 @@ function mtRenderDrawer() {
   const activeCount = view.members.filter((member) => member.status === "active").length;
   const hadChat = !!root.querySelector("[data-mt-chat-log]");
   const draft = root.querySelector("[data-mt-chat-input]")?.value || "";
+  mtPruneProposals();
+  const proposals = mt.proposals.map((proposal) => {
+    const member = mtMember(proposal.from);
+    const elsewhere = proposal.url !== mtPageKey();
+    return `<li class="qts-mt-member" data-mt-proposal="${escapeHtml(proposal.id)}">
+      <span class="qts-mt-dot" style="background:${escapeHtml(member?.color || "#5b35e8")}"></span>
+      <span class="qts-mt-name">${escapeHtml(member?.nickname || translateQaSurfaceText("Testador"))}: <small>${escapeHtml(mtProposalText(proposal))}${elsewhere ? ` (${escapeHtml(translateQaSurfaceText("em outra tela"))}: ${escapeHtml(proposal.url)})` : ""}</small></span>
+      ${elsewhere ? "" : `<button type="button" class="action" data-mt-show="${escapeHtml(proposal.id)}">${ICON("eye")} ${escapeHtml(translateQaSurfaceText("Mostrar"))}</button>`}
+      <button type="button" class="action" data-mt-dismiss="${escapeHtml(proposal.id)}">${escapeHtml(translateQaSurfaceText("Descartar"))}</button>
+    </li>`;
+  }).join("");
+  const consensusCard = isHost
+    ? `<section class="qts-card qts-mt-card" data-mt-proposals>
+        <label class="qts-mt-toggle"><input type="checkbox" data-mt-consensus ${mt.requireConsensus ? "checked" : ""} /><span><b>${escapeHtml(translateQaSurfaceText("Exigir confirmação de todos"))}</b><small>${escapeHtml(translateQaSurfaceText("Envios de formulário e cliques que disparam POST, PUT, PATCH ou DELETE só executam depois que todos os convidados aprovarem."))}</small></span></label>
+        <b>${ICON("lightbulb")} ${escapeHtml(translateQaSurfaceText("Propostas dos convidados"))}</b>
+        ${proposals ? `<ul class="qts-mt-members">${proposals}</ul><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Para executar, clique você mesmo no elemento marcado na página."))}</p>` : `<p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Nenhuma proposta ainda."))}</p>`}
+      </section>`
+    : `<section class="qts-card qts-mt-card qts-mt-notice" data-mt-guest-rules><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Você é convidado: seus cliques viram propostas para o host, e o host pede a sua confirmação antes de ações de risco."))}</p></section>`;
   root.innerHTML = `<section class="qts-card qts-mt-card">
       <div class="qts-mt-head"><span class="qts-mt-status" data-state="${escapeHtml(mt.status)}">${escapeHtml(mtStatusLabel(mt.status))}</span><small>${escapeHtml(mtRemainingText(view))}</small></div>
       ${isHost && view.room.code ? `<div class="qts-mt-code"><span>${escapeHtml(translateQaSurfaceText("Código da sala"))}</span><strong data-mt-room-code>${escapeHtml(view.room.code)}</strong><button type="button" class="action" data-mt-copy>${ICON("clipboard")} ${escapeHtml(translateQaSurfaceText("Copiar"))}</button></div><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Só você vê o código. Quem entrar com ele ainda precisa da sua aprovação."))}</p>` : ""}
@@ -6967,6 +7687,7 @@ function mtRenderDrawer() {
       <ul class="qts-mt-members">${members}</ul>
       <button type="button" class="action ${isHost ? "danger" : ""}" data-mt-leave>${ICON("doorOpen")} ${escapeHtml(translateQaSurfaceText(isHost ? "Encerrar sessão" : "Sair da sessão"))}</button>
     </section>
+    ${consensusCard}
     <section class="qts-card qts-mt-card"><b>${ICON("chatDots")} ${escapeHtml(translateQaSurfaceText("Chat"))}</b>
       <div class="qts-mt-chat" data-mt-chat-log aria-live="polite"></div>
       <form class="qts-mt-row" data-mt-chat-form><input type="text" data-mt-chat-input maxlength="500" placeholder="${escapeHtml(translateQaSurfaceText("Mensagem para a sala"))}" aria-label="${escapeHtml(translateQaSurfaceText("Mensagem para a sala"))}" /><button type="submit" class="action primary" aria-label="${escapeHtml(translateQaSurfaceText("Enviar"))}">${ICON("send")}</button></form>
@@ -7002,6 +7723,9 @@ function openMultiTester() {
     onReady(body) {
       mtRenderDrawer();
       body.addEventListener("click", async (event) => {
+        // Room decisions (create, approve, remove, end, vote) only from a real click, never from a
+        // page script reaching into the open shadow root (A1).
+        if (!event.isTrusted) return;
         const mt = mtState();
         const target = event.target.closest("button");
         if (!target || !body.contains(target)) return;
@@ -7038,9 +7762,31 @@ function openMultiTester() {
         } else if (target.matches("[data-mt-copy]")) {
           await navigator.clipboard?.writeText(mt.view?.room?.code || "");
           showQaToast(translateQaSurfaceText("Código copiado."));
+        } else if (target.matches("[data-mt-show]")) {
+          const proposal = mt.proposals.find((item) => item.id === target.dataset.mtShow);
+          const element = proposal ? mtResolveProposalElement(proposal) : null;
+          if (!element) { showQaToast(state.t.inspectorsLocateNotFound, "error"); return; }
+          element.scrollIntoView({ behavior: "smooth", block: "center" });
+          element.classList.add("qts-locate-highlight");
+          // 2.2s: the two 1.1s pulses of .qts-locate-highlight (toolbar.css), same as Element Capture.
+          window.setTimeout(() => element.classList.remove("qts-locate-highlight"), 2_200);
+        } else if (target.matches("[data-mt-dismiss]")) {
+          mtCloseProposal(target.dataset.mtDismiss, "dismissed");
         }
       });
+      body.addEventListener("change", async (event) => {
+        if (!event.isTrusted) return;
+        const toggle = event.target.closest?.("[data-mt-consensus]");
+        if (!toggle) return;
+        const mt = mtState();
+        mt.requireConsensus = toggle.checked;
+        // Turning it off never lets the action already waiting through: it is cancelled.
+        if (!mt.requireConsensus && mt.openVote) mtFinishVote(mt.openVote, false, translateQaSurfaceText("Ação cancelada pelo host."));
+        mtSyncConsensus();
+        if (mt.view) await chrome.storage.local.set({ [MT_ROOM_KEY]: { roomId: mt.view.room.id, requireConsensus: mt.requireConsensus } });
+      });
       body.addEventListener("submit", (event) => {
+        if (!event.isTrusted) { event.preventDefault(); return; }
         const form = event.target.closest("[data-mt-chat-form]");
         if (!form) return;
         event.preventDefault();
@@ -7048,11 +7794,12 @@ function openMultiTester() {
         const text = input.value.trim().slice(0, 500);
         const mt = mtState();
         if (!text || !mtInRoom()) return;
-        // Sent through the Edge Function, which stamps the sender and publishes it to the room; the
-        // message shows up here when that broadcast arrives, exactly as everyone else sees it.
+        // Stored by the Edge Function with the sender from the JWT; the message shows up here when the
+        // room state is fetched again, exactly as everyone else sees it.
         input.value = "";
         void mtCall("chat", { roomId: mt.view.room.id, text }).then((response) => {
           if (!response?.ok) { input.value = text; showQaToast(mtErrorText(response?.error), "error"); }
+          else mtPokeRefresh();
         });
       });
     },

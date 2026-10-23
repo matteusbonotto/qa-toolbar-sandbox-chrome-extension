@@ -17,6 +17,8 @@ export const PLAN_KEY = /^[a-z][a-z0-9-]{1,40}$/;
 export const ANY_UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 // multi-tester/index.ts:226
 export const ROOM_CODE = /^[A-HJ-NP-Z2-9]{8}$/;
+// multi-tester/index.ts VOTE_ID_PATTERN (Fase MT2 consensus)
+export const VOTE_ID = /^[A-Za-z0-9_-]{8,40}$/;
 // admin-email-otp/index.ts:28 (UUID v1-5 only)
 export const CHALLENGE_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 export const OTP = /^\d{8}$/;
@@ -61,9 +63,10 @@ export const RATE_LIMITS = {
   "cancel-access": [5, 3_600],
   "checkout-create-session": [8, 3_600],
   "keep-alive": [4, 86_400],
-  "multi-tester-poll": [2_000, 3_600],
+  "multi-tester-poll": [4_000, 3_600],
   "multi-tester-chat": [600, 3_600],
   "multi-tester-action": [120, 3_600],
+  "multi-tester-vote": [1_500, 3_600],
   "referral-track": [5, 3_600],
   "rewards-spin": [5, 60],
   "voucher-preview-code": [20, 3_600],

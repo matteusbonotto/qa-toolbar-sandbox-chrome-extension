@@ -1,4 +1,4 @@
-import { createHash, webcrypto } from "node:crypto";
+import { createHash, randomUUID, webcrypto } from "node:crypto";
 import { createServer } from "node:http";
 import { existsSync } from "node:fs";
 import { mkdir, readFile, readdir, rm } from "node:fs/promises";
@@ -106,7 +106,14 @@ await mkdir(evidencePath, { recursive: true });
 // wire (User-Agent per frame), not only by reading the page's navigator.
 const serverRequests = [];
 const server = createServer((request, response) => {
-  serverRequests.push({ at: Date.now(), url: request.url, userAgent: String(request.headers["user-agent"] || ""), mobileHint: String(request.headers["sec-ch-ua-mobile"] || ""), dest: String(request.headers["sec-fetch-dest"] || "") });
+  serverRequests.push({ at: Date.now(), method: request.method, url: request.url, userAgent: String(request.headers["user-agent"] || ""), mobileHint: String(request.headers["sec-ch-ua-mobile"] || ""), dest: String(request.headers["sec-fetch-dest"] || "") });
+  // Multi Testador consensus: the risky action the host page performs. Counted on the wire, so the
+  // smoke proves a held action really did not leave the browser until everyone approved.
+  if (request.url === "/api/mt-save") {
+    response.setHeader("content-type", "application/json");
+    response.end(JSON.stringify({ saved: true }));
+    return;
+  }
   if (request.url === "/api/data") {
     response.setHeader("content-type", "application/json");
     response.end(JSON.stringify({ hello: "world", nested: { count: 3 } }));
@@ -139,10 +146,68 @@ const fakeSession = {
 // join) and a fake Supabase Realtime (Phoenix) server, so the room UI, the service worker channel
 // client and remote cursors are exercised end to end without touching the real backend.
 const MT_GUEST_ID = "00000000-0000-4000-8000-000000000002";
-const multiTesterState = { room: null, members: [], joins: 0, broadcasts: [], chats: [], socket: null, topic: "" };
+// Second scenario (Fase MT2): the smoke user joins someone else's room as a GUEST of this host.
+const MT_HOST_ID = "00000000-0000-4000-8000-000000000003";
+const multiTesterState = { room: null, members: [], joins: 0, broadcasts: [], chats: [], socket: null, topic: "", role: "host", myStatus: "active", voteRequests: [], votes: [], voteResults: [], serverVotes: new Map() };
+// Content-free poke, like the real function's pokeRoom: the clients fetch the state on it.
+function mtServerBroadcast(event) {
+  if (multiTesterState.socket) wsSendText(multiTesterState.socket, JSON.stringify({ topic: multiTesterState.topic, event: "broadcast", payload: { type: "broadcast", event, payload: { at: new Date().toISOString() } }, ref: null, join_ref: null }));
+}
+// Server-side ballot (the real function stores it in mt_vote_ballots), then the poke.
+function mtStoreBallot(voteId, userId, approve) {
+  const vote = multiTesterState.serverVotes.get(voteId);
+  if (!vote || vote.status !== "open" || vote.ballots.has(userId)) return false;
+  vote.ballots.set(userId, approve);
+  return true;
+}
+// Mirrors settleVotes in supabase/functions/multi-tester/index.ts.
+function mtSettleVotes() {
+  const guests = multiTesterState.members.filter((member) => member.status === "active" && member.role === "guest").map((member) => member.userId);
+  for (const vote of multiTesterState.serverVotes.values()) {
+    if (vote.status !== "open") continue;
+    if (!guests.length) vote.status = "cancelled";
+    else if (guests.some((guest) => vote.ballots.get(guest) === false)) vote.status = "rejected";
+    else if (guests.every((guest) => vote.ballots.get(guest) === true)) vote.status = "approved";
+  }
+  return guests;
+}
 function multiTesterMock(body) {
-  const me = { userId: fakeSession.user.id, role: "host", status: "active" };
-  if (body.action === "create") {
+  const me = { userId: fakeSession.user.id, role: multiTesterState.role, status: multiTesterState.myStatus };
+  if (body.action === "request" && multiTesterState.role === "guest") {
+    // The host already approved this guest (approval itself is covered by the host scenario).
+    multiTesterState.myStatus = "active";
+    me.status = "active";
+    multiTesterState.serverVotes.clear();
+    multiTesterState.chats = [];
+    multiTesterState.room = { id: "22222222-2222-4333-8444-555555555555", status: "open", code: null, channel: "mt:22222222-2222-4333-8444-555555555555:fedcba9876543210fedcba9876543210", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: 10, durationMinutes: 60, endReason: null };
+    multiTesterState.members = [
+      { userId: MT_HOST_ID, nickname: "Arara 7", color: "#0ea5e9", role: "host", status: "active" },
+      { userId: fakeSession.user.id, nickname: String(body.nickname), color: String(body.color), role: "guest", status: "active" },
+    ];
+  } else if (body.action === "leave" && multiTesterState.role === "guest") {
+    multiTesterState.myStatus = "left";
+    me.status = "left";
+  } else if (body.action === "vote-request" || body.action === "vote-result" || body.action === "vote") {
+    const payload = { from: fakeSession.user.id, id: String(body.voteId), at: new Date().toISOString() };
+    if (body.action === "vote-request") {
+      payload.description = String(body.description);
+      multiTesterState.voteRequests.push(payload);
+      multiTesterState.serverVotes.set(payload.id, { id: payload.id, requestedBy: fakeSession.user.id, description: payload.description, status: "open", createdAt: payload.at, ballots: new Map() });
+    } else if (body.action === "vote-result") {
+      payload.approved = body.approved === true;
+      multiTesterState.voteResults.push(payload);
+      const vote = multiTesterState.serverVotes.get(payload.id);
+      if (vote && !payload.approved && vote.status === "open") vote.status = "cancelled";
+    } else {
+      payload.approve = body.approve === true;
+      multiTesterState.votes.push(payload);
+      mtStoreBallot(payload.id, fakeSession.user.id, payload.approve);
+    }
+    mtServerBroadcast(body.action);
+    return { sent: true };
+  } else if (body.action === "create") {
+    multiTesterState.serverVotes.clear();
+    multiTesterState.chats = [];
     multiTesterState.room = { id: "11111111-2222-4333-8444-555555555555", status: "open", code: "ABCD2345", channel: "mt:11111111-2222-4333-8444-555555555555:0123456789abcdef0123456789abcdef", expiresAt: new Date(Date.now() + 60 * 60_000).toISOString(), idleTimeoutMinutes: Number(body.idleTimeoutMinutes), durationMinutes: Number(body.durationMinutes), endReason: null };
     multiTesterState.members = [
       { userId: fakeSession.user.id, nickname: String(body.nickname), color: String(body.color), role: "host", status: "active" },
@@ -151,16 +216,20 @@ function multiTesterMock(body) {
   } else if (body.action === "approve" && body.userId === MT_GUEST_ID) {
     multiTesterState.members[1].status = "active";
   } else if (body.action === "chat") {
-    // Server-stamped chat, published back to the room over the channel like the real function does.
-    const payload = { from: fakeSession.user.id, text: String(body.text), at: new Date().toISOString() };
-    multiTesterState.chats.push(payload);
-    if (multiTesterState.socket) wsSendText(multiTesterState.socket, JSON.stringify({ topic: multiTesterState.topic, event: "broadcast", payload: { type: "broadcast", event: "chat", payload }, ref: null, join_ref: null }));
+    // Stored server-side with the sender from the token, delivered through the state.
+    multiTesterState.chats.push({ id: `c${multiTesterState.chats.length + 1}`, from: fakeSession.user.id, text: String(body.text), at: new Date().toISOString() });
+    mtServerBroadcast("chat");
     return { sent: true };
   } else if (body.action === "end") {
     multiTesterState.room = { ...multiTesterState.room, status: "ended", code: null, endReason: "host" };
   }
   if (!multiTesterState.room) return { error: "room_not_found" };
-  return { room: { ...multiTesterState.room, code: multiTesterState.room.status === "open" ? multiTesterState.room.code : null }, me, members: multiTesterState.members.map((member) => ({ ...member })), maxMembers: 4 };
+  const guests = mtSettleVotes();
+  const votes = [...multiTesterState.serverVotes.values()].map((vote) => ({
+    id: vote.id, requestedBy: vote.requestedBy, description: vote.description, status: vote.status, createdAt: vote.createdAt, required: guests,
+    approvals: [...vote.ballots].filter(([, approve]) => approve).map(([userId]) => userId), rejections: [...vote.ballots].filter(([, approve]) => !approve).map(([userId]) => userId),
+  }));
+  return { room: { ...multiTesterState.room, code: multiTesterState.room.status === "open" ? multiTesterState.room.code : null }, me, members: multiTesterState.members.map((member) => ({ ...member })), maxMembers: 4, chat: multiTesterState.chats.slice(-50), votes };
 }
 // Minimal RFC 6455 server (text frames only) standing in for Supabase Realtime: Playwright can route
 // a page's WebSocket but not the service worker's, so the extension is pointed here through its
@@ -878,6 +947,32 @@ try {
       },
     }));
   });
+  // Security audit 2026-10-22 (M2): a failed login's Authorization header and password body must
+  // never be written to the TESTED site's sessionStorage, which any script there can read later.
+  // Markers are generated at run time (not literals) so they never look like committed credentials.
+  const redactionMarkers = { header: `hdr-${randomUUID()}`, body: `bdy-${randomUUID()}`, query: `qry-${randomUUID()}` };
+  const persistedHttpError = await host.evaluate(async (markers) => {
+    document.dispatchEvent(new CustomEvent("qts:http-error-captured", {
+      detail: {
+        id: "redaction-regression-entry",
+        url: `${location.origin}/api/login?token=${markers.query}#frag`,
+        method: "POST",
+        status: 401,
+        source: "fetch",
+        capturedAt: Date.now(),
+        payload: { error: "invalid_credentials" },
+        truncated: false,
+        requestHeaders: { Authorization: `Bearer ${markers.header}`, "content-type": "application/json" },
+        requestBody: JSON.stringify({ email: "qa@example.com", ["pass" + "word"]: markers.body }),
+      },
+    }));
+    await new Promise((resolveFrame) => setTimeout(resolveFrame, 150));
+    return window.sessionStorage.getItem("qtsHttpErrorsV1") || "";
+  }, redactionMarkers);
+  if (!persistedHttpError.includes("redaction-regression-entry")) throw new Error("HTTP error was not persisted at all (redaction test cannot prove anything)");
+  for (const secret of Object.values(redactionMarkers)) {
+    if (persistedHttpError.includes(secret)) throw new Error(`HTTP error history leaked "${secret}" into the page's sessionStorage`);
+  }
   await host.waitForTimeout(100);
   const inspectorsTypingState = await host.locator("#qts-toolbar-host").evaluate((element) => {
     const shadow = element.shadowRoot;
@@ -1063,6 +1158,11 @@ try {
   // evidence recordings needed that space) into the notification bell.
   if (await host.locator("#firstRunIntro").count()) throw new Error("First-run intro still renders as a popup card instead of a bell notification");
   await host.locator("#notificationBellButton").click();
+  await host.getByText("A barra está pronta").waitFor({ timeout: 5_000 });
+  // The redaction regression above injected a real HTTP error entry (it counts in this badge):
+  // cleared here so the check below is only about the first-run entry.
+  if (await host.locator("#notificationBellClear:not([disabled])").count()) await host.locator("#notificationBellClear").click();
+  if (await host.evaluate(() => (window.sessionStorage.getItem("qtsHttpErrorsV1") || "").includes("redaction-regression-entry"))) throw new Error("Clearing the HTTP error history did not remove the injected entry");
   await host.getByText("A barra está pronta").waitFor({ timeout: 5_000 });
   await host.locator('[data-dismiss-intro]').click();
   await host.locator("#notificationBellBadge.isVisible").waitFor({ state: "hidden", timeout: 5_000 }).catch(() => {});
@@ -1865,10 +1965,191 @@ try {
   if (multiTesterState.broadcasts.some((payload) => payload.event === "chat")) throw new Error("The tab sent chat directly over the channel, bypassing the server-stamped sender");
   if (multiTesterState.topic !== "realtime:mt:11111111-2222-4333-8444-555555555555:0123456789abcdef0123456789abcdef") throw new Error(`Channel topic did not carry the room epoch: ${multiTesterState.topic}`);
   await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-room.png"), fullPage: false });
+
+  // Multi Testador Fase MT2 (consensus). A lab with three risky actions is added to the host page by
+  // the page itself (MAIN world, so pagebridge's patched fetch/XHR are the ones used): a form whose
+  // submit handler POSTs, a button that fetches POST and one that sends an XHR POST. Every assertion
+  // counts real POSTs reaching the smoke HTTP server.
+  const mtSaves = () => serverRequests.filter((entry) => entry.method === "POST" && entry.url === "/api/mt-save").length;
+  const mtPush = (event, payload) => wsSendText(multiTesterState.socket, JSON.stringify({ topic: multiTesterState.topic, event: "broadcast", payload: { type: "broadcast", event, payload }, ref: null, join_ref: null }));
+  const mtCloseDrawer = () => host.locator("#drawerClose").click();
+  const mtOpenDrawer = async () => {
+    await host.locator("#toolsButton").click();
+    await host.locator("#multiTesterMenuItem").click();
+    await host.locator("[data-mt-root]").waitFor();
+  };
+  const mtWaitFor = async (check, label) => {
+    for (let attempt = 0; attempt < 100; attempt += 1) {
+      const value = check();
+      if (value) return value;
+      await host.waitForTimeout(100);
+    }
+    throw new Error(`Multi Testador consensus: timed out waiting for ${label}`);
+  };
+  await host.evaluate(() => {
+    const lab = document.createElement("section");
+    lab.id = "mtLab";
+    // Left column, away from the drawer; its own click counter so #multiTarget's count (Multiclick
+    // assertions further down) is never touched.
+    lab.style.cssText = "display:grid;justify-items:start;gap:8px;max-width:240px;margin-bottom:16px";
+    lab.innerHTML = '<button id="mtTarget" type="button">Alvo</button><form id="mtForm"><button id="mtSubmit" type="submit">Salvar MT</button></form><button id="mtSave" type="button">Excluir MT</button><button id="mtXhr" type="button">Arquivar MT</button>';
+    document.querySelector("main").prepend(lab);
+    const target = document.getElementById("mtTarget");
+    target.addEventListener("click", () => { target.dataset.clicks = String(Number(target.dataset.clicks || 0) + 1); });
+    const form = document.getElementById("mtForm");
+    form.addEventListener("submit", (event) => { event.preventDefault(); fetch("/api/mt-save", { method: "POST", body: "form" }).then(() => { form.dataset.sent = String(Number(form.dataset.sent || 0) + 1); }); });
+    const save = document.getElementById("mtSave");
+    save.addEventListener("click", () => fetch("/api/mt-save", { method: "POST", body: "click" }).then(() => { save.dataset.result = "ok"; }).catch(() => { save.dataset.result = "blocked"; }));
+    const xhrButton = document.getElementById("mtXhr");
+    xhrButton.addEventListener("click", () => {
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", "/api/mt-save");
+      xhr.onload = () => { xhrButton.dataset.result = "ok"; };
+      xhr.onerror = () => { xhrButton.dataset.result = "blocked"; };
+      xhr.send("xhr");
+    });
+  });
+  if (!await host.locator("[data-mt-consensus]").isChecked()) throw new Error("Exigir confirmação de todos must be on by default");
+  mtPush("chat", { from: MT_GUEST_ID, text: "mensagem forjada pelo canal", at: new Date().toISOString() });
+  // Deliberate wait: covers the poke-triggered state fetch (at most 1s apart).
+  await host.waitForTimeout(1_500);
+  if (await host.evaluate(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("[data-mt-chat-log]")?.textContent.includes("mensagem forjada"))) throw new Error("A forged chat broadcast was rendered instead of the server state");
+  // A guest proposal reaches the host: listed in the drawer and marked around the element on the page;
+  // the host clicking that element himself closes it for the guest.
+  const mtPageKey = await host.evaluate(() => `${location.origin}${location.pathname}`);
+  mtPush("proposal", { from: MT_GUEST_ID, id: "pSmokeProposal0001", kind: "click", selector: "#mtTarget", xpath: "", label: "Alvo", url: mtPageKey, nx: 0.1, ny: 0.1 });
+  await host.locator('[data-mt-proposal="pSmokeProposal0001"]').waitFor();
+  const proposalMarker = await host.evaluate(() => {
+    const marker = document.getElementById("qts-mt-proposals")?.shadowRoot?.querySelector('[data-mt-proposal-marker="pSmokeProposal0001"]');
+    const target = document.getElementById("mtTarget").getBoundingClientRect();
+    const box = marker?.getBoundingClientRect();
+    return marker ? { text: marker.textContent, wraps: box.left <= target.left && box.right >= target.right && box.top <= target.top && box.bottom >= target.bottom } : null;
+  });
+  if (!proposalMarker?.text.includes("Tucano 12") || !proposalMarker.wraps) throw new Error(`Guest proposal was not marked around the element on the host page: ${JSON.stringify(proposalMarker)}`);
+  await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-proposal.png"), fullPage: false });
+  // The open drawer covers part of the page: closed for page clicks, reopened to check it.
+  await mtCloseDrawer();
+  await host.locator("#mtTarget").click();
+  await mtWaitFor(() => multiTesterState.broadcasts.find((payload) => payload.event === "proposal-done" && payload.payload?.id === "pSmokeProposal0001" && payload.payload?.outcome === "performed"), "proposal-done after the host performed it");
+  await mtOpenDrawer();
+  await host.locator('[data-mt-proposal="pSmokeProposal0001"]').waitFor({ state: "detached" });
+  await mtCloseDrawer();
+  // 1) Native form submit: held, nothing on the wire, released only after the guest approves.
+  const savesBeforeSubmit = mtSaves();
+  await host.locator("#mtSubmit").click();
+  const submitVote = await mtWaitFor(() => multiTesterState.voteRequests[0], "the submit vote-request");
+  await host.locator("[data-mt-vote-progress]").waitFor();
+  if (!submitVote.description.includes("Salvar MT")) throw new Error(`Vote request does not describe the held submit: ${JSON.stringify(submitVote)}`);
+  // Deliberate wait: proves the held submit stays off the wire, not a race workaround.
+  await host.waitForTimeout(1_000);
+  if (mtSaves() !== savesBeforeSubmit || await host.locator("#mtForm").getAttribute("data-sent")) throw new Error("The host's form submit went out before every guest approved");
+  await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-vote-progress.png"), fullPage: false });
+  // A forged "approve" broadcast (what a member with a custom client could send) is only a poke:
+  // the host fetches the state, finds no stored ballot, and keeps holding.
+  mtPush("vote", { from: MT_GUEST_ID, id: submitVote.id, approve: true, at: new Date().toISOString() });
+  // Deliberate wait: longer than the 1s vote polling, proves the forged approval released nothing.
+  await host.waitForTimeout(1_800);
+  if (mtSaves() !== savesBeforeSubmit || await host.locator("#mtForm").getAttribute("data-sent")) throw new Error("A forged vote broadcast released the held submit");
+  // The real approval: a ballot stored server-side, then the poke.
+  mtStoreBallot(submitVote.id, MT_GUEST_ID, true);
+  mtServerBroadcast("vote");
+  await host.waitForFunction(() => document.getElementById("mtForm")?.dataset.sent === "1");
+  if (mtSaves() !== savesBeforeSubmit + 1) throw new Error(`Approved submit did not reach the server exactly once: ${mtSaves() - savesBeforeSubmit}`);
+  if (multiTesterState.serverVotes.get(submitVote.id)?.status !== "approved") throw new Error("The submit was released without the server tally approving it");
+  // 2) fetch POST from a click: held in pagebridge, a rejecting vote cancels it (fails like a network error).
+  const savesBeforeReject = mtSaves();
+  await host.locator("#mtSave").click();
+  const rejectVote = await mtWaitFor(() => multiTesterState.voteRequests[1], "the fetch vote-request");
+  if (!rejectVote.description.includes("POST /api/mt-save") || !rejectVote.description.includes("Excluir MT")) throw new Error(`Vote request does not describe the held request: ${JSON.stringify(rejectVote)}`);
+  await host.waitForTimeout(500);
+  if (mtSaves() !== savesBeforeReject) throw new Error("The held fetch POST went out before the vote");
+  mtStoreBallot(rejectVote.id, MT_GUEST_ID, false);
+  mtServerBroadcast("vote");
+  await host.waitForFunction(() => document.getElementById("mtSave")?.dataset.result === "blocked");
+  await host.waitForTimeout(300);
+  if (mtSaves() !== savesBeforeReject) throw new Error("A rejected action still reached the server");
+  if (multiTesterState.serverVotes.get(rejectVote.id)?.status !== "rejected") throw new Error("Rejected vote was not settled as rejected on the server");
+  // 3) XHR POST: held, approved, then sent once.
+  const savesBeforeXhr = mtSaves();
+  await host.locator("#mtXhr").click();
+  const xhrVote = await mtWaitFor(() => multiTesterState.voteRequests[2], "the XHR vote-request");
+  await host.waitForTimeout(500);
+  if (mtSaves() !== savesBeforeXhr) throw new Error("The held XHR POST went out before the vote");
+  mtStoreBallot(xhrVote.id, MT_GUEST_ID, true);
+  mtServerBroadcast("vote");
+  await host.waitForFunction(() => document.getElementById("mtXhr")?.dataset.result === "ok");
+  if (mtSaves() !== savesBeforeXhr + 1) throw new Error("Approved XHR did not reach the server exactly once");
+  if (multiTesterState.broadcasts.some((payload) => ["vote", "vote-request", "vote-result"].includes(payload.event))) throw new Error("A vote event went straight over the channel instead of through the Edge Function");
+  if (await host.locator("[data-mt-vote-progress]").count()) throw new Error("Vote progress stayed on screen after the vote ended");
+  await mtOpenDrawer();
+  trace("multi testador consensus: proposal to host, held submit/fetch/XHR released only on approval, rejection cancels");
+
   host.once("dialog", (dialog) => dialog.accept());
   await host.locator("[data-mt-leave]").click();
   await host.locator("[data-mt-create]").waitFor();
   if (await host.evaluate(() => !!document.getElementById("qts-mt-cursors"))) throw new Error("Remote cursors stayed on screen after the session ended");
+
+  // Guest side: a real click never runs on the page, it becomes a proposal with "Aguardando o host";
+  // the host's vote request shows a prompt whose answer goes through the Edge Function.
+  multiTesterState.role = "guest";
+  multiTesterState.myStatus = "pending";
+  await host.locator("[data-mt-code]").fill("ABCD2345");
+  await host.locator("[data-mt-request]").click();
+  await host.locator("[data-mt-guest-rules]").waitFor();
+  await host.locator('.qts-mt-status[data-state="joined"]').waitFor({ timeout: 10_000 });
+  await mtCloseDrawer();
+  const clicksBefore = await host.locator("#mtTarget").getAttribute("data-clicks");
+  const savesBeforeGuest = mtSaves();
+  await host.locator("#mtTarget").click();
+  await host.locator("#mtSave").click();
+  const guestProposal = await mtWaitFor(() => multiTesterState.broadcasts.find((payload) => payload.event === "proposal" && payload.payload?.label === "Alvo"), "the guest proposal");
+  if (guestProposal.payload.selector !== "#mtTarget" || guestProposal.payload.url !== mtPageKey) throw new Error(`Guest proposal does not identify the element: ${JSON.stringify(guestProposal)}`);
+  await mtWaitFor(() => multiTesterState.broadcasts.find((payload) => payload.event === "proposal" && payload.payload?.label === "Excluir MT"), "the second guest proposal");
+  await host.waitForTimeout(300);
+  if (await host.locator("#mtTarget").getAttribute("data-clicks") !== clicksBefore || mtSaves() !== savesBeforeGuest) throw new Error("A guest click executed on the page without the host");
+  const waiting = await host.locator("[data-mt-waiting]").innerText();
+  if (!waiting.includes("Aguardando o host") || !waiting.includes("Alvo")) throw new Error(`Guest did not see the waiting indicator: ${waiting}`);
+  await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-guest-waiting.png"), fullPage: false });
+  mtPush("proposal-done", { from: MT_HOST_ID, id: guestProposal.payload.id, outcome: "dismissed" });
+  await host.waitForFunction((label) => !document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("[data-mt-waiting]")?.textContent.includes(`"${label}"`), "Alvo");
+  multiTesterState.serverVotes.set("vSmokeGuestVote01", { id: "vSmokeGuestVote01", requestedBy: MT_HOST_ID, description: '"Salvar" (POST /api/mt-save)', status: "open", createdAt: new Date().toISOString(), ballots: new Map() });
+  mtServerBroadcast("vote-request");
+  await host.locator('[data-mt-guest-vote="vSmokeGuestVote01"]').waitFor();
+  // The prompt must really be styled as a floating card (it once rendered as bare text at the left).
+  const votePanel = await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    const panel = root?.getElementById("mtFloat");
+    const approve = root?.querySelector('[data-mt-vote-approve="vSmokeGuestVote01"]');
+    const box = panel?.getBoundingClientRect();
+    return panel && approve ? { position: getComputedStyle(panel).position, right: innerWidth - box.right, approveBg: getComputedStyle(approve).backgroundColor } : null;
+  });
+  if (votePanel?.position !== "fixed" || votePanel.right > 40 || votePanel.approveBg === "rgba(0, 0, 0, 0)") throw new Error(`Vote prompt is not rendered as the floating panel: ${JSON.stringify(votePanel)}`);
+  await host.screenshot({ path: resolve(evidencePath, "extension-multi-tester-guest-vote.png"), fullPage: false });
+  // The toolbar shadow root is open: the PAGE can reach the approve button and click() it from
+  // script. That synthetic click must never cast a vote (A1).
+  await host.evaluate(() => document.querySelector("#qts-toolbar-host").shadowRoot.querySelector('[data-mt-vote-approve="vSmokeGuestVote01"]').click());
+  await host.evaluate(() => document.querySelector("#qts-toolbar-host").shadowRoot.querySelector('[data-mt-vote-approve="vSmokeGuestVote01"]').dispatchEvent(new MouseEvent("click", { bubbles: true, composed: true })));
+  // Deliberate wait: long enough for a vote call to reach the fake function if one were made.
+  await host.waitForTimeout(800);
+  if (multiTesterState.votes.some((vote) => vote.id === "vSmokeGuestVote01")) throw new Error("A page-dispatched click cast a vote");
+  await host.locator('[data-mt-vote-approve="vSmokeGuestVote01"]').click();
+  await mtWaitFor(() => multiTesterState.votes.find((vote) => vote.id === "vSmokeGuestVote01" && vote.approve === true), "the guest approval through the Edge Function");
+  // The server settles it (only active guest approved): the prompt closes from the state alone.
+  await host.locator('[data-mt-guest-vote="vSmokeGuestVote01"]').waitFor({ state: "detached" });
+  if (multiTesterState.serverVotes.get("vSmokeGuestVote01")?.status !== "approved") throw new Error("Guest approval was not stored server-side");
+  await mtOpenDrawer();
+  await host.locator("[data-mt-leave]").click();
+  await host.locator("[data-mt-create]").waitFor();
+  if (await host.evaluate(() => !!document.getElementById("qts-mt-proposals"))) throw new Error("Proposal markers stayed on screen after leaving");
+  multiTesterState.role = "host";
+  multiTesterState.myStatus = "active";
+  // The guest gate is gone with the session: the page works again.
+  await mtCloseDrawer();
+  await host.locator("#mtTarget").click();
+  if (await host.locator("#mtTarget").getAttribute("data-clicks") === clicksBefore) throw new Error("Page clicks stayed blocked after leaving the room");
+  await host.evaluate(() => document.getElementById("mtLab")?.remove());
+  await mtOpenDrawer();
+  trace("multi testador guest: click blocked into a proposal, waiting indicator, vote prompt answered through the function");
   await host.locator("#drawerClose").click();
   trace("multi testador room, approval, private channel, remote cursor, chat and end verified");
   await host.locator("[data-key-view-clear]").click();
@@ -2397,6 +2678,21 @@ try {
   if (sidebarAccountImageMetrics.width !== 44 || sidebarAccountImageMetrics.height !== 44) {
     throw new Error(`Account type image is missing or incorrectly sized in the sidebar: ${JSON.stringify(sidebarAccountImageMetrics)}`);
   }
+  // Security audit 2026-10-22 (M3): the shadow root is open, so the tested page can click toolbar
+  // buttons from its own scripts. A synthetic click must NOT reveal a stored password; a real user
+  // click still does.
+  const revealCount = await host.locator("#testAccountsListBody [data-reveal-account]").count();
+  if (!revealCount) throw new Error("No test account with a password to reveal in the sidebar");
+  const pageClickRevealed = await host.evaluate(() => {
+    const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
+    root?.querySelectorAll("#testAccountsListBody [data-reveal-account]").forEach((button) => button.click());
+    return root?.getElementById("testAccountsListBody")?.textContent.includes("local-password-value") === true;
+  });
+  if (pageClickRevealed) throw new Error("A click dispatched by the page revealed a stored test-account password");
+  // Real clicks, one per account (each click re-renders the list, so re-query by index).
+  for (let index = 0; index < revealCount; index += 1) await host.locator("#testAccountsListBody [data-reveal-account]").nth(index).click();
+  await host.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("testAccountsListBody")?.textContent.includes("local-password-value"));
+  for (let index = 0; index < revealCount; index += 1) await host.locator("#testAccountsListBody [data-reveal-account]").nth(index).click();
   await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
     root?.getElementById("drawerClose")?.click();

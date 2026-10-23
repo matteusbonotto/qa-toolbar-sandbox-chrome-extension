@@ -121,11 +121,95 @@
   }
 
   // ---------------------------------------------------------------------
+  // Multi Testador consensus (Fase MT2, docs/adr/0003-multi-testador-sessao-colaborativa.md).
+  // The isolated-world toolbar arms a mode with qts:mt-consensus-command:
+  //  - "host": a risky request (POST/PUT/PATCH/DELETE) made while the page has transient user
+  //    activation (navigator.userActivation.isActive, i.e. caused by a real click/Enter in the last
+  //    few seconds) is HELD until the toolbar answers qts:mt-hold-decision with the room's
+  //    consensus. A rejection makes it fail like a network error, never a silent success.
+  //  - "guest": the same requests are refused outright (a guest never acts without the host). This
+  //    is the backstop behind the toolbar's own click/submit interception.
+  // Requests without a user gesture (polling, GraphQL queries sent as POST on load) are not an
+  // action the tester performed and pass. Page scripts share this world and could dispatch these
+  // events too, but only to affect their OWN requests, which they could send unpatched anyway.
+  // ---------------------------------------------------------------------
+  const MT_RISKY_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+  let mtMode = "off";
+  // True only while the toolbar re-submits a form the room already approved (synchronous).
+  let mtGrant = false;
+  let mtSeq = 0;
+  const mtPending = new Map();
+
+  function mtShouldHold(method) {
+    if (mtMode === "off" || mtGrant || !MT_RISKY_METHODS.has(String(method || "GET").toUpperCase())) return false;
+    return navigator.userActivation ? navigator.userActivation.isActive : true;
+  }
+
+  // Safety net (B4): a hold the toolbar never answers (toolbar removed, extension reloaded mid-vote)
+  // fails closed after the 60s vote timeout plus a 15s margin; nothing waits forever.
+  const MT_HOLD_SAFETY_MS = 75_000;
+
+  function mtSettleHold(id, approved) {
+    const settle = mtPending.get(id);
+    if (!settle) return false;
+    mtPending.delete(id);
+    settle(approved);
+    return true;
+  }
+
+  // Resolves true when the request may go out. The promise carries its hold id (qtsHoldId) so an
+  // abort can drop it.
+  function mtAwaitConsensus(method, url) {
+    const detail = { id: `h${Date.now().toString(36)}${(mtSeq += 1).toString(36)}`, method: String(method || "").toUpperCase(), url: String(url || "").slice(0, 500), mode: mtMode };
+    if (mtMode === "guest") {
+      document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail }));
+      const refused = Promise.resolve(false);
+      refused.qtsHoldId = "";
+      return refused;
+    }
+    let resolveHold;
+    const promise = new Promise((resolve) => { resolveHold = resolve; });
+    // originalSetTimeout: the page's timers may be frozen by Freeze Clock, this one must not be.
+    const timer = originalSetTimeout(() => mtSettleHold(detail.id, false), MT_HOLD_SAFETY_MS);
+    mtPending.set(detail.id, (approved) => { originalClearTimeout(timer); resolveHold(approved); });
+    promise.qtsHoldId = detail.id;
+    document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail }));
+    return promise;
+  }
+
+  document.addEventListener("qts:mt-hold-decision", (event) => {
+    mtSettleHold(String(event.detail?.id || ""), event.detail?.approve === true);
+  });
+
+  function mtSetMode(mode) {
+    mtMode = mode === "host" || mode === "guest" ? mode : "off";
+    // Leaving host mode never releases what was waiting: the toolbar cancels the open vote first,
+    // and anything still pending here fails closed.
+    if (mtMode !== "host") {
+      for (const id of [...mtPending.keys()]) mtSettleHold(id, false);
+    }
+  }
+
+  document.addEventListener("qts:mt-consensus-command", (event) => {
+    if (typeof event.detail?.grant === "boolean") { mtGrant = event.detail.grant; return; }
+    mtSetMode(String(event.detail?.mode || "off"));
+  });
+
+  function mtFailXhr(xhr) {
+    const defineOwn = (name, value) => Object.defineProperty(xhr, name, { value, configurable: true });
+    defineOwn("readyState", 4);
+    defineOwn("status", 0);
+    xhr.dispatchEvent(new Event("readystatechange"));
+    xhr.dispatchEvent(new ProgressEvent("error"));
+    xhr.dispatchEvent(new ProgressEvent("loadend"));
+  }
+
+  // ---------------------------------------------------------------------
   // Network capture: fetch + XMLHttpRequest, JSON responses only.
   // ---------------------------------------------------------------------
   const originalFetch = window.fetch;
   if (typeof originalFetch === "function" && !originalFetch.__qtsPatched) {
-    const patchedFetch = function (...args) {
+    const capturingFetch = function (...args) {
       if (!enabled) return originalFetch.apply(this, args);
       const requestIsRequestObject = typeof Request === "function" && args[0] instanceof Request;
       const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url;
@@ -159,6 +243,27 @@
       }).catch(() => {});
       return result;
     };
+    const patchedFetch = function (...args) {
+      const method = args[1]?.method || (typeof args[0] === "object" ? args[0]?.method : undefined) || "GET";
+      if (!mtShouldHold(method)) return capturingFetch.apply(this, args);
+      // An AbortSignal is honored while held, exactly like a native fetch in flight (M1).
+      const signal = args[1]?.signal ?? (typeof Request === "function" && args[0] instanceof Request ? args[0].signal : undefined);
+      const abortReason = () => signal?.reason ?? new DOMException("The user aborted a request.", "AbortError");
+      if (signal?.aborted) return Promise.reject(abortReason());
+      const requestUrl = typeof args[0] === "string" ? args[0] : args[0]?.url ?? String(args[0] ?? "");
+      const hold = mtAwaitConsensus(method, requestUrl);
+      return new Promise((resolve, reject) => {
+        const onAbort = () => { mtSettleHold(hold.qtsHoldId, false); reject(abortReason()); };
+        signal?.addEventListener?.("abort", onAbort, { once: true });
+        hold.then((approved) => {
+          signal?.removeEventListener?.("abort", onAbort);
+          if (signal?.aborted) return;
+          if (!approved) { reject(new TypeError("Failed to fetch (blocked by QA Toolbar Sandbox Multi Testador: no consensus)")); return; }
+          try { resolve(capturingFetch.apply(this, args)); } catch (error) { reject(error); }
+        });
+      });
+    };
+
     Object.defineProperty(patchedFetch, "__qtsPatched", { value: true });
     window.fetch = patchedFetch;
   }
@@ -167,19 +272,68 @@
   if (XhrProto && !XhrProto.__qtsPatched) {
     const originalOpen = XhrProto.open;
     const originalSend = XhrProto.send;
+    const originalAbort = XhrProto.abort;
     const originalSetRequestHeader = XhrProto.setRequestHeader;
+    // Own properties this file may define on an instance (Force HTTP, a refused hold); a new open()
+    // removes them so the native getters answer again.
+    const OWN_XHR_PROPS = ["readyState", "status", "statusText", "response", "responseText", "responseURL", "getAllResponseHeaders", "getResponseHeader"];
+    const defineOwn = (xhr, name, value) => Object.defineProperty(xhr, name, { value, configurable: true });
     Object.defineProperty(XhrProto, "__qtsPatched", { value: true });
     XhrProto.open = function (method, url, ...rest) {
+      // open() while a send is held drops it silently, like a native open() terminating a request (M1).
+      const heldId = this.__qtsHoldId;
+      this.__qtsHoldId = null;
+      if (heldId) mtSettleHold(heldId, false);
+      for (const name of OWN_XHR_PROPS) if (Object.prototype.hasOwnProperty.call(this, name)) delete this[name];
       this.__qtsMethod = method;
       this.__qtsUrl = url;
       this.__qtsHeaders = null;
+      // open(method, url) is async; open(method, url, async) follows the boolean conversion.
+      this.__qtsAsync = rest.length === 0 || Boolean(rest[0]);
       return originalOpen.call(this, method, url, ...rest);
+    };
+    XhrProto.abort = function (...args) {
+      const heldId = this.__qtsHoldId;
+      if (!heldId) return originalAbort.apply(this, args);
+      // Aborting a held send: never sent; mirrors a native abort of a request in flight (state DONE,
+      // abort and loadend events, then UNSENT).
+      this.__qtsHoldId = null;
+      mtSettleHold(heldId, false);
+      defineOwn(this, "readyState", 4);
+      defineOwn(this, "status", 0);
+      this.dispatchEvent(new Event("readystatechange"));
+      this.dispatchEvent(new ProgressEvent("abort"));
+      this.dispatchEvent(new ProgressEvent("loadend"));
+      defineOwn(this, "readyState", 0);
+      return undefined;
     };
     XhrProto.setRequestHeader = function (name, value) {
       (this.__qtsHeaders ??= {})[name] = value;
       return originalSetRequestHeader.call(this, name, value);
     };
     XhrProto.send = function (...args) {
+      // A second send() while one is held is the same error the browser throws for a send in flight.
+      if (this.__qtsHoldId) throw new DOMException("Failed to execute 'send' on 'XMLHttpRequest': The object's state must be OPENED.", "InvalidStateError");
+      if (!mtShouldHold(this.__qtsMethod)) return capturingSend.apply(this, args);
+      if (this.__qtsAsync === false) {
+        // A synchronous XHR cannot wait for a vote without freezing the page: refused (fails closed).
+        document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail: { id: "", sync: true, mode: mtMode } }));
+        throw new DOMException("Blocked by QA Toolbar Sandbox Multi Testador: a synchronous request cannot wait for consensus", "NetworkError");
+      }
+      const hold = mtAwaitConsensus(this.__qtsMethod, this.__qtsUrl);
+      const heldId = hold.qtsHoldId;
+      this.__qtsHoldId = heldId;
+      hold.then((approved) => {
+        // Dropped by abort()/open() meanwhile: nothing to do.
+        if (this.__qtsHoldId !== heldId) return;
+        this.__qtsHoldId = null;
+        if (!approved) { mtFailXhr(this); return; }
+        try { capturingSend.apply(this, args); } catch { mtFailXhr(this); }
+      });
+      return undefined;
+    };
+
+    const capturingSend = function (...args) {
       if (!enabled) return originalSend.apply(this, args);
       const requestHeaders = this.__qtsHeaders && Object.keys(this.__qtsHeaders).length ? this.__qtsHeaders : null;
       const requestBody = stringifyRequestBody(args[0]);
@@ -407,6 +561,7 @@
   });
   document.addEventListener("qts:pagebridge-disable", () => {
     enabled = false;
+    mtSetMode("off");
     window.__qtsForcedStatus = null;
     window.__qtsForcedBody = null;
   });

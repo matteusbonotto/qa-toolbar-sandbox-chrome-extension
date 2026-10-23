@@ -74,11 +74,34 @@ resto:
   duração/inatividade e troca do código ao encerrar. O Realtime autoriza o socket no `phx_join` e
   guarda a decisão durante a conexão; por isso o tópico é `mt:<sala>:<época>` e a época é trocada a
   cada remoção, saída e encerramento: quem saiu fica num tópico morto na hora, sem esperar o JWT
-  expirar. **Chat** só é publicado pela Edge Function, com o remetente vindo do JWT verificado (a
-  policy de insert recusa o evento `chat` vindo de cliente). **Risco aceito e documentado no ADR
-  0003:** cursor, clique e presence são enviados pelos próprios clientes; um membro ativo com um
-  cliente próprio consegue declarar outro `from` nesses eventos (mover o "cursor" de outro membro).
-  Não dá acesso a nada, não sai da sala e não afeta chat nem decisões do host. O código da sala só
+  expirar. **Chat e os votos do consenso** (`vote-request`, `vote`, `vote-result`, Fase MT2) são
+  GRAVADOS pela Edge Function em `mt_chat_messages`, `mt_votes` e `mt_vote_ballots` (RLS sem
+  policy, sem grant; migration `20261023130000_multi_tester_server_state.sql`), com o remetente
+  vindo do JWT verificado e o papel conferido em `mt_members` (só o host pede e cancela; só
+  convidado ativo vota, uma vez). A apuração é feita no servidor, e o cliente renderiza chat e votos
+  só a partir do estado da sala: o host libera uma ação segurada apenas quando o servidor diz
+  "approved". O motivo: o Realtime avalia as policies de `realtime.messages` no JOIN e guarda a
+  decisão por conexão, então o filtro por evento da policy de insert (que segue recusando esses
+  quatro eventos vindos de cliente, migration `20261023120000_multi_tester_votes_policy.sql`) é
+  defesa em profundidade, não garantia por mensagem. O broadcast desses eventos é só um "poke" sem
+  conteúdo para buscar o estado; um poke forjado causa no máximo uma busca extra (limitada a uma
+  por segundo). Os controles de ação do Multi Testador na toolbar só aceitam eventos `isTrusted`,
+  porque a shadow root é aberta e a página testada poderia clicá-los por script. **Risco aceito e
+  documentado no ADR 0003:** cursor, clique, presence e as propostas do convidado
+  (`proposal`/`proposal-done`) são enviados pelos próprios clientes; um membro ativo com um cliente
+  próprio consegue declarar outro `from` nesses eventos (mover o "cursor" de outro membro, criar uma
+  proposta em nome de outro). Não dá acesso a nada, não sai da sala, não executa nada (o host
+  sempre age por conta própria) e não afeta chat nem votos. **A regra "convidado nunca executa ação
+  sem o host" é cooperativa, não uma barreira de segurança:** o convidado controla o próprio
+  navegador (pode desligar a extensão); garantia real exige que a conta dele no sistema testado não
+  tenha permissão de escrita. O gate de rede do host cobre só `fetch`/XHR do documento principal
+  (não iframes, workers, `sendBeacon`, WebSocket, `form.submit()` da página nem mutações via GET), e
+  uma página hostil pode desligar o próprio gate. **Dados que saem do navegador:** o rótulo do
+  controle clicado (só `aria-label`, valor de botão, `title` ou texto de botão/link/summary/option;
+  nome com cara de dado sensível é trocado pelo nome da tag e sequências de 4 ou mais dígitos são
+  mascaradas) e o caminho da URL da tela (`origin+pathname`), enviados aos outros membros da sala na
+  proposta e na descrição do voto; a descrição do voto fica gravada em `mt_votes`. Nunca valor de
+  campo. O código da sala só
   aparece para o host e sozinho não dá acesso (gera pedido pendente); quem não é membro ativo recebe
   só o próprio status, sem lista de membros nem canal. Nenhum e-mail é trocado entre usuários: só o
   apelido. Recomendado em produção: desligar "Allow public access" do Realtime para que só canais

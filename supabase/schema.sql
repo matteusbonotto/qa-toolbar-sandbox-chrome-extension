@@ -1976,6 +1976,47 @@ alter table public.mt_members enable row level security;
 revoke all on table public.mt_rooms from anon, authenticated;
 revoke all on table public.mt_members from anon, authenticated;
 
+-- Server-authoritative chat and consensus votes (migrations/20261023130000_multi_tester_server_state.sql).
+-- Realtime authorizes a socket at JOIN, so a forged `chat`/`vote` broadcast from a custom client is
+-- possible; clients only use those broadcasts as a poke to fetch state, and only the multi-tester
+-- Edge Function (service role) writes these rows, with the sender from the verified JWT.
+create table if not exists public.mt_chat_messages (
+  id uuid primary key default gen_random_uuid(),
+  room_id uuid not null references public.mt_rooms(id) on delete cascade,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  text text not null check (char_length(text) between 1 and 500),
+  created_at timestamptz not null default now()
+);
+create index if not exists mt_chat_messages_room_created on public.mt_chat_messages (room_id, created_at desc);
+
+create table if not exists public.mt_votes (
+  room_id uuid not null references public.mt_rooms(id) on delete cascade,
+  vote_id text not null check (vote_id ~ '^[A-Za-z0-9_-]{8,40}$'),
+  requested_by uuid not null references auth.users(id) on delete cascade,
+  description text not null check (char_length(description) between 1 and 300),
+  status text not null default 'open' check (status in ('open', 'approved', 'rejected', 'expired', 'cancelled')),
+  created_at timestamptz not null default now(),
+  decided_at timestamptz,
+  primary key (room_id, vote_id)
+);
+
+create table if not exists public.mt_vote_ballots (
+  room_id uuid not null,
+  vote_id text not null,
+  user_id uuid not null references auth.users(id) on delete cascade,
+  approve boolean not null,
+  created_at timestamptz not null default now(),
+  unique (room_id, vote_id, user_id),
+  foreign key (room_id, vote_id) references public.mt_votes(room_id, vote_id) on delete cascade
+);
+
+alter table public.mt_chat_messages enable row level security;
+alter table public.mt_votes enable row level security;
+alter table public.mt_vote_ballots enable row level security;
+revoke all on table public.mt_chat_messages from anon, authenticated;
+revoke all on table public.mt_votes from anon, authenticated;
+revoke all on table public.mt_vote_ballots from anon, authenticated;
+
 -- True only for an ACTIVE member of an open, unexpired, non-idle room whose CURRENT channel topic is
 -- 'mt:<room id>:<epoch>'. Security definer so the Realtime policies can consult the locked tables.
 create or replace function public.mt_can_use_channel(channel_topic text)
@@ -2038,14 +2079,16 @@ revoke all on function public.mt_set_member_status(uuid, uuid, text[], text, int
 grant execute on function public.mt_set_member_status(uuid, uuid, text[], text, integer) to service_role;
 
 -- Realtime Authorization for private channels: broadcast (cursors, clicks) and presence only for
--- active members of that exact room and epoch. Chat is NOT sendable by clients: the Edge Function
--- publishes it with the sender stamped server-side, so nobody can post as someone else.
+-- active members of that exact room and epoch. Chat and the consensus votes (vote-request, vote,
+-- vote-result) are NOT sendable by clients: the Edge Function publishes them with the sender stamped
+-- server-side, so nobody can post or approve as someone else
+-- (migrations/20261023120000_multi_tester_votes_policy.sql).
 drop policy if exists "mt members receive room channel" on realtime.messages;
 create policy "mt members receive room channel" on realtime.messages for select to authenticated
   using (realtime.messages.extension in ('broadcast', 'presence') and public.mt_can_use_channel(realtime.topic()));
 drop policy if exists "mt members send room channel" on realtime.messages;
 create policy "mt members send room channel" on realtime.messages for insert to authenticated
-  with check (realtime.messages.extension in ('broadcast', 'presence') and coalesce(realtime.messages.event, '') <> 'chat' and public.mt_can_use_channel(realtime.topic()));
+  with check (realtime.messages.extension in ('broadcast', 'presence') and coalesce(realtime.messages.event, '') not in ('chat', 'vote', 'vote-request', 'vote-result') and public.mt_can_use_channel(realtime.topic()));
 
 insert into public.features (key, value_type, description) values
   ('multiTester.enabled', 'boolean', 'Multi Testador: up to 4 release managers in one live test session (cursors, chat, host-controlled room)')
