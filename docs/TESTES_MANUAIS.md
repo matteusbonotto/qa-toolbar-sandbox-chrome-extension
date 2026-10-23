@@ -1,7 +1,7 @@
 # Testes manuais locais (antes de aprovar uma publicação)
 
 Roteiro curto para o fundador conferir no Chrome real o que os testes automáticos não provam
-visualmente. Versão atual da main: 1.4.46.
+visualmente. Versão atual da main: 1.4.47.
 
 ## 1. Abrir o Chrome de teste (1 comando)
 
@@ -60,6 +60,15 @@ visualmente. Versão atual da main: 1.4.46.
 - [ ] Conta A encerra a sessão: o código antigo deixa de funcionar ("Código inválido ou sala
       encerrada").
 - [ ] Report Builder durante a sessão: aparece a linha "Participantes (Multi Testador)".
+
+### Multi Testador, novidades e cursor leve (v1.4.47)
+- [ ] Duas contas na mesma sala, host em outra página do mesmo site: o convidado vai sozinho para a
+      página do host, e os dois veem a setinha do outro com o apelido. O drawer mostra a página de cada um.
+- [ ] Host em outro site: o convidado vê "O host está em outra página" e o botão para ir até lá.
+- [ ] Clique em área vazia da página (convidado e host): nada pede confirmação. Clique num botão
+      que salva: pede.
+- [ ] Cursor personalizado ligado: o mouse anda liso como fora do site.
+- [ ] Depois de atualizar a extensão, a lista "Atualizado para a versão" abre sozinha uma vez.
 
 ### Cores do mouse e logo em "Todos os sites" (v1.4.46)
 - [ ] Key View > Ao clicar > Desenho do mouse: mude a cor do direito e do meio; a prévia aperta o

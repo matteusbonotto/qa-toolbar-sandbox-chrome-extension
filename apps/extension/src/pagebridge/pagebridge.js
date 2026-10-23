@@ -134,14 +134,29 @@
   // events too, but only to affect their OWN requests, which they could send unpatched anyway.
   // ---------------------------------------------------------------------
   const MT_RISKY_METHODS = new Set(["POST", "PUT", "PATCH", "DELETE"]);
+  // Only requests caused by a press on a real action (button, link, submit, Enter in a form) are a
+  // tester action. Before, any POST during transient activation was held, so a click on the page
+  // background held the site's telemetry and asked everyone to vote (founder report 2026-10-23).
+  // The toolbar tells pagebridge, on every trusted press, whether it landed on an actionable target.
+  // 5s matches Chrome's transient user activation window, the gate this one narrows.
+  const MT_ACTION_WINDOW_MS = 5_000;
+  let mtActionableAt = 0;
+  // Analytics/monitoring beacons fire on almost every click and never are the tester's action.
+  const MT_TELEMETRY_HOSTS = /(^|\.)(google-analytics\.com|analytics\.google\.com|googletagmanager\.com|doubleclick\.net|clarity\.ms|hotjar\.(com|io)|datadoghq\.(com|eu)|browser-intake-[a-z0-9-]+\.datadoghq\.com|sentry\.io|segment\.(io|com)|mixpanel\.com|amplitude\.com|nr-data\.net|newrelic\.com|facebook\.com|connect\.facebook\.net|bat\.bing\.com|tiktok\.com|linkedin\.com|cloudflareinsights\.com)$/i;
   let mtMode = "off";
   // True only while the toolbar re-submits a form the room already approved (synchronous).
   let mtGrant = false;
   let mtSeq = 0;
   const mtPending = new Map();
 
-  function mtShouldHold(method) {
+  function mtIsTelemetry(url) {
+    try { return MT_TELEMETRY_HOSTS.test(new URL(String(url || ""), window.location.href).hostname); } catch { return false; }
+  }
+
+  function mtShouldHold(method, url, keepalive = false) {
     if (mtMode === "off" || mtGrant || !MT_RISKY_METHODS.has(String(method || "GET").toUpperCase())) return false;
+    if (keepalive || mtIsTelemetry(url)) return false;
+    if (Date.now() - mtActionableAt > MT_ACTION_WINDOW_MS) return false;
     return navigator.userActivation ? navigator.userActivation.isActive : true;
   }
 
@@ -192,6 +207,7 @@
 
   document.addEventListener("qts:mt-consensus-command", (event) => {
     if (typeof event.detail?.grant === "boolean") { mtGrant = event.detail.grant; return; }
+    if (typeof event.detail?.actionable === "boolean") { mtActionableAt = event.detail.actionable ? Date.now() : 0; return; }
     mtSetMode(String(event.detail?.mode || "off"));
   });
 
@@ -245,7 +261,9 @@
     };
     const patchedFetch = function (...args) {
       const method = args[1]?.method || (typeof args[0] === "object" ? args[0]?.method : undefined) || "GET";
-      if (!mtShouldHold(method)) return capturingFetch.apply(this, args);
+      const targetUrl = typeof args[0] === "string" ? args[0] : args[0]?.url ?? String(args[0] ?? "");
+      const keepalive = args[1]?.keepalive === true || (typeof Request === "function" && args[0] instanceof Request && args[0].keepalive === true);
+      if (!mtShouldHold(method, targetUrl, keepalive)) return capturingFetch.apply(this, args);
       // An AbortSignal is honored while held, exactly like a native fetch in flight (M1).
       const signal = args[1]?.signal ?? (typeof Request === "function" && args[0] instanceof Request ? args[0].signal : undefined);
       const abortReason = () => signal?.reason ?? new DOMException("The user aborted a request.", "AbortError");
@@ -314,7 +332,7 @@
     XhrProto.send = function (...args) {
       // A second send() while one is held is the same error the browser throws for a send in flight.
       if (this.__qtsHoldId) throw new DOMException("Failed to execute 'send' on 'XMLHttpRequest': The object's state must be OPENED.", "InvalidStateError");
-      if (!mtShouldHold(this.__qtsMethod)) return capturingSend.apply(this, args);
+      if (!mtShouldHold(this.__qtsMethod, this.__qtsUrl)) return capturingSend.apply(this, args);
       if (this.__qtsAsync === false) {
         // A synchronous XHR cannot wait for a vote without freezing the page: refused (fails closed).
         document.dispatchEvent(new CustomEvent("qts:mt-hold-request", { detail: { id: "", sync: true, mode: mtMode } }));

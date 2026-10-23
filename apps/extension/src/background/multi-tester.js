@@ -79,7 +79,12 @@ function send(event, payload, topic = `realtime:${live.channel}`) {
 }
 
 function presenceMembers() {
-  return [...live.presence.entries()].map(([userId, metas]) => ({ userId, nickname: String(metas?.[0]?.nickname || ""), color: String(metas?.[0]?.color || ""), url: String(metas?.[0]?.url || "") }));
+  // The most recent meta wins: a re-track (the tester moved to another page) adds a new meta, and a
+  // diff can carry the join before the leave of the old one.
+  return [...live.presence.entries()].map(([userId, metas]) => {
+    const meta = metas?.at(-1) || {};
+    return { userId, nickname: String(meta.nickname || ""), color: String(meta.color || ""), url: String(meta.url || ""), href: String(meta.href || "") };
+  });
 }
 
 function applyPresenceDiff(diff) {
@@ -164,7 +169,7 @@ async function connect() {
       if (message.payload?.status === "ok") {
         live.joined = true;
         live.reconnectDelay = 1_000;
-        send("presence", { type: "presence", event: "track", payload: { nickname: live.me.nickname, color: live.me.color, url: live.me.url || "" } });
+        send("presence", { type: "presence", event: "track", payload: { nickname: live.me.nickname, color: live.me.color, url: live.me.url || "", href: live.me.href || "" } });
         postToPorts({ type: "status", state: "joined" });
       } else {
         // Rejected by RLS: removed from the room, room ended or plan lapsed. Never retry blindly.
@@ -236,11 +241,15 @@ export function handleMultiTesterPort(port, authorize) {
     if (message.type === "join") {
       const channel = String(message.channel || "");
       if (!/^mt:[0-9a-f-]{36}:[0-9a-f]{32}$/i.test(channel)) return;
-      const me = { userId: cleanText(message.me?.userId, 64), nickname: cleanText(message.me?.nickname, 40), color: /^#[0-9a-f]{6}$/i.test(message.me?.color) ? message.me.color : "#5b35e8", url: cleanText(message.me?.url, 300) };
+      // href: the page this tester is on (sensitive query values already redacted by the toolbar), so
+      // guests can follow the host to the same page (the shared-page model, founder 2026-10-23).
+      const href = /^https?:\/\//i.test(String(message.me?.href || "")) ? cleanText(message.me.href, 500) : "";
+      const me = { userId: cleanText(message.me?.userId, 64), nickname: cleanText(message.me?.nickname, 40), color: /^#[0-9a-f]{6}$/i.test(message.me?.color) ? message.me.color : "#5b35e8", url: cleanText(message.me?.url, 300), href };
       if (live.channel === channel && live.socket) {
-        live.me = me;
+        // Keep the session identity set in connect(); a tab never decides who is broadcasting.
+        live.me = { ...me, userId: live.me?.userId || me.userId };
         if (live.joined) {
-          send("presence", { type: "presence", event: "track", payload: { nickname: me.nickname, color: me.color, url: me.url } });
+          send("presence", { type: "presence", event: "track", payload: { nickname: me.nickname, color: me.color, url: me.url, href: me.href } });
           port.postMessage({ type: "status", state: "joined" });
           port.postMessage({ type: "presence", members: presenceMembers() });
         }

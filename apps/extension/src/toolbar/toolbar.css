@@ -628,14 +628,14 @@ body.qts-placement-mode, body.qts-placement-mode * {
    Custom properties (--qts-cursor-color, --qts-click-*) are set inline per config on the host and
    survive `all: initial`, so the shadow content still reads them. */
 #qts-mouse-view-overlay {
-  all: initial !important; position: fixed !important; z-index: 2147483646 !important;
+  all: initial !important; position: fixed !important; left: 0 !important; top: 0 !important; will-change: translate !important; z-index: 2147483646 !important;
   display: grid !important; justify-items: end !important;
   opacity: 0 !important; transform: scale(.88) !important; transform-origin: top right !important; transition: opacity 90ms ease, transform 120ms ease !important;
   pointer-events: none !important; filter: drop-shadow(0 9px 10px rgba(0,0,0,.38)) !important;
 }
 #qts-mouse-view-overlay.isVisible { opacity: 1 !important; transform: scale(1) !important; }
 #qts-pointer-overlay {
-  all: initial !important; position: fixed !important; z-index: 2147483647 !important; display: block !important;
+  all: initial !important; position: fixed !important; left: 0 !important; top: 0 !important; will-change: translate !important; z-index: 2147483647 !important; display: block !important;
   width: 0 !important; height: 0 !important; overflow: visible !important; pointer-events: none !important;
   filter: drop-shadow(0 2px 3px rgba(0,0,0,.35)) !important;
 }

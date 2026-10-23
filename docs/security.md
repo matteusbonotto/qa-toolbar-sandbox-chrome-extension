@@ -23,7 +23,7 @@ resto:
   de cartão/CVV antes de gravar um passo de macro ou de step recorder — o valor nunca é
   persistido, nem localmente.
 - **Login da extensão lembra só o e-mail**: após um login bem-sucedido, o e-mail entra em
-  `qtsUiStateV1.rememberedLoginEmails` (até 5, só neste dispositivo, fora do workspace, então não
+  `qtsRememberedLoginEmailsV1` (até 5, só neste dispositivo, fora do workspace, então não
   vai para export/sync) para sugerir e preencher o campo. A senha nunca é gravada pela extensão;
   quem a lembra, se o usuário quiser, é o gerenciador de senhas do navegador. Excluir a conta tira o
   e-mail da lista.
