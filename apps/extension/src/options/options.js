@@ -263,18 +263,18 @@ document.querySelectorAll("#langSwitch button").forEach((button) => button.addEv
 // E-mails that signed in successfully on this device, newest first, so the login field can suggest
 // them (datalist) and prefill the last one. Only e-mails are kept, never passwords: the password
 // stays with the browser's own password manager via autocomplete="current-password". Lives in the
-// local uiState (not the workspace) so it never enters exports, sync or schemaVersion.
+// local storage key of its own (not the workspace) so it never enters exports, sync or
+// schemaVersion. Not inside qtsUiStateV1: the background rewrites that object from its own earlier
+// read right after the first login (first-access tour flags), which erased the e-mail just saved.
+const REMEMBERED_LOGIN_EMAILS_KEY = "qtsRememberedLoginEmailsV1";
 const REMEMBERED_LOGIN_EMAILS_LIMIT = 5;
 async function readRememberedLoginEmails() {
-  const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
-  const list = stored[STORAGE_KEYS.uiState]?.rememberedLoginEmails;
+  const list = (await chrome.storage.local.get(REMEMBERED_LOGIN_EMAILS_KEY))[REMEMBERED_LOGIN_EMAILS_KEY];
   return Array.isArray(list) ? list.filter((item) => typeof item === "string" && item.includes("@")).slice(0, REMEMBERED_LOGIN_EMAILS_LIMIT) : [];
 }
 async function writeRememberedLoginEmails(update) {
-  const current = await chrome.storage.local.get(STORAGE_KEYS.uiState);
-  const uiState = current[STORAGE_KEYS.uiState] || {};
-  const list = update(Array.isArray(uiState.rememberedLoginEmails) ? uiState.rememberedLoginEmails : []).slice(0, REMEMBERED_LOGIN_EMAILS_LIMIT);
-  await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...uiState, rememberedLoginEmails: list } });
+  const list = update(await readRememberedLoginEmails()).slice(0, REMEMBERED_LOGIN_EMAILS_LIMIT);
+  await chrome.storage.local.set({ [REMEMBERED_LOGIN_EMAILS_KEY]: list });
   renderRememberedLoginEmails(list);
 }
 function rememberLoginEmail(email) {
@@ -2992,11 +2992,8 @@ async function showPendingReleaseNotes() {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.uiState);
   const note = stored[STORAGE_KEYS.uiState]?.pendingReleaseNote;
   if (!note) return;
-  const texts = currentLocale.startsWith("en")
-    ? { title: `Updated to version ${note.version}`, intro: "Your previous data and settings were preserved.", done: "Got it", items: ["Active accounts now show their plan on the Landing Page", "The Install button shows the package version", "A direct download is available while the Chrome Web Store is pending"] }
-    : currentLocale.startsWith("es")
-      ? { title: `Actualizado a la versión ${note.version}`, intro: "Tus datos y configuraciones se conservaron.", done: "Entendido", items: ["La cuenta activa ahora muestra el plan en la Landing Page", "El botón Instalar muestra la versión del paquete", "Cuando Chrome Web Store está pendiente, hay una descarga directa"] }
-      : { title: `Atualizado para a versão ${note.version}`, intro: "Seus dados e configurações anteriores foram preservados.", done: "Entendi", items: ["A conta ativa agora mostra o plano na Landing Page", "O botão Instalar mostra a versão do pacote", "Quando a Chrome Web Store estiver pendente, há download direto"] };
+  const notes = window.QTS_RELEASE_NOTES.copyFor({ version: note.version, previousVersion: note.previousVersion || null, locale: currentLocale });
+  const texts = { title: notes.title, intro: notes.intro, done: notes.action, items: notes.items };
   const dialog = document.createElement("dialog");
   dialog.className = "composerDialog";
   dialog.innerHTML = `<div class="dialogHead"><h2>${escapeHtml(texts.title)}</h2></div><div class="dialogBody"><p>${escapeHtml(texts.intro)}</p><ul>${texts.items.map(item => `<li>${escapeHtml(item)}</li>`).join("")}</ul></div><div class="dialogActions"><button class="primary" type="button">${escapeHtml(texts.done)}</button></div>`;

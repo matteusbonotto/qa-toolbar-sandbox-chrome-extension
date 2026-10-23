@@ -2167,13 +2167,22 @@ async function maybeShowFirstRunIntro() {
   state.showFirstRunNotification = !stored[STORAGE_KEYS.uiState]?.hasSeenToolbarIntro;
   state.pendingReleaseNote = stored[STORAGE_KEYS.uiState]?.pendingReleaseNote || null;
   updateHttpErrorSurfaces();
+  // The bell entry and the NEW badge alone went unnoticed (founder report 2026-10-23), so the notes
+  // also open by themselves once per version, on the first top-level page with the bar. The flag is
+  // written before opening so a second tab loading at the same time does not open them again.
+  const note = state.pendingReleaseNote;
+  if (note && state.authorized && window.top === window && !state.detachedToolKey && stored[STORAGE_KEYS.uiState]?.releaseNoteAutoOpened !== note.version) {
+    await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...(stored[STORAGE_KEYS.uiState] || {}), releaseNoteAutoOpened: note.version } });
+    openReleaseNotes();
+  }
 }
 
 function releaseNotesCopy() {
-  const language = state.workspace?.preferences?.language || "pt-BR";
-  if (language.startsWith("es")) return { title: `Actualizado a la versión ${state.pendingReleaseNote?.version || ""}`, intro: "Tus datos y configuraciones anteriores se conservaron.", items: ["La cuenta activa ahora muestra el plan en la Landing Page.", "El botón Instalar muestra la versión del paquete.", "Cuando Chrome Web Store está pendiente, hay una descarga directa."], action: "Entendido" };
-  if (language.startsWith("en")) return { title: `Updated to version ${state.pendingReleaseNote?.version || ""}`, intro: "Your existing data and settings were preserved.", items: ["Active accounts now show their plan on the Landing Page.", "The Install button shows the package version.", "A direct download is available while the Chrome Web Store is pending."], action: "Got it" };
-  return { title: `Atualizado para a versão ${state.pendingReleaseNote?.version || ""}`, intro: "Seus dados e configurações anteriores foram preservados.", items: ["A conta ativa agora mostra o plano na Landing Page.", "O botão Instalar mostra a versão do pacote.", "Quando a Chrome Web Store estiver pendente, há download direto."], action: "Entendi" };
+  return window.QTS_RELEASE_NOTES.copyFor({
+    version: state.pendingReleaseNote?.version || chrome.runtime.getManifest().version,
+    previousVersion: state.pendingReleaseNote?.previousVersion || null,
+    locale: state.workspace?.preferences?.language || "pt-BR",
+  });
 }
 
 async function dismissReleaseNote() {
@@ -4282,7 +4291,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: usa el scroll para cambiar de elemento, haz clic para soltarlo.",
   "Cursor personalizado": "Cursor personalizado", "Ponteiro e mouse são personalizados separadamente. O nome aparece ao lado do ponteiro, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "El puntero y el ratón se personalizan por separado. El nombre aparece junto al puntero, al estilo Figma. Útil en grabaciones y sesiones con más personas.",
   "Nome no cursor": "Nombre en el cursor", "Ex.: Ana (QA)": "Ej.: Ana (QA)", "Cor do cursor": "Color del cursor", "Ponteiro": "Puntero", "Ao clicar": "Al hacer clic", "Modelo do mouse": "Modelo del ratón", "Arte no mouse": "Arte en el ratón", "Cor de cada botão": "Color de cada botón",
-  "Esquerdo": "Izquierdo", "Direito": "Derecho", "Meio e scroll": "Medio y scroll", "Usar cores do tema": "Usar colores del tema", "Cores do mouse": "Colores del ratón", "Corpo": "Cuerpo", "Linhas": "Líneas", "Cores automáticas": "Colores automáticos", "Restaurar padrão": "Restaurar predeterminado", "Padrão restaurado.": "Predeterminado restaurado.", "Preenchido": "Relleno", "Vazado": "Hueco",
+  "Esquerdo": "Izquierdo", "Direito": "Derecho", "Meio e scroll": "Medio y scroll", "Usar cores do tema": "Usar colores del tema", "Indo para a página do host.": "Yendo a la página del anfitrión.", "O host está em outra página. Os cursores aparecem quando vocês estão na mesma página.": "El anfitrión está en otra página. Los cursores aparecen cuando están en la misma página.", "Ir para a página do host": "Ir a la página del anfitrión", "nesta página": "en esta página", "Cores do mouse": "Colores del ratón", "Corpo": "Cuerpo", "Linhas": "Líneas", "Cores automáticas": "Colores automáticos", "Restaurar padrão": "Restaurar predeterminado", "Padrão restaurado.": "Predeterminado restaurado.", "Preenchido": "Relleno", "Vazado": "Hueco",
   "Do sistema": "Del sistema", "Padrão": "Estándar", "Flecha": "Flecha", "Triângulo": "Triángulo", "Seta fina": "Flecha fina", "Mão": "Mano",
   "Desenho do mouse": "Dibujo del ratón", "Holofote": "Foco", "Ondas": "Ondas", "Nenhum": "Ninguno",
   "Comum": "Común", "Gamer": "Gamer", "Antigo": "Antiguo", "Com relevo": "Con relieve", "3D": "3D", "Coração": "Corazón", "Tech": "Tech", "Transformer": "Transformer",
@@ -4319,7 +4328,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Régua: role o scroll pra trocar de elemento, clique pra soltar.": "Régua: scroll to switch elements, click to release.",
   "Cursor personalizado": "Custom cursor", "Ponteiro e mouse são personalizados separadamente. O nome aparece ao lado do ponteiro, no estilo Figma. Útil em gravações e sessões com mais pessoas.": "Pointer and mouse are customized separately. The name shows next to the pointer, Figma style. Useful in recordings and sessions with more people.",
   "Nome no cursor": "Name on cursor", "Ex.: Ana (QA)": "E.g., Ana (QA)", "Cor do cursor": "Cursor color", "Ponteiro": "Pointer", "Ao clicar": "On click", "Modelo do mouse": "Mouse model", "Arte no mouse": "Mouse art", "Cor de cada botão": "Color of each button",
-  "Esquerdo": "Left", "Direito": "Right", "Meio e scroll": "Middle and scroll", "Usar cores do tema": "Use theme colors", "Cores do mouse": "Mouse colors", "Corpo": "Body", "Linhas": "Lines", "Cores automáticas": "Automatic colors", "Restaurar padrão": "Restore defaults", "Padrão restaurado.": "Defaults restored.", "Preenchido": "Filled", "Vazado": "Hollow",
+  "Esquerdo": "Left", "Direito": "Right", "Meio e scroll": "Middle and scroll", "Usar cores do tema": "Use theme colors", "Indo para a página do host.": "Going to the host's page.", "O host está em outra página. Os cursores aparecem quando vocês estão na mesma página.": "The host is on another page. Cursors show when you are on the same page.", "Ir para a página do host": "Go to the host's page", "nesta página": "on this page", "Cores do mouse": "Mouse colors", "Corpo": "Body", "Linhas": "Lines", "Cores automáticas": "Automatic colors", "Restaurar padrão": "Restore defaults", "Padrão restaurado.": "Defaults restored.", "Preenchido": "Filled", "Vazado": "Hollow",
   "Do sistema": "System", "Padrão": "Default", "Flecha": "Arrowhead", "Triângulo": "Triangle", "Seta fina": "Thin arrow", "Mão": "Hand",
   "Desenho do mouse": "Mouse drawing", "Holofote": "Spotlight", "Ondas": "Ripples", "Nenhum": "None",
   "Comum": "Classic", "Gamer": "Gamer", "Antigo": "Retro", "Com relevo": "Embossed", "3D": "3D", "Coração": "Heart", "Tech": "Tech", "Transformer": "Transformer",
@@ -6845,7 +6854,7 @@ function mtConnect() {
     });
   }
   const me = mtMember(view.me.userId);
-  mt.port.postMessage({ type: "join", channel: view.room.channel, me: { userId: view.me.userId, nickname: me?.nickname || mtNickname(), color: me?.color || getCursorConfig().color, url: mtPageKey() } });
+  mt.port.postMessage({ type: "join", channel: view.room.channel, me: { userId: view.me.userId, nickname: me?.nickname || mtNickname(), color: me?.color || getCursorConfig().color, url: mtPageKey(), href: safeCurrentUrl() } });
   mtAttachListeners();
 }
 
@@ -6857,6 +6866,7 @@ function mtHandlePortMessage(message) {
     mtRenderDrawer();
   } else if (message.type === "presence") {
     mt.presence = Array.isArray(message.members) ? message.members : [];
+    mtFollowHost();
     mtRenderDrawer();
   } else if (message.type === "broadcast") {
     // Chat and votes: only a poke to fetch the server state. Realtime authorizes a socket at JOIN,
@@ -6877,6 +6887,50 @@ function mtHandlePortMessage(message) {
     } else if (message.event === "proposal-done") {
       mtReceiveProposalDone(sender, payload);
     }
+  }
+}
+
+// Shared page, like Figma/Miro (founder 2026-10-23): cursors only make sense on the same screen, so
+// a guest follows the host. Same site: the guest's tab goes to the host's page by itself. Another
+// site: the drawer shows where the host is with a button, never an automatic jump to a new origin.
+function mtHostPresence() {
+  const view = mtState().view;
+  const host = view?.members?.find((member) => member.role === "host" && member.status === "active");
+  return host ? mtState().presence.find((member) => member.userId === host.userId) || null : null;
+}
+
+function mtHostPageHref() {
+  const href = mtHostPresence()?.href || "";
+  try { return /^https?:$/.test(new URL(href).protocol) ? href : ""; } catch { return ""; }
+}
+
+function mtIsOnHostPage() {
+  const href = mtHostPageHref();
+  if (!href) return true;
+  const target = new URL(href);
+  return `${target.origin}${target.pathname}` === mtPageKey();
+}
+
+function mtFollowHost() {
+  const mt = mtState();
+  if (!mtInRoom() || mt.view.me.role === "host" || window.top !== window || mtIsOnHostPage()) return;
+  const href = mtHostPageHref();
+  const target = new URL(href);
+  if (target.origin !== location.origin || mt.followingHref === href) return;
+  mt.followingHref = href;
+  showQaToast(translateQaSurfaceText("Indo para a página do host."), "info");
+  location.assign(href);
+}
+
+// " · /path" of where an online member is, so everyone sees who is on which screen.
+function mtMemberPageLabel(userId) {
+  const href = mtState().presence.find((member) => member.userId === userId)?.href || "";
+  try {
+    const url = new URL(href);
+    const here = `${url.origin}${url.pathname}` === mtPageKey();
+    return ` · ${escapeHtml(here ? translateQaSurfaceText("nesta página") : `${url.host}${url.pathname}`.slice(0, 60))}`;
+  } catch {
+    return "";
   }
 }
 
@@ -7079,9 +7133,17 @@ function mtTrackGesture(event) {
   if (!event.isTrusted || !mtInRoom()) return;
   const mt = mtState();
   const origin = event.composedPath?.()[0];
-  if (isKeyViewOwnSurface(event) || (origin instanceof Element && isInsideToolbarUi(origin))) mt.lastToolbarGestureAt = Date.now();
+  const onToolbar = isKeyViewOwnSurface(event) || (origin instanceof Element && isInsideToolbarUi(origin));
+  if (onToolbar) mt.lastToolbarGestureAt = Date.now();
   else mt.lastPageGestureAt = Date.now();
-  if (mt.consensusMode !== "off") mtSyncConsensus(true);
+  if (mt.consensusMode !== "off") {
+    mtSyncConsensus(true);
+    // Enter in a form field submits; any other key is typing, not an action.
+    const actionable = !onToolbar && (event.type === "keydown"
+      ? event.key === "Enter" && (origin instanceof Element) && (!!origin.closest("form") || !!mtActionTarget(event))
+      : !!mtActionTarget(event));
+    if (event.type !== "keydown" || event.key === "Enter") document.dispatchEvent(new CustomEvent("qts:mt-consensus-command", { detail: { actionable } }));
+  }
 }
 
 function mtIsTextEntry(element) {
@@ -7094,14 +7156,28 @@ function mtIsTextEntry(element) {
 
 // The element an event acts on: the nearest actionable node of the composed path (crosses the
 // page's own shadow roots), or the node itself when the page styles it as clickable.
+// Generic hooks (tabindex, onclick, a pointer cursor) also sit on whole-page wrappers (#app, main,
+// a clickable card list), and `cursor` is inherited, so a click on empty page space used to count as
+// an action (founder report 2026-10-23). Those only count on an element smaller than 40% of the
+// viewport, and a pointer cursor only when the element declares it (its parent does not).
+const MT_STRONG_ACTION_SELECTOR = "a[href],button,summary,select,option,label,input,[role=button],[role=link],[role=menuitem],[role=menuitemcheckbox],[role=menuitemradio],[role=tab],[role=checkbox],[role=radio],[role=switch],[role=option],[role=combobox]";
+const MT_MAX_GENERIC_TARGET_SHARE = 0.4;
+function mtIsSmallTarget(element) {
+  const rect = element.getBoundingClientRect();
+  return rect.width * rect.height <= MT_MAX_GENERIC_TARGET_SHARE * Math.max(1, window.innerWidth * window.innerHeight);
+}
 function mtActionTarget(event) {
   const path = event.composedPath?.() || [];
   for (const node of path) {
     if (!(node instanceof Element) || node === document.documentElement || node === document.body) break;
-    if (node.matches(MT_ACTIONABLE_SELECTOR)) return node;
+    if (node.matches(MT_STRONG_ACTION_SELECTOR)) return node;
+    if (node.matches(MT_ACTIONABLE_SELECTOR) && mtIsSmallTarget(node)) return node;
   }
   const first = path[0] instanceof Element ? path[0] : null;
-  return first && first !== document.documentElement && first !== document.body && getComputedStyle(first).cursor === "pointer" ? first : null;
+  if (!first || first === document.documentElement || first === document.body) return null;
+  const parent = first.parentElement;
+  const declaresPointer = getComputedStyle(first).cursor === "pointer" && !(parent && parent !== document.body && getComputedStyle(parent).cursor === "pointer");
+  return declaresPointer && mtIsSmallTarget(first) ? first : null;
 }
 
 // The label LEAVES the browser (proposal to the host, vote description to every guest), so it is
@@ -7632,7 +7708,7 @@ function mtRenderDrawer() {
   const view = mt.view;
   // The state is fetched every second while a vote is open: re-render only when something shown
   // changed, so typing in the chat box is not interrupted.
-  const signature = JSON.stringify([mt.status, mt.notice, mt.requireConsensus, view?.room, view?.me, view?.members, mt.presence.map((member) => member.userId), mt.proposals.map((proposal) => proposal.id), mt.chat.map((message) => message.id), view ? mtRemainingText(view) : "", state.t?.locale]);
+  const signature = JSON.stringify([mt.status, mt.notice, mt.requireConsensus, view?.room, view?.me, view?.members, mt.presence.map((member) => `${member.userId}|${member.href || ""}`), mt.proposals.map((proposal) => proposal.id), mt.chat.map((message) => message.id), view ? mtRemainingText(view) : "", state.t?.locale]);
   if (root.dataset.mtSignature === signature) return;
   root.dataset.mtSignature = signature;
   const nickname = escapeHtml(mtNickname());
@@ -7661,7 +7737,7 @@ function mtRenderDrawer() {
   const members = view.members.map((member) => `<li class="qts-mt-member" data-mt-member="${escapeHtml(member.userId)}">
       <span class="qts-mt-dot" style="background:${escapeHtml(member.color)}"></span>
       <span class="qts-mt-name">${escapeHtml(member.nickname)}${member.userId === view.me.userId ? ` <small>(${escapeHtml(translateQaSurfaceText("você"))})</small>` : ""}</span>
-      <small class="qts-mt-role">${escapeHtml(translateQaSurfaceText(member.status === "pending" ? "pedindo para entrar" : member.role === "host" ? "host" : online.has(member.userId) ? "online" : "offline"))}</small>
+      <small class="qts-mt-role">${escapeHtml(translateQaSurfaceText(member.status === "pending" ? "pedindo para entrar" : member.role === "host" ? "host" : online.has(member.userId) ? "online" : "offline"))}${mtMemberPageLabel(member.userId)}</small>
       ${isHost && member.status === "pending" ? `<button type="button" class="action primary" data-mt-approve="${escapeHtml(member.userId)}">${escapeHtml(translateQaSurfaceText("Aprovar"))}</button><button type="button" class="action" data-mt-reject="${escapeHtml(member.userId)}">${escapeHtml(translateQaSurfaceText("Recusar"))}</button>` : ""}
       ${isHost && member.status === "active" && member.role !== "host" ? `<button type="button" class="action" data-mt-remove="${escapeHtml(member.userId)}">${escapeHtml(translateQaSurfaceText("Remover"))}</button>` : ""}
     </li>`).join("");
@@ -7685,7 +7761,7 @@ function mtRenderDrawer() {
         <b>${ICON("lightbulb")} ${escapeHtml(translateQaSurfaceText("Propostas dos convidados"))}</b>
         ${proposals ? `<ul class="qts-mt-members">${proposals}</ul><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Para executar, clique você mesmo no elemento marcado na página."))}</p>` : `<p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Nenhuma proposta ainda."))}</p>`}
       </section>`
-    : `<section class="qts-card qts-mt-card qts-mt-notice" data-mt-guest-rules><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Você é convidado: seus cliques viram propostas para o host, e o host pede a sua confirmação antes de ações de risco."))}</p></section>`;
+    : `<section class="qts-card qts-mt-card qts-mt-notice" data-mt-guest-rules><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Você é convidado: seus cliques viram propostas para o host, e o host pede a sua confirmação antes de ações de risco."))}</p>${mtIsOnHostPage() ? "" : `<p class="qts-mt-hint" data-mt-host-elsewhere>${escapeHtml(translateQaSurfaceText("O host está em outra página. Os cursores aparecem quando vocês estão na mesma página."))}</p><button type="button" class="action primary" data-mt-follow>${escapeHtml(translateQaSurfaceText("Ir para a página do host"))}</button>`}</section>`;
   root.innerHTML = `<section class="qts-card qts-mt-card">
       <div class="qts-mt-head"><span class="qts-mt-status" data-state="${escapeHtml(mt.status)}">${escapeHtml(mtStatusLabel(mt.status))}</span><small>${escapeHtml(mtRemainingText(view))}</small></div>
       ${isHost && view.room.code ? `<div class="qts-mt-code"><span>${escapeHtml(translateQaSurfaceText("Código da sala"))}</span><strong data-mt-room-code>${escapeHtml(view.room.code)}</strong><button type="button" class="action" data-mt-copy>${ICON("clipboard")} ${escapeHtml(translateQaSurfaceText("Copiar"))}</button></div><p class="qts-mt-hint">${escapeHtml(translateQaSurfaceText("Só você vê o código. Quem entrar com ele ainda precisa da sua aprovação."))}</p>` : ""}
@@ -7765,6 +7841,9 @@ function openMultiTester() {
         } else if (target.matches("[data-mt-leave]")) {
           if (mt.view?.me?.role === "host" && !confirm(translateQaSurfaceText("Encerrar a sessão para todos? O código deixa de funcionar."))) return;
           await run(mtCall(mt.view?.me?.role === "host" ? "end" : "leave", { roomId }).then(mtApplyResponse));
+        } else if (target.matches("[data-mt-follow]")) {
+          const href = mtHostPageHref();
+          if (href) location.assign(href);
         } else if (target.matches("[data-mt-copy]")) {
           await navigator.clipboard?.writeText(mt.view?.room?.code || "");
           showQaToast(translateQaSurfaceText("Código copiado."));
@@ -8311,8 +8390,13 @@ function cursorDocumentZoom() {
   return Number.isFinite(raw) && raw > 0 ? raw : 1;
 }
 
+// Memoized on the stored object: this runs on every mouse move, and the stored config only changes
+// when the workspace is saved (which replaces the object).
+let cursorConfigCache = { source: undefined, config: null };
 function getCursorConfig() {
-  return sanitizeCursorConfig(state.workspace?.preferences?.keyViewCursor);
+  const source = state.workspace?.preferences?.keyViewCursor;
+  if (!cursorConfigCache.config || cursorConfigCache.source !== source) cursorConfigCache = { source, config: sanitizeCursorConfig(source) };
+  return cursorConfigCache.config;
 }
 
 // Inner layout of the live cursor surfaces (their light-DOM hosts are positioned by toolbar.css).
@@ -8345,20 +8429,28 @@ function ensureCursorSurface(id, innerHtml) {
 
 // Sets only the per-config color properties; left/top and the other inline layout survive.
 function applyCursorVars(host, config) {
+  const vars = cursorStyleVars(config);
+  const theme = getKeyViewPreferences().theme;
+  // Called on every mouse move: rewriting the same custom properties and data-theme still forced a
+  // style recalculation of the whole overlay each time (founder report 2026-10-23, laggy pointer).
+  if (host.qtsCursorVars === vars && host.dataset.theme === theme) return;
+  host.qtsCursorVars = vars;
   ["--qts-click-left", "--qts-click-right", "--qts-click-middle", "--qts-mouse-body", "--qts-mouse-lines"].forEach((name) => host.style.removeProperty(name));
-  cursorStyleVars(config).split(";").forEach((declaration) => {
+  vars.split(";").forEach((declaration) => {
     const [name, value] = declaration.split(":");
     if (name && value) host.style.setProperty(name, value);
   });
-  host.dataset.theme = getKeyViewPreferences().theme;
+  host.dataset.theme = theme;
 }
 
 // toolbar.css resets each host with `all: initial !important` (shields it from page CSS), and an
 // author !important beats a plain inline style, so left/top MUST be set as important too or the
 // host silently falls back to its static position (top-left of the page) instead of the pointer.
+// `translate`, not left/top: left/top re-ran layout and repainted the drop-shadow filter on every
+// mouse move, while translate is composited on the GPU. It is a property of its own, so it composes
+// with the mouse drawing's transform: scale() show animation. toolbar.css pins left/top to 0.
 function setCursorSurfacePosition(host, left, top) {
-  host.style.setProperty("left", `${left}px`, "important");
-  host.style.setProperty("top", `${top}px`, "important");
+  host.style.setProperty("translate", `${Math.round(left * 10) / 10}px ${Math.round(top * 10) / 10}px`, "important");
 }
 
 function positionMouseView(overlay) {
@@ -8451,12 +8543,17 @@ function syncPointerOverlay() {
     pointerHost.dataset.signature = signature;
   }
   const label = root.querySelector("[data-cursor-label]");
-  label.textContent = name;
-  label.hidden = !name;
+  if (label.textContent !== name) label.textContent = name;
+  if (label.hidden !== !name) label.hidden = !name;
   // Name pill just below-right of the tip, like Figma/Miro. With the system pointer it clears the OS
   // arrow, which is about 12x19px at 100%.
-  overlay.style.setProperty("--qts-label-x", `${pointer?.path ? Math.round(width * 0.7) : 14}px`);
-  overlay.style.setProperty("--qts-label-y", `${pointer?.path ? Math.round(height * 0.72) : 20}px`);
+  const labelOffset = `${pointer?.path ? Math.round(width * 0.7) : 14}|${pointer?.path ? Math.round(height * 0.72) : 20}`;
+  if (overlay.qtsLabelOffset !== labelOffset) {
+    overlay.qtsLabelOffset = labelOffset;
+    const [labelX, labelY] = labelOffset.split("|");
+    overlay.style.setProperty("--qts-label-x", `${labelX}px`);
+    overlay.style.setProperty("--qts-label-y", `${labelY}px`);
+  }
   const zoom = cursorDocumentZoom();
   setCursorSurfacePosition(overlay, (state.keyView.pointerX - hotspot.x * zoom) / zoom, (state.keyView.pointerY - hotspot.y * zoom) / zoom);
 }
@@ -8556,9 +8653,14 @@ function startKeyView() {
     state.keyView.pointerX = event.clientX;
     state.keyView.pointerY = event.clientY;
     state.keyView.pointerSeen = true;
-    syncPointerOverlay();
-    const overlay = document.getElementById("qts-mouse-view-overlay");
-    if (overlay?.classList.contains("isVisible")) positionMouseView(overlay);
+    // Mice report far more moves than the screen draws; coalesce them into one update per frame.
+    if (state.keyView.pointerFrame) return;
+    state.keyView.pointerFrame = requestAnimationFrame(() => {
+      state.keyView.pointerFrame = 0;
+      syncPointerOverlay();
+      const overlay = document.getElementById("qts-mouse-view-overlay");
+      if (overlay?.classList.contains("isVisible")) positionMouseView(overlay);
+    });
   };
   const onPointerOut = (event) => {
     if (event.relatedTarget) return;
@@ -11314,7 +11416,12 @@ async function boot() {
     syncToolbarForCurrentLocation();
   });
 
-  document.addEventListener("qts:location-change", () => syncToolbarForCurrentLocation());
+  document.addEventListener("qts:location-change", () => {
+    syncToolbarForCurrentLocation();
+    // SPA navigation keeps the document: re-announce the page so the others (and a following
+    // guest) see where this tester is now.
+    if (mtInRoom()) mtConnect();
+  });
   document.addEventListener("keydown", handleCustomToolShortcut, true);
   window.addEventListener("popstate", () => syncToolbarForCurrentLocation());
   window.addEventListener("hashchange", () => syncToolbarForCurrentLocation());

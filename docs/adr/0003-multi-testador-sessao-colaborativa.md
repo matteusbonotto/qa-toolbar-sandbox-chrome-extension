@@ -264,6 +264,27 @@ depois `npm run backend:apply-pending -- --apply`.
 - Convite controlado so pelo host; remocao de participante encerra a sessao daquele membro no
   servidor, nao so some o cursor no cliente.
 
+## Revisao apos o teste real do fundador (2026-10-23, v1.4.47)
+
+Teste com dois usuarios reais: so a aprovacao de entrada e o chat funcionaram. Causas e decisoes:
+
+- **Cursores nunca apareciam**: o receptor so desenha cursores de quem esta exatamente na mesma
+  `origin + pathname`, e nada levava os participantes para a mesma tela. Decisao (modelo
+  Figma/Miro, pagina compartilhada): cada participante publica na presence a pagina em que esta
+  (`href`, com query sensivel redigida por `safeCurrentUrl`), inclusive em navegacao SPA
+  (`qts:location-change` refaz o `join`). O convidado segue o host sozinho quando e o mesmo site;
+  em outro site o drawer mostra onde o host esta e um botao "Ir para a pagina do host" (nunca um
+  salto automatico para outra origem). O drawer mostra a pagina de cada participante online. A
+  presence usa a meta mais recente de cada usuario.
+- **Pedia autorizacao ate em `body`**: o gate do pagebridge segurava qualquer POST/PUT/PATCH/DELETE
+  durante a ativacao transitoria, entao a telemetria do site (GA, Clarity, Datadog) disparada por
+  qualquer clique abria votacao. Agora o toolbar informa ao pagebridge, a cada gesto confiavel, se
+  ele caiu num alvo acionavel (botao, link, submit, Enter em formulario); so requisicoes dentro de
+  5 s de um gesto acionavel sao seguradas, e `keepalive` e hosts de telemetria conhecidos nunca sao.
+  No convidado, `tabindex`/`onclick`/`cursor: pointer` so contam em elementos menores que 40% da
+  viewport, e `cursor: pointer` so quando o proprio elemento o declara (nao herdado do pai).
+- No reenvio de `join` com o canal ja aberto, o `userId` continua o da sessao (antes vinha da aba).
+
 ## Consequencias
 
 A feature e classificada HIGH RISK pelo `AGENTS.md`: toca autorizacao e identidade, exige RLS e RPC

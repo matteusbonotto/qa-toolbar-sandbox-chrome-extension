@@ -376,15 +376,6 @@ try {
     throw new Error(`Authentication did not unlock options: ${authMessage || "no auth message"}; options console: ${optionsErrors.join(" | ") || "none"}; worker console: ${workerErrors.join(" | ") || "none"}`, { cause: error });
   }
   trace("authenticated");
-  // Founder rule 2026-10-23: the login form remembers the e-mails that signed in on this device
-  // (datalist suggestions + prefill of the last one). Only the e-mail is stored, never the password.
-  const rememberedLogin = await options.evaluate(async () => {
-    const stored = await chrome.storage.local.get("qtsUiStateV1");
-    return { emails: stored.qtsUiStateV1?.rememberedLoginEmails, options: [...document.querySelectorAll("#rememberedLoginEmails option")].map((option) => option.value), raw: JSON.stringify(stored.qtsUiStateV1 || {}) };
-  });
-  if (rememberedLogin.emails?.[0] !== "tester@example.com" || !rememberedLogin.options.includes("tester@example.com")) throw new Error(`Login e-mail was not remembered after a successful sign-in: ${JSON.stringify(rememberedLogin)}`);
-  if (rememberedLogin.raw.includes("safe-test-password")) throw new Error("SECURITY REGRESSION: the login password was persisted in uiState");
-  trace("successful login e-mail remembered for the next sign-in, password not stored");
 
   // Regression test for the paywall-bypass vulnerability: forging {active:true,...} directly into
   // chrome.storage.local (exactly what a real user did via "Inspect service worker" -> console)
@@ -442,6 +433,16 @@ try {
   trace("first-login demo toolbar injection verified");
   await firstAccessTourTabs[0].close();
   trace("first-login onboarding opens exactly one tour tab");
+  // Founder rule 2026-10-23: the login form remembers the e-mails that signed in on this device
+  // (datalist suggestions + prefill of the last one). Only the e-mail is stored, never the password.
+  const rememberedLogin = await options.evaluate(async () => {
+    // Read after the first-access tour flags were written, the write that used to erase the e-mail.
+    const stored = await chrome.storage.local.get(null);
+    return { emails: stored.qtsRememberedLoginEmailsV1, options: [...document.querySelectorAll("#rememberedLoginEmails option")].map((option) => option.value), raw: JSON.stringify(stored) };
+  });
+  if (rememberedLogin.emails?.[0] !== "tester@example.com" || !rememberedLogin.options.includes("tester@example.com")) throw new Error(`Login e-mail was not remembered after a successful sign-in: ${JSON.stringify(rememberedLogin)}`);
+  if (rememberedLogin.raw.includes("safe-test-password")) throw new Error("SECURITY REGRESSION: the login password was persisted in uiState");
+  trace("successful login e-mail remembered for the next sign-in, password not stored");
   // The onboarding assertion above intentionally seeds the demo workspace. Reset only this
   // isolated smoke profile so the remaining workspace CRUD checks start from their own fixture.
   await options.evaluate(async () => window.QTS_STORAGE.saveWorkspace(window.QTS_STORAGE.normalizeWorkspace({})));
@@ -779,6 +780,32 @@ try {
   await host.waitForFunction(() => getComputedStyle(document.documentElement).getPropertyValue("--qts-ui-primary").trim() === "#3b82f6");
   await options.evaluate(async (scope) => window.QTS_STORAGE.saveSiteScope(scope), scopeBeforeAllSites);
   trace("all-sites toolbar follows the selected color theme");
+
+  // Founder report 2026-10-23: after a Chrome Web Store update users were not told what changed (the
+  // notice repeated one stale fixed text, only inside the bell). Simulate an update from 1.4.44: the
+  // notes of every newer version open by themselves once, and never again after "Entendi".
+  const installedVersion = await options.evaluate(() => chrome.runtime.getManifest().version);
+  await options.evaluate(async (version) => {
+    const current = (await chrome.storage.local.get("qtsUiStateV1")).qtsUiStateV1 || {};
+    delete current.releaseNoteAutoOpened;
+    await chrome.storage.local.set({ qtsUiStateV1: { ...current, pendingReleaseNote: { version, previousVersion: "1.4.44", installedAt: new Date().toISOString() } } });
+  }, installedVersion);
+  const updatedPage = await context.newPage();
+  await updatedPage.goto("http://127.0.0.1:43117/after-update");
+  const releaseNotesDone = updatedPage.locator("#releaseNotesDone");
+  await releaseNotesDone.waitFor({ timeout: 15_000 }).catch((error) => { throw new Error("Release notes did not open by themselves after an update", { cause: error }); });
+  const releaseNotesText = await updatedPage.locator("#qts-toolbar-host").evaluate((node) => node.shadowRoot.textContent);
+  if (!releaseNotesText.includes(`Atualizado para a versão ${installedVersion}`) || !releaseNotesText.includes("O login lembra os e-mails") || releaseNotesText.includes("A conta ativa agora mostra o plano")) throw new Error(`Release notes did not list the versions after 1.4.44: ${releaseNotesText.slice(0, 600)}`);
+  await updatedPage.screenshot({ path: resolve(evidencePath, "extension-release-notes.png"), fullPage: false });
+  await releaseNotesDone.click();
+  await updatedPage.reload();
+  await updatedPage.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await updatedPage.waitForTimeout(1_500); // gives maybeShowFirstRunIntro time to run; the notes must stay closed
+  if (await releaseNotesDone.count()) throw new Error("Release notes opened again after the user dismissed them");
+  const releaseState = await options.evaluate(async () => (await chrome.storage.local.get("qtsUiStateV1")).qtsUiStateV1);
+  if (releaseState?.pendingReleaseNote || releaseState?.lastSeenReleaseVersion !== installedVersion) throw new Error(`Dismissing the release notes did not clear them: ${JSON.stringify(releaseState)}`);
+  await updatedPage.close();
+  trace("release notes open once by themselves after an update and list every newer version");
   // The Settings page is the extension's own chrome.runtime page (not a content script), so it has
   // its own separate --accent token that needs the same preset applied to it directly -- otherwise
   // Settings keeps the fixed purple regardless of what the user picked (screenshotted as evidence
@@ -2022,6 +2049,18 @@ try {
   await host.getByText("Configurações salvas.").waitFor();
   await host.locator("#drawerClose").click();
   await host.locator("main").dispatchEvent("pointermove", { clientX: 500, clientY: 400, bubbles: true });
+  // Pointer updates are coalesced to one per animation frame: let two frames pass before reading.
+  await host.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  // Performance (founder report 2026-10-23, laggy custom pointer): moving the pointer must not
+  // rewrite the overlay's color variables or use left/top (layout + filter repaint every move).
+  const pointerStyleBefore = await host.evaluate(() => document.getElementById("qts-pointer-overlay")?.getAttribute("style") || "");
+  for (let step = 1; step <= 20; step += 1) await host.locator("main").dispatchEvent("pointermove", { clientX: 500 + step, clientY: 400 + step, bubbles: true });
+  await host.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
+  const pointerStyleAfter = await host.evaluate(() => document.getElementById("qts-pointer-overlay")?.getAttribute("style") || "");
+  const withoutPosition = (style) => style.replace(/translate:[^;]*;?/, "").trim();
+  if (!/translate:\s*[\d.]+px [\d.]+px/.test(pointerStyleAfter) || /(^|;)\s*(left|top):/.test(pointerStyleAfter) || withoutPosition(pointerStyleBefore) !== withoutPosition(pointerStyleAfter)) throw new Error(`Moving the custom pointer rewrote more than its translate: ${JSON.stringify({ pointerStyleBefore, pointerStyleAfter })}`);
+  await host.locator("main").dispatchEvent("pointermove", { clientX: 500, clientY: 400, bubbles: true });
+  await host.evaluate(() => new Promise((done) => requestAnimationFrame(() => requestAnimationFrame(done))));
   const pointerPlacement = await host.evaluate(() => {
     const overlay = document.getElementById("qts-pointer-overlay");
     const shape = overlay?.shadowRoot?.querySelector(".qts-pointer-figure")?.getBoundingClientRect();
@@ -2102,7 +2141,7 @@ try {
     }
     throw new Error(`Multi Testador consensus: timed out waiting for ${label}`);
   };
-  await host.evaluate(() => {
+  const mtCreateLab = () => host.evaluate(() => {
     const lab = document.createElement("section");
     lab.id = "mtLab";
     // Left column, away from the drawer; its own click counter so #multiTarget's count (Multiclick
@@ -2124,8 +2163,22 @@ try {
       xhr.onerror = () => { xhrButton.dataset.result = "blocked"; };
       xhr.send("xhr");
     });
+    // A site that POSTs from a click on a non-actionable element (telemetry-like). Founder report
+    // 2026-10-23: a click on the page background used to hold such a request and ask for a vote.
+    document.querySelector("main h1").addEventListener("click", () => { fetch("/api/mt-telemetry", { method: "POST", body: "background-click" }); });
   });
+  await mtCreateLab();
   if (!await host.locator("[data-mt-consensus]").isChecked()) throw new Error("Exigir confirmação de todos must be on by default");
+  // Host: a real click on a non-actionable element is not an action, so its POST leaves at once.
+  const telemetryPosts = () => serverRequests.filter((entry) => entry.method === "POST" && entry.url === "/api/mt-telemetry").length;
+  const votesBeforeBackground = multiTesterState.voteRequests.length;
+  const telemetryBefore = telemetryPosts();
+  // The Multi Testador drawer covers the page at this point: close it for the click, reopen after.
+  await mtCloseDrawer();
+  await host.locator("main h1").click();
+  await mtWaitFor(() => telemetryPosts() > telemetryBefore, "the background-click POST to leave without a vote");
+  await mtOpenDrawer();
+  if (multiTesterState.voteRequests.length !== votesBeforeBackground || await host.locator("[data-mt-hold-panel], [data-mt-host-vote]").count()) throw new Error("A click on a non-actionable element asked the room to vote");
   mtPush("chat", { from: MT_GUEST_ID, text: "mensagem forjada pelo canal", at: new Date().toISOString() });
   // Deliberate wait: covers the poke-triggered state fetch (at most 1s apart).
   await host.waitForTimeout(1_500);
@@ -2221,6 +2274,11 @@ try {
   const guestProposal = await mtWaitFor(() => multiTesterState.broadcasts.find((payload) => payload.event === "proposal" && payload.payload?.label === "Alvo"), "the guest proposal");
   if (guestProposal.payload.selector !== "#mtTarget" || guestProposal.payload.url !== mtPageKey) throw new Error(`Guest proposal does not identify the element: ${JSON.stringify(guestProposal)}`);
   await mtWaitFor(() => multiTesterState.broadcasts.find((payload) => payload.event === "proposal" && payload.payload?.label === "Excluir MT"), "the second guest proposal");
+  const proposalsBeforeBackground = multiTesterState.broadcasts.filter((payload) => payload.event === "proposal").length;
+  await host.locator("main h1").click();
+  // Deliberate wait: long enough for a proposal broadcast to reach the fake channel if one were sent.
+  await host.waitForTimeout(500);
+  if (multiTesterState.broadcasts.filter((payload) => payload.event === "proposal").length !== proposalsBeforeBackground) throw new Error("A guest click on a non-actionable element became a proposal");
   await host.waitForTimeout(300);
   if (await host.locator("#mtTarget").getAttribute("data-clicks") !== clicksBefore || mtSaves() !== savesBeforeGuest) throw new Error("A guest click executed on the page without the host");
   const waiting = await host.locator("[data-mt-waiting]").innerText();
@@ -2253,7 +2311,36 @@ try {
   // The server settles it (only active guest approved): the prompt closes from the state alone.
   await host.locator('[data-mt-guest-vote="vSmokeGuestVote01"]').waitFor({ state: "detached" });
   if (multiTesterState.serverVotes.get("vSmokeGuestVote01")?.status !== "approved") throw new Error("Guest approval was not stored server-side");
+  // Shared page (founder 2026-10-23): the guest sees where the host is and follows it.
+  // Like Supabase on a re-track: the new meta joins and the previous one leaves in the same diff.
+  let mtHostPresenceRef = "";
+  const mtHostPresence = (href) => {
+    const previous = mtHostPresenceRef;
+    mtHostPresenceRef = `h${Date.now()}`;
+    const meta = { phx_ref: mtHostPresenceRef, nickname: "Arara 7", color: "#0ea5e9", url: href.split(/[?#]/)[0], href };
+    wsSendText(multiTesterState.socket, JSON.stringify({ topic: multiTesterState.topic, event: "presence_diff", payload: { joins: { [MT_HOST_ID]: { metas: [meta] } }, leaves: previous ? { [MT_HOST_ID]: { metas: [{ phx_ref: previous }] } } : {} }, ref: null, join_ref: null }));
+  };
+  mtHostPresence("https://example.com/host-elsewhere");
   await mtOpenDrawer();
+  await host.locator("[data-mt-host-elsewhere]").waitFor({ timeout: 10_000 });
+  if (!await host.locator("[data-mt-follow]").isVisible() || !(await host.locator(`[data-mt-member="${MT_HOST_ID}"]`).innerText()).includes("example.com/host-elsewhere")) throw new Error("Guest drawer does not show where the host is");
+  if (!host.url().startsWith("http://127.0.0.1:43117/")) throw new Error("Guest jumped to another site without clicking");
+  await mtCloseDrawer();
+  const guestHomeUrl = host.url();
+  const joinsBeforeFollow = multiTesterState.joins;
+  mtHostPresence("http://127.0.0.1:43117/mt-host-page");
+  await host.waitForURL("http://127.0.0.1:43117/mt-host-page", { timeout: 15_000 }).catch((error) => { throw new Error(`Guest did not follow the host to the same-site page (at ${host.url()})`, { cause: error }); });
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  // The new page rejoins the room on a new socket; the next host presence goes to that one.
+  await mtWaitFor(() => multiTesterState.joins > joinsBeforeFollow, "the guest to rejoin the room after following the host");
+  mtHostPresenceRef = "";
+  mtHostPresence(guestHomeUrl);
+  await host.waitForURL(guestHomeUrl, { timeout: 15_000 });
+  await host.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await mtCreateLab();
+  await mtOpenDrawer();
+  await host.locator('.qts-mt-status[data-state="joined"]').waitFor({ timeout: 10_000 });
+  if (await host.locator("[data-mt-host-elsewhere]").count()) throw new Error("Guest on the host page still sees the host-elsewhere notice");
   await host.locator("[data-mt-leave]").click();
   await host.locator("[data-mt-create]").waitFor();
   if (await host.evaluate(() => !!document.getElementById("qts-mt-proposals"))) throw new Error("Proposal markers stayed on screen after leaving");
@@ -2261,15 +2348,20 @@ try {
   multiTesterState.myStatus = "active";
   // The guest gate is gone with the session: the page works again.
   await mtCloseDrawer();
+  const clicksAfterLeave = await host.locator("#mtTarget").getAttribute("data-clicks");
   await host.locator("#mtTarget").click();
-  if (await host.locator("#mtTarget").getAttribute("data-clicks") === clicksBefore) throw new Error("Page clicks stayed blocked after leaving the room");
+  if (await host.locator("#mtTarget").getAttribute("data-clicks") === clicksAfterLeave) throw new Error("Page clicks stayed blocked after leaving the room");
   await host.evaluate(() => document.getElementById("mtLab")?.remove());
   await mtOpenDrawer();
   trace("multi testador guest: click blocked into a proposal, waiting indicator, vote prompt answered through the function");
   await host.locator("#drawerClose").click();
   trace("multi testador room, approval, private channel, remote cursor, chat and end verified");
+  // Following the host reloaded the page, which drops the Key View text typed earlier: type again.
+  await host.locator("#macroText").click();
+  await host.keyboard.type("asd");
   await host.locator("[data-key-view-clear]").click();
-  if (await host.locator("#qts-key-view-overlay").count()) throw new Error("Key View typing was not cleared on demand");
+  // Just-typed keys keep their own short fade timer, so wait for the overlay instead of one read.
+  await host.locator("#qts-key-view-overlay").waitFor({ state: "detached", timeout: 5_000 }).catch((error) => { throw new Error("Key View typing was not cleared on demand", { cause: error }); });
   await host.locator("#toolsButton").click();
   await host.locator("#keyViewMenuItem").click();
   await host.locator("#drawerHeaderToggle").click();
