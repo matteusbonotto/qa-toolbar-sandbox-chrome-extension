@@ -761,6 +761,17 @@ try {
     const actual = await allSitesPage.evaluate(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("bar")?.style.getPropertyValue("--qts-bg") || "no toolbar").catch(() => "unreadable");
     throw new Error(`All-sites toolbar did not follow the selected color theme (expected #3b82f6, got ${actual})`, { cause: error });
   });
+  // Founder request 2026-10-23: the product logo replaces the environment name there, loaded from the
+  // extension (web-accessible icons/icon-48.png), so the image must really load on the page.
+  await allSitesPage.waitForFunction(() => {
+    const brand = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector(".qts-all-sites-brand");
+    const image = brand?.querySelector("img");
+    return brand?.textContent.trim() === "QA Toolbar Sandbox" && image?.complete && image.naturalWidth > 0;
+  }, null, { timeout: 10_000 }).catch(async (error) => {
+    const brandHtml = await allSitesPage.evaluate(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("#breadcrumb")?.innerHTML || "no breadcrumb");
+    throw new Error(`All-sites toolbar did not show the QA Toolbar Sandbox logo: ${brandHtml}`, { cause: error });
+  });
+  await allSitesPage.screenshot({ path: resolve(evidencePath, "extension-all-sites-logo.png"), clip: { x: 0, y: 0, width: 900, height: 80 } });
   await options.locator('[data-color-family="green"]').click();
   await allSitesPage.waitForFunction(() => document.querySelector("#qts-toolbar-host")?.shadowRoot?.getElementById("bar")?.style.getPropertyValue("--qts-bg") === "#22c55e");
   await allSitesPage.close();
@@ -1742,7 +1753,8 @@ try {
     return iframe?.contentWindow?.location.search.includes("__qtsbpua=1") && iframe.contentDocument?.readyState === "complete";
   });
   for (let attempt = 0; attempt < 50 && !serverRequests.slice(requestsBeforeViewer).some((entry) => entry.dest === "iframe" && entry.url.includes("__qtsbpua=1")); attempt += 1) await host.waitForTimeout(100);
-  if (await host.locator("#bpEmulateMobile").getAttribute("aria-pressed") !== "true" || await host.locator("#bpEmulateMobile").isHidden()) throw new Error("Emular celular toggle is not visible and on by default with a phone pane");
+  // Founder rule 2026-10-23: phone panes always emulate a phone, there is no "Emular celular" toggle.
+  if (await host.locator("#bpEmulateMobile").count()) throw new Error("The removed Emular celular toggle is back in the Breakpoint Viewer");
   const viewerRequests = serverRequests.slice(requestsBeforeViewer).filter((entry) => entry.dest === "iframe");
   const phoneRequest = viewerRequests.find((entry) => entry.url.includes("__qtsbpua=1"));
   const desktopPaneRequest = viewerRequests.find((entry) => !entry.url.includes("__qtsbpua=1"));
@@ -1761,7 +1773,32 @@ try {
   if (!isMobileUa(phoneSignals.phone.userAgent) || !(phoneSignals.phone.touch > 0) || !phoneSignals.phone.coarse || !phoneSignals.phone.hoverNone || phoneSignals.phone.screenWidth !== phoneSignals.phone.innerWidth) throw new Error(`Phone pane page does not look like a phone: ${JSON.stringify(phoneSignals.phone)}`);
   if (isMobileUa(phoneSignals.desktop.userAgent) || phoneSignals.desktop.coarse) throw new Error(`Desktop pane page was emulated as a phone: ${JSON.stringify(phoneSignals.desktop)}`);
   const sessionRulesOpen = await context.serviceWorkers()[0].evaluate(() => chrome.declarativeNetRequest.getSessionRules());
-  if (sessionRulesOpen.length !== 1 || sessionRulesOpen[0].condition.urlFilter !== "__qtsbpua=1^" || JSON.stringify(sessionRulesOpen[0].condition.resourceTypes) !== '["sub_frame"]' || sessionRulesOpen[0].condition.tabIds?.length !== 1) throw new Error(`Unexpected phone emulation session rules: ${JSON.stringify(sessionRulesOpen)}`);
+  if (sessionRulesOpen.length !== 1 || sessionRulesOpen[0].condition.urlFilter !== "__qtsbpua=1^" || JSON.stringify(sessionRulesOpen[0].condition.resourceTypes) !== '["sub_frame","xmlhttprequest"]' || sessionRulesOpen[0].condition.tabIds?.length !== 1) throw new Error(`Unexpected phone emulation session rules: ${JSON.stringify(sessionRulesOpen)}`);
+  // Founder report 2026-10-23 (Cinemark Club): SPA navigation fetches the next page's server render
+  // and the server picks the layout from that request's User-Agent, so the phone pane's same-origin
+  // fetch/XHR must leave as a phone while the laptop pane's stay desktop.
+  const requestsBeforeFetch = serverRequests.length;
+  const paneFrame = (pane) => host.frames().find((frame) => frame.parentFrame() && frame.name() === (pane === "b" ? "qts-bp-phone" : "") && frame.url().startsWith("http://127.0.0.1:43117/"));
+  await paneFrame("b").evaluate(async () => { await fetch("/api/data?pane=phone"); await new Promise((done) => { const xhr = new XMLHttpRequest(); xhr.open("GET", "/api/data?pane=phone-xhr"); xhr.onloadend = done; xhr.send(); }); });
+  await paneFrame("a").evaluate(() => fetch("/api/data?pane=laptop"));
+  const paneFetches = serverRequests.slice(requestsBeforeFetch).filter((entry) => entry.url.startsWith("/api/data?pane="));
+  const phoneFetch = paneFetches.find((entry) => entry.url.startsWith("/api/data?pane=phone&"));
+  const phoneXhr = paneFetches.find((entry) => entry.url.startsWith("/api/data?pane=phone-xhr&"));
+  const laptopFetch = paneFetches.find((entry) => entry.url === "/api/data?pane=laptop");
+  if (!phoneFetch || !isMobileUa(phoneFetch.userAgent) || !phoneXhr || !isMobileUa(phoneXhr.userAgent)) throw new Error(`Phone pane fetch/XHR did not leave with the phone User-Agent: ${JSON.stringify(paneFetches)}`);
+  if (!laptopFetch || isMobileUa(laptopFetch.userAgent)) throw new Error(`Laptop pane fetch leaked the phone User-Agent: ${JSON.stringify(paneFetches)}`);
+  // A full navigation inside the phone pane (link, location.href) loses the URL marker; the frame name
+  // brings it back so the new document is still served and shown as a phone.
+  const requestsBeforeNav = serverRequests.length;
+  await paneFrame("b").evaluate(() => { window.location.href = "/app/phone-nav"; });
+  await host.waitForFunction(() => {
+    const win = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector('[data-pane="b"] iframe')?.contentWindow;
+    try { return win?.location.pathname === "/app/phone-nav" && win.location.search.includes("__qtsbpua=1") && win.document.readyState === "complete"; } catch { return false; }
+  }, null, { timeout: 15_000 });
+  const navRequest = serverRequests.slice(requestsBeforeNav).find((entry) => entry.dest === "iframe" && entry.url.startsWith("/app/phone-nav?") && entry.url.includes("__qtsbpua=1"));
+  const navSignals = await host.evaluate(() => { const win = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector('[data-pane="b"] iframe')?.contentWindow; return { userAgent: win?.navigator.userAgent, touch: win?.navigator.maxTouchPoints }; });
+  if (!navRequest || !isMobileUa(navRequest.userAgent) || !isMobileUa(navSignals.userAgent) || !(navSignals.touch > 0)) throw new Error(`Navigation inside the phone pane fell back to desktop: ${JSON.stringify({ navRequest, navSignals, seen: serverRequests.slice(requestsBeforeNav) })}`);
+  trace("phone pane keeps the phone User-Agent on same-origin fetch/XHR and after navigating inside the pane");
   trace("breakpoint phone emulation verified (mobile UA on the phone pane only, touch/pointer signals, scoped session rule)");
   const responsiveCentering = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
@@ -1932,6 +1969,47 @@ try {
   if (keyBadge !== "×3") throw new Error(`Key repeat badge did not show ×3 after three rapid "j" presses: ${keyBadge}`);
   await host.waitForTimeout(3_600);
   if (await host.locator("[data-mouse-count].isVisible").count()) throw new Error("Mouse repeat badge did not reset after the 3s linger");
+  // Founder report 2026-10-23: changing the left/right/middle colors "was not applied". The drawer
+  // preview always pressed the left button, so a right/middle change never showed. Now the preview
+  // presses the edited button, body and line colors are free, and the live drawing uses all of them.
+  await host.locator("#toolsButton").click();
+  await host.locator("#keyViewMenuItem").click();
+  await host.locator('[data-cursor-choice="clickMode"][data-value="mouse"]').click();
+  const setDrawerColor = (selector, color) => host.locator(selector).evaluate((input, value) => { input.value = value; input.dispatchEvent(new Event("input", { bubbles: true })); }, color);
+  const previewPart = (part) => host.evaluate((selector) => { const figure = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("#cursorPreview .qts-mouse-figure"); const node = figure?.querySelector(selector); return node ? { pressed: figure.dataset.pressed, fill: getComputedStyle(node).fill, stroke: getComputedStyle(node).stroke } : null; }, part);
+  await setDrawerColor('[data-click-color="right"]', "#ff00ff");
+  await host.waitForFunction(() => { const figure = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("#cursorPreview .qts-mouse-figure"); return figure?.dataset.pressed === "right" && getComputedStyle(figure.querySelector(".qts-mouse-right")).fill === "rgb(255, 0, 255)"; }).catch(async (error) => { throw new Error(`Drawer preview did not show the edited right-button color: ${JSON.stringify(await previewPart(".qts-mouse-right"))}`, { cause: error }); });
+  await setDrawerColor('[data-click-color="middle"]', "#00ffff");
+  await host.waitForFunction(() => { const figure = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector("#cursorPreview .qts-mouse-figure"); return figure?.dataset.pressed === "middle" && getComputedStyle(figure.querySelector(".qts-mouse-wheel")).fill === "rgb(0, 255, 255)"; });
+  await setDrawerColor('[data-click-color="left"]', "#00ff00");
+  await setDrawerColor('[data-mouse-color="mouseBodyColor"]', "#112233");
+  await setDrawerColor('[data-mouse-color="mouseLineColor"]', "#ffcc00");
+  const previewBody = await previewPart(".qts-mouse-body");
+  if (previewBody?.fill !== "rgb(17, 34, 51)" || previewBody?.stroke !== "rgb(255, 204, 0)") throw new Error(`Drawer preview did not use the chosen body/line colors: ${JSON.stringify(previewBody)}`);
+  await host.locator("#keyViewSave").click();
+  await host.getByText("Configurações salvas.").waitFor();
+  await host.locator("#drawerClose").click();
+  for (const [button, part, expected] of [[0, ".qts-mouse-left", "rgb(0, 255, 0)"], [2, ".qts-mouse-right", "rgb(255, 0, 255)"], [1, ".qts-mouse-wheel", "rgb(0, 255, 255)"]]) {
+    await host.locator("main").dispatchEvent("mousedown", { button, clientX: 420, clientY: 320 });
+    // The button fill has a 90ms CSS transition, so wait for the settled color instead of reading once.
+    await host.waitForFunction(([selector, color]) => { const figure = document.getElementById("qts-mouse-view-overlay")?.shadowRoot?.querySelector(".qts-mouse-figure"); return figure && getComputedStyle(figure.querySelector(selector)).fill === color; }, [part, expected], { timeout: 3_000 }).catch(async (error) => {
+      const actual = await host.evaluate((selector) => { const figure = document.getElementById("qts-mouse-view-overlay")?.shadowRoot?.querySelector(".qts-mouse-figure"); return figure ? getComputedStyle(figure.querySelector(selector)).fill : "no overlay"; }, part);
+      throw new Error(`Live mouse drawing did not paint ${part} in its configured color (expected ${expected}, got ${actual})`, { cause: error });
+    });
+    await host.locator("main").dispatchEvent("mouseup", { button, clientX: 420, clientY: 320 });
+  }
+  await host.waitForFunction(() => !document.getElementById("qts-mouse-view-overlay")?.classList.contains("isVisible"), null, { timeout: 5_000 });
+  const liveBody = await host.evaluate(() => { const node = document.getElementById("qts-mouse-view-overlay")?.shadowRoot?.querySelector(".qts-mouse-body"); return node ? { fill: getComputedStyle(node).fill, stroke: getComputedStyle(node).stroke } : null; });
+  if (liveBody?.fill !== "rgb(17, 34, 51)" || liveBody?.stroke !== "rgb(255, 204, 0)") throw new Error(`Live mouse drawing did not use the chosen body/line colors: ${JSON.stringify(liveBody)}`);
+  // "Restaurar padrão" puts every cursor choice and color back to the defaults (the name stays).
+  await host.locator("#toolsButton").click();
+  await host.locator("#keyViewMenuItem").click();
+  await host.locator("#cursorRestoreDefaults").click();
+  await host.getByText("Padrão restaurado.").waitFor();
+  const restoredCursor = await options.evaluate(async () => (await chrome.storage.local.get("qtsWorkspaceV1")).qtsWorkspaceV1?.preferences?.keyViewCursor);
+  if (restoredCursor?.mouseBodyColor !== "" || restoredCursor?.mouseLineColor !== "" || Object.values(restoredCursor?.clickColors || {}).some(Boolean) || restoredCursor?.clickMode !== "mouse" || restoredCursor?.mouseStyle !== "normal" || restoredCursor?.pointer !== "system") throw new Error(`Restore defaults did not reset the cursor: ${JSON.stringify(restoredCursor)}`);
+  await host.locator("#drawerClose").click();
+  trace("mouse click/body/line colors applied in preview and live, restore defaults resets the cursor");
   // Drawn pointer + name pill land exactly on the real pointer (hotspot), the OS pointer is hidden so
   // recordings show one pointer, and spotlight/quake effects use each button's own color.
   await host.locator("#toolsButton").click();

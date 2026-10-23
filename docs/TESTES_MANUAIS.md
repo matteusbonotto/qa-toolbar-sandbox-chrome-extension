@@ -1,7 +1,7 @@
 # Testes manuais locais (antes de aprovar uma publicação)
 
 Roteiro curto para o fundador conferir no Chrome real o que os testes automáticos não provam
-visualmente. Versão atual da main: 1.4.45.
+visualmente. Versão atual da main: 1.4.46.
 
 ## 1. Abrir o Chrome de teste (1 comando)
 
@@ -25,8 +25,9 @@ visualmente. Versão atual da main: 1.4.45.
 ### Breakpoint Viewer (v1.4.40)
 - [ ] Abra o site do Cinemark Cineclub, Tools > Breakpoint Viewer. Na pane de celular, os planos
       aparecem **empilhados** (versão mobile); na pane de computador, lado a lado.
-- [ ] O botão "Emular celular" aparece ligado. Desligue: a pane de celular volta a mostrar a versão
-      de computador. Ligue de novo.
+- [ ] Não existe botão "Emular celular": a pane de celular sempre emula um celular (v1.4.46).
+- [ ] Navegue dentro da pane de celular (menu, link para o Cinemark Club): a página nova continua na
+      versão mobile, igual ao DevTools no mesmo tamanho (planos em tabela de 3 colunas).
 - [ ] Feche o viewer: a página normal continua como computador.
 
 ### Cursor e mouse da Key View (v1.4.39 e v1.4.41)
@@ -59,6 +60,15 @@ visualmente. Versão atual da main: 1.4.45.
 - [ ] Conta A encerra a sessão: o código antigo deixa de funcionar ("Código inválido ou sala
       encerrada").
 - [ ] Report Builder durante a sessão: aparece a linha "Participantes (Multi Testador)".
+
+### Cores do mouse e logo em "Todos os sites" (v1.4.46)
+- [ ] Key View > Ao clicar > Desenho do mouse: mude a cor do direito e do meio; a prévia aperta o
+      botão que você mudou e mostra a cor. Salve: o clique real na página usa as três cores.
+- [ ] "Cores do mouse": escolha Corpo e Linhas diferentes (com Preenchido e com Vazado); a prévia e
+      o mouse na página seguem. "Cores automáticas" volta ao automático.
+- [ ] "Restaurar padrão": tudo do cursor volta ao padrão, o nome no cursor continua.
+- [ ] Com "Todos os sites" ligado, num site sem ambiente, a barra mostra o logo e "QA Toolbar
+      Sandbox" no lugar do nome do ambiente.
 
 ### Login lembrado e cor da barra em "Todos os sites" (v1.4.45)
 - [ ] Entre com uma conta, saia e reabra Minha conta: o e-mail já vem preenchido e, ao clicar no

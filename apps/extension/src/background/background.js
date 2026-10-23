@@ -359,7 +359,11 @@ function mobileEmulationRule(tabId) {
     // longer value like __qtsbpua=12 never matches. urlFilter, not regexFilter: in the full smoke
     // run a regexFilter rule present before the request still did not rewrite the phone pane's
     // header (4 runs in a row), while this urlFilter form passed every time.
-    condition: { tabIds: [tabId], resourceTypes: ["sub_frame"], urlFilter: `${MOBILE_EMULATION_MARKER}^` },
+    // xmlhttprequest covers fetch/XHR from the phone pane: mobile-emulation.js adds the marker to its
+    // same-origin requests, because SPA frameworks (Next.js RSC, for one) fetch the next page's
+    // server render instead of loading a new document, and the server picks mobile or desktop from
+    // that request's User-Agent (founder report 2026-10-23, Cinemark Club plans in desktop layout).
+    condition: { tabIds: [tabId], resourceTypes: ["sub_frame", "xmlhttprequest"], urlFilter: `${MOBILE_EMULATION_MARKER}^` },
   };
 }
 
