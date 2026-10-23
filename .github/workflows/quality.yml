@@ -28,7 +28,14 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Install Playwright's Chromium (needed by scripts/test-gif-encoder.mjs, part of npm test)
-        run: npx playwright install --with-deps chromium
+        # --with-deps runs apt-get, which has hung on the runner for 10+ minutes when a mirror stalls
+        # (3 runs on 2026-10-23). 240s per attempt is ~4x a normal install; retry instead of waiting.
+        run: |
+          for attempt in 1 2 3; do
+            timeout 240 npx playwright install --with-deps chromium && exit 0
+            echo "Playwright install attempt $attempt timed out or failed, retrying"
+          done
+          exit 1
       - run: npm run typecheck
       - run: npm run test
       - name: Build isolated extension test package

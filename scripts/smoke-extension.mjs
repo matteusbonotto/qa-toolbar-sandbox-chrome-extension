@@ -794,7 +794,13 @@ try {
   await updatedPage.goto("http://127.0.0.1:43117/after-update");
   const releaseNotesDone = updatedPage.locator("#releaseNotesDone");
   await releaseNotesDone.waitFor({ timeout: 15_000 }).catch((error) => { throw new Error("Release notes did not open by themselves after an update", { cause: error }); });
-  const releaseNotesText = await updatedPage.locator("#qts-toolbar-host").evaluate((node) => node.shadowRoot.textContent);
+  // Only the drawer's visible text (the shadow root also holds the toolbar's <style>).
+  const releaseNotesText = await updatedPage.locator("#qts-toolbar-host").evaluate((node) => {
+    const done = node.shadowRoot.getElementById("releaseNotesDone");
+    const drawer = done?.closest("[role=dialog], .qts-drawer, aside, section") || done?.parentElement?.parentElement;
+    const title = node.shadowRoot.querySelector("#drawerTitle, .qts-drawer-title, h2")?.textContent || "";
+    return `${title} ${drawer?.innerText || ""}`.replace(/\s+/g, " ");
+  });
   if (!releaseNotesText.includes(`Atualizado para a versão ${installedVersion}`) || !releaseNotesText.includes("O login lembra os e-mails") || releaseNotesText.includes("A conta ativa agora mostra o plano")) throw new Error(`Release notes did not list the versions after 1.4.44: ${releaseNotesText.slice(0, 600)}`);
   await updatedPage.screenshot({ path: resolve(evidencePath, "extension-release-notes.png"), fullPage: false });
   await releaseNotesDone.click();

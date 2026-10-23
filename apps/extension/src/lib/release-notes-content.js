@@ -9,7 +9,7 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
-      version: "1.4.47",
+      version: "1.4.48",
       "pt-BR": [
         "Multi Testador: o convidado segue a página do host, e os cursores de todos aparecem na mesma tela, como no Figma e no Miro.",
         "Multi Testador: a confirmação de todos só é pedida em ações reais (botões, links e envios), não ao clicar em qualquer parte da página.",
@@ -101,7 +101,9 @@ window.QTS_RELEASE_NOTES = (() => {
     en: { title: (version) => `Updated to version ${version}`, intro: "Your existing data and settings were preserved. What changed:", fallback: "Stability improvements and fixes.", action: "Got it" },
     es: { title: (version) => `Actualizado a la versión ${version}`, intro: "Tus datos y configuraciones anteriores se conservaron. Qué cambió:", fallback: "Mejoras de estabilidad y correcciones.", action: "Entendido" },
   });
-  const MAX_ITEMS = 8;
+  // A cap only so a user many versions behind does not get an endless list; 8 already cut the notes
+  // of a user coming from 1.4.44 (1.4.46 and 1.4.47 filled it). The drawer scrolls.
+  const MAX_ITEMS = 15;
 
   // Notes of every version after `previousVersion` up to `currentVersion`, newest first. Without a
   // previous version (unknown), only the current version's notes.
