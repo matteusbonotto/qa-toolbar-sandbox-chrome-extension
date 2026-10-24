@@ -9,6 +9,21 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
+      version: "1.4.49",
+      "pt-BR": [
+        "Novo botão ⟳ \"Buscar atualizações\" no popup: procura a versão nova e reinicia a extensão para aplicá-la.",
+        "Cliente, projeto e ambiente na barra não mostram mais o cursor de ajuda (?) ao passar o mouse.",
+      ],
+      en: [
+        "New ⟳ \"Check for updates\" button in the popup: looks for a new version and restarts the extension to apply it.",
+        "Client, project and environment in the bar no longer show the help (?) cursor on hover.",
+      ],
+      es: [
+        "Nuevo botón ⟳ \"Buscar actualizaciones\" en el popup: busca la versión nueva y reinicia la extensión para aplicarla.",
+        "Cliente, proyecto y entorno en la barra ya no muestran el cursor de ayuda (?) al pasar el mouse.",
+      ],
+    },
+    {
       version: "1.4.48",
       "pt-BR": [
         "Multi Testador: o convidado segue a página do host, e os cursores de todos aparecem na mesma tela, como no Figma e no Miro.",
