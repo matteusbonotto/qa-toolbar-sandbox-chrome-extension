@@ -1031,7 +1031,7 @@ function buildShadowHost() {
       .qts-crumb-link { all: unset; cursor: pointer; display: inline-flex; align-items: center; }
       .qts-all-sites-brand { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
       .qts-all-sites-brand img { width: 20px; height: 20px; border-radius: 5px; flex: none; }
-      .qts-crumb-tooltip { display: inline-flex; align-items: center; cursor: help; }
+      .qts-crumb-tooltip { display: inline-flex; align-items: center; }
       .qts-crumb-link:hover { opacity: .8; text-decoration: underline; }
       .qts-client-label {
         display: inline-flex; align-items: center; gap: 4px; width: max-content; max-width: 220px;

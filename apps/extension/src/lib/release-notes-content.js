@@ -9,7 +9,7 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
-      version: "1.4.49",
+      version: "1.4.50",
       "pt-BR": [
         "Criar workspace refeito: cliente, produto e onde a barra aparece, com um exemplo em cada passo.",
         "Cada ambiente agora tem nome, cor e os endereços (URLs) onde a barra dele aparece, tudo no mesmo cartão.",
@@ -27,6 +27,21 @@ window.QTS_RELEASE_NOTES = (() => {
         "Cada ambiente ahora tiene nombre, color y las direcciones (URLs) donde aparece su barra, todo en la misma tarjeta.",
         "Un resumen muestra lo que se va a crear antes de guardar, y nada se guarda hasta que hagas clic en Finalizar.",
         "Los vouchers exclusivos de un dominio de correo ahora explican por qué no se pueden usar con otra cuenta.",
+      ],
+    },
+    {
+      version: "1.4.49",
+      "pt-BR": [
+        "Novo botão ⟳ \"Buscar atualizações\" no popup: procura a versão nova e reinicia a extensão para aplicá-la.",
+        "Cliente, projeto e ambiente na barra não mostram mais o cursor de ajuda (?) ao passar o mouse.",
+      ],
+      en: [
+        "New ⟳ \"Check for updates\" button in the popup: looks for a new version and restarts the extension to apply it.",
+        "Client, project and environment in the bar no longer show the help (?) cursor on hover.",
+      ],
+      es: [
+        "Nuevo botón ⟳ \"Buscar actualizaciones\" en el popup: busca la versión nueva y reinicia la extensión para aplicarla.",
+        "Cliente, proyecto y entorno en la barra ya no muestran el cursor de ayuda (?) al pasar el mouse.",
       ],
     },
     {
