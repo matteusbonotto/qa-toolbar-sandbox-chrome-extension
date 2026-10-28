@@ -115,7 +115,6 @@ legend { padding:0 6px; color:var(--muted); font-size:11px; font-weight:800; }
 .catalogTypeName { display:inline-flex; align-items:center; gap:12px; }
 .catalogTypeName img,.catalogTypeIcon { width:44px; height:44px; flex:0 0 44px; margin:4px 10px 4px 2px; border-radius:9px; object-fit:cover; vertical-align:middle; }
 .wizardExistingLabel { margin:0 0 8px; }
-.wizardRelationSummary { margin:0; }
 .typePickerGroup { display:flex; align-items:center; gap:8px; min-width:0; }
 .typePickerGroup select { flex:1 1 auto; min-width:0; }
 .typePickerGroup .button { flex:0 0 38px; width:38px; padding:0; font-size:18px; }
@@ -312,10 +311,9 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .formDialog::backdrop { background:rgba(4,5,8,.68); backdrop-filter:blur(3px); }
 .formDialogWide { width:min(760px,calc(100vw - 28px)); }
 
-/* Onboarding wizard - guides Cliente -> Projeto -> Produto -> Ambiente -> URLs, then three
-   optional steps (contas/pagamentos/inspectors), reusing the exact same storage mutations as the
-   flat CRUD tabs (workspace.X.push + persistWorkspace) so nothing here is a second, divergent way
-   to write data - just a guided front door onto the same one. */
+/* Onboarding wizard ("Criar workspace") - Cliente -> Produto -> Onde a barra aparece -> Ambientes
+   (nome, cor e URLs dentro de cada um) -> Revisão. Writes through the same storage mutations as the
+   flat CRUD tabs (workspace.X.push + persistWorkspace), only once, on "Concluir". */
 .wizardDialog { width:min(680px,calc(100vw - 28px)); max-height:min(720px,calc(100vh - 40px)); padding:0; flex-direction:column; }
 .wizardDialog[open] { display:flex; }
 .wizardDialog .dialogClose { position:absolute; top:14px; right:14px; width:32px; height:32px; border-radius:9px; border:1px solid var(--border); background:var(--control-bg); color:var(--muted); cursor:pointer; display:inline-flex; align-items:center; justify-content:center; z-index:2; }
@@ -329,7 +327,9 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
   width:22px; height:22px; border-radius:50%; display:flex; align-items:center; justify-content:center;
   background:var(--surface-2); border:1px solid var(--border); font-size:10px; font-weight:900; color:var(--muted);
 }
-.wizardStepDot.isDone .dot { background:var(--accent-2); border-color:var(--accent-2); color:#08221d; }
+/* --on-accent is the theme preset's own readable ink for --accent (any family, light or dark);
+   a fixed dark ink over --accent-2 failed contrast on the darker presets. */
+.wizardStepDot.isDone .dot { background:var(--accent); border-color:var(--accent); color:var(--on-accent,#fff); }
 .wizardStepDot.isActive .dot { background:var(--accent); border-color:var(--accent); color:#fff; box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent); }
 .wizardStepDot.isActive { color:var(--text); }
 .wizardStepDot .label { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; max-width:100%; }
@@ -338,10 +338,6 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .wizardStage h2 { margin:0 0 6px; font-size:20px; letter-spacing:-.015em; }
 .wizardLead { margin:0 0 18px; color:var(--muted); font-size:13px; max-width:52ch; }
 .wizardStageBody { display:grid; gap:14px; }
-.wizardAddRow { display:flex; gap:8px; flex-wrap:wrap; }
-.wizardAddRow input[type="text"] { flex:1 1 220px; min-width:0; }
-.wizardAddRow select { flex:0 1 180px; }
-.wizardAddRow .button { flex:none; }
 .wizardChipList { display:flex; flex-wrap:wrap; gap:8px; }
 .wizardChip {
   display:inline-flex; align-items:center; gap:6px; padding:7px 13px; border-radius:999px;
@@ -349,19 +345,7 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 }
 .wizardChip:hover { border-color:color-mix(in srgb,var(--accent) 45%,var(--border)); color:var(--hover-text); }
 .wizardChip.isSelected { background:color-mix(in srgb,var(--accent) 16%,var(--control-bg)); border-color:var(--accent); color:var(--text); }
-.wizardChip .parentTag { color:var(--text-dim,var(--muted)); font-weight:600; opacity:.75; }
 .wizardChipEmpty { color:var(--muted); font-size:12px; font-style:italic; }
-.wizardColorRow { display:flex; align-items:center; gap:10px; }
-.wizardColorRow input[type="color"] { width:44px; height:38px; padding:2px; flex:none; }
-.wizardEnvPreview {
-  display:flex; align-items:center; gap:10px; padding:11px 14px; border-radius:12px;
-  border:1px solid color-mix(in srgb,var(--wizard-preview-color,var(--accent)) 45%,var(--border));
-  background:color-mix(in srgb,var(--wizard-preview-color,var(--accent)) 8%,var(--subtle-bg));
-}
-.wizardEnvPreview .dot { width:10px; height:10px; border-radius:50%; background:var(--wizard-preview-color,var(--accent)); flex:none; }
-.wizardEnvPreview strong { font-size:12px; }
-.wizardOptionalCard { display:grid; gap:10px; padding:16px; border:1px dashed var(--border); border-radius:14px; background:var(--subtle-bg); }
-.wizardOptionalCard p { margin:0; color:var(--muted); font-size:12px; }
 .wizardOptionalActions { display:flex; gap:8px; flex-wrap:wrap; }
 .wizardCsvImport { display:grid; gap:6px; }
 .wizardCsvImport textarea { min-height:90px; font-family:var(--mono,monospace); font-size:11px; }
@@ -371,13 +355,11 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
   background:var(--dialog-bg);
 }
 .wizardActionsSpacer { flex:1; }
-.wizardTemplateSuccess { margin:0; padding:10px 14px; border-radius:10px; background:color-mix(in srgb,var(--accent-2) 14%,transparent); color:var(--accent-2); font-size:12px; font-weight:700; }
 @media (max-width:640px) {
   .wizardStepDots { padding:16px 16px 0; }
   .wizardStepDot .label { display:none; }
   .wizardStage { padding:16px 18px 4px; }
-  .wizardActions { padding:12px 16px; flex-wrap:wrap; }
-  .wizardActionsSpacer { flex-basis:100%; height:0; }
+  .wizardActions { padding:12px 16px; }
 }
 
 /* Workspace Studio 2026. Information density without the old CRUD wall. */
@@ -506,20 +488,114 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
 .wizardStepDot .label { font-size:11px; }
 .wizardStepDot.isActive { background:color-mix(in srgb,var(--accent) 12%,transparent); }
 .wizardPrivacy { display:flex; align-items:flex-start; gap:9px; margin-top:auto; padding:12px; border:1px solid var(--border); border-radius:12px; }
-.wizardPrivacy > span { color:var(--accent-2); font-size:18px; }
-.wizardPrivacy p { margin:0; color:var(--muted); font-size:9px; line-height:1.45; }
-.wizardPrivacy strong { display:block; color:var(--text); font-size:10px; }
+.wizardPrivacy p { margin:0; color:var(--muted); font-size:11px; line-height:1.45; }
+.wizardPrivacy strong { display:block; color:var(--text); font-size:12px; }
 .wizardMain { display:flex; flex-direction:column; min-width:0; min-height:0; }
 .wizardStage { padding:54px clamp(28px,5vw,64px) 28px; }
 .wizardStage h2 { font-size:28px; }
 .wizardLead { max-width:65ch; font-size:13px; line-height:1.6; }
 .wizardStageBody { gap:18px; }
-.wizardAddRow { padding:16px; border:1px solid var(--border); border-radius:14px; background:var(--subtle-bg); }
-.wizardOptionalCard { padding:20px; border-style:solid; }
-.wizardOptionalIntro { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; }
-.wizardOptionalFact { padding:12px; border:1px solid var(--border); border-radius:10px; background:var(--control-bg); }
-.wizardOptionalFact strong { display:block; margin-bottom:4px; color:var(--text); font-size:10px; }
-.wizardOptionalFact span { color:var(--muted); font-size:9px; line-height:1.4; }
+/* Guided setup (2026-10-28): explanations with examples, the "onde a barra aparece" choice with a
+   tiny visual, and one card per environment (name, color, live bar preview, URLs inside it). */
+.wizardStage h2:focus { outline:none; }
+.wizardStage h2:focus-visible { outline:2px solid var(--accent); outline-offset:4px; border-radius:6px; }
+.wizardStepDot { cursor:pointer; color:var(--muted); }
+.wizardStepDot:disabled { cursor:default; }
+.wizardStepDot:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+.wizardExample { display:flex; align-items:flex-start; gap:10px; margin:0; padding:12px 14px; border-radius:12px; border:1px dashed color-mix(in srgb,var(--accent) 45%,var(--border)); background:color-mix(in srgb,var(--accent) 7%,var(--subtle-bg)); color:var(--text); font-size:13px; line-height:1.5; }
+.wizardExampleTag { flex:none; padding:2px 8px; border-radius:999px; background:var(--accent); color:var(--on-accent,#fff); font-size:10px; font-weight:800; letter-spacing:.04em; text-transform:uppercase; }
+.wizardExample code, .wizardSummarySentence code, .wizardUrlHelp code { font-family:var(--mono,ui-monospace,monospace); font-size:12px; padding:1px 5px; border-radius:6px; background:var(--control-bg); border:1px solid var(--border); overflow-wrap:anywhere; }
+.wizardContext { margin:0; color:var(--muted); font-size:12px; }
+.wizardContext b { color:var(--text); }
+.wizardField { display:grid; gap:6px; min-width:0; }
+.wizardField > label, .wizardSwatches legend { color:var(--text); font-size:12px; font-weight:800; }
+.wizardField input[type="text"] { width:100%; min-width:0; }
+.wizardField input[aria-invalid="true"] { border-color:var(--danger); }
+.wizardFieldError { margin:0; color:var(--danger); font-size:12px; font-weight:700; }
+.wizardFieldError[hidden] { display:none; }
+.wizardExisting { display:grid; gap:8px; }
+.wizardExistingLabel { margin:0; color:var(--muted); font-size:12px; }
+.wizardNote { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
+.wizardNote b { color:var(--text); }
+.wizardColorDot { display:inline-block; width:10px; height:10px; margin-right:4px; border-radius:50%; background:var(--wizard-env-color,var(--accent)); vertical-align:baseline; box-shadow:0 0 0 1px color-mix(in srgb,var(--text) 18%,transparent); }
+
+.wizardScopeOptions { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.wizardScopeOption { position:relative; display:grid; gap:12px; align-content:start; padding:16px; border:2px solid var(--border); border-radius:16px; background:var(--subtle-bg); cursor:pointer; }
+.wizardScopeOption:hover { border-color:color-mix(in srgb,var(--accent) 50%,var(--border)); }
+.wizardScopeOption:has(input:checked) { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 10%,var(--subtle-bg)); }
+.wizardScopeOption:has(input:checked)::after { content:"\2713"; position:absolute; top:10px; right:12px; width:22px; height:22px; display:grid; place-items:center; border-radius:50%; background:var(--accent); color:var(--on-accent,#fff); font-size:12px; font-weight:900; }
+.wizardScopeOption:has(input:focus-visible) { outline:2px solid var(--accent); outline-offset:3px; }
+.wizardScopeText { display:grid; gap:4px; }
+.wizardScopeText b { color:var(--text); font-size:15px; padding-right:24px; }
+.wizardScopeText span { color:var(--text); font-size:12px; line-height:1.5; }
+.wizardScopeText small { color:var(--muted); font-size:11px; }
+.wizardScopeVisual { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.wizardMiniSite { display:grid; grid-template-rows:auto auto 1fr; min-height:62px; overflow:hidden; border:1px solid var(--border); border-radius:8px; background:var(--control-bg); }
+.wizardMiniUrl { padding:3px 5px; overflow:hidden; color:var(--muted); font-size:8px; text-overflow:ellipsis; white-space:nowrap; border-bottom:1px solid var(--border); }
+.wizardMiniBar { display:block; min-height:12px; padding:0 4px; background:var(--wizard-env-color,var(--accent)); color:#fff; font-size:8px; font-weight:900; line-height:12px; }
+.wizardMiniBar.isEmpty { background:transparent; }
+.wizardMiniBody { margin:5px; border-radius:3px; background:repeating-linear-gradient(to bottom,color-mix(in srgb,var(--muted) 22%,transparent) 0 3px,transparent 3px 7px); }
+
+.wizardUrlHelp { border:1px solid var(--border); border-radius:12px; background:var(--subtle-bg); }
+.wizardUrlHelp summary { padding:10px 14px; color:var(--text); font-size:12px; font-weight:800; cursor:pointer; }
+.wizardUrlHelp ul { display:grid; gap:8px; margin:0; padding:0 14px 12px; list-style:none; }
+.wizardUrlHelp li { display:grid; gap:3px; }
+.wizardUrlHelp li code { justify-self:start; }
+.wizardUrlHelp li span { color:var(--muted); font-size:12px; }
+.wizardEnvList { display:grid; gap:14px; }
+.wizardEnvCard { display:grid; gap:14px; padding:16px; border:1px solid var(--border); border-left:5px solid var(--wizard-env-color,var(--accent)); border-radius:14px; background:var(--subtle-bg); }
+.wizardEnvCardHead { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.wizardEnvCardHead h3 { margin:0; color:var(--text); font-size:14px; }
+.wizardSwatches { margin:0; padding:0; border:0; display:grid; gap:6px; min-width:0; }
+.wizardSwatchRow { display:flex; flex-wrap:wrap; align-items:center; gap:8px; }
+.wizardSwatch { position:relative; display:inline-flex; align-items:center; gap:6px; cursor:pointer; }
+.wizardSwatchDot { width:28px; height:28px; border-radius:50%; background:var(--wizard-env-color); border:2px solid var(--control-bg); box-shadow:0 0 0 1px var(--border); }
+.wizardSwatch input:checked + .wizardSwatchDot { box-shadow:0 0 0 2px var(--control-bg),0 0 0 4px var(--text); }
+.wizardSwatch input:focus-visible + .wizardSwatchDot { outline:2px solid var(--accent); outline-offset:4px; }
+.wizardSwatchCustom { padding:2px 10px 2px 2px; border:1px solid var(--border); border-radius:999px; background:var(--control-bg); color:var(--muted); font-size:11px; font-weight:700; }
+.wizardSwatchCustom.isSelected { border-color:var(--text); color:var(--text); }
+.wizardSwatchCustom input[type="color"] { width:26px; height:26px; padding:0; border:0; border-radius:50%; background:none; cursor:pointer; }
+.wizardSwatchCustom input[type="color"]::-webkit-color-swatch-wrapper { padding:0; }
+.wizardSwatchCustom input[type="color"]::-webkit-color-swatch { border:1px solid var(--border); border-radius:50%; }
+.wizardBarPreview { display:grid; gap:6px; }
+.wizardBarPreviewLabel { color:var(--muted); font-size:11px; font-weight:700; }
+.wizardBarPreviewStrip { display:flex; align-items:center; gap:10px; min-height:34px; padding:6px 12px; border-radius:10px; background:var(--wizard-env-color,var(--accent)); color:var(--wizard-env-ink,#fff); font-size:12px; overflow:hidden; }
+.wizardBarPreviewStrip b { padding:2px 8px; border-radius:6px; background:color-mix(in srgb,var(--wizard-env-ink,#fff) 18%,transparent); white-space:nowrap; }
+.wizardBarPreviewStrip span { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; opacity:.92; }
+.wizardUrlRow { display:flex; gap:8px; flex-wrap:wrap; }
+.wizardUrlRow input { flex:1 1 240px; min-width:0; }
+.wizardUrlRow .button { flex:none; }
+.wizardUrlList { display:flex; flex-wrap:wrap; gap:6px; margin:0; padding:0; list-style:none; }
+.wizardUrlList .patternPill code { font-family:var(--mono,ui-monospace,monospace); font-size:11px; overflow-wrap:anywhere; }
+.wizardEnvMore { display:grid; gap:12px; justify-items:start; }
+
+.wizardSummary { display:grid; gap:8px; padding:16px; border:1px solid color-mix(in srgb,var(--accent) 40%,var(--border)); border-radius:14px; background:color-mix(in srgb,var(--accent) 8%,var(--subtle-bg)); }
+.wizardSummary.isDone { border-color:color-mix(in srgb,var(--accent-2) 50%,var(--border)); background:color-mix(in srgb,var(--accent-2) 10%,var(--subtle-bg)); }
+.wizardSummarySentence { margin:0; color:var(--text); font-size:15px; line-height:1.6; }
+.wizardInlineStatus { margin:0; color:var(--accent-2); font-size:12px; font-weight:800; }
+.wizardInlineStatus:empty { display:none; }
+.wizardOptionalList { display:grid; gap:10px; }
+.wizardOptionalList h3 { margin:0; color:var(--text); font-size:14px; }
+.wizardOptionalRow { display:grid; gap:10px; padding:12px 14px; border:1px solid var(--border); border-radius:12px; background:var(--subtle-bg); }
+.wizardOptionalActions a.button { display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+.wizardOptionalRow > div:first-child { display:grid; gap:2px; min-width:0; }
+.wizardOptionalRow strong { color:var(--text); font-size:13px; }
+.wizardOptionalRow span { color:var(--muted); font-size:12px; }
+.wizardIsNew::after { content:attr(data-tag); margin-left:5px; padding:1px 7px; border-radius:999px; background:var(--accent); color:var(--on-accent,#fff); font-size:10px; font-weight:800; vertical-align:2px; }
+.wizardTemplateRow { display:grid; gap:6px; justify-items:start; padding-top:4px; border-top:1px dashed var(--border); }
+.wizardTextLink { padding:4px 0; border:0; background:none; color:var(--accent); font:inherit; font-size:12px; font-weight:700; text-align:left; text-decoration:underline; text-underline-offset:3px; cursor:pointer; }
+.wizardTextLink:disabled { color:var(--muted); cursor:default; text-decoration:none; }
+.wizardTextLink:focus-visible { outline:2px solid var(--accent); outline-offset:2px; border-radius:4px; }
+.wizardUrlNarrow { display:grid; gap:10px; padding:12px 14px; border:1px solid var(--warning-border,var(--border)); border-radius:12px; background:var(--warning-bg,var(--subtle-bg)); color:var(--warning-text,var(--text)); font-size:12px; }
+.wizardUrlNarrow p { margin:0; line-height:1.5; }
+.wizardBarPreviewStrip.isAllSites { background:var(--accent); color:var(--on-accent,#fff); }
+.wizardBarPreview .wizardBarPreviewStrip + .wizardBarPreviewStrip { margin-top:6px; }
+.wizardCsvImport summary { color:var(--text); font-size:12px; font-weight:700; cursor:pointer; }
+.wizardCsvBody { display:grid; gap:6px; margin-top:8px; }
+@media (max-width:680px) {
+  .wizardScopeOptions { grid-template-columns:1fr; }
+  .wizardEnvCard { padding:12px; }
+}
 
 @media (max-width:900px) {
   .panel[data-panel="account"].isActive { grid-template-columns:1fr; }
@@ -545,7 +621,6 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
   .wizardStepDot::after,.wizardStepDot .label { display:none; }
   .wizardStage { padding:24px 18px; }
   .wizardStage h2 { font-size:22px; }
-  .wizardOptionalIntro { grid-template-columns:1fr; }
   .structureExplorer { padding:10px; }
   .hierarchyRoot,.hierarchyNode { padding:12px; }
   .hierarchyBranch { padding-left:20px; }
@@ -574,9 +649,6 @@ input::placeholder,textarea::placeholder { color:var(--muted); opacity:.82; }
   background:var(--dialog-bg); border-top:1px solid var(--border); z-index:2;
 }
 .formActions .button.primary { padding:0 22px; }
-.wizardSuccessDialog { text-align:center; width:min(440px,calc(100vw - 28px)); }
-.wizardSuccessIcon { width:48px; height:48px; margin:0 auto 12px; display:grid; place-items:center; border-radius:50%; background:color-mix(in srgb,var(--accent-2) 16%,transparent); color:var(--accent-2); font-size:24px; }
-.wizardSuccessDialog .formActions { justify-content:center; position:static; margin:18px 0 0; padding:16px 0 0; }
 .fullRow { flex-basis:100%!important; width:100%; }
 /* Was a flat, tiny, un-styled label - now reads as a real field caption at a glance (uppercase +
    letter-spacing separates "this is a label" from "this is the value" the way the rest of this

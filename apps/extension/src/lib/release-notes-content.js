@@ -9,6 +9,27 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
+      version: "1.4.49",
+      "pt-BR": [
+        "Criar workspace refeito: cliente, produto e onde a barra aparece, com um exemplo em cada passo.",
+        "Cada ambiente agora tem nome, cor e os endereços (URLs) onde a barra dele aparece, tudo no mesmo cartão.",
+        "Um resumo mostra o que vai ser criado antes de salvar, e nada é salvo antes de você clicar em Concluir.",
+        "Vouchers exclusivos de um domínio de e-mail agora explicam por que não podem ser usados com outra conta.",
+      ],
+      en: [
+        "Create workspace rebuilt: client, product and where the bar appears, with an example in each step.",
+        "Each environment now has a name, a color and the addresses (URLs) where its bar appears, all in the same card.",
+        "A summary shows what will be created before saving, and nothing is saved until you click Finish.",
+        "Vouchers limited to one email domain now explain why they can't be used with another account.",
+      ],
+      es: [
+        "Crear workspace rehecho: cliente, producto y dónde aparece la barra, con un ejemplo en cada paso.",
+        "Cada ambiente ahora tiene nombre, color y las direcciones (URLs) donde aparece su barra, todo en la misma tarjeta.",
+        "Un resumen muestra lo que se va a crear antes de guardar, y nada se guarda hasta que hagas clic en Finalizar.",
+        "Los vouchers exclusivos de un dominio de correo ahora explican por qué no se pueden usar con otra cuenta.",
+      ],
+    },
+    {
       version: "1.4.48",
       "pt-BR": [
         "Multi Testador: o convidado segue a página do host, e os cursores de todos aparecem na mesma tela, como no Figma e no Miro.",

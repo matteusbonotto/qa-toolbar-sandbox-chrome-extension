@@ -132,6 +132,9 @@ let currentLocale = "pt-BR";
 let searchQuery = "";
 let activeWorkspaceTab = "structure";
 let wizardOptionalComposerKey = null;
+// Mirrors the stored site scope ("all" | "environments" | "custom"); read by the first-access nudge
+// and the onboarding wizard, refreshed by loadScopeUi() after every load/save.
+let currentSiteScopeMode = "environments";
 const revealedAccountIds = new Set();
 
 function t(message, replacements) {
@@ -373,6 +376,9 @@ document.getElementById("voucherForm").addEventListener("submit", async (event) 
       voucher_unavailable: "Voucher inválido, expirado ou já utilizado.",
       voucher_already_redeemed: "Você já resgatou este voucher.",
       voucher_requires_checkout: "Este é um voucher de desconto - aplique-o na tela de checkout do site.",
+      // voucher-redeem answers 409 with this when the voucher has allowed_email_domains and the
+      // signed-in e-mail is outside them.
+      voucher_domain_not_allowed: "Este voucher é exclusivo para e-mails de um domínio específico. Entre com uma conta desse domínio.",
       rate_limit_exceeded: "Muitas tentativas. Aguarde alguns minutos.",
     };
     showMessage("voucherMessage", messages[response.error] || "Não foi possível aplicar o voucher agora.", "Error");
@@ -427,6 +433,7 @@ document.getElementById("deleteAccountForm").addEventListener("submit", async (e
 // Scope and toolbar preferences
 async function loadScopeUi() {
   const scope = await getSiteScope();
+  currentSiteScopeMode = scope.mode;
   const supportedMode = scope.mode === "all" ? "all" : "environments";
   document.querySelectorAll('input[name="scopeMode"]').forEach((input) => { input.checked = input.value === supportedMode; });
 }
@@ -790,6 +797,7 @@ function renderToolsMenuOrderList() {
 document.getElementById("saveGeneralSettings").addEventListener("click", async () => {
   const scopeMode = document.querySelector('input[name="scopeMode"]:checked')?.value || "environments";
   await saveSiteScope({ mode: scopeMode, patterns: [] });
+  currentSiteScopeMode = scopeMode;
 
   const compactEntities = Object.fromEntries([...document.querySelectorAll("[data-compact-entity]")].map((checkbox) => [checkbox.dataset.compactEntity, checkbox.checked]));
   workspace.preferences = {
@@ -1538,33 +1546,54 @@ function renderWorkspace() {
   restoreOptionsSearchFocus(searchFocus);
 }
 
-// First-access nudge: a single banner (not the multi-step checklist this used to be - that's now
-// the full onboardingWizard dialog below) pointing at the guided setup while the workspace is
-// still empty. Disappears the moment there's at least one client, project, product AND
-// environment - past that point it's the founder's own workspace, not a fresh install anymore.
+// First-access nudge: a single banner pointing at the guided setup while the workspace is still
+// empty. Disappears once there's a client and a product AND a place for the bar to show up
+// (an environment, or the "Todos os sites" scope, which needs no environment at all).
 function renderWorkspaceWizard() {
   const wizard = document.getElementById("workspaceWizard");
-  const stillEmpty = !workspace.clients.length || !workspace.projects.length || !workspace.products.length || !workspace.environments.length;
+  const hasPlace = workspace.environments.length > 0 || currentSiteScopeMode === "all";
+  const stillEmpty = !workspace.clients.length || !workspace.products.length || !hasPlace;
   wizard.hidden = !stillEmpty;
 }
 
 // ---------------------------------------------------------------------
-// Onboarding wizard: Cliente -> Projeto -> Produto -> Ambiente -> URLs, then optional operation data.
-// same workspace.X.push(...) + persistWorkspace() every other CRUD action in this file uses - this
-// is a guided front door onto that one path, not a second way to create data.
+// Onboarding wizard ("Criar workspace"). Founder feedback 2026-10-28 (after a live presentation):
+// the old 9-step flow (Cliente, Projeto, Produto, Ambiente, URLs + 4 optional steps, with a
+// "cadastrado com sucesso" dialog after every add) was confusing even for him. The new flow asks
+// only what a first-time user can answer, each with a plain explanation and an example:
+//   1. Cliente (the company)  2. Produto (the company's app/site)  3. Onde a barra aparece
+//   4. Ambientes (name + color, and INSIDE each one the URLs)  (only for "sites específicos")
+//   5. Revisão (one sentence like "Cliente Bankeiro, produto Uzzipay, ambiente STG (azul) em ...").
+// "Projeto" is no longer asked (founder decision): the wizard silently reuses/creates a project
+// named after the client, so the schema (product.projectId required) stays untouched. Everything
+// is kept as an in-memory draft and written once on "Concluir", through the same
+// workspace.X.push(...) + persistWorkspace() path every other CRUD action in this file uses.
+// Contas/Pagamentos/Dispositivos/Inspectors left the main flow and are offered on the completion
+// screen as optional next steps (same composers and CSV import as before).
 // ---------------------------------------------------------------------
 const WIZARD_STEPS = [
-  { key: "client", collection: "clients", label: () => t("Cliente"), title: () => t("Qual é o cliente?"), lead: () => t("A empresa que você atende - ou a sua própria, se for testar seu próprio produto. Pode adicionar mais de um.") },
-  { key: "project", collection: "projects", parentKey: "client", parentField: "clientId", label: () => t("Projeto"), title: () => t("Quais projetos esse cliente tem?"), lead: () => t("Uma frente de trabalho do cliente. Esse projeto é de outro cliente? É só trocar no seletor ao lado.") },
-  { key: "product", collection: "products", parentKey: "project", parentField: "projectId", label: () => t("Produto"), title: () => t("Qual produto esse projeto tem?"), lead: () => t("O app, sistema ou site que você vai testar. Também pode pertencer a outro projeto - é só trocar.") },
-  { key: "environment", label: () => t("Ambiente"), title: () => t("Crie um ambiente"), lead: () => t("QA, Staging, Produção... escolha uma cor - ela identifica esse ambiente na barra e na lista de URLs.") },
-  { key: "urls", label: () => t("URLs"), title: () => t("Onde esse produto roda?"), lead: () => t("Associe uma ou mais URLs ao ambiente que você acabou de criar. Pode pular e cadastrar depois.") },
-  { key: "testAccounts", collection: "testAccounts", label: () => t("Contas"), title: () => t("Quer cadastrar contas de teste?"), lead: () => t("Credenciais sandbox por ambiente, mascaradas na barra. Totalmente opcional.") },
-  { key: "paymentMethods", collection: "paymentMethods", label: () => t("Pagamentos"), title: () => t("Quer cadastrar meios de pagamento?"), lead: () => t("Cartões de teste sandbox, filtrados pelo ambiente. Totalmente opcional.") },
-  { key: "devices", collection: "devices", label: () => t("Dispositivos"), title: () => t("Quer cadastrar dispositivos?"), lead: () => t("Relacione aparelhos, sistemas operacionais e navegadores usados nos testes. Totalmente opcional.") },
-  { key: "inspectors", collection: "inspectors", label: () => t("Inspectors"), title: () => t("Quer observar endpoints?"), lead: () => t("Inspectors capturam respostas de API que batem com um padrão de URL. Totalmente opcional.") },
+  { key: "client", label: () => t("Cliente") },
+  { key: "product", label: () => t("Produto") },
+  { key: "scope", label: () => t("Onde a barra aparece") },
+  { key: "environments", label: () => t("Ambientes e URLs") },
+  { key: "review", label: () => t("Revisão") },
 ];
-const WIZARD_OPTIONAL_COMPOSER = { testAccounts: "testAccountComposer", paymentMethods: "paymentMethodComposer", devices: "deviceComposer", inspectors: "inspectorComposer" };
+const WIZARD_COLOR_PRESETS = [
+  { color: "#2563eb", name: "Azul" },
+  { color: "#16a34a", name: "Verde" },
+  { color: "#ca8a04", name: "Amarelo" },
+  { color: "#ea580c", name: "Laranja" },
+  { color: "#dc2626", name: "Vermelho" },
+  { color: "#7c3aed", name: "Roxo" },
+  { color: "#db2777", name: "Rosa" },
+  { color: "#475569", name: "Cinza" },
+];
+const WIZARD_OPTIONAL_STEPS = [
+  { key: "testAccounts", collection: "testAccounts", composer: "testAccountComposer", label: "Contas de teste", action: "Cadastrar conta de teste", lead: "Credenciais sandbox por ambiente, mascaradas na barra." },
+  { key: "paymentMethods", collection: "paymentMethods", composer: "paymentMethodComposer", label: "Meios de pagamento", action: "Cadastrar cartão de teste", lead: "Cartões de teste sandbox, filtrados pelo ambiente." },
+  { key: "devices", collection: "devices", composer: "deviceComposer", label: "Dispositivos", action: "Cadastrar dispositivo", lead: "Aparelhos, sistemas operacionais e navegadores usados nos testes." },
+  { key: "inspectors", collection: "inspectors", composer: "inspectorComposer", label: "Inspectors", action: "Criar Inspector", lead: "Capturam respostas de API que batem com um padrão de URL." },
+];
 const WIZARD_CSV_SCHEMA = {
   testAccounts: { columns: ["label", "username", "password", "notes"], example: "label,username,password,notes\nConta QA,qa@exemplo.com,Senha123,Uso interno" },
   paymentMethods: { columns: ["label", "holder", "value", "expiry", "cvv", "notes"], example: "label,holder,value,expiry,cvv,notes\nCartão Visa,QA Sandbox,4242424242424242,12/2030,123,Somente teste" },
@@ -1573,152 +1602,392 @@ const WIZARD_CSV_SCHEMA = {
 };
 
 let wizardStepIndex = 0;
-// What THIS wizard session has created/picked at each level, so the next step defaults sensibly
-// (a project you just added under "Cliente X" makes "Cliente X" the product step's default
-// parent) without ever forcing it - every add row still lets you repoint to any existing parent.
-let wizardSelection = { client: new Set(), project: new Set(), product: new Set(), environment: new Set() };
+let wizardDraft = null;
+// Set after "Concluir": what was saved, so the completion screen can describe it and the optional
+// next steps (contas, pagamentos...) can be pre-scoped to the product/environments just created.
+let wizardDone = null;
+let wizardEnvKeySeq = 0;
 
-function resetWizardSelection() {
-  wizardSelection = { client: new Set(), project: new Set(), product: new Set(), environment: new Set() };
-  wizardStepIndex = 0;
+function createWizardDraft() {
+  return {
+    clientId: "", clientName: "",
+    productId: "", productName: "",
+    // Only preselect "Todos os sites" when that's already the active scope; a fresh install is
+    // "environments" by default, and that default must not look like a choice the user made.
+    scopeMode: currentSiteScopeMode === "all" ? "all" : "",
+    environments: [],
+  };
+}
+
+function createWizardEnvDraft(existing) {
+  wizardEnvKeySeq += 1;
+  return {
+    key: `env${wizardEnvKeySeq}`,
+    environmentId: existing?.id || "",
+    name: existing?.name || "",
+    color: existing?.color || WIZARD_COLOR_PRESETS[0].color,
+    patterns: [],
+  };
+}
+
+function sameName(left, right) {
+  return String(left || "").trim().toLocaleLowerCase() === String(right || "").trim().toLocaleLowerCase();
+}
+
+function wizardFlow() {
+  return WIZARD_STEPS.filter((step) => step.key !== "environments" || wizardDraft.scopeMode !== "all");
 }
 
 function wizardStep() {
-  return WIZARD_STEPS[wizardStepIndex];
+  return wizardFlow()[wizardStepIndex];
 }
 
-function showWizardSuccess(label) {
-  return new Promise((resolve) => {
-    const dialog = document.getElementById("wizardSuccessDialog");
-    document.getElementById("wizardSuccessTitle").textContent = t("{item} adicionado com sucesso", { item: label });
-    const finish = (choice) => { dialog.close(); resolve(choice); };
-    document.getElementById("wizardSuccessAnother").onclick = () => finish("another");
-    document.getElementById("wizardSuccessContinue").onclick = () => finish("continue");
-    dialog.showModal();
+// Typing a name that already exists reuses that record instead of creating a duplicate.
+function wizardResolveClient() {
+  const byId = wizardDraft.clientId ? findById("clients", wizardDraft.clientId) : null;
+  if (byId && sameName(byId.name, wizardDraft.clientName)) return byId;
+  return workspace.clients.find((client) => !client.locked && sameName(client.name, wizardDraft.clientName)) || null;
+}
+
+function wizardProductsOfClient(client) {
+  if (!client) return [];
+  const projectIds = new Set(workspace.projects.filter((project) => project.clientId === client.id).map((project) => project.id));
+  return workspace.products.filter((product) => !product.locked && projectIds.has(product.projectId));
+}
+
+function wizardResolveProduct(client) {
+  const candidates = wizardProductsOfClient(client);
+  const byId = candidates.find((product) => product.id === wizardDraft.productId);
+  if (byId && sameName(byId.name, wizardDraft.productName)) return byId;
+  return candidates.find((product) => sameName(product.name, wizardDraft.productName)) || null;
+}
+
+function wizardColorName(color) {
+  const preset = WIZARD_COLOR_PRESETS.find((item) => item.color.toLowerCase() === String(color).toLowerCase());
+  return preset ? t(preset.name).toLocaleLowerCase() : String(color).toLowerCase();
+}
+
+// Readable text on top of the environment color in the bar preview (WCAG relative luminance).
+function wizardInkFor(hex) {
+  const value = /^#[0-9a-f]{6}$/i.test(hex) ? hex : "#3a3a3a";
+  const [r, g, b] = [1, 3, 5].map((offset) => {
+    const channel = parseInt(value.slice(offset, offset + 2), 16) / 255;
+    return channel <= 0.03928 ? channel / 12.92 : ((channel + 0.055) / 1.055) ** 2.4;
   });
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.36 ? "#111318" : "#ffffff";
 }
 
-async function continueWizardAfterSuccess(label) {
-  const choice = await showWizardSuccess(label);
-  if (choice === "continue" && wizardStepIndex < WIZARD_STEPS.length - 1) wizardStepIndex += 1;
-  renderWizardStep();
+// The translated sentence is escaped first and only then gets its {placeholders} swapped for
+// markup, so user-typed names are escaped exactly once and translations stay plain text.
+function wizardRich(template, values) {
+  let html = escapeHtml(t(template));
+  for (const [key, value] of Object.entries(values)) html = html.replaceAll(`{${key}}`, value);
+  return html;
 }
 
-// Required for the core hierarchy (client/project/product/environment) - optional for URLs and
-// the three trailing steps, which all have their own explicit "Pular" action anyway.
-function wizardStepCanAdvance() {
-  const step = wizardStep();
-  if (["testAccounts", "paymentMethods", "devices", "inspectors", "urls"].includes(step.key)) return true;
-  return wizardSelection[step.key]?.size > 0;
+function wizardExampleHtml(template, values) {
+  return `<p class="wizardExample"><span class="wizardExampleTag">${escapeHtml(t("Exemplo"))}</span><span>${wizardRich(template, values)}</span></p>`;
 }
 
-function wizardEntityChip(item, selectionKey) {
-  const selected = wizardSelection[selectionKey].has(item.id);
-  return `<button type="button" class="wizardChip${selected ? " isSelected" : ""}" data-wizard-chip="${escapeHtml(item.id)}">${selected ? ICON("pass") : ""} ${escapeHtml(item.name)}</button>`;
+// normalizeUrlPatterns (the same normalizer storage uses) accepts almost anything, so the wizard
+// adds a plain-language check on top: one address, no spaces, with a real host (a dot, localhost,
+// an IP or a "*" wildcard). Returns { patterns } or { error }.
+function wizardParseUrlInput(rawValue) {
+  const value = String(rawValue || "").trim();
+  if (!value) return { error: t("Digite o endereço do site. Ex.: https://stg.uzzipay.com.br") };
+  const parts = value.split(/[\n,]/).map((part) => part.trim()).filter(Boolean);
+  if (parts.some((part) => /\s/.test(part))) return { error: t("O endereço não pode ter espaços.") };
+  const patterns = normalizeUrlPatterns(parts);
+  if (!patterns.length) return { error: t("Digite o endereço do site. Ex.: https://stg.uzzipay.com.br") };
+  for (const pattern of patterns) {
+    const match = pattern.match(/^(\*|https?|wss?|file):\/\/([^/]+)(\/.*)?$/i);
+    const host = match ? match[2].replace(/:\d+$/, "").replace(/^\*\./, "") : "";
+    const hostLooksReal = host === "*" || host === "localhost" || /^\d{1,3}(?:\.\d{1,3}){3}$/.test(host) || /^[a-z0-9*-]+(?:\.[a-z0-9*-]+)+$/i.test(host);
+    if (!match || !hostLooksReal) return { error: t("Esse endereço não parece um site. Use o endereço completo, como https://stg.uzzipay.com.br") };
+  }
+  return { patterns };
 }
 
-function renderWizardEntityStep(step) {
-  const items = workspace[step.collection] || [];
-  const parentStep = step.parentKey ? WIZARD_STEPS.find((candidate) => candidate.key === step.parentKey) : null;
-  const parentItems = parentStep ? workspace[parentStep.collection] || [] : null;
-  const parentSelectionIds = step.parentKey ? [...wizardSelection[step.parentKey]] : null;
-  const relevantParentId = parentSelectionIds?.length ? parentSelectionIds[parentSelectionIds.length - 1] : null;
-  const visibleItems = step.parentField && parentSelectionIds?.length
-    ? items.filter((item) => parentSelectionIds.includes(item[step.parentField]))
-    : items;
-  const parentOptions = parentItems
-    ? (parentItems.length ? parentItems.map((parent) => `<option value="${escapeHtml(parent.id)}" ${parent.id === relevantParentId ? "selected" : ""}>${escapeHtml(parent.name)}</option>`).join("") : `<option value="">${escapeHtml(t("Nenhum cadastrado ainda"))}</option>`)
+// "https://stg.uzzipay.com.br/*" -> "https://stg.uzzipay.com.br/" (a link the user can open from
+// the completion screen and the binding's primaryUrl). Wildcard hosts have no single URL.
+function wizardConcreteUrl(pattern) {
+  const match = String(pattern).match(/^(https?:\/\/[^*/]+)(\/[^*]*)\*?$/i);
+  return match ? `${match[1]}${match[2]}` : "";
+}
+
+// Splits a stored pattern into { origin, host, path }: "https://stg.x.com/conta*" ->
+// { origin: "https://stg.x.com", host: "stg.x.com", path: "/conta*" }.
+function wizardPatternParts(pattern) {
+  const match = String(pattern).match(/^((?:\*|[a-z]+):\/\/([^/]+))(\/.*)?$/i);
+  return match ? { origin: match[1], host: match[2], path: match[3] || "/*" } : null;
+}
+
+// Plain-language reading of a pattern for the review/completion sentences (founder feedback:
+// "/*" means nothing to someone with zero context).
+function wizardHumanPattern(pattern) {
+  const parts = wizardPatternParts(pattern);
+  if (!parts) return escapeHtml(pattern);
+  if (parts.path === "/*") return wizardRich("todas as páginas de {site}", { site: `<b>${escapeHtml(parts.host)}</b>` });
+  const site = `${parts.host}${parts.path.replace(/\*$/, "").replace(/\/$/, "")}`;
+  return wizardRich("as páginas de {site}", { site: `<b>${escapeHtml(site)}</b>` });
+}
+
+// `markNew` (review step only) tags names that will be created, via a CSS ::after badge so the
+// sentence text itself stays exactly the same as on the completion screen.
+function wizardSentenceHtml(env, { markNew = false } = {}) {
+  const clientIsNew = markNew && !wizardResolveClient();
+  const productIsNew = markNew && !wizardResolveProduct(wizardResolveClient());
+  const newTag = ` class="wizardIsNew" data-tag="${escapeHtml(t("novo"))}"`;
+  const client = `<b${clientIsNew ? newTag : ""}>${escapeHtml(wizardDraft.clientName.trim())}</b>`;
+  const product = `<b${productIsNew ? newTag : ""}>${escapeHtml(wizardDraft.productName.trim())}</b>`;
+  // "Todos os sites" shows the synthetic "Todos os sites" context on the bar (toolbar.js), never
+  // this client/product, so the sentence must not promise that.
+  if (!env) return wizardRich("Cliente {client} e produto {product} cadastrados. A barra vai aparecer em todos os sites, com o nome Todos os sites.", { client, product });
+  const effective = wizardEnvEffective(env);
+  const urls = env.patterns.map(wizardHumanPattern).join(", ");
+  const color = `<span class="wizardColorDot" style="--wizard-env-color:${escapeHtml(effective.color)}" aria-hidden="true"></span>${escapeHtml(wizardColorName(effective.color))}`;
+  const envIsNew = markNew && !effective.existingId;
+  return wizardRich("Cliente {client}, produto {product}, ambiente {env} ({color}) em {urls}.", { client, product, env: `<b${envIsNew ? newTag : ""}>${escapeHtml(effective.name.trim())}</b>`, color, urls });
+}
+
+function wizardBarStripHtml(rawEnv) {
+  const env = rawEnv && wizardEnvEffective(rawEnv);
+  if (!env) return `<div class="wizardBarPreviewStrip isAllSites"><b>${escapeHtml(t("Todos os sites"))}</b></div>`;
+  return `<div class="wizardBarPreviewStrip" style="--wizard-env-color:${escapeHtml(env.color)};--wizard-env-ink:${wizardInkFor(env.color)}"><b>${escapeHtml(env.name.trim())}</b><span>${escapeHtml(wizardDraft.clientName.trim())} / ${escapeHtml(wizardDraft.productName.trim())}</span></div>`;
+}
+
+function wizardChipsHtml(items, attribute, selectedId) {
+  return items.map((item) => {
+    const selected = item.id === selectedId;
+    return `<button type="button" class="wizardChip${selected ? " isSelected" : ""}" data-${attribute}="${escapeHtml(item.id)}" aria-pressed="${selected}">${selected ? ICON("pass") : ""} ${escapeHtml(item.name)}</button>`;
+  }).join("");
+}
+
+function wizardFieldErrorHtml(id) {
+  return `<p class="wizardFieldError" id="${id}" role="alert" hidden></p>`;
+}
+
+function renderWizardClientStep() {
+  const clients = workspace.clients.filter((client) => !client.locked);
+  const selected = wizardResolveClient();
+  return `
+    ${wizardExampleHtml("Você testa os sistemas do banco Bankeiro. O cliente é {name}.", { name: "<b>Bankeiro</b>" })}
+    <div class="wizardField">
+      <label for="wizardClientName">${escapeHtml(t("Nome da empresa (cliente)"))}</label>
+      <input type="text" id="wizardClientName" autocomplete="off" placeholder="${escapeHtml(t("Ex.: Bankeiro"))}" value="${escapeHtml(wizardDraft.clientName)}" aria-describedby="wizardClientError" />
+      ${wizardFieldErrorHtml("wizardClientError")}
+    </div>
+    ${clients.length ? `<div class="wizardExisting"><p class="wizardExistingLabel">${escapeHtml(t("Ou escolha uma empresa já cadastrada:"))}</p><div class="wizardChipList" id="wizardChipList">${wizardChipsHtml(clients, "wizard-pick-client", selected?.id)}</div></div>` : ""}
+    <div class="wizardTemplateRow">
+      <button type="button" class="wizardTextLink" id="wizardUseTemplate" ${wizardDraft.templateCreated ? "disabled" : ""}>${escapeHtml(t("Só quero ver um exemplo pronto (cria dados fictícios que você pode apagar depois)"))}</button>
+      <p class="wizardInlineStatus" id="wizardTemplateStatus" role="status">${wizardDraft.templateCreated ? escapeHtml(t("Exemplo criado. Os dados fictícios estão em Workspace e podem ser excluídos.")) : ""}</p>
+    </div>`;
+}
+
+function renderWizardProductStep() {
+  const client = wizardResolveClient();
+  const products = wizardProductsOfClient(client);
+  const selected = wizardResolveProduct(client);
+  return `
+    <p class="wizardContext">${wizardRich("Empresa: {client}", { client: `<b>${escapeHtml(wizardDraft.clientName.trim())}</b>` })}</p>
+    ${wizardExampleHtml("O Bankeiro tem o app de pagamentos Uzzipay. O produto é {name}.", { name: "<b>Uzzipay</b>" })}
+    <div class="wizardField">
+      <label for="wizardProductName">${escapeHtml(t("Nome do produto"))}</label>
+      <input type="text" id="wizardProductName" autocomplete="off" placeholder="${escapeHtml(t("Ex.: Uzzipay"))}" value="${escapeHtml(wizardDraft.productName)}" aria-describedby="wizardProductError" />
+      ${wizardFieldErrorHtml("wizardProductError")}
+    </div>
+    ${products.length ? `<div class="wizardExisting"><p class="wizardExistingLabel">${escapeHtml(t("Ou escolha um produto já cadastrado dessa empresa:"))}</p><div class="wizardChipList" id="wizardChipList">${wizardChipsHtml(products, "wizard-pick-product", selected?.id)}</div></div>` : ""}`;
+}
+
+function wizardMiniSite(host, bar) {
+  return `<span class="wizardMiniSite"><span class="wizardMiniUrl">${escapeHtml(host)}</span>${bar ? `<span class="wizardMiniBar" style="--wizard-env-color:${bar.color}">${escapeHtml(bar.label)}</span>` : `<span class="wizardMiniBar isEmpty"></span>`}<span class="wizardMiniBody"></span></span>`;
+}
+
+function renderWizardScopeStep() {
+  const option = (value, title, text, hint, visual) => `
+    <label class="wizardScopeOption">
+      <input type="radio" class="visuallyHidden" name="wizardScope" value="${value}" ${wizardDraft.scopeMode === value ? "checked" : ""} />
+      <span class="wizardScopeVisual" aria-hidden="true">${visual}</span>
+      <span class="wizardScopeText"><b>${escapeHtml(t(title))}</b><span>${escapeHtml(t(text))}</span><small>${escapeHtml(t(hint))}</small></span>
+    </label>`;
+  const allVisual = [wizardMiniSite("loja.com", { color: "var(--accent)", label: "" }), wizardMiniSite("blog.com", { color: "var(--accent)", label: "" }), wizardMiniSite("stg.uzzipay", { color: "var(--accent)", label: "" })].join("");
+  const envVisual = [wizardMiniSite("stg.uzzipay", { color: "#2563eb", label: "STG" }), wizardMiniSite("qa.uzzipay", { color: "#16a34a", label: "QA" }), wizardMiniSite("loja.com", null)].join("");
+  return `
+    <div class="wizardScopeOptions" role="radiogroup" aria-label="${escapeHtml(t("Onde a barra aparece"))}">
+      ${option("all", "Em todos os sites", "A barra aparece em qualquer site que você abrir, com o nome Todos os sites.", "Bom para começar rápido. Para a barra mostrar o produto e o ambiente (ex.: STG), escolha a outra opção.", allVisual)}
+      ${option("environments", "Só em sites específicos (por ambiente)", "Você cria os ambientes (ex.: STG, QA), cada um com uma cor, e informa os endereços de cada um. A barra só aparece nesses endereços.", "Recomendado para quem testa as versões de um produto.", envVisual)}
+    </div>
+    ${wizardFieldErrorHtml("wizardScopeError")}
+    <p class="wizardNote">${escapeHtml(t("Essa escolha vale para a extensão inteira. Dá para trocar depois em Barra e aparência, na seção Onde a barra aparece."))}</p>`;
+}
+
+function wizardSwatchesHtml(env) {
+  const isPreset = WIZARD_COLOR_PRESETS.some((preset) => preset.color.toLowerCase() === env.color.toLowerCase());
+  const swatches = WIZARD_COLOR_PRESETS.map((preset) => `
+    <label class="wizardSwatch" title="${escapeHtml(t(preset.name))}">
+      <input type="radio" class="visuallyHidden" name="wizardEnvColor-${env.key}" value="${preset.color}" data-wizard-env-color="${env.key}" ${preset.color.toLowerCase() === env.color.toLowerCase() ? "checked" : ""} />
+      <span class="wizardSwatchDot" style="--wizard-env-color:${preset.color}" aria-hidden="true"></span><span class="visuallyHidden">${escapeHtml(t(preset.name))}</span>
+    </label>`).join("");
+  return `
+    <fieldset class="wizardSwatches">
+      <legend>${escapeHtml(t("Cor da barra"))}</legend>
+      <div class="wizardSwatchRow">
+        ${swatches}
+        <label class="wizardSwatch wizardSwatchCustom${isPreset ? "" : " isSelected"}">
+          <input type="color" value="${escapeHtml(env.color)}" data-wizard-env-custom="${env.key}" />
+          <span>${escapeHtml(t("Outra cor"))}</span>
+        </label>
+      </div>
+    </fieldset>`;
+}
+
+function wizardEnvReuseNoteHtml(env) {
+  const existing = wizardExistingEnvByName(env.name);
+  return existing ? wizardRich("Já existe um ambiente {env}. Ele será reaproveitado, com a cor dele.", { env: `<b>${escapeHtml(existing.name)}</b>` }) : "";
+}
+
+function wizardEnvTitle(env, index) {
+  return env.name.trim() || t("Ambiente {n}", { n: index + 1 });
+}
+
+function renderWizardEnvCard(env, index) {
+  const client = wizardDraft.clientName.trim();
+  const product = wizardDraft.productName.trim();
+  const reused = Boolean(env.environmentId);
+  const pills = env.patterns.length
+    ? `<ul class="wizardUrlList">${env.patterns.map((pattern, patternIndex) => `<li class="patternPill"><code>${escapeHtml(pattern)}</code><button type="button" data-wizard-env-url-remove="${env.key}" data-index="${patternIndex}" aria-label="${escapeHtml(t("Remover endereço {url}", { url: pattern }))}">${ICON("fail")}</button></li>`).join("")}</ul>`
+    : `<p class="wizardChipEmpty">${escapeHtml(t("Nenhum endereço ainda."))}</p>`;
+  // Inner page pasted (".../login?x=1" -> ".../login*"): the bar would only show on those pages,
+  // so ask instead of silently narrowing it.
+  const narrow = env.pendingNarrow
+    ? `<div class="wizardUrlNarrow" role="alert">
+        <p>${wizardRich("A barra só vai aparecer nas páginas que começam com {path}. Quer que ela apareça no site inteiro ({origin})?", { path: `<b>${escapeHtml(env.pendingNarrow.path)}</b>`, origin: `<b>${escapeHtml(env.pendingNarrow.host)}</b>` })}</p>
+        <div class="wizardOptionalActions">
+          <button type="button" class="button primary" data-wizard-url-wide="${env.key}">${escapeHtml(t("Usar o site inteiro"))}</button>
+          <button type="button" class="button" data-wizard-url-keep="${env.key}">${escapeHtml(t("Manter só {path}", { path: env.pendingNarrow.path }))}</button>
+        </div>
+      </div>`
     : "";
   return `
-    <div class="wizardAddRow">
-      <input type="text" id="wizardEntityInput" placeholder="${escapeHtml(t("Nome do {entity}", { entity: step.label().toLowerCase() }))}" />
-      ${parentItems ? `<select id="wizardEntityParent" aria-label="${escapeHtml(parentStep.label())}" ${parentItems.length ? "" : "disabled"}>${parentOptions}</select>` : ""}
-      <button type="button" class="button primary" id="wizardEntityAdd">${escapeHtml(t("Adicionar"))}</button>
-    </div>
-    <div>
-      <p class="cardLead wizardExistingLabel">${escapeHtml(t("Já cadastrados:"))}</p>
-      <div class="wizardChipList" id="wizardChipList">${visibleItems.length ? visibleItems.map((item) => wizardEntityChip(item, step.key)).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhum ainda - adicione o primeiro acima."))}</span>`}</div>
+    <section class="wizardEnvCard" data-wizard-env-card="${env.key}" style="--wizard-env-color:${escapeHtml(env.color)};--wizard-env-ink:${wizardInkFor(env.color)}" aria-labelledby="wizardEnvHead-${env.key}">
+      <header class="wizardEnvCardHead">
+        <h3 id="wizardEnvHead-${env.key}" data-wizard-env-title="${env.key}" data-index="${index}">${escapeHtml(wizardEnvTitle(env, index))}</h3>
+        ${wizardDraft.environments.length > 1 ? `<button type="button" class="button linkButton" data-wizard-env-remove="${env.key}">${escapeHtml(t("Remover ambiente"))}</button>` : ""}
+      </header>
+      ${reused
+        ? `<p class="wizardNote">${wizardRich("Ambiente já cadastrado: {env}. Nome e cor são editados em Ambientes e URLs.", { env: `<b>${escapeHtml(env.name)}</b>` })}</p>`
+        : `<div class="wizardField">
+            <label for="wizardEnvName-${env.key}">${escapeHtml(t("Nome do ambiente"))}</label>
+            <input type="text" id="wizardEnvName-${env.key}" data-wizard-env-name="${env.key}" autocomplete="off" placeholder="${escapeHtml(t("Ex.: STG, QA, Produção"))}" value="${escapeHtml(env.name)}" aria-describedby="wizardEnvNameError-${env.key}" />
+            ${wizardFieldErrorHtml(`wizardEnvNameError-${env.key}`)}
+            <p class="wizardNote" id="wizardEnvReuseNote-${env.key}" ${wizardExistingEnvByName(env.name) ? "" : "hidden"}>${wizardEnvReuseNoteHtml(env)}</p>
+          </div>
+          ${wizardSwatchesHtml(env)}`}
+      <div class="wizardBarPreview">
+        <span class="wizardBarPreviewLabel">${escapeHtml(t("Prévia da barra"))}</span>
+        <div class="wizardBarPreviewStrip"><b data-wizard-env-preview="${env.key}">${escapeHtml(env.name.trim() || t("Ambiente"))}</b><span>${escapeHtml(client)} / ${escapeHtml(product)}</span></div>
+      </div>
+      <div class="wizardField">
+        <label for="wizardEnvUrl-${env.key}">${escapeHtml(t("Endereços (URLs) onde a barra deste ambiente aparece"))}</label>
+        <div class="wizardUrlRow">
+          <input type="text" id="wizardEnvUrl-${env.key}" data-wizard-env-url="${env.key}" inputmode="url" autocomplete="off" placeholder="https://stg.uzzipay.com.br" value="${escapeHtml(env.urlInput || "")}" aria-describedby="wizardEnvUrlError-${env.key}" />
+          <button type="button" class="button" data-wizard-env-url-add="${env.key}">${escapeHtml(t("Adicionar endereço"))}</button>
+        </div>
+        ${wizardFieldErrorHtml(`wizardEnvUrlError-${env.key}`)}
+        ${narrow}
+        <details class="wizardUrlHelp">
+          <summary>${escapeHtml(t("Como escrever o endereço (URL)?"))}</summary>
+          <ul>
+            <li><code>stg.uzzipay.com.br</code><span>${escapeHtml(t("O site inteiro. Pode colar do jeito que aparece no navegador."))}</span></li>
+            <li><code>stg.uzzipay.com.br/conta/*</code><span>${escapeHtml(t("Só as páginas dentro de /conta. O * quer dizer \"qualquer coisa depois daqui\"."))}</span></li>
+          </ul>
+        </details>
+        ${pills}
+      </div>
+    </section>`;
+}
+
+function renderWizardEnvironmentsStep() {
+  if (!wizardDraft.environments.length) wizardDraft.environments.push(createWizardEnvDraft());
+  const usedIds = new Set(wizardDraft.environments.map((env) => env.environmentId).filter(Boolean));
+  const reusable = (workspace.environments || []).filter((env) => !env.locked && !usedIds.has(env.id));
+  return `
+    ${wizardExampleHtml("Ambiente {env}, cor azul, endereço {url}.", { env: "<b>STG</b>", url: "<code>https://stg.uzzipay.com.br</code>" })}
+    <div class="wizardEnvList">${wizardDraft.environments.map((env, index) => renderWizardEnvCard(env, index)).join("")}</div>
+    ${wizardFieldErrorHtml("wizardEnvironmentsError")}
+    <div class="wizardEnvMore">
+      <button type="button" class="button" id="wizardEnvAddAnother">+ ${escapeHtml(t("Adicionar outro ambiente"))}</button>
+      ${reusable.length ? `<div class="wizardExisting"><p class="wizardExistingLabel">${escapeHtml(t("Ou reaproveite um ambiente já cadastrado:"))}</p><div class="wizardChipList">${reusable.map((env) => `<button type="button" class="wizardChip" data-wizard-env-reuse="${escapeHtml(env.id)}"><span class="wizardColorDot" style="--wizard-env-color:${escapeHtml(env.color)}" aria-hidden="true"></span>${escapeHtml(env.name)}</button>`).join("")}</div></div>` : ""}
     </div>`;
 }
 
-function renderWizardEnvironmentStep() {
-  const existing = workspace.environments || [];
+function renderWizardReviewStep() {
+  const isAll = wizardDraft.scopeMode === "all";
+  const envs = isAll ? [null] : wizardDraft.environments;
   return `
-    <div class="wizardAddRow">
-      <input type="text" id="wizardEnvName" placeholder="${escapeHtml(t("Nome do ambiente (ex.: QA, Staging)"))}" />
-      <div class="wizardColorRow"><input type="color" id="wizardEnvColor" value="#7c5cff" title="${escapeHtml(t("Cor da barra"))}" /><button type="button" class="button primary" id="wizardEnvAdd">${escapeHtml(t("Adicionar"))}</button></div>
+    <div class="wizardSummary">${envs.map((env) => `<p class="wizardSummarySentence">${wizardSentenceHtml(env, { markNew: true })}</p>`).join("")}</div>
+    <div class="wizardBarPreview">
+      <span class="wizardBarPreviewLabel">${escapeHtml(t("Assim a barra vai aparecer:"))}</span>
+      ${envs.map((env) => wizardBarStripHtml(env)).join("")}
     </div>
-    <div class="wizardEnvPreview" id="wizardEnvPreview" style="--wizard-preview-color:#7c5cff"><span class="dot"></span><strong id="wizardEnvPreviewName">${escapeHtml(t("Prévia"))}</strong></div>
-    <div>
-      <p class="cardLead wizardExistingLabel">${escapeHtml(t("Já cadastrados:"))}</p>
-      <div class="wizardChipList" id="wizardChipList">${existing.length ? existing.map((env) => wizardEntityChip(env, "environment")).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhum ainda - adicione o primeiro acima."))}</span>`}</div>
-    </div>`;
-}
-
-function renderWizardUrlsStep() {
-  const environmentIds = [...wizardSelection.environment];
-  const productIds = [...wizardSelection.product];
-  if (!environmentIds.length) return `<p class="wizardChipEmpty">${escapeHtml(t("Volte e crie/selecione um ambiente primeiro."))}</p>`;
-  const environments = environmentIds.map((id) => findById("environments", id)).filter(Boolean);
-  const products = productIds.map((id) => findById("products", id)).filter(Boolean);
-  const relevantBindings = (workspace.urlBindings || []).filter((binding) => (binding.environmentIds || []).some((id) => environmentIds.includes(id)));
-  return `
-    <div class="wizardAddRow">
-      <input type="text" id="wizardUrlPattern" placeholder="${escapeHtml(t("https://app.exemplo.com/*"))}" />
-      <select id="wizardUrlProduct" aria-label="${escapeHtml(t("Produto"))}">${products.length ? products.map((product) => `<option value="${escapeHtml(product.id)}">${escapeHtml(product.name)}</option>`).join("") : `<option value="">${escapeHtml(t("Nenhum produto selecionado"))}</option>`}</select>
-      <button type="button" class="button primary" id="wizardUrlAdd">${escapeHtml(t("Adicionar"))}</button>
-    </div>
-    <p class="cardLead wizardRelationSummary">${escapeHtml(t("Será associada ao ambiente: {env}", { env: environments.map((environment) => environment.name).join(", ") }))}</p>
-    <div class="wizardChipList" id="wizardChipList">${relevantBindings.length ? relevantBindings.map((binding) => `<span class="wizardChip">${escapeHtml((binding.patterns || []).join(", "))}</span>`).join("") : `<span class="wizardChipEmpty">${escapeHtml(t("Nenhuma URL ainda."))}</span>`}</div>`;
+    <p class="wizardNote">${escapeHtml(t("Nada foi salvo ainda. Confira e clique em Concluir. Dá para voltar e ajustar qualquer passo."))}</p>
+    ${wizardFieldErrorHtml("wizardFinishError")}`;
 }
 
 function wizardCsvPanelHtml(key) {
   const schema = WIZARD_CSV_SCHEMA[key];
   if (!schema) return "";
   return `
-    <div class="wizardCsvImport" id="wizardCsvPanel-${key}" hidden>
-      <textarea id="wizardCsvInput-${key}" placeholder="${escapeHtml(schema.example)}"></textarea>
-      <p class="wizardCsvHint">${escapeHtml(t("Colunas esperadas: {columns}. A primeira linha pode ser o cabeçalho ou já ser o primeiro registro.", { columns: schema.columns.join(", ") }))}</p>
-      <div class="wizardOptionalActions"><button type="button" class="button primary" data-wizard-csv-submit="${key}">${escapeHtml(t("Importar linhas"))}</button></div>
-      <p class="formMessage" id="wizardCsvMessage-${key}" role="status"></p>
+    <details class="wizardCsvImport" id="wizardCsvPanel-${key}">
+      <summary>${escapeHtml(t("Importar vários de uma vez (planilha CSV)"))}</summary>
+      <div class="wizardCsvBody">
+        <div class="wizardOptionalActions"><button type="button" class="button" data-wizard-template="${key}">${escapeHtml(t("Baixar template CSV"))}</button></div>
+        <textarea id="wizardCsvInput-${key}" aria-label="${escapeHtml(t("Linhas do CSV"))}" placeholder="${escapeHtml(schema.example)}"></textarea>
+        <p class="wizardCsvHint">${escapeHtml(t("Colunas esperadas: {columns}. A primeira linha pode ser o cabeçalho ou já ser o primeiro registro.", { columns: schema.columns.join(", ") }))}</p>
+        <div class="wizardOptionalActions"><button type="button" class="button primary" data-wizard-csv-submit="${key}">${escapeHtml(t("Importar linhas"))}</button></div>
+        <p class="formMessage" id="wizardCsvMessage-${key}" role="status"></p>
+      </div>
+    </details>`;
+}
+
+function renderWizardDoneStep() {
+  const links = wizardDone.urls.map((url, index) => `<a class="button${index === 0 ? " primary" : ""}" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${ICON("globe")} ${escapeHtml(t("Abrir {host}", { host: new URL(url).host }))}</a>`).join("");
+  const optional = WIZARD_OPTIONAL_STEPS.map((step) => {
+    // Test accounts are always scoped to at least one environment (storage drops them otherwise),
+    // so a CSV import with no environment would silently lose every row.
+    const csvAllowed = WIZARD_CSV_SCHEMA[step.key] && (step.key !== "testAccounts" || wizardDone.environmentIds.length);
+    return `
+      <div class="wizardOptionalRow" data-wizard-optional="${step.key}">
+        <div><strong>${escapeHtml(t(step.label))}</strong><span>${escapeHtml(t(step.lead))}</span></div>
+        <div class="wizardOptionalActions">
+          <button type="button" class="button" data-wizard-open-composer="${step.composer}" data-wizard-optional-key="${step.key}">${escapeHtml(t(step.action))}</button>
+        </div>
+        ${csvAllowed ? wizardCsvPanelHtml(step.key) : ""}
+      </div>`;
+  }).join("");
+  return `
+    <div class="wizardSummary isDone">${wizardDone.sentences.map((sentence) => `<p class="wizardSummarySentence">${sentence}</p>`).join("")}</div>
+    ${links ? `<div class="wizardOptionalActions">${links}</div>` : ""}
+    <p class="wizardInlineStatus" id="wizardOptionalStatus" role="status">${escapeHtml(wizardDone.message || "")}</p>
+    <div class="wizardOptionalList">
+      <h3>${escapeHtml(t("Próximos passos (opcionais)"))}</h3>
+      <p class="wizardNote">${escapeHtml(t("Nada disso é obrigatório. Também dá para cadastrar depois, nas abas do Workspace."))}</p>
+      ${optional}
     </div>`;
 }
 
-function renderWizardOptionalStep(step) {
-  const composerId = WIZARD_OPTIONAL_COMPOSER[step.key];
-  const count = (workspace[step.collection] || []).length;
-  const details = {
-    testAccounts: [
-      ["Escopo N:N", "Relacione uma conta a vários ambientes e produtos."],
-      ["Credenciais", "Nome, tipo, usuário, senha e observações."],
-      ["Campos flexíveis", "Crie campos de texto, número ou sim e não."],
-    ],
-    paymentMethods: [
-      ["Escopo N:N", "Reutilize um meio em vários ambientes e produtos."],
-      ["Tipos", "Cartão, PIX, conta bancária ou outro."],
-      ["Dados sandbox", "Token, titular, validade, CVV e observações."],
-    ],
-    inspectors: [
-      ["Identificação", "Dê um nome claro para o grupo de chamadas."],
-      ["Várias rotas", "Informe um ou mais padrões de endpoint."],
-      ["Execução segura", "A configuração é declarativa e não executa scripts."],
-    ],
-    devices: [
-      ["Relação N:N", "Um dispositivo pode usar vários sistemas e navegadores."],
-      ["Catálogos prontos", "Ícones e opções conhecidas já vêm cadastrados."],
-      ["Contexto de teste", "Use o dispositivo nos relatos e evidências."],
-    ],
-  }[step.key];
-  return `
-    <div class="wizardOptionalIntro">${details.map(([title, text]) => `<div class="wizardOptionalFact"><strong>${escapeHtml(t(title))}</strong><span>${escapeHtml(t(text))}</span></div>`).join("")}</div>
-    <div class="wizardOptionalCard">
-      <p>${count ? escapeHtml(t("{count} já cadastrado(s). Você pode adicionar mais ou continuar.", { count })) : escapeHtml(t("Nenhum item cadastrado. Esta etapa é opcional e pode ser concluída depois."))}</p>
-      <div class="wizardOptionalActions">
-        <button type="button" class="button primary" data-wizard-open-composer="${composerId}" data-wizard-optional-key="${step.key}">${escapeHtml(t("Preencher formulário"))}</button>
-        ${WIZARD_CSV_SCHEMA[step.key] ? `<button type="button" class="button" data-wizard-template="${step.key}">${escapeHtml(t("Baixar template CSV"))}</button><button type="button" class="button" data-wizard-csv="${step.key}">${escapeHtml(t("Importar CSV"))}</button>` : ""}
-      </div>
-    </div>
-    ${wizardCsvPanelHtml(step.key)}`;
+// The wizard's "Baixar template CSV" called a downloadBlob() that never existed in this file
+// (ReferenceError on click). Same anchor-download pattern as buildExportEnvelope above.
+function downloadBlob(blob, filename) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  // Revoking synchronously can cancel the download before the browser starts reading the blob;
+  // 5s matches buildExportEnvelope and is far longer than a local CSV of a few bytes needs.
+  window.setTimeout(() => URL.revokeObjectURL(url), 5_000);
 }
 
 // A CSV's first line might be a real header row (matches every expected column name) or might
@@ -1739,193 +2008,533 @@ function parseWizardCsv(text, columns) {
   }).filter((record) => record.label);
 }
 
-function bindWizardStepEvents(step) {
-  document.querySelectorAll("#wizardChipList [data-wizard-chip]").forEach((chip) => chip.addEventListener("click", () => {
-    const set = wizardSelection[step.key];
-    const id = chip.dataset.wizardChip;
-    if (set.has(id)) set.delete(id); else set.add(id);
-    renderWizardStep();
-  }));
+function wizardShowError(id, message) {
+  const element = document.getElementById(id);
+  if (!element) return;
+  element.textContent = message || "";
+  element.hidden = !message;
+}
 
-  if (["client", "project", "product"].includes(step.key)) {
-    const addEntity = async () => {
-      const input = document.getElementById("wizardEntityInput");
-      const name = input.value.trim();
-      if (!name) { input.focus(); return; }
-      const record = { id: uid(step.collection.replace(/s$/, "")), name };
-      if (step.parentField) {
-        const parentId = document.getElementById("wizardEntityParent")?.value;
-        if (!parentId) { input.focus(); return; }
-        record[step.parentField] = parentId;
+function wizardAnnounce(message) {
+  const status = document.getElementById("onboardingWizardStatus");
+  if (status) status.textContent = message;
+}
+
+function wizardEnvByKey(key) {
+  return wizardDraft.environments.find((env) => env.key === key);
+}
+
+function wizardMarkInvalid(inputId, errorId, message) {
+  wizardShowError(errorId, message);
+  const input = document.getElementById(inputId);
+  if (!input) return;
+  if (message) input.setAttribute("aria-invalid", "true");
+  else input.removeAttribute("aria-invalid");
+}
+
+function wizardCommitEnvPatterns(env, patterns) {
+  const fresh = patterns.filter((pattern) => !env.patterns.includes(pattern));
+  env.patterns.push(...fresh);
+  env.pendingNarrow = null;
+  env.urlInput = "";
+  renderWizardStep({ focusId: `wizardEnvUrl-${env.key}` });
+  if (fresh.length) wizardAnnounce(t("Endereço adicionado: {url}", { url: fresh.join(", ") }));
+}
+
+// Returns true when the URL input of that environment was empty or was added successfully.
+function wizardAddEnvUrl(key, { silentWhenEmpty = false } = {}) {
+  const env = wizardEnvByKey(key);
+  // Read from the draft (kept in sync on every keystroke), not from the DOM: adding an address
+  // to one environment re-renders every card, and a second card's typed text must survive that.
+  const input = document.getElementById(`wizardEnvUrl-${key}`);
+  if (!env) return true;
+  if (silentWhenEmpty && !String(env.urlInput || "").trim()) return true;
+  const result = wizardParseUrlInput(env.urlInput);
+  if (result.error) {
+    wizardMarkInvalid(`wizardEnvUrl-${key}`, `wizardEnvUrlError-${key}`, result.error);
+    input?.focus();
+    return false;
+  }
+  const fresh = result.patterns.filter((pattern) => !env.patterns.includes(pattern));
+  if (!fresh.length) {
+    wizardMarkInvalid(`wizardEnvUrl-${key}`, `wizardEnvUrlError-${key}`, t("Esse endereço já está na lista."));
+    input?.focus();
+    return false;
+  }
+  const narrowPattern = fresh.find((pattern) => wizardPatternParts(pattern) && wizardPatternParts(pattern).path !== "/*");
+  if (narrowPattern) {
+    const parts = wizardPatternParts(narrowPattern);
+    env.pendingNarrow = { patterns: fresh, path: parts.path.replace(/\*$/, ""), host: parts.host };
+    renderWizardStep({ focusId: null });
+    document.querySelector(`[data-wizard-url-wide="${key}"]`)?.focus();
+    return false;
+  }
+  wizardCommitEnvPatterns(env, fresh);
+  return true;
+}
+
+// Validates the current step, shows inline errors and returns whether the user may move on.
+function wizardValidateStep(key) {
+  if (key === "client") {
+    const ok = Boolean(wizardDraft.clientName.trim());
+    wizardMarkInvalid("wizardClientName", "wizardClientError", ok ? "" : t("Digite o nome da empresa ou escolha uma já cadastrada."));
+    if (!ok) document.getElementById("wizardClientName")?.focus();
+    return ok;
+  }
+  if (key === "product") {
+    const ok = Boolean(wizardDraft.productName.trim());
+    wizardMarkInvalid("wizardProductName", "wizardProductError", ok ? "" : t("Digite o nome do produto ou escolha um já cadastrado."));
+    if (!ok) document.getElementById("wizardProductName")?.focus();
+    return ok;
+  }
+  if (key === "scope") {
+    const ok = wizardDraft.scopeMode === "all" || wizardDraft.scopeMode === "environments";
+    wizardShowError("wizardScopeError", ok ? "" : t("Escolha uma das duas opções."));
+    return ok;
+  }
+  if (key === "environments") {
+    // An inner-page address still waiting for "site inteiro ou só essa parte" blocks Continuar.
+    const pending = wizardDraft.environments.find((env) => env.pendingNarrow);
+    if (pending) {
+      document.querySelector(`[data-wizard-url-wide="${pending.key}"]`)?.focus();
+      return false;
+    }
+    // A typed but not yet added address counts: forgetting to click "Adicionar endereço" is the
+    // most common way to lose it.
+    for (const env of wizardDraft.environments) if (!wizardAddEnvUrl(env.key, { silentWhenEmpty: true })) return false;
+    if (!wizardDraft.environments.length) {
+      wizardShowError("wizardEnvironmentsError", t("Crie pelo menos um ambiente."));
+      return false;
+    }
+    let firstInvalid = null;
+    for (const env of wizardDraft.environments) {
+      const nameMessage = !env.environmentId && !env.name.trim() ? t("Dê um nome a este ambiente.") : "";
+      const urlMessage = !env.patterns.length ? t("Adicione pelo menos um endereço para {env}.", { env: env.name.trim() || t("este ambiente") }) : "";
+      wizardMarkInvalid(`wizardEnvName-${env.key}`, `wizardEnvNameError-${env.key}`, nameMessage);
+      wizardMarkInvalid(`wizardEnvUrl-${env.key}`, `wizardEnvUrlError-${env.key}`, urlMessage);
+      if ((nameMessage || urlMessage) && !firstInvalid) firstInvalid = { env, field: nameMessage ? "Name" : "Url" };
+    }
+    if (firstInvalid) {
+      document.getElementById(`wizardEnv${firstInvalid.field}-${firstInvalid.env.key}`)?.focus();
+      return false;
+    }
+    const names = wizardDraft.environments.map((env) => env.name.trim().toLocaleLowerCase());
+    if (new Set(names).size !== names.length) {
+      wizardShowError("wizardEnvironmentsError", t("Dois ambientes estão com o mesmo nome. Use nomes diferentes."));
+      return false;
+    }
+    wizardShowError("wizardEnvironmentsError", "");
+    return true;
+  }
+  return true;
+}
+
+// Typing the name of an environment that already exists reuses it instead of creating a twin
+// "STG" (environments are reusable tiers shared across products, see storage.js).
+function wizardExistingEnvByName(name) {
+  return name.trim() ? (workspace.environments || []).find((item) => !item.locked && sameName(item.name, name)) || null : null;
+}
+
+// Name/color the bar will really use: a reused environment keeps its own color.
+function wizardEnvEffective(env) {
+  const existing = env.environmentId ? findById("environments", env.environmentId) : wizardExistingEnvByName(env.name);
+  return existing ? { ...env, name: existing.name, color: existing.color, existingId: existing.id } : env;
+}
+
+async function wizardFinish() {
+  const nextButton = document.getElementById("onboardingWizardNext");
+  nextButton.disabled = true;
+  // Everything is built on a copy and only becomes `workspace` once the save succeeded, so a
+  // failed save followed by a second "Concluir" never pushes duplicate environments/bindings.
+  const previous = workspace;
+  const next = structuredClone(workspace);
+  try {
+    const resolvedClient = wizardResolveClient();
+    let client = resolvedClient ? next.clients.find((item) => item.id === resolvedClient.id) : null;
+    if (!client) {
+      client = { id: uid("client"), name: wizardDraft.clientName.trim() };
+      next.clients.push(client);
+    }
+    const resolvedProduct = resolvedClient ? wizardResolveProduct(resolvedClient) : null;
+    let product = resolvedProduct ? next.products.find((item) => item.id === resolvedProduct.id) : null;
+    if (!product) {
+      // Founder decision 2026-10-28: "Projeto" is not asked anymore; the product hangs from a
+      // project named after the client (reused when it already exists).
+      let project = next.projects.find((item) => item.clientId === client.id && sameName(item.name, client.name));
+      if (!project) {
+        project = { id: uid("project"), clientId: client.id, name: client.name };
+        next.projects.push(project);
       }
-      workspace[step.collection].push(record);
-      wizardSelection[step.key].add(record.id);
-      renderWizardStep();
-      await persistWorkspace();
-      await continueWizardAfterSuccess(step.label());
-    };
-    document.getElementById("wizardEntityAdd").addEventListener("click", () => void addEntity());
-    document.getElementById("wizardEntityInput").addEventListener("keydown", (event) => { if (event.key === "Enter") { event.preventDefault(); void addEntity(); } });
-  }
-
-  if (step.key === "environment") {
-    const nameInput = document.getElementById("wizardEnvName");
-    const colorInput = document.getElementById("wizardEnvColor");
-    const preview = document.getElementById("wizardEnvPreview");
-    const previewName = document.getElementById("wizardEnvPreviewName");
-    const syncPreview = () => {
-      preview.style.setProperty("--wizard-preview-color", colorInput.value);
-      previewName.textContent = nameInput.value.trim() || t("Prévia");
-    };
-    nameInput.addEventListener("input", syncPreview);
-    colorInput.addEventListener("input", syncPreview);
-    document.getElementById("wizardEnvAdd").addEventListener("click", async () => {
-      const name = nameInput.value.trim();
-      if (!name) { nameInput.focus(); return; }
-      const record = { id: uid("environment"), name, color: colorInput.value };
-      workspace.environments.push(record);
-      wizardSelection.environment.add(record.id);
-      renderWizardStep();
-      await persistWorkspace();
-      await continueWizardAfterSuccess(t("Ambiente"));
-    });
-  }
-
-  if (step.key === "urls") {
-    document.getElementById("wizardUrlAdd")?.addEventListener("click", async () => {
-      const patternInput = document.getElementById("wizardUrlPattern");
-      const productSelect = document.getElementById("wizardUrlProduct");
-      const pattern = patternInput.value.trim();
-      const productId = productSelect?.value;
-      if (!pattern || !productId) { patternInput.focus(); return; }
-      workspace.urlBindings.push({ id: uid("binding"), productId, environmentIds: [...wizardSelection.environment], patterns: normalizeUrlPatterns(pattern) });
-      patternInput.value = "";
-      renderWizardStep();
-      await persistWorkspace();
-      await continueWizardAfterSuccess(t("URL"));
-    });
-  }
-
-  if (["testAccounts", "paymentMethods", "devices", "inspectors"].includes(step.key)) {
-    document.querySelectorAll("[data-wizard-open-composer]").forEach((button) => button.addEventListener("click", () => {
-      const key = button.dataset.wizardOptionalKey;
-      wizardOptionalComposerKey = key;
-      if (key === "testAccounts" || key === "paymentMethods") {
-        const state = scopePickerStates[key === "testAccounts" ? "testAccount" : "paymentMethod"];
-        state.environmentIds = new Set(wizardSelection.environment);
-        state.productIds = new Set(wizardSelection.product);
-        renderScopePicker(key === "testAccounts" ? "testAccount" : "paymentMethod", { requireEnvironment: key === "testAccounts" });
-      }
-      document.getElementById(button.dataset.wizardOpenComposer)?.showModal();
-    }));
-    document.querySelectorAll("[data-wizard-csv]").forEach((button) => button.addEventListener("click", () => {
-      const panel = document.getElementById(`wizardCsvPanel-${button.dataset.wizardCsv}`);
-      if (panel) panel.hidden = !panel.hidden;
-    }));
-    document.querySelectorAll("[data-wizard-template]").forEach((button) => button.addEventListener("click", () => {
-      const schema = WIZARD_CSV_SCHEMA[button.dataset.wizardTemplate];
-      const blob = new Blob([`\uFEFF${schema.example}`], { type: "text/csv;charset=utf-8" });
-      downloadBlob(blob, `template-${button.dataset.wizardTemplate}.csv`);
-    }));
-    document.querySelectorAll("[data-wizard-csv-submit]").forEach((button) => button.addEventListener("click", async () => {
-      const key = button.dataset.wizardCsvSubmit;
-      const schema = WIZARD_CSV_SCHEMA[key];
-      const textarea = document.getElementById(`wizardCsvInput-${key}`);
-      const message = document.getElementById(`wizardCsvMessage-${key}`);
-      const records = parseWizardCsv(textarea.value, schema.columns);
-      if (!records.length) { message.textContent = t("Nenhuma linha válida encontrada."); message.classList.add("isError"); return; }
-      const environmentIds = [...wizardSelection.environment];
-      const productIds = [...wizardSelection.product];
-      for (const record of records) {
-        if (key === "testAccounts") {
-          workspace.testAccounts.push({ id: uid("testAccount"), environmentIds, productIds, label: record.label, username: record.username || "", password: record.password || "", notes: record.notes || "" });
-        } else if (key === "paymentMethods") {
-          workspace.paymentMethods.push({ id: uid("paymentMethod"), environmentIds, productIds, label: record.label, holder: record.holder || "", value: record.value || "", expiry: record.expiry || "", cvv: record.cvv || "", notes: record.notes || "" });
-        } else if (key === "inspectors") {
-          workspace.inspectors.push({ id: uid("inspector"), label: record.label, patterns: String(record.patterns || "").split("|").map((value) => value.trim()).filter(Boolean), active: true });
-        } else if (key === "devices") {
-          const names = (value) => String(value || "").split("|").map((item) => item.trim().toLowerCase()).filter(Boolean);
-          const systemNames = new Set(names(record.systems));
-          const browserNames = new Set(names(record.browsers));
-          workspace.devices.push({
-            id: uid("device"),
-            label: record.label,
-            operatingSystemIds: workspace.operatingSystems.filter((item) => systemNames.has(item.name.toLowerCase())).map((item) => item.id),
-            browserIds: workspace.browsers.filter((item) => browserNames.has(item.name.toLowerCase())).map((item) => item.id),
-            notes: record.notes || "",
-            active: true,
-          });
+      product = { id: uid("product"), projectId: project.id, name: wizardDraft.productName.trim() };
+      next.products.push(product);
+    }
+    const environmentIds = [];
+    const urls = [];
+    const sentences = [];
+    if (wizardDraft.scopeMode === "environments") {
+      for (const draftEnv of wizardDraft.environments) {
+        const env = wizardEnvEffective(draftEnv);
+        let environmentId = env.existingId;
+        if (!environmentId) {
+          environmentId = uid("environment");
+          next.environments.push({ id: environmentId, name: env.name.trim(), color: env.color, active: true });
         }
+        environmentIds.push(environmentId);
+        const primaryUrl = env.patterns.map(wizardConcreteUrl).find(Boolean) || "";
+        if (primaryUrl) urls.push(primaryUrl);
+        next.urlBindings.push({ id: uid("binding"), productId: product.id, environmentIds: [environmentId], patterns: [...env.patterns], primaryUrl, active: true });
+        sentences.push(wizardSentenceHtml(draftEnv));
       }
+    } else {
+      sentences.push(wizardSentenceHtml(null));
+    }
+    workspace = next;
+    try {
       await persistWorkspace();
-      message.classList.remove("isError");
-      message.textContent = t("{count} registro(s) importado(s).", { count: records.length });
-      textarea.value = "";
-    }));
+    } catch (error) {
+      workspace = previous;
+      renderWorkspace();
+      wizardAnnounce(t("Não foi possível salvar. Tente de novo."));
+      wizardShowError("wizardFinishError", t("Não foi possível salvar. Tente de novo."));
+      return;
+    }
+    const currentScope = await getSiteScope();
+    await saveSiteScope({ mode: wizardDraft.scopeMode, patterns: currentScope.patterns });
+    // Keeps the "Onde a barra aparece" radios in Barra e aparência in sync; otherwise the next
+    // "Salvar" there would write the stale choice back over the one just made here.
+    await loadScopeUi();
+    renderWorkspaceWizard();
+    wizardDone = { productId: product.id, environmentIds, urls: [...new Set(urls)].slice(0, 3), sentences, scopeMode: wizardDraft.scopeMode, message: "" };
+    renderWizardStep({ focusId: "onboardingWizardTitle" });
+    wizardAnnounce(t("Workspace salvo."));
+  } finally {
+    nextButton.disabled = false;
   }
 }
 
 function renderWizardDots() {
-  document.getElementById("onboardingWizardDots").innerHTML = WIZARD_STEPS.map((step, index) => `
-    <button type="button" class="wizardStepDot${index === wizardStepIndex ? " isActive" : ""}${index < wizardStepIndex ? " isDone" : ""}" data-wizard-dot="${index}" title="${escapeHtml(step.label())}">
-      <span class="dot">${index < wizardStepIndex ? ICON("pass") : index + 1}</span>
+  const flow = wizardFlow();
+  document.getElementById("onboardingWizardDots").innerHTML = flow.map((step, index) => {
+    const done = Boolean(wizardDone) || index < wizardStepIndex;
+    const active = !wizardDone && index === wizardStepIndex;
+    return `
+    <button type="button" class="wizardStepDot${active ? " isActive" : ""}${done ? " isDone" : ""}" data-wizard-dot="${index}" ${active ? 'aria-current="step"' : ""} ${wizardDone ? "disabled" : ""}>
+      <span class="dot" aria-hidden="true">${done ? ICON("pass") : index + 1}</span>
       <span class="label">${escapeHtml(step.label())}</span>
-    </button>`).join("");
-  document.querySelectorAll("[data-wizard-dot]").forEach((button) => button.addEventListener("click", () => {
-    const target = Number(button.dataset.wizardDot);
-    if (target <= wizardStepIndex || wizardStepCanAdvance()) { wizardStepIndex = target; renderWizardStep(); }
-  }));
+    </button>`;
+  }).join("");
 }
 
-function renderWizardStep() {
-  const step = wizardStep();
-  document.getElementById("onboardingWizardEyebrow").textContent = t("Passo {current} de {total}", { current: wizardStepIndex + 1, total: WIZARD_STEPS.length });
-  document.getElementById("onboardingWizardTitle").textContent = step.title();
-  document.getElementById("onboardingWizardLead").textContent = step.lead();
+function renderWizardStep({ focusId = null } = {}) {
   const body = document.getElementById("onboardingWizardBody");
-  if (["client", "project", "product"].includes(step.key)) body.innerHTML = renderWizardEntityStep(step);
-  else if (step.key === "environment") body.innerHTML = renderWizardEnvironmentStep();
-  else if (step.key === "urls") body.innerHTML = renderWizardUrlsStep();
-  else body.innerHTML = renderWizardOptionalStep(step);
+  const eyebrow = document.getElementById("onboardingWizardEyebrow");
+  const title = document.getElementById("onboardingWizardTitle");
+  const lead = document.getElementById("onboardingWizardLead");
+  const flow = wizardFlow();
+  if (wizardDone) {
+    eyebrow.textContent = t("Concluído");
+    title.textContent = t("Pronto! Seu workspace está configurado.");
+    lead.textContent = wizardDone.scopeMode === "all"
+      ? t("A barra já aparece em todos os sites. Quando quiser separar por ambiente, cadastre em Ambientes e URLs.")
+      : t("Abra um dos endereços cadastrados e a barra aparece sozinha, com o nome e a cor do ambiente.");
+    body.innerHTML = renderWizardDoneStep();
+  } else {
+    const step = wizardStep();
+    eyebrow.textContent = t("Passo {current} de {total}: {label}", { current: wizardStepIndex + 1, total: flow.length, label: step.label() });
+    const copy = {
+      client: ["Qual empresa você vai testar?", "Cliente é a empresa dona do que você testa. Pode ser a empresa que contratou você ou a sua própria."],
+      product: ["Qual produto dessa empresa?", "Produto é o app, sistema ou site dessa empresa que você vai testar. Uma empresa pode ter vários produtos: cadastre um agora e os outros depois."],
+      scope: ["Onde a barra deve aparecer?", "A barra de teste aparece na página com as ferramentas de QA. Escolha se ela aparece em qualquer site ou só nos endereços de teste que você informar."],
+      environments: ["Crie os ambientes e informe os endereços", "Ambiente é a versão do produto que você testa, como QA, STG (homologação) ou Produção. Cada ambiente tem um nome, uma cor para a barra e os endereços (URLs) onde ele roda."],
+      review: ["Confira antes de salvar", "É isso que vai ser criado no seu workspace."],
+    }[step.key];
+    title.textContent = t(copy[0]);
+    lead.textContent = t(copy[1]);
+    body.innerHTML = {
+      client: renderWizardClientStep,
+      product: renderWizardProductStep,
+      scope: renderWizardScopeStep,
+      environments: renderWizardEnvironmentsStep,
+      review: renderWizardReviewStep,
+    }[step.key]();
+  }
   renderWizardDots();
-  bindWizardStepEvents(step);
-  document.getElementById("onboardingWizardBack").disabled = wizardStepIndex === 0;
-  document.getElementById("onboardingWizardSkip").hidden = ["client", "project", "product", "environment"].includes(step.key);
-  document.getElementById("onboardingWizardTemplate").hidden = wizardStepIndex !== 0;
-  document.getElementById("onboardingWizardNext").textContent = wizardStepIndex === WIZARD_STEPS.length - 1 ? t("Concluir") : t("Continuar");
+  const isLast = !wizardDone && wizardStepIndex === flow.length - 1;
+  const back = document.getElementById("onboardingWizardBack");
+  // Hidden (not just disabled) on step 1, so the narrow footer keeps Voltar left and Continuar
+  // right on a single line.
+  back.hidden = Boolean(wizardDone) || wizardStepIndex === 0;
+  document.getElementById("onboardingWizardNext").textContent = wizardDone ? t("Fechar") : isLast ? t("Concluir") : t("Continuar");
+  if (focusId) document.getElementById(focusId)?.focus();
+}
+
+function wizardGoTo(index) {
+  wizardStepIndex = index;
+  renderWizardStep();
+  // Keyboard and screen reader users land on the first field of the new step (or on its title
+  // when the step has no text field), instead of staying on the button they just pressed.
+  const firstField = document.querySelector("#onboardingWizardBody input[type='text'], #onboardingWizardBody input[type='radio']:checked, #onboardingWizardBody input[type='radio']");
+  (firstField || document.getElementById("onboardingWizardTitle")).focus();
+  document.querySelector("#onboardingWizard .wizardStage").scrollTop = 0;
+}
+
+async function wizardNext() {
+  if (wizardDone) { void closeOnboardingWizard({ force: true }); return; }
+  const step = wizardStep();
+  if (!wizardValidateStep(step.key)) return;
+  if (step.key === "review") { await wizardFinish(); return; }
+  wizardGoTo(wizardStepIndex + 1);
 }
 
 function openOnboardingWizard() {
-  resetWizardSelection();
+  wizardDraft = createWizardDraft();
+  wizardDone = null;
+  wizardStepIndex = 0;
+  wizardOptionalComposerKey = null;
   renderWizardStep();
   document.getElementById("onboardingWizard").showModal();
+  document.getElementById("wizardClientName")?.focus();
 }
 
-function closeOnboardingWizard() {
+// Something typed that "Concluir" would save. Everything is only in memory until then, so
+// leaving (Esc, X) asks first instead of silently throwing it away.
+function wizardHasUnsavedDraft() {
+  if (!wizardDraft || wizardDone) return false;
+  return Boolean(wizardDraft.clientName.trim() || wizardDraft.productName.trim()
+    || wizardDraft.environments.some((env) => env.name.trim() || env.patterns.length || String(env.urlInput || "").trim()));
+}
+
+async function closeOnboardingWizard({ force = false } = {}) {
+  if (!force && wizardHasUnsavedDraft()) {
+    const leave = await confirmDialog(t("Sair sem salvar? Nada do que você preencheu foi salvo ainda."), { title: t("Sair da configuração guiada?"), eyebrow: t("Configuração guiada"), accept: t("Sair sem salvar"), cancel: t("Continuar editando"), danger: false });
+    if (!leave) return;
+  }
   document.getElementById("onboardingWizard").close();
 }
 
-document.getElementById("openOnboardingWizard").addEventListener("click", () => openOnboardingWizard());
-document.getElementById("workspaceWizardNudgeOpen").addEventListener("click", () => openOnboardingWizard());
-document.getElementById("onboardingWizardClose").addEventListener("click", () => closeOnboardingWizard());
-document.getElementById("onboardingWizardBack").addEventListener("click", () => { if (wizardStepIndex > 0) { wizardStepIndex -= 1; renderWizardStep(); } });
-document.getElementById("onboardingWizardSkip").addEventListener("click", () => {
-  if (wizardStepIndex < WIZARD_STEPS.length - 1) { wizardStepIndex += 1; renderWizardStep(); } else closeOnboardingWizard();
-});
-document.getElementById("onboardingWizardNext").addEventListener("click", () => {
-  if (!wizardStepCanAdvance()) return;
-  if (wizardStepIndex < WIZARD_STEPS.length - 1) { wizardStepIndex += 1; renderWizardStep(); } else closeOnboardingWizard();
-});
 // Fast path for someone who just wants realistic example data instead of typing their own -
 // reuses the exact same one-of-everything template as "Baixar template" (Importar/Exportar), so
-// the two never drift into showing different shapes.
-document.getElementById("onboardingWizardTemplate").addEventListener("click", async () => {
+// the two never drift into showing different shapes. Confirmed first because it writes data.
+async function wizardCreateTemplate() {
+  const accepted = await confirmDialog(t("Criar um workspace de exemplo com dados fictícios? Você pode apagar esses dados depois em Workspace."), { title: t("Criar exemplo pronto?"), eyebrow: t("Exemplo"), accept: t("Criar exemplo"), cancel: t("Cancelar"), danger: false });
+  if (!accepted) return;
   const template = buildTemplateWorkspace();
   for (const collection of IMPORTABLE_COLLECTIONS) workspace[collection].push(...template[collection]);
   await persistWorkspace();
-  closeOnboardingWizard();
+  wizardDraft.templateCreated = true;
+  renderWizardStep({ focusId: "wizardClientName" });
+  wizardAnnounce(t("Exemplo criado. Os dados fictícios estão em Workspace e podem ser excluídos."));
+}
+
+// Called by the optional composers (contas, pagamentos...) when they were opened from the
+// completion screen: inline confirmation instead of the old "cadastrar outro/continuar" dialog.
+function wizardAfterOptionalSave(label) {
+  if (!onboardingWizard.open || !wizardDone) return;
+  wizardOptionalComposerKey = null;
+  wizardDone.message = t("{item} salvo.", { item: label });
+  renderWizardStep();
+}
+
+// One set of delegated listeners on the wizard body (bound once at load). The body's innerHTML is
+// replaced on every render, so per-render listeners would only add churn.
+const onboardingWizardBody = document.getElementById("onboardingWizardBody");
+onboardingWizardBody.addEventListener("input", (event) => {
+  const target = event.target;
+  if (target.id === "wizardClientName") {
+    wizardDraft.clientName = target.value;
+    const match = wizardResolveClient();
+    wizardDraft.clientId = match?.id || "";
+    document.querySelectorAll("[data-wizard-pick-client]").forEach((chip) => {
+      const selected = chip.dataset.wizardPickClient === match?.id;
+      chip.classList.toggle("isSelected", selected);
+      chip.setAttribute("aria-pressed", String(selected));
+    });
+    wizardMarkInvalid("wizardClientName", "wizardClientError", "");
+  } else if (target.id === "wizardProductName") {
+    wizardDraft.productName = target.value;
+    const match = wizardResolveProduct(wizardResolveClient());
+    wizardDraft.productId = match?.id || "";
+    document.querySelectorAll("[data-wizard-pick-product]").forEach((chip) => {
+      const selected = chip.dataset.wizardPickProduct === match?.id;
+      chip.classList.toggle("isSelected", selected);
+      chip.setAttribute("aria-pressed", String(selected));
+    });
+    wizardMarkInvalid("wizardProductName", "wizardProductError", "");
+  } else if (target.dataset.wizardEnvName) {
+    const env = wizardEnvByKey(target.dataset.wizardEnvName);
+    env.name = target.value;
+    const preview = document.querySelector(`[data-wizard-env-preview="${env.key}"]`);
+    if (preview) preview.textContent = env.name.trim() || t("Ambiente");
+    const title = document.querySelector(`[data-wizard-env-title="${env.key}"]`);
+    if (title) title.textContent = wizardEnvTitle(env, Number(title.dataset.index));
+    wizardMarkInvalid(target.id, `wizardEnvNameError-${env.key}`, "");
+    const reuseNote = document.getElementById(`wizardEnvReuseNote-${env.key}`);
+    if (reuseNote) { reuseNote.innerHTML = wizardEnvReuseNoteHtml(env); reuseNote.hidden = !reuseNote.innerHTML; }
+  } else if (target.dataset.wizardEnvCustom) {
+    const env = wizardEnvByKey(target.dataset.wizardEnvCustom);
+    env.color = target.value;
+    const card = document.querySelector(`[data-wizard-env-card="${env.key}"]`);
+    card.style.setProperty("--wizard-env-color", env.color);
+    card.style.setProperty("--wizard-env-ink", wizardInkFor(env.color));
+    card.querySelectorAll("[data-wizard-env-color]").forEach((radio) => { radio.checked = false; });
+    target.closest(".wizardSwatchCustom").classList.add("isSelected");
+  } else if (target.dataset.wizardEnvUrl) {
+    wizardEnvByKey(target.dataset.wizardEnvUrl).urlInput = target.value;
+    wizardMarkInvalid(target.id, `wizardEnvUrlError-${target.dataset.wizardEnvUrl}`, "");
+  }
+});
+onboardingWizardBody.addEventListener("change", (event) => {
+  const target = event.target;
+  if (target.name === "wizardScope") {
+    wizardDraft.scopeMode = target.value;
+    renderWizardStep({ focusId: null });
+    document.querySelector(`#onboardingWizardBody input[name="wizardScope"][value="${target.value}"]`)?.focus();
+  } else if (target.dataset.wizardEnvColor) {
+    const env = wizardEnvByKey(target.dataset.wizardEnvColor);
+    env.color = target.value;
+    const card = document.querySelector(`[data-wizard-env-card="${env.key}"]`);
+    card.style.setProperty("--wizard-env-color", env.color);
+    card.style.setProperty("--wizard-env-ink", wizardInkFor(env.color));
+    const custom = card.querySelector("[data-wizard-env-custom]");
+    custom.value = env.color;
+    custom.closest(".wizardSwatchCustom").classList.remove("isSelected");
+  }
+});
+onboardingWizardBody.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" || event.target.tagName !== "INPUT") return;
+  const target = event.target;
+  if (target.id === "wizardClientName" || target.id === "wizardProductName") {
+    event.preventDefault();
+    void wizardNext();
+  } else if (target.dataset.wizardEnvName) {
+    event.preventDefault();
+    document.getElementById(`wizardEnvUrl-${target.dataset.wizardEnvName}`)?.focus();
+  } else if (target.dataset.wizardEnvUrl) {
+    event.preventDefault();
+    wizardAddEnvUrl(target.dataset.wizardEnvUrl);
+  }
+});
+onboardingWizardBody.addEventListener("click", async (event) => {
+  const button = event.target.closest("button");
+  if (!button) return;
+  const data = button.dataset;
+  if (data.wizardPickClient) {
+    const client = findById("clients", data.wizardPickClient);
+    wizardDraft.clientId = client.id;
+    wizardDraft.clientName = client.name;
+    renderWizardStep({ focusId: "wizardClientName" });
+  } else if (data.wizardPickProduct) {
+    const product = findById("products", data.wizardPickProduct);
+    wizardDraft.productId = product.id;
+    wizardDraft.productName = product.name;
+    renderWizardStep({ focusId: "wizardProductName" });
+  } else if (button.id === "wizardUseTemplate") {
+    await wizardCreateTemplate();
+  } else if (data.wizardEnvUrlAdd) {
+    wizardAddEnvUrl(data.wizardEnvUrlAdd);
+  } else if (data.wizardUrlWide) {
+    const env = wizardEnvByKey(data.wizardUrlWide);
+    const wide = env.pendingNarrow.patterns.map((pattern) => `${wizardPatternParts(pattern)?.origin || pattern}/*`);
+    wizardCommitEnvPatterns(env, [...new Set(wide)]);
+  } else if (data.wizardUrlKeep) {
+    const env = wizardEnvByKey(data.wizardUrlKeep);
+    wizardCommitEnvPatterns(env, env.pendingNarrow.patterns);
+  } else if (data.wizardEnvUrlRemove) {
+    const env = wizardEnvByKey(data.wizardEnvUrlRemove);
+    const [removed] = env.patterns.splice(Number(data.index), 1);
+    renderWizardStep({ focusId: `wizardEnvUrl-${env.key}` });
+    wizardAnnounce(t("Endereço removido: {url}", { url: removed }));
+  } else if (data.wizardEnvRemove) {
+    wizardDraft.environments = wizardDraft.environments.filter((env) => env.key !== data.wizardEnvRemove);
+    renderWizardStep({ focusId: "wizardEnvAddAnother" });
+    wizardAnnounce(t("Ambiente removido."));
+  } else if (button.id === "wizardEnvAddAnother") {
+    const env = createWizardEnvDraft();
+    // Next preset color, so two new environments don't start with the same bar color.
+    env.color = WIZARD_COLOR_PRESETS[wizardDraft.environments.length % WIZARD_COLOR_PRESETS.length].color;
+    wizardDraft.environments.push(env);
+    renderWizardStep({ focusId: `wizardEnvName-${env.key}` });
+  } else if (data.wizardEnvReuse) {
+    const env = createWizardEnvDraft(findById("environments", data.wizardEnvReuse));
+    wizardDraft.environments.push(env);
+    renderWizardStep({ focusId: `wizardEnvUrl-${env.key}` });
+  } else if (data.wizardOpenComposer) {
+    const key = data.wizardOptionalKey;
+    wizardOptionalComposerKey = key;
+    if (key === "testAccounts" || key === "paymentMethods") {
+      const scopeKey = key === "testAccounts" ? "testAccount" : "paymentMethod";
+      const state = scopePickerStates[scopeKey];
+      state.environmentIds = new Set(wizardDone.environmentIds);
+      state.productIds = new Set([wizardDone.productId]);
+      renderScopePicker(scopeKey, { requireEnvironment: key === "testAccounts" });
+    }
+    document.getElementById(data.wizardOpenComposer)?.showModal();
+  } else if (data.wizardTemplate) {
+    const schema = WIZARD_CSV_SCHEMA[data.wizardTemplate];
+    // Leading BOM so Excel opens the accented example rows as UTF-8.
+    const blob = new Blob([String.fromCharCode(0xfeff), schema.example], { type: "text/csv;charset=utf-8" });
+    downloadBlob(blob, `template-${data.wizardTemplate}.csv`);
+  } else if (data.wizardCsvSubmit) {
+    const key = data.wizardCsvSubmit;
+    const schema = WIZARD_CSV_SCHEMA[key];
+    const textarea = document.getElementById(`wizardCsvInput-${key}`);
+    const message = document.getElementById(`wizardCsvMessage-${key}`);
+    const records = parseWizardCsv(textarea.value, schema.columns);
+    if (!records.length) { message.textContent = t("Nenhuma linha válida encontrada."); message.classList.add("isError"); return; }
+    const environmentIds = [...wizardDone.environmentIds];
+    const productIds = [wizardDone.productId];
+    for (const record of records) {
+      if (key === "testAccounts") {
+        workspace.testAccounts.push({ id: uid("testAccount"), environmentIds, productIds, label: record.label, username: record.username || "", password: record.password || "", notes: record.notes || "" });
+      } else if (key === "paymentMethods") {
+        workspace.paymentMethods.push({ id: uid("paymentMethod"), environmentIds, productIds, label: record.label, holder: record.holder || "", value: record.value || "", expiry: record.expiry || "", cvv: record.cvv || "", notes: record.notes || "" });
+      } else if (key === "inspectors") {
+        workspace.inspectors.push({ id: uid("inspector"), label: record.label, patterns: String(record.patterns || "").split("|").map((value) => value.trim()).filter(Boolean), active: true });
+      } else if (key === "devices") {
+        const names = (value) => String(value || "").split("|").map((item) => item.trim().toLowerCase()).filter(Boolean);
+        const systemNames = new Set(names(record.systems));
+        const browserNames = new Set(names(record.browsers));
+        workspace.devices.push({
+          id: uid("device"),
+          label: record.label,
+          operatingSystemIds: workspace.operatingSystems.filter((item) => systemNames.has(item.name.toLowerCase())).map((item) => item.id),
+          browserIds: workspace.browsers.filter((item) => browserNames.has(item.name.toLowerCase())).map((item) => item.id),
+          notes: record.notes || "",
+          active: true,
+        });
+      }
+    }
+    await persistWorkspace();
+    message.classList.remove("isError");
+    message.textContent = t("{count} registro(s) importado(s).", { count: records.length });
+    textarea.value = "";
+  }
 });
 
+document.getElementById("openOnboardingWizard").addEventListener("click", () => openOnboardingWizard());
+document.getElementById("workspaceWizardNudgeOpen").addEventListener("click", () => openOnboardingWizard());
+document.getElementById("onboardingWizardClose").addEventListener("click", () => void closeOnboardingWizard());
+// Esc fires "cancel" on a modal <dialog>; hold it while there is an unsaved draft and ask first.
+document.getElementById("onboardingWizard").addEventListener("cancel", (event) => {
+  if (!wizardHasUnsavedDraft()) return;
+  event.preventDefault();
+  void closeOnboardingWizard();
+});
+document.getElementById("onboardingWizardBack").addEventListener("click", () => { if (wizardStepIndex > 0) wizardGoTo(wizardStepIndex - 1); });
+document.getElementById("onboardingWizardNext").addEventListener("click", () => void wizardNext());
+document.getElementById("onboardingWizardDots").addEventListener("click", (event) => {
+  const button = event.target.closest("[data-wizard-dot]");
+  if (!button || wizardDone) return;
+  const target = Number(button.dataset.wizardDot);
+  if (target <= wizardStepIndex) { wizardGoTo(target); return; }
+  // Forward jumps only through steps that are already valid, one at a time.
+  const flow = wizardFlow();
+  for (let index = wizardStepIndex; index < target; index += 1) {
+    if (index !== wizardStepIndex) { wizardStepIndex = index; renderWizardStep(); }
+    if (!wizardValidateStep(flow[index].key)) return;
+  }
+  wizardGoTo(target);
+});
 // Founder feedback: with enough clients/products/accounts registered (especially ones carrying
 // base64 logos/icons), saving felt sluggish because the UI waited for the full chrome.storage.local
 // write to finish before showing anything. `workspace` is already the up-to-date in-memory object
@@ -2161,12 +2770,20 @@ document.addEventListener("drop", async (event) => {
 
 // Promise-based replacement for window.confirm(...) so deletion confirmation is a themed modal
 // (consistent with every other dialog) instead of the browser's native alert box.
-function confirmDialog(message) {
+// Labels default to the deletion wording; the onboarding wizard reuses the same dialog for
+// "Sair sem salvar?" and "Criar exemplo pronto?" with its own, non-destructive labels.
+function confirmDialog(message, { title = t("Confirmar exclusão"), eyebrow = t("Excluir"), accept: acceptLabel = t("Excluir"), cancel: cancelLabel = t("Cancelar"), danger = true } = {}) {
   return new Promise((resolve) => {
     const dialog = document.getElementById("deleteConfirmDialog");
     document.getElementById("deleteConfirmBody").textContent = message;
+    document.getElementById("deleteConfirmTitle").textContent = title;
+    dialog.querySelector(".formDialogHead .eyebrow").textContent = eyebrow;
     const accept = document.getElementById("deleteConfirmAccept");
     const cancel = document.getElementById("deleteConfirmCancel");
+    accept.textContent = acceptLabel;
+    cancel.textContent = cancelLabel;
+    accept.classList.toggle("danger", danger);
+    accept.classList.toggle("primary", !danger);
     const settle = (result) => {
       accept.removeEventListener("click", onAccept);
       cancel.removeEventListener("click", onCancel);
@@ -2217,10 +2834,7 @@ document.getElementById("testAccountForm").addEventListener("submit", async (eve
   upsert("testAccounts", { id: editId || uid("account"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("testAccountLabel").value.trim(), accountTypeId: accountType?.id || "", accountType: accountType?.name || "", accountTypeImage: accountType?.icon || "", username: document.getElementById("testAccountUsername").value.trim(), password: password || existing?.password || "", notes: document.getElementById("testAccountNotes").value.trim(), customFields: testAccountCustomFieldsDraft, active: true }, editId);
   clearEdit("testAccount");
   await persistWorkspace();
-  if (onboardingWizard.open && wizardOptionalComposerKey === "testAccounts") {
-    wizardOptionalComposerKey = null;
-    await continueWizardAfterSuccess(t("Conta de teste"));
-  }
+  if (wizardOptionalComposerKey === "testAccounts") wizardAfterOptionalSave(t("Conta de teste"));
 });
 document.getElementById("paymentMethodForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2231,10 +2845,7 @@ document.getElementById("paymentMethodForm").addEventListener("submit", async (e
   upsert("paymentMethods", { id: editId || uid("payment"), environmentIds: [...scope.environmentIds], productIds: [...scope.productIds], label: document.getElementById("paymentMethodLabel").value.trim(), typeId: paymentMethodType?.id || "", type: paymentMethodType?.name || "", icon: document.getElementById("paymentMethodIcon").value.trim(), value: document.getElementById("paymentMethodValue").value.trim() || existing?.value || "", holder: document.getElementById("paymentMethodHolder").value.trim(), expiry: document.getElementById("paymentMethodExpiry").value.trim(), cvv: document.getElementById("paymentMethodCvv").value.trim() || existing?.cvv || "", notes: document.getElementById("paymentMethodNotes").value.trim(), active: true }, editId);
   clearEdit("paymentMethod");
   await persistWorkspace();
-  if (onboardingWizard.open && wizardOptionalComposerKey === "paymentMethods") {
-    wizardOptionalComposerKey = null;
-    await continueWizardAfterSuccess(t("Meio de pagamento"));
-  }
+  if (wizardOptionalComposerKey === "paymentMethods") wizardAfterOptionalSave(t("Meio de pagamento"));
 });
 // After a quick-add ("+ novo") from inside the device composer, the newly created system/browser
 // is checked back into the pill it came from, instead of leaving the user to find and tick it.
@@ -2295,10 +2906,7 @@ document.getElementById("deviceForm").addEventListener("submit", async (event) =
   upsert("devices", { id: editId || uid("device"), label: document.getElementById("deviceLabel").value.trim(), operatingSystemIds, browserIds, notes: document.getElementById("deviceNotes").value.trim(), active: true }, editId);
   clearEdit("device");
   await persistWorkspace();
-  if (onboardingWizard.open && wizardOptionalComposerKey === "devices") {
-    wizardOptionalComposerKey = null;
-    await continueWizardAfterSuccess(t("Dispositivo"));
-  }
+  if (wizardOptionalComposerKey === "devices") wizardAfterOptionalSave(t("Dispositivo"));
 });
 document.getElementById("inspectorForm").addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -2306,10 +2914,7 @@ document.getElementById("inspectorForm").addEventListener("submit", async (event
   upsert("inspectors", { id: editId || uid("inspector"), label: document.getElementById("inspectorLabel").value.trim(), patterns: document.getElementById("inspectorPatterns").value.split(/\n|,/).map((v) => v.trim()).filter(Boolean), active: true }, editId);
   clearEdit("inspector");
   await persistWorkspace();
-  if (onboardingWizard.open && wizardOptionalComposerKey === "inspectors") {
-    wizardOptionalComposerKey = null;
-    await continueWizardAfterSuccess(t("Inspector"));
-  }
+  if (wizardOptionalComposerKey === "inspectors") wizardAfterOptionalSave(t("Inspector"));
 });
 document.getElementById("apiForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("apiEditId").value; const existing = findById("apis", editId); upsert("apis", { id: editId || uid("api"), label: document.getElementById("apiLabel").value.trim(), baseUrl: document.getElementById("apiBaseUrl").value.trim(), token: document.getElementById("apiToken").value || existing?.token || "", active: true }, editId); clearEdit("api"); await persistWorkspace(); });
 document.getElementById("resourceForm").addEventListener("submit", async (event) => { event.preventDefault(); const editId = document.getElementById("resourceEditId").value; upsert("resources", { id: editId || uid("resource"), label: document.getElementById("resourceLabel").value.trim(), url: document.getElementById("resourceUrl").value.trim(), category: document.getElementById("resourceCategory").value.trim(), icon: document.getElementById("resourceIcon").value.trim(), active: true }, editId); clearEdit("resource"); await persistWorkspace(); });
@@ -2881,6 +3486,7 @@ const SETTINGS_TOUR_STEPS = [
   { tab: "general", selector: "#appearanceThemeToggle", title: "Tema claro ou escuro", text: "Escolha Sol para o tema claro ou Lua para o escuro. A preferência é salva e também altera a toolbar." },
   { tab: "general", selector: "#barPreview", title: "Aparência da barra", text: "Use a prévia para conferir breadcrumb, imagens, modo compacto, formato e itens visíveis antes de salvar." },
   { tab: "general", selector: "#toolsMenuOrderList", title: "Ferramentas e ordem", text: "Escolha as ferramentas disponíveis e organize a ordem do menu Tools. Termine usando Salvar, no rodapé fixo." },
+  { tab: "workspace", workspaceTab: "structure", selector: "#openOnboardingWizard", title: "Criar workspace guiado", text: "Comece por aqui: responda a empresa, o produto e onde a barra aparece. Cada passo explica o que é, com um exemplo." },
   { tab: "workspace", workspaceTab: "structure", selector: '[data-open-composer="clientComposer"]', title: "1. Criar cliente", text: "Clique em Adicionar cliente, informe nome e imagem opcional e salve. O cliente é o primeiro nível da estrutura." },
   { tab: "workspace", workspaceTab: "structure", selector: '[data-structure-view="project"]', title: "2. Criar projeto", text: "Expanda o cliente pai e clique em Adicionar projeto dentro dele. O cliente já fica selecionado no formulário." },
   { tab: "workspace", workspaceTab: "structure", selector: '[data-structure-view="product"]', title: "3. Criar produto", text: "Expanda o projeto pai e clique em Adicionar produto dentro dele. A hierarquia preserva o contexto correto." },
@@ -3058,6 +3664,9 @@ document.getElementById("resetButton").addEventListener("click", async () => {
   }
   if (requestedTab || launchParams.has("settingsTour")) window.history.replaceState({}, "", window.location.pathname);
   onStorageChanged(async (changes) => {
+    // Site scope changed elsewhere (another Settings tab, the wizard): keep the radios and the
+    // first-access nudge in sync, or a later "Salvar" here would write the stale choice back.
+    if (changes[STORAGE_KEYS.siteScope]) { await loadScopeUi(); renderWorkspaceWizard(); }
     if (!changes[STORAGE_KEYS.workspace]) return;
     workspace = await getWorkspace();
     renderWorkspace();

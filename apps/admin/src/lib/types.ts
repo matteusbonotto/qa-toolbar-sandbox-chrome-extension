@@ -78,6 +78,8 @@ export interface Voucher {
   expires_at: string | null;
   redeemed_by: string | null;
   redeemed_at: string | null;
+  /** null = any e-mail; otherwise only a confirmed e-mail with exactly one of these domains. */
+  allowed_email_domains: string[] | null;
   created_at: string;
   updated_at: string;
 }
@@ -96,6 +98,8 @@ export interface VoucherCampaign {
   redemption_count: number;
   enabled: boolean;
   expires_at: string | null;
+  /** null = any e-mail; otherwise only a confirmed e-mail with exactly one of these domains. */
+  allowed_email_domains: string[] | null;
   created_at: string;
 }
 

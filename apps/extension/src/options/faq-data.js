@@ -69,6 +69,11 @@
       answer: "O resumo compara cada caso com as regras HTML declaradas no campo. Required, tipo, pattern e limites aparecem com o resultado esperado ou a indicação de revisão. Se não houver regra, o registro fica como diagnóstico. O histórico é local, não guarda valores digitados e pode ser limpo a qualquer momento.",
     },
     {
+      key: "guidedSetup",
+      question: "Como funciona o Criar workspace (configuração guiada)?",
+      answer: "Abra Workspace e clique em Criar workspace. São poucas perguntas: a empresa que você testa (cliente, ex.: Bankeiro), o produto dessa empresa (ex.: Uzzipay) e onde a barra aparece. Em todos os sites, a configuração termina ali. Em sites específicos, você cria cada ambiente com nome e cor e, dentro dele, os endereços onde a barra daquele ambiente aparece (ex.: STG azul em https://stg.uzzipay.com.br/*). No fim, confira o resumo e clique em Concluir. Contas, pagamentos, dispositivos e Inspectors ficam como próximos passos opcionais.",
+    },
+    {
       key: "workspaceOrder",
       question: "Qual é a ordem correta para configurar o Workspace?",
       answer: "Abra Workspace no menu esquerdo. Em Clientes e produtos, cada cliente contém seus projetos e cada projeto contém seus produtos. Use os filtros para mudar o ponto de vista e arraste Projeto ou Produto para trocar seu pai. Em Ambientes e URLs, expanda um ambiente para cadastrar ou mover URLs no próprio contexto. Contas, pagamentos e dispositivos também podem ser agrupados pelas relações relevantes.",

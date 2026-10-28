@@ -236,8 +236,8 @@ sem necessidade).
 
 ### `npm run backend:check`
 - **Objetivo**: roda os testes Deno das Edge Functions (`_shared/http_test.ts`,
-  `_shared/admin_mfa_test.ts`, `_shared/entitlements_test.ts`) e `deno check` de tipos em todas as
-  functions.
+  `_shared/admin_mfa_test.ts`, `_shared/entitlements_test.ts`, `_shared/vouchers_test.ts`) e
+  `deno check` de tipos em todas as functions.
 - **Quando usar**: obrigatório depois de mexer em qualquer arquivo de `supabase/functions/`.
 - **Pré-requisitos**: acesso a `npx deno@latest` (rede na primeira vez).
 - **Resultado esperado**: testes verdes + zero erro de tipo Deno.
@@ -268,7 +268,7 @@ Ver `docs/testing-strategy.md` para a tabela completa de camadas/quando rodar. C
 | `node --check <arquivo>` | Sintaxe de um arquivo `.js` da extensão |
 | `npm run typecheck` | TypeScript de todos os workspaces (`--workspaces --if-present`) |
 | `node scripts/test-extension-workspace.mjs` | Normalização de workspace / paridade ESM-clássico |
-| `npm test` | Unitários de todos os workspaces + `test-extension-workspace.mjs`, `check-schema-sync.mjs`, `test-release-environments.mjs`, `test-update-experience.mjs`, `test-reward-program.mjs`, `test-gif-encoder.mjs`, `backend-security/check-rls-static.mjs`, `backend-security/test-backend-security-tools.mjs` |
+| `npm test` | Unitários de todos os workspaces + `test-extension-workspace.mjs`, `check-schema-sync.mjs`, `test-release-environments.mjs`, `test-update-experience.mjs`, `test-reward-program.mjs`, `test-gif-encoder.mjs`, `backend-security/check-rls-static.mjs`, `backend-security/test-voucher-domain-restriction.mjs`, `backend-security/test-backend-security-tools.mjs` |
 | `npm run test:security:local` / `npm run test:load:local` | Suítes de segurança e carga do backend contra o mock local (ver abaixo) |
 | `npm run test:security` / `npm run test:load` | As mesmas suítes contra Supabase local ou projeto de TESTE separado (produção bloqueada) |
 | `npm run test:security:rls` | Auditoria estática de RLS/`security definer` em `supabase/schema.sql` |
@@ -326,6 +326,32 @@ Ver `docs/testing-strategy.md` para a tabela completa de camadas/quando rodar. C
   policy `using (true)` fora do catálogo público, função `security definer` sem `set search_path` ou
   com `EXECUTE` padrão para `PUBLIC` sem justificativa.
 - **Quando usar**: já roda dentro de `npm test`; isolado ao editar `supabase/schema.sql`.
+
+### `npm run backend:check-auth-settings`
+- **Objetivo**: `scripts/backend-security/check-live-auth-settings.mjs`. Faz GET (só leitura) em
+  `<SUPABASE_URL>/auth/v1/settings` e falha se `mailer_autoconfirm` não for `false` ou se houver
+  provedor de login habilitado fora de `REVIEWED_AUTH_PROVIDERS` (`contracts.mjs`). A regra de
+  voucher por domínio de e-mail depende disso (ver `docs/security.md`).
+- **Quando usar**: roda primeiro dentro de `npm run backend:test:live`; isolado depois de mexer em
+  qualquer configuração de Auth no painel do Supabase.
+- **Pré-requisitos**: `SUPABASE_URL` e `SUPABASE_PUBLIC_KEY` (ou `SUPABASE_ANON_KEY`) no ambiente.
+  Precisa de rede, por isso não faz parte do `npm test` (a lógica é testada offline em
+  `test-backend-security-tools.mjs`).
+
+### `npm run test:vouchers:db`
+- **Objetivo**: `scripts/backend-security/test-voucher-domain-restriction.mjs`. Sobe um Postgres real
+  em processo (PGlite, WASM, sem Docker), monta o banco duas vezes (por `supabase/schema.sql` e
+  replicando todas as `supabase/migrations/` em ordem) e executa de verdade `redeem_voucher` e
+  `reserve_voucher_discount`: e-mail de fora recusado em voucher restrito por domínio, e-mail
+  confirmado do domínio aceito, e-mail não confirmado recusado, domínios parecidos e subdomínios
+  recusados, lista vazia/NULL aceita qualquer e-mail, CHECK de `allowed_email_domains` e privilégios.
+- **Quando usar**: já roda dentro de `npm test`; isolado ao mexer em voucher, `schema.sql` ou
+  migration de voucher.
+- **Pré-requisitos**: `@electric-sql/pglite` (devDependency fixada em `0.3.16`). Justificativa
+  (AGENTS.md regra 3): é a única forma de rodar o SQL real das RPCs de voucher sem Docker nem
+  serviço externo; já estava no lockfile como dependência transitiva de `firebase-tools`, então
+  declarar não baixa nada novo, só impede que uma atualização do `firebase-tools` quebre o
+  `npm test` em silêncio. Só é usada em teste, nunca entra em bundle de Landing/Admin/extensão.
 
 ### Testes ausentes conhecidos (não invente comando para eles — não existem hoje)
 Acessibilidade (WCAG) automatizada e cobertura de integrações externas (nenhuma integração externa

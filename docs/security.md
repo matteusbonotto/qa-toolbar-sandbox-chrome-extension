@@ -67,6 +67,42 @@ resto:
   entidade e metadados seguros — nunca token, senha ou corpo de requisição.
 - **Webhooks do Stripe são verificados por assinatura** antes de qualquer processamento
   (`stripe-webhook`).
+- **Voucher restrito por domínio de e-mail é regra do banco, não da Edge Function.**
+  `vouchers.allowed_email_domains` e `voucher_campaigns.allowed_email_domains` (`text[]`, migration
+  `20261028120000_voucher_email_domain_restriction.sql`): NULL ou vazio = qualquer e-mail; com
+  lista, `redeem_voucher` e `reserve_voucher_discount` (security definer) leem o e-mail em
+  `auth.users` e recusam com `voucher_domain_not_allowed` se o e-mail não estiver confirmado
+  (`email_confirmed_at`) ou se o domínio (minúsculo, depois do último `@`) não for **exatamente** um
+  dos listados. Sem subdomínio implícito (`x.mblabs.com.br` precisa estar na lista) e sem
+  parecidos (`evil-mblabs.com.br`, `mblabs.com.br.evil.com`). **Por quê:** em 2026-10-28 as campanhas
+  "MB Labs - Release Manager vitalicio" e "Bankeiro - Release Manager vitalicio" foram resgatadas
+  por pessoas de fora, porque não existia nenhuma restrição de domínio; quem tinha o código ganhava
+  acesso vitalício pago. A checagem fica no RPC porque é o único ponto por onde todo resgate passa
+  (Edge Function antiga ou com bug não contorna) e exige e-mail confirmado porque cadastro não
+  confirmado pode digitar qualquer endereço. A função auxiliar `voucher_email_domain_allowed` não é
+  executável por `anon`/`authenticated` (não vira oráculo de e-mail por id). O `voucher-preview`
+  devolve `allowedEmailDomains` publicamente de propósito: o domínio é a regra de elegibilidade, não
+  segredo. Regressão: `npm run test:vouchers:db` (Postgres real via PGlite, contra `schema.sql` e
+  contra todas as migrations).
+  - **Só vale o e-mail atual e confirmado.** Uma troca pendente (`auth.users.email_change`) não
+    conta. O domínio só é comparado se for ASCII puro (`[A-Za-z0-9.-]`), checado no texto bruto
+    **antes** do `lower()`: com collation libc, `lower()` pode transformar letras não ASCII em ASCII
+    (U+0130 "İ" vira "i"), e `x@bankeİro.com.br` passaria por `bankeiro.com.br`.
+  - **Depende da configuração do Supabase Auth.** A regra confia em `email_confirmed_at`, então:
+    (1) "Confirm email" precisa ficar LIGADO (`mailer_autoconfirm = false`), senão qualquer pessoa
+    se cadastra como `alguem@mblabs.com.br` e já nasce confirmada; (2) todo provedor de login
+    habilitado precisa ter sido revisado para só marcar o e-mail como confirmado quando o próprio
+    provedor verificou aquele e-mail. Hoje só o provedor de e-mail está ligado. Ligar qualquer
+    OAuth, SAML, telefone ou login anônimo exige essa revisão e a inclusão do provedor em
+    `REVIEWED_AUTH_PROVIDERS` (`scripts/backend-security/contracts.mjs`). O guard
+    `npm run backend:check-auth-settings` (GET `/auth/v1/settings`, só leitura) falha se isso
+    divergir, e roda primeiro em `npm run backend:test:live`.
+  - **Auditoria:** `audit_logs` de `voucher.redeemed` e `voucher.discount_finalized` grava em
+    `metadata` o id da campanha/voucher e só o **domínio** do e-mail (`email_domain`), nunca o
+    endereço completo.
+  - **Risco aceito:** plus-addressing (`fulano+1@mblabs.com.br`) deixa um funcionário criar várias
+    contas confirmadas no mesmo domínio. Por isso o Admin recomenda definir limite de resgates
+    (`maximum_redemptions`) em campanha restrita por domínio.
 - **Multi Testador: única conexão direta extensão para Supabase** (ADR 0003, decisão D3). O service
   worker abre o WebSocket do Supabase Realtime com a chave pública `anon` (feita para ir no cliente;
   não dá acesso a nada sozinha) e o JWT do próprio usuário, sempre em canal **privado** `mt:<sala>`.

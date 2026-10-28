@@ -5,6 +5,7 @@
 
 import assert from "node:assert/strict";
 import { auditSchema } from "./check-rls-static.mjs";
+import { auditAuthSettings } from "./contracts.mjs";
 import { OWNERSHIP_FLAG, PRODUCTION_PROJECT_REF, productionRefs, resolveTarget, TargetRefusedError } from "./target-guard.mjs";
 import { evaluateThresholds, Metrics, parseDuration, percentile } from "../backend-load/load-engine.mjs";
 
@@ -134,6 +135,29 @@ check("thresholds pass and fail on the right side, per metric and overall, and f
   assert.equal(evaluateThresholds(report, ["nonsense"]).length, 1);
   metrics.check("functional", false, "detail");
   assert.equal(evaluateThresholds(metrics.report(), []).length, 1);
+});
+
+// ---------------------------------------------------------------- auth settings (voucher domain rule)
+check("auth settings: confirm e-mail ON and only the e-mail provider passes", () => {
+  assert.deepEqual(auditAuthSettings({ mailer_autoconfirm: false, saml_enabled: false, external: { email: true, google: false, phone: false, anonymous_users: false } }), []);
+});
+check("auth settings: autoconfirm on, missing or not boolean fails", () => {
+  for (const value of [true, undefined, "false", null]) {
+    assert.equal(auditAuthSettings({ mailer_autoconfirm: value, external: { email: true } }).length, 1, String(value));
+  }
+});
+check("auth settings: any enabled provider outside the reviewed list fails (OAuth, phone, anonymous, SAML)", () => {
+  for (const provider of ["google", "github", "phone", "anonymous_users"]) {
+    const failures = auditAuthSettings({ mailer_autoconfirm: false, external: { email: true, [provider]: true } });
+    assert.equal(failures.length, 1, provider);
+    assert.match(failures[0], new RegExp(provider));
+  }
+  assert.equal(auditAuthSettings({ mailer_autoconfirm: false, saml_enabled: true, external: { email: true } }).length, 1);
+  assert.deepEqual(auditAuthSettings({ mailer_autoconfirm: false, external: { email: true, google: true } }, ["email", "google"]), []);
+});
+check("auth settings: malformed responses fail closed", () => {
+  assert.equal(auditAuthSettings(null).length, 1);
+  assert.equal(auditAuthSettings({ mailer_autoconfirm: false }).length, 1);
 });
 
 console.log(`backend security tooling: ${passed} checks passed`);

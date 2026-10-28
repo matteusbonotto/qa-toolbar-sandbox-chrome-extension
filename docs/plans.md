@@ -61,6 +61,22 @@ assinantes existentes (checkout, faturas, comunicação já enviada). Se decidir
 seguro é manter a `chave` técnica (`smoke-test` etc.) estável no banco e só trocar `plans.name`
 (o texto exibido), preservando qualquer assinatura ativa.
 
+## Vouchers e campanhas restritos por domínio de e-mail
+
+Regra do founder (2026-10-28): um voucher ou campanha pode ser exclusivo de uma ou mais empresas
+pelo campo **"Domínios de e-mail permitidos"** no Admin (Vouchers), gravado em
+`allowed_email_domains` (ex.: `{mblabs.com.br}`, minúsculo, sem `@`, no máximo 20).
+
+- Vazio = qualquer e-mail resgata (todos os vouchers que já existiam, como EDUFULL, seguem iguais).
+- Com domínios: só resgata conta com **e-mail confirmado** cujo domínio seja **exatamente** um dos
+  listados. Subdomínio não entra sozinho (`time.mblabs.com.br` precisa ser listado à parte) e
+  domínios parecidos são recusados.
+- Vale para os três tipos (dias, vitalício e desconto) e para voucher de uso único e campanha.
+- Recusa: HTTP 409 `voucher_domain_not_allowed` em `voucher-redeem` e `checkout-create-session`;
+  `voucher-preview` informa `allowedEmailDomains` antes do login para a Landing avisar
+  "Exclusivo para e-mails @mblabs.com.br".
+- Motivo e detalhes de segurança: `docs/security.md` (Backend, item do voucher por domínio).
+
 ## Regras já em vigor (não usar dark patterns)
 
 - Não cobrar para excluir dados (fluxo LGPD já implementado, `account-delete`).

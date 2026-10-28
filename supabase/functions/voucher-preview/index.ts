@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { adminClient, clientRateSubject, enforceRateLimit } from "../_shared/auth.ts";
 import { serve } from "../_shared/handler.ts";
 import { jsonResponse, readJson, requirePost } from "../_shared/http.ts";
+import { allowedEmailDomainsPayload } from "../_shared/vouchers.ts";
 
 interface PlanRelation {
   key: string;
@@ -14,6 +15,7 @@ interface PreviewRow {
   grant_days: number | null;
   discount_percent_off: number | null;
   discount_amount_off_minor: number | null;
+  allowed_email_domains: string[] | null;
   plans: PlanRelation | PlanRelation[] | null;
 }
 
@@ -31,6 +33,10 @@ function previewPayload(row: PreviewRow) {
     grantDays: row.grant_days,
     discountPercentOff: row.discount_percent_off,
     discountAmountOffMinor: row.discount_amount_off_minor,
+    // null = any e-mail. Otherwise only a confirmed e-mail whose domain is exactly one of these may
+    // redeem (enforced in the RPC; shown here so the Landing can warn before login). Public on
+    // purpose: the domain is the eligibility rule itself, not a secret.
+    allowedEmailDomains: allowedEmailDomainsPayload(row.allowed_email_domains),
   };
 }
 
@@ -56,14 +62,14 @@ serve(async (request) => {
   const now = new Date().toISOString();
 
   const { data: campaign } = await admin.from("voucher_campaigns")
-    .select("kind,label,grant_days,discount_percent_off,discount_amount_off_minor,maximum_redemptions,redemption_count,plans(key,name)")
+    .select("kind,label,grant_days,discount_percent_off,discount_amount_off_minor,allowed_email_domains,maximum_redemptions,redemption_count,plans(key,name)")
     .eq("code_hash", voucherHash).eq("enabled", true)
     .or(`expires_at.is.null,expires_at.gt.${now}`).maybeSingle();
   const exhausted = campaign?.maximum_redemptions != null && campaign.redemption_count >= campaign.maximum_redemptions;
   if (campaign && !exhausted) return jsonResponse(request, previewPayload(campaign as unknown as PreviewRow));
 
   const { data: voucher } = await admin.from("vouchers")
-    .select("kind,label,grant_days,discount_percent_off,discount_amount_off_minor,plans(key,name)")
+    .select("kind,label,grant_days,discount_percent_off,discount_amount_off_minor,allowed_email_domains,plans(key,name)")
     .eq("code_hash", voucherHash).eq("status", "available")
     .or(`expires_at.is.null,expires_at.gt.${now}`).maybeSingle();
   if (voucher) return jsonResponse(request, previewPayload(voucher as unknown as PreviewRow));
