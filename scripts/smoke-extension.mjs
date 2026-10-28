@@ -479,7 +479,7 @@ try {
   if (await options.locator("#keyViewEnabled").count()) throw new Error("Duplicated Key View settings card returned after locale change");
   await options.locator('#langSwitch [data-locale="pt-BR"]').evaluate((button) => button.click());
   await options.waitForFunction(() => document.documentElement.lang === "pt-BR");
-  await options.getByRole("button", { name: "Minha conta" }).click();
+  await options.getByRole("button", { name: "Minha conta", exact: true }).click();
   await options.locator("#signedInState").waitFor({ state: "visible" });
   await options.screenshot({ path: resolve(evidencePath, "extension-authenticated-account.png"), fullPage: true });
 
@@ -2988,7 +2988,7 @@ try {
   // modal (Repetir/Próximo/Fechar, not the old toast), progress persists across reload, no tool
   // shows a lock badge, and the FAQ's expand/collapse-all touches every accordion (now illustrated
   // with the same screenshots).
-  await options.getByRole("button", { name: "Minha conta" }).click();
+  await options.getByRole("button", { name: "Minha conta", exact: true }).click();
   if (await options.locator("#tutorialBanner").isHidden()) throw new Error("Tutorial banner should be visible before it's dismissed");
   // Founder rule: the tour banner above the login spans the full panel row (col 12), not half of it.
   const tutorialBannerSpan = await options.locator('.panel[data-panel="account"]').evaluate((panel) => {
@@ -3173,7 +3173,7 @@ try {
 
   // Settings-screen tour: spotlight + balloon walking through the 8 nav sections, right here on
   // options.html (separate engine from the toolbar's live tour -- no shadow DOM involved).
-  await options.getByRole("button", { name: "Minha conta" }).click();
+  await options.getByRole("button", { name: "Minha conta", exact: true }).click();
   await options.locator("#settingsTourStart").click();
   await options.locator(".settingsTourBalloon").waitFor();
   const settingsTourTitles = [];
@@ -3425,7 +3425,7 @@ try {
   await waitRecorderStatus("idle");
   trace("evidence recording survives reload, manual status is reused on Stop, next recording prompts again (video + GIF)");
 
-  await options.getByRole("button", { name: "Minha conta" }).click();
+  await options.getByRole("button", { name: "Minha conta", exact: true }).click();
   await options.locator("#signOutButton").click();
   await host.locator("#qts-toolbar-host").waitFor({ state: "detached", timeout: 5_000 });
   await options.waitForFunction(() => document.querySelector('.protectedNav[data-tab="workspace"]')?.disabled === true);
