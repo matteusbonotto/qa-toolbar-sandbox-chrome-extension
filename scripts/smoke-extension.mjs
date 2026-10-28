@@ -381,6 +381,10 @@ try {
 
   // A domain-restricted voucher redeemed by an e-mail outside that domain must explain why, not
   // fall back to the generic "Não foi possível aplicar o voucher agora."
+  // Unlocking access can move the page off the account tab, which hides #signedInState; open it
+  // explicitly instead of assuming where the login left us.
+  await options.locator('.navItem[data-tab="account"]').click();
+  await options.locator("#voucherCodeInput").waitFor({ state: "visible", timeout: 10_000 });
   await options.locator("#voucherCodeInput").fill("DOMINIOSMOKE");
   await options.locator("#voucherForm button[type=submit]").click();
   await options.locator("#voucherMessage.isError").waitFor();
