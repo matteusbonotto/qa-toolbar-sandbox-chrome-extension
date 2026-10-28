@@ -43,6 +43,11 @@ exposto. Em repositório privado a criptografia continua recomendada.
    gh secret set SUPABASE_DB_URL
    gh secret set BACKUP_PASSPHRASE
    ```
+   Sem a senha do banco em mãos, dá para usar `SUPABASE_ACCESS_TOKEN` (o mesmo token do `.env`)
+   no lugar de `SUPABASE_DB_URL`: o workflow faz `supabase link` e o dump por um papel de login
+   temporário, sem senha. É o que está configurado desde 2026-10-28. A URL do banco continua sendo
+   a credencial preferida, porque o token gerencia a conta Supabase inteira; se `SUPABASE_DB_URL`
+   existir, o workflow usa ela.
 5. Rode uma vez na mão para conferir: aba **Actions** > "Supabase backup" > **Run workflow**, ou
    `gh workflow run "Supabase backup"`. Ao terminar, o artefato
    `supabase-backup-<data>` aparece na página da execução.

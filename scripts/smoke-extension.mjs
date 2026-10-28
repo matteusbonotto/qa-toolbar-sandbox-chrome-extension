@@ -389,7 +389,14 @@ try {
   await options.locator("#voucherForm button[type=submit]").click();
   await options.locator("#voucherMessage.isError").waitFor();
   const voucherDomainMessage = await options.locator("#voucherMessage").innerText();
-  if (voucherDomainMessage !== "Este voucher é exclusivo para e-mails de um domínio específico. Entre com uma conta desse domínio.") throw new Error(`Domain-restricted voucher showed the wrong message: ${voucherDomainMessage}`);
+  // The options page follows the browser language (CI runs Chrome in English), so accept the PT/EN/ES
+  // translations of the same message; the generic fallback text must still fail.
+  const voucherDomainMessages = [
+    "Este voucher é exclusivo para e-mails de um domínio específico. Entre com uma conta desse domínio.",
+    "This voucher is exclusive to e-mails from a specific domain. Sign in with an account from that domain.",
+    "Este voucher es exclusivo para correos de un dominio específico. Inicia sesión con una cuenta de ese dominio.",
+  ];
+  if (!voucherDomainMessages.includes(voucherDomainMessage)) throw new Error(`Domain-restricted voucher showed the wrong message: ${voucherDomainMessage}`);
   trace("domain-restricted voucher message verified");
 
   // Regression test for the paywall-bypass vulnerability: forging {active:true,...} directly into
