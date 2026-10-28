@@ -2001,7 +2001,7 @@
   display: block;
 }
 
-.qts-field-error { display:block; color:var(--qts-danger); font-weight:700; }
+.qts-field-error { display:block; color:var(--qts-red); font-weight:700; }
 .qts-pricing-loading { display:flex; align-items:center; justify-content:center; gap:10px; min-height:48px; color:var(--qts-text-muted); }
 .qts-loading-dot { width:12px; height:12px; border:2px solid var(--qts-border); border-top-color:var(--qts-accent); border-radius:50%; animation:qts-spin .8s linear infinite; }
 .qts-pricing-grid.is-loading .qts-plan-price strong { color:transparent; border-radius:8px; background:linear-gradient(90deg,var(--qts-bg-card-hover),var(--qts-border),var(--qts-bg-card-hover)); background-size:200% 100%; animation:qts-skeleton 1.2s linear infinite; }
@@ -2072,6 +2072,455 @@
   margin: 0;
   color: var(--qts-text-muted);
   font-size: 0.9rem;
+}
+
+/* Voucher / redemption feedback (founder report 2026-10-28). Inline and persistent, next to where
+   the visitor is looking, instead of an auto-dismissing toast at the top of the screen. */
+.qts-voucher-row {
+  margin: 0;
+}
+
+/* Kept in the accessibility tree while empty (display:none would stop screen readers from
+   announcing the first message), but taken out of the flex gap so it adds no blank space. */
+.qts-voucher-live:empty {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+
+.qts-voucher-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: var(--qts-radius-sm);
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.45;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.qts-voucher-panel .qts-voucher-feedback {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.qts-voucher-feedback svg,
+.qts-voucher-preview-domain svg,
+.qts-voucher-next-step svg,
+.qts-plan-feedback svg,
+.qts-auth-domain-hint svg,
+.qts-resume-notice svg,
+.qts-voucher-preview-badge svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+/* Icon renders a <span> wrapping the <svg>: without this the wrapper is the flex item that
+   shrinks next to a long message, squeezing the icon to a sliver. */
+.qts-voucher-feedback > span[aria-hidden="true"],
+.qts-voucher-preview-domain > span[aria-hidden="true"],
+.qts-voucher-next-step > span[aria-hidden="true"],
+.qts-plan-feedback > span[aria-hidden="true"],
+.qts-auth-domain-hint > span[aria-hidden="true"],
+.qts-resume-notice > span[aria-hidden="true"] {
+  display: inline-flex;
+  flex-shrink: 0;
+}
+
+.qts-voucher-feedback.is-checking {
+  align-items: center;
+  color: var(--qts-text-muted);
+  background: color-mix(in srgb, var(--qts-text-muted) 8%, transparent);
+  font-weight: 500;
+}
+
+.qts-voucher-feedback.is-error {
+  color: var(--qts-red);
+  background: var(--qts-red-soft);
+  border: 1px solid color-mix(in srgb, var(--qts-red) 40%, transparent);
+}
+
+.qts-voucher-feedback.is-success {
+  color: var(--qts-teal);
+  background: var(--qts-teal-soft);
+  border: 1px solid color-mix(in srgb, var(--qts-teal) 40%, transparent);
+}
+
+.qts-voucher-preview {
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.qts-voucher-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.qts-voucher-preview-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.qts-voucher-preview-badge svg {
+  width: 13px;
+  height: 13px;
+  margin-top: 0;
+}
+
+.qts-voucher-preview-code {
+  font-family: var(--qts-font-mono);
+  font-size: 0.8rem;
+  color: var(--qts-text-muted);
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.qts-voucher-preview-domain,
+.qts-voucher-next-step {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.qts-voucher-preview .qts-voucher-preview-domain {
+  color: var(--qts-amber);
+  font-weight: 600;
+}
+
+.qts-voucher-preview .qts-voucher-next-step {
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: var(--qts-radius-sm);
+  background: var(--qts-accent-soft);
+  color: var(--qts-text);
+  font-weight: 600;
+}
+
+.qts-voucher-next-step svg {
+  color: var(--qts-accent-strong);
+}
+
+.qts-voucher-clear {
+  align-self: flex-start;
+  padding: 4px 0;
+  border: 0;
+  background: none;
+  color: var(--qts-text-muted);
+  font-size: 0.82rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.qts-voucher-clear:hover,
+.qts-voucher-clear:focus-visible {
+  color: var(--qts-text);
+}
+
+.qts-plan-feedback {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  margin: var(--qts-space-3) 0 0;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.qts-plan-feedback.is-error {
+  padding: 8px 10px;
+  border-radius: var(--qts-radius-sm);
+  background: var(--qts-red-soft);
+  color: var(--qts-red);
+  font-weight: 600;
+}
+
+.qts-auth-domain-hint {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  color: var(--qts-text-muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+
+.qts-auth-domain-hint.is-warning {
+  color: var(--qts-amber);
+  font-weight: 600;
+}
+
+.qts-resume-notice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 720px;
+  margin: 0 auto var(--qts-space-5);
+  padding: var(--qts-space-3) var(--qts-space-4);
+  border-radius: var(--qts-radius-md);
+  border: 1px solid color-mix(in srgb, var(--qts-accent) 45%, transparent);
+  background: var(--qts-accent-soft);
+  color: var(--qts-text);
+}
+
+.qts-resume-notice.is-error {
+  border-color: color-mix(in srgb, var(--qts-red) 45%, transparent);
+  background: var(--qts-red-soft);
+}
+
+.qts-resume-notice p {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.qts-resume-notice-icon {
+  color: var(--qts-accent-strong);
+}
+
+.qts-resume-notice.is-error .qts-resume-notice-icon {
+  color: var(--qts-red);
+}
+
+.qts-resume-notice-close {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex-shrink: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--qts-text-muted);
+  cursor: pointer;
+}
+
+.qts-resume-notice-close:hover,
+.qts-resume-notice-close:focus-visible {
+  background: var(--qts-border-strong);
+  color: var(--qts-text);
+}
+
+.qts-resume-notice-close svg {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+}
+
+.qts-access-ready {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--qts-space-4);
+  max-width: 720px;
+  margin: 0 auto var(--qts-space-7);
+  padding: var(--qts-space-5);
+  border: 1px solid var(--qts-highlight);
+  border-radius: var(--qts-radius-lg);
+  background: color-mix(in srgb, var(--qts-highlight) 8%, var(--qts-bg-card));
+  box-shadow: var(--qts-shadow-md);
+}
+
+.qts-access-ready-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--qts-highlight);
+  color: #06120c;
+}
+
+.qts-access-ready-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.qts-access-ready-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.qts-access-ready-body h3 {
+  margin: 0 0 6px;
+  font-size: var(--qts-text-lg);
+}
+
+/* Focus is moved here by script only to announce the new state; it is not an interactive
+   control, so no focus ring (UX review 2026-10-28). */
+.qts-access-ready-body h3:focus,
+.qts-access-ready-body h3:focus-visible,
+.qts-auth-awaiting h4:focus,
+.qts-auth-awaiting h4:focus-visible {
+  outline: none;
+}
+
+.qts-access-ready-body p {
+  margin: 0 0 var(--qts-space-3);
+  color: var(--qts-text-muted);
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.qts-access-ready-meta {
+  color: var(--qts-text);
+}
+
+/* Same green as the floating install button, so both read as the same action. */
+.qts-btn-install {
+  background: var(--qts-highlight);
+  color: #06120c;
+}
+
+.qts-btn-install:hover,
+.qts-btn-install:focus-visible {
+  background: var(--qts-highlight-strong);
+}
+
+.qts-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.qts-voucher-cta {
+  align-self: stretch;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.qts-voucher-mismatch > div {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.qts-voucher-switch {
+  padding: 8px 16px;
+  font-size: 0.85rem;
+}
+
+.qts-resume-notice-body {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.qts-resume-notice-action {
+  padding: 8px 18px;
+  font-size: 0.88rem;
+}
+
+.qts-resume-notice-spinner {
+  flex-shrink: 0;
+  margin-top: 3px;
+}
+
+.qts-auth-context {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  color: var(--qts-text);
+}
+
+.qts-auth-context > span[aria-hidden="true"] {
+  display: inline-flex;
+  flex-shrink: 0;
+  color: var(--qts-accent-strong);
+}
+
+.qts-auth-context svg {
+  width: 16px;
+  height: 16px;
+  margin-top: 3px;
+}
+
+.qts-auth-awaiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--qts-space-3);
+  text-align: center;
+}
+
+.qts-auth-awaiting-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--qts-accent-soft);
+  color: var(--qts-accent-strong);
+}
+
+.qts-auth-awaiting-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
+.qts-auth-awaiting h4 {
+  margin: 0;
+  font-size: var(--qts-text-lg);
+}
+
+.qts-auth-awaiting p {
+  margin: 0;
+  color: var(--qts-text-muted);
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+
+.qts-access-ready-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--qts-space-3);
+  margin-bottom: var(--qts-space-3);
+}
+
+.qts-access-ready-actions .qts-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.qts-access-ready-body .qts-access-ready-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+@media (max-width: 560px) {
+  .qts-access-ready {
+    flex-direction: column;
+    gap: var(--qts-space-3);
+    padding: var(--qts-space-4);
+  }
+
+  .qts-access-ready-actions .qts-btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .qts-voucher-panel {
+    padding: var(--qts-space-4);
+  }
 }
 
 .qts-pricing-grid {

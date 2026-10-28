@@ -302,6 +302,8 @@ await context.route("https://xhusvkylbouwtpcevgri.supabase.co/functions/v1/**", 
     return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ active: true, plan, source: "manual", expiresAt: null, features, token, checkedAt: new Date().toISOString() }) });
   }
   if (name === "multi-tester") return fulfillMultiTester(route);
+  // Domain-restricted voucher: the backend answers 409 voucher_domain_not_allowed (voucher-redeem).
+  if (name === "voucher-redeem") return route.fulfill({ status: 409, contentType: "application/json", body: JSON.stringify({ error: "voucher_domain_not_allowed" }) });
   if (name === "legal-registration") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: true, status: "payment_pending", softwareName: "QA Toolbar Sandbox", holderName: "Matheus Alves Bonotto Santos", protocolNumber: null, protocolDate: null, registrationNumber: null, grantDate: null, publicQueryUrl: null, publicNotice: null, updatedAt: new Date().toISOString() }) });
   return route.fulfill({ status: 404, contentType: "application/json", body: JSON.stringify({ error: "not_found" }) });
 });
@@ -376,6 +378,15 @@ try {
     throw new Error(`Authentication did not unlock options: ${authMessage || "no auth message"}; options console: ${optionsErrors.join(" | ") || "none"}; worker console: ${workerErrors.join(" | ") || "none"}`, { cause: error });
   }
   trace("authenticated");
+
+  // A domain-restricted voucher redeemed by an e-mail outside that domain must explain why, not
+  // fall back to the generic "Não foi possível aplicar o voucher agora."
+  await options.locator("#voucherCodeInput").fill("DOMINIOSMOKE");
+  await options.locator("#voucherForm button[type=submit]").click();
+  await options.locator("#voucherMessage.isError").waitFor();
+  const voucherDomainMessage = await options.locator("#voucherMessage").innerText();
+  if (voucherDomainMessage !== "Este voucher é exclusivo para e-mails de um domínio específico. Entre com uma conta desse domínio.") throw new Error(`Domain-restricted voucher showed the wrong message: ${voucherDomainMessage}`);
+  trace("domain-restricted voucher message verified");
 
   // Regression test for the paywall-bypass vulnerability: forging {active:true,...} directly into
   // chrome.storage.local (exactly what a real user did via "Inspect service worker" -> console)
@@ -3167,55 +3178,181 @@ try {
   if (settingsTourTitles.length < 18) throw new Error(`Settings tour is too short: ${settingsTourTitles.length}`);
   trace("complete settings/workspace CRUD tour verified");
 
-  // Onboarding wizard: a guided Cliente -> Projeto -> Produto -> Ambiente -> URLs flow (plus 3
-  // skippable optional steps) that writes through the exact same workspace.X.push() +
-  // persistWorkspace() path as every flat CRUD tab - verify it actually reaches storage, not just
-  // that the dialog opens.
+  // Onboarding wizard ("Criar workspace"), rewritten after the founder's 2026-10-28 feedback:
+  // Cliente -> Produto -> Onde a barra aparece -> Ambientes (nome, cor e URLs dentro de cada um)
+  // -> Revisão, saved once on "Concluir". Proves the REAL stored result (auto project named after
+  // the client, environment colors, one binding per environment with the product id and the
+  // normalized pattern, site scope) for both paths, not just that the dialog opens.
+  // WIZARD_SMOKE_START
+  const scopeBeforeWizard = await options.evaluate(async () => (await chrome.storage.local.get("qtsSiteScopeV1")).qtsSiteScopeV1 || null);
   await options.getByRole("button", { name: "Workspace", exact: true }).click();
   await options.locator("#openOnboardingWizard").click();
   await options.locator("#onboardingWizard[open]").waitFor();
   if (await options.locator("#onboardingWizard .wizardRail").count() !== 1) throw new Error("Onboarding wizard is missing its persistent navigation rail");
-  await options.locator("#wizardEntityInput").fill("Cliente Smoke Wizard");
-  await options.locator("#wizardEntityAdd").click();
-  await options.locator("#wizardSuccessContinue").click();
-  await options.locator("#wizardEntityInput").fill("Projeto Smoke Wizard");
-  await options.locator("#wizardEntityAdd").click();
-  await options.locator("#wizardSuccessContinue").click();
-  await options.locator("#wizardEntityInput").fill("Produto Smoke Wizard");
-  await options.locator("#wizardEntityAdd").click();
-  await options.locator("#wizardSuccessContinue").click();
-  await options.locator("#wizardEnvName").fill("QA Smoke Wizard");
-  await options.locator("#wizardEnvColor").fill("#33d6b0");
-  await options.locator("#wizardEnvAdd").click();
-  await options.locator("#wizardSuccessContinue").click();
-  await options.locator("#wizardUrlPattern").fill("https://app.smoke-wizard-teste.com/*");
-  await options.locator("#wizardUrlAdd").click();
-  await options.locator("#wizardSuccessContinue").click();
-  if (await options.locator(".wizardOptionalFact").count() !== 3) throw new Error("Accounts step is missing its field and relation guidance");
-  if (await options.locator('[data-wizard-open-composer="testAccountComposer"]').innerText() !== "Preencher formulário") throw new Error("Accounts step has no explicit form action");
-  // Optional step: exercise the CSV import path, not just "Adicionar agora"/Pular.
-  await options.locator('[data-wizard-csv="testAccounts"]').click();
+  if (await options.locator("#wizardSuccessDialog").count()) throw new Error("The old 'cadastrado com sucesso' interruption dialog is still in the page");
+  if (await options.locator("#onboardingWizardTemplate").count()) throw new Error("'Usar template completo' is still in the wizard footer");
+  if (await options.locator("#onboardingWizardBack").isVisible()) throw new Error("Voltar should be hidden on step 1");
+  if (await options.locator("#onboardingWizardTitle").innerText() !== "Qual empresa você vai testar?") throw new Error("Wizard step 1 is not the client question");
+  if (await options.locator("#onboardingWizardEyebrow").textContent() !== "Passo 1 de 5: Cliente") throw new Error(`Wizard eyebrow is wrong: ${await options.locator("#onboardingWizardEyebrow").textContent()}`);
+  if (!(await options.locator("#onboardingWizardBody .wizardExample").innerText()).includes("Bankeiro")) throw new Error("Wizard client step has no example");
+  if (await options.locator("#onboardingWizard [data-wizard-dot]").count() !== 5) throw new Error("Wizard should show 5 steps (Cliente, Produto, Onde a barra aparece, Ambientes, Revisão)");
+  if (await options.locator("#onboardingWizard [data-wizard-dot]").filter({ hasText: "Projeto" }).count()) throw new Error("Wizard still asks for Projeto");
+  // "Ver um exemplo pronto" writes fictitious data, so it must ask first (cancelled here).
+  await options.locator("#wizardUseTemplate").click();
+  await options.locator("#deleteConfirmDialog[open]").waitFor();
+  if (await options.locator("#deleteConfirmAccept").innerText() !== "Criar exemplo") throw new Error("Example data confirmation has the wrong action label");
+  await options.locator("#deleteConfirmCancel").click();
+  // Empty name must block with an inline error instead of advancing.
+  await options.locator("#onboardingWizardNext").click();
+  if (!(await options.locator("#wizardClientError").isVisible())) throw new Error("Wizard advanced without a client name");
+  if (await options.locator("#wizardClientName").getAttribute("aria-invalid") !== "true") throw new Error("Client name error is not exposed with aria-invalid");
+  await options.locator("#wizardClientName").fill("Cliente Smoke Wizard");
+  // Esc with something typed asks before throwing the draft away.
+  await options.keyboard.press("Escape");
+  await options.locator("#deleteConfirmDialog[open]").waitFor();
+  if (!(await options.locator("#deleteConfirmBody").innerText()).includes("Sair sem salvar?")) throw new Error("Esc on a filled wizard did not ask before leaving");
+  await options.locator("#deleteConfirmCancel").click();
+  if (!(await options.locator("#onboardingWizard[open]").count())) throw new Error("'Continuar editando' closed the wizard");
+  await options.locator("#onboardingWizardNext").click();
+  if (await options.locator("#onboardingWizardTitle").innerText() !== "Qual produto dessa empresa?") throw new Error("Wizard step 2 is not the product question");
+  if (!(await options.locator("#onboardingWizardBody .wizardExample").innerText()).includes("Uzzipay")) throw new Error("Wizard product step has no example");
+  await options.locator("#wizardProductName").fill("Produto Smoke Wizard");
+  await options.locator("#wizardProductName").press("Enter");
+  if (await options.locator("#onboardingWizardTitle").innerText() !== "Onde a barra deve aparecer?") throw new Error("Wizard step 3 is not the scope question");
+  // "Todos os sites" must not promise client/product on the bar (toolbar.js shows "Todos os sites").
+  if (!(await options.locator('label.wizardScopeOption:has(input[value="all"])').innerText()).includes("A barra aparece em qualquer site que você abrir, com o nome Todos os sites.")) throw new Error("'Todos os sites' option promises something the bar does not show");
+  await options.locator("#onboardingWizardNext").click();
+  if (!(await options.locator("#wizardScopeError").isVisible())) throw new Error("Wizard advanced without a scope choice");
+  await options.locator('label.wizardScopeOption:has(input[value="environments"])').click();
+  await options.locator("#onboardingWizardNext").click();
+  if (await options.locator("#onboardingWizardTitle").innerText() !== "Crie os ambientes e informe os endereços") throw new Error("Wizard step 4 is not the environments step");
+  if (await options.locator("[data-wizard-env-remove]").count()) throw new Error("'Remover ambiente' shown while there is a single environment");
+  const firstEnvCard = options.locator("[data-wizard-env-card]").first();
+  await firstEnvCard.locator("[data-wizard-env-name]").fill("STG Smoke Wizard");
+  if (await firstEnvCard.locator("[data-wizard-env-title]").innerText() !== "STG Smoke Wizard") throw new Error("Environment card title did not follow the typed name");
+  await firstEnvCard.locator('label.wizardSwatch:has(input[value="#16a34a"])').click();
+  const previewBackground = await firstEnvCard.locator(".wizardBarPreviewStrip").evaluate((element) => getComputedStyle(element).backgroundColor);
+  if (previewBackground !== "rgb(22, 163, 74)") throw new Error(`Bar preview did not take the chosen color: ${previewBackground}`);
+  // Invalid address -> inline error, nothing added.
+  await firstEnvCard.locator("[data-wizard-env-url]").fill("nao e um site");
+  await firstEnvCard.locator("[data-wizard-env-url-add]").click();
+  if (!(await options.locator("[id^='wizardEnvUrlError-']").first().isVisible())) throw new Error("Invalid URL did not show an inline error");
+  // Inner page pasted: ask before limiting the bar to /login, then widen to the whole site.
+  await options.locator("[data-wizard-env-card] [data-wizard-env-url]").first().fill("https://stg.smoke-wizard-teste.com/login?x=1");
+  await options.locator("[data-wizard-env-card] [data-wizard-env-url-add]").first().click();
+  if (!(await options.locator(".wizardUrlNarrow").innerText()).includes("A barra só vai aparecer nas páginas que começam com /login.")) throw new Error("Inner-page URL did not warn that it limits the bar");
+  await options.locator("[data-wizard-url-wide]").click();
+  if (await options.locator("[data-wizard-env-card]").first().locator(".patternPill code").innerText() !== "https://stg.smoke-wizard-teste.com/*") throw new Error("'Usar o site inteiro' did not turn the address into a site-wide pattern");
+  await options.locator("#wizardEnvAddAnother").click();
+  const secondEnvCard = options.locator("[data-wizard-env-card]").nth(1);
+  await secondEnvCard.locator("[data-wizard-env-name]").fill("QA Smoke Wizard");
+  await secondEnvCard.locator("[data-wizard-env-custom]").fill("#33d6b0");
+  // Typed but never added, then another card is added (re-render): the text must survive.
+  await secondEnvCard.locator("[data-wizard-env-url]").fill("https://qa.smoke-wizard-teste.com");
+  await options.locator("#wizardEnvAddAnother").click();
+  if (await options.locator("[data-wizard-env-card]").nth(1).locator("[data-wizard-env-url]").inputValue() !== "https://qa.smoke-wizard-teste.com") throw new Error("Adding an environment wiped another card's typed address");
+  const thirdEnvCard = options.locator("[data-wizard-env-card]").nth(2);
+  await thirdEnvCard.locator("[data-wizard-env-name]").fill("HML Smoke Wizard");
+  await thirdEnvCard.locator("[data-wizard-env-url]").fill("hml.smoke-wizard-teste.com");
+  await options.locator("#onboardingWizardNext").click();
+  if (await options.locator("#onboardingWizardTitle").innerText() !== "Confira antes de salvar") throw new Error("Wizard did not reach the review step (pending addresses of two cards were not kept)");
+  const reviewText = await options.locator("#onboardingWizardBody .wizardSummary").innerText();
+  for (const expected of [
+    "Cliente Cliente Smoke Wizard, produto Produto Smoke Wizard, ambiente STG Smoke Wizard (verde) em todas as páginas de stg.smoke-wizard-teste.com.",
+    "ambiente QA Smoke Wizard (#33d6b0) em todas as páginas de qa.smoke-wizard-teste.com.",
+    "ambiente HML Smoke Wizard (",
+  ]) {
+    if (!reviewText.includes(expected)) throw new Error(`Wizard review sentence is missing "${expected}": ${reviewText}`);
+  }
+  if (await options.locator("#onboardingWizardBody .wizardBarPreviewStrip").count() !== 3) throw new Error("Review does not preview the bar of each environment");
+  if (await options.evaluate(async () => (await window.QTS_STORAGE.getWorkspace()).clients.some((item) => item.name === "Cliente Smoke Wizard"))) throw new Error("Wizard saved before Concluir");
+  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#onboardingWizardTitle", { hasText: "Pronto! Seu workspace está configurado." }).waitFor();
+  // Optional next steps live on the completion screen (same composers, CSV inside a <details>).
+  if (await options.locator("[data-wizard-optional]").count() !== 4) throw new Error("Completion screen should offer the 4 optional next steps");
+  if (await options.locator('[data-wizard-open-composer="testAccountComposer"]').innerText() !== "Cadastrar conta de teste") throw new Error("Optional step button does not say what it does");
+  if (!(await options.locator(".wizardOptionalActions a.button.primary").innerText()).includes("Abrir stg.smoke-wizard-teste.com")) throw new Error("Completion screen has no 'Abrir <site>' primary action");
+  await options.locator("#wizardCsvPanel-testAccounts summary").click();
+  // Regression: "Baixar template CSV" used to call a downloadBlob() that did not exist.
+  const templateDownload = options.waitForEvent("download");
+  await options.locator('[data-wizard-template="testAccounts"]').click();
+  if ((await templateDownload).suggestedFilename() !== "template-testAccounts.csv") throw new Error("'Baixar template CSV' did not download the template");
   await options.locator("#wizardCsvInput-testAccounts").fill("label,username,password,notes\nConta Smoke CSV,csv-smoke@exemplo.com,SenhaCsv1,Importada via smoke test");
   await options.locator('[data-wizard-csv-submit="testAccounts"]').click();
   if (!(await options.locator("#wizardCsvMessage-testAccounts").innerText()).includes("1")) throw new Error("Wizard CSV import did not report 1 imported row");
-  await options.locator("#onboardingWizardSkip").click();
-  await options.locator("#onboardingWizardSkip").click();
-  await options.locator("#onboardingWizardSkip").click();
   await options.locator("#onboardingWizardNext").click();
-  if (await options.locator("#onboardingWizard[open]").count()) throw new Error("Onboarding wizard did not close after the last step");
+  if (await options.locator("#onboardingWizard[open]").count()) throw new Error("Onboarding wizard did not close from the completion screen");
   const wizardResult = await options.evaluate(async () => {
     const created = await window.QTS_STORAGE.getWorkspace();
+    const scope = (await chrome.storage.local.get("qtsSiteScopeV1")).qtsSiteScopeV1;
+    const client = created.clients.find((item) => item.name === "Cliente Smoke Wizard");
+    const project = created.projects.find((item) => item.clientId === client?.id && item.name === "Cliente Smoke Wizard");
+    const product = created.products.find((item) => item.name === "Produto Smoke Wizard" && item.projectId === project?.id);
+    const stg = created.environments.find((item) => item.name === "STG Smoke Wizard" && item.color === "#16a34a");
+    const qa = created.environments.find((item) => item.name === "QA Smoke Wizard" && item.color === "#33d6b0");
+    const hml = created.environments.find((item) => item.name === "HML Smoke Wizard");
+    const binding = (environment, pattern) => created.urlBindings.some((item) => item.productId === product?.id && item.environmentIds.length === 1 && item.environmentIds[0] === environment?.id && item.patterns.includes(pattern));
     return {
-      client: created.clients.some((item) => item.name === "Cliente Smoke Wizard"),
-      project: created.projects.some((item) => item.name === "Projeto Smoke Wizard"),
-      product: created.products.some((item) => item.name === "Produto Smoke Wizard"),
-      environment: created.environments.some((item) => item.name === "QA Smoke Wizard" && item.color === "#33d6b0"),
-      url: created.urlBindings.some((binding) => (binding.patterns || []).some((pattern) => pattern.includes("smoke-wizard-teste"))),
-      csvAccount: created.testAccounts.some((account) => account.label === "Conta Smoke CSV" && account.username === "csv-smoke@exemplo.com"),
+      client: Boolean(client),
+      autoProjectNamedAfterClient: Boolean(project),
+      productUnderAutoProject: Boolean(product),
+      stgEnvironmentGreen: Boolean(stg),
+      qaEnvironmentCustomColor: Boolean(qa),
+      stgBindingWidened: binding(stg, "https://stg.smoke-wizard-teste.com/*"),
+      qaBindingFromPendingInput: binding(qa, "https://qa.smoke-wizard-teste.com/*"),
+      hmlBindingFromPendingInput: binding(hml, "*://hml.smoke-wizard-teste.com/*"),
+      scopeEnvironments: scope?.mode === "environments",
+      csvAccount: created.testAccounts.some((account) => account.label === "Conta Smoke CSV" && account.username === "csv-smoke@exemplo.com" && account.environmentIds.includes(stg?.id)),
     };
   });
-  if (Object.values(wizardResult).some((value) => value !== true)) throw new Error(`Onboarding wizard did not persist everything it created: ${JSON.stringify(wizardResult)}`);
-  trace("onboarding wizard verified (Cliente->Projeto->Produto->Ambiente->URLs, optional step CSV import, all persisted)");
+  if (Object.values(wizardResult).some((value) => value !== true)) throw new Error(`Onboarding wizard (environments path) did not persist what it showed: ${JSON.stringify(wizardResult)}`);
+
+  // "Todos os sites" path: existing client picked from its chip, new product, no environment step.
+  const environmentCountBeforeAllSites = await options.evaluate(async () => (await window.QTS_STORAGE.getWorkspace()).environments.length);
+  await options.locator("#openOnboardingWizard").click();
+  await options.locator("#onboardingWizard[open]").waitFor();
+  await options.locator("[data-wizard-pick-client]", { hasText: "Cliente Smoke Wizard" }).click();
+  if (await options.locator("#wizardClientName").inputValue() !== "Cliente Smoke Wizard") throw new Error("Picking an existing client did not fill its name");
+  await options.locator("#onboardingWizardNext").click();
+  if (!(await options.locator("[data-wizard-pick-product]", { hasText: "Produto Smoke Wizard" }).count())) throw new Error("Existing products of the picked client are not offered");
+  await options.locator("#wizardProductName").fill("Produto Smoke Todos");
+  await options.locator("#onboardingWizardNext").click();
+  await options.locator('label.wizardScopeOption:has(input[value="all"])').click();
+  if (await options.locator("#onboardingWizardEyebrow").textContent() !== "Passo 3 de 4: Onde a barra aparece") throw new Error("Choosing 'Todos os sites' did not drop the environments step");
+  await options.locator("#onboardingWizardNext").click();
+  const allSitesSentence = "Cliente Cliente Smoke Wizard e produto Produto Smoke Todos cadastrados. A barra vai aparecer em todos os sites, com o nome Todos os sites.";
+  if (!(await options.locator("#onboardingWizardBody .wizardSummary").innerText()).includes(allSitesSentence)) throw new Error("All-sites review sentence is wrong");
+  if (await options.locator("#onboardingWizardBody .wizardBarPreviewStrip.isAllSites").innerText() !== "Todos os sites") throw new Error("All-sites review does not preview the 'Todos os sites' bar");
+  await options.locator("#onboardingWizardNext").click();
+  await options.locator("#onboardingWizardTitle", { hasText: "Pronto! Seu workspace está configurado." }).waitFor();
+  if (!(await options.locator("#onboardingWizardBody .wizardSummary").innerText()).includes(allSitesSentence)) throw new Error("All-sites completion sentence is wrong");
+  await options.locator("#onboardingWizardNext").click();
+  const allSitesResult = await options.evaluate(async () => {
+    const created = await window.QTS_STORAGE.getWorkspace();
+    const scope = (await chrome.storage.local.get("qtsSiteScopeV1")).qtsSiteScopeV1;
+    const clients = created.clients.filter((item) => item.name === "Cliente Smoke Wizard");
+    const projects = created.projects.filter((item) => item.clientId === clients[0]?.id && item.name === "Cliente Smoke Wizard");
+    return {
+      clientReused: clients.length === 1,
+      projectReused: projects.length === 1,
+      productUnderSameProject: created.products.some((item) => item.name === "Produto Smoke Todos" && item.projectId === projects[0]?.id),
+      scopeAll: scope?.mode === "all",
+      environmentCount: created.environments.length,
+    };
+  });
+  if (!allSitesResult.clientReused || !allSitesResult.projectReused || !allSitesResult.productUnderSameProject || !allSitesResult.scopeAll || allSitesResult.environmentCount !== environmentCountBeforeAllSites) {
+    throw new Error(`Onboarding wizard (all sites path) did not persist what it showed: ${JSON.stringify(allSitesResult)}`);
+  }
+  if (await options.locator('input[name="scopeMode"][value="all"]').isChecked() !== true) throw new Error("Barra e aparência scope radios were not refreshed after the wizard");
+  // The rest of this smoke depends on the scope it had before; restore it exactly (the options
+  // page re-reads it through its storage listener, radios included).
+  await options.evaluate(async (scope) => {
+    if (scope) await chrome.storage.local.set({ qtsSiteScopeV1: scope });
+    else await chrome.storage.local.remove("qtsSiteScopeV1");
+  }, scopeBeforeWizard);
+  await options.waitForFunction((mode) => document.querySelector(`input[name="scopeMode"][value="${mode === "all" ? "all" : "environments"}"]`)?.checked === true, scopeBeforeWizard?.mode || "environments");
+  // WIZARD_SMOKE_END
+  trace("onboarding wizard verified (Cliente->Produto->Onde aparece->Ambientes com URLs->Revisão, both scope paths, inner-page URL prompt, pending URLs kept, Esc confirm, CSV template download and import, all persisted)");
 
   // Evidence recording survives a page reload (founder report 2026-10-08: "clicando recarrega a
   // pagina a gravacao e interrompida"). The capture runs in the extension's own recorder window,

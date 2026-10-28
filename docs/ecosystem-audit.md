@@ -146,7 +146,10 @@ pontos) → sessão persistida → `access-status` resolve plano/entitlements.
 
 **Voucher/campanha**: Admin cria voucher ou campanha de múltiplo resgate → `voucher-preview`
 (landing, antes do checkout) → `voucher-redeem` (aplica desconto/dias/vitalício) → `credit_reward_points`
-e o restante do fluxo de QA Rewards seguem a mesma tabela de auditoria.
+e o restante do fluxo de QA Rewards seguem a mesma tabela de auditoria. Voucher ou campanha pode
+ser restrito a domínios de e-mail (`allowed_email_domains`, desde 2026-10-28): a regra é aplicada
+dentro de `redeem_voucher`/`reserve_voucher_discount` e recusa com `voucher_domain_not_allowed`
+(ver `docs/security.md`).
 
 **Exclusão de conta (LGPD)**: extensão (Minha conta → Excluir) → `account-delete` → cancela
 assinatura Stripe ativa → apaga dados pessoais → anonimiza (não apaga) registros financeiros por

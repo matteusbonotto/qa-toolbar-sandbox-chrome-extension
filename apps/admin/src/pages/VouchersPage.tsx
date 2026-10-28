@@ -12,6 +12,7 @@ import {
   updateVoucher,
   updateVoucherCampaign,
 } from "../lib/api";
+import { emailDomainsColumn, emailDomainsError, formatEmailDomains, parseEmailDomains } from "../lib/emailDomains";
 import { errorMessage } from "../lib/errors";
 import type { Voucher, VoucherCampaign, VoucherKind } from "../lib/types";
 import { useAsyncData } from "../lib/useAsyncData";
@@ -29,6 +30,13 @@ const VOUCHER_STATUS_LABEL: Record<Voucher["status"], string> = {
 };
 
 type DiscountMode = "percent" | "amount";
+
+const EMAIL_DOMAINS_HELP =
+  "Domínios de e-mail permitidos: separe por vírgula, sem \"@\" (ex.: mblabs.com.br, bankeiro.com.br). " +
+  "Vazio = qualquer e-mail. Com domínios, só resgata quem tem e-mail confirmado exatamente em um deles " +
+  "(subdomínios como time.mblabs.com.br precisam ser listados à parte). " +
+  "Em campanha restrita por domínio, defina também um limite de resgates: com endereços do tipo " +
+  "fulano+1@mblabs.com.br, uma mesma pessoa consegue criar várias contas confirmadas no domínio.";
 
 function discountValueFrom(kind: VoucherKind, mode: DiscountMode, raw: string): { percentOff: number | null; amountOffMinor: number | null } {
   if (kind !== "discount" || !raw.trim()) return { percentOff: null, amountOffMinor: null };
@@ -80,6 +88,7 @@ export function VouchersPage() {
   const [voucherGrantDays, setVoucherGrantDays] = useState("");
   const [voucherDiscountMode, setVoucherDiscountMode] = useState<DiscountMode>("percent");
   const [voucherDiscountValue, setVoucherDiscountValue] = useState("");
+  const [voucherEmailDomains, setVoucherEmailDomains] = useState("");
   const [voucherBusy, setVoucherBusy] = useState(false);
   const [voucherFormError, setVoucherFormError] = useState<string | null>(null);
   const [editingVoucherId, setEditingVoucherId] = useState<string | null>(null);
@@ -92,6 +101,7 @@ export function VouchersPage() {
   const [campaignDiscountMode, setCampaignDiscountMode] = useState<DiscountMode>("percent");
   const [campaignDiscountValue, setCampaignDiscountValue] = useState("");
   const [campaignMaxRedemptions, setCampaignMaxRedemptions] = useState("");
+  const [campaignEmailDomains, setCampaignEmailDomains] = useState("");
   const [campaignBusy, setCampaignBusy] = useState(false);
   const [campaignFormError, setCampaignFormError] = useState<string | null>(null);
   const [editingCampaignId, setEditingCampaignId] = useState<string | null>(null);
@@ -105,6 +115,7 @@ export function VouchersPage() {
     setVoucherGrantDays("");
     setVoucherDiscountMode("percent");
     setVoucherDiscountValue("");
+    setVoucherEmailDomains("");
   }
 
   function resetCampaignForm() {
@@ -117,12 +128,19 @@ export function VouchersPage() {
     setCampaignDiscountMode("percent");
     setCampaignDiscountValue("");
     setCampaignMaxRedemptions("");
+    setCampaignEmailDomains("");
   }
 
   async function handleCreateVoucher(event: React.FormEvent) {
     event.preventDefault();
     const needsPlan = voucherKind !== "discount";
     if ((!editingVoucherId && !voucherCode.trim()) || !voucherLabel.trim() || (needsPlan && !voucherPlanId)) return;
+    const parsedDomains = parseEmailDomains(voucherEmailDomains);
+    const domainsError = emailDomainsError(parsedDomains);
+    if (domainsError) {
+      setVoucherFormError(domainsError);
+      return;
+    }
     setVoucherBusy(true);
     setVoucherFormError(null);
     try {
@@ -135,6 +153,7 @@ export function VouchersPage() {
         discountPercentOff: percentOff,
         discountAmountOffMinor: amountOffMinor,
         expiresAt: null,
+        allowedEmailDomains: parsedDomains.domains,
       };
       if (editingVoucherId) await updateVoucher(editingVoucherId, input);
       else await createVoucher({ code: voucherCode, ...input });
@@ -151,6 +170,12 @@ export function VouchersPage() {
     event.preventDefault();
     const needsPlan = campaignKind !== "discount";
     if ((!editingCampaignId && !campaignCode.trim()) || !campaignLabel.trim() || (needsPlan && !campaignPlanId)) return;
+    const parsedDomains = parseEmailDomains(campaignEmailDomains);
+    const domainsError = emailDomainsError(parsedDomains);
+    if (domainsError) {
+      setCampaignFormError(domainsError);
+      return;
+    }
     setCampaignBusy(true);
     setCampaignFormError(null);
     try {
@@ -164,6 +189,7 @@ export function VouchersPage() {
         discountAmountOffMinor: amountOffMinor,
         maximumRedemptions: campaignMaxRedemptions ? Number(campaignMaxRedemptions) : null,
         expiresAt: null,
+        allowedEmailDomains: parsedDomains.domains,
       };
       if (editingCampaignId) await updateVoucherCampaign(editingCampaignId, input);
       else await createVoucherCampaign({ code: campaignCode, ...input });
@@ -188,6 +214,7 @@ export function VouchersPage() {
       voucher.discount_percent_off ? String(voucher.discount_percent_off)
         : voucher.discount_amount_off_minor ? (voucher.discount_amount_off_minor / 100).toFixed(2) : "",
     );
+    setVoucherEmailDomains(formatEmailDomains(voucher.allowed_email_domains));
   }
 
   function startEditCampaign(campaign: VoucherCampaign) {
@@ -203,6 +230,7 @@ export function VouchersPage() {
         : campaign.discount_amount_off_minor ? (campaign.discount_amount_off_minor / 100).toFixed(2) : "",
     );
     setCampaignMaxRedemptions(campaign.maximum_redemptions ? String(campaign.maximum_redemptions) : "");
+    setCampaignEmailDomains(formatEmailDomains(campaign.allowed_email_domains));
   }
 
   return (
@@ -257,11 +285,19 @@ export function VouchersPage() {
               />
             </>
           ) : null}
+          <input
+            aria-label="Domínios de e-mail permitidos"
+            aria-describedby="voucher-email-domains-help"
+            placeholder="Domínios de e-mail permitidos (opcional)"
+            value={voucherEmailDomains}
+            onChange={(e) => setVoucherEmailDomains(e.target.value)}
+          />
           <button type="submit" className="qa-btn primary" disabled={voucherBusy}>
             {editingVoucherId ? "Salvar edição" : "+ Criar"}
           </button>
           {editingVoucherId ? <button type="button" className="qa-btn" onClick={resetVoucherForm}>Cancelar</button> : null}
         </form>
+        <p id="voucher-email-domains-help" style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{EMAIL_DOMAINS_HELP}</p>
 
         {vouchers.error ? <div className="qa-error">{vouchers.error}</div> : null}
         {!vouchers.loading && !(vouchers.data ?? []).length ? <div className="qa-empty">Nenhum voucher ainda.</div> : null}
@@ -272,6 +308,7 @@ export function VouchersPage() {
                 <th>Rótulo</th>
                 <th>Status</th>
                 <th>Tipo / valor</th>
+                <th>E-mails permitidos</th>
                 <th>Criado em</th>
                 <th />
               </tr>
@@ -284,6 +321,7 @@ export function VouchersPage() {
                     <span className={`qa-badge ${voucher.status}`}>{VOUCHER_STATUS_LABEL[voucher.status]}</span>
                   </td>
                   <td>{valueColumn(voucher)}</td>
+                  <td>{emailDomainsColumn(voucher.allowed_email_domains)}</td>
                   <td>{new Date(voucher.created_at).toLocaleDateString("pt-BR")}</td>
                   <td>
                     <button type="button" className="qa-btn" onClick={() => startEditVoucher(voucher)}>Editar</button>{" "}
@@ -350,11 +388,19 @@ export function VouchersPage() {
             </>
           ) : null}
           <input aria-label="Limite de resgates" placeholder="Limite de resgates (vazio = ilimitado)" value={campaignMaxRedemptions} onChange={(e) => setCampaignMaxRedemptions(e.target.value)} />
+          <input
+            aria-label="Domínios de e-mail permitidos"
+            aria-describedby="campaign-email-domains-help"
+            placeholder="Domínios de e-mail permitidos (opcional)"
+            value={campaignEmailDomains}
+            onChange={(e) => setCampaignEmailDomains(e.target.value)}
+          />
           <button type="submit" className="qa-btn primary" disabled={campaignBusy}>
             {editingCampaignId ? "Salvar edição" : "+ Criar"}
           </button>
           {editingCampaignId ? <button type="button" className="qa-btn" onClick={resetCampaignForm}>Cancelar</button> : null}
         </form>
+        <p id="campaign-email-domains-help" style={{ color: "var(--muted)", fontSize: "0.85rem" }}>{EMAIL_DOMAINS_HELP}</p>
 
         {campaigns.error ? <div className="qa-error">{campaigns.error}</div> : null}
         {!campaigns.loading && !(campaigns.data ?? []).length ? <div className="qa-empty">Nenhuma campanha ainda.</div> : null}
@@ -365,6 +411,7 @@ export function VouchersPage() {
                 <th>Rótulo</th>
                 <th>Status</th>
                 <th>Tipo / valor</th>
+                <th>E-mails permitidos</th>
                 <th>Resgates</th>
                 <th />
               </tr>
@@ -379,6 +426,7 @@ export function VouchersPage() {
                       <span className={`qa-badge ${badge.className}`}>{badge.label}</span>
                     </td>
                     <td>{valueColumn(campaign)}</td>
+                    <td>{emailDomainsColumn(campaign.allowed_email_domains)}</td>
                     <td>
                       {campaign.redemption_count}
                       {campaign.maximum_redemptions ? ` / ${campaign.maximum_redemptions}` : ""}

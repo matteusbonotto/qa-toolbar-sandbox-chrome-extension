@@ -40,6 +40,234 @@ async function waitForPreview() {
   throw new Error("Vite preview did not start.");
 }
 
+// Founder report 2026-10-28 (live presentation): no visible feedback for a voucher, and a voucher
+// applied before sign-up was lost across the e-mail confirmation (new page load), so access never
+// became active and the install button never appeared. Backend responses are mocked here so the
+// smoke proves the real UI states (inline, persistent, aria roles) and the resume after
+// confirmation without touching any real voucher or account.
+const supabaseOrigin = "https://xhusvkylbouwtpcevgri.supabase.co";
+const domainVoucher = {
+  valid: true,
+  kind: "days",
+  label: "Campanha MB Labs",
+  plan: { key: "regression-runner", name: "Regression Runner" },
+  grantDays: 30,
+  discountPercentOff: null,
+  discountAmountOffMinor: null,
+  allowedEmailDomains: ["mblabs.com.br"],
+};
+
+const smokeUser = {
+  id: "00000000-0000-4000-8000-000000000001",
+  aud: "authenticated",
+  role: "authenticated",
+  email: "qa@mblabs.com.br",
+  app_metadata: {},
+  user_metadata: {},
+  created_at: "2026-10-28T00:00:00.000Z",
+};
+const intentKey = "qts:pending-plan-intent:v1";
+
+function json(route, body, status = 200) {
+  return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
+}
+
+// Every backend call of the pricing flow is answered locally: no real voucher, account or Stripe
+// session is ever touched. Later routes take precedence in Playwright, so the catch-alls go first.
+async function mockVoucherBackend(context, { onCheckout, accessFailsAfterGrant = false } = {}) {
+  let redeemed = false;
+  await context.route(`${supabaseOrigin}/rest/v1/**`, (route) => {
+    if (route.request().url().includes("/stripe_prices")) {
+      return json(route, ["regression-runner", "root-cause-analyst", "release-manager"].flatMap((key, index) => [
+        { billing_cycle: "monthly", amount_minor: 1900 + index * 1000, currency: "brl", plans: { key } },
+        { billing_cycle: "yearly", amount_minor: 18000 + index * 9000, currency: "brl", plans: { key } },
+      ]));
+    }
+    return json(route, []);
+  });
+  await context.route(`${supabaseOrigin}/rest/v1/store_listing_status**`, (route) => json(route, [{ chrome_web_store_version: extensionVersion, status: "live" }]));
+  await context.route(`${supabaseOrigin}/functions/v1/**`, (route) => json(route, {}));
+  await context.route(`${supabaseOrigin}/auth/v1/user**`, (route) => json(route, smokeUser));
+  // Sign-up with e-mail confirmation required: a user and no session.
+  await context.route(`${supabaseOrigin}/auth/v1/signup**`, (route) => json(route, { ...smokeUser, identities: [{ id: smokeUser.id }] }));
+  await context.route(`${supabaseOrigin}/functions/v1/voucher-preview`, (route) => {
+    const { code } = route.request().postDataJSON() ?? {};
+    return json(route, code === "MBLABS-2026" ? domainVoucher : { valid: false, reason: "voucher_unavailable" });
+  });
+  await context.route(`${supabaseOrigin}/functions/v1/checkout-create-session`, (route) => {
+    redeemed = true;
+    onCheckout?.(route.request().postDataJSON());
+    return json(route, { accessGranted: true, voucherRedeemed: true, label: domainVoucher.label, expiresAt: "2026-11-27T00:00:00.000Z" });
+  });
+  await context.route(`${supabaseOrigin}/functions/v1/access-status`, (route) => {
+    if (redeemed && accessFailsAfterGrant) return json(route, { error: "service_unavailable" }, 503);
+    return json(route, redeemed
+      ? {
+        active: true, plan: { key: "regression-runner", name: "Regression Runner" }, source: "voucher",
+        expiresAt: "2026-11-27T00:00:00.000Z", billing: null, checkedAt: new Date().toISOString(),
+        installUrl: "https://chromewebstore.google.com/detail/qa-toolbar-sandbox/ddaapjklnfjhjigeglgmjmadjnmdodfe",
+      }
+      : { active: false, plan: null, source: null, expiresAt: null, billing: null, installUrl: null, checkedAt: new Date().toISOString() });
+  });
+}
+
+// What the sign-up confirmation link puts in the URL (implicit flow); supabase-js turns it into a
+// session (GET /auth/v1/user is mocked above) and shares it with the other open tabs.
+function confirmationLinkUrl() {
+  const base64Url = (value) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const expiresAt = Math.floor(Date.now() / 1000) + 3600;
+  const accessToken = `${base64Url({ alg: "HS256", typ: "JWT" })}.${base64Url({ sub: smokeUser.id, email: smokeUser.email, role: "authenticated", aud: "authenticated", exp: expiresAt })}.smoke`;
+  const hash = new URLSearchParams({
+    access_token: accessToken, refresh_token: "test-smoke-refresh", expires_in: "3600",
+    expires_at: String(expiresAt), token_type: "bearer", type: "signup",
+  });
+  return `${origin}${basePath}#${hash}`;
+}
+
+async function horizontalOverflow(page) {
+  return page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+}
+
+async function smokeVoucherFeedbackAndResume(browserInstance) {
+  // 1) Guest: invalid code, then a valid domain-restricted voucher with its action inside the preview.
+  const guest = await browserInstance.newContext({ viewport: { width: 1280, height: 900 } });
+  await mockVoucherBackend(guest);
+  const guestPage = await guest.newPage();
+  await guestPage.goto(`${origin}${basePath}`, { waitUntil: "networkidle" });
+  await guestPage.locator("#qts-voucher-code").fill("codigo-errado");
+  await guestPage.getByRole("button", { name: "Aplicar" }).click();
+  const voucherError = guestPage.locator("#qts-voucher-error");
+  await voucherError.waitFor();
+  if (await voucherError.getAttribute("role") !== "alert" || !(await voucherError.innerText()).includes("Voucher inválido")) {
+    throw new Error("Invalid voucher does not show an inline role=alert message next to the field.");
+  }
+  // The old toast vanished after 6s; the inline error must still be there afterwards.
+  await guestPage.waitForTimeout(6_500);
+  if (!(await voucherError.isVisible())) throw new Error("Invalid voucher error auto-dismissed; errors must persist.");
+
+  await guestPage.locator("#qts-voucher-code").fill("mblabs-2026");
+  await guestPage.locator("#qts-voucher-code").press("Enter");
+  const preview = guestPage.locator("#qts-voucher-preview");
+  await preview.waitFor();
+  const previewText = await preview.innerText();
+  for (const expected of ["Voucher válido", "MBLABS-2026", "Exclusivo para e-mails @mblabs.com.br", "Ainda não resgatado. Clique abaixo e crie sua conta"]) {
+    if (!previewText.includes(expected)) throw new Error(`Voucher preview is missing "${expected}": ${previewText}`);
+  }
+  if (await voucherError.count()) throw new Error("Previous voucher error stayed visible after a valid voucher.");
+  if ((await guestPage.locator(".qts-voucher-row button[type=submit]").innerText()).trim() !== "Aplicar") {
+    throw new Error("Apply button label changed while the inline checking line is the feedback.");
+  }
+  const previewCta = preview.locator(".qts-voucher-cta");
+  if ((await previewCta.innerText()).trim() !== "30 dias grátis") throw new Error("Voucher preview has no action button with the plan CTA label.");
+  if (!(await guestPage.locator(".qts-plan-card").nth(1).getAttribute("class"))?.includes("is-voucher-highlight")) {
+    throw new Error("Plan card targeted by the voucher lost its highlight.");
+  }
+
+  await previewCta.click();
+  const dialog = guestPage.getByRole("dialog");
+  await dialog.waitFor();
+  if (await dialog.getByRole("tab", { name: "Criar conta" }).getAttribute("aria-selected") !== "true") {
+    throw new Error("Auth modal opened from a voucher does not start on the sign-up tab.");
+  }
+  if (!(await dialog.locator(".qts-auth-context").innerText()).includes("resgatar o voucher MBLABS-2026")) {
+    throw new Error("Auth modal does not show the queued voucher in place of the generic lead.");
+  }
+  await dialog.locator('input[type="email"]').fill("qa@gmail.com");
+  const domainHint = dialog.locator("#qts-auth-domain-hint");
+  if (!(await domainHint.innerText()).includes("não será resgatado") || !(await domainHint.getAttribute("class"))?.includes("is-warning")) {
+    throw new Error("Auth modal does not warn that the typed e-mail is outside the voucher domain.");
+  }
+  const savedIntent = await guestPage.evaluate((key) => JSON.parse(localStorage.getItem(key) || "null"), intentKey);
+  if (savedIntent?.voucherCode !== "MBLABS-2026" || savedIntent?.planId !== "regression-runner") {
+    throw new Error(`Plan click did not persist the pending voucher/plan intent: ${JSON.stringify(savedIntent)}`);
+  }
+  await dialog.locator(".qts-auth-close").click();
+  if (await guestPage.evaluate((key) => localStorage.getItem(key), intentKey) !== null) {
+    throw new Error("Abandoning the auth modal before any e-mail step must discard this tab's pending intent.");
+  }
+  await guestPage.setViewportSize({ width: 360, height: 800 });
+  if (await horizontalOverflow(guestPage) > 2) throw new Error("Voucher feedback overflows at 360px.");
+  await guest.close();
+
+  // 2) Sign-up needing e-mail confirmation, a third tab opening/closing the header modal (M2),
+  //    then the confirmation link in a new tab while the original tab stays open (M1).
+  const multi = await browserInstance.newContext({ viewport: { width: 360, height: 800 } });
+  const checkoutBodies = [];
+  await mockVoucherBackend(multi, { onCheckout: (body) => checkoutBodies.push(body) });
+  const tabA = await multi.newPage();
+  await tabA.goto(`${origin}${basePath}`, { waitUntil: "networkidle" });
+  await tabA.locator("#qts-voucher-code").fill("MBLABS-2026");
+  await tabA.locator("#qts-voucher-code").press("Enter");
+  await tabA.locator(".qts-voucher-cta").click();
+  const signupDialog = tabA.getByRole("dialog");
+  await signupDialog.waitFor();
+  await signupDialog.locator('input[type="email"]').fill("qa@mblabs.com.br");
+  await signupDialog.locator('input[type="password"]').fill("senha-de-teste-123");
+  await signupDialog.locator("#qts-auth-terms").check();
+  await signupDialog.locator(".qts-auth-submit").click();
+  const awaiting = signupDialog.locator(".qts-auth-awaiting");
+  await awaiting.waitFor();
+  const awaitingText = await awaiting.innerText();
+  if (!awaitingText.includes("Confira seu e-mail") || !awaitingText.includes("qa@mblabs.com.br") || !awaitingText.includes("MBLABS-2026")) {
+    throw new Error(`Sign-up without session does not show the dedicated check-your-e-mail panel: ${awaitingText}`);
+  }
+  await tabA.waitForFunction(() => document.activeElement?.tagName === "H4");
+  const intentAfterSignup = await tabA.evaluate((key) => JSON.parse(localStorage.getItem(key) || "null"), intentKey);
+  if (intentAfterSignup?.email !== "qa@mblabs.com.br") throw new Error("Sign-up did not attach the e-mail to the pending intent.");
+  await awaiting.getByRole("button", { name: "Fechar" }).click();
+  if (!(await tabA.locator(".qts-resume-notice").innerText()).includes("Falta confirmar seu e-mail")) {
+    throw new Error("Closing the modal after sign-up forgets that the e-mail still has to be confirmed.");
+  }
+
+  const tabC = await multi.newPage();
+  await tabC.goto(`${origin}${basePath}`, { waitUntil: "networkidle" });
+  await tabC.locator(".qts-site-toolbar-cta").click();
+  await tabC.getByRole("dialog").waitFor();
+  await tabC.locator(".qts-auth-close").click();
+  if ((await tabC.evaluate((key) => JSON.parse(localStorage.getItem(key) || "null"), intentKey))?.voucherCode !== "MBLABS-2026") {
+    throw new Error("Opening and closing the header modal in another tab deleted the pending intent (M2).");
+  }
+
+  const tabB = await multi.newPage();
+  await tabB.goto(confirmationLinkUrl(), { waitUntil: "networkidle" });
+  const accessPanel = tabB.locator(".qts-access-ready");
+  await accessPanel.waitFor({ timeout: 15_000 });
+  const panelText = await accessPanel.innerText();
+  if (!panelText.includes("Voucher resgatado") || !panelText.includes("Instalar pela Chrome Web Store") || !panelText.includes("voucher MBLABS-2026")) {
+    throw new Error(`Access panel does not show the redeemed state and install step: ${panelText}`);
+  }
+  if (!(await tabB.locator(".qts-install-fab").count())) throw new Error("Floating install button did not appear after resume.");
+  if (await horizontalOverflow(tabB) > 2) throw new Error("Access panel overflows at 360px.");
+  // Give the other tabs time to receive the shared session; none of them may redeem again.
+  await tabB.waitForTimeout(2_000);
+  if (checkoutBodies.length !== 1 || checkoutBodies[0]?.voucherCode !== "MBLABS-2026" || checkoutBodies[0]?.planKey !== "regression-runner") {
+    throw new Error(`Pending voucher must be redeemed exactly once, by the e-mail link tab (M1): ${JSON.stringify(checkoutBodies)}`);
+  }
+  for (const [name, tab] of [["original", tabA], ["header-modal", tabC]]) {
+    if (await tab.locator('.qts-resume-notice[aria-busy="true"]').count()) throw new Error(`The ${name} tab started a resume from a cross-tab session (M1).`);
+  }
+  if (await tabB.evaluate((key) => localStorage.getItem(key), intentKey) !== null) throw new Error("Pending intent was not cleared after being resumed.");
+  await tabB.reload({ waitUntil: "networkidle" });
+  await tabB.locator(".qts-access-ready").waitFor();
+  if (checkoutBodies.length !== 1) throw new Error("Pending intent was resumed more than once.");
+  await multi.close();
+
+  // 3) Grant succeeded but access-status keeps failing: never end in silence (UX review HIGH 1).
+  const flaky = await browserInstance.newContext({ viewport: { width: 1280, height: 900 } });
+  await mockVoucherBackend(flaky, { accessFailsAfterGrant: true });
+  await flaky.addInitScript((key) => {
+    if (sessionStorage.getItem("qts-smoke-seeded")) return;
+    sessionStorage.setItem("qts-smoke-seeded", "1");
+    localStorage.setItem(key, JSON.stringify({ planId: "regression-runner", billingCycle: "monthly", voucherCode: "MBLABS-2026", email: "qa@mblabs.com.br", savedAt: Date.now() }));
+  }, intentKey);
+  const flakyPage = await flaky.newPage();
+  await flakyPage.goto(confirmationLinkUrl(), { waitUntil: "networkidle" });
+  const flakyNotice = flakyPage.locator(".qts-resume-notice", { hasText: "Não conseguimos carregar o botão de instalar" });
+  await flakyNotice.waitFor({ timeout: 15_000 });
+  if (!(await flakyNotice.getByRole("button", { name: "Recarregar" }).count())) throw new Error("Access-load failure after a grant has no reload action.");
+  await flaky.close();
+}
+
 let browser;
 try {
   await waitForPreview();
@@ -229,6 +457,8 @@ try {
       }));
     throw new Error(`Landing has horizontal overflow at the 200% reflow target: ${reflowOverflow}px; ${offenders.join(" | ")}`);
   }
+
+  await smokeVoucherFeedbackAndResume(browser);
 
   await page.goto(`${origin}${basePath}admin/`, { waitUntil: "networkidle" });
   if (!(await page.title()).includes("Admin")) throw new Error("Admin artifact did not load.");

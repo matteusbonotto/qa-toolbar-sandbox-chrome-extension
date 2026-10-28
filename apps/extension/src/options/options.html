@@ -167,7 +167,7 @@
           <label class="searchBox workspaceGlobalSearch"><span>Buscar no workspace</span><input id="workspaceSearch" type="search" placeholder="Nome, URL, ambiente ou dispositivo" /></label>
         </header>
         <div class="wizardNudge" id="workspaceWizard" hidden>
-          <div><strong id="workspaceWizardNudgeTitle">Configure seu primeiro ambiente</strong><p>Um passo a passo guiado por cliente, projeto, produto e ambiente - leva menos de 2 minutos.</p></div>
+          <div><strong id="workspaceWizardNudgeTitle">Configure seu workspace</strong><p>Um passo a passo guiado: a empresa (cliente), o produto e onde a barra aparece. Leva menos de 2 minutos.</p></div>
           <button type="button" class="button primary" id="workspaceWizardNudgeOpen">Começar configuração guiada</button>
         </div>
         <div class="workspaceStudio">
@@ -392,34 +392,27 @@
     <div class="formActions"><button type="button" class="button" id="deleteConfirmCancel">Cancelar</button><button type="button" class="button danger" id="deleteConfirmAccept">Excluir</button></div>
   </dialog>
 
-  <dialog class="formDialog wizardDialog" id="onboardingWizard" aria-labelledby="onboardingWizardTitle">
+  <dialog class="formDialog wizardDialog" id="onboardingWizard" aria-labelledby="onboardingWizardTitle" aria-describedby="onboardingWizardLead">
     <button type="button" class="dialogClose" id="onboardingWizardClose" aria-label="Fechar"><span data-qts-icon="fail" aria-hidden="true"></span></button>
     <aside class="wizardRail">
-      <div class="wizardBrand"><span class="eyebrow">Workspace Studio</span><strong>Configuração guiada</strong><p>Monte uma base consistente para toda a equipe.</p></div>
-      <div class="wizardStepDots" id="onboardingWizardDots" role="tablist" aria-label="Etapas da configuração guiada"></div>
-      <div class="wizardPrivacy"><span aria-hidden="true">⌁</span><p><strong>Dados locais</strong>Credenciais e tokens não saem deste navegador.</p></div>
+      <div class="wizardBrand"><span class="eyebrow">Workspace Studio</span><strong>Configuração guiada</strong><p>Algumas perguntas rápidas. Nada é salvo até você clicar em Concluir.</p></div>
+      <nav class="wizardStepDots" id="onboardingWizardDots" aria-label="Etapas da configuração guiada"></nav>
+      <div class="wizardPrivacy"><p><strong>Dados locais</strong>Credenciais e tokens não saem deste navegador.</p></div>
     </aside>
     <div class="wizardMain">
       <div class="wizardStage">
         <span class="eyebrow" id="onboardingWizardEyebrow"></span>
-        <h2 id="onboardingWizardTitle"></h2>
+        <h2 id="onboardingWizardTitle" tabindex="-1"></h2>
         <p class="wizardLead" id="onboardingWizardLead"></p>
         <div class="wizardStageBody" id="onboardingWizardBody"></div>
+        <p class="visuallyHidden" id="onboardingWizardStatus" role="status" aria-live="polite"></p>
       </div>
       <div class="wizardActions">
         <button type="button" class="button" id="onboardingWizardBack">Voltar</button>
-        <button type="button" class="button linkButton" id="onboardingWizardTemplate">Usar template completo</button>
         <span class="wizardActionsSpacer"></span>
-        <button type="button" class="button linkButton" id="onboardingWizardSkip">Pular etapa</button>
         <button type="button" class="button primary" id="onboardingWizardNext">Continuar</button>
       </div>
     </div>
-  </dialog>
-
-  <dialog class="formDialog wizardSuccessDialog" id="wizardSuccessDialog" aria-labelledby="wizardSuccessTitle">
-    <div class="wizardSuccessIcon" aria-hidden="true"><span data-qts-icon="pass"></span></div>
-    <div><span class="eyebrow">Cadastro concluído</span><h2 id="wizardSuccessTitle">Item adicionado</h2><p class="cardLead">Você quer cadastrar outro item nesta etapa ou seguir em frente?</p></div>
-    <div class="formActions"><button type="button" class="button" id="wizardSuccessAnother">Cadastrar outro</button><button type="button" class="button primary" id="wizardSuccessContinue">Continuar</button></div>
   </dialog>
 
   <dialog class="formDialog tutorialVideoDialog" id="tutorialVideoDialog" aria-labelledby="tutorialVideoTitle">

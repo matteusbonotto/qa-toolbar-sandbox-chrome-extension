@@ -245,6 +245,34 @@ create table if not exists public.license_activations (
 --                         checkout), grant_days null, exactly one of discount_percent_off /
 --                         discount_amount_off_minor set. Never grants instant access -- it drives
 --                         a real Stripe Checkout Session (see reserve_voucher_discount below).
+-- Optional e-mail domain restriction (allowed_email_domains, migration 20261028120000): NULL or
+-- empty = any e-mail; otherwise only a CONFIRMED e-mail whose domain is EXACTLY one of the listed
+-- lowercase domains may redeem (no implicit subdomains, no look-alikes). Enforced inside
+-- redeem_voucher / reserve_voucher_discount via voucher_email_domain_allowed(), raising
+-- 'voucher_domain_not_allowed'. Exists because of the 2026-10-28 incident: company-only lifetime
+-- campaigns were redeemed by outside users since no such restriction existed.
+-- Validator for the CHECK constraints below: lowercase domains without "@", at least one dot,
+-- at most 20. Pure function, so it stays executable by the founder session that writes vouchers.
+create or replace function public.is_valid_email_domain_list(domains text[])
+returns boolean
+language sql
+immutable
+set search_path = ''
+as $$
+  select domains is null or (
+    coalesce(array_ndims(domains), 1) = 1
+    and cardinality(domains) <= 20
+    and not exists (
+      select 1 from unnest(domains) as d(value)
+      where d.value is null
+        or char_length(d.value) > 253
+        or d.value !~ '^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)+$'
+    )
+  );
+$$;
+revoke all on function public.is_valid_email_domain_list(text[]) from public, anon;
+grant execute on function public.is_valid_email_domain_list(text[]) to authenticated, service_role;
+
 create table if not exists public.vouchers (
   id uuid primary key default gen_random_uuid(),
   code_hash text not null unique check (code_hash ~ '^[a-f0-9]{64}$'),
@@ -259,8 +287,10 @@ create table if not exists public.vouchers (
   expires_at timestamptz,
   redeemed_by uuid references auth.users(id) on delete set null,
   redeemed_at timestamptz,
+  allowed_email_domains text[],
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint vouchers_allowed_email_domains_check check (public.is_valid_email_domain_list(allowed_email_domains)),
   constraint vouchers_kind_fields_check check (
     (kind = 'days' and grant_days is not null and plan_id is not null
       and discount_percent_off is null and discount_amount_off_minor is null)
@@ -285,8 +315,10 @@ create table if not exists public.voucher_campaigns (
   redemption_count integer not null default 0 check (redemption_count >= 0),
   enabled boolean not null default true,
   expires_at timestamptz,
+  allowed_email_domains text[],
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
+  constraint voucher_campaigns_allowed_email_domains_check check (public.is_valid_email_domain_list(allowed_email_domains)),
   constraint voucher_campaigns_kind_fields_check check (
     (kind = 'days' and grant_days is not null and plan_id is not null
       and discount_percent_off is null and discount_amount_off_minor is null)
@@ -848,6 +880,59 @@ $$;
 revoke all on function public.consume_rate_limit(text, integer, integer) from public, anon, authenticated;
 grant execute on function public.consume_rate_limit(text, integer, integer) to service_role;
 
+-- Domain helpers for e-mail restricted vouchers (migration 20261028120000). Neither is security
+-- definer nor executable by any API role: they only run inside the security definer RPCs below,
+-- so they are never an oracle that tells a caller which e-mail a user id has.
+-- voucher_user_email_domain: lowercased domain of the CURRENT auth.users.email (a pending
+-- email_change never counts), NULL if the RAW domain has anything outside ASCII [A-Za-z0-9.-].
+-- The ASCII check runs BEFORE lower() because a libc collation can fold non-ASCII letters into
+-- ASCII (U+0130 into "i"), letting x@bankeİro.com.br match bankeiro.com.br.
+create or replace function public.voucher_user_email_domain(target_user_id uuid)
+returns text
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  raw_domain text;
+begin
+  select substring(u.email from '@([^@]+)$') into raw_domain
+  from auth.users u where u.id = target_user_id;
+  if raw_domain is null or raw_domain !~ '^[A-Za-z0-9.-]+$' then
+    return null;
+  end if;
+  return lower(raw_domain);
+end;
+$$;
+revoke all on function public.voucher_user_email_domain(uuid) from public, anon, authenticated;
+
+create or replace function public.voucher_email_domain_allowed(allowed_domains text[], target_user_id uuid)
+returns boolean
+language plpgsql
+stable
+set search_path = ''
+as $$
+declare
+  user_confirmed_at timestamptz;
+  user_domain text;
+begin
+  if allowed_domains is null or cardinality(allowed_domains) = 0 then
+    return true;
+  end if;
+  select u.email_confirmed_at into user_confirmed_at from auth.users u where u.id = target_user_id;
+  if user_confirmed_at is null then
+    return false;
+  end if;
+  user_domain := public.voucher_user_email_domain(target_user_id);
+  -- Second, redundant ASCII check right before the comparison (defense in depth).
+  if user_domain is null or user_domain !~ '^[a-z0-9.-]+$' then
+    return false;
+  end if;
+  return user_domain = any(allowed_domains);
+end;
+$$;
+revoke all on function public.voucher_email_domain_allowed(text[], uuid) from public, anon, authenticated;
+
 -- Voucher lookup, grant creation and redemption happen in one transaction. Row locks
 -- prevent two concurrent requests from consuming the same voucher or campaign slot.
 create or replace function public.redeem_voucher(target_user_id uuid, voucher_hash text)
@@ -870,6 +955,9 @@ begin
   where code_hash = voucher_hash and kind in ('days', 'lifetime') and enabled and (expires_at is null or expires_at > now())
   for update;
   if campaign.id is not null then
+    if not public.voucher_email_domain_allowed(campaign.allowed_email_domains, target_user_id) then
+      raise exception 'voucher_domain_not_allowed';
+    end if;
     if campaign.maximum_redemptions is not null and campaign.redemption_count >= campaign.maximum_redemptions then
       raise exception 'voucher_unavailable';
     end if;
@@ -884,7 +972,9 @@ begin
     values (campaign.id, target_user_id, created_grant_id);
     update public.voucher_campaigns set redemption_count = redemption_count + 1 where id = campaign.id;
     insert into public.audit_logs (actor_id, action, target_type, target_id, reason, metadata)
-    values (target_user_id, 'voucher.redeemed', 'voucher_campaign', campaign.id::text, 'Self-service campaign redemption', jsonb_build_object('label', campaign.label));
+    values (target_user_id, 'voucher.redeemed', 'voucher_campaign', campaign.id::text, 'Self-service campaign redemption',
+      jsonb_build_object('label', campaign.label, 'campaign_id', campaign.id,
+        'email_domain', public.voucher_user_email_domain(target_user_id)));
     return query select campaign.label, ending;
     return;
   end if;
@@ -893,12 +983,17 @@ begin
   where code_hash = voucher_hash and kind in ('days', 'lifetime') and status = 'available' and (expires_at is null or expires_at > now())
   for update skip locked;
   if selected.id is null then raise exception 'voucher_unavailable'; end if;
+  if not public.voucher_email_domain_allowed(selected.allowed_email_domains, target_user_id) then
+    raise exception 'voucher_domain_not_allowed';
+  end if;
   ending := case when selected.grant_days is null then null else now() + make_interval(days => selected.grant_days) end;
   update public.vouchers set status = 'used', redeemed_by = target_user_id, redeemed_at = now() where id = selected.id;
   insert into public.entitlement_grants (user_id, plan_id, source, starts_at, expires_at)
   values (target_user_id, selected.plan_id, 'voucher', now(), ending);
   insert into public.audit_logs (actor_id, action, target_type, target_id, reason, metadata)
-  values (target_user_id, 'voucher.redeemed', 'voucher', selected.id::text, 'Self-service voucher redemption', jsonb_build_object('label', selected.label));
+  values (target_user_id, 'voucher.redeemed', 'voucher', selected.id::text, 'Self-service voucher redemption',
+    jsonb_build_object('label', selected.label, 'voucher_id', selected.id,
+      'email_domain', public.voucher_user_email_domain(target_user_id)));
   return query select selected.label, ending;
 end;
 $$;
@@ -933,19 +1028,32 @@ begin
   if existing.id is not null then
     if existing.campaign_id is not null then
       select * into campaign from public.voucher_campaigns where id = existing.campaign_id;
+      if not public.voucher_email_domain_allowed(campaign.allowed_email_domains, target_user_id) then
+        raise exception 'voucher_domain_not_allowed';
+      end if;
       return query select campaign.kind, campaign.label, campaign.plan_id, campaign.discount_percent_off, campaign.discount_amount_off_minor, campaign.discount_currency;
       return;
     else
       select * into selected from public.vouchers where id = existing.voucher_id;
+      if not public.voucher_email_domain_allowed(selected.allowed_email_domains, target_user_id) then
+        raise exception 'voucher_domain_not_allowed';
+      end if;
       return query select selected.kind, selected.label, selected.plan_id, selected.discount_percent_off, selected.discount_amount_off_minor, selected.discount_currency;
       return;
     end if;
   end if;
 
-  select * into campaign from public.voucher_campaigns
-  where code_hash = voucher_hash and kind = 'discount' and enabled and (expires_at is null or expires_at > now())
+  -- Columns qualified with the table alias: this function RETURNS TABLE(kind, label, ...), so a bare
+  -- `kind` here is ambiguous with the OUT parameter and plpgsql raised 'column reference "kind" is
+  -- ambiguous' on every call (found by test-voucher-domain-restriction.mjs on 2026-10-28; the
+  -- 20260721010000 version had the same defect).
+  select vc.* into campaign from public.voucher_campaigns vc
+  where vc.code_hash = voucher_hash and vc.kind = 'discount' and vc.enabled and (vc.expires_at is null or vc.expires_at > now())
   for update;
   if campaign.id is not null then
+    if not public.voucher_email_domain_allowed(campaign.allowed_email_domains, target_user_id) then
+      raise exception 'voucher_domain_not_allowed';
+    end if;
     update public.voucher_reservations set status = 'released', released_at = now()
     where campaign_id = campaign.id and status = 'pending' and expires_at < now();
     if exists (select 1 from public.voucher_reservations where campaign_id = campaign.id and user_id = target_user_id and status in ('pending', 'completed')) then
@@ -961,10 +1069,13 @@ begin
     return;
   end if;
 
-  select * into selected from public.vouchers
-  where code_hash = voucher_hash and kind = 'discount' and status = 'available' and (expires_at is null or expires_at > now())
+  select v.* into selected from public.vouchers v
+  where v.code_hash = voucher_hash and v.kind = 'discount' and v.status = 'available' and (v.expires_at is null or v.expires_at > now())
   for update skip locked;
   if selected.id is null then raise exception 'voucher_unavailable'; end if;
+  if not public.voucher_email_domain_allowed(selected.allowed_email_domains, target_user_id) then
+    raise exception 'voucher_domain_not_allowed';
+  end if;
   update public.voucher_reservations set status = 'released', released_at = now()
   where voucher_id = selected.id and status = 'pending' and expires_at < now();
   if exists (select 1 from public.voucher_reservations where voucher_id = selected.id and status = 'pending') then
@@ -1019,7 +1130,10 @@ begin
   values (reservation.user_id, 'voucher.discount_finalized',
     case when reservation.voucher_id is not null then 'voucher' else 'voucher_campaign' end,
     coalesce(reservation.voucher_id, reservation.campaign_id)::text,
-    'Stripe checkout completed with discount voucher', jsonb_build_object('request_id', request_id_input));
+    'Stripe checkout completed with discount voucher',
+    jsonb_build_object('request_id', request_id_input, 'voucher_id', reservation.voucher_id,
+      'campaign_id', reservation.campaign_id,
+      'email_domain', public.voucher_user_email_domain(reservation.user_id)));
   return true;
 end;
 $$;

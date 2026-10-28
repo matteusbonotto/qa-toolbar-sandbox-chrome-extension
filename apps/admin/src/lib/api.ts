@@ -101,6 +101,8 @@ export interface VoucherInput {
   discountPercentOff: number | null;
   discountAmountOffMinor: number | null;
   expiresAt: string | null;
+  /** null = any e-mail (see lib/emailDomains.ts). Enforced by the redemption RPCs in Postgres. */
+  allowedEmailDomains: string[] | null;
 }
 
 function voucherKindFields(input: VoucherInput) {
@@ -111,6 +113,7 @@ function voucherKindFields(input: VoucherInput) {
     discount_percent_off: input.discountPercentOff,
     discount_amount_off_minor: input.discountAmountOffMinor,
     discount_currency: input.discountPercentOff || input.discountAmountOffMinor ? "brl" : null,
+    allowed_email_domains: input.allowedEmailDomains,
   };
 }
 
@@ -164,6 +167,8 @@ export interface VoucherCampaignInput {
   discountAmountOffMinor: number | null;
   maximumRedemptions: number | null;
   expiresAt: string | null;
+  /** null = any e-mail (see lib/emailDomains.ts). Enforced by the redemption RPCs in Postgres. */
+  allowedEmailDomains: string[] | null;
 }
 
 function campaignKindFields(input: VoucherCampaignInput) {
@@ -174,6 +179,7 @@ function campaignKindFields(input: VoucherCampaignInput) {
     discount_percent_off: input.discountPercentOff,
     discount_amount_off_minor: input.discountAmountOffMinor,
     discount_currency: input.discountPercentOff || input.discountAmountOffMinor ? "brl" : null,
+    allowed_email_domains: input.allowedEmailDomains,
   };
 }
 

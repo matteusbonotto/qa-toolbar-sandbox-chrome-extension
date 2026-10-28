@@ -3,6 +3,7 @@ import { authenticatedUser, adminClient, enforceRateLimit } from "../_shared/aut
 import { billingConfig } from "../_shared/config.ts";
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
+import { voucherRpcErrorCode } from "../_shared/vouchers.ts";
 import { Stripe, stripeClient } from "../_shared/stripe.ts";
 
 interface CheckoutInput {
@@ -42,6 +43,9 @@ serve(async (request) => {
   if (planError || !plan) throw new ApiError(404, "plan_not_found");
 
   let voucherDiscount: {
+    // sha256 of the code: the only form of the voucher sent to Stripe (idempotency keys are stored
+    // and shown in the Stripe dashboard/logs, so the plain code must never go there).
+    voucherHash: string;
     label: string;
     percentOff: number | null;
     amountOffMinor: number | null;
@@ -60,7 +64,8 @@ serve(async (request) => {
     if (voucherKind !== "discount") {
       // days/lifetime -- unchanged: grants access directly, never touches Stripe.
       const redeemed = await admin.rpc("redeem_voucher", { target_user_id: user.id, voucher_hash: voucherHash });
-      if (redeemed.error || !redeemed.data?.[0]) throw new ApiError(409, "voucher_unavailable");
+      if (redeemed.error) throw new ApiError(409, voucherRpcErrorCode(redeemed.error));
+      if (!redeemed.data?.[0]) throw new ApiError(409, "voucher_unavailable");
       return jsonResponse(request, {
         accessGranted: true,
         voucherRedeemed: true,
@@ -74,17 +79,15 @@ serve(async (request) => {
     const reserved = await admin.rpc("reserve_voucher_discount", {
       target_user_id: user.id, voucher_hash: voucherHash, request_id_input: input.requestId,
     });
-    if (reserved.error || !reserved.data?.[0]) {
-      const code = reserved.error?.message?.includes("voucher_already_redeemed")
-        ? "voucher_already_redeemed" : "voucher_unavailable";
-      throw new ApiError(409, code);
-    }
+    if (reserved.error) throw new ApiError(409, voucherRpcErrorCode(reserved.error));
+    if (!reserved.data?.[0]) throw new ApiError(409, "voucher_unavailable");
     const discount = reserved.data[0];
     if (discount.target_plan_id && discount.target_plan_id !== plan.id) {
       await admin.rpc("release_voucher_reservation", { request_id_input: input.requestId });
       throw new ApiError(409, "voucher_plan_mismatch");
     }
     voucherDiscount = {
+      voucherHash,
       label: discount.label,
       percentOff: discount.percent_off ?? null,
       amountOffMinor: discount.amount_off_minor ?? null,
@@ -166,13 +169,13 @@ serve(async (request) => {
     if (voucherDiscount) {
       const coupon = voucherDiscount.percentOff
         ? await stripe.coupons.create({ percent_off: voucherDiscount.percentOff, duration: "once" }, {
-          idempotencyKey: `voucher-coupon-pct:${input.voucherCode}`,
+          idempotencyKey: `voucher-coupon-pct:${voucherDiscount.voucherHash}`,
         })
         : await stripe.coupons.create({
           amount_off: voucherDiscount.amountOffMinor!,
           currency: voucherDiscount.discountCurrency ?? "brl",
           duration: "once",
-        }, { idempotencyKey: `voucher-coupon-amt:${input.voucherCode}` });
+        }, { idempotencyKey: `voucher-coupon-amt:${voucherDiscount.voucherHash}` });
       discounts = [{ coupon: coupon.id }];
     } else if (rewardDiscount) {
       const coupon = await stripe.coupons.create({ percent_off: rewardDiscount.percentOff, duration: "once" }, {

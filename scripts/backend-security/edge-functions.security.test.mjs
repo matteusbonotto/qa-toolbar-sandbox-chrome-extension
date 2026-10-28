@@ -26,7 +26,7 @@ import {
   ALL_HOSTILE_STRINGS, INVALID_JSON_BODIES, LEAK_PATTERNS, NON_OBJECT_JSON_BODIES, prototypePollutionBodies,
 } from "./hostile-inputs.mjs";
 import {
-  ANY_UUID, BODY_LIMITS, CHALLENGE_ID, emailAccepted, OTP, PLAN_KEY, REFERRAL_CODE, REQUEST_ID, ROOM_CODE, upperTrim, VOTE_ID, VOUCHER_CODE,
+  ANY_UUID, BODY_LIMITS, CHALLENGE_ID, emailAccepted, OTP, PLAN_KEY, REFERRAL_CODE, REQUEST_ID, ROOM_CODE, upperTrim, VOTE_ID, VOUCHER_CODE, VOUCHER_REDEEM_ERRORS,
 } from "./contracts.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
@@ -409,7 +409,7 @@ const FIELD_CASES = [
   {
     fn: "voucher-redeem", field: "code", identity: "plain",
     body: (value) => ({ code: value }),
-    expect: (value) => (VOUCHER_CODE.test(upperTrim(value)) ? { status: 409, errors: ["voucher_unavailable", "voucher_requires_checkout", "voucher_already_redeemed"] } : { status: 400, error: "invalid_voucher" }),
+    expect: (value) => (VOUCHER_CODE.test(upperTrim(value)) ? { status: 409, errors: VOUCHER_REDEEM_ERRORS } : { status: 400, error: "invalid_voucher" }),
   },
   {
     fn: "referral-track", field: "referralCode", identity: "plain",

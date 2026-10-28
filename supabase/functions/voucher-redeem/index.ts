@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { authenticatedUser, adminClient, enforceRateLimit } from "../_shared/auth.ts";
 import { serve } from "../_shared/handler.ts";
 import { ApiError, jsonResponse, readJson, requirePost } from "../_shared/http.ts";
+import { voucherRpcErrorCode } from "../_shared/vouchers.ts";
 
 serve(async (request) => {
   requirePost(request);
@@ -23,8 +24,10 @@ serve(async (request) => {
     target_user_id: user.id,
     voucher_hash: voucherHash,
   });
-  if (error?.message === "voucher_already_redeemed") throw new ApiError(409, "voucher_already_redeemed");
-  if (error || !data?.[0]) throw new ApiError(409, "voucher_unavailable");
+  // The domain rule (allowed_email_domains) is enforced inside redeem_voucher itself; this only
+  // turns its exception into a code the client can explain (409 voucher_domain_not_allowed).
+  if (error) throw new ApiError(409, voucherRpcErrorCode(error));
+  if (!data?.[0]) throw new ApiError(409, "voucher_unavailable");
   return jsonResponse(request, {
     redeemed: true,
     label: data[0].label,

@@ -1,6 +1,7 @@
 import type { Session } from "@supabase/supabase-js";
 import type { PlanId } from "../data/pricingData";
 import { isSupabaseConfigured, supabase } from "../lib/supabaseClient";
+import { normalizeAllowedDomains } from "../lib/voucherDomains";
 
 export type BillingCycle = "monthly" | "yearly";
 
@@ -37,6 +38,9 @@ export interface VoucherPreview {
   grantDays?: number | null;
   discountPercentOff?: number | null;
   discountAmountOffMinor?: number | null;
+  // Set when the voucher only works for e-mails of these domains (no "@", lowercase). Null or
+  // absent means any e-mail. Older backends do not send it at all.
+  allowedEmailDomains?: string[] | null;
 }
 
 function requireClient() {
@@ -167,7 +171,11 @@ export async function previewVoucher(code: string): Promise<VoucherPreview> {
   const client = requireClient();
   const { data, error } = await client.functions.invoke("voucher-preview", { body: { code } });
   if (error) return { valid: false, reason: await functionErrorCode(error) };
-  return data as VoucherPreview;
+  if (!data || typeof data !== "object" || typeof (data as { valid?: unknown }).valid !== "boolean") {
+    return { valid: false, reason: "request_failed" };
+  }
+  const preview = data as VoucherPreview;
+  return { ...preview, allowedEmailDomains: normalizeAllowedDomains(preview.allowedEmailDomains) };
 }
 
 export async function startCheckout(input: {

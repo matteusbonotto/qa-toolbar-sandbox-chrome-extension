@@ -4,8 +4,27 @@
 
 O Workspace deve ser claro, objetivo, completo, organizado, minimalista e moderno. A criação de um
 novo workspace acontece por um wizard. As listagens devem ser separadas e agrupadas por contexto.
-Formulários relacionais precisam comunicar e suportar relações N:N. As etapas de Contas,
-Pagamentos e Inspectors fazem parte do wizard com opções visíveis e acionáveis.
+Formulários relacionais precisam comunicar e suportar relações N:N. Contas, Pagamentos,
+Dispositivos e Inspectors são oferecidos como próximos passos opcionais na tela de conclusão do
+wizard, com opções visíveis e acionáveis (revisão de 2026-10-28, abaixo).
+
+### Revisão do wizard (fundador, 2026-10-28, após apresentação ao vivo)
+
+"O processo de criação de workspace ficou muito confuso." O wizard precisa ensinar, com explicação
+e exemplo em cada passo, quem não tem nenhum contexto. Regras:
+
+- Passo 1, Cliente: a empresa testada (ex.: Bankeiro). Pode escolher uma já cadastrada.
+- Passo 2, Produto: um app, sistema ou site dessa empresa (ex.: Uzzipay). Pode escolher um já
+  cadastrado.
+- "Projeto" não é perguntado no wizard: o produto fica sob um projeto com o nome do cliente,
+  reaproveitado se já existir (sem mudança de schema). Projetos continuam nas telas completas.
+- Passo 3, Onde a barra aparece: "Em todos os sites" (ativa o escopo de todos os sites e encerra,
+  sem exigir ambiente) ou "Só em sites específicos (por ambiente)".
+- Passo 4 (só para sites específicos), Ambientes: cada ambiente com nome e cor e, dentro dele, as
+  URLs onde a barra daquele ambiente aparece. Ex.: STG azul em https://stg.uzzipay.com.br/*.
+- Passo final: resumo em uma frase ("Cliente Bankeiro, produto Uzzipay, ambiente STG (azul) em
+  https://...") e Concluir. Nada é salvo antes de Concluir.
+- Sem o diálogo "cadastrado com sucesso, cadastrar outro/continuar" no meio do fluxo.
 Na organização principal, a pessoa pode alternar a visualização entre cliente, projeto e produto.
 Cada visão mantém o contexto dos relacionamentos sem duplicar ou ocultar os dados cadastrados.
 
@@ -28,11 +47,12 @@ navegadores. Esses cadastros não podem ficar ocultos nem existir apenas como um
   projeto e produto exibem o contexto do nível pai sem exigir uma seleção anterior.
 - [x] Painéis paralelos e agrupamentos que competiam visualmente foram removidos.
 - [x] Formulários em modal não repetem a divisória entre cabeçalho e campos.
-- [x] Wizard com oito etapas e orientação persistente em desktop.
+- [x] Wizard com cinco etapas (quatro em "Todos os sites") e orientação persistente em desktop
+  (revisão de 2026-10-28; antes eram nove etapas).
 - [x] Wizard responsivo com progresso compacto em telas pequenas.
-- [x] Contas, Pagamentos e Inspectors exibem campos, relações e ações disponíveis antes da abertura
-  do formulário.
-- [x] Contas e Pagamentos herdam ambientes e produtos escolhidos anteriormente no wizard.
+- [x] Contas, Pagamentos, Dispositivos e Inspectors aparecem como próximos passos opcionais na
+  conclusão do wizard, com as ações disponíveis antes da abertura do formulário.
+- [x] Contas e Pagamentos herdam o produto e os ambientes criados no wizard.
 - [x] Entrada individual e importação CSV permanecem disponíveis quando aplicáveis.
 - [x] Credenciais e pagamentos continuam marcados como dados exclusivamente sandbox.
 - [x] Tema claro e escuro usam os mesmos tokens semânticos.

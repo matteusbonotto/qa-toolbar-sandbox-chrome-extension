@@ -76,6 +76,14 @@ migration está em produção" são coisas diferentes até alguém rodar o passo
    IA nem o próprio script contornam isso.
 5. Atualize `docs/PENDENCIAS_USUARIO.md` até a migration ser confirmada aplicada (dry-run
    mostrando `"upToDate":true`).
+6. **Ordem de deploy quando a migration adiciona coluna lida por Edge Function ou Admin:**
+   migration primeiro, depois as Edge Functions, e só então o merge na `main` (que publica
+   Landing/Admin via Pages/Firebase). O motivo é que o código novo seleciona/grava a coluna nova:
+   function ou Admin no ar antes da coluna existir quebra a funcionalidade inteira, não só a parte
+   nova. Exemplo real (2026-10-28, `allowed_email_domains`): `voucher-preview` subindo antes da
+   migration faria todo voucher aparecer como inválido, e o Admin falharia ao criar/editar voucher.
+   `backend:apply-pending` já aplica migrations antes das functions; não use `--functions-only`
+   nem faça o merge antes do `--apply` nesse tipo de mudança.
 
 ### Rollback
 

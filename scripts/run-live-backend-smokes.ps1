@@ -38,6 +38,8 @@ $env:STRIPE_SECRET_KEY = $variables["STRIPE_SECRET_KEY"]
 
 Push-Location $repositoryRoot
 try {
+  node scripts/backend-security/check-live-auth-settings.mjs
+  if ($LASTEXITCODE -ne 0) { throw "Auth settings guard failed (voucher e-mail domain rule depends on Confirm email ON and reviewed providers)." }
   node scripts/smoke-live-backend.mjs
   if ($LASTEXITCODE -ne 0) { throw "Commerce/backend live smoke failed." }
   node scripts/smoke-live-admin.mjs

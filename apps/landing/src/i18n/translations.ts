@@ -133,7 +133,6 @@ export interface Dictionary {
     lead: string;
     voucherPlaceholder: string;
     voucherApply: string;
-    voucherAppliedSuffix: string;
     voucherErrorEmpty: string;
     voucherErrorInvalid: string;
     voucherAlreadyRedeemed: string;
@@ -142,7 +141,6 @@ export interface Dictionary {
     voucherPreviewLifetime: string;
     voucherPreviewDays: string;
     voucherPreviewDiscount: string;
-    voucherPreviewAnyPlan: string;
     recommendedBadge: string;
     perMonth: string;
     perYear: string;
@@ -183,7 +181,6 @@ export interface Dictionary {
     pricingUnavailable: string;
     retryPricing: string;
     loadingPrices: string;
-    voucherQueued: string;
     accessActive: string;
     accessPermanent: string;
     accessExpires: string;
@@ -219,6 +216,44 @@ export interface Dictionary {
     cancelScheduled: string;
     cancelImmediate: string;
     cancelUnavailable: string;
+    voucherChecking: string;
+    voucherNextStepGuest: string;
+    voucherNextStepSignedIn: string;
+    voucherDomainOnly: string;
+    voucherDomainMismatch: string;
+    voucherDomainNotAllowed: string;
+    voucherDomainNotAllowedGeneric: string;
+    voucherDomainSignupHint: string;
+    voucherCheckFailed: string;
+    voucherClear: string;
+    authRequiredWithVoucher: string;
+    confirmationSentWithVoucher: string;
+    confirmationSentWithPlan: string;
+    emailLinkSentWithVoucher: string;
+    emailLinkSentWithPlan: string;
+    resumeWorking: string;
+    resumeWorkingNoVoucher: string;
+    resumeFailed: string;
+    resumeExpired: string;
+    resumeOtherAccount: string;
+    accountConfirmedNoIntent: string;
+    authLinkError: string;
+    accessReadyTitle: string;
+    voucherRedeemedTitle: string;
+    accessReadyPlan: string;
+    accessReadyNextStep: string;
+    installFromStore: string;
+    redirectingToCheckout: string;
+    accessLoadFailedAfterGrant: string;
+    accountLinkedNoIntent: string;
+    awaitingEmailReminder: string;
+    awaitingEmailReminderPlan: string;
+    checkEmailTitle: string;
+    reloadPage: string;
+    switchAccount: string;
+    voucherDomainSignupMismatch: string;
+    voucherNextStepAnyPlan: string;
+    voucherPreviewDiscountAnyPlan: string;
     plans: Record<"smoke-test" | "regression-runner" | "root-cause-analyst" | "release-manager", PlanTranslation>;
   };
   support: {
@@ -643,16 +678,14 @@ const pt: Dictionary = {
     lead: "Escolha o plano que combina com sua rotina. Você entra ou cria sua conta somente quando decidir continuar.",
     voucherPlaceholder: "Código do voucher",
     voucherApply: "Aplicar",
-    voucherAppliedSuffix: "aplicado",
     voucherErrorEmpty: "Digite um código de voucher.",
-    voucherErrorInvalid: "Voucher inválido ou expirado.",
-    voucherAlreadyRedeemed: "Você já resgatou este voucher.",
+    voucherErrorInvalid: "Voucher inválido, expirado ou esgotado. Confira o código.",
+    voucherAlreadyRedeemed: "Este voucher já foi resgatado nesta conta.",
     voucherPlanMismatch: "Esse voucher é para outro plano. Escolha o plano indicado abaixo.",
-    voucherPreviewBadge: "Voucher aplicado",
+    voucherPreviewBadge: "Voucher válido",
     voucherPreviewLifetime: "Acesso vitalício ao plano {plan}.",
     voucherPreviewDays: "{days} dias grátis no plano {plan}.",
     voucherPreviewDiscount: "{value} de desconto no plano {plan}.",
-    voucherPreviewAnyPlan: "que você escolher",
     recommendedBadge: "Melhor custo-benefício",
     perMonth: "por mês",
     perYear: "por ano",
@@ -693,7 +726,6 @@ const pt: Dictionary = {
     pricingUnavailable: "Não foi possível carregar os preços oficiais agora.",
     retryPricing: "Tentar carregar novamente",
     loadingPrices: "Carregando preços oficiais…",
-    voucherQueued: "será aplicado ao escolher o plano",
     accessActive: "Acesso ativo",
     accessPermanent: "sem data de expiração",
     accessExpires: "válido até",
@@ -729,6 +761,44 @@ const pt: Dictionary = {
     cancelScheduled: "Cancelamento agendado. Seu acesso continua até {date}.",
     cancelImmediate: "Acesso cancelado. Você voltou para o plano grátis.",
     cancelUnavailable: "Não foi possível cancelar agora. Tente novamente em instantes.",
+    voucherChecking: "Verificando o voucher…",
+    voucherNextStepGuest: "Ainda não resgatado. Clique abaixo e crie sua conta (ou entre) para ativar.",
+    voucherNextStepSignedIn: "Ainda não resgatado. Clique abaixo para ativar.",
+    voucherDomainOnly: "Exclusivo para e-mails {domains}.",
+    voucherDomainMismatch: "Você entrou como {email}. Este voucher só vale para e-mails {domains}.",
+    voucherDomainNotAllowed: "Este voucher é exclusivo para e-mails {domains}. Entre com um e-mail desse domínio.",
+    voucherDomainNotAllowedGeneric: "Este voucher é exclusivo para e-mails de um domínio específico. Entre com um e-mail desse domínio.",
+    voucherDomainSignupHint: "Use um e-mail {domains}.",
+    voucherCheckFailed: "Não foi possível verificar o voucher agora. Confira sua conexão e tente novamente.",
+    voucherClear: "Remover voucher",
+    authRequiredWithVoucher: "Entre ou crie sua conta para resgatar o voucher {code} no plano {plan}.",
+    confirmationSentWithVoucher: "Enviamos um link para {email}. Abra-o neste mesmo navegador: o voucher {code} será resgatado sozinho no plano {plan}.",
+    confirmationSentWithPlan: "Enviamos um link para {email}. Abra-o neste mesmo navegador: o plano {plan} será ativado sozinho.",
+    emailLinkSentWithVoucher: "Se a conta existir, enviamos um link para {email}. Abra-o neste mesmo navegador: o voucher {code} será resgatado sozinho no plano {plan}.",
+    emailLinkSentWithPlan: "Se a conta existir, enviamos um link para {email}. Abra-o neste mesmo navegador: o plano {plan} será ativado sozinho.",
+    resumeWorking: "Conta conectada. Aplicando o voucher {code} no plano {plan}…",
+    resumeWorkingNoVoucher: "Conta conectada. Ativando o plano {plan}…",
+    resumeFailed: "Não conseguimos concluir automaticamente.",
+    resumeExpired: "O voucher {code} ficou salvo por mais de 24 horas. Confira o código abaixo e clique no plano de novo para resgatar.",
+    resumeOtherAccount: "O voucher {code} tinha sido salvo para outro e-mail. Confira o código abaixo e clique no plano se quiser resgatá-lo nesta conta.",
+    accountConfirmedNoIntent: "E-mail confirmado e conta conectada. Se você aplicou um voucher em outro navegador ou dispositivo, digite o código de novo abaixo e escolha o plano.",
+    authLinkError: "O link do e-mail expirou ou já foi usado. Entre com e-mail e senha ou peça um novo link de acesso em \"Entrar\".",
+    accessReadyTitle: "Seu acesso está ativo",
+    voucherRedeemedTitle: "Voucher resgatado! Seu acesso está ativo",
+    accessReadyPlan: "Plano {plan}",
+    accessReadyNextStep: "Próximo passo: instale a extensão no Chrome e entre nela com este mesmo e-mail.",
+    installFromStore: "Instalar pela Chrome Web Store",
+    redirectingToCheckout: "Abrindo o pagamento seguro…",
+    voucherNextStepAnyPlan: "Ainda não aplicado. Escolha um plano abaixo para ir ao pagamento com o desconto.",
+    voucherPreviewDiscountAnyPlan: "{value} de desconto em qualquer plano.",
+    voucherDomainSignupMismatch: "Com este e-mail o voucher {code} não será resgatado. Use um e-mail {domains}.",
+    switchAccount: "Trocar de conta",
+    checkEmailTitle: "Confira seu e-mail",
+    awaitingEmailReminder: "Falta confirmar seu e-mail. Abra o link que enviamos para {email} neste navegador. O voucher {code} será resgatado sozinho.",
+    awaitingEmailReminderPlan: "Falta confirmar seu e-mail. Abra o link que enviamos para {email} neste navegador. O plano {plan} será ativado sozinho.",
+    accessLoadFailedAfterGrant: "Voucher resgatado. Não conseguimos carregar o botão de instalar agora. Recarregue a página.",
+    reloadPage: "Recarregar",
+    accountLinkedNoIntent: "Você entrou pelo link do e-mail. Se aplicou um voucher em outro navegador ou dispositivo, digite o código de novo abaixo e escolha o plano.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -1239,16 +1309,14 @@ const es: Dictionary = {
     lead: "Elige el plan que encaja con tu rutina. Inicia sesión o crea tu cuenta solo cuando decidas continuar.",
     voucherPlaceholder: "Código del voucher",
     voucherApply: "Aplicar",
-    voucherAppliedSuffix: "aplicado",
     voucherErrorEmpty: "Escribe un código de voucher.",
-    voucherErrorInvalid: "Voucher inválido o expirado.",
-    voucherAlreadyRedeemed: "Ya canjeaste este voucher.",
+    voucherErrorInvalid: "Voucher inválido, expirado o agotado. Revisa el código.",
+    voucherAlreadyRedeemed: "Este voucher ya se canjeó en esta cuenta.",
     voucherPlanMismatch: "Este voucher es para otro plan. Elige el plan indicado abajo.",
-    voucherPreviewBadge: "Voucher aplicado",
+    voucherPreviewBadge: "Voucher válido",
     voucherPreviewLifetime: "Acceso vitalicio al plan {plan}.",
     voucherPreviewDays: "{days} días gratis en el plan {plan}.",
     voucherPreviewDiscount: "{value} de descuento en el plan {plan}.",
-    voucherPreviewAnyPlan: "que elijas",
     recommendedBadge: "Mejor relación calidad-precio",
     perMonth: "por mes",
     perYear: "por año",
@@ -1289,7 +1357,6 @@ const es: Dictionary = {
     pricingUnavailable: "No fue posible cargar los precios oficiales ahora.",
     retryPricing: "Volver a cargar",
     loadingPrices: "Cargando precios oficiales…",
-    voucherQueued: "se aplicará al elegir el plan",
     accessActive: "Acceso activo",
     accessPermanent: "sin fecha de expiración",
     accessExpires: "válido hasta",
@@ -1325,6 +1392,44 @@ const es: Dictionary = {
     cancelScheduled: "Cancelación programada. Tu acceso continúa hasta el {date}.",
     cancelImmediate: "Acceso cancelado. Volviste al plan gratuito.",
     cancelUnavailable: "No fue posible cancelar ahora. Inténtalo de nuevo en unos instantes.",
+    voucherChecking: "Verificando el voucher…",
+    voucherNextStepGuest: "Aún no canjeado. Haz clic abajo y crea tu cuenta (o entra) para activarlo.",
+    voucherNextStepSignedIn: "Aún no canjeado. Haz clic abajo para activarlo.",
+    voucherDomainOnly: "Exclusivo para correos {domains}.",
+    voucherDomainMismatch: "Entraste como {email}. Este voucher solo vale para correos {domains}.",
+    voucherDomainNotAllowed: "Este voucher es exclusivo para correos {domains}. Entra con un correo de ese dominio.",
+    voucherDomainNotAllowedGeneric: "Este voucher es exclusivo para correos de un dominio específico. Entra con un correo de ese dominio.",
+    voucherDomainSignupHint: "Usa un correo {domains}.",
+    voucherCheckFailed: "No fue posible verificar el voucher ahora. Revisa tu conexión e inténtalo de nuevo.",
+    voucherClear: "Quitar voucher",
+    authRequiredWithVoucher: "Entra o crea tu cuenta para canjear el voucher {code} en el plan {plan}.",
+    confirmationSentWithVoucher: "Enviamos un enlace a {email}. Ábrelo en este mismo navegador: el voucher {code} se canjeará solo en el plan {plan}.",
+    confirmationSentWithPlan: "Enviamos un enlace a {email}. Ábrelo en este mismo navegador: el plan {plan} se activará solo.",
+    emailLinkSentWithVoucher: "Si la cuenta existe, enviamos un enlace a {email}. Ábrelo en este mismo navegador: el voucher {code} se canjeará solo en el plan {plan}.",
+    emailLinkSentWithPlan: "Si la cuenta existe, enviamos un enlace a {email}. Ábrelo en este mismo navegador: el plan {plan} se activará solo.",
+    resumeWorking: "Cuenta conectada. Aplicando el voucher {code} en el plan {plan}…",
+    resumeWorkingNoVoucher: "Cuenta conectada. Activando el plan {plan}…",
+    resumeFailed: "No pudimos completarlo automáticamente.",
+    resumeExpired: "El voucher {code} estuvo guardado más de 24 horas. Revisa el código abajo y haz clic en el plan de nuevo para canjearlo.",
+    resumeOtherAccount: "El voucher {code} se había guardado para otro correo. Revisa el código abajo y haz clic en el plan si quieres canjearlo en esta cuenta.",
+    accountConfirmedNoIntent: "Correo confirmado y cuenta conectada. Si aplicaste un voucher en otro navegador o dispositivo, escribe el código de nuevo abajo y elige el plan.",
+    authLinkError: "El enlace del correo expiró o ya se usó. Entra con correo y contraseña o pide un nuevo enlace de acceso en \"Entrar\".",
+    accessReadyTitle: "Tu acceso está activo",
+    voucherRedeemedTitle: "¡Voucher canjeado! Tu acceso está activo",
+    accessReadyPlan: "Plan {plan}",
+    accessReadyNextStep: "Siguiente paso: instala la extensión en Chrome y entra en ella con este mismo correo.",
+    installFromStore: "Instalar desde la Chrome Web Store",
+    redirectingToCheckout: "Abriendo el pago seguro…",
+    voucherNextStepAnyPlan: "Aún no aplicado. Elige un plan abajo para ir al pago con el descuento.",
+    voucherPreviewDiscountAnyPlan: "{value} de descuento en cualquier plan.",
+    voucherDomainSignupMismatch: "Con este correo el voucher {code} no se canjeará. Usa un correo {domains}.",
+    switchAccount: "Cambiar de cuenta",
+    checkEmailTitle: "Revisa tu correo",
+    awaitingEmailReminder: "Falta confirmar tu correo. Abre el enlace que enviamos a {email} en este navegador. El voucher {code} se canjeará solo.",
+    awaitingEmailReminderPlan: "Falta confirmar tu correo. Abre el enlace que enviamos a {email} en este navegador. El plan {plan} se activará solo.",
+    accessLoadFailedAfterGrant: "Voucher canjeado. No pudimos cargar el botón de instalar ahora. Recarga la página.",
+    reloadPage: "Recargar",
+    accountLinkedNoIntent: "Entraste por el enlace del correo. Si aplicaste un voucher en otro navegador o dispositivo, escribe el código de nuevo abajo y elige el plan.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
@@ -1835,16 +1940,14 @@ const en: Dictionary = {
     lead: "Choose the plan that fits your routine. Sign in or create an account only when you decide to continue.",
     voucherPlaceholder: "Voucher code",
     voucherApply: "Apply",
-    voucherAppliedSuffix: "applied",
     voucherErrorEmpty: "Enter a voucher code.",
-    voucherErrorInvalid: "Invalid or expired voucher.",
-    voucherAlreadyRedeemed: "You already redeemed this voucher.",
+    voucherErrorInvalid: "Invalid, expired or sold-out voucher. Check the code.",
+    voucherAlreadyRedeemed: "This voucher was already redeemed on this account.",
     voucherPlanMismatch: "This voucher is for a different plan. Pick the plan shown below.",
-    voucherPreviewBadge: "Voucher applied",
+    voucherPreviewBadge: "Valid voucher",
     voucherPreviewLifetime: "Lifetime access to the {plan} plan.",
     voucherPreviewDays: "{days} free days on the {plan} plan.",
     voucherPreviewDiscount: "{value} off the {plan} plan.",
-    voucherPreviewAnyPlan: "you choose",
     recommendedBadge: "Best value",
     perMonth: "per month",
     perYear: "per year",
@@ -1885,7 +1988,6 @@ const en: Dictionary = {
     pricingUnavailable: "Official prices could not be loaded right now.",
     retryPricing: "Try loading again",
     loadingPrices: "Loading official prices…",
-    voucherQueued: "will be applied when you choose the plan",
     accessActive: "Active access",
     accessPermanent: "no expiration date",
     accessExpires: "valid until",
@@ -1921,6 +2023,44 @@ const en: Dictionary = {
     cancelScheduled: "Cancellation scheduled. Your access continues until {date}.",
     cancelImmediate: "Access canceled. You're back on the free plan.",
     cancelUnavailable: "Could not cancel right now. Try again in a moment.",
+    voucherChecking: "Checking the voucher…",
+    voucherNextStepGuest: "Not redeemed yet. Click below and create your account (or sign in) to activate it.",
+    voucherNextStepSignedIn: "Not redeemed yet. Click below to activate it.",
+    voucherDomainOnly: "Only for {domains} emails.",
+    voucherDomainMismatch: "You are signed in as {email}. This voucher only works for {domains} emails.",
+    voucherDomainNotAllowed: "This voucher is only for {domains} emails. Sign in with an email from that domain.",
+    voucherDomainNotAllowedGeneric: "This voucher is only for emails from a specific domain. Sign in with an email from that domain.",
+    voucherDomainSignupHint: "Use a {domains} email.",
+    voucherCheckFailed: "Could not check the voucher right now. Check your connection and try again.",
+    voucherClear: "Remove voucher",
+    authRequiredWithVoucher: "Sign in or create your account to redeem voucher {code} on the {plan} plan.",
+    confirmationSentWithVoucher: "We sent a link to {email}. Open it in this same browser: voucher {code} will be redeemed automatically on the {plan} plan.",
+    confirmationSentWithPlan: "We sent a link to {email}. Open it in this same browser: the {plan} plan will be activated automatically.",
+    emailLinkSentWithVoucher: "If the account exists, we sent a link to {email}. Open it in this same browser: voucher {code} will be redeemed automatically on the {plan} plan.",
+    emailLinkSentWithPlan: "If the account exists, we sent a link to {email}. Open it in this same browser: the {plan} plan will be activated automatically.",
+    resumeWorking: "Account connected. Applying voucher {code} to the {plan} plan…",
+    resumeWorkingNoVoucher: "Account connected. Activating the {plan} plan…",
+    resumeFailed: "We could not finish this automatically.",
+    resumeExpired: "Voucher {code} was saved more than 24 hours ago. Check the code below and click the plan again to redeem it.",
+    resumeOtherAccount: "Voucher {code} had been saved for a different email. Check the code below and click the plan if you want to redeem it on this account.",
+    accountConfirmedNoIntent: "Email confirmed and account connected. If you applied a voucher in another browser or device, type the code again below and pick the plan.",
+    authLinkError: "The email link expired or was already used. Sign in with email and password, or request a new sign-in link under \"Sign in\".",
+    accessReadyTitle: "Your access is active",
+    voucherRedeemedTitle: "Voucher redeemed! Your access is active",
+    accessReadyPlan: "{plan} plan",
+    accessReadyNextStep: "Next step: install the extension in Chrome and sign in to it with this same email.",
+    installFromStore: "Install from the Chrome Web Store",
+    redirectingToCheckout: "Opening secure checkout…",
+    voucherNextStepAnyPlan: "Not applied yet. Pick a plan below to go to checkout with the discount.",
+    voucherPreviewDiscountAnyPlan: "{value} off any plan.",
+    voucherDomainSignupMismatch: "With this email voucher {code} will not be redeemed. Use a {domains} email.",
+    switchAccount: "Switch account",
+    checkEmailTitle: "Check your email",
+    awaitingEmailReminder: "One step left: confirm your email. Open the link we sent to {email} in this browser. Voucher {code} will be redeemed automatically.",
+    awaitingEmailReminderPlan: "One step left: confirm your email. Open the link we sent to {email} in this browser. The {plan} plan will be activated automatically.",
+    accessLoadFailedAfterGrant: "Voucher redeemed. We could not load the install button right now. Reload the page.",
+    reloadPage: "Reload",
+    accountLinkedNoIntent: "You signed in from the email link. If you applied a voucher in another browser or device, type the code again below and pick the plan.",
     plans: {
       "smoke-test": {
         name: "Smoke Test",
