@@ -9,6 +9,18 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
+      version: "1.4.51",
+      "pt-BR": [
+        "A barra não desloca mais o conteúdo de sites com layout centralizado (páginas de manutenção, login e landing): imagens e textos ficam no lugar certo, sem rolagem lateral.",
+      ],
+      en: [
+        "The bar no longer shifts the content of sites with a centered layout (maintenance, login and landing pages): images and text stay in place, with no sideways scrolling.",
+      ],
+      es: [
+        "La barra ya no desplaza el contenido de sitios con diseño centrado (páginas de mantenimiento, login y landing): imágenes y textos quedan en su lugar, sin desplazamiento lateral.",
+      ],
+    },
+    {
       version: "1.4.50",
       "pt-BR": [
         "Criar workspace refeito: cliente, produto e onde a barra aparece, com um exemplo em cada passo.",
@@ -138,8 +150,8 @@ window.QTS_RELEASE_NOTES = (() => {
     es: { title: (version) => `Actualizado a la versión ${version}`, intro: "Tus datos y configuraciones anteriores se conservaron. Qué cambió:", fallback: "Mejoras de estabilidad y correcciones.", action: "Entendido" },
   });
   // A cap only so a user many versions behind does not get an endless list; 8 already cut the notes
-  // of a user coming from 1.4.44 (1.4.46 and 1.4.47 filled it). The drawer scrolls.
-  const MAX_ITEMS = 15;
+  // of a user coming from 1.4.44 (1.4.46 and 1.4.47 filled it), and 15 did again at 1.4.51. The drawer scrolls.
+  const MAX_ITEMS = 20;
 
   // Notes of every version after `previousVersion` up to `currentVersion`, newest first. Without a
   // previous version (unknown), only the current version's notes.
