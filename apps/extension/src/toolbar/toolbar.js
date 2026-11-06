@@ -297,6 +297,14 @@ function setSpacerHeight() {
   // the way down. Left/right docks can't push via a block spacer at all (block layout doesn't
   // reflow horizontally around a sibling's width) - those push via body margin instead, below.
   const spacer = document.getElementById(SPACER_ID);
+  // A spacer only pushes correctly inside normal block flow. In a flex/grid <body> it turns into a
+  // flex item or grid cell and displaces the page's own layout sideways (reported on centered
+  // maintenance pages), so there the push moves to the root margin (see toolbar.css).
+  const bodyDisplay = getComputedStyle(document.body).display;
+  const useRootPush = /flex|grid/.test(bodyDisplay) && (position === "top" || position === "bottom");
+  if (spacer) spacer.setAttribute("data-qts-mode", useRootPush ? "root" : "flow");
+  if (useRootPush) document.documentElement.setAttribute("data-qts-push", position);
+  else document.documentElement.removeAttribute("data-qts-push");
   if (spacer) {
     if (position === "bottom") {
       if (document.body.lastElementChild !== spacer) document.body.appendChild(spacer);
@@ -2235,6 +2243,7 @@ function removeToolbar({ disableBridge = false } = {}) {
   clearSiteFixedHeaderOffsets();
   state.shadowRoot = null;
   document.documentElement.style.setProperty("--qts-toolbar-height", "0px");
+  document.documentElement.removeAttribute("data-qts-push");
   if (document.body) {
     document.body.style.marginLeft = "";
     document.body.style.marginRight = "";

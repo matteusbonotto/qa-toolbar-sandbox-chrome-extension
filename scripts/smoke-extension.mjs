@@ -720,6 +720,36 @@ try {
   await host.reload();
   const toolbar = host.getByRole("toolbar", { name: "Ferramentas de QA" });
   await toolbar.waitFor({ timeout: 10_000 });
+  // Regression: on a page whose <body> is a centered flex container (reported on a real maintenance
+  // page), the spacer became a flex item with width:100% and shoved the centered content sideways
+  // with a horizontal scrollbar. The push must come from the root margin there, not the spacer.
+  const flexPage = await context.newPage();
+  await flexPage.addInitScript(() => document.addEventListener("DOMContentLoaded", () => {
+    const style = document.createElement("style");
+    style.textContent = "body{display:flex!important;justify-content:center;align-items:center;min-height:100vh;margin:0}#qts-flex-probe{width:200px;height:50px}body>:not(#qts-flex-probe):not([id^=qts-]):not([class*=qts-]){display:none!important}";
+    document.head.appendChild(style);
+    const probe = document.createElement("div");
+    probe.id = "qts-flex-probe";
+    document.body.appendChild(probe);
+  }));
+  await flexPage.goto(host.url());
+  await flexPage.getByRole("toolbar", { name: "Ferramentas de QA" }).waitFor({ timeout: 10_000 });
+  await flexPage.waitForTimeout(300); // lets the 160ms spacer/margin height transition settle
+  const flexLayout = await flexPage.evaluate(() => {
+    const probe = document.getElementById("qts-flex-probe").getBoundingClientRect();
+    return {
+      probeCenter: probe.left + probe.width / 2,
+      viewportCenter: document.documentElement.clientWidth / 2,
+      horizontalOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      spacerDisplay: getComputedStyle(document.getElementById("qts-toolbar-spacer")).display,
+      rootMarginTop: Number.parseFloat(getComputedStyle(document.documentElement).marginTop),
+    };
+  });
+  await flexPage.close();
+  if (Math.abs(flexLayout.probeCenter - flexLayout.viewportCenter) > 2 || flexLayout.horizontalOverflow > 0 || flexLayout.spacerDisplay !== "none" || !(flexLayout.rootMarginTop > 0)) {
+    throw new Error(`Toolbar displaced a flex-centered page layout: ${JSON.stringify(flexLayout)}`);
+  }
+  trace("flex-centered body keeps its layout under the toolbar");
   const hierarchy = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
     return {

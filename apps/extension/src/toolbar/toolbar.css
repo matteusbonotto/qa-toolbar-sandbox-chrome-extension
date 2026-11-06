@@ -12,6 +12,21 @@
   transition: height 160ms ease !important;
 }
 
+/* When the host page's <body> is a flex or grid container (very common on centered landing and
+   maintenance pages), the spacer would become a flex item / grid cell: with width:100% and
+   flex-shrink:0 it shoved the centered content sideways and created a horizontal scrollbar.
+   In that case toolbar.js hides the spacer and pushes the whole document via the root margin
+   instead, which never participates in the body's own layout. */
+#qts-toolbar-spacer[data-qts-mode="root"] {
+  display: none !important;
+}
+html[data-qts-push="top"] {
+  margin-top: var(--qts-toolbar-height, 0px) !important;
+}
+html[data-qts-push="bottom"] {
+  margin-bottom: var(--qts-toolbar-height, 0px) !important;
+}
+
 /* The toolbar, its floating overlays and evidence chrome must never show up in a printed page or
    a "save as PDF" export of the host site -- printing this along with a page is confusing to
    whoever receives it and looks unprofessional. Hiding the shadow host removes everything inside
