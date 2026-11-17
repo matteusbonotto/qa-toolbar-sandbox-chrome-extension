@@ -88,9 +88,10 @@ Deno.serve(async (request) => {
     const inserted = await admin.from("webhook_events").insert({
       provider: "stripe", provider_event_id: event.id, event_type: event.type,
     }).select("id").single();
-    if (inserted.error || !inserted.data) {
-      return jsonResponse(request, { received: true, duplicate: true });
-    }
+    // Só duplicata (violação de unicidade) é "já processado"; outra falha do banco devolve 500 para o
+    // Stripe reenviar, senão o evento se perde.
+    if (inserted.error?.code === "23505") return jsonResponse(request, { received: true, duplicate: true });
+    if (inserted.error || !inserted.data) return jsonResponse(request, { error: "event_persistence_failed" }, 500);
     webhookId = inserted.data.id;
   }
 

@@ -34,6 +34,7 @@ export function Footer() {
         <nav className="qts-footer-col" aria-label={t.footer.colTrust}>
           <span className="qts-footer-col-title">{t.footer.colTrust}</span>
           <a href={`${import.meta.env.BASE_URL}permissoes`}>{t.footer.navTrust}</a>
+          <a href={`${import.meta.env.BASE_URL}termos`}>{t.footer.navTerms}</a>
           <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.footer.navPrivacy}</a>
           <a href={`${import.meta.env.BASE_URL}propriedade-intelectual`}>{t.footer.navIp}</a>
         </nav>
@@ -44,7 +45,6 @@ export function Footer() {
           </p>
           <p className="qts-footer-credit">
             {t.footer.creditPrefix}{" "}
-            <img className="qts-footer-avatar" src="https://matheusbonotto.com.br/assets/logo-branco.png" alt="" aria-hidden="true" />{" "}
             <a href="https://matheusbonotto.com.br" target="_blank" rel="noreferrer">
               Matheus Bonotto
             </a>{" "}

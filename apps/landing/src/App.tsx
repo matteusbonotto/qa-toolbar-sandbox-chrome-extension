@@ -9,6 +9,7 @@ import { SupportSection } from "./sections/SupportSection";
 import { CommunityCampaignSection } from "./sections/CommunityCampaignSection";
 import { Footer } from "./sections/Footer";
 import { PrivacyPolicyPage } from "./pages/PrivacyPolicyPage";
+import { TermsPage } from "./pages/TermsPage";
 import { IntellectualPropertyPage } from "./pages/IntellectualPropertyPage";
 import { ResetPasswordPage } from "./pages/ResetPasswordPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
@@ -25,6 +26,7 @@ export default function App() {
   const pathname = window.location.pathname;
   const isPrivacyPage = matchesPath(pathname, "privacidade");
   const isIpPage = matchesPath(pathname, "propriedade-intelectual");
+  const isTermsPage = matchesPath(pathname, "termos");
   const isResetPasswordPage = matchesPath(pathname, "redefinir-senha");
   const isPermissionsPage = matchesPath(pathname, "permissoes");
   const isSecurityPage = matchesPath(pathname, "seguranca");
@@ -37,6 +39,15 @@ export default function App() {
       <SiteNavToolbar />
       <div className="qts-page-content">
         <PrivacyPolicyPage />
+        <Footer />
+      </div>
+    </>
+  ) : isTermsPage ? (
+    <>
+      <ParticleBackground />
+      <SiteNavToolbar />
+      <div className="qts-page-content">
+        <TermsPage />
         <Footer />
       </div>
     </>

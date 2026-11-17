@@ -977,9 +977,11 @@ export function PricingSection() {
       setAccess(refreshed);
       setStatusError(false);
       setStatusMessage(
-        result.mode === "at_period_end" && result.accessUntil
-          ? t.pricing.cancelScheduled.replace("{date}", formatAccessDate(result.accessUntil))
-          : t.pricing.cancelImmediate,
+        result.mode === "refunded"
+          ? t.pricing.cancelRefunded
+          : result.mode === "at_period_end" && result.accessUntil
+            ? t.pricing.cancelScheduled.replace("{date}", formatAccessDate(result.accessUntil))
+            : t.pricing.cancelImmediate,
       );
     } catch (error) {
       const code = error instanceof Error ? error.message : "";
@@ -1529,6 +1531,10 @@ export function PricingSection() {
             );
           })}
         </div>
+        <p className="qts-plan-change-hint">
+          {t.terms.checkoutNote}{" "}
+          <a href={`${import.meta.env.BASE_URL}termos`}>{t.footer.navTerms}</a> · <a href={`${import.meta.env.BASE_URL}privacidade`}>{t.footer.navPrivacy}</a>
+        </p>
         {access?.billing != null ? <p className="qts-plan-change-hint">{t.pricing.alreadySubscribed}</p> : null}
       </div>
     </section>
