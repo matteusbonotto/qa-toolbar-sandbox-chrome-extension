@@ -9,6 +9,12 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
+      version: "1.4.52",
+      "pt-BR": ["Mais segurança na sua conta: o acesso guardado no navegador agora vale só para a conta que fez login."],
+      en: ["Stronger account security: the access saved in the browser now only works for the account that signed in."],
+      es: ["Más seguridad en tu cuenta: el acceso guardado en el navegador ahora solo vale para la cuenta que inició sesión."],
+    },
+    {
       version: "1.4.51",
       "pt-BR": [
         "A barra não desloca mais o conteúdo de sites com layout centralizado (páginas de manutenção, login e landing): imagens e textos ficam no lugar certo, sem rolagem lateral.",
