@@ -117,7 +117,9 @@ export async function signUp(email: string, password: string): Promise<Session |
 const candidateExtensionIds = [
   "ddaapjklnfjhjigeglgmjmadjnmdodfe",
   "piiiagolpefgheemlppmnpoiniddibjd",
-  "dppfhjpccijidcpbmmcdlbhoknkdjoll", // isolated [TESTE] package
+  // O pacote [TESTE] só recebe sessão em desenvolvimento: em produção, outra extensão com a mesma
+  // "key" pública poderia assumir esse ID e receber os tokens.
+  ...(import.meta.env.DEV ? ["dppfhjpccijidcpbmmcdlbhoknkdjoll"] : []),
 ];
 
 export async function handoffSessionToExtension(session: Session): Promise<boolean> {
@@ -215,7 +217,7 @@ export async function loadAccessStatus(): Promise<AccessStatus> {
 }
 
 export interface CancelAccessResult {
-  mode: "at_period_end" | "immediate";
+  mode: "at_period_end" | "immediate" | "refunded";
   accessUntil: string | null;
 }
 
@@ -223,5 +225,5 @@ export async function cancelAccess(): Promise<CancelAccessResult> {
   const { data, error } = await requireClient().functions.invoke("cancel-access", { body: {} });
   if (error) throw new Error(await functionErrorCode(error));
   if (!data?.canceled) throw new Error("invalid_cancel_response");
-  return { mode: data.mode === "immediate" ? "immediate" : "at_period_end", accessUntil: data.accessUntil ?? null };
+  return { mode: data.mode === "immediate" || data.mode === "refunded" ? data.mode : "at_period_end", accessUntil: data.accessUntil ?? null };
 }

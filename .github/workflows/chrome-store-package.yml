@@ -51,11 +51,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    env:
-      CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
-      CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
-      CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
-      ACCESS_TOKEN_PRIVATE_KEY_JWK: ${{ secrets.ACCESS_TOKEN_PRIVATE_KEY_JWK }}
+    # Segredos só nos passos que os usam: scripts de instalação de dependências (npm ci) não os veem.
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -64,6 +60,11 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Verify Chrome Web Store secrets are configured
+        env:
+          CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
+          CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
+          CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+          ACCESS_TOKEN_PRIVATE_KEY_JWK: ${{ secrets.ACCESS_TOKEN_PRIVATE_KEY_JWK }}
         run: |
           if [ -z "$CHROME_WEBSTORE_CLIENT_ID" ] || [ -z "$CHROME_WEBSTORE_CLIENT_SECRET" ] || [ -z "$CHROME_WEBSTORE_REFRESH_TOKEN" ] || [ -z "$ACCESS_TOKEN_PRIVATE_KEY_JWK" ]; then
             echo "::error::Os segredos da Chrome Web Store e ACCESS_TOKEN_PRIVATE_KEY_JWK precisam estar configurados. Veja docs/DEPLOY_CHROME_WEBSTORE.md."
@@ -71,6 +72,11 @@ jobs:
           fi
       # Fails in seconds on an expired/revoked token instead of after the ~6 min real-Chrome smoke.
       - name: Verify Chrome Web Store credentials
+        env:
+          CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
+          CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
+          CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+          ACCESS_TOKEN_PRIVATE_KEY_JWK: ${{ secrets.ACCESS_TOKEN_PRIVATE_KEY_JWK }}
         run: node scripts/publish-chrome-webstore.mjs --check-credentials
       - name: Repository security scan
         run: npm run security:repo
@@ -79,10 +85,20 @@ jobs:
       - name: Ensure a virtual display is available
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Real-Chrome smoke test (virtual display)
+        env:
+          CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
+          CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
+          CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+          ACCESS_TOKEN_PRIVATE_KEY_JWK: ${{ secrets.ACCESS_TOKEN_PRIVATE_KEY_JWK }}
         run: xvfb-run --auto-servernum -- npm run test:chrome
       - name: Build whitelisted package
         run: node scripts/package-extension.mjs --output=artifacts/chrome-web-store-package.zip
       - name: Upload approved production package to Chrome Web Store
+        env:
+          CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
+          CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
+          CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+          ACCESS_TOKEN_PRIVATE_KEY_JWK: ${{ secrets.ACCESS_TOKEN_PRIVATE_KEY_JWK }}
         run: >-
           node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip
           --confirm-production ${{ inputs.publish_live && '--publish' || '' }}
