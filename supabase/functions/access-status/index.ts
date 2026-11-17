@@ -20,7 +20,7 @@ serve(async (request) => {
   const selectedPlan = selectedGrant?.plan
     ? { key: selectedGrant.plan.key, name: selectedGrant.plan.name }
     : null;
-  const token = await signAccessToken({ active, plan: selectedPlan, features });
+  const token = await signAccessToken({ sub: user.id, active, plan: selectedPlan, features });
 
   return jsonResponse(request, {
     active: Boolean(selectedGrant),

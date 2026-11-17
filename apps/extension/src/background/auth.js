@@ -91,12 +91,13 @@ async function verifyAccessToken(token) {
 // payload, never from the outer cached object's own same-named fields (an attacker could otherwise
 // keep a still-valid old token but edit the sibling `active` field next to it). Non-security
 // fields (billing text, checkedAt display) are cosmetic and can ride along from the cache as-is.
-async function readVerifiedCachedAccess() {
+async function readVerifiedCachedAccess(session) {
   const stored = await chrome.storage.local.get(STORAGE_KEYS.accessStatus);
   const cached = stored[STORAGE_KEYS.accessStatus];
   if (!isRecord(cached)) return null;
   const verified = await verifyAccessToken(cached.token);
-  if (!verified) return null;
+  // Token de outra conta (copiado de outro perfil) não vale aqui.
+  if (!verified || verified.sub !== session?.user?.id) return null;
   return {
     authenticated: true,
     active: verified.active === true,
@@ -253,7 +254,7 @@ export async function getAccessState({ force = false } = {}) {
   }
 
   if (!force) {
-    const verifiedCached = await readVerifiedCachedAccess();
+    const verifiedCached = await readVerifiedCachedAccess(session);
     if (verifiedCached && Number(verifiedCached.cachedAt) > Date.now() - ACCESS_CACHE_MS) {
       updateBadge(verifiedCached);
       return verifiedCached;
@@ -290,7 +291,7 @@ export async function getAccessState({ force = false } = {}) {
     // Network/server hiccup (not an explicit 401): fall back to a still-genuinely-valid cached
     // token rather than either trusting raw local JSON (the old bug) or hard-failing every
     // legitimate user for up to ACCESS_TOKEN_TTL_SECONDS just because one request blipped.
-    const verifiedCached = error?.status !== 401 ? await readVerifiedCachedAccess() : null;
+    const verifiedCached = error?.status !== 401 ? await readVerifiedCachedAccess(session) : null;
     if (verifiedCached) {
       updateBadge(verifiedCached);
       return verifiedCached;

@@ -37,7 +37,6 @@
   ],
   "externally_connectable": {
     "matches": [
-      "https://matteusbonotto.github.io/qa-toolbar-sandbox-chrome-extension/*",
       "https://qatoolbarsandbox.web.app/*",
       "http://localhost:5173/*"
     ]

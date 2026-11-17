@@ -12,8 +12,7 @@ const MOBILE_EMULATION_SCRIPT_ID = "qts-mobile-emu";
 // the packaged build (see auth.js's identical IS_TEST_BUILD gate for the sign-in dev bypass).
 const IS_TEST_BUILD = chrome.runtime.getManifest().name.includes("[TESTE]");
 const LANDING_ORIGINS = new Set([
-  "https://matteusbonotto.github.io",
-  // Firebase Hosting (2026-10-22). Both hosts stay accepted until GitHub Pages is switched off.
+  // Só o Firebase Hosting: a cópia antiga no GitHub Pages compartilhava a origem com outros sites.
   "https://qatoolbarsandbox.web.app",
   ...(IS_TEST_BUILD ? ["http://localhost:5173"] : []),
 ]);
