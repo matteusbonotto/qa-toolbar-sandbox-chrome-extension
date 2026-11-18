@@ -6507,17 +6507,11 @@ function openBreakpointViewer() {
     return breakpointViewerState.mobileEmulationActive ? markMobilePreviewUrl(url) : url;
   }
 
-  function applyContentZoom(pane, { notify = false } = {}) {
-    const frame = stage.querySelector(`[data-pane="${pane}"]`);
-    const iframe = frame?.querySelector("[data-bp-iframe]");
-    if (!iframe) return false;
-    try {
-      iframe.contentWindow.document.documentElement.style.zoom = String(breakpointViewerState.contentZoom[pane]);
-      return true;
-    } catch {
-      if (notify) showToolbarToast("O zoom interno exige uma página do mesmo site por segurança do navegador.");
-      return false;
-    }
+  // Emulates browser zoom: the iframe viewport shrinks to width/zoom (so media queries and 100vw
+  // behave as with Ctrl+"+") and is scaled up by zoom. CSS `zoom` on <html> kept the viewport width
+  // and created fake horizontal scroll. Works cross-origin too. Sizing lives in fitAndLoad.
+  function applyContentZoom() {
+    fitAndLoad();
   }
 
   function wireContentZoom() {
@@ -6530,12 +6524,10 @@ function openBreakpointViewer() {
         breakpointViewerState.contentZoom[pane] = clamped / 100;
         input.value = String(clamped);
         label.textContent = `${clamped}%`;
-        applyContentZoom(pane, { notify });
+        applyContentZoom();
       };
       input.addEventListener("input", () => update(Number(input.value)));
       controls.querySelectorAll("[data-content-zoom-step]").forEach((button) => button.addEventListener("click", () => update(Number(input.value) + Number(button.dataset.contentZoomStep))));
-      const iframe = stage.querySelector(`[data-pane="${pane}"] [data-bp-iframe]`);
-      iframe?.addEventListener("load", () => applyContentZoom(pane), { passive: true });
     });
   }
 
@@ -6566,7 +6558,10 @@ function openBreakpointViewer() {
       const iframe = frame.querySelector("[data-bp-iframe]");
       wrap.style.width = `${Math.round(device.width * scale)}px`;
       wrap.style.height = `${Math.round(device.height * scale)}px`;
-      iframe.style.transform = `scale(${scale})`;
+      const zoom = breakpointViewerState.contentZoom[frame.dataset.pane] || 1;
+      iframe.style.width = `${device.width / zoom}px`;
+      iframe.style.height = `${device.height / zoom}px`;
+      iframe.style.transform = `scale(${scale * zoom})`;
       const targetUrl = paneUrl(device, url);
       if (targetUrl && iframe.src !== targetUrl) iframe.src = targetUrl;
       const label = frame.closest("[data-pane-wrap]").querySelector("[data-scale-label]");

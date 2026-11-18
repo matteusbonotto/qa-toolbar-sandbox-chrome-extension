@@ -9,6 +9,12 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
+      version: "1.4.53",
+      "pt-BR": ["Testar tamanhos de tela: o Zoom do site agora simula o zoom do navegador de verdade, sem criar rolagem lateral que o site não tem."],
+      en: ["Screen size testing: Site zoom now simulates real browser zoom, without creating sideways scrolling the site does not have."],
+      es: ["Probar tamaños de pantalla: el Zoom del sitio ahora simula el zoom real del navegador, sin crear desplazamiento lateral que el sitio no tiene."],
+    },
+    {
       version: "1.4.52",
       "pt-BR": ["Mais segurança na sua conta: o acesso guardado no navegador agora vale só para a conta que fez login."],
       en: ["Stronger account security: the access saved in the browser now only works for the account that signed in."],

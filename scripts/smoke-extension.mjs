@@ -1906,18 +1906,20 @@ try {
   if (await host.locator(".qts-bp-topbar").evaluate((element) => getComputedStyle(element).visibility) !== "visible") throw new Error("Responsive View controls stayed hidden after the screenshot");
   trace("responsive view screenshot verified (own capture button, controls restored)");
   const desktopWrapBeforeZoom = await host.locator('[data-pane="a"] [data-viewport-wrap]').evaluate((element) => ({ width: element.offsetWidth, height: element.offsetHeight }));
+  const desktopIframeWidthBeforeZoom = await host.locator('[data-pane="a"] iframe').evaluate((element) => element.offsetWidth);
   await host.locator('[data-content-zoom="a"]').fill("150");
-  await host.waitForFunction(() => {
+  // Browser-zoom emulation: the iframe viewport shrinks to width/1.5 (no CSS zoom on <html>, which
+  // faked horizontal scroll) while the frame keeps its size.
+  await host.waitForFunction((before) => {
     const iframe = document.querySelector("#qts-toolbar-host")?.shadowRoot?.querySelector('[data-pane="a"] iframe');
-    return iframe?.contentWindow?.document?.documentElement?.style.zoom === "1.5";
-  });
+    return iframe && Math.abs(iframe.offsetWidth - before / 1.5) < 1;
+  }, desktopIframeWidthBeforeZoom);
   const breakpointZoomResult = await host.evaluate(() => {
     const root = document.querySelector("#qts-toolbar-host")?.shadowRoot;
-    const zoom = (pane) => root?.querySelector(`[data-pane="${pane}"] iframe`)?.contentWindow?.document?.documentElement?.style.zoom;
     const wrap = root?.querySelector('[data-pane="a"] [data-viewport-wrap]');
-    return { desktop: zoom("a"), mobile: zoom("b"), width: wrap?.offsetWidth, height: wrap?.offsetHeight };
+    return { zoomStyle: root?.querySelector('[data-pane="a"] iframe')?.contentDocument?.documentElement?.style.zoom || "", width: wrap?.offsetWidth, height: wrap?.offsetHeight };
   });
-  if (breakpointZoomResult.desktop !== "1.5" || !["", "1"].includes(breakpointZoomResult.mobile) || breakpointZoomResult.width !== desktopWrapBeforeZoom.width || breakpointZoomResult.height !== desktopWrapBeforeZoom.height) {
+  if (breakpointZoomResult.zoomStyle !== "" || breakpointZoomResult.width !== desktopWrapBeforeZoom.width || breakpointZoomResult.height !== desktopWrapBeforeZoom.height) {
     throw new Error(`Internal Breakpoint zoom changed the frame instead of only its site: ${JSON.stringify({ before: desktopWrapBeforeZoom, after: breakpointZoomResult })}`);
   }
   await host.screenshot({ path: resolve(evidencePath, "extension-breakpoint-independent-internal-zoom.png"), fullPage: false });
