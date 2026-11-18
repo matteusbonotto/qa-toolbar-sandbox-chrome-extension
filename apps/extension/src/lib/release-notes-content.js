@@ -9,10 +9,16 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
+      version: "1.4.55",
+      "pt-BR": ["Auto preenchimento mais coerente (uma pessoa por país, data de nascimento certa, sem marcar marketing), Gravador de Passos com nomes curtos, PDF que exige título e passos, histórico de rede sem tokens e busca de ferramentas por sinônimos."],
+      en: ["More coherent Auto Fill (one person per country, correct birth date, never ticks marketing), Steps Recorder with short names, PDF that requires a title and steps, network history without tokens and tool search by synonyms."],
+      es: ["Auto relleno más coherente (una persona por país, fecha de nacimiento correcta, sin marcar marketing), Grabador de Pasos con nombres cortos, PDF que exige título y pasos, historial de red sin tokens y búsqueda de herramientas por sinónimos."],
+    },
+    {
       version: "1.4.54",
-      "pt-BR": ["Simular HTTP agora aceita filtro de URL, várias vezes e manter após recarregar, ignora telemetria e avisa na tela quando uma regra é armada ou usada.", "Ferramentas ativas (tempo congelado, regra HTTP) aparecem numa faixa com botão para desligar, e Iniciar sessão de teste pede o ID do item."],
-      en: ["Simulate HTTP now accepts a URL filter, several uses and keeping the rule after reload, skips telemetry and shows a notice when a rule is armed or used.", "Active tools (frozen time, HTTP rule) appear in a strip with an off button, and Start test session asks for the item ID."],
-      es: ["Simular HTTP ahora acepta filtro de URL, varios usos y mantener tras recargar, ignora la telemetría y avisa en pantalla cuando una regla se arma o se usa.", "Las herramientas activas (tiempo congelado, regla HTTP) aparecen en una franja con botón para apagar, e Iniciar sesión de prueba pide el ID del ítem."],
+      "pt-BR": ["Simular HTTP agora aceita filtro de URL, várias vezes e manter após recarregar, ignora telemetria e avisa na tela quando uma regra é armada ou usada."],
+      en: ["Simulate HTTP now accepts a URL filter, several uses and keeping the rule after reload, skips telemetry and shows a notice when a rule is armed or used."],
+      es: ["Simular HTTP ahora acepta filtro de URL, varios usos y mantener tras recargar, ignora la telemetría y avisa en pantalla cuando una regla se arma o se usa."],
     },
     {
       version: "1.4.53",

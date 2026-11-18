@@ -593,6 +593,26 @@ function sortedToolsMenuOrder(baseOrder) {
   return baseOrder;
 }
 
+// Words people actually type for a tool that its label does not contain (print, mock, evidencia...).
+const TOOLS_MENU_SYNONYMS = {
+  forceHttpMenuItem: "mock erro falha 500 404 api http simular rede",
+  errorMonitorMenuItem: "erro falha console log rede http",
+  inspectorsMenuItem: "endpoint rede api request requisicao historico",
+  freezeClockMenuItem: "data hora relogio tempo congelar time",
+  clearSiteDataMenuItem: "cookies cache limpar logout deslogar storage",
+  elementCaptureMenuItem: "seletor selector xpath css locator elemento",
+  blurElementsMenuItem: "borrar desfocar esconder ocultar dados sensiveis",
+  holofoteMenuItem: "spotlight destacar foco",
+  breakpointMenuItem: "responsivo celular mobile tablet dispositivo device simulador",
+  reportBuilderMenuItem: "relatorio bug pdf evidencia report",
+  stepsRecorderMenuItem: "gravar roteiro cenario passos gherkin",
+  fakerFillMenuItem: "formulario preencher dados fake faker cadastro",
+  keyViewMenuItem: "teclas mouse cursor clique teclado",
+  statusMenuItem: "aprovado reprovado pass fail resultado",
+  qrCodeMenuItem: "celular link abrir qr",
+  pixelPerfectMenuItem: "regua design figma medir",
+};
+
 function toolsMenuSearchText(value) {
   return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 }
@@ -610,7 +630,7 @@ function refreshToolsMenuGroups() {
     const items = [...group.querySelectorAll(".qts-tools-group-body > button")].filter((item) => !item.classList.contains("isPreferenceHidden"));
     let matches = 0;
     for (const item of items) {
-      const hit = !query || toolsMenuSearchText(item.textContent).includes(query);
+      const hit = !query || toolsMenuSearchText(`${item.textContent} ${TOOLS_MENU_SYNONYMS[item.id] || ""}`).includes(query);
       item.classList.toggle("isSearchHidden", !hit);
       if (hit) matches += 1;
     }
@@ -2885,13 +2905,19 @@ function renderReportBuilder(container, context, prefill) {
   container.querySelector("[data-report-export-pdf]").addEventListener("click", () => {
     const values = readFields();
     const kindLabel = kinds.find((item) => item.key === values.kind)?.label || values.kind;
+    // A PDF with an empty title or no steps is useless to whoever receives it: ask before opening it.
+    if (!String(values.title || "").trim() || !String(values.steps || "").trim()) {
+      showQaToast("Preencha o título e os passos antes de exportar o PDF.", "error");
+      return;
+    }
+    const sessionItemId = state.testSession?.context?.itemId;
     const reportWindow = window.open("", "_blank");
     if (!reportWindow) {
       showQaToast(t.reportPdfBlocked || "Permita pop-ups para exportar o PDF.", "error");
       return;
     }
     reportWindow.document.write(printableReportHtml(values, {
-      line: `${contextLine} · ${detectBrowserLabel()} · ${window.innerWidth}×${window.innerHeight}`,
+      line: `${sessionItemId ? `Item ${sessionItemId} · ` : ""}${contextLine} · ${detectBrowserLabel()} · ${window.innerWidth}×${window.innerHeight}`,
       url: context.url,
     }, {
       kind: kindLabel,
@@ -2911,6 +2937,7 @@ function renderReportBuilder(container, context, prefill) {
       generatedAt: t.reportGeneratedAt || "Gerado em",
     }));
     reportWindow.document.close();
+    showQaToast("Na janela de impressão, escolha Salvar como PDF.");
     window.setTimeout(() => reportWindow.print(), 300);
   });
   container.querySelector("[data-report-save-draft]").addEventListener("click", async () => {
@@ -5185,7 +5212,7 @@ function configuredInspectors() {
 function inspectorHistoryEntry(entry) {
   return {
     id: String(entry.id || crypto.randomUUID()),
-    url: String(entry.url || "").slice(0, 4000),
+    url: maskSensitiveUrl(entry.url).slice(0, 4000),
     method: String(entry.method || "GET").slice(0, 16),
     status: Number(entry.status) || 0,
     source: String(entry.source || "").slice(0, 120),
@@ -5194,11 +5221,27 @@ function inspectorHistoryEntry(entry) {
   };
 }
 
+// Tokens and ids in a query string must not sit in storage or in the CSV export in clear text.
+const SENSITIVE_QUERY_PARAM = /(token|secret|key|auth|sig|pass|pwd|session|transid|code|jwt|bearer)/i;
+const INSPECTOR_HISTORY_RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+function maskSensitiveUrl(value) {
+  const text = String(value || "");
+  try {
+    const url = new URL(text, window.location.href);
+    let changed = false;
+    for (const name of [...url.searchParams.keys()]) {
+      if (SENSITIVE_QUERY_PARAM.test(name)) { url.searchParams.set(name, "***"); changed = true; }
+    }
+    return changed ? url.toString().replaceAll("%2A%2A%2A", "***") : text;
+  } catch { return text; }
+}
+
 async function loadInspectorHistory() {
   try {
     const stored = await chrome.storage.local.get(INSPECTOR_HISTORY_KEY);
     const history = Array.isArray(stored[INSPECTOR_HISTORY_KEY]) ? stored[INSPECTOR_HISTORY_KEY] : [];
-    state.networkHistory = history.slice(0, 500);
+    const cutoff = Date.now() - INSPECTOR_HISTORY_RETENTION_MS;
+    state.networkHistory = history.filter((entry) => !(Date.parse(entry?.capturedAt) < cutoff)).slice(0, 500);
   } catch {
     state.networkHistory = [];
   }
@@ -6251,7 +6294,7 @@ const DEVICE_PRESETS = [
   { id: "macbook-air", label: "MacBook Air M2", width: 1280, height: 832, kind: "laptop" },
   { id: "laptop-1366", label: "Laptop 1366", width: 1366, height: 768, kind: "laptop" },
   { id: "ipad", label: "iPad", width: 768, height: 1024, kind: "tablet" },
-  { id: "iphone-12-pro-max", label: "iPhone 12 Pro Max", width: 379, height: 820, kind: "phone" },
+  { id: "iphone-12-pro-max", label: "iPhone 12 Pro Max", width: 428, height: 926, kind: "phone" },
   { id: "iphone-se", label: "iPhone SE", width: 375, height: 667, kind: "phone" },
 ];
 
@@ -9239,13 +9282,14 @@ function syncModeShortcutStates() {
   holofoteQuick?.setAttribute("aria-pressed", String(state.holofoteActive === true));
 }
 
-function armBlurSelection(onChanged) {
+function armBlurSelection(onChanged, quiet = false) {
   selectPageElement({
+    quiet,
     instruction: "Clique num elemento para borrar (ou desborrar, se já estiver). Esc para parar.",
     onSelected: (element) => {
       toggleElementBlur(element);
       onChanged?.();
-      armBlurSelection(onChanged);
+      armBlurSelection(onChanged, true);
     },
     onCleanup: () => {
       state.blurSelectionActive = false;
@@ -10141,7 +10185,7 @@ function cancelElementSelection() {
 // smaller <input>) to still resolve to the real <input>, not reject it outright. Defaults to
 // identity so callers that already accept the raw target (Multiclick, Auto preenchimento's own
 // `.closest("form")` check) are unaffected.
-function selectPageElement({ accepts = () => true, resolve = (target) => target, onSelected, onCleanup, instruction }) {
+function selectPageElement({ accepts = () => true, resolve = (target) => target, onSelected, onCleanup, instruction, quiet = false }) {
   closeDrawer();
   cancelElementSelection();
   const style = document.createElement("style");
@@ -10154,9 +10198,10 @@ function selectPageElement({ accepts = () => true, resolve = (target) => target,
   const hint = document.createElement("div");
   hint.className = "qts-floating-item";
   hint.style.cssText = "position:fixed;left:50%;bottom:64px;transform:translateX(-50%);z-index:2147483647;background:#0b0b0b;color:var(--qts-ui-primary, #ffd700);border:1px solid var(--qts-ui-primary, #ffd700);border-radius:999px;padding:6px 14px;font:700 11px sans-serif;pointer-events:none";
-  hint.textContent = translateQaSurfaceText("Esc para cancelar a seleção");
+  hint.textContent = `${translateQaSurfaceText("Esc para cancelar a seleção")} · ↑ ↓`;
   document.body.appendChild(hint);
   let candidate = null;
+  let manual = false; // arrow keys moved the highlight: the click must pick that element, not the one under the cursor
   const cleanup = () => {
     candidate?.classList.remove("qts-selection-candidate");
     document.documentElement.classList.remove("qts-selecting");
@@ -10173,21 +10218,32 @@ function selectPageElement({ accepts = () => true, resolve = (target) => target,
     // Falls back to the raw hover target so *something* highlights under the cursor generally -
     // but only the resolved candidate (if any) is what onClick will actually accept/select.
     candidate = resolve(event.target) || event.target;
+    manual = false;
     candidate.classList.add("qts-selection-candidate");
   };
   const onClick = (event) => {
     if (event.target.closest?.(`#${HOST_ID}`)) return;
     event.preventDefault(); event.stopImmediatePropagation();
-    const target = resolve(event.target);
+    const target = manual && candidate ? candidate : resolve(event.target);
     if (!target || !accepts(target)) { showQaToast("Selecione um elemento compatível.", "error"); return; }
     cleanup(); state.selectionCleanup = null; onSelected(target);
   };
-  const onKey = (event) => { if (event.key === "Escape") { cleanup(); state.selectionCleanup = null; showQaToast("Seleção cancelada."); } };
+  const onKey = (event) => {
+    if (event.key === "Escape") { cleanup(); state.selectionCleanup = null; showQaToast("Seleção cancelada."); return; }
+    if ((event.key !== "ArrowUp" && event.key !== "ArrowDown") || !candidate) return;
+    // ArrowUp climbs to the parent, ArrowDown goes to the first child.
+    const next = event.key === "ArrowUp" ? candidate.parentElement : candidate.firstElementChild;
+    if (!next || next === document.body || next === document.documentElement || next.closest(`#${HOST_ID}`)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    candidate.classList.remove("qts-selection-candidate");
+    candidate = next; manual = true;
+    candidate.classList.add("qts-selection-candidate");
+  };
   document.addEventListener("mouseover", onOver, true);
   document.addEventListener("click", onClick, true);
   document.addEventListener("keydown", onKey, true);
   state.selectionCleanup = cleanup;
-  showQaToast(instruction || "Clique no elemento da página. Esc cancela.");
+  if (!quiet) showQaToast(instruction || "Clique no elemento da página. Esc cancela.");
 }
 
 // Clicking anywhere on a real input resolves to itself; clicking a wrapper/label around it
@@ -10942,17 +10998,22 @@ function stepsTargetName(element) {
   const target = element instanceof Element ? element : null;
   if (!target) return "elemento";
   const testId = target.getAttribute("data-testid") || target.getAttribute("data-test-id") || target.getAttribute("data-qa") || target.getAttribute("data-cy");
+  // A big container (menu, page section) has a huge innerText: use it only when it is short, so
+  // the step names the field the user touched and not everything inside its wrapper.
+  const ownText = String(target.innerText || "").replace(/\s+/g, " ").trim();
   const label = target.labels?.[0]?.innerText
     || target.getAttribute("aria-label")
     || target.getAttribute("title")
-    || target.innerText
+    || (ownText.length <= 60 ? ownText : "")
     || target.getAttribute("placeholder")
     || target.name
     || testId
     || target.id
     || target.getAttribute("alt")
-    || target.querySelector?.("img[alt]")?.getAttribute("alt");
-  const clean = String(label || "").replace(/\s+/g, " ").trim().slice(0, 120);
+    || target.querySelector?.("img[alt]")?.getAttribute("alt")
+    || target.closest?.("[aria-label],[role=combobox],label")?.getAttribute?.("aria-label")
+    || ownText;
+  const clean = String(label || "").replace(/\s+/g, " ").trim().slice(0, 60);
   if (clean) return clean;
   const hook = testId || target.getAttribute("role") || target.id;
   if (hook) return `${target.tagName.toLowerCase()} [${hook}]`;

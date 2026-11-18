@@ -389,7 +389,7 @@ const pt: Dictionary = {
   nav: {
     home: "Início",
     about: "Sobre",
-    semiauto: "Semi-automático",
+    semiauto: "Sabooor automático",
     features: "Ferramentas",
     pricing: "Planos",
     support: "Suporte",
@@ -1041,7 +1041,7 @@ const es: Dictionary = {
   nav: {
     home: "Inicio",
     about: "Acerca de",
-    semiauto: "Semi-automático",
+    semiauto: "Sabor automático",
     features: "Herramientas",
     pricing: "Planes",
     support: "Soporte",
@@ -1693,7 +1693,7 @@ const en: Dictionary = {
   nav: {
     home: "Home",
     about: "About",
-    semiauto: "Semi-automatic",
+    semiauto: "Auto flavor",
     features: "Tools",
     pricing: "Pricing",
     support: "Support",
