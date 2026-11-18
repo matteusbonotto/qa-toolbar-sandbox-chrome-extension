@@ -9,6 +9,12 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
+      version: "1.4.54",
+      "pt-BR": ["Simular HTTP agora aceita filtro de URL, várias vezes e manter após recarregar, ignora telemetria e avisa na tela quando uma regra é armada ou usada.", "Ferramentas ativas (tempo congelado, regra HTTP) aparecem numa faixa com botão para desligar, e Iniciar sessão de teste pede o ID do item."],
+      en: ["Simulate HTTP now accepts a URL filter, several uses and keeping the rule after reload, skips telemetry and shows a notice when a rule is armed or used.", "Active tools (frozen time, HTTP rule) appear in a strip with an off button, and Start test session asks for the item ID."],
+      es: ["Simular HTTP ahora acepta filtro de URL, varios usos y mantener tras recargar, ignora la telemetría y avisa en pantalla cuando una regla se arma o se usa.", "Las herramientas activas (tiempo congelado, regla HTTP) aparecen en una franja con botón para apagar, e Iniciar sesión de prueba pide el ID del ítem."],
+    },
+    {
       version: "1.4.53",
       "pt-BR": ["Testar tamanhos de tela: o Zoom do site agora simula o zoom do navegador de verdade, sem criar rolagem lateral que o site não tem."],
       en: ["Screen size testing: Site zoom now simulates real browser zoom, without creating sideways scrolling the site does not have."],

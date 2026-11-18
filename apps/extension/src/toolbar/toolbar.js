@@ -62,6 +62,8 @@ const state = {
   clickSpyActive: false,
   clockFrozen: false,
   forceHttpActive: false,
+  forceHttpRule: null,
+  forceHttpAnnounced: false,
   networkHistory: [],
   httpErrors: [],
   t: null,
@@ -1532,7 +1534,12 @@ function buildShadowHost() {
   shadow.getElementById("mobileTestStatusItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
   shadow.getElementById("statusMenuItem").addEventListener("click", () => { openTestStatusModal(); closeToolsMenu(); });
   shadow.getElementById("testSessionMenuItem").addEventListener("click", () => {
-    if (state.testSession) finishTestSession(); else startTestSession();
+    if (state.testSession) { finishTestSession(); return; }
+    // The menu item used to start the timer on a single click, with no way to back out.
+    const itemId = window.prompt(translateQaSurfaceText("Iniciar sessão de teste. ID do item em teste (ex.: 47257, opcional). Cancelar não inicia."), "");
+    if (itemId === null) return;
+    startTestSession();
+    if (state.testSession && itemId.trim()) state.testSession.context = { ...state.testSession.context, itemId: itemId.trim().slice(0, 40) };
   });
   shadow.getElementById("testSessionInfoButton").addEventListener("click", () => {
     if (state.testSession) showQaToast(`${state.t.testSessionActiveTitle} · ${formatElapsed(Date.now() - state.testSession.startedAt)}`);
@@ -1692,6 +1699,8 @@ function mountToolbar() {
   if (document.body) document.body.insertBefore(spacer, document.body.firstChild);
 
   render();
+  // A rule kept across reloads (Simulate HTTP "manter") is re-announced to the fresh toolbar.
+  document.dispatchEvent(new CustomEvent("qts:force-http-query"));
   void maybeShowFirstRunIntro();
   void maybeShowTutorialDot();
   void maybeStartLiveTour();
@@ -1704,7 +1713,7 @@ function mountToolbar() {
 // open site.
 async function clearCurrentSiteData() {
   if (!requirePlanFeature("clearSiteData")) return;
-  const confirmed = confirm(translateQaSurfaceText("Limpar cache e cookies deste site e recarregar a página? Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos)."));
+  const confirmed = confirm(translateQaSurfaceText("Limpar cache e cookies deste site e recarregar a página? Você será deslogado deste site. Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos)."));
   if (!confirmed) return;
   const response = await new Promise((resolve) => {
     chrome.runtime.sendMessage({ type: "qts:clear-site-data" }, (result) => resolve(chrome.runtime.lastError ? null : result));
@@ -2944,6 +2953,7 @@ function cancelPlacementMode() {
 async function disableAllActiveTools() {
   cancelPlacementMode();
   if (state.clickSpyActive) deactivateClickSpy();
+  closeClickSpyTooltip();
   if (state.blurSelectionActive) toggleBlurSelectionMode();
   if (state.holofoteActive) disableHolofoteMode();
   if (state.pixelPerfectActive) disablePixelPerfectMode();
@@ -4254,7 +4264,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Borrar elementos": "Desenfocar elementos", "Roteiros de teste": "Guiones de prueba", "Validador de textos/i18n": "Validador de textos/i18n",
   "Sessões de teste": "Sesiones de prueba", "Relatórios": "Informes",
   "Limpar cache e cookies do site": "Limpiar caché y cookies del sitio",
-  "Limpar cache e cookies deste site e recarregar a página? Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos).": "¿Limpiar la caché y las cookies de este sitio y recargar la página? Esto no afecta los datos guardados en la extensión (las cuentas, macros y configuraciones permanecen intactas).",
+  "Limpar cache e cookies deste site e recarregar a página? Você será deslogado deste site. Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos).": "¿Limpiar la caché y las cookies de este sitio y recargar la página? Se cerrará tu sesión en este sitio. Esto no afecta los datos guardados en la extensión (las cuentas, macros y configuraciones permanecen intactas).",
   "Cache e cookies do site limpos.": "Caché y cookies del sitio borrados.",
   "Não foi possível limpar os dados do site.": "No se pudieron borrar los datos del sitio.",
 });
@@ -4266,7 +4276,7 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Borrar elementos": "Blur Elements", "Roteiros de teste": "Test Scenarios", "Validador de textos/i18n": "Text/i18n Validator",
   "Sessões de teste": "Test Sessions", "Relatórios": "Reports",
   "Limpar cache e cookies do site": "Clear site cache and cookies",
-  "Limpar cache e cookies deste site e recarregar a página? Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos).": "Clear this site's cache and cookies and reload the page? This does not affect data saved in the extension (accounts, macros, and settings remain intact).",
+  "Limpar cache e cookies deste site e recarregar a página? Você será deslogado deste site. Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos).": "Clear this site's cache and cookies and reload the page? You will be signed out of this site. This does not affect data saved in the extension (accounts, macros, and settings remain intact).",
   "Cache e cookies do site limpos.": "Site cache and cookies cleared.",
   "Não foi possível limpar os dados do site.": "Couldn't clear the site's data.",
 });
@@ -5097,7 +5107,7 @@ function executeAndObserveClickSpy(target, tooltip, button) {
   if (navigatesCurrentTab) {
     const destination = new URL(anchorHref, window.location.href).href;
     window.open(destination, "_blank", "noopener");
-    seen.push([t.clickSpyEventNavigation, destination]);
+    seen.push([t.clickSpyEventNewTab, destination]);
     renderTrace();
   } else if (typeof target.click === "function") target.click();
   else target.dispatchEvent?.(new MouseEvent("click", { bubbles: true, cancelable: true }));
@@ -5133,6 +5143,10 @@ function openForceHttpDialog() {
       </div>
       <label class="qts-field-label" style="margin-top:14px">${escapeHtml(translateQaSurfaceText("Corpo da resposta (JSON opcional)"))}<textarea id="forceHttpBody" rows="4" placeholder='{"message":"Cartão recusado","code":"payment_declined"}' style="font:12px ui-monospace,Consolas,monospace"></textarea></label>
       <small class="qts-mini-empty">${escapeHtml(translateQaSurfaceText("Deixe vazio para usar um corpo genérico. Preenchido, a página recebe exatamente esse JSON no status escolhido - útil pra simular a mensagem de erro real que o app espera."))}</small>
+      <label class="qts-field-label" style="margin-top:14px">${escapeHtml(translateQaSurfaceText("URL contém (ou /regex/)"))}<input id="forceHttpFilter" type="text" placeholder="api/cinema/movies" autocomplete="off" spellcheck="false"></label>
+      <small class="qts-mini-empty">${escapeHtml(translateQaSurfaceText("Vazio: vale para a próxima chamada da página, ignorando telemetria (events, collect, clarity, applicationinsights, tiktok)."))}</small>
+      <label class="qts-field-label" style="margin-top:10px">${escapeHtml(translateQaSurfaceText("Quantas vezes"))}<select id="forceHttpTimes"><option value="1">${escapeHtml(translateQaSurfaceText("1 vez"))}</option><option value="3">${escapeHtml(translateQaSurfaceText("3 vezes"))}</option><option value="0">${escapeHtml(translateQaSurfaceText("Até cancelar"))}</option></select></label>
+      <label style="display:flex;gap:8px;align-items:center;margin-top:10px"><input id="forceHttpPersist" type="checkbox"> ${escapeHtml(translateQaSurfaceText("Manter após recarregar a página"))}</label>
       <div style="margin-top:14px"><button type="button" class="action" id="forceHttpClear">${escapeHtml(t.forceHttpCancel)}</button></div>
     `,
     onReady: (body) => {
@@ -5140,7 +5154,7 @@ function openForceHttpDialog() {
       body.querySelectorAll("[data-status]").forEach((button) => button.addEventListener("click", () => {
         const raw = bodyInput.value.trim();
         if (raw) { try { JSON.parse(raw); } catch { bodyInput.setCustomValidity?.(""); showQaToast(translateQaSurfaceText("JSON inválido no corpo da resposta - corrija ou deixe vazio."), "error"); return; } }
-        document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: Number(button.dataset.status), body: raw || null } }));
+        document.dispatchEvent(new CustomEvent("qts:force-http-command", { detail: { status: Number(button.dataset.status), body: raw || null, filter: body.querySelector("#forceHttpFilter").value, times: Number(body.querySelector("#forceHttpTimes").value), persist: body.querySelector("#forceHttpPersist").checked } }));
         closeDrawer();
       }));
       body.querySelector("#forceHttpClear").addEventListener("click", () => {
@@ -9214,6 +9228,7 @@ function wireDrawerAddButton(body, kind) {
 }
 
 function syncModeShortcutStates() {
+  refreshActiveToolsStrip();
   const blurActive = state.blurSelectionActive === true;
   const blurQuick = state.shadowRoot?.getElementById("blurQuickButton");
   blurQuick?.classList.toggle("isActive", blurActive);
@@ -10803,13 +10818,52 @@ function openMacroStudio() {
 document.addEventListener("qts:network-captured", (event) => handleNetworkCaptured(event.detail));
 document.addEventListener("qts:http-error-captured", (event) => handleHttpErrorCaptured(event.detail));
 document.addEventListener("qts:freeze-clock-state", (event) => {
+  const wasFrozen = state.clockFrozen;
   state.clockFrozen = Boolean(event.detail?.frozen);
   state.shadowRoot?.getElementById("freezeClockMenuItem")?.classList.toggle("isActive", state.clockFrozen);
+  if (wasFrozen !== state.clockFrozen) showQaToast(state.clockFrozen ? `Tempo congelado em ${new Date().toLocaleString()}. Use Clear active tools para descongelar.` : "Tempo descongelado.");
+  refreshActiveToolsStrip();
 });
 document.addEventListener("qts:force-http-state", (event) => {
-  state.forceHttpActive = Boolean(event.detail?.active);
+  const { active, rule, consumed } = event.detail || {};
+  state.forceHttpActive = Boolean(active);
   state.shadowRoot?.getElementById("forceHttpMenuItem")?.classList.toggle("isActive", state.forceHttpActive);
+  state.forceHttpRule = rule || null;
+  if (consumed) showQaToast(`HTTP ${consumed.status} forçado em ${consumed.method} ${consumed.url.slice(0, 90)}`);
+  else if (rule && !state.forceHttpAnnounced) showQaToast(`HTTP ${rule.status} armado${rule.filter ? ` para "${rule.filter}"` : ""}.`);
+  state.forceHttpAnnounced = Boolean(rule);
+  refreshActiveToolsStrip();
 });
+
+// Always-visible strip with every tool that is changing the page, each with its own off switch.
+function refreshActiveToolsStrip() {
+  const root = state.shadowRoot;
+  if (!root) return;
+  let strip = root.getElementById("qtsActiveStrip");
+  const rule = state.forceHttpRule;
+  const entries = activeToolEntries().filter(([key, , active]) => active && ["freezeClock", "forceHttp", "clickSpy", "keyView"].includes(key));
+  if (!entries.length) { strip?.remove(); return; }
+  if (!strip) {
+    strip = document.createElement("div");
+    strip.id = "qtsActiveStrip";
+    strip.setAttribute("role", "status");
+    strip.style.cssText = "position:fixed;left:12px;bottom:12px;z-index:2147483646;display:flex;flex-wrap:wrap;gap:6px;max-width:min(520px,80vw);font:700 12px/1.3 sans-serif";
+    root.appendChild(strip);
+  }
+  strip.replaceChildren(...entries.map(([key, label, , disable]) => {
+    const chip = document.createElement("span");
+    chip.style.cssText = "display:inline-flex;align-items:center;gap:6px;padding:5px 6px 5px 10px;border-radius:6px;background:#0b0b0b;color:#fff;border:1px solid var(--qts-ui-primary,#ffd700)";
+    chip.append(key === "forceHttp" && rule ? `${rule.status} armado${rule.filter ? ` (${rule.filter})` : ""}` : label);
+    const off = document.createElement("button");
+    off.type = "button";
+    off.textContent = "x";
+    off.setAttribute("aria-label", `Desligar ${label}`);
+    off.style.cssText = "all:unset;cursor:pointer;padding:0 6px;font-weight:900";
+    off.addEventListener("click", () => { void disable(); });
+    chip.append(off);
+    return chip;
+  }));
+}
 
 // ---------------------------------------------------------------------------
 // Evidence recording. The capture itself (getDisplayMedia + MediaRecorder / GIF encoder) runs in
