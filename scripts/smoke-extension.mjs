@@ -1225,6 +1225,7 @@ try {
   // active mode); a status picked while it's running must show up in the finish summary;
   // Finalizar must open a drawer with the real duration/result, not a placeholder.
   await host.locator("#toolsButton").click();
+  host.once("dialog", (dialog) => dialog.accept(""));
   await host.locator("#testSessionMenuItem").click();
   await host.locator("#testSessionBar:not(.isHidden)").waitFor({ timeout: 5_000 });
   await host.waitForTimeout(2_100);
@@ -2617,6 +2618,7 @@ try {
   // background.js). It should now resume on its own, with its elapsed time and any status already
   // picked, the same tab-scoped chrome.storage.session pattern as the two tests above.
   await host.locator("#toolsButton").click();
+  host.once("dialog", (dialog) => dialog.accept(""));
   await host.locator("#testSessionMenuItem").click();
   await host.locator("#testSessionBar:not(.isHidden)").waitFor({ timeout: 5_000 });
   await host.locator("#toolsButton").click();

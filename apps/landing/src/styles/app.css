@@ -468,6 +468,36 @@
   }
 }
 
+/* Phone: logo smaller so the headline and the buttons are visible without scrolling */
+@media (max-width: 640px) {
+  .qts-hero {
+    padding-top: calc(var(--qts-space-7) + 48px);
+    padding-bottom: var(--qts-space-6);
+  }
+
+  .qts-hero-logo-lg {
+    width: 104px;
+  }
+
+  .qts-hero-logo-glow {
+    width: 130px;
+    height: 130px;
+  }
+
+  .qts-hero-copy {
+    margin-top: var(--qts-space-4);
+  }
+
+  .qts-hero .qts-eyebrow {
+    font-size: 0.72rem;
+    text-wrap: balance;
+  }
+
+  .qts-hero-lead {
+    font-size: 1rem;
+    margin-bottom: var(--qts-space-5);
+  }
+}
 /* Simulator */
 
 .qts-simulator {
