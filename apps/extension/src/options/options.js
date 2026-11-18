@@ -716,6 +716,17 @@ function updateToolsMenuOrderVisibility() {
 }
 document.getElementById("toolsSortMode").addEventListener("change", updateToolsMenuOrderVisibility);
 
+// Applies a usage profile to the drafts (menu + pinned lists); the existing Save button persists it.
+document.querySelectorAll("[data-usage-profile]").forEach((card) => card.addEventListener("click", () => {
+  const profile = window.QTS_STORAGE.usageProfilePreferences(card.dataset.usageProfile);
+  if (!profile) return;
+  enabledToolsDraft = new Set(profile.enabledTools);
+  pinnedToolsDraft = new Set(profile.pinnedTools);
+  renderToolsMenuOrderList();
+  document.querySelectorAll("[data-usage-profile]").forEach((other) => other.classList.toggle("isChosen", other === card));
+  document.getElementById("usageProfileHint").textContent = t("Perfil aplicado. Clique em Salvar para manter e ajuste a lista abaixo se quiser.");
+}));
+
 function renderToolsMenuOrderList() {
   const list = document.getElementById("toolsMenuOrderList");
   list.innerHTML = toolsMenuOrderDraft.map((key, index) => `
@@ -3639,6 +3650,10 @@ document.getElementById("resetButton").addEventListener("click", async () => {
   const requestedTab = launchParams.get("tab");
   if (requestedTab) {
     switchTab(requestedTab, { allowInactive: settingsTourTrustedHandoff });
+  }
+  if (requestedTab === "general" && launchParams.get("focus") === "tools") {
+    const accordion = document.getElementById("toolsAccordion");
+    if (accordion) { accordion.open = true; accordion.scrollIntoView({ block: "start" }); }
   }
   const requestedWorkspaceTab = launchParams.get("workspaceTab");
   if (requestedTab === "workspace" && requestedWorkspaceTab) {

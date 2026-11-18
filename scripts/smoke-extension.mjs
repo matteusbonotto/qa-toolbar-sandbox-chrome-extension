@@ -346,6 +346,11 @@ try {
   await installDemo.locator("#loggedOutLoginButton").click();
   const options = await optionsOpened;
   await options.waitForLoadState("domcontentloaded");
+  // The usage-profile prompt opens by itself once per profile; every other flow below runs with it already answered, and it has its own test further down.
+  await options.evaluate(async () => {
+    const current = (await chrome.storage.local.get("qtsUiStateV1")).qtsUiStateV1 || {};
+    await chrome.storage.local.set({ qtsUiStateV1: { ...current, usageProfilePromptSeen: true } });
+  });
   if (new URL(options.url()).searchParams.get("tab") !== "account") throw new Error(`Logged-out login action did not target Minha conta: ${options.url()}`);
   if (!(await options.locator('.panel[data-panel="account"].isActive').count())) throw new Error("Minha conta panel was not active after clicking Entrar");
   if (await options.locator("html").getAttribute("data-theme") !== "light") throw new Error("Fresh workspace did not default to light appearance");
@@ -833,6 +838,35 @@ try {
   await options.evaluate(async (scope) => window.QTS_STORAGE.saveSiteScope(scope), scopeBeforeAllSites);
   trace("all-sites toolbar follows the selected color theme");
 
+  // Usage profiles: the one-time prompt picks the tools shown in Tools and pinned to the bar.
+  await options.evaluate(async () => {
+    const current = (await chrome.storage.local.get("qtsUiStateV1")).qtsUiStateV1 || {};
+    delete current.usageProfilePromptSeen;
+    await chrome.storage.local.set({ qtsUiStateV1: current });
+  });
+  const profilePage = await context.newPage();
+  await profilePage.goto("http://127.0.0.1:43117/app");
+  const profileAutomation = profilePage.locator("#qts-toolbar-host").locator('[data-profile="automation"]');
+  await profileAutomation.waitFor({ timeout: 15_000 }).catch((error) => { throw new Error("Usage profile prompt did not open by itself", { cause: error }); });
+  await profilePage.screenshot({ path: resolve(evidencePath, "extension-usage-profile.png"), fullPage: false });
+  const profileBox = await profileAutomation.boundingBox();
+  if (!profileBox || profileBox.width < 200 || profileBox.x < 0 || profileBox.x + profileBox.width > (profilePage.viewportSize()?.width || 1280)) throw new Error(`Usage profile card does not fit the viewport: ${JSON.stringify(profileBox)}`);
+  await profileAutomation.click();
+  await profilePage.waitForTimeout(1_000);
+  const profilePrefs = await options.evaluate(async () => (await window.QTS_STORAGE.getWorkspace()).preferences);
+  if (!profilePrefs.pinnedTools.includes("forceHttp") || profilePrefs.enabledTools.includes("qrCode")) throw new Error(`Automation profile was not applied: ${JSON.stringify({ pinned: profilePrefs.pinnedTools, enabled: profilePrefs.enabledTools })}`);
+  await profilePage.reload();
+  await profilePage.locator("#qts-toolbar-host").waitFor({ state: "attached" });
+  await profilePage.waitForTimeout(1_500);
+  if (await profilePage.locator("#qts-toolbar-host").locator("[data-profile]").count()) throw new Error("Usage profile prompt opened again after the choice");
+  await profilePage.close();
+  // Restore the default tool set so the remaining tests see every tool, as before.
+  await options.evaluate(async () => {
+    const workspace = await window.QTS_STORAGE.getWorkspace();
+    workspace.preferences = { ...workspace.preferences, enabledTools: [...window.QTS_STORAGE.DEFAULT_ENABLED_TOOLS], pinnedTools: [] };
+    await window.QTS_STORAGE.saveWorkspace(workspace);
+  });
+  trace("usage profile prompt opens once, applies the profile and stays closed");
   // Founder report 2026-10-23: after a Chrome Web Store update users were not told what changed (the
   // notice repeated one stale fixed text, only inside the bell). Simulate an update from 1.4.44: the
   // notes of every newer version open by themselves once, and never again after "Entendi".

@@ -991,3 +991,11 @@ summary:focus-visible,.environmentToggle:focus-visible,.scopeFacetTrigger:focus-
   .relationshipNodeActions { grid-column:1/-1; justify-content:flex-end; min-width:0; }
   .relationshipNodeActions .relationshipAdd { margin-right:auto; }
 }
+
+.usageProfileGrid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:10px; margin:10px 0; }
+.usageProfileCard { display:flex; flex-direction:column; align-items:flex-start; gap:4px; text-align:left; padding:12px 14px; border:1px solid var(--border); border-radius:10px; background:var(--card-bg); color:inherit; cursor:pointer; font:inherit; }
+.usageProfileCard b { font-size:15px; }
+.usageProfileCard span { font-size:13px; opacity:.78; line-height:1.4; }
+.usageProfileCard:hover, .usageProfileCard:focus-visible { border-color:var(--accent, #7357ff); outline:none; }
+.usageProfileCard.isChosen { border-color:var(--accent, #7357ff); box-shadow:0 0 0 2px var(--accent, #7357ff) inset; }
+@media (max-width: 720px) { .usageProfileGrid { grid-template-columns:1fr; } }

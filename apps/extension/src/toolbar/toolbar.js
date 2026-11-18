@@ -2207,6 +2207,14 @@ async function maybeShowFirstRunIntro() {
   // The bell entry and the NEW badge alone went unnoticed (founder report 2026-10-23), so the notes
   // also open by themselves once per version, on the first top-level page with the bar. The flag is
   // written before opening so a second tab loading at the same time does not open them again.
+  // One-time choice of usage profile (new installs and users who updated): shown before the release
+  // notes, which then open on the next load because their own flag is still unset.
+  const canAutoOpen = state.authorized && window.top === window && !state.detachedToolKey;
+  if (canAutoOpen && !stored[STORAGE_KEYS.uiState]?.usageProfilePromptSeen) {
+    await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...(stored[STORAGE_KEYS.uiState] || {}), usageProfilePromptSeen: true } });
+    openUsageProfileModal();
+    return;
+  }
   const note = state.pendingReleaseNote;
   if (note && state.authorized && window.top === window && !state.detachedToolKey && stored[STORAGE_KEYS.uiState]?.releaseNoteAutoOpened !== note.version) {
     await chrome.storage.local.set({ [STORAGE_KEYS.uiState]: { ...(stored[STORAGE_KEYS.uiState] || {}), releaseNoteAutoOpened: note.version } });
@@ -2232,6 +2240,42 @@ async function dismissReleaseNote() {
   await chrome.action.setBadgeText({ text: "" });
   await chrome.action.setTitle({ title: "QA Toolbar Sandbox - abrir configurações" });
   updateHttpErrorSurfaces();
+}
+
+const USAGE_PROFILE_COPY = [
+  { id: "automation", title: "Automação", text: "Simular HTTP, monitores de rede, macros e preenchimento fixos na barra." },
+  { id: "manual", title: "Manual", text: "Status, roteiros, borrar elementos e relatório fixos na barra." },
+  { id: "explorer", title: "Explorador", text: "Todas as ferramentas no menu para conhecer cada função." },
+];
+
+async function applyUsageProfile(profileId) {
+  const profile = window.QTS_STORAGE.usageProfilePreferences(profileId);
+  if (!profile) return;
+  state.workspace.preferences = { ...(state.workspace.preferences || {}), enabledTools: profile.enabledTools, pinnedTools: profile.pinnedTools };
+  state.workspace = await saveWorkspace(state.workspace);
+  closeDrawer();
+  render();
+  showQaToast("Perfil aplicado. Para mudar, abra Configurações > Ferramentas e atalhos.");
+}
+
+function openUsageProfileModal() {
+  openDrawer({
+    title: "Como você usa o QA Toolbar?",
+    variant: "modal",
+    view: "usageProfile",
+    bodyHtml: `<p class="qts-tool-lead">${escapeHtml(translateQaSurfaceText("Escolha um perfil e o menu Tools mostra só o que importa. Você muda isso quando quiser."))}</p>
+      <div class="qts-usage-profiles" style="display:grid;gap:8px">
+        ${USAGE_PROFILE_COPY.map((profile) => `<button type="button" class="action qts-usage-profile" data-profile="${profile.id}" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;white-space:normal;padding:10px 12px"><b>${escapeHtml(translateQaSurfaceText(profile.title))}</b><small style="opacity:.8">${escapeHtml(translateQaSurfaceText(profile.text))}</small></button>`).join("")}
+        <button type="button" class="action qts-usage-profile" data-profile="custom" style="display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;white-space:normal;padding:10px 12px"><b>${escapeHtml(translateQaSurfaceText("Personalizar"))}</b><small style="opacity:.8">${escapeHtml(translateQaSurfaceText("Abre a lista de ferramentas para ativar, fixar e criar atalho de cada uma."))}</small></button>
+      </div>
+      <div class="qts-card-actions" style="margin-top:12px"><button type="button" class="action" data-profile="keep">${escapeHtml(translateQaSurfaceText("Manter como está"))}</button></div>`,
+    onReady: (body) => body.querySelectorAll("[data-profile]").forEach((button) => button.addEventListener("click", () => {
+      const choice = button.dataset.profile;
+      if (choice === "keep") { closeDrawer(); return; }
+      if (choice === "custom") { chrome.runtime.sendMessage({ type: "qts:open-options", tab: "general", focus: "tools" }); closeDrawer(); return; }
+      void applyUsageProfile(choice);
+    })),
+  });
 }
 
 function openReleaseNotes() {
@@ -4291,6 +4335,18 @@ Object.assign(QA_SURFACE_TRANSLATIONS.es, {
   "Borrar elementos": "Desenfocar elementos", "Roteiros de teste": "Guiones de prueba", "Validador de textos/i18n": "Validador de textos/i18n",
   "Sessões de teste": "Sesiones de prueba", "Relatórios": "Informes",
   "Limpar cache e cookies do site": "Limpiar caché y cookies del sitio",
+  "Manter como está": "Mantener como está",
+  "Manual": "Manual",
+  "Simular HTTP, monitores de rede, macros e preenchimento fixos na barra.": "Simular HTTP, monitores de red, macros y relleno fijos en la barra.",
+  "Personalizar": "Personalizar",
+  "Automação": "Automatización",
+  "Perfil aplicado. Para mudar, abra Configurações > Ferramentas e atalhos.": "Perfil aplicado. Para cambiarlo, abre Configuración > Herramientas y atajos.",
+  "Todas as ferramentas no menu para conhecer cada função.": "Todas las herramientas en el menú para conocer cada función.",
+  "Escolha um perfil e o menu Tools mostra só o que importa. Você muda isso quando quiser.": "Elige un perfil y el menú Tools muestra solo lo que importa. Puedes cambiarlo cuando quieras.",
+  "Como você usa o QA Toolbar?": "¿Cómo usas QA Toolbar?",
+  "Abre a lista de ferramentas para ativar, fixar e criar atalho de cada uma.": "Abre la lista de herramientas para activar, fijar y crear atajo de cada una.",
+  "Explorador": "Explorador",
+  "Status, roteiros, borrar elementos e relatório fixos na barra.": "Estado, guiones, difuminar elementos e informe fijos en la barra.",
   "Limpar cache e cookies deste site e recarregar a página? Você será deslogado deste site. Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos).": "¿Limpiar la caché y las cookies de este sitio y recargar la página? Se cerrará tu sesión en este sitio. Esto no afecta los datos guardados en la extensión (las cuentas, macros y configuraciones permanecen intactas).",
   "Cache e cookies do site limpos.": "Caché y cookies del sitio borrados.",
   "Não foi possível limpar os dados do site.": "No se pudieron borrar los datos del sitio.",
@@ -4303,6 +4359,18 @@ Object.assign(QA_SURFACE_TRANSLATIONS.en, {
   "Borrar elementos": "Blur Elements", "Roteiros de teste": "Test Scenarios", "Validador de textos/i18n": "Text/i18n Validator",
   "Sessões de teste": "Test Sessions", "Relatórios": "Reports",
   "Limpar cache e cookies do site": "Clear site cache and cookies",
+  "Manter como está": "Keep as is",
+  "Manual": "Manual",
+  "Simular HTTP, monitores de rede, macros e preenchimento fixos na barra.": "Simulate HTTP, network monitors, macros and auto fill pinned to the bar.",
+  "Personalizar": "Customize",
+  "Automação": "Automation",
+  "Perfil aplicado. Para mudar, abra Configurações > Ferramentas e atalhos.": "Profile applied. To change it, open Settings > Tools and shortcuts.",
+  "Todas as ferramentas no menu para conhecer cada função.": "Every tool in the menu so you can get to know each function.",
+  "Escolha um perfil e o menu Tools mostra só o que importa. Você muda isso quando quiser.": "Pick a profile and the Tools menu shows only what matters. You can change it any time.",
+  "Como você usa o QA Toolbar?": "How do you use QA Toolbar?",
+  "Abre a lista de ferramentas para ativar, fixar e criar atalho de cada uma.": "Opens the tool list to enable, pin and set a shortcut for each one.",
+  "Explorador": "Explorer",
+  "Status, roteiros, borrar elementos e relatório fixos na barra.": "Status, step scripts, blur elements and report pinned to the bar.",
   "Limpar cache e cookies deste site e recarregar a página? Você será deslogado deste site. Isso não afeta os dados salvos na extensão (contas, macros e configurações continuam intactos).": "Clear this site's cache and cookies and reload the page? You will be signed out of this site. This does not affect data saved in the extension (accounts, macros, and settings remain intact).",
   "Cache e cookies do site limpos.": "Site cache and cookies cleared.",
   "Não foi possível limpar os dados do site.": "Couldn't clear the site's data.",
