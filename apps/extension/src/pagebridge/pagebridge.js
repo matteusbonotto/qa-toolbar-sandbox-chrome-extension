@@ -221,6 +221,50 @@
   }
 
   // ---------------------------------------------------------------------
+  // Simulate HTTP rule: status + optional URL filter (substring or /regex/) + how many times.
+  // Without a filter, analytics/telemetry calls are skipped so the rule hits the app's own API.
+  // With persist the rule survives reloads (sessionStorage is per tab, which is the scope we want).
+  // ---------------------------------------------------------------------
+  const FORCED_RULE_KEY = "__qtsForcedRule";
+  const TELEMETRY_URL = /(\/events?(\/|\?|$)|collect|clarity\.ms|applicationinsights|tiktok|google-analytics|googletagmanager|doubleclick|facebook\.(com|net)|hotjar|segment\.(io|com)|sentry|datadog|newrelic|amplitude|mixpanel)/i;
+  let forcedRule = null;
+  try { forcedRule = JSON.parse(window.sessionStorage.getItem(FORCED_RULE_KEY) || "null"); } catch { forcedRule = null; }
+  function persistForcedRule() {
+    try {
+      if (forcedRule?.persist) window.sessionStorage.setItem(FORCED_RULE_KEY, JSON.stringify(forcedRule));
+      else window.sessionStorage.removeItem(FORCED_RULE_KEY);
+    } catch { /* storage blocked: the rule just will not survive a reload */ }
+  }
+  function emitForcedState(consumed) {
+    document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: Boolean(forcedRule), rule: forcedRule ? { ...forcedRule } : null, consumed } }));
+  }
+  function setForcedRule(rule) {
+    forcedRule = rule;
+    persistForcedRule();
+    emitForcedState(null);
+  }
+  function forcedRuleMatches(url) {
+    const target = String(url || "");
+    const filter = forcedRule.filter;
+    if (!filter) return !TELEMETRY_URL.test(target);
+    const regex = /^\/(.+)\/([a-z]*)$/.exec(filter);
+    if (regex) { try { return new RegExp(regex[1], regex[2]).test(target); } catch { return false; } }
+    return target.toLowerCase().includes(filter.toLowerCase());
+  }
+  // Returns the rule to apply to this request (and consumes one use), or null when it does not match.
+  function takeForcedRule(url, method) {
+    if (!forcedRule || !forcedRuleMatches(url)) return null;
+    const applied = { status: forcedRule.status, body: forcedRule.body };
+    if (forcedRule.remaining > 0) {
+      forcedRule.remaining -= 1;
+      if (forcedRule.remaining === 0) forcedRule = null;
+    }
+    persistForcedRule();
+    emitForcedState({ status: applied.status, method: String(method || "GET").toUpperCase(), url: String(url || "") });
+    return applied;
+  }
+
+  // ---------------------------------------------------------------------
   // Network capture: fetch + XMLHttpRequest, JSON responses only.
   // ---------------------------------------------------------------------
   const originalFetch = window.fetch;
@@ -233,15 +277,13 @@
       const requestHeaders = normalizeRequestHeaders(args[1]?.headers ?? (requestIsRequestObject ? args[0].headers : undefined));
       const requestBody = stringifyRequestBody(args[1]?.body);
 
-      if (window.__qtsForcedStatus) {
-        const forcedStatus = Number(window.__qtsForcedStatus);
-        const forcedBodyRaw = window.__qtsForcedBody;
-        window.__qtsForcedStatus = null;
-        window.__qtsForcedBody = null;
+      const forcedRule = takeForcedRule(requestUrl, method);
+      if (forcedRule) {
+        const forcedStatus = forcedRule.status;
+        const forcedBodyRaw = forcedRule.body;
         let forcedPayload = { forced: true, status: forcedStatus, requestUrl: String(requestUrl || "") };
         if (forcedBodyRaw) { try { forcedPayload = JSON.parse(forcedBodyRaw); } catch { /* falls back to the generic payload above */ } }
         captureJsonPayload({ url: requestUrl, method, status: forcedStatus, source: "forced", payload: forcedPayload, requestHeaders, requestBody });
-        document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: false } }));
         return Promise.resolve(new Response(JSON.stringify(forcedPayload), {
           status: forcedStatus,
           headers: { "content-type": "application/json", "x-qts-forced": "true" },
@@ -359,12 +401,10 @@
       // XMLHttpRequest under the hood (Angular's HttpClient by default, many jQuery/legacy stacks),
       // the button visibly did nothing. This mirrors the fetch branch above: consume the armed
       // status, never call the real send(), and simulate the XHR completion lifecycle instead.
-      if (window.__qtsForcedStatus) {
-        const forcedStatus = Number(window.__qtsForcedStatus);
-        const forcedBodyRaw = window.__qtsForcedBody;
-        window.__qtsForcedStatus = null;
-        window.__qtsForcedBody = null;
-        document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: false } }));
+      const forcedRule = takeForcedRule(this.__qtsUrl, this.__qtsMethod);
+      if (forcedRule) {
+        const forcedStatus = forcedRule.status;
+        const forcedBodyRaw = forcedRule.body;
         let forcedPayload = { forced: true, status: forcedStatus, requestUrl: String(this.__qtsUrl || "") };
         if (forcedBodyRaw) { try { forcedPayload = JSON.parse(forcedBodyRaw); } catch { /* falls back to the generic payload above */ } }
         const forcedBody = JSON.stringify(forcedPayload);
@@ -518,12 +558,20 @@
   document.addEventListener(FORCE_HTTP_COMMAND_EVENT, (event) => {
     if (!enabled) return;
     const status = Number(event.detail?.status || 0);
-    window.__qtsForcedStatus = status > 0 ? status : null;
-    // Optional custom JSON so the forced response can match the real shape the page's own error
-    // handling expects (a message/code the app actually reads), not just a generic placeholder.
-    window.__qtsForcedBody = window.__qtsForcedStatus && event.detail?.body ? String(event.detail.body) : null;
-    document.dispatchEvent(new CustomEvent(FORCE_HTTP_STATE_EVENT, { detail: { active: Boolean(window.__qtsForcedStatus) } }));
+    if (!(status > 0)) { setForcedRule(null); return; }
+    const times = Number(event.detail?.times);
+    setForcedRule({
+      status,
+      // Optional custom JSON so the forced response can match the real shape the page's own error
+      // handling expects (a message/code the app actually reads), not just a generic placeholder.
+      body: event.detail?.body ? String(event.detail.body) : null,
+      filter: String(event.detail?.filter || "").trim(),
+      // Infinity (until cancelled) is stored as 0 because JSON cannot hold Infinity.
+      remaining: times > 0 ? Math.floor(times) : 0,
+      persist: event.detail?.persist === true,
+    });
   });
+  document.addEventListener("qts:force-http-query", () => emitForcedState(null));
 
   document.addEventListener("qts:pagebridge-ping", () => {
     document.dispatchEvent(new CustomEvent("qts:pagebridge-pong", { detail: { at: Date.now() } }));
@@ -566,8 +614,7 @@
   document.addEventListener("qts:pagebridge-active", (event) => {
     enabled = event.detail?.active === true;
     if (!enabled) {
-      window.__qtsForcedStatus = null;
-      window.__qtsForcedBody = null;
+      setForcedRule(null);
       if (originalWindowOpen) { window.open = originalWindowOpen; originalWindowOpen = null; }
       if (frozen) {
         frozen = false;
@@ -580,7 +627,6 @@
   document.addEventListener("qts:pagebridge-disable", () => {
     enabled = false;
     mtSetMode("off");
-    window.__qtsForcedStatus = null;
-    window.__qtsForcedBody = null;
+    setForcedRule(null);
   });
 })();
