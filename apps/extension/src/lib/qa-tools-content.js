@@ -85,6 +85,30 @@
   const FAKE_STREETS = ["Rua das Flores", "Avenida Central", "Rua do Mercado", "Alameda dos Testes", "Travessa da Qualidade"];
   const FAKE_COMPANIES = ["Aurora Tecnologia", "Horizonte Digital", "Nexo Sistemas", "Orbe Labs", "Ponto QA"];
 
+  // One coherent fictional person per fill (name, e-mail and phone agree), with names and phone
+  // prefix that match the site country taken from its domain or path (.ar, /ar/, ...).
+  const COUNTRY_PROFILES = {
+    AR: { first: ["Lucía", "Martín", "Sofía", "Mateo", "Valentina", "Joaquín"], last: ["Gómez", "Fernández", "Rodríguez", "López", "Díaz", "Pérez"], phone: "11", city: "Buenos Aires" },
+    CL: { first: ["Camila", "Matías", "Javiera", "Benjamín", "Francisca", "Vicente"], last: ["González", "Muñoz", "Rojas", "Soto", "Contreras", "Silva"], phone: "9", city: "Santiago" },
+    PY: { first: ["Lourdes", "Diego", "Fabiola", "Gustavo", "Rocío", "Andrés"], last: ["Benítez", "Villalba", "Acosta", "Giménez", "Duarte", "Ortiz"], phone: "98", city: "Asunción" },
+    BO: { first: ["Marcela", "Rodrigo", "Daniela", "Álvaro", "Carla", "Sergio"], last: ["Mamani", "Quispe", "Flores", "Vargas", "Rojas", "Choque"], phone: "7", city: "La Paz" },
+    BR: { first: FAKE_FIRST_NAMES, last: FAKE_LAST_NAMES, phone: "11", city: "São Paulo" },
+  };
+  function siteCountry() {
+    const where = `${location.hostname}${location.pathname}`.toLowerCase();
+    for (const code of ["AR", "CL", "PY", "BO"]) if (new RegExp(`(\\.${code.toLowerCase()}(/|$)|\\.com\\.${code.toLowerCase()}(/|$)|/${code.toLowerCase()}(/|$)|[-.]${code.toLowerCase()}[-.])`).test(where)) return code;
+    return "BR";
+  }
+  function stripAccents(value) { return String(value).normalize("NFD").replace(/[\u0300-\u036f]/g, ""); }
+  function newPersona() {
+    const profile = COUNTRY_PROFILES[siteCountry()];
+    const first = pick(profile.first); const last = pick(profile.last);
+    const tag = `${digits(4)}`;
+    return { first, last, email: `${stripAccents(first)}.${stripAccents(last)}.${tag}@example.com`.toLowerCase(), phone: `${profile.phone}${digits(8)}`, city: profile.city, birth: { y: randomInt(1975, 2000), m: randomInt(1, 12), d: randomInt(1, 28) } };
+  }
+  let persona = null;
+  // Marketing/newsletter consent is the user's decision, never ticked automatically.
+  const MARKETING_HINT = /(marketing|promo|newsletter|publicidad|boletim|boletin|novidades|novedades|ofertas|oferta|comunicaci|noticias|spam)/i;
   function randomInt(min, max) {
     const floorMin = Math.ceil(min); const floorMax = Math.floor(max);
     if (floorMax <= floorMin) return floorMin;
@@ -101,17 +125,24 @@
   function fakeValueFor(element, seed = Date.now()) {
     const hint = sensitiveFingerprint(element).toLowerCase();
     const suffix = `${String(seed).slice(-4)}${digits(3)}`;
-    const firstName = pick(FAKE_FIRST_NAMES); const lastName = pick(FAKE_LAST_NAMES);
+    persona ??= newPersona();
+    const firstName = persona.first; const lastName = persona.last;
     if (element instanceof HTMLSelectElement) {
       const options = [...element.options].filter((option) => !option.disabled && option.value);
       return options.length ? pick(options).value : "";
     }
-    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) return true;
-    if ((element instanceof HTMLInputElement && element.type === "email") || /e-?mail/.test(hint)) return fitTextValue(element, `${firstName}.${lastName}.${suffix}@example.com`.toLowerCase());
+    if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) return !MARKETING_HINT.test(hint);
+    if ((element instanceof HTMLInputElement && element.type === "email") || /e-?mail|correo/.test(hint)) return fitTextValue(element, persona.email);
     if (/user(?:name)?|usu[aá]rio|login/.test(hint)) return fitTextValue(element, `${firstName}.${lastName}${suffix}`.toLowerCase());
-    if (/last|sobrenome/.test(hint)) return fitTextValue(element, lastName);
-    if (/first|primeiro|nome|name/.test(hint)) return fitTextValue(element, `${firstName} ${lastName}`);
-    if (/phone|tel|celular|telefone/.test(hint)) return fitTextValue(element, `11${digits(9)}`);
+    if (/birth|nasc|nacim|fecha|cumple|data de/.test(hint)) {
+      const { y, m, d } = persona.birth; const two = (n) => String(n).padStart(2, "0");
+      if (element instanceof HTMLInputElement && element.type === "date") return `${y}-${two(m)}-${two(d)}`;
+      return /mm\s*[/.-]\s*dd/i.test(element.placeholder || "") ? `${two(m)}/${two(d)}/${y}` : `${two(d)}/${two(m)}/${y}`;
+    }
+    if (/last|sobrenome|apellido|surname/.test(hint)) return fitTextValue(element, lastName);
+    if (/first|primeiro|nome\b|nombre|given/.test(hint) && !/full|complet|sobrenome/.test(hint)) return fitTextValue(element, firstName);
+    if (/full|complet|name|nome/.test(hint)) return fitTextValue(element, `${firstName} ${lastName}`);
+    if (/phone|tel|celular|telefone|tel[eé]fono/.test(hint)) return fitTextValue(element, persona.phone);
     if (/cpf/.test(hint)) return fitTextValue(element, digits(11));
     if (/cnpj/.test(hint)) return fitTextValue(element, digits(14));
     if (/cep|postal|zip/.test(hint)) return fitTextValue(element, digits(8));
@@ -146,15 +177,25 @@
     let filled = 0;
     let protectedCount = 0;
     const report = [];
+    persona = newPersona();
     for (const element of [...root.querySelectorAll("input,textarea,select")]) if (isSensitiveElement(element)) protectedCount += 1;
     for (const [index, element] of fields.entries()) {
+      // A field with no label, name, id or placeholder cannot be matched to anything: leave it alone.
+      if (!sensitiveFingerprint(element).replace(/\b(text|search)\b/gi, "").trim()) continue;
       const value = fakeValueFor(element, Date.now() + index);
-      if (element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type)) {
-        if (!element.checked) element.click();
-      } else if (value !== "") setNativeValue(element, value);
-      report.push(fieldReport(element, element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type) ? element.checked : element.value));
+      const isChoice = element instanceof HTMLInputElement && ["checkbox", "radio"].includes(element.type);
+      if (isChoice) {
+        if (value === true && !element.checked) element.click();
+        if (value !== true) continue;
+      } else if (value !== "") {
+        setNativeValue(element, value);
+        // Masked or custom inputs may drop the value: only report what really stayed in the field.
+        if (element.value === "") continue;
+      }
+      report.push(fieldReport(element, isChoice ? element.checked : element.value));
       filled += 1;
     }
+    persona = null;
     return { filled, protectedCount, fields: report };
   }
 
@@ -169,7 +210,9 @@
       if (!element.checked) element.click();
       return { filled: 1, protectedCount: 0, fields: [fieldReport(element, element.checked)] };
     }
+    persona = newPersona();
     const value = fakeValueFor(element);
+    persona = null;
     if (value !== "") setNativeValue(element, value);
     return { filled: 1, protectedCount: 0, fields: [fieldReport(element, element.value)] };
   }
@@ -246,6 +289,16 @@
     throw new Error(`Elemento não encontrado: ${selector}`);
   }
 
+  // Macro values may carry tokens so a re-run never collides with an earlier one (duplicate e-mail):
+  // {{timestamp}}, {{random}} and {{email}} (qa+<timestamp>@example.com).
+  function expandMacroTokens(value) {
+    const stamp = Date.now();
+    return String(value ?? "").replace(/\{\{\s*(timestamp|random|email)\s*\}\}/gi, (_, token) => {
+      const name = token.toLowerCase();
+      return name === "timestamp" ? String(stamp) : name === "random" ? digits(6) : `qa+${stamp}@example.com`;
+    });
+  }
+
   async function executeStep(step) {
     if (!step || isSensitiveSelector(step.selector)) throw new Error("Ação sensível bloqueada");
     if (step.action === "wait") return delay(step.ms);
@@ -256,7 +309,7 @@
     element.scrollIntoView({ block: "center", behavior: "smooth" });
     await delay(150);
     if (step.action === "click") element.click();
-    else if (step.action === "fill" || step.action === "select") setNativeValue(element, step.value ?? "");
+    else if (step.action === "fill" || step.action === "select") setNativeValue(element, expandMacroTokens(step.value));
     else if (step.action === "check") { if (Boolean(element.checked) !== Boolean(step.checked)) element.click(); }
     else if (step.action === "press") element.dispatchEvent(new KeyboardEvent("keydown", { key: step.value || "Enter", bubbles: true }));
     else if (step.action === "multiClick") for (let index = 0; index < Math.min(100, Math.max(2, Number(step.count) || 2)); index += 1) { element.click(); await delay(step.interval); }
@@ -296,5 +349,5 @@
     return lines.join("\n");
   }
 
-  window.QTS_QA_TOOLS = Object.freeze({ countCharacters, isSensitiveElement, isSensitiveSelector, uniqueSelector, inspectInput, runInputValidation, fillWithFakeData, fillSingleField, executeStep, executeMacro, generatePlaywrightCode, delay });
+  window.QTS_QA_TOOLS = Object.freeze({ expandMacroTokens, countCharacters, isSensitiveElement, isSensitiveSelector, uniqueSelector, inspectInput, runInputValidation, fillWithFakeData, fillSingleField, executeStep, executeMacro, generatePlaywrightCode, delay });
 })();
