@@ -110,3 +110,7 @@ Tanto os scripts locais quanto o job de CI rodam os scanners de segurança (`sec
 - Erro de `uploadState` diferente de `SUCCESS`: o corpo do erro (`itemError`) vem impresso no
   terminal com o motivo exato reportado pela Store (ex.: manifest inválido, permissão nova sem
   justificativa etc.).
+
+## Reenvio automatico quando a Store esta ocupada
+
+A Store recusa upload novo enquanto a versao anterior esta em revisao. O workflow de producao usa `--defer-if-pending`: nesse caso ele termina sem falha e o workflow `chrome-store-retry.yml` (a cada 3 horas, ou manual) confere com `--needs-publish` se a versao da main e maior que a da Store e dispara o envio de novo, ate a Store aceitar. Para furar a fila, cancele a revisao pendente no painel da Chrome Web Store (nao ha cancelamento pela API v1.1 usada aqui).

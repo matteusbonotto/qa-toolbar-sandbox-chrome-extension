@@ -1,0 +1,44 @@
+name: Retry Chrome Web Store upload
+
+# The store rejects uploads while a previous version is still in review. This workflow runs every
+# 3 hours and, only when main's version is newer than the one the store holds, starts the normal
+# production workflow (same smoke tests and checks). That workflow exits quietly when the store
+# is still busy, so this keeps trying until the upload is accepted, with no failed-run noise.
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: chrome-store-retry
+  cancel-in-progress: false
+
+jobs:
+  retry:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+      - name: Does the store need a newer version?
+        id: check
+        env:
+          CHROME_WEBSTORE_CLIENT_ID: ${{ secrets.CHROME_WEBSTORE_CLIENT_ID }}
+          CHROME_WEBSTORE_CLIENT_SECRET: ${{ secrets.CHROME_WEBSTORE_CLIENT_SECRET }}
+          CHROME_WEBSTORE_REFRESH_TOKEN: ${{ secrets.CHROME_WEBSTORE_REFRESH_TOKEN }}
+        run: node scripts/publish-chrome-webstore.mjs --needs-publish
+      - name: Start the production workflow if none is running
+        if: steps.check.outputs.needs == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          running=$(gh run list --workflow chrome-store-package.yml --event workflow_dispatch --json status -q '[.[] | select(.status=="in_progress" or .status=="queued")] | length')
+          if [ "$running" != "0" ]; then echo "Production workflow already running, nothing to do."; exit 0; fi
+          gh workflow run chrome-store-package.yml --ref main -f confirm_production="PUBLICAR PRODUCAO" -f publish_live=true

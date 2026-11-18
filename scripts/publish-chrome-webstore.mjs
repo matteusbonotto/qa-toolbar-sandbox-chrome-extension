@@ -10,7 +10,7 @@
 // Requires CHROME_WEBSTORE_CLIENT_ID, CHROME_WEBSTORE_CLIENT_SECRET and
 // CHROME_WEBSTORE_REFRESH_TOKEN (see scripts/chrome-webstore-oauth-setup.mjs and
 // docs/DEPLOY_CHROME_WEBSTORE.md for how to obtain them once).
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, appendFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { basename, resolve } from "node:path";
 
@@ -55,6 +55,13 @@ const extensionId = argValue("extension-id") ?? process.env.CHROME_WEBSTORE_EXTE
 const zipPath = argValue("zip");
 const shouldPublish = process.argv.includes("--publish");
 const checkCredentialsOnly = process.argv.includes("--check-credentials");
+// --defer-if-pending: a store that is still reviewing the previous version rejects new uploads.
+// That is not a failure of this release, so it exits 0 and lets the scheduled retry workflow
+// (chrome-store-retry.yml) send the upload again later, until the store accepts it.
+const deferIfPending = process.argv.includes("--defer-if-pending");
+// --needs-publish: prints needs=true when main's manifest version is newer than the newest
+// version the store already holds (uploaded or published). Used by the retry workflow.
+const needsPublishOnly = process.argv.includes("--needs-publish");
 
 async function fetchAccessToken() {
   const response = await fetch("https://oauth2.googleapis.com/token", {
@@ -78,12 +85,20 @@ const currentBranch = process.env.GITHUB_REF_NAME || (() => {
   try { return execFileSync("git", ["branch", "--show-current"], { cwd: resolve(import.meta.dirname, ".."), encoding: "utf8" }).trim(); }
   catch { return ""; }
 })();
-if (checkCredentialsOnly) {
+if (checkCredentialsOnly || needsPublishOnly) {
   if (!clientId || !clientSecret || !refreshToken) throw new Error("Secrets da Chrome Web Store ausentes. Rode `npm run chrome-webstore:renew`.");
   const itemResponse = await fetch(`https://www.googleapis.com/chromewebstore/v1.1/items/${extensionId}?projection=DRAFT`, { headers: { Authorization: `Bearer ${await fetchAccessToken()}`, "x-goog-api-version": "2" } });
   if (!itemResponse.ok) throw new Error(`Token válido, mas sem acesso ao item ${extensionId} (${itemResponse.status}).`);
   const item = await itemResponse.json();
   console.log(`Credenciais da Chrome Web Store OK (rascunho: ${item.uploadState ?? "?"}, versão ${item.crxVersion ?? "?"}).`);
+  if (needsPublishOnly) {
+    const manifestVersion = JSON.parse(readFileSync(resolve(import.meta.dirname, "..", "apps", "extension", "manifest.json"), "utf8")).version;
+    const toParts = (version) => String(version || "0").split(".").map((part) => Number(part) || 0);
+    const newer = (a, b) => { const [x, y] = [toParts(a), toParts(b)]; for (let i = 0; i < Math.max(x.length, y.length); i += 1) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+    const needs = newer(manifestVersion, item.crxVersion);
+    console.log(`main ${manifestVersion} x loja ${item.crxVersion ?? "?"}: ${needs ? "falta enviar" : "loja já está em dia"}.`);
+    if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT, `needs=${needs}\n`);
+  }
   process.exit(0);
 }
 if (!productionConfirmed) throw new Error("PUBLICAÇÃO BLOQUEADA: informe --confirm-production após aprovar o ambiente de TESTE.");
@@ -119,7 +134,12 @@ const uploadResponse = await fetch(`https://www.googleapis.com/upload/chromewebs
 const uploadBody = await uploadResponse.json();
 if (!uploadResponse.ok || uploadBody.uploadState !== "SUCCESS") {
   const details = uploadBody.itemError?.map((item) => `${item.error_detail ?? item.error_code}`).join("; ");
-  throw new Error(`Upload falhou (uploadState=${uploadBody.uploadState ?? "?"}): ${details ?? JSON.stringify(uploadBody)}`);
+  const message = `Upload falhou (uploadState=${uploadBody.uploadState ?? "?"}): ${details ?? JSON.stringify(uploadBody)}`;
+  if (deferIfPending && /pending review|ready to publish/i.test(message)) {
+    console.log(`::warning::A Store ainda está revisando a versão anterior. Envio adiado, o agendamento tenta de novo. (${message})`);
+    process.exit(0);
+  }
+  throw new Error(message);
 }
 console.log("Upload aceito. O item fica como rascunho até você publicar (ou até o workflow com --publish rodar).");
 

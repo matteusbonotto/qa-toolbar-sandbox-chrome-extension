@@ -101,4 +101,4 @@ jobs:
           ACCESS_TOKEN_PRIVATE_KEY_JWK: ${{ secrets.ACCESS_TOKEN_PRIVATE_KEY_JWK }}
         run: >-
           node scripts/publish-chrome-webstore.mjs --zip=artifacts/chrome-web-store-package.zip
-          --confirm-production ${{ inputs.publish_live && '--publish' || '' }}
+          --confirm-production --defer-if-pending ${{ inputs.publish_live && '--publish' || '' }}
