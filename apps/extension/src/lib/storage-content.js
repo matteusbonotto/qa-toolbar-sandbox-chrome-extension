@@ -683,7 +683,33 @@
     });
     return nextTutorial;
   }
+  // Usage profiles: ready-made answers for "which tools do I see in Tools, and which stay on the bar".
+  // A profile is only a pair of preference lists, so it needs no new schema; the Settings list
+  // (Menu / pin / shortcut per tool) stays the single place to fine-tune afterwards.
+  const USAGE_PROFILES = Object.freeze({
+    automation: Object.freeze({
+      enabled: ["forceHttp", "errorMonitor", "inspectors", "jsonStudio", "macroStudio", "fakerFill", "freezeClock", "clickSpy", "multiClick", "inputLab", "testAccounts", "paymentMethods", "testSession", "reportBuilder", "languageValidator", "keyView"],
+      pinned: ["forceHttp", "errorMonitor", "inspectors", "macroStudio", "fakerFill"],
+    }),
+    manual: Object.freeze({
+      enabled: ["testStatus", "stepsRecorder", "testSession", "reportBuilder", "blurElements", "holofote", "characterCounter", "elementCapture", "breakpoints", "testAccounts", "paymentMethods", "resources", "qrCode", "pixelPerfect", "keyView", "inputLab", "fakerFill"],
+      pinned: ["testStatus", "stepsRecorder", "blurElements", "reportBuilder"],
+    }),
+    explorer: Object.freeze({ enabled: DEFAULT_ENABLED_TOOLS, pinned: [] }),
+  });
+  // Returns the two lists for a profile, keeping only tools that exist and pinning only enabled ones.
+  function usageProfilePreferences(profileId) {
+    const profile = USAGE_PROFILES[profileId];
+    if (!profile) return null;
+    const known = new Set(DEFAULT_ENABLED_TOOLS);
+    const enabledTools = profile.enabled.filter((key) => known.has(key));
+    const pinnedTools = profile.pinned.filter((key) => enabledTools.includes(key));
+    return { enabledTools, pinnedTools };
+  }
+
   window.QTS_STORAGE = Object.freeze({
+    USAGE_PROFILES,
+    usageProfilePreferences,
     STORAGE_KEYS,
     FEATURE_REGISTRY,
     DEFAULT_ENABLED_TOOLS,

@@ -721,6 +721,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.tab) {
       const query = new URLSearchParams({ tab: String(message.tab) });
       if (message.workspaceTab) query.set("workspaceTab", String(message.workspaceTab));
+      if (message.focus === "tools") query.set("focus", "tools");
       if (message.composer) query.set("composer", String(message.composer));
       if (message.settingsTour) {
         query.set("settingsTour", "1");

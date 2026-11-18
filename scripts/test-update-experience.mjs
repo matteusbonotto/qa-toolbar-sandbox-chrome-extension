@@ -33,8 +33,9 @@ for (const entry of registry.notes) for (const locale of ["pt-BR", "en", "es"]) 
 const skipped = registry.copyFor({ version: "1.4.46", previousVersion: "1.4.44", locale: "pt-BR" });
 assert.ok(skipped.items.some((item) => item.includes("login lembra")) && skipped.items.some((item) => item.includes("Cursor personalizado")), "a user who skipped versions must see every newer version's notes");
 assert.ok(!skipped.items.some((item) => item.startsWith("Multi Testador")), "notes of the version the user already had must not repeat");
-const fromLastStore = registry.copyFor({ version: manifest.version, previousVersion: "1.4.44", locale: "pt-BR" });
-assert.ok(fromLastStore.items.some((item) => item.includes("login lembra")), "a user coming from 1.4.44 must still see the 1.4.45 notes");
+// The list is capped (MAX_ITEMS), so the baseline moves up with the store: a user on 1.4.50 must still see the 1.4.51 notes.
+const fromLastStore = registry.copyFor({ version: manifest.version, previousVersion: "1.4.50", locale: "pt-BR" });
+assert.ok(fromLastStore.items.some((item) => item.includes("não desloca mais o conteúdo")), "a user coming from 1.4.50 must still see the 1.4.51 notes");
 assert.equal(registry.copyFor({ version: "1.4.46", locale: "en" }).items[0].startsWith("Custom cursor"), true);
 assert.match(toolbar, /FIELD_VALIDATOR_HISTORY_KEY/);
 assert.match(toolbar, /const INSPECTOR_HISTORY_KEY = "qtsInspectorHistoryV1"/);

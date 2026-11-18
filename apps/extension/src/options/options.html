@@ -138,10 +138,19 @@
               <div class="barPreviewWrap"><div class="barPreview"><span class="barPreviewClient" id="barPreviewClient"></span><span class="barPreviewMain" id="barPreviewMain"></span></div><small class="cardLead">Prévia atualizada imediatamente.</small></div>
             </div>
           </details>
-          <details class="settingsAccordion">
+          <details class="settingsAccordion" id="toolsAccordion">
             <summary><h2>Ferramentas e atalhos</h2></summary>
             <div class="settingsAccordionBody">
               <p class="cardLead">Ative no menu, fixe na toolbar, ordene e defina o atalho de cada ferramenta na mesma linha.</p>
+              <fieldset class="usageProfiles"><legend>Perfil de uso</legend>
+                <p class="cardLead">Escolha como você trabalha e o menu Tools mostra só o que importa. Depois ajuste cada ferramenta na lista abaixo.</p>
+                <div class="usageProfileGrid">
+                  <button type="button" class="usageProfileCard" data-usage-profile="automation"><b>Automação</b><span>Simular HTTP, monitores, macros e preenchimento fixos na barra.</span></button>
+                  <button type="button" class="usageProfileCard" data-usage-profile="manual"><b>Manual</b><span>Status, roteiros, borrar e relatório fixos na barra.</span></button>
+                  <button type="button" class="usageProfileCard" data-usage-profile="explorer"><b>Explorador</b><span>Todas as ferramentas no menu, nada fixo além do básico.</span></button>
+                </div>
+                <p class="cardLead" id="usageProfileHint" role="status">Clique em Salvar para manter o perfil escolhido.</p>
+              </fieldset>
               <fieldset><legend>Ordem no menu Tools</legend>
                 <label>Ordenar por<select id="toolsSortMode">
                   <option value="custom">Personalizado (a ordem definida abaixo)</option>

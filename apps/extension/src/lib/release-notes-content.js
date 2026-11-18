@@ -9,6 +9,12 @@
 window.QTS_RELEASE_NOTES = (() => {
   const NOTES = Object.freeze([
     {
+      version: "1.4.56",
+      "pt-BR": ["Novo: perfis de uso. Escolha Automação, Manual, Explorador ou Personalizar e o menu Tools mostra só o que importa, com as ferramentas certas fixas na barra. Dá para mudar depois em Configurações > Ferramentas e atalhos."],
+      en: ["New: usage profiles. Pick Automation, Manual, Explorer or Customize and the Tools menu shows only what matters, with the right tools pinned to the bar. You can change it later in Settings > Tools and shortcuts."],
+      es: ["Nuevo: perfiles de uso. Elige Automatización, Manual, Explorador o Personalizar y el menú Tools muestra solo lo que importa, con las herramientas correctas fijas en la barra. Puedes cambiarlo después en Configuración > Herramientas y atajos."],
+    },
+    {
       version: "1.4.55",
       "pt-BR": ["Auto preenchimento mais coerente (uma pessoa por país, data de nascimento certa, sem marcar marketing), Gravador de Passos com nomes curtos, PDF que exige título e passos, histórico de rede sem tokens e busca de ferramentas por sinônimos."],
       en: ["More coherent Auto Fill (one person per country, correct birth date, never ticks marketing), Steps Recorder with short names, PDF that requires a title and steps, network history without tokens and tool search by synonyms."],
