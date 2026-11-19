@@ -23,7 +23,7 @@ export function PrivacyPolicyPage() {
           <p className="qts-legal-effective-date">{t.privacy.effectiveDate}</p>
         </Reveal>
 
-        <div className="qts-legal-sections">
+        <div className="qts-legal-sections qts-legal-sections-single">
           <section className="qts-legal-section qts-legal-section-wide">
             <div className="qts-legal-section-head"><Icon name="lockFill" className="qts-legal-section-icon" /><h2>{t.privacy.permissionsTitle}</h2></div>
             <div className="qts-permissions-list">

@@ -367,7 +367,7 @@
 
 .qts-hero-grid {
   display: grid;
-  grid-template-columns: minmax(200px, 0.42fr) 1fr;
+  grid-template-columns: 1fr minmax(200px, 0.42fr);
   align-items: center;
   gap: clamp(32px, 5vw, 80px);
 }
@@ -375,6 +375,11 @@
 .qts-hero-copy {
   text-align: left;
   min-width: 0;
+  order: 1;
+}
+
+.qts-hero-logo-col {
+  order: 2;
 }
 
 .qts-hero-logo-col {
@@ -448,6 +453,10 @@
 @media (max-width: 1080px) {
   .qts-hero-grid {
     grid-template-columns: 1fr;
+  }
+
+  .qts-hero-logo-col {
+    order: 0;
   }
 
   .qts-hero-copy {
@@ -1056,9 +1065,14 @@
 /* Feature groups / accordion */
 
 .qts-feature-groups {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: var(--qts-space-5);
+  display: block;
+  columns: 2;
+  column-gap: var(--qts-space-5);
+}
+
+.qts-feature-groups > .qts-feature-group {
+  break-inside: avoid;
+  margin-bottom: var(--qts-space-5);
 }
 
 .qts-feature-group {
@@ -1212,7 +1226,7 @@
 
 @media (max-width: 780px) {
   .qts-feature-groups {
-    grid-template-columns: 1fr;
+    columns: 1;
   }
 }
 
@@ -1220,12 +1234,8 @@
    for first, so it earns the full row on desktop instead of sitting in an identically-sized box
    next to a single-item group. */
 @media (min-width: 1080px) {
-  .qts-feature-groups {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
   .qts-feature-group:first-child {
-    grid-column: 1 / -1;
+    column-span: all;
   }
 
   .qts-feature-group:first-child .qts-feature-items {
@@ -2679,6 +2689,9 @@
 .qts-plan-tagline {
   color: var(--qts-text-muted);
   font-size: 0.85rem;
+  line-height: 1.5;
+  /* two lines reserved so the price lands at the same height in every card */
+  min-height: 2.6rem;
   margin: 0 0 var(--qts-space-4);
 }
 
@@ -2686,6 +2699,8 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
+  /* the free plan's note wraps to three lines; reserving that height keeps the feature lists aligned */
+  min-height: 4.8rem;
   margin-bottom: var(--qts-space-4);
 }
 
@@ -2794,6 +2809,7 @@
 }
 
 .qts-support-card h2 {
+  text-wrap: balance;
   font-size: 1.5rem;
   margin: var(--qts-space-2) 0 var(--qts-space-3);
 }
@@ -2997,7 +3013,7 @@
 .qts-legal-sections {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  align-items: start;
+  align-items: stretch;
   gap: var(--qts-space-4);
   margin-top: var(--qts-space-6);
 }
@@ -3029,6 +3045,13 @@
 }
 
 .qts-legal-section-wide {
+  grid-column: 1 / -1;
+}
+
+/* A card that would sit alone in its row (last odd one, or one followed by a wide card) takes the
+   whole row instead of leaving an empty half. */
+.qts-legal-section:not(.qts-legal-section-wide):nth-child(odd):last-child,
+.qts-legal-section:not(.qts-legal-section-wide):nth-child(odd):has(+ .qts-legal-section-wide) {
   grid-column: 1 / -1;
 }
 
@@ -3744,3 +3767,8 @@
 @media (max-width:860px) { .qts-community-grid,.qts-wheel-grid { grid-template-columns:1fr; } .qts-rewards-how ol { grid-template-columns:1fr; } .qts-copy-field { flex-direction:column; } .qts-copy-field button { min-height:42px; } .qts-wheel-dialog { grid-template-columns:1fr; } .qts-wheel-dialog .qts-reward-wheel-live { width:min(76vw,410px); } }
 @media (max-width:520px) { .qts-reward-metrics { grid-template-columns:1fr; }.qts-reward-list > div { grid-template-columns:auto 1fr; }.qts-reward-list small { grid-column:2; } .qts-luck-cta { align-items:stretch; flex-direction:column; } .qts-luck-cta .qts-btn { width:100%; } .qts-wheel-dialog { padding:52px 18px 24px; } .qts-wheel-dialog .qts-reward-wheel-live { width:min(78vw,330px); } .qts-wheel-segment-label { width:18px; height:92px; margin-left:-9px; font-size:.52rem; } }
 @media (prefers-reduced-motion:reduce) { .qts-reward-wheel, .qts-reward-wheel.is-spinning, .qts-reward-dialog-backdrop, .qts-reward-dialog, .qts-reward-result-dialog { transition:none; animation:none; } }
+
+/* Long policy text reads better as one column than as paired cards of different heights. */
+.qts-legal-sections-single {
+  grid-template-columns: minmax(0, 1fr);
+}
