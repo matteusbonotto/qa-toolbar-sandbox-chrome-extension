@@ -874,7 +874,7 @@ try {
   await options.evaluate(async (version) => {
     const current = (await chrome.storage.local.get("qtsUiStateV1")).qtsUiStateV1 || {};
     delete current.releaseNoteAutoOpened;
-    await chrome.storage.local.set({ qtsUiStateV1: { ...current, pendingReleaseNote: { version, previousVersion: "1.4.44", installedAt: new Date().toISOString() } } });
+    await chrome.storage.local.set({ qtsUiStateV1: { ...current, pendingReleaseNote: { version, previousVersion: "1.4.50", installedAt: new Date().toISOString() } } });
   }, installedVersion);
   const updatedPage = await context.newPage();
   await updatedPage.goto("http://127.0.0.1:43117/after-update");
@@ -887,7 +887,7 @@ try {
     const title = node.shadowRoot.querySelector("#drawerTitle, .qts-drawer-title, h2")?.textContent || "";
     return `${title} ${drawer?.innerText || ""}`.replace(/\s+/g, " ");
   });
-  if (!releaseNotesText.includes(`Atualizado para a versão ${installedVersion}`) || !releaseNotesText.includes("O login lembra os e-mails") || releaseNotesText.includes("A conta ativa agora mostra o plano")) throw new Error(`Release notes did not list the versions after 1.4.44: ${releaseNotesText.slice(0, 600)}`);
+  if (!releaseNotesText.includes(`Atualizado para a versão ${installedVersion}`) || !releaseNotesText.includes("não desloca mais o conteúdo") || releaseNotesText.includes("A conta ativa agora mostra o plano")) throw new Error(`Release notes did not list the versions after 1.4.50: ${releaseNotesText.slice(0, 600)}`);
   await updatedPage.screenshot({ path: resolve(evidencePath, "extension-release-notes.png"), fullPage: false });
   await releaseNotesDone.click();
   await updatedPage.reload();
